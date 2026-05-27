@@ -83,7 +83,7 @@ See [`recommendation.md`](./recommendation.md) for current notes on pi startup b
 
 This repository is currently a skeleton. The README exists primarily to preserve project intent for future development and future agent sessions.
 
-No CLI implementation or stable profile schema exists yet. The initial dependency and architecture decisions are documented in `package.json`, `doc/architecture.md`, and `requirements/`.
+A minimal executable CLI shell exists, but functional commands and a stable profile schema do not exist yet. The initial dependency and architecture decisions are documented in `package.json`, `doc/architecture.md`, and `requirements/`.
 
 ## Future work
 

@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+// Defines the initial Bridl Commander program shell and executable entrypoint.
 import { Command } from 'commander';
 
 export function createProgram(): Command {

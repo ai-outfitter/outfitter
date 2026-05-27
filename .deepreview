@@ -159,6 +159,30 @@ test_file_quality:
       - FAIL: Issues found. List each with the test name, line number, and a
         concise description.
 
+controllable_elements_matrix:
+  description: "Verify BRIDL-REQ-007 controllable element documentation has a complete support matrix."
+  match:
+    include:
+      - "doc/controllable-elements.md"
+  review:
+    strategy: individual
+    instructions: |
+      Review doc/controllable-elements.md for the BRIDL-REQ-007 support matrix contract.
+
+      Check the following:
+      1. Every `###` heading under `## Defined Terms` MUST have exactly one
+         corresponding row in the `## Support Matrix` table.
+      2. Every support matrix row MUST correspond to a defined term; rows for
+         undefined terms are not allowed.
+      3. Every CLI support cell in the matrix MUST use only `Supported`,
+         `Roadmap`, or `Unsupported`.
+      4. The document MUST explain the meaning of each allowed status value.
+
+      Output Format:
+      - PASS: The controllable elements matrix is complete and uses valid statuses.
+      - FAIL: Issues found. List each missing term, extra row, invalid status, or
+        missing status definition with a line reference.
+
 update_readme:
   description: "Ensure README.md and recommendation.md stay current as the TypeScript project skeleton and profile-wrapper design evolve."
   match:

@@ -1,3 +1,4 @@
+// Configures Vitest coverage enforcement for the Bridl project.
 import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
