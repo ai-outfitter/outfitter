@@ -90,7 +90,7 @@ Pi also reads project-local configuration from:
 .pi/APPEND_SYSTEM.md
 ```
 
-Project settings override global settings. The wrapper should decide whether each profile allows project-level behavior:
+Project settings override global settings. Bridl profiles control project-level behavior with one of these policies:
 
 1. Global profile only via `PI_CODING_AGENT_DIR`.
 2. Global profile plus current project's `.pi` overrides.
@@ -162,28 +162,26 @@ Anything that must affect config paths, credential storage location, or initial 
 
 Each wrapper profile can map to something like:
 
-```json
-{
-  "agentDir": "~/.bridl/work",
-  "env": {
-    "ANTHROPIC_API_KEY": "...optional...",
-    "PI_OFFLINE": "1"
-  },
-  "args": [
-    "--model", "anthropic/claude-sonnet-4",
-    "--thinking", "medium"
-  ],
-  "extensions": [
-    "/path/to/bootstrap.ts",
-    "/path/to/team-extension"
-  ],
-  "systemPrompt": "/path/to/system.md",
-  "appendSystemPrompt": [
-    "/path/to/rules.md"
-  ],
-  "sessionDir": "~/.bridl/work/sessions"
-}
+```yaml
+agent_dir: ~/.bridl/work
+env:
+  ANTHROPIC_API_KEY: ...optional...
+  PI_OFFLINE: "1"
+args:
+  - --model
+  - anthropic/claude-sonnet-4
+  - --thinking
+  - medium
+extensions:
+  - /path/to/bootstrap.ts
+  - /path/to/team-extension
+system_prompt: /path/to/system.md
+append_system_prompts:
+  - /path/to/rules.md
+session_dir: ~/.bridl/work/sessions
 ```
+
+Bridl should persist this style of profile data as YAML and validate it with JSON Schema when read.
 
 The wrapper would translate that into:
 

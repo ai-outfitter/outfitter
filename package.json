@@ -1,0 +1,57 @@
+{
+  "name": "bridl",
+  "version": "0.1.0",
+  "description": "Profile-oriented wrapper for launching pi and future agent CLIs with reproducible configuration.",
+  "type": "module",
+  "bin": {
+    "bridl": "dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "requirements",
+    "doc",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json && shx chmod +x dist/cli.js",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "test": "vitest --run",
+    "coverage": "vitest --run --coverage",
+    "check": "npm run lint:fix && npm run coverage",
+    "check-ci": "npm run lint && npm run coverage"
+  },
+  "dependencies": {
+    "ajv": "^8.20.0",
+    "chalk": "^5.6.2",
+    "commander": "^14.0.3",
+    "cross-spawn": "^7.0.6",
+    "defu": "^6.1.7",
+    "glob": "^13.0.6",
+    "hosted-git-info": "^9.0.3",
+    "typebox": "^1.1.38",
+    "yaml": "^2.9.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/cross-spawn": "^6.0.6",
+    "@types/node": "^22.19.19",
+    "@vitest/coverage-v8": "^4.1.7",
+    "eslint": "^10.4.0",
+    "shx": "^0.4.0",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.60.0",
+    "vitest": "^4.1.7"
+  },
+  "engines": {
+    "node": ">=22.19.0"
+  },
+  "keywords": [
+    "agent",
+    "cli",
+    "pi",
+    "profiles"
+  ],
+  "license": "MIT"
+}

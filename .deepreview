@@ -34,10 +34,10 @@ prompt_best_practices:
       Do not flag issues for best practices that are irrelevant to the file's purpose.
 
 requirement_file_format:
-  description: "Validate BRIDL-REQ-002.1 requirement file style: RFC 2119 compliance, stable IDs, and sequential numbering."
+  description: "Validate BRIDL-REQ-008.1 requirement file style: RFC 2119 compliance, stable IDs, and sequential numbering."
   match:
     include:
-      - "doc/specs/**/*-REQ-*.md"
+      - "requirements/BRIDL-REQ-*.md"
   review:
     strategy: individual
     instructions: |
@@ -50,7 +50,7 @@ requirement_file_format:
          SHOULD, SHOULD NOT, MAY, REQUIRED, RECOMMENDED, OPTIONAL).
 
       2. **Stable requirement IDs**: Each section heading MUST follow the
-         pattern `### {PREFIX}-REQ-NNN.M: Title` where `{PREFIX}-REQ-NNN`
+         pattern `### BRIDL-REQ-NNN.M: Title` where `BRIDL-REQ-NNN`
          matches the filename prefix, such as `BRIDL-REQ-001`.
 
       3. **Sequential numbering**: Within each section, numbered requirements
@@ -68,10 +68,10 @@ requirement_file_format:
         and a concise description of the issue.
 
 requirements_traceability:
-  description: "Verify BRIDL-REQ-002 traceability between requirements, TypeScript tests, DeepSchemas, and DeepReview rules."
+  description: "Verify BRIDL-REQ-008 traceability between requirements, TypeScript tests, DeepSchemas, and DeepReview rules."
   match:
     include:
-      - "doc/specs/**/*.md"
+      - "requirements/BRIDL-REQ-*.md"
       - "src/**/*.ts"
       - "bin/**/*.ts"
       - "tests/**/*.ts"
@@ -85,8 +85,8 @@ requirements_traceability:
     instructions: |
       Review the changed files for requirements traceability.
 
-      Requirements live in `doc/specs/` as `{PREFIX}-REQ-NNN-<topic>.md`,
-      with individually numbered items such as `BRIDL-REQ-002.3`. Each
+      Requirements live in `requirements/` as `BRIDL-REQ-NNN-<topic>.md`,
+      with individually numbered items such as `BRIDL-REQ-008.3`. Each
       requirement should be validated by TypeScript tests, DeepSchemas, or
       `.deepreview` rules using the mechanism that fits the requirement.
 
@@ -111,7 +111,7 @@ requirements_traceability:
 
    
 test_file_quality:
-  description: "Verify BRIDL-REQ-002.3 TypeScript test traceability comments are durable and correctly formatted."
+  description: "Verify BRIDL-REQ-008.3 TypeScript test traceability comments are durable and correctly formatted."
   match:
     include:
       - "tests/**/*.ts"
@@ -133,7 +133,7 @@ test_file_quality:
       `describe(...)` block:
 
       ```ts
-      // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-002.3).
+      // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-008.3).
       // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
       it("validates durable behavior", () => {
         // ...

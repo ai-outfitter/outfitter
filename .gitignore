@@ -1,0 +1,53 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build output
+dist/
+build/
+lib/
+*.tsbuildinfo
+
+# Test and coverage output
+coverage/
+.nyc_output/
+.vitest/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Runtime and cache files
+.cache/
+.tmp/
+tmp/
+temp/
+.eslintcache
+
+# Environment and local secrets
+.env
+.env.*
+!.env.example
+*.local
+
+# Package manager / publish artifacts
+*.tgz
+
+# OS and editor files
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+!.vscode/launch.json
+!.vscode/tasks.json
+*.swp
+*.swo
+
+# DeepWork generated scratch artifacts
+.deepwork/tmp/

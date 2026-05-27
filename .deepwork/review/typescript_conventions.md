@@ -17,6 +17,9 @@ This project is planned as a TypeScript CLI/wrapper. Until implementation code e
 
 ## Comments and documentation
 
+- Every TypeScript source file must have a concise comment near the top that describes the file's function.
+- All declarations and behavior in a file must be consistent with that top-of-file function description.
+- The top-of-file function description must stay simple; descriptions with many conjunctions, long comma chains, or multiple unrelated responsibilities are a code smell that the file's encapsulation may be unclear or too complex.
 - Comments should explain non-obvious policy decisions, security boundaries, or pi startup-order constraints.
 - Do not restate what the TypeScript syntax already says.
 - Keep comments accurate when behavior changes; stale comments should be updated or removed in the same change.

@@ -25,47 +25,47 @@ Example profile concepts:
 - `sandbox` — isolated experimentation profile with disposable config and sessions.
 - `regulated` — locked-down profile with stricter extensions, context, and session behavior.
 
-A future launch flow might look like:
+A launch flow is intended to look like:
 
 ```bash
-bridl run engineering-default
-bridl run support --cwd ~/work/customer-issue
-bridl list profiles
-bridl inspect regulated
+bridl
+bridl run --profile engineering-default
+bridl run -p support -- --cwd ~/work/customer-issue
+bridl sync
+bridl setup
+bridl create_profile --scope user --name regulated
 ```
 
 Under the hood, `bridl` will translate a selected profile into the appropriate `pi` launch environment, such as `PI_CODING_AGENT_DIR`, CLI flags, injected extensions, prompts, model settings, session directories, and environment variables.
 
 ## Profile model sketch
 
-A profile will likely describe some combination of:
+A profile will use YAML. An initial profile shape is:
 
-```json
-{
-  "name": "engineering-default",
-  "agentDir": "~/.bridl/profiles/engineering-default/pi-agent-dir",
-  "env": {
-    "ANTHROPIC_API_KEY": "${ANTHROPIC_API_KEY}"
-  },
-  "args": [
-    "--model", "anthropic/claude-sonnet-4"
-  ],
-  "extensions": [
-    "./extensions/company-bootstrap"
-  ],
-  "skills": [
-    "./skills/company-debugging"
-  ],
-  "systemPrompt": "./prompts/system.md",
-  "appendSystemPrompt": [
-    "./prompts/company-policy.md"
-  ],
-  "sessionDir": "~/.bridl/sessions/engineering-default",
-  "projectOverrides": "allow"
-}
+```yaml
+name: engineering-default
+display_name: Engineering Default
+inherits:
+  - base-typescript
+
+controls:
+  env:
+    ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+  args:
+    - --model
+    - anthropic/claude-sonnet-4
+  extensions:
+    - ./extensions/company-bootstrap
+  skills:
+    - ./skills/company-debugging
+  system_prompt: ./prompts/system.md
+  append_system_prompts:
+    - ./prompts/company-policy.md
+  session_dir: ~/.bridl/sessions/engineering-default
+  project_overrides: allow
 ```
 
-This is only a sketch, not a committed schema.
+The exact stable schema is governed by the requirements in `requirements/` and the JSON Schema files that will be added with implementation.
 
 ## Design direction
 
@@ -83,7 +83,7 @@ See [`recommendation.md`](./recommendation.md) for current notes on pi startup b
 
 This repository is currently a skeleton. The README exists primarily to preserve project intent for future development and future agent sessions.
 
-No CLI implementation or stable profile schema exists yet.
+No CLI implementation or stable profile schema exists yet. The initial dependency and architecture decisions are documented in `package.json`, `doc/architecture.md`, and `requirements/`.
 
 ## Future work
 
