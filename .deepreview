@@ -34,36 +34,33 @@ prompt_best_practices:
       Do not flag issues for best practices that are irrelevant to the file's purpose.
 
 requirement_file_format:
-  description: "Validate BRIDL-REQ-008.1 requirement file style: RFC 2119 compliance, stable IDs, and sequential numbering."
+  description: "Review BRIDL-REQ-008.1 requirement files for judgment-based quality that complements deterministic DeepSchema checks."
   match:
     include:
       - "requirements/BRIDL-REQ-*.md"
   review:
     strategy: individual
     instructions: |
-      Review this requirements specification file for format correctness.
+      Review this requirements specification file for requirement quality.
 
-      Check the following:
+      Deterministic format facts such as filename shape, heading ID shape,
+      section ID consistency, and RFC 2119 keyword presence are handled by the
+      requirements_file DeepSchema. Do not duplicate those exact checks here.
 
-      1. **RFC 2119 keywords**: Every numbered requirement statement MUST use
-         at least one RFC 2119 keyword (MUST, MUST NOT, SHALL, SHALL NOT,
-         SHOULD, SHOULD NOT, MAY, REQUIRED, RECOMMENDED, OPTIONAL).
+      Check the following judgment-based concerns:
 
-      2. **Stable requirement IDs**: Each section heading MUST follow the
-         pattern `### BRIDL-REQ-NNN.M: Title` where `BRIDL-REQ-NNN`
-         matches the filename prefix, such as `BRIDL-REQ-001`.
-
-      3. **Sequential numbering**: Within each section, numbered requirements
-         SHOULD be sequential without gaps or out-of-order numbers.
-
-      4. **Section ID consistency**: The section ID prefix MUST match the
-         requirement file name prefix.
-
-      5. **Testability**: Each requirement MUST be specific enough to verify by
+      1. **Testability**: Each requirement MUST be specific enough to verify by
          TypeScript test, DeepSchema, DeepReview rule, or direct reviewer judgment.
 
+      2. **Stable identity risk**: Flag likely ID reassignment or semantic drift
+         only when the requirement text appears to reuse an existing ID for an
+         unrelated concept.
+
+      3. **Validation mechanism fit**: Flag requirements whose expected
+         validation mechanism is unclear or obviously mismatched.
+
       Output Format:
-      - PASS: All requirements are properly formatted.
+      - PASS: All requirements are specific, stable, and validation-ready.
       - FAIL: Issues found. List each with the section ID, requirement number,
         and a concise description of the issue.
 

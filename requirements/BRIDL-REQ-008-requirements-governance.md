@@ -14,7 +14,7 @@ Bridl requirements define reviewable project obligations. Each requirement shoul
 4. Requirement files MUST include an `## Requirements` section.
 5. Requirement section headings MUST use the format `### BRIDL-REQ-NNN.M: Title`.
 6. Requirement statements MUST use RFC 2119 keywords such as MUST, MUST NOT, SHOULD, SHOULD NOT, MAY, REQUIRED, RECOMMENDED, or OPTIONAL.
-7. Requirement numbering within each section SHOULD be sequential without gaps.
+7. Requirement section ID numbering within each file MUST be sequential without gaps.
 8. Each requirement MUST be specific enough to verify by automated test, DeepSchema, DeepReview rule, or direct reviewer judgment.
 
 ### BRIDL-REQ-008.2: Validation Mechanism Selection

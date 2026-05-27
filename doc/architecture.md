@@ -18,7 +18,7 @@ Formal implementation requirements live in `requirements/`; this document explai
 6. **JSON Schema for validation**: every YAML file format has a corresponding JSON Schema used wherever the file is read.
 7. **Deterministic merging**: settings and profile layers merge predictably using normal precedence: project-local, project, then user.
 8. **Warn on partial support**: if a profile asks for a control an agent adapter cannot support, Bridl warns to stderr; `--hard-tack` makes unsupported controls fatal.
-9. **High test coverage early**: the project starts with a test framework and a 90% coverage requirement.
+9. **Complete test coverage early**: the project starts with a test framework and a 100% global coverage requirement.
 10. **Complexity limits early**: ESLint is configured immediately with maximum complexity `10`.
 
 ## Runtime and Tooling Baseline
@@ -28,7 +28,7 @@ Formal implementation requirements live in `requirements/`; this document explai
 - Package manager: npm. This matches the current pi-coding-agent package distribution model and gives Bridl a conventional `package-lock.json`-based install path.
 - CLI framework: Commander `^14`. Commander is the initial choice because it supports default commands, command aliases, `allowUnknownOption`, pass-through argument collection, and testable parser construction without spawning child processes.
 - Test framework: Vitest `^4` with `@vitest/coverage-v8`. Pi currently uses Vitest, and Vitest is well suited to TypeScript unit tests around command objects and generated launch plans.
-- Coverage: 90% global threshold from the first implementation.
+- Coverage: 100% global threshold for statements, branches, functions, and lines from the first implementation.
 - Linting: ESLint `^10`, `@eslint/js`, and `typescript-eslint`, with `complexity: ["error", 10]`.
 - Schema and validation: TypeBox for schema authoring where TypeScript-schema coupling is useful, JSON Schema artifacts for persisted format contracts, and AJV for runtime validation.
 - YAML: `yaml`, matching pi's dependency choice.
@@ -111,7 +111,7 @@ Proposed initial layout:
 │   │   └── profile-source.schema.json
 │   └── validation/
 │       └── SchemaValidator.ts
-├── test/
+├── tests/
 │   ├── fixtures/
 │   │   └── scenarios/
 │   └── unit/
@@ -478,7 +478,7 @@ The test suite should be created before feature implementation becomes large.
 
 Requirements:
 
-- global coverage threshold: 90%;
+- global coverage threshold: 100% for statements, branches, functions, and lines;
 - deterministic tests for settings precedence;
 - deterministic tests for profile inheritance and cycle detection;
 - deterministic tests for URI cache path encoding;
@@ -486,10 +486,10 @@ Requirements:
 - deterministic tests for unsupported controls and `--hard-tack`;
 - scenario fixtures for common combinations instead of one-off bespoke setup.
 
-Scenario fixtures should live under `test/fixtures/scenarios/`, for example:
+Scenario fixtures should live under `tests/fixtures/scenarios/`, for example:
 
 ```text
-test/fixtures/scenarios/
+tests/fixtures/scenarios/
   user-default-only/
   project-overrides-user/
   project-local-overrides-project/

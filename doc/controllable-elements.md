@@ -1,6 +1,6 @@
 # Controllable Elements
 
-This document defines cross-agent-CLI concepts that Bridl profiles may control. Pi is the only day-one supported CLI. Other CLIs are listed to keep the model generic and to clarify future adapter work.
+This document defines cross-agent-CLI concepts that Bridl profiles may control. Pi is the planned first supported CLI, but this project skeleton does not yet implement runtime adapter support. Other CLIs are listed to keep the model generic and to clarify future adapter work.
 
 Status values:
 
@@ -145,4 +145,4 @@ An early-startup customization used to register providers, tools, hooks, or addi
 
 ## Day-One Interpretation
 
-For v1, a Bridl profile may describe all defined terms generically, but only the Pi adapter is expected to translate them into concrete behavior. Any non-Pi adapter should be considered experimental until its matrix entries are upgraded from Roadmap to Supported.
+For v1, a Bridl profile may describe all defined terms generically. The Pi adapter is the first implementation target, and its matrix entries should move from Roadmap to Supported only as tested adapter behavior lands. Any non-Pi adapter should be considered experimental until its matrix entries are upgraded from Roadmap to Supported.

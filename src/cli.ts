@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 
 // Defines the initial Bridl Commander program shell and executable entrypoint.
+import { pathToFileURL } from 'node:url';
+
 import { Command } from 'commander';
 
 export function createProgram(): Command {
@@ -15,6 +17,6 @@ export function createProgram(): Command {
 }
 
 /* v8 ignore next 3 -- direct bin execution is covered by future CLI integration tests. */
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   await createProgram().parseAsync(process.argv);
 }
