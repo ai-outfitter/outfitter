@@ -1,0 +1,244 @@
+prompt_best_practices:
+  description: "Review prompt/instruction markdown files for Anthropic prompt engineering best practices."
+  match:
+    include:
+      - "**/CLAUDE.md"
+      - "**/AGENTS.md"
+      - ".claude/**/*.md"
+      - ".deepwork/review/*.md"
+      - ".deepwork/jobs/**/*.md"
+  review:
+    strategy: individual
+    instructions: |
+      Review this markdown file as a prompt or instruction file, evaluating it
+      against Anthropic's prompt engineering best practices.
+
+      For each issue found, report:
+      1. Location (section or line)
+      2. Severity (Critical / High / Medium / Low)
+      3. Best practice violated
+      4. Description of the issue
+      5. Suggested improvement
+
+      Check for:
+      - Clarity and specificity (concrete criteria vs vague language)
+      - Structure and formatting (XML tags, headers, numbered lists for distinct sections)
+      - Role and context (enough context for the AI, explicit assumptions)
+      - Examples for complex/nuanced tasks
+      - Output format specification
+      - Prompt anti-patterns (contradictions, instruction overload, buried critical instructions)
+      - Variable/placeholder clarity
+
+      Use judgment proportional to the file's complexity. A short, focused
+      instruction for a simple task does not need few-shot examples or XML tags.
+      Do not flag issues for best practices that are irrelevant to the file's purpose.
+
+requirement_file_format:
+  description: "Validate BRIDL-REQ-002.1 requirement file style: RFC 2119 compliance, stable IDs, and sequential numbering."
+  match:
+    include:
+      - "doc/specs/**/*-REQ-*.md"
+  review:
+    strategy: individual
+    instructions: |
+      Review this requirements specification file for format correctness.
+
+      Check the following:
+
+      1. **RFC 2119 keywords**: Every numbered requirement statement MUST use
+         at least one RFC 2119 keyword (MUST, MUST NOT, SHALL, SHALL NOT,
+         SHOULD, SHOULD NOT, MAY, REQUIRED, RECOMMENDED, OPTIONAL).
+
+      2. **Stable requirement IDs**: Each section heading MUST follow the
+         pattern `### {PREFIX}-REQ-NNN.M: Title` where `{PREFIX}-REQ-NNN`
+         matches the filename prefix, such as `BRIDL-REQ-001`.
+
+      3. **Sequential numbering**: Within each section, numbered requirements
+         SHOULD be sequential without gaps or out-of-order numbers.
+
+      4. **Section ID consistency**: The section ID prefix MUST match the
+         requirement file name prefix.
+
+      5. **Testability**: Each requirement MUST be specific enough to verify by
+         TypeScript test, DeepSchema, DeepReview rule, or direct reviewer judgment.
+
+      Output Format:
+      - PASS: All requirements are properly formatted.
+      - FAIL: Issues found. List each with the section ID, requirement number,
+        and a concise description of the issue.
+
+requirements_traceability:
+  description: "Verify BRIDL-REQ-002 traceability between requirements, TypeScript tests, DeepSchemas, and DeepReview rules."
+  match:
+    include:
+      - "doc/specs/**/*.md"
+      - "src/**/*.ts"
+      - "bin/**/*.ts"
+      - "tests/**/*.ts"
+      - "tests/**/*.tsx"
+      - "**/*.test.ts"
+      - "**/*.spec.ts"
+      - ".deepreview"
+      - ".deepwork/schemas/**/*.yml"
+  review:
+    strategy: all_changed_files
+    instructions: |
+      Review the changed files for requirements traceability.
+
+      Requirements live in `doc/specs/` as `{PREFIX}-REQ-NNN-<topic>.md`,
+      with individually numbered items such as `BRIDL-REQ-002.3`. Each
+      requirement should be validated by TypeScript tests, DeepSchemas, or
+      `.deepreview` rules using the mechanism that fits the requirement.
+
+      Mechanism selection:
+      - **TypeScript tests**: deterministic behavior, exact values, paths,
+        generated CLI args, validation outcomes, or structured data.
+      - **DeepSchemas**: file-level structural or semantic contracts.
+      - **DeepReview rules**: broad judgment-based policies spanning many files.
+
+      Flag these anti-patterns:
+      - Fragile keyword tests for judgment requirements, such as proving a
+        policy by only checking `text.includes("safe")`.
+      - Review rules for exact facts that TypeScript tests or JSON Schema can
+        verify deterministically.
+      - Requirement changes without corresponding test, DeepSchema, or review
+        policy updates when validation is feasible.
+
+      Produce a structured review with Coverage Gaps, Mechanism Mismatches,
+      Traceability Comment Issues, and a PASS/FAIL summary.
+
+      See doc/specs/validating_requirements_with_rules.md for project guidance.
+
+   
+test_file_quality:
+  description: "Verify BRIDL-REQ-002.3 TypeScript test traceability comments are durable and correctly formatted."
+  match:
+    include:
+      - "tests/**/*.ts"
+      - "tests/**/*.tsx"
+      - "**/*.test.ts"
+      - "**/*.spec.ts"
+    exclude:
+      - "node_modules/**"
+      - "dist/**"
+      - "build/**"
+      - "coverage/**"
+  review:
+    strategy: individual
+    instructions: |
+      Review this TypeScript test file for requirement traceability comment quality.
+
+      Tests that validate a formal requirement MUST have a two-line traceability
+      comment immediately before the relevant `it(...)`, `test(...)`, or
+      `describe(...)` block:
+
+      ```ts
+      // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-002.3).
+      // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+      it("validates durable behavior", () => {
+        // ...
+      });
+      ```
+
+      Check the following:
+      1. **Both lines present**: Every traceability comment MUST include both
+         the `THIS TEST VALIDATES` line and the `YOU MUST NOT MODIFY` line.
+      2. **Placement**: The comment block MUST appear immediately before the
+         test case or test group it governs.
+      3. **Valid requirement ID**: Requirement IDs MUST follow `BRIDL-REQ-NNN.M`
+         unless the test intentionally validates an external standard.
+      4. **Durable comments**: Comments MUST describe lasting behavior or policy,
+         not line numbers, pull request numbers, or current-diff context.
+      5. **Accuracy**: Comments MUST still match the test behavior after changes.
+
+      Do NOT flag tests that have no requirement reference and are merely utility
+      or edge-case tests without formal requirement coverage claims.
+
+      Output Format:
+      - PASS: All traceability comments are correctly formatted.
+      - FAIL: Issues found. List each with the test name, line number, and a
+        concise description.
+
+update_readme:
+  description: "Ensure README.md and recommendation.md stay current as the TypeScript project skeleton and profile-wrapper design evolve."
+  match:
+    include:
+      - "README.md"
+      - "recommendation.md"
+      - "package.json"
+      - "tsconfig.json"
+      - "src/**/*.ts"
+      - "bin/**/*.ts"
+  review:
+    strategy: matches_together
+    instructions: |
+      When TypeScript project structure or source files change, check whether the
+      following documentation files need updating:
+      - README.md
+      - recommendation.md
+
+      Read each documentation file and compare its content against the changed
+      source files. Flag any sections that are now outdated or inaccurate.
+      If a documentation file itself was changed, verify the updates are correct
+      and consistent with the source files.
+    additional_context:
+      unchanged_matching_files: true
+
+typescript_code_review:
+  description: "Review TypeScript files against project conventions and best practices."
+  match:
+    include:
+      - "**/*.ts"
+      - "**/*.tsx"
+    exclude:
+      - "node_modules/**"
+      - "dist/**"
+      - "build/**"
+      - "coverage/**"
+      - "**/*.generated.ts"
+      - "**/*.d.ts"
+  review:
+    strategy: individual
+    instructions: |
+      Review this TypeScript file against the project's coding conventions
+      documented in .deepwork/review/typescript_conventions.md.
+
+      Check for:
+      - Explicit, narrow types at module boundaries and exported APIs
+      - Serializable, validation-friendly profile/configuration data structures
+      - Small, focused functions for profile resolution, environment construction, and CLI argument generation
+      - Actionable error handling for filesystem, config parsing, and launch operations
+      - Safe handling of credentials, environment variables, and process boundaries
+      - Test names and test comments that clearly describe the policy or behavior being enforced
+
+      Additionally, always check:
+      - **DRY violations**: Is there duplicated logic or repeated patterns that
+        should be extracted into a shared function, utility, or module?
+      - **Comment accuracy**: Are all comments, doc comments, and inline
+        documentation still accurate after the changes? Flag any comments that
+        describe behavior that no longer matches the code.
+
+suggest_new_reviews:
+  description: "Analyze all changes and suggest new review rules that would catch issues going forward."
+  match:
+    include:
+      - "**/*"
+    exclude:
+      - ".github/**"
+  review:
+    strategy: matches_together
+    instructions: |
+      Analyze the changeset to determine whether any new DeepWork review rules
+      should be added.
+
+      1. Call get_configured_reviews to see all currently configured review rules.
+      2. Read README_REVIEWS.md if present for context on review capabilities.
+      3. For each change, consider:
+         - Did this change introduce a type of issue a review rule could catch?
+         - Is there a pattern likely to recur?
+         - Would an existing rule benefit from a small scope expansion?
+      4. Be extremely conservative. Only suggest rules that are:
+         - Extremely narrow (targets 1 specific file or small bounded set)
+         - Slight additions to existing rules (adding a glob to an include list)
+         - Catches an issue likely to recur and worth ongoing cost
+      5. If no rules are warranted, say so. An empty suggestion list is valid.

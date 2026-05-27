@@ -1,0 +1,31 @@
+summary: "Requirement specification markdown files."
+instructions: |
+  Requirement files capture formal project obligations. Review them for stable
+  IDs, RFC 2119 language, testability, and an appropriate validation mechanism.
+  Prefer TypeScript tests for deterministic behavior, DeepSchemas for file-level
+  semantic contracts, and DeepReview rules for broad judgment-based policies.
+
+matchers:
+  - "doc/specs/**/*-REQ-*.md"
+
+requirements:
+  rfc-2119-language: >
+    Each numbered requirement statement MUST use at least one RFC 2119 keyword
+    such as MUST, MUST NOT, SHOULD, SHOULD NOT, MAY, REQUIRED, RECOMMENDED, or OPTIONAL.
+  stable-section-ids: >
+    Each requirement section heading MUST follow `### {PREFIX}-REQ-NNN.M: Title`,
+    where `{PREFIX}-REQ-NNN` matches the requirement file name prefix.
+  specific-and-verifiable: >
+    Each requirement MUST be specific enough to verify by TypeScript test,
+    DeepSchema, DeepReview rule, or direct reviewer judgment.
+  validation-mechanism-fit: >
+    Requirements MUST choose an appropriate validation mechanism: deterministic
+    facts belong in TypeScript tests or JSON Schema, single-file judgment belongs
+    in DeepSchemas, and broad judgment-based policy belongs in DeepReview rules.
+  no-fragile-keyword-tests: >
+    Requirements and their validation notes MUST NOT endorse fragile keyword
+    searches as proof of judgment-based behavior.
+
+references:
+  - path: "../../../doc/specs/validating_requirements_with_rules.md"
+    description: "Guidance for choosing tests, DeepSchemas, or DeepReview rules for requirements validation."

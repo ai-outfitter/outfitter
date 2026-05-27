@@ -1,0 +1,32 @@
+summary: "TypeScript test files with formal requirement traceability comments."
+instructions: |
+  Use this schema to review TypeScript tests that claim to validate formal
+  requirements. The goal is durable traceability without brittle comments tied
+  to temporary implementation details.
+
+matchers:
+  - "tests/**/*.ts"
+  - "tests/**/*.tsx"
+  - "**/*.test.ts"
+  - "**/*.spec.ts"
+
+requirements:
+  durable-traceability-comments: >
+    Tests that validate a formal requirement MUST include a durable traceability
+    comment identifying the requirement ID and warning that the test must not be
+    modified unless the requirement changes.
+  valid-bridl-requirement-id: >
+    Requirement traceability comments MUST reference IDs using the pattern
+    `BRIDL-REQ-NNN.M` unless the test is intentionally validating an external
+    standard documented by another prefix.
+  no-transient-comment-context: >
+    Test comments MUST NOT rely on source line numbers, pull request numbers,
+    current-diff descriptions, or other transient context that will not help a
+    future maintainer.
+  comments-match-behavior: >
+    Test comments MUST accurately describe the behavior or policy validated by
+    the test after the change.
+
+references:
+  - path: "../../../doc/specs/validating_requirements_with_rules.md"
+    description: "Traceability comment format and validation mechanism guidance."
