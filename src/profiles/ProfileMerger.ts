@@ -3,5 +3,13 @@ import { defu } from 'defu';
 
 import type { Profile } from './Profile.js';
 
-export const mergeProfileStack = (profileStack: readonly Profile[]): Profile =>
-  profileStack.reduce<Profile>((mergedProfile, profile) => defu({}, profile, mergedProfile));
+export type NonEmptyProfileStack = readonly [Profile, ...Profile[]];
+
+export const mergeProfileStack = (profileStack: NonEmptyProfileStack): Profile => {
+  const [baseProfile, ...higherPrecedenceProfiles] = profileStack;
+
+  return higherPrecedenceProfiles.reduce<Profile>(
+    (mergedProfile, profile) => defu({}, profile, mergedProfile),
+    baseProfile,
+  );
+};

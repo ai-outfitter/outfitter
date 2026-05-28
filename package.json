@@ -9,6 +9,7 @@
   "files": [
     "dist",
     "requirements",
+    "schemas",
     "doc",
     "README.md"
   ],

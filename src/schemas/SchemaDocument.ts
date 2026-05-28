@@ -6,15 +6,15 @@ export interface SchemaDocument {
 
 export const settingsSchemaDocument: SchemaDocument = {
   id: 'settings',
-  path: 'src/schemas/settings.schema.json',
+  path: 'schemas/settings.schema.json',
 };
 
 export const profileSchemaDocument: SchemaDocument = {
   id: 'profile',
-  path: 'src/schemas/profile.schema.json',
+  path: 'schemas/profile.schema.json',
 };
 
 export const profileSourceSchemaDocument: SchemaDocument = {
   id: 'profile-source',
-  path: 'src/schemas/profile-source.schema.json',
+  path: 'schemas/profile-source.schema.json',
 };

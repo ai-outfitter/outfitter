@@ -1,10 +1,12 @@
 // Defines references to local or URI-backed profile sources.
-export interface ProfileSourceReference {
-  readonly path?: string;
-  readonly uri?: string;
+interface ProfileSourceFilters {
   readonly only?: readonly string[];
   readonly except?: readonly string[];
 }
+
+export type ProfileSourceReference =
+  | (ProfileSourceFilters & { readonly path: string; readonly uri?: never })
+  | (ProfileSourceFilters & { readonly path?: never; readonly uri: string });
 
 export const createLocalProfileSource = (path: string): ProfileSourceReference => ({
   path,

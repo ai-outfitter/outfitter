@@ -1,4 +1,8 @@
 // Tests the initial source layout scaffolding for Bridl modules.
+import { readFileSync } from 'node:fs';
+
+import type { AnySchema } from 'ajv';
+import { Ajv2020 } from 'ajv/dist/2020.js';
 import { Command } from 'commander';
 import { describe, expect, it } from 'vitest';
 
@@ -23,6 +27,9 @@ import { assembleTack } from '../../src/tack/TackAssembler.js';
 import { createTackFile } from '../../src/tack/TackFile.js';
 import { createTackWatchPlan } from '../../src/tack/TackWatcher.js';
 import { createValidationResult } from '../../src/validation/SchemaValidator.js';
+
+const readJson = <T>(relativePath: string): T =>
+  JSON.parse(readFileSync(new URL(relativePath, import.meta.url), 'utf8')) as T;
 
 describe('source layout scaffolding', () => {
   // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-001.3).
@@ -51,9 +58,20 @@ describe('source layout scaffolding', () => {
     ]);
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-001.1).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-002.5).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
-  it('defines initial module boundaries for settings, profiles, tack, adapters, schemas, and validation', () => {
+  it('validates profile source entries with exactly one source location', () => {
+    const ajv = new Ajv2020();
+    const profileSourceSchema = readJson<AnySchema>('../../schemas/profile-source.schema.json');
+    const validate = ajv.compile(profileSourceSchema);
+
+    expect(validate({ path: './profiles' })).toBe(true);
+    expect(validate({ uri: 'git+https://example.test/profiles.git' })).toBe(true);
+    expect(validate({ path: './profiles', uri: 'git+https://example.test/profiles.git' })).toBe(false);
+    expect(validate({ only: ['engineering'] })).toBe(false);
+  });
+
+  it('defines settings and profile source scaffolding boundaries', () => {
     const localSource = createLocalProfileSource('./profiles');
     const uriSource = createUriProfileSource('git+https://example.test/profiles.git');
     const settings = emptySettings();
@@ -66,6 +84,7 @@ describe('source layout scaffolding', () => {
       { scope: 'project', path: '.bridl/settings.yml' },
       { scope: 'project-local', path: '.bridl/local/settings.yml' },
     ]);
+    const profileLoadPlan = createProfileLoadPlan([localSource, uriSource]);
 
     expect(mergedSettings.defaultProfile).toBe('engineering');
     expect(mergedSettings.profileSources).toEqual([localSource]);
@@ -74,41 +93,50 @@ describe('source layout scaffolding', () => {
       'project',
       'project-local',
     ]);
+    expect(profileLoadPlan.sources).toEqual([localSource, uriSource]);
+  });
 
+  // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-003.6).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('merges profile layers deterministically with higher-precedence values winning', () => {
     const baseProfile = createEmptyProfile('base');
     const mergedProfile = mergeProfileStack([
       baseProfile,
       { id: 'engineering', label: 'Engineering', inherits: ['base'], controls: { model: 'pi/default' } },
     ]);
-    const profileLoadPlan = createProfileLoadPlan([localSource, uriSource]);
 
     expect(mergedProfile.id).toBe('engineering');
     expect(mergedProfile.inherits).toEqual(['base']);
-    expect(profileLoadPlan.sources).toEqual([localSource, uriSource]);
+    expect(mergedProfile.controls.model).toBe('pi/default');
+  });
 
-    const tackFile = createTackFile('SYSTEM.md', 'hello');
-    const tack = createTack('/tmp/bridl-tack', [tackFile]);
-    const assembledTack = assembleTack({ rootDirectory: tack.rootDirectory, files: tack.files });
-    const watchPlan = createTackWatchPlan(['profile.yml']);
-
-    expect(assembledTack.files).toEqual([tackFile]);
-    expect(watchPlan.paths).toEqual(['profile.yml']);
-
-    const piAdapter = createPiAdapter();
-    const launchPlan = piAdapter.createLaunchPlan(tack);
+  // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-006.3).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('creates a pi launch plan using PI_CODING_AGENT_DIR as the configuration boundary', () => {
+    const tackRoot = 'bridl-tack-root';
+    const tack = createTack(tackRoot, []);
+    const launchPlan = createPiAdapter().createLaunchPlan(tack);
     const piPaths = createPiTackPaths(tack.rootDirectory);
 
     expect(launchPlan).toEqual({
       command: 'pi',
       args: [],
-      env: { PI_CODING_AGENT_DIR: '/tmp/bridl-tack' },
+      env: { PI_CODING_AGENT_DIR: tackRoot },
     });
-    expect(piPaths.agentDirectory).toBe('/tmp/bridl-tack');
+    expect(piPaths.agentDirectory).toBe(tackRoot);
+  });
 
+  it('defines tack, schema, and validation scaffolding boundaries', () => {
+    const tackFile = createTackFile('SYSTEM.md', 'hello');
+    const tack = createTack('bridl-tack-root', [tackFile]);
+    const assembledTack = assembleTack({ rootDirectory: tack.rootDirectory, files: tack.files });
+    const watchPlan = createTackWatchPlan(['profile.yml']);
+
+    expect(assembledTack.files).toEqual([tackFile]);
+    expect(watchPlan.paths).toEqual(['profile.yml']);
     expect(settingsSchemaDocument.id).toBe('settings');
     expect(profileSchemaDocument.id).toBe('profile');
     expect(profileSourceSchemaDocument.id).toBe('profile-source');
-
     expect(createValidationResult([])).toEqual({ valid: true, issues: [] });
     expect(createValidationResult([{ path: '/name', message: 'Required' }])).toEqual({
       valid: false,

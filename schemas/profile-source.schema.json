@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bridl.dev/schemas/profile-source.schema.json",
+  "title": "Bridl profile source",
+  "type": "object",
+  "oneOf": [
+    { "required": ["path"], "not": { "required": ["uri"] } },
+    { "required": ["uri"], "not": { "required": ["path"] } }
+  ],
+  "properties": {
+    "path": { "type": "string", "minLength": 1 },
+    "uri": { "type": "string", "minLength": 1 },
+    "only": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "except": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    }
+  },
+  "additionalProperties": false
+}
