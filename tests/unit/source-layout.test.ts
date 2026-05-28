@@ -32,15 +32,15 @@ const readJson = <T>(relativePath: string): T =>
   JSON.parse(readFileSync(new URL(relativePath, import.meta.url), 'utf8')) as T;
 
 describe('source layout scaffolding', () => {
-  // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-001.3).
+  // THIS TEST VALIDATES COMMAND-AVAILABILITY CLAUSES IN HARD REQUIREMENTS (BRIDL-REQ-004.1, BRIDL-REQ-004.2, BRIDL-REQ-004.3, BRIDL-REQ-005.1).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('exposes focused command objects for the initial CLI commands', () => {
     const commands = createDefaultCommands();
     const program = createBridlProgram(commands);
 
-    expect(commands.map((command) => command.name)).toEqual(['run', 'setup', 'sync', 'create-profile']);
-    expect(program.commands.map((command) => command.name())).toEqual(['run', 'setup', 'sync', 'create-profile']);
-    expect(program.commands.at(3)?.aliases()).toEqual(['create_profile']);
+    expect(commands.map((command) => command.name)).toEqual(['run', 'setup', 'sync', 'create_profile']);
+    expect(program.commands.map((command) => command.name())).toEqual(['run', 'setup', 'sync', 'create_profile']);
+    expect(program.commands.at(3)?.aliases()).toEqual(['create-profile']);
     expect(describeCommandObject(createRunCommand())).toEqual({
       name: 'run',
       description: 'Assemble a profile tack and launch the selected agent CLI.',
@@ -54,7 +54,7 @@ describe('source layout scaffolding', () => {
     expect(standaloneProgram.commands.map((command) => command.name())).toEqual([
       'setup',
       'sync',
-      'create-profile',
+      'create_profile',
     ]);
   });
 

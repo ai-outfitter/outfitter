@@ -53,6 +53,7 @@ describe('project foundation', () => {
     expect(packageJson.scripts.coverage).toBe('vitest --run --coverage');
     expect(packageJson.devDependencies).toHaveProperty('vitest');
     expect(packageJson.devDependencies).toHaveProperty('@vitest/coverage-v8');
+    expect(vitestConfigSource).toContain('all: true');
     expect(vitestConfigSource).toContain("include: ['src/**/*.ts']");
     expect(vitestConfigSource).toContain("provider: 'v8'");
     expect(vitestConfigSource).toContain('statements: 100');
