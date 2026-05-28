@@ -18,19 +18,23 @@ This plan describes the order of work. Formal obligations live in `requirements/
 
 ## Phase 3: Profile sources and profile resolution — Done
 
+Merged in PR #6 (`phase-3-profile-resolution`).
+
 - [x] Implement local profile source loading and `only` / `except` filters.
 - [x] Implement profile folder validation and `profile.yml` parsing.
 - [x] Implement profile scope precedence and merge behavior.
 - [x] Implement inheritance resolution, default-profile inclusion, and cycle detection.
 - [x] Add scenario fixtures for common source, inheritance, and precedence combinations.
 
-## Phase 4: Setup and sync commands
+## Phase 4: Setup and sync commands — Done
 
-- Implement `setup` as a command object that creates initial user settings and a default profile.
-- Implement URI source cache path encoding.
-- Implement `sync` for URI-based profile sources.
-- Validate synced profiles and produce clear command output.
-- Implement `create_profile` and the `create-profile` alias against the same command object.
+Implemented in `phase-4-setup-sync`.
+
+- [x] Implement `setup` as a command object that creates initial user settings and a default profile.
+- [x] Implement URI source cache path encoding.
+- [x] Implement `sync` for URI-based profile sources.
+- [x] Validate synced profiles and produce clear command output.
+- [x] Implement `create_profile` and the `create-profile` alias against the same command object.
 
 ## Phase 5: Tack assembly core
 

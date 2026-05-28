@@ -173,7 +173,7 @@ profile_sources:
 ~/.bridl/cache/profiles/<encoded-uri>/
 ```
 
-The encoding should preserve meaningful segments such as site, organization, repository, ref/tag, and path when available, while allowing non-GitHub URIs.
+The encoded path must be filesystem-safe and deterministic for arbitrary URI strings, including non-GitHub URIs.
 
 ## Profile Layout
 
@@ -369,9 +369,9 @@ Creates a placeholder profile folder at a requested scope.
 Example shape:
 
 ```bash
-bridl create_profile --scope user --name engineering
-bridl create_profile --scope project --name support
-bridl create_profile --scope project-local --name sandbox
+bridl create_profile engineering --scope user
+bridl create_profile support --scope project
+bridl create_profile sandbox --scope project-local
 ```
 
 Responsibilities:

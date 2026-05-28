@@ -31,6 +31,7 @@ Bridl is organized around clear TypeScript source boundaries, requirement docume
 │   │   └── SettingsMerger.ts
 │   ├── profiles/                      # profile loading, validation, resolution, and merging
 │   │   ├── Profile.ts
+│   │   ├── ProfileCache.ts
 │   │   ├── ProfileLoader.ts
 │   │   ├── ProfileMerger.ts
 │   │   └── ProfileSource.ts
