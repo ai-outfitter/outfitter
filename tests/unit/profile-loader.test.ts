@@ -11,6 +11,7 @@ import {
   loadLocalProfileSource,
   parseProfileDocument,
   parseProfileYaml,
+  readErrorMessage,
 } from '../../src/profiles/ProfileLoader.js';
 import { createLocalProfileSource, createUriProfileSource } from '../../src/profiles/ProfileSource.js';
 
@@ -82,14 +83,28 @@ describe('profile loading', () => {
       message: 'Profile document must be a mapping.',
     });
     const invalidIdResult = parseProfileYaml('id: Engineering Default\n', 'fallback');
-    const invalidEnvironmentResult = parseProfileYaml('controls:\n  environment:\n    COUNT: 1\n', 'fallback');
 
     expect('message' in invalidIdResult && invalidIdResult.path).toBe('/id');
     expect('message' in invalidIdResult && invalidIdResult.message).toContain('must match pattern');
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-003.1).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('reports profile.yml schema validation diagnostics with field pointers', () => {
+    const root = createProfileSourceRoot();
+    writeProfile(root, 'invalid-field', 'controls:\n  environment:\n    COUNT: 1\n');
+    const invalidEnvironmentResult = parseProfileYaml('controls:\n  environment:\n    COUNT: 1\n', 'fallback');
+
     expect(invalidEnvironmentResult).toEqual({
       path: '/controls/environment/COUNT',
       message: 'must be string',
     });
+    expect(loadLocalProfileSource(createLocalProfileSource(root)).issues).toEqual([
+      {
+        path: `${join(root, 'invalid-field', 'profile.yml')}#/controls/environment/COUNT`,
+        message: 'must be string',
+      },
+    ]);
   });
 
   it('reports non-local, missing, and malformed profile sources as load issues', () => {
@@ -103,6 +118,13 @@ describe('profile loading', () => {
     expect(loadLocalProfileSource(createLocalProfileSource(missingRoot)).issues).toEqual([
       { path: missingRoot, message: 'Profile source must be an existing directory.' },
     ]);
-    expect(loadLocalProfileSource(createLocalProfileSource(root)).issues).toHaveLength(1);
+    expect(loadLocalProfileSource(createLocalProfileSource(root)).issues).toEqual([
+      {
+        path: `${join(root, 'broken', 'profile.yml')}#/profile.yml`,
+        message: expect.any(String) as string,
+      },
+    ]);
+    expect(readErrorMessage(new Error('clean parser message'))).toBe('clean parser message');
+    expect(readErrorMessage('fallback parser message')).toBe('fallback parser message');
   });
 });
