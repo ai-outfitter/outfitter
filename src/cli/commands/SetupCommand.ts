@@ -5,6 +5,7 @@ import { dirname, join } from 'node:path';
 
 import type { Command } from 'commander';
 
+import { isValidProfileId } from '../../profiles/ProfileLoader.js';
 import { discoverSettingsLoadPlan, loadSettings } from '../../settings/SettingsLoader.js';
 import type { CommandObject } from './CommandObject.js';
 import type { SyncCommandDependencies, SyncCommandResult } from './SyncCommand.js';
@@ -31,14 +32,17 @@ export const executeSetupCommand = (
   dependencies: SetupCommandDependencies = {},
 ): SetupCommandResult => {
   const settingsPath = join(input.homeDirectory, '.bridl', 'settings.yml');
-  const createdSettings = createInitialSettingsIfMissing(settingsPath);
+  const initialSettingsMissing = !existsSync(settingsPath);
   const loadedSettings = loadSettings(discoverSettingsLoadPlan(input));
 
   if (loadedSettings.issues.length > 0) {
     throw new Error(`Cannot setup with invalid settings: ${loadedSettings.issues.map(formatSettingsIssue).join('; ')}`);
   }
 
-  const defaultProfileId = loadedSettings.settings.defaultProfile ?? 'default';
+  const defaultProfileId = initialSettingsMissing ? 'default' : readUserDefaultProfileId(loadedSettings.files);
+  assertValidDefaultProfileId(defaultProfileId);
+
+  const createdSettings = createInitialSettingsIfMissing(settingsPath);
   const defaultProfilePath = join(input.homeDirectory, '.bridl', 'profiles', defaultProfileId, 'profile.yml');
   const createdDefaultProfile = createDefaultProfileIfMissing(defaultProfilePath, defaultProfileId);
   const syncResult = executeSyncCommand(input, dependencies);
@@ -84,6 +88,16 @@ export const createSetupCommand = (dependencies: SetupCommandDependencies = {}):
   };
 
   return command;
+};
+
+const readUserDefaultProfileId = (
+  files: readonly { readonly location: { readonly scope: string }; readonly settings: { readonly defaultProfile?: string } }[],
+): string => files.find((file) => file.location.scope === 'user')?.settings.defaultProfile ?? 'default';
+
+const assertValidDefaultProfileId = (profileId: string): void => {
+  if (!isValidProfileId(profileId)) {
+    throw new Error(`Default profile '${profileId}' is not a filesystem-safe Bridl profile id.`);
+  }
 };
 
 const createInitialSettingsIfMissing = (settingsPath: string): boolean => {

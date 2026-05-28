@@ -119,8 +119,29 @@ describe('phase 4 setup and sync commands', () => {
     const fallbackDefaultResult = executeSetupCommand({ homeDirectory: fallbackHomeDirectory, projectDirectory });
     expect(fallbackDefaultResult.defaultProfilePath).toBe(join(fallbackHomeDirectory, '.bridl', 'profiles', 'default', 'profile.yml'));
 
+    const projectDefaultHomeDirectory = join(root, 'project-default-home');
+    const projectDefaultDirectory = join(root, 'project-default');
+    mkdirSync(join(projectDefaultDirectory, '.bridl'), { recursive: true });
+    writeFileSync(join(projectDefaultDirectory, '.bridl', 'settings.yml'), 'default_profile: remote\n');
+    const projectDefaultResult = executeSetupCommand({ homeDirectory: projectDefaultHomeDirectory, projectDirectory: projectDefaultDirectory });
+    expect(readFileSync(projectDefaultResult.settingsPath, 'utf8')).toContain('default_profile: default');
+    expect(projectDefaultResult.defaultProfilePath).toBe(join(projectDefaultHomeDirectory, '.bridl', 'profiles', 'default', 'profile.yml'));
+
+    const unsafeDefaultHomeDirectory = join(root, 'unsafe-default-home');
+    writeSettings(unsafeDefaultHomeDirectory, 'default_profile: ../../outside\n');
+    expect(() => executeSetupCommand({ homeDirectory: unsafeDefaultHomeDirectory, projectDirectory })).toThrow('filesystem-safe');
+    expect(existsSync(join(root, 'outside', 'profile.yml'))).toBe(false);
+
     writeSettings(homeDirectory, 'profile_sources:\n  - only: [remote]\n');
     expect(() => executeSetupCommand({ homeDirectory, projectDirectory })).toThrow('Cannot setup with invalid settings');
+
+    const invalidProjectHomeDirectory = join(root, 'invalid-project-home');
+    const invalidProjectDirectory = join(root, 'invalid-project');
+    mkdirSync(join(invalidProjectDirectory, '.bridl'), { recursive: true });
+    writeFileSync(join(invalidProjectDirectory, '.bridl', 'settings.yml'), 'profile_sources:\n  - only: [remote]\n');
+    expect(() => executeSetupCommand({ homeDirectory: invalidProjectHomeDirectory, projectDirectory: invalidProjectDirectory }))
+      .toThrow('Cannot setup with invalid settings');
+    expect(existsSync(join(invalidProjectHomeDirectory, '.bridl', 'settings.yml'))).toBe(false);
   });
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-004.2).
