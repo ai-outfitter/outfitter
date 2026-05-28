@@ -2,27 +2,19 @@
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
-import type { AnySchema } from 'ajv';
-import { Ajv2020 } from 'ajv/dist/2020.js';
-import { parse } from 'yaml';
-
+import type { ValidationIssue } from '../validation/SchemaValidator.js';
+import { validateSchema } from '../validation/SchemaValidator.js';
+import { parseYamlDocument } from '../validation/YamlDocument.js';
 import type { Profile, ProfileControls } from './Profile.js';
 import type { ProfileSourceReference } from './ProfileSource.js';
 
 const profileIdPattern = /^[a-z0-9][a-z0-9._-]*[a-z0-9]$|^[a-z0-9]$/u;
-const profileSchema = JSON.parse(
-  readFileSync(new URL('../schemas/profile.schema.json', import.meta.url), 'utf8'),
-) as AnySchema;
-const profileValidator = new Ajv2020().compile(profileSchema);
 
 export interface ProfileLoadPlan {
   readonly sources: readonly ProfileSourceReference[];
 }
 
-export interface ProfileLoadIssue {
-  readonly path: string;
-  readonly message: string;
-}
+export type ProfileLoadIssue = ValidationIssue;
 
 export interface LoadedProfile {
   readonly source: ProfileSourceReference;
@@ -69,11 +61,13 @@ export const parseProfileDocument = (document: unknown, fallbackId: string): Pro
 };
 
 export const parseProfileYaml = (content: string, fallbackId: string): Profile | ProfileLoadIssue => {
-  try {
-    return parseProfileDocument(parse(content), fallbackId);
-  } catch (error) {
-    return { path: '/profile.yml', message: readErrorMessage(error) };
+  const parsed = parseYamlDocument(content, '/profile.yml');
+
+  if (!parsed.ok) {
+    return parsed.issue;
   }
+
+  return parseProfileDocument(parsed.document, fallbackId);
 };
 
 export const loadLocalProfileSource = (source: ProfileSourceReference): ProfileLoadResult => {
@@ -118,16 +112,13 @@ const addProfileFromFolder = (
 };
 
 const validateProfileRecord = (record: Readonly<Record<string, unknown>>): ProfileLoadIssue | undefined => {
-  if (profileValidator(record)) {
+  const validation = validateSchema('profile', record);
+
+  if (validation.valid) {
     return undefined;
   }
 
-  const error = profileValidator.errors![0] as { readonly instancePath: string; readonly message: string };
-
-  return {
-    path: error.instancePath,
-    message: error.message,
-  };
+  return validation.issues[0];
 };
 
 const readObject = (value: unknown): Readonly<Record<string, unknown>> | undefined => {
@@ -186,5 +177,3 @@ const readEnvironment = (value: unknown): Readonly<Record<string, string>> | und
     Object.entries(environment).filter((entry): entry is [string, string] => typeof entry[1] === 'string'),
   );
 };
-
-const readErrorMessage = (error: unknown): string => String(error);
