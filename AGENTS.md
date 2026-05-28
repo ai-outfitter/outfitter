@@ -12,12 +12,15 @@
 - Warn to stderr when an adapter cannot support a requested control; `--hard-tack` must make unsupported controls or tack assembly warnings fatal.
 - Implement non-trivial CLI behavior as command objects with explicit dependencies and typed inputs/outputs, not parser callback logic.
 - A tack is the temporary runtime configuration directory assembled for one profile and agent CLI run; Bridl owns the tack lifecycle while the child agent runs.
-- Pi is the only day-one adapter. Claude is roadmap-only unless requirements change.
+- Pi is the only day-one adapter.
+  Claude is roadmap-only unless requirements change.
 
 ## Project checks
 
-- Run `npm run check` for local verification. It runs ESLint with auto-fixing enabled, then runs the coverage test suite.
-- Run `npm run check-ci` for CI-equivalent verification. It runs the same lint and coverage checks without modifying files.
+- Run `npm run check` for local verification.
+  It runs ESLint with auto-fixing enabled, then runs the coverage test suite.
+- Run `npm run check-ci` for CI-equivalent verification.
+  It runs the same lint and coverage checks without modifying files.
 - `npm run coverage` enforces the configured Vitest coverage thresholds.
 - Coverage includes all `src/**/*.ts` files, so new source files need tests even if they are only scaffolding.
 

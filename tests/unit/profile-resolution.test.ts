@@ -21,9 +21,15 @@ describe('profile resolution', () => {
   // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-003.3, BRIDL-REQ-003.6).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('merges same-id profile definitions with project-local precedence over project and user definitions', () => {
-    const userProfiles = loadLocalProfileSource(createLocalProfileSource(scenarioPath('profile-precedence', 'user-profiles')));
-    const projectProfiles = loadLocalProfileSource(createLocalProfileSource(scenarioPath('profile-precedence', 'project-profiles')));
-    const projectLocalProfiles = loadLocalProfileSource(createLocalProfileSource(scenarioPath('profile-precedence', 'project-local-profiles')));
+    const userProfiles = loadLocalProfileSource(
+      createLocalProfileSource(scenarioPath('profile-precedence', 'user-profiles')),
+    );
+    const projectProfiles = loadLocalProfileSource(
+      createLocalProfileSource(scenarioPath('profile-precedence', 'project-profiles')),
+    );
+    const projectLocalProfiles = loadLocalProfileSource(
+      createLocalProfileSource(scenarioPath('profile-precedence', 'project-local-profiles')),
+    );
 
     expect([...userProfiles.issues, ...projectProfiles.issues, ...projectLocalProfiles.issues]).toEqual([]);
 
@@ -65,16 +71,22 @@ describe('profile resolution', () => {
       profile: { id: 'uri-backed', inherits: [], controls: { model: 'user' } },
     });
 
-    expect(resolveProfile({ profileId: 'uri-backed', profiles: [firstUriProfile, secondUriProfile] }).profile?.controls.model)
-      .toBe('second-uri');
-    expect(resolveProfile({ profileId: 'uri-backed', profiles: [firstUriProfile, secondUriProfile, userProfile] }).profile?.controls.model)
-      .toBe('user');
+    expect(
+      resolveProfile({ profileId: 'uri-backed', profiles: [firstUriProfile, secondUriProfile] }).profile?.controls
+        .model,
+    ).toBe('second-uri');
+    expect(
+      resolveProfile({ profileId: 'uri-backed', profiles: [firstUriProfile, secondUriProfile, userProfile] }).profile
+        ?.controls.model,
+    ).toBe('user');
   });
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-003.4, BRIDL-REQ-003.5).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('resolves inherited profiles below explicit profiles and includes the implicit user default without duplicates', () => {
-    const loaded = loadLocalProfileSource(createLocalProfileSource(scenarioPath('profile-inheritance-chain', 'profiles')));
+    const loaded = loadLocalProfileSource(
+      createLocalProfileSource(scenarioPath('profile-inheritance-chain', 'profiles')),
+    );
     const multipleInheritanceProfiles = loadLocalProfileSource(
       createLocalProfileSource(scenarioPath('profile-multiple-inheritance', 'profiles')),
     );
@@ -103,7 +115,11 @@ describe('profile resolution', () => {
       },
     });
     expect(multipleInheritanceResult.issues).toEqual([]);
-    expect(multipleInheritanceResult.profileStack.map((profile) => profile.id)).toEqual(['first', 'second', 'composite']);
+    expect(multipleInheritanceResult.profileStack.map((profile) => profile.id)).toEqual([
+      'first',
+      'second',
+      'composite',
+    ]);
     expect(multipleInheritanceResult.profile?.controls.environment?.SHARED).toBe('composite');
   });
 

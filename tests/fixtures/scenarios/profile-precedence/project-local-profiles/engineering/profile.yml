@@ -3,4 +3,4 @@ controls:
   model: local-model
   environment:
     SHARED: local
-    LOCAL_ONLY: "yes"
+    LOCAL_ONLY: 'yes'

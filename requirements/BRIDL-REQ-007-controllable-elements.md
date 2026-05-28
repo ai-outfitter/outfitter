@@ -2,7 +2,8 @@
 
 ## Overview
 
-Bridl maintains a generic cross-agent-CLI vocabulary for profile-controlled concepts. This vocabulary is documented separately from implementation details so companies can reason about profiles across multiple agent CLIs.
+Bridl maintains a generic cross-agent-CLI vocabulary for profile-controlled concepts.
+This vocabulary is documented separately from implementation details so companies can reason about profiles across multiple agent CLIs.
 
 ## Requirements
 

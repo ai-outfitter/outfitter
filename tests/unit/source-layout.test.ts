@@ -18,7 +18,11 @@ import { createEmptyProfile } from '../../src/profiles/Profile.js';
 import { createProfileLoadPlan } from '../../src/profiles/ProfileLoader.js';
 import { mergeProfileStack } from '../../src/profiles/ProfileMerger.js';
 import { createLocalProfileSource, createUriProfileSource } from '../../src/profiles/ProfileSource.js';
-import { profileSchemaDocument, profileSourceSchemaDocument, settingsSchemaDocument } from '../../src/schemas/SchemaDocument.js';
+import {
+  profileSchemaDocument,
+  profileSourceSchemaDocument,
+  settingsSchemaDocument,
+} from '../../src/schemas/SchemaDocument.js';
 import { emptySettings } from '../../src/settings/Settings.js';
 import { createSettingsLoadPlan } from '../../src/settings/SettingsLoader.js';
 import { mergeSettingsStack } from '../../src/settings/SettingsMerger.js';
@@ -51,11 +55,7 @@ describe('source layout scaffolding', () => {
     createSyncCommand().register(standaloneProgram);
     createCreateProfileCommand().register(standaloneProgram);
 
-    expect(standaloneProgram.commands.map((command) => command.name())).toEqual([
-      'setup',
-      'sync',
-      'create_profile',
-    ]);
+    expect(standaloneProgram.commands.map((command) => command.name())).toEqual(['setup', 'sync', 'create_profile']);
   });
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-002.5).
@@ -88,11 +88,7 @@ describe('source layout scaffolding', () => {
 
     expect(mergedSettings.defaultProfile).toBe('engineering');
     expect(mergedSettings.profileSources).toEqual([localSource]);
-    expect(settingsLoadPlan.locations.map((location) => location.scope)).toEqual([
-      'user',
-      'project',
-      'project-local',
-    ]);
+    expect(settingsLoadPlan.locations.map((location) => location.scope)).toEqual(['user', 'project', 'project-local']);
     expect(profileLoadPlan.sources).toEqual([localSource, uriSource]);
   });
 

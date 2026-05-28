@@ -3,5 +3,5 @@ inherits: [first, second]
 controls:
   model: composite-model
   environment:
-    COMPOSITE: "enabled"
+    COMPOSITE: 'enabled'
     SHARED: composite

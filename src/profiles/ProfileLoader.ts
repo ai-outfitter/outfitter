@@ -72,7 +72,10 @@ export const parseProfileYaml = (content: string, fallbackId: string): Profile |
 
 export const loadLocalProfileSource = (source: ProfileSourceReference): ProfileLoadResult => {
   if (source.path === undefined) {
-    return { profiles: [], issues: [{ path: '<uri-source>', message: 'Only local profile sources can be loaded directly.' }] };
+    return {
+      profiles: [],
+      issues: [{ path: '<uri-source>', message: 'Only local profile sources can be loaded directly.' }],
+    };
   }
 
   if (!existsSync(source.path) || !statSync(source.path).isDirectory()) {

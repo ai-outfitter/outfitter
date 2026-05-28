@@ -13,7 +13,11 @@ import {
 } from '../../src/cli/commands/CreateProfileCommand.js';
 import { createSetupCommand, executeSetupCommand } from '../../src/cli/commands/SetupCommand.js';
 import { createSyncCommand, executeSyncCommand } from '../../src/cli/commands/SyncCommand.js';
-import { createProfileSourceCachePath, encodeProfileSourceUri, normalizeGitUri } from '../../src/profiles/ProfileCache.js';
+import {
+  createProfileSourceCachePath,
+  encodeProfileSourceUri,
+  normalizeGitUri,
+} from '../../src/profiles/ProfileCache.js';
 
 const temporaryRoots: string[] = [];
 
@@ -40,10 +44,14 @@ const createGitProfileRepository = (root: string): string => {
   writeCachedProfile(repositoryPath, 'remote');
   execFileSync('git', ['init'], { cwd: repositoryPath, stdio: 'pipe' });
   execFileSync('git', ['add', '.'], { cwd: repositoryPath, stdio: 'pipe' });
-  execFileSync('git', ['-c', 'user.name=Bridl Test', '-c', 'user.email=bridl@example.test', 'commit', '-m', 'profiles'], {
-    cwd: repositoryPath,
-    stdio: 'pipe',
-  });
+  execFileSync(
+    'git',
+    ['-c', 'user.name=Bridl Test', '-c', 'user.email=bridl@example.test', 'commit', '-m', 'profiles'],
+    {
+      cwd: repositoryPath,
+      stdio: 'pipe',
+    },
+  );
   return repositoryPath;
 };
 
@@ -69,7 +77,9 @@ describe('phase 4 setup and sync commands', () => {
 
     expect(firstResult.createdSettings).toBe(true);
     expect(firstResult.createdDefaultProfile).toBe(true);
-    expect(readFileSync(settingsPath, 'utf8')).toBe('default_profile: default\nprofile_sources:\n  - path: ./profiles\n');
+    expect(readFileSync(settingsPath, 'utf8')).toBe(
+      'default_profile: default\nprofile_sources:\n  - path: ./profiles\n',
+    );
     expect(readFileSync(defaultProfilePath, 'utf8')).toBe('id: default\nlabel: Default\ncontrols: {}\n');
     expect(firstResult.messages).toContain('No URI profile sources configured; nothing to sync.');
 
@@ -117,30 +127,42 @@ describe('phase 4 setup and sync commands', () => {
     const fallbackHomeDirectory = join(root, 'fallback-home');
     writeSettings(fallbackHomeDirectory, 'profile_sources: []\n');
     const fallbackDefaultResult = executeSetupCommand({ homeDirectory: fallbackHomeDirectory, projectDirectory });
-    expect(fallbackDefaultResult.defaultProfilePath).toBe(join(fallbackHomeDirectory, '.bridl', 'profiles', 'default', 'profile.yml'));
+    expect(fallbackDefaultResult.defaultProfilePath).toBe(
+      join(fallbackHomeDirectory, '.bridl', 'profiles', 'default', 'profile.yml'),
+    );
 
     const projectDefaultHomeDirectory = join(root, 'project-default-home');
     const projectDefaultDirectory = join(root, 'project-default');
     mkdirSync(join(projectDefaultDirectory, '.bridl'), { recursive: true });
     writeFileSync(join(projectDefaultDirectory, '.bridl', 'settings.yml'), 'default_profile: remote\n');
-    const projectDefaultResult = executeSetupCommand({ homeDirectory: projectDefaultHomeDirectory, projectDirectory: projectDefaultDirectory });
+    const projectDefaultResult = executeSetupCommand({
+      homeDirectory: projectDefaultHomeDirectory,
+      projectDirectory: projectDefaultDirectory,
+    });
     expect(readFileSync(projectDefaultResult.settingsPath, 'utf8')).toContain('default_profile: default');
-    expect(projectDefaultResult.defaultProfilePath).toBe(join(projectDefaultHomeDirectory, '.bridl', 'profiles', 'default', 'profile.yml'));
+    expect(projectDefaultResult.defaultProfilePath).toBe(
+      join(projectDefaultHomeDirectory, '.bridl', 'profiles', 'default', 'profile.yml'),
+    );
 
     const unsafeDefaultHomeDirectory = join(root, 'unsafe-default-home');
     writeSettings(unsafeDefaultHomeDirectory, 'default_profile: ../../outside\n');
-    expect(() => executeSetupCommand({ homeDirectory: unsafeDefaultHomeDirectory, projectDirectory })).toThrow('filesystem-safe');
+    expect(() => executeSetupCommand({ homeDirectory: unsafeDefaultHomeDirectory, projectDirectory })).toThrow(
+      'filesystem-safe',
+    );
     expect(existsSync(join(root, 'outside', 'profile.yml'))).toBe(false);
 
     writeSettings(homeDirectory, 'profile_sources:\n  - only: [remote]\n');
-    expect(() => executeSetupCommand({ homeDirectory, projectDirectory })).toThrow('Cannot setup with invalid settings');
+    expect(() => executeSetupCommand({ homeDirectory, projectDirectory })).toThrow(
+      'Cannot setup with invalid settings',
+    );
 
     const invalidProjectHomeDirectory = join(root, 'invalid-project-home');
     const invalidProjectDirectory = join(root, 'invalid-project');
     mkdirSync(join(invalidProjectDirectory, '.bridl'), { recursive: true });
     writeFileSync(join(invalidProjectDirectory, '.bridl', 'settings.yml'), 'profile_sources:\n  - only: [remote]\n');
-    expect(() => executeSetupCommand({ homeDirectory: invalidProjectHomeDirectory, projectDirectory: invalidProjectDirectory }))
-      .toThrow('Cannot setup with invalid settings');
+    expect(() =>
+      executeSetupCommand({ homeDirectory: invalidProjectHomeDirectory, projectDirectory: invalidProjectDirectory }),
+    ).toThrow('Cannot setup with invalid settings');
     expect(existsSync(join(invalidProjectHomeDirectory, '.bridl', 'settings.yml'))).toBe(false);
   });
 
@@ -187,7 +209,10 @@ describe('phase 4 setup and sync commands', () => {
     const uri = 'git+https://user:secret@example.test/team/profiles.git';
     const failedUri = 'https://token@example.test/private/profiles.git';
     const unparsableUri = '//deploy-key@example.test/private/profiles.git';
-    writeSettings(homeDirectory, `profile_sources:\n  - uri: ${uri}\n  - uri: ${failedUri}\n  - uri: '${unparsableUri}'\n`);
+    writeSettings(
+      homeDirectory,
+      `profile_sources:\n  - uri: ${uri}\n  - uri: ${failedUri}\n  - uri: '${unparsableUri}'\n`,
+    );
 
     const result = executeSyncCommand(
       { homeDirectory, projectDirectory },
@@ -216,7 +241,9 @@ describe('phase 4 setup and sync commands', () => {
     expect(result.messages.join('\n')).not.toContain('deploy-key');
     expect(result.sources[0]?.cachePath).toBe(createProfileSourceCachePath(homeDirectory, uri));
     expect(Buffer.from(encodeProfileSourceUri(uri), 'base64url').toString('utf8')).not.toContain('secret');
-    expect(Buffer.from(encodeProfileSourceUri(normalizeGitUri(uri)), 'base64url').toString('utf8')).not.toContain('secret');
+    expect(Buffer.from(encodeProfileSourceUri(normalizeGitUri(uri)), 'base64url').toString('utf8')).not.toContain(
+      'secret',
+    );
   });
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-004.2).
@@ -312,8 +339,18 @@ describe('phase 4 setup and sync commands', () => {
     const root = createTemporaryRoot();
     const homeDirectory = join(root, 'home');
     const projectDirectory = join(root, 'project');
-    const byScope = executeCreateProfileCommand({ name: 'engineering', scope: 'user', homeDirectory, projectDirectory });
-    const byProject = executeCreateProfileCommand({ name: 'project-profile', scope: 'project', homeDirectory, projectDirectory });
+    const byScope = executeCreateProfileCommand({
+      name: 'engineering',
+      scope: 'user',
+      homeDirectory,
+      projectDirectory,
+    });
+    const byProject = executeCreateProfileCommand({
+      name: 'project-profile',
+      scope: 'project',
+      homeDirectory,
+      projectDirectory,
+    });
     const byProjectLocal = executeCreateProfileCommand({
       name: 'local-profile',
       scope: 'project-local',
@@ -329,12 +366,16 @@ describe('phase 4 setup and sync commands', () => {
     expect(existsSync(join(byScope.profileDirectory, 'extensions'))).toBe(true);
     expect(existsSync(join(byScope.profileDirectory, 'cli_specific', 'pi'))).toBe(true);
     expect(byProject.profileDirectory).toBe(join(projectDirectory, '.bridl', 'profiles', 'project-profile'));
-    expect(byProjectLocal.profileDirectory).toBe(join(projectDirectory, '.bridl', 'local', 'profiles', 'local-profile'));
+    expect(byProjectLocal.profileDirectory).toBe(
+      join(projectDirectory, '.bridl', 'local', 'profiles', 'local-profile'),
+    );
     expect(byPath.profileDirectory).toBe(join(customRoot, 'research'));
 
     writeFileSync(byPath.profilePath, 'id: research\nlabel: Existing\n');
-    expect(executeCreateProfileCommand({ name: 'research', path: customRoot, homeDirectory, projectDirectory }).createdProfile)
-      .toBe(false);
+    expect(
+      executeCreateProfileCommand({ name: 'research', path: customRoot, homeDirectory, projectDirectory })
+        .createdProfile,
+    ).toBe(false);
 
     const program = new Command();
     createCreateProfileCommand().register(program);
@@ -348,27 +389,30 @@ describe('phase 4 setup and sync commands', () => {
     const homeDirectory = join(root, 'home');
     const projectDirectory = join(root, 'project');
 
-    expect(() => executeCreateProfileCommand({ name: 'Bad Name', scope: 'user', homeDirectory, projectDirectory })).toThrow(
-      'filesystem-safe',
-    );
+    expect(() =>
+      executeCreateProfileCommand({ name: 'Bad Name', scope: 'user', homeDirectory, projectDirectory }),
+    ).toThrow('filesystem-safe');
     expect(() => executeCreateProfileCommand({ name: 'valid', homeDirectory, projectDirectory })).toThrow(
       'requires exactly one destination',
     );
-    expect(() => executeCreateProfileCommand({ name: 'valid', scope: 'user', path: root, homeDirectory, projectDirectory })).toThrow(
-      'requires exactly one destination',
-    );
+    expect(() =>
+      executeCreateProfileCommand({ name: 'valid', scope: 'user', path: root, homeDirectory, projectDirectory }),
+    ).toThrow('requires exactly one destination');
 
     const messages: string[] = [];
     const createProgram = new Command();
-    createCreateProfileCommand({ homeDirectory, projectDirectory, writeLine: (message) => messages.push(message) })
-      .register(createProgram);
+    createCreateProfileCommand({
+      homeDirectory,
+      projectDirectory,
+      writeLine: (message) => messages.push(message),
+    }).register(createProgram);
     await createProgram.parseAsync(['node', 'bridl', 'create-profile', 'valid', '--path', join(root, 'cli-profiles')]);
     expect(messages).toContainEqual(expect.stringContaining("Created profile 'valid'"));
     await createProgram.parseAsync(['node', 'bridl', 'create_profile', 'scoped', '--scope', 'user']);
     expect(existsSync(join(homeDirectory, '.bridl', 'profiles', 'scoped', 'profile.yml'))).toBe(true);
-    await expect(createProgram.parseAsync(['node', 'bridl', 'create_profile', 'valid', '--scope', 'invalid'])).rejects.toThrow(
-      "Unknown profile scope 'invalid'",
-    );
+    await expect(
+      createProgram.parseAsync(['node', 'bridl', 'create_profile', 'valid', '--scope', 'invalid']),
+    ).rejects.toThrow("Unknown profile scope 'invalid'");
 
     const missingNameProgram = new Command();
     missingNameProgram.exitOverride();
@@ -380,14 +424,19 @@ describe('phase 4 setup and sync commands', () => {
     const syncMessages: string[] = [];
     const syncProgram = new Command();
     writeSettings(homeDirectory, 'default_profile: default\n');
-    createSyncCommand({ homeDirectory, projectDirectory, writeLine: (message) => syncMessages.push(message) }).register(syncProgram);
+    createSyncCommand({ homeDirectory, projectDirectory, writeLine: (message) => syncMessages.push(message) }).register(
+      syncProgram,
+    );
     await syncProgram.parseAsync(['node', 'bridl', 'sync']);
     expect(syncMessages).toEqual(['No URI profile sources configured; nothing to sync.']);
 
     const setupMessages: string[] = [];
     const setupProgram = new Command();
-    createSetupCommand({ homeDirectory: join(root, 'setup-home'), projectDirectory, writeLine: (message) => setupMessages.push(message) })
-      .register(setupProgram);
+    createSetupCommand({
+      homeDirectory: join(root, 'setup-home'),
+      projectDirectory,
+      writeLine: (message) => setupMessages.push(message),
+    }).register(setupProgram);
     await setupProgram.parseAsync(['node', 'bridl', 'setup']);
     expect(setupMessages[0]).toContain('Created user settings');
   });

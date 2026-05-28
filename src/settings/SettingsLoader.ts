@@ -105,7 +105,10 @@ const addSettingsFile = (
     return;
   }
 
-  files.push({ location, settings: convertSettingsDocument(parsed.document as SettingsDocument, dirname(location.path)) });
+  files.push({
+    location,
+    settings: convertSettingsDocument(parsed.document as SettingsDocument, dirname(location.path)),
+  });
 };
 
 const convertSettingsDocument = (document: SettingsDocument, settingsDirectory: string): Settings => ({
@@ -113,10 +116,7 @@ const convertSettingsDocument = (document: SettingsDocument, settingsDirectory: 
   profileSources: (document.profile_sources ?? []).map((source) => convertProfileSource(source, settingsDirectory)),
 });
 
-const convertProfileSource = (
-  source: ProfileSourceDocument,
-  settingsDirectory: string,
-): ProfileSourceReference => {
+const convertProfileSource = (source: ProfileSourceDocument, settingsDirectory: string): ProfileSourceReference => {
   const filters = {
     only: source.only,
     except: source.except,

@@ -1,6 +1,7 @@
 # Bridl File Structure
 
-This document records the key repository file and directory structure used by Bridl. See `doc/architecture.md` for runtime file conventions such as `.bridl` settings folders, profile folders, and generated tack directories.
+This document records the key repository file and directory structure used by Bridl.
+See `doc/architecture.md` for runtime file conventions such as `.bridl` settings folders, profile folders, and generated tack directories.
 
 ## Repository Layout
 
@@ -16,6 +17,8 @@ Bridl is organized around clear TypeScript source boundaries, requirement docume
 ├── requirements/                      # formal BRIDL requirement documents
 │   ├── BRIDL-REQ-001-project-foundation.md
 │   └── ...
+├── .prettierignore                    # Prettier ignore rules
+├── .prettierrc.json                   # Prettier formatting configuration
 ├── plan.md                            # implementation plan
 ├── src/                               # production TypeScript source
 │   ├── cli/                           # CLI parser construction and command registration
@@ -55,6 +58,7 @@ Bridl is organized around clear TypeScript source boundaries, requirement docume
 │   ├── fixtures/                      # reusable test fixtures
 │   │   └── scenarios/                 # realistic .bridl scenarios and expected outputs
 │   └── unit/                          # unit tests
+├── package-lock.json                  # locked npm dependency graph
 └── package.json                       # npm package metadata and scripts
 ```
 

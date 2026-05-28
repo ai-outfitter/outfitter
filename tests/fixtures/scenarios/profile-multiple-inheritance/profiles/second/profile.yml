@@ -1,5 +1,5 @@
 id: second
 controls:
   environment:
-    SECOND: "enabled"
+    SECOND: 'enabled'
     SHARED: second

@@ -2,7 +2,8 @@
 
 ## Overview
 
-Bridl settings are the merged result of user, project, and project-local `.bridl/settings.yml` files. The internal Settings object is the single source of resolved configuration for commands.
+Bridl settings are the merged result of user, project, and project-local `.bridl/settings.yml` files.
+The internal Settings object is the single source of resolved configuration for commands.
 
 ## Requirements
 

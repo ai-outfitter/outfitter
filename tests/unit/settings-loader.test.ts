@@ -67,9 +67,7 @@ describe('settings loading', () => {
     expect(loaded.issues).toEqual([]);
     expect(loaded.files.map((file) => file.location.scope)).toEqual(['user', 'project', 'project-local']);
     expect(loaded.settings.defaultProfile).toBe('local-default');
-    expect(loaded.settings.profileSources).toEqual([
-      { path: join(homeDirectory, '.bridl', 'profiles') },
-    ]);
+    expect(loaded.settings.profileSources).toEqual([{ path: join(homeDirectory, '.bridl', 'profiles') }]);
   });
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-002.3).
@@ -81,10 +79,12 @@ describe('settings loading', () => {
     writeSettings(malformedPath, ': invalid: yaml:');
     writeSettings(invalidPath, 'profile_sources:\n  - only:\n      - engineering\n');
 
-    const result = loadSettingsFiles(createSettingsLoadPlan([
-      { scope: 'user', path: malformedPath },
-      { scope: 'project', path: invalidPath },
-    ]));
+    const result = loadSettingsFiles(
+      createSettingsLoadPlan([
+        { scope: 'user', path: malformedPath },
+        { scope: 'project', path: invalidPath },
+      ]),
+    );
 
     expect(result.files).toEqual([]);
     expect(result.issues[0]?.filePath).toBe(malformedPath);
@@ -92,7 +92,7 @@ describe('settings loading', () => {
     expect(result.issues).toContainEqual({
       filePath: invalidPath,
       path: '/profile_sources/0',
-      message: 'must have required property \'path\'',
+      message: "must have required property 'path'",
     });
   });
 

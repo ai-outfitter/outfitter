@@ -2,7 +2,8 @@
 
 ## Overview
 
-Bridl requirements define reviewable project obligations. Each requirement should be traceable to TypeScript implementation, tests, DeepSchemas, or DeepReview rules depending on the appropriate validation mechanism.
+Bridl requirements define reviewable project obligations.
+Each requirement should be traceable to TypeScript implementation, tests, DeepSchemas, or DeepReview rules depending on the appropriate validation mechanism.
 
 ## Requirements
 

@@ -1,6 +1,7 @@
 ## Validating Requirements with Tests, DeepSchemas, and Review Rules
 
-Formal requirements use RFC 2119 keywords such as MUST, SHOULD, and MAY. Each requirement needs an appropriate validation mechanism.
+Formal requirements use RFC 2119 keywords such as MUST, SHOULD, and MAY.
+Each requirement needs an appropriate validation mechanism.
 
 ### Use automated TypeScript tests for deterministic requirements
 
@@ -33,7 +34,8 @@ Examples:
 
 ### Anti-patterns
 
-Do not use fragile keyword tests for judgment requirements. A test such as `expect(text).toContain("safe")` does not prove that a prompt or policy meaningfully enforces safety.
+Do not use fragile keyword tests for judgment requirements.
+A test such as `expect(text).toContain("safe")` does not prove that a prompt or policy meaningfully enforces safety.
 
 Do not spend reviewer judgment on facts that TypeScript tests or JSON Schema can verify exactly.
 
@@ -44,9 +46,10 @@ Tests that validate a formal requirement should use a durable comment immediatel
 ```ts
 // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-008.3).
 // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
-it("rejects stale requirement traceability comments", () => {
+it('rejects stale requirement traceability comments', () => {
   // ...
 });
 ```
 
-Comments should explain durable policy intent. They should not reference source line numbers, pull request numbers, or one-time migration context.
+Comments should explain durable policy intent.
+They should not reference source line numbers, pull request numbers, or one-time migration context.

@@ -1,4 +1,4 @@
 id: base
 controls:
   environment:
-    BASE_ONLY: "yes"
+    BASE_ONLY: 'yes'
