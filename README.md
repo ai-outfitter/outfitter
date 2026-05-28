@@ -43,26 +43,15 @@ Under the hood, `bridl` will translate a selected profile into the appropriate `
 A profile will use YAML. An initial profile shape is:
 
 ```yaml
-name: engineering-default
-display_name: Engineering Default
+id: engineering-default
+label: Engineering Default
 inherits:
   - base-typescript
 
 controls:
-  env:
+  model: anthropic/claude-sonnet-4
+  environment:
     ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
-  args:
-    - --model
-    - anthropic/claude-sonnet-4
-  extensions:
-    - ./extensions/company-bootstrap
-  skills:
-    - ./skills/company-debugging
-  system_prompt: ./prompts/system.md
-  append_system_prompts:
-    - ./prompts/company-policy.md
-  session_dir: ~/.bridl/sessions/engineering-default
-  project_overrides: allow
 ```
 
 The exact stable schema is governed by the requirements in `requirements/` and the JSON Schema files in `src/schemas/`, which are still expected to evolve with implementation.

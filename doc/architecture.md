@@ -64,63 +64,11 @@ Development dependencies:
 
 The project includes `tsconfig.json` for strict typechecking across source, tests, and config, plus `tsconfig.build.json` for production emission from `src/` to `dist/`.
 
-## Repository Layout
+## Repository File Structure
 
-Proposed initial layout:
+The repository layout and source/test directory boundaries live in `doc/file_structure.md`.
 
-```text
-.
-├── doc/
-│   ├── architecture.md
-│   ├── controllable-elements.md
-│   └── specs/
-├── requirements/
-│   ├── BRIDL-REQ-001-project-foundation.md
-│   └── ...
-├── plan.md
-├── src/
-│   ├── cli/
-│   │   ├── BridlCli.ts
-│   │   └── commands/
-│   │       ├── RunCommand.ts
-│   │       ├── SetupCommand.ts
-│   │       ├── SyncCommand.ts
-│   │       └── CreateProfileCommand.ts
-│   ├── settings/
-│   │   ├── Settings.ts
-│   │   ├── SettingsLoader.ts
-│   │   └── SettingsMerger.ts
-│   ├── profiles/
-│   │   ├── Profile.ts
-│   │   ├── ProfileLoader.ts
-│   │   ├── ProfileMerger.ts
-│   │   └── ProfileSource.ts
-│   ├── tack/
-│   │   ├── Tack.ts
-│   │   ├── TackAssembler.ts
-│   │   ├── TackFile.ts
-│   │   └── TackWatcher.ts
-│   ├── agents/
-│   │   ├── AgentAdapter.ts
-│   │   └── pi/
-│   │       ├── PiAdapter.ts
-│   │       └── PiTackWriter.ts
-│   ├── schemas/
-│   │   ├── settings.schema.json
-│   │   ├── profile.schema.json
-│   │   └── profile-source.schema.json
-│   └── validation/
-│       └── SchemaValidator.ts
-├── tests/
-│   ├── fixtures/
-│   │   └── scenarios/
-│   └── unit/
-└── package.json
-```
-
-The exact layout may evolve, but the boundaries above should stay recognizable.
-
-## Configuration Directories
+## Settings Resolution
 
 Bridl uses a `.bridl` folder convention at multiple scopes:
 
@@ -486,20 +434,7 @@ Requirements:
 - deterministic tests for unsupported controls and `--hard-tack`;
 - scenario fixtures for common combinations instead of one-off bespoke setup.
 
-Scenario fixtures should live under `tests/fixtures/scenarios/`, for example:
-
-```text
-tests/fixtures/scenarios/
-  user-default-only/
-  project-overrides-user/
-  project-local-overrides-project/
-  uri-source-with-filter/
-  profile-inheritance-chain/
-  cli-specific-pi-overrides/
-  unsupported-control-warning/
-```
-
-Each scenario should include realistic `.bridl` folders and expected resolution output.
+Scenario fixture directory conventions are documented in `doc/file_structure.md`. Each scenario should include realistic `.bridl` folders and expected resolution output.
 
 ## Settled Initial Decisions
 

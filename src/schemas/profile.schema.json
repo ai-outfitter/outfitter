@@ -3,5 +3,30 @@
   "$id": "https://bridl.dev/schemas/profile.schema.json",
   "title": "Bridl profile",
   "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9._-]*[a-z0-9]$|^[a-z0-9]$"
+    },
+    "label": { "type": "string" },
+    "inherits": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z0-9][a-z0-9._-]*[a-z0-9]$|^[a-z0-9]$"
+      }
+    },
+    "controls": {
+      "type": "object",
+      "properties": {
+        "model": { "type": "string" },
+        "environment": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        }
+      },
+      "additionalProperties": true
+    }
+  },
   "additionalProperties": true
 }
