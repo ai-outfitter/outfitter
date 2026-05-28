@@ -2,27 +2,27 @@
 
 This plan describes the order of work. Formal obligations live in `requirements/`.
 
-## Phase 1: Project foundation
+## Phase 1: Project foundation — Done
 
-- Use npm with the committed `package.json` and `package-lock.json` as the dependency baseline.
-- Use Commander for CLI parsing, Vitest with V8 coverage for tests, ESLint with `typescript-eslint` for linting, and TypeScript strict mode.
-- Add the initial source layout for CLI command objects, settings, profiles, tack, adapters, schemas, and validation.
-- Wire CI-equivalent local commands: typecheck, lint, test, coverage.
+- [x] Use npm with the committed `package.json` and `package-lock.json` as the dependency baseline.
+- [x] Use Commander for CLI parsing, Vitest with V8 coverage for tests, ESLint with `typescript-eslint` for linting, and TypeScript strict mode.
+- [x] Add the initial source layout for CLI command objects, settings, profiles, tack, adapters, schemas, and validation.
+- [x] Wire CI-equivalent local commands: typecheck, lint, test, coverage.
 
-## Phase 2: Schemas and configuration loading
+## Phase 2: Schemas and configuration loading — In progress
 
-- Define `settings.yml` and `profile.yml` JSON Schemas.
-- Implement YAML parsing and schema validation with useful diagnostics.
-- Implement `.bridl/settings.yml` discovery across user, project, and project-local scopes.
-- Implement deterministic settings merging into the internal `Settings` object.
+- [x] Define initial `settings.yml` and `profile.yml` JSON Schemas.
+- [ ] Implement YAML parsing and schema validation with useful diagnostics.
+- [x] Implement `.bridl/settings.yml` discovery scaffolding across user, project, and project-local scopes.
+- [x] Implement deterministic settings merging into the internal `Settings` object.
 
-## Phase 3: Profile sources and profile resolution
+## Phase 3: Profile sources and profile resolution — In progress
 
-- Implement local profile source loading and `only` / `except` filters.
-- Implement profile folder validation and `profile.yml` parsing.
-- Implement profile scope precedence and merge behavior.
-- Implement inheritance resolution, default-profile inclusion, and cycle detection.
-- Add scenario fixtures for common source, inheritance, and precedence combinations.
+- [x] Implement local profile source loading and `only` / `except` filters.
+- [x] Implement profile folder validation and `profile.yml` parsing.
+- [ ] Implement profile scope precedence and merge behavior.
+- [ ] Implement inheritance resolution, default-profile inclusion, and cycle detection.
+- [ ] Add scenario fixtures for common source, inheritance, and precedence combinations.
 
 ## Phase 4: Setup and sync commands
 
