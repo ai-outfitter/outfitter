@@ -62,7 +62,7 @@ describe('source layout scaffolding', () => {
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('validates profile source entries with exactly one source location', () => {
     const ajv = new Ajv2020();
-    const profileSourceSchema = readJson<AnySchema>('../../schemas/profile-source.schema.json');
+    const profileSourceSchema = readJson<AnySchema>('../../src/schemas/profile-source.schema.json');
     const validate = ajv.compile(profileSourceSchema);
 
     expect(validate({ path: './profiles' })).toBe(true);
