@@ -33,7 +33,7 @@ bridl run --profile engineering-default
 bridl run -p support -- --cwd ~/work/customer-issue
 bridl sync
 bridl setup
-bridl create_profile --scope user --name regulated
+bridl create_profile regulated --scope user
 ```
 
 Under the hood, `bridl` will translate a selected profile into the appropriate `pi` launch environment, such as `PI_CODING_AGENT_DIR`, CLI flags, injected extensions, prompts, model settings, session directories, and environment variables.
@@ -70,15 +70,15 @@ See [`recommendation.md`](./recommendation.md) for current notes on pi startup b
 
 ## Status
 
-This repository is currently a skeleton. The README exists primarily to preserve project intent for future development and future agent sessions.
+This repository is under phased implementation.
 
-A minimal executable CLI shell exists, with initial settings/profile schemas plus local profile loading and resolution internals. Functional end-user commands and a stable profile schema do not exist yet. The initial dependency and architecture decisions are documented in `package.json`, `doc/architecture.md`, and `requirements/`.
+A minimal executable CLI shell exists, with initial settings/profile schemas, local profile loading and resolution internals, and first-pass `setup`, `sync`, and `create_profile` / `create-profile` commands. The `run` command and stable end-to-end pi launch behavior are still in progress. The initial dependency and architecture decisions are documented in `package.json`, `doc/architecture.md`, and `requirements/`.
 
 ## Future work
 
 - Define a stable profile schema.
 - Decide where organization-managed profiles are discovered from.
-- Implement `bridl run <profile>`.
+- Implement stable `bridl run --profile <profile>` behavior.
 - Add validation and inspection commands.
 - Wire resolved profile inheritance and composition into user-facing commands.
 - Add locking / policy controls for business-managed environments.
