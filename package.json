@@ -20,7 +20,7 @@
     "lint:fix": "eslint . --fix",
     "test": "vitest --run",
     "coverage": "vitest --run --coverage",
-    "snapper:format": "git ls-files -z '*.md' | xargs -0 snapper -i",
+    "snapper:format": "node scripts/run-snapper.mjs --git-md -i",
     "check": "npm run snapper:format && prettier --write . && npm run lint:fix && npm run coverage",
     "check-ci": "prettier --check . && npm run lint && npm run coverage"
   },

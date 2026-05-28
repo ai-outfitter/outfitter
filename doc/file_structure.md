@@ -19,6 +19,7 @@ Bridl is organized around clear TypeScript source boundaries, requirement docume
 │   └── ...
 ├── .prettierignore                    # Prettier ignore rules
 ├── .prettierrc.json                   # Prettier formatting configuration
+├── .snapperrc.toml                    # Snapper Markdown formatting configuration
 ├── plan.md                            # implementation plan
 ├── src/                               # production TypeScript source
 │   ├── cli/                           # CLI parser construction and command registration
@@ -54,6 +55,8 @@ Bridl is organized around clear TypeScript source boundaries, requirement docume
 │   │   └── profile-source.schema.json
 │   └── validation/                    # shared validation helpers
 │       └── SchemaValidator.ts
+├── scripts/                           # local development and formatting helper scripts
+│   └── run-snapper.mjs                # pinned Snapper binary downloader/runner
 ├── tests/                             # automated tests
 │   ├── fixtures/                      # reusable test fixtures
 │   │   └── scenarios/                 # realistic .bridl scenarios and expected outputs

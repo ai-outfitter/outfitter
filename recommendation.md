@@ -6,9 +6,7 @@
 A wrapper should primarily use separate `PI_CODING_AGENT_DIR` profile directories, then layer CLI flags and environment variables on top.
 For early in-process behavior changes, use a bootstrap extension passed with `--extension` / `-e`; it loads early enough to register providers, tools, flags, and prompt behavior, but not early enough to alter the config directory or initial settings discovery.
 
-## 1.
-
-Native pi mechanisms for different configurations
+## 1. Native pi mechanisms for different configurations
 
 ### Best native profile mechanism: separate agent directories
 
@@ -101,9 +99,7 @@ Bridl profiles control project-level behavior with one of these policies:
 2. Global profile plus current project's `.pi` overrides.
 3. Isolated profile launched from a controlled cwd / temp workspace when project overrides should not apply.
 
-## 2.
-
-Load order and injection opportunities
+## 2. Load order and injection opportunities
 
 ### High-level startup order
 

@@ -18,9 +18,9 @@
 ## Project checks
 
 - Run `npm run check` for local verification.
-  It runs ESLint with auto-fixing enabled, then runs the coverage test suite.
+  It runs Snapper on Markdown files, writes Prettier formatting, runs ESLint with auto-fixing enabled, then runs the coverage test suite.
 - Run `npm run check-ci` for CI-equivalent verification.
-  It runs the same lint and coverage checks without modifying files.
+  It checks Prettier formatting, then runs the same lint and coverage checks without modifying files.
 - `npm run coverage` enforces the configured Vitest coverage thresholds.
 - Coverage includes all `src/**/*.ts` files, so new source files need tests even if they are only scaffolding.
 
