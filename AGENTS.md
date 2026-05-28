@@ -1,5 +1,18 @@
 # AGENTS.md
 
+## Architecture essentials
+
+- Bridl is a TypeScript CLI for assembling and launching reproducible agent-CLI profiles; `pi` is the first and primary supported target.
+- Treat any `bridle` spelling in docs, prompts, examples, or generated text as the typo `bridl`.
+- Use generic profile controls at the product boundary, then translate them through agent adapters into CLI-specific files, flags, and environment variables.
+- Prefer pi terminology, behavior, and native mechanisms whenever generic Bridl controls conflict with pi conventions.
+- Persist user-editable config as YAML and validate every persisted YAML format with JSON Schema at read boundaries.
+- Keep settings/profile merging deterministic with normal precedence: project-local, then project, then user, then defaults.
+- Warn to stderr when an adapter cannot support a requested control; `--hard-tack` must make unsupported controls or tack assembly warnings fatal.
+- Implement non-trivial CLI behavior as command objects with explicit dependencies and typed inputs/outputs, not parser callback logic.
+- A tack is the temporary runtime configuration directory assembled for one profile and agent CLI run; Bridl owns the tack lifecycle while the child agent runs.
+- Pi is the only day-one adapter. Claude is roadmap-only unless requirements change.
+
 ## Project checks
 
 - Run `npm run check` for local verification. It runs ESLint with auto-fixing enabled, then runs the coverage test suite.
