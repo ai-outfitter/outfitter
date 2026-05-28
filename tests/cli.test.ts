@@ -43,6 +43,7 @@ describe('project foundation', () => {
     expect(buildTsconfig.compilerOptions.rootDir).toBe('src');
     expect(buildTsconfig.compilerOptions.outDir).toBe('dist');
     expect(buildTsconfig.compilerOptions.types).toEqual(['node']);
+    expect(packageJson.scripts.build).toContain('shx cp src/schemas/*.json dist/schemas/');
     expect(buildTsconfig.include).toEqual(['src/**/*.ts']);
   });
 

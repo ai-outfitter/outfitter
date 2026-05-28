@@ -14,7 +14,7 @@
     "README.md"
   ],
   "scripts": {
-    "build": "tsc -p tsconfig.build.json && shx chmod +x dist/cli.js",
+    "build": "tsc -p tsconfig.build.json && shx rm -rf dist/schemas && shx mkdir -p dist/schemas && shx cp src/schemas/*.json dist/schemas/ && shx chmod +x dist/cli.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
