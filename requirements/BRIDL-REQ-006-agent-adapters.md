@@ -2,7 +2,8 @@
 
 ## Overview
 
-Agent adapters translate generic Bridl profile controls into native configuration files, environment variables, and command-line arguments for specific agent CLIs. Pi is the only day-one supported adapter.
+Agent adapters translate generic Bridl profile controls into native configuration files, environment variables, and command-line arguments for specific agent CLIs.
+Pi is the only day-one supported adapter.
 
 ## Requirements
 

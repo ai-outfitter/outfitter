@@ -54,7 +54,9 @@ export const executeSetupCommand = (
     createdDefaultProfile,
     syncResult,
     messages: [
-      createdSettings ? `Created user settings at ${settingsPath}.` : `User settings already exists at ${settingsPath}; left unchanged.`,
+      createdSettings
+        ? `Created user settings at ${settingsPath}.`
+        : `User settings already exists at ${settingsPath}; left unchanged.`,
       createdDefaultProfile
         ? `Created default user profile '${defaultProfileId}' at ${defaultProfilePath}.`
         : `Default user profile '${defaultProfileId}' already exists at ${defaultProfilePath}; left unchanged.`,
@@ -68,22 +70,25 @@ export const createSetupCommand = (dependencies: SetupCommandDependencies = {}):
     name: 'setup',
     description: 'Create initial Bridl settings and a default profile.',
     register(program: Command): void {
-      program.command(command.name).description(command.description).action(() => {
-        const result = executeSetupCommand(
-          {
-            /* v8 ignore next -- default process home is exercised by the direct CLI entrypoint, not unit tests. */
-            homeDirectory: dependencies.homeDirectory ?? homedir(),
-            /* v8 ignore next -- default process cwd is exercised by the direct CLI entrypoint, not unit tests. */
-            projectDirectory: dependencies.projectDirectory ?? process.cwd(),
-          },
-          dependencies,
-        );
+      program
+        .command(command.name)
+        .description(command.description)
+        .action(() => {
+          const result = executeSetupCommand(
+            {
+              /* v8 ignore next -- default process home is exercised by the direct CLI entrypoint, not unit tests. */
+              homeDirectory: dependencies.homeDirectory ?? homedir(),
+              /* v8 ignore next -- default process cwd is exercised by the direct CLI entrypoint, not unit tests. */
+              projectDirectory: dependencies.projectDirectory ?? process.cwd(),
+            },
+            dependencies,
+          );
 
-        for (const message of result.messages) {
-          /* v8 ignore next -- console fallback is direct CLI behavior; tests inject a writer. */
-          (dependencies.writeLine ?? console.log)(message);
-        }
-      });
+          for (const message of result.messages) {
+            /* v8 ignore next -- console fallback is direct CLI behavior; tests inject a writer. */
+            (dependencies.writeLine ?? console.log)(message);
+          }
+        });
     },
   };
 
@@ -91,7 +96,10 @@ export const createSetupCommand = (dependencies: SetupCommandDependencies = {}):
 };
 
 const readUserDefaultProfileId = (
-  files: readonly { readonly location: { readonly scope: string }; readonly settings: { readonly defaultProfile?: string } }[],
+  files: readonly {
+    readonly location: { readonly scope: string };
+    readonly settings: { readonly defaultProfile?: string };
+  }[],
 ): string => files.find((file) => file.location.scope === 'user')?.settings.defaultProfile ?? 'default';
 
 const assertValidDefaultProfileId = (profileId: string): void => {
@@ -120,5 +128,8 @@ const createDefaultProfileIfMissing = (profilePath: string, profileId: string): 
   return true;
 };
 
-const formatSettingsIssue = (issue: { readonly filePath: string; readonly path: string; readonly message: string }): string =>
-  `${issue.filePath}#${issue.path} ${issue.message}`;
+const formatSettingsIssue = (issue: {
+  readonly filePath: string;
+  readonly path: string;
+  readonly message: string;
+}): string => `${issue.filePath}#${issue.path} ${issue.message}`;

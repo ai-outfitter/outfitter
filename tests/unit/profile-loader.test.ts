@@ -56,7 +56,11 @@ describe('profile loading', () => {
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('parses profile.yml files from profile folders with fallback folder identity', () => {
     const root = createProfileSourceRoot();
-    writeProfile(root, 'base', 'label: Base Profile\ninherits:\n  - shared\ncontrols:\n  environment:\n    MODE: test\n');
+    writeProfile(
+      root,
+      'base',
+      'label: Base Profile\ninherits:\n  - shared\ncontrols:\n  environment:\n    MODE: test\n',
+    );
     writeFileSync(join(root, 'README.md'), 'not a profile folder');
 
     const result = loadLocalProfileSource(createLocalProfileSource(root));

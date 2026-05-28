@@ -3,4 +3,4 @@ label: Project Engineering
 controls:
   environment:
     SHARED: project
-    PROJECT_ONLY: "yes"
+    PROJECT_ONLY: 'yes'

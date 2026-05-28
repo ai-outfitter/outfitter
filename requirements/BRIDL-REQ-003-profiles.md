@@ -2,7 +2,8 @@
 
 ## Overview
 
-Profiles describe reusable agent-CLI loadouts. Bridl resolves profile definitions across settings scopes, explicit sources, inherited profiles, and the implicit user default profile.
+Profiles describe reusable agent-CLI loadouts.
+Bridl resolves profile definitions across settings scopes, explicit sources, inherited profiles, and the implicit user default profile.
 
 ## Requirements
 

@@ -2,5 +2,5 @@ id: base
 controls:
   model: base-model
   environment:
-    BASE: "enabled"
+    BASE: 'enabled'
     SHARED: base

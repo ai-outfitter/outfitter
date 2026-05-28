@@ -6,7 +6,11 @@ import { dirname } from 'node:path';
 import type { Command } from 'commander';
 import spawn from 'cross-spawn';
 
-import { createProfileSourceCachePath, normalizeGitUri, redactProfileSourceUriCredentials } from '../../profiles/ProfileCache.js';
+import {
+  createProfileSourceCachePath,
+  normalizeGitUri,
+  redactProfileSourceUriCredentials,
+} from '../../profiles/ProfileCache.js';
 import { loadLocalProfileSource } from '../../profiles/ProfileLoader.js';
 import type { ProfileSourceReference } from '../../profiles/ProfileSource.js';
 import { discoverSettingsLoadPlan, loadSettings } from '../../settings/SettingsLoader.js';
@@ -58,9 +62,10 @@ export const executeSyncCommand = (
 
   return {
     sources: sourceResults,
-    messages: sourceResults.length === 0
-      ? ['No URI profile sources configured; nothing to sync.']
-      : sourceResults.map((result) => `${result.status}: ${result.uri} -> ${result.cachePath} (${result.message})`),
+    messages:
+      sourceResults.length === 0
+        ? ['No URI profile sources configured; nothing to sync.']
+        : sourceResults.map((result) => `${result.status}: ${result.uri} -> ${result.cachePath} (${result.message})`),
   };
 };
 
@@ -69,22 +74,25 @@ export const createSyncCommand = (dependencies: SyncCommandDependencies = {}): C
     name: 'sync',
     description: 'Synchronize URI-backed Bridl profile sources into the local cache.',
     register(program: Command): void {
-      program.command(command.name).description(command.description).action(() => {
-        const result = executeSyncCommand(
-          {
-            /* v8 ignore next -- default process home is exercised by the direct CLI entrypoint, not unit tests. */
-            homeDirectory: dependencies.homeDirectory ?? homedir(),
-            /* v8 ignore next -- default process cwd is exercised by the direct CLI entrypoint, not unit tests. */
-            projectDirectory: dependencies.projectDirectory ?? process.cwd(),
-          },
-          dependencies,
-        );
+      program
+        .command(command.name)
+        .description(command.description)
+        .action(() => {
+          const result = executeSyncCommand(
+            {
+              /* v8 ignore next -- default process home is exercised by the direct CLI entrypoint, not unit tests. */
+              homeDirectory: dependencies.homeDirectory ?? homedir(),
+              /* v8 ignore next -- default process cwd is exercised by the direct CLI entrypoint, not unit tests. */
+              projectDirectory: dependencies.projectDirectory ?? process.cwd(),
+            },
+            dependencies,
+          );
 
-        for (const message of result.messages) {
-          /* v8 ignore next -- console fallback is direct CLI behavior; tests inject a writer. */
-          (dependencies.writeLine ?? console.log)(message);
-        }
-      });
+          for (const message of result.messages) {
+            /* v8 ignore next -- console fallback is direct CLI behavior; tests inject a writer. */
+            (dependencies.writeLine ?? console.log)(message);
+          }
+        });
     },
   };
 
@@ -116,9 +124,8 @@ const syncUriSource = (
       uri: displayUri,
       cachePath,
       status,
-      message: validation.profiles.length === 1
-        ? '1 profile validated.'
-        : `${validation.profiles.length} profiles validated.`,
+      message:
+        validation.profiles.length === 1 ? '1 profile validated.' : `${validation.profiles.length} profiles validated.`,
     };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
@@ -165,8 +172,11 @@ const redactSensitiveText = (message: string, uri: string): string =>
     .split(normalizeGitUri(uri))
     .join(redactProfileSourceUriCredentials(normalizeGitUri(uri)));
 
-const formatSettingsIssue = (issue: { readonly filePath: string; readonly path: string; readonly message: string }): string =>
-  `${issue.filePath}#${issue.path} ${issue.message}`;
+const formatSettingsIssue = (issue: {
+  readonly filePath: string;
+  readonly path: string;
+  readonly message: string;
+}): string => `${issue.filePath}#${issue.path} ${issue.message}`;
 
 const formatProfileIssue = (issue: { readonly path: string; readonly message: string }): string =>
   `${issue.path} ${issue.message}`;

@@ -20,8 +20,9 @@
     "lint:fix": "eslint . --fix",
     "test": "vitest --run",
     "coverage": "vitest --run --coverage",
-    "check": "npm run lint:fix && npm run coverage",
-    "check-ci": "npm run lint && npm run coverage"
+    "snapper:format": "git ls-files -z '*.md' | xargs -0 snapper -i",
+    "check": "npm run snapper:format && prettier --write . && npm run lint:fix && npm run coverage",
+    "check-ci": "prettier --check . && npm run lint && npm run coverage"
   },
   "dependencies": {
     "ajv": "^8.20.0",
@@ -40,6 +41,7 @@
     "@types/node": "^22.19.19",
     "@vitest/coverage-v8": "^4.1.7",
     "eslint": "^10.4.0",
+    "prettier": "^3.8.3",
     "shx": "^0.4.0",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.60.0",

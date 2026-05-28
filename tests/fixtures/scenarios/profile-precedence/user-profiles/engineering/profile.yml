@@ -5,4 +5,4 @@ controls:
   model: user-model
   environment:
     SHARED: user
-    USER_ONLY: "yes"
+    USER_ONLY: 'yes'

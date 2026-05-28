@@ -26,4 +26,4 @@ export const redactProfileSourceUriCredentials = (uri: string): string => {
   }
 };
 
-export const normalizeGitUri = (uri: string): string => uri.startsWith('git+') ? uri.slice('git+'.length) : uri;
+export const normalizeGitUri = (uri: string): string => (uri.startsWith('git+') ? uri.slice('git+'.length) : uri);

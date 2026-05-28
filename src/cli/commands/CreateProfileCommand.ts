@@ -118,7 +118,10 @@ const assertValidCreateProfileInput = (input: CreateProfileInput): void => {
     throw new Error(`Profile name '${input.name}' is not a filesystem-safe Bridl profile id.`);
   }
 
-  if ((input.scope === undefined && input.path === undefined) || (input.scope !== undefined && input.path !== undefined)) {
+  if (
+    (input.scope === undefined && input.path === undefined) ||
+    (input.scope !== undefined && input.path !== undefined)
+  ) {
     throw new Error('Create profile requires exactly one destination: --scope or --path.');
   }
 };
@@ -141,7 +144,8 @@ const resolveProfileRoot = (input: CreateProfileInput): string => {
   }
 };
 
-const createPlaceholderProfileYaml = (profileId: string): string => `id: ${profileId}\nlabel: ${profileId}\ncontrols: {}\n`;
+const createPlaceholderProfileYaml = (profileId: string): string =>
+  `id: ${profileId}\nlabel: ${profileId}\ncontrols: {}\n`;
 
 const readCreateProfileScope = (scope: string | undefined): CreateProfileScope | undefined => {
   if (scope === undefined) {

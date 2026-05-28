@@ -2,7 +2,8 @@
 
 ## Purpose
 
-Bridl is a TypeScript CLI that assembles and launches reproducible agent-CLI profiles. It is generic enough for organizations to define profiles once and run them across multiple agent CLIs, while supporting `pi` first, most deeply, and most natively.
+Bridl is a TypeScript CLI that assembles and launches reproducible agent-CLI profiles.
+It is generic enough for organizations to define profiles once and run them across multiple agent CLIs, while supporting `pi` first, most deeply, and most natively.
 
 Formal implementation requirements live in `requirements/`; this document explains the architectural shape behind those requirements.
 
@@ -25,9 +26,12 @@ Formal implementation requirements live in `requirements/`; this document explai
 
 - Runtime: Node.js `>=22.19.0`.
 - Language: TypeScript.
-- Package manager: npm. This matches the current pi-coding-agent package distribution model and gives Bridl a conventional `package-lock.json`-based install path.
-- CLI framework: Commander `^14`. Commander is the initial choice because it supports default commands, command aliases, `allowUnknownOption`, pass-through argument collection, and testable parser construction without spawning child processes.
-- Test framework: Vitest `^4` with `@vitest/coverage-v8`. Pi currently uses Vitest, and Vitest is well suited to TypeScript unit tests around command objects and generated launch plans.
+- Package manager: npm.
+  This matches the current pi-coding-agent package distribution model and gives Bridl a conventional `package-lock.json`-based install path.
+- CLI framework: Commander `^14`.
+  Commander is the initial choice because it supports default commands, command aliases, `allowUnknownOption`, pass-through argument collection, and testable parser construction without spawning child processes.
+- Test framework: Vitest `^4` with `@vitest/coverage-v8`.
+  Pi currently uses Vitest, and Vitest is well suited to TypeScript unit tests around command objects and generated launch plans.
 - Coverage: 100% global threshold for statements, branches, functions, and lines from the first implementation.
 - Linting: ESLint `^10`, `@eslint/js`, and `typescript-eslint`, with `complexity: ["error", 10]`.
 - Schema and validation: TypeBox for schema authoring where TypeScript-schema coupling is useful, JSON Schema artifacts for persisted format contracts, and AJV for runtime validation.
@@ -88,7 +92,8 @@ Bridl uses a `.bridl` folder convention at multiple scopes:
   profiles/
 ```
 
-All discovered `settings.yml` files are collectively referred to as Bridl settings. The internal `Settings` object is the single conceptual result of reading all settings sources and applying precedence.
+All discovered `settings.yml` files are collectively referred to as Bridl settings.
+The internal `Settings` object is the single conceptual result of reading all settings sources and applying precedence.
 
 Note they are all the same in conceptual structure, with the exceptions that the <project>/.bridl/ contains the local one inside it, and the ~/.bridl includes the cache folder.
 
@@ -105,7 +110,8 @@ Future sources can be added behind the same `SettingsLoader` abstraction.
 
 ### Required User Default Profile
 
-`~/.bridl/settings.yml` MUST declare a default profile after setup completes. This guarantees `bridl run` can resolve a profile even when no `--profile` is provided.
+`~/.bridl/settings.yml` MUST declare a default profile after setup completes.
+This guarantees `bridl run` can resolve a profile even when no `--profile` is provided.
 
 Example:
 
@@ -258,7 +264,8 @@ Tacks are generated under the system temp directory so they can be reclaimed tri
 $TMPDIR/bridl/tacks/<run-id>/
 ```
 
-During `bridl run`, the Bridl process remains alive while the child agent CLI runs. It owns the tack lifecycle.
+During `bridl run`, the Bridl process remains alive while the child agent CLI runs.
+It owns the tack lifecycle.
 
 ### Tack Assembly
 
@@ -306,7 +313,8 @@ The adapter owns CLI-specific details such as env vars, flags, copied files, war
 
 ### Initial Adapter: Pi
 
-Pi is the only day-one supported adapter. Bridl should prefer native pi mechanisms:
+Pi is the only day-one supported adapter.
+Bridl should prefer native pi mechanisms:
 
 - `PI_CODING_AGENT_DIR` for profile-scoped global state;
 - `PI_CODING_AGENT_SESSION_DIR` or `--session-dir` for sessions;
@@ -434,7 +442,8 @@ Requirements:
 - deterministic tests for unsupported controls and `--hard-tack`;
 - scenario fixtures for common combinations instead of one-off bespoke setup.
 
-Scenario fixture directory conventions are documented in `doc/file_structure.md`. Each scenario should include realistic `.bridl` folders and expected resolution output.
+Scenario fixture directory conventions are documented in `doc/file_structure.md`.
+Each scenario should include realistic `.bridl` folders and expected resolution output.
 
 ## Settled Initial Decisions
 

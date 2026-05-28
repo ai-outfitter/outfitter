@@ -3,5 +3,5 @@ inherits: [base]
 controls:
   model: engineering-model
   environment:
-    ENGINEERING: "enabled"
+    ENGINEERING: 'enabled'
     SHARED: engineering

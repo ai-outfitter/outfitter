@@ -1,6 +1,7 @@
 # TypeScript Conventions
 
-This project is planned as a TypeScript CLI/wrapper. Until implementation code exists, use these placeholder conventions as reviewable defaults.
+This project is planned as a TypeScript CLI/wrapper.
+Until implementation code exists, use these placeholder conventions as reviewable defaults.
 
 ## General style
 

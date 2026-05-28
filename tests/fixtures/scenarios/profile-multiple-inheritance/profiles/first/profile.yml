@@ -1,5 +1,5 @@
 id: first
 controls:
   environment:
-    FIRST: "enabled"
+    FIRST: 'enabled'
     SHARED: first

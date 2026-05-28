@@ -2,7 +2,8 @@
 
 ## Overview
 
-Bridl is a TypeScript CLI project. This document specifies the baseline runtime, language, test, lint, and documentation conventions that must exist before feature work grows.
+Bridl is a TypeScript CLI project.
+This document specifies the baseline runtime, language, test, lint, and documentation conventions that must exist before feature work grows.
 
 ## Requirements
 
@@ -15,7 +16,6 @@ Bridl is a TypeScript CLI project. This document specifies the baseline runtime,
 5. The project MUST use npm as its package manager for the first version.
 6. The project MUST commit `package-lock.json` after dependency installation or updates.
 7. When an implementation library choice remains unclear, the project SHOULD prefer the same library or convention used by pi.dev.
-
 
 ### BRIDL-REQ-001.2: Test Framework and Coverage
 

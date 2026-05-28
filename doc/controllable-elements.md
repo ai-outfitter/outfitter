@@ -1,6 +1,8 @@
 # Controllable Elements
 
-This document defines cross-agent-CLI concepts that Bridl profiles may control. Pi is the planned first supported CLI, but this project skeleton does not yet implement runtime adapter support. Other CLIs are listed to keep the model generic and to clarify future adapter work.
+This document defines cross-agent-CLI concepts that Bridl profiles may control.
+Pi is the planned first supported CLI, but this project skeleton does not yet implement runtime adapter support.
+Other CLIs are listed to keep the model generic and to clarify future adapter work.
 
 Status values:
 
@@ -124,25 +126,27 @@ An early-startup customization used to register providers, tools, hooks, or addi
 
 ## Support Matrix
 
-| Controllable Element | Pi | Claude |
-| --- | --- | --- |
-| Agent Config Directory | Roadmap | Roadmap |
-| Session Directory | Roadmap | Roadmap |
-| Extensions | Roadmap | Roadmap |
-| Skills | Roadmap | Roadmap |
-| Prompt Templates | Roadmap | Roadmap |
-| System Prompt | Roadmap | Roadmap |
-| Appended System Prompt | Roadmap | Roadmap |
-| Model Selection | Roadmap | Roadmap |
+| Controllable Element        | Pi      | Claude  |
+| --------------------------- | ------- | ------- |
+| Agent Config Directory      | Roadmap | Roadmap |
+| Session Directory           | Roadmap | Roadmap |
+| Extensions                  | Roadmap | Roadmap |
+| Skills                      | Roadmap | Roadmap |
+| Prompt Templates            | Roadmap | Roadmap |
+| System Prompt               | Roadmap | Roadmap |
+| Appended System Prompt      | Roadmap | Roadmap |
+| Model Selection             | Roadmap | Roadmap |
 | Credentials and Environment | Roadmap | Roadmap |
-| Tool Availability | Roadmap | Roadmap |
-| Context Files | Roadmap | Roadmap |
-| Theme / UI Presentation | Roadmap | Roadmap |
-| Project Override Policy | Roadmap | Roadmap |
-| Working Directory | Roadmap | Roadmap |
-| Pass-through Arguments | Roadmap | Roadmap |
-| Bootstrap Hook | Roadmap | Roadmap |
+| Tool Availability           | Roadmap | Roadmap |
+| Context Files               | Roadmap | Roadmap |
+| Theme / UI Presentation     | Roadmap | Roadmap |
+| Project Override Policy     | Roadmap | Roadmap |
+| Working Directory           | Roadmap | Roadmap |
+| Pass-through Arguments      | Roadmap | Roadmap |
+| Bootstrap Hook              | Roadmap | Roadmap |
 
 ## Day-One Interpretation
 
-For v1, a Bridl profile may describe all defined terms generically. The Pi adapter is the first implementation target, and its matrix entries should move from Roadmap to Supported only as tested adapter behavior lands. Any non-Pi adapter should be considered experimental until its matrix entries are upgraded from Roadmap to Supported.
+For v1, a Bridl profile may describe all defined terms generically.
+The Pi adapter is the first implementation target, and its matrix entries should move from Roadmap to Supported only as tested adapter behavior lands.
+Any non-Pi adapter should be considered experimental until its matrix entries are upgraded from Roadmap to Supported.

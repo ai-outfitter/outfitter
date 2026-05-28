@@ -6,7 +6,8 @@ The goal is "manageable pi": organizations should be able to define standard pi 
 
 ## Why this exists
 
-Pi is highly configurable through settings directories, extensions, skills, prompts, themes, model settings, environment variables, and CLI flags. That flexibility is powerful, but businesses often need a higher-level control plane for repeatable deployments.
+Pi is highly configurable through settings directories, extensions, skills, prompts, themes, model settings, environment variables, and CLI flags.
+That flexibility is powerful, but businesses often need a higher-level control plane for repeatable deployments.
 
 `bridl` should make it easy to answer questions like:
 
@@ -40,7 +41,8 @@ Under the hood, `bridl` will translate a selected profile into the appropriate `
 
 ## Profile model sketch
 
-A profile will use YAML. An initial profile shape is:
+A profile will use YAML.
+An initial profile shape is:
 
 ```yaml
 id: engineering-default
@@ -72,7 +74,9 @@ See [`recommendation.md`](./recommendation.md) for current notes on pi startup b
 
 This repository is under phased implementation.
 
-A minimal executable CLI shell exists, with initial settings/profile schemas, local profile loading and resolution internals, and first-pass `setup`, `sync`, and `create_profile` / `create-profile` commands. The `run` command and stable end-to-end pi launch behavior are still in progress. The initial dependency and architecture decisions are documented in `package.json`, `doc/architecture.md`, and `requirements/`.
+A minimal executable CLI shell exists, with initial settings/profile schemas, local profile loading and resolution internals, and first-pass `setup`, `sync`, and `create_profile` / `create-profile` commands.
+The `run` command and stable end-to-end pi launch behavior are still in progress.
+The initial dependency and architecture decisions are documented in `package.json`, `doc/architecture.md`, and `requirements/`.
 
 ## Future work
 

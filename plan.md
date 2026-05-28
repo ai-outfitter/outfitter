@@ -1,6 +1,7 @@
 # Bridl Phased Implementation Plan
 
-This plan describes the order of work. Formal obligations live in `requirements/`.
+This plan describes the order of work.
+Formal obligations live in `requirements/`.
 
 ## Phase 1: Project foundation — Done
 

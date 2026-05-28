@@ -2,9 +2,13 @@
 
 ## Summary
 
-`pi` already has a strong native foundation for launching in different configurations. A wrapper should primarily use separate `PI_CODING_AGENT_DIR` profile directories, then layer CLI flags and environment variables on top. For early in-process behavior changes, use a bootstrap extension passed with `--extension` / `-e`; it loads early enough to register providers, tools, flags, and prompt behavior, but not early enough to alter the config directory or initial settings discovery.
+`pi` already has a strong native foundation for launching in different configurations.
+A wrapper should primarily use separate `PI_CODING_AGENT_DIR` profile directories, then layer CLI flags and environment variables on top.
+For early in-process behavior changes, use a bootstrap extension passed with `--extension` / `-e`; it loads early enough to register providers, tools, flags, and prompt behavior, but not early enough to alter the config directory or initial settings discovery.
 
-## 1. Native pi mechanisms for different configurations
+## 1.
+
+Native pi mechanisms for different configurations
 
 ### Best native profile mechanism: separate agent directories
 
@@ -90,13 +94,16 @@ Pi also reads project-local configuration from:
 .pi/APPEND_SYSTEM.md
 ```
 
-Project settings override global settings. Bridl profiles control project-level behavior with one of these policies:
+Project settings override global settings.
+Bridl profiles control project-level behavior with one of these policies:
 
 1. Global profile only via `PI_CODING_AGENT_DIR`.
 2. Global profile plus current project's `.pi` overrides.
 3. Isolated profile launched from a controlled cwd / temp workspace when project overrides should not apply.
 
-## 2. Load order and injection opportunities
+## 2.
+
+Load order and injection opportunities
 
 ### High-level startup order
 
@@ -125,7 +132,8 @@ Pi roughly starts in this order:
 
 ### Useful injection point: `--extension`
 
-Explicit CLI extensions are merged before configured/discovered extensions. A wrapper can inject a bootstrap extension with:
+Explicit CLI extensions are merged before configured/discovered extensions.
+A wrapper can inject a bootstrap extension with:
 
 ```bash
 pi -e /path/to/bootstrap-extension ...
@@ -145,7 +153,8 @@ This is the best hook for code that needs to run early inside pi.
 
 ### Limits of extension injection
 
-A bootstrap extension does not run before everything. It cannot cleanly affect:
+A bootstrap extension does not run before everything.
+It cannot cleanly affect:
 
 - which `agentDir` is used
 - initial settings file paths
@@ -166,7 +175,7 @@ Each wrapper profile can map to something like:
 agent_dir: ~/.bridl/work
 env:
   ANTHROPIC_API_KEY: ...optional...
-  PI_OFFLINE: "1"
+  PI_OFFLINE: '1'
 args:
   - --model
   - anthropic/claude-sonnet-4
@@ -216,4 +225,6 @@ Use this priority model:
 
 Pi already has a native profile mechanism through `PI_CODING_AGENT_DIR`; this should be the core of `bridl`'s wrapper design.
 
-For early in-process injection, use `-e bootstrap-extension`. It loads early enough to register providers/tools/flags and affect model availability and per-turn prompts, but not early enough to change config directory selection or initial settings discovery. Those must be controlled by the wrapper before launching pi.
+For early in-process injection, use `-e bootstrap-extension`.
+It loads early enough to register providers/tools/flags and affect model availability and per-turn prompts, but not early enough to change config directory selection or initial settings discovery.
+Those must be controlled by the wrapper before launching pi.
