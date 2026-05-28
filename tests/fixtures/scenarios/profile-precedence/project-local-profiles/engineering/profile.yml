@@ -1,0 +1,6 @@
+id: engineering
+controls:
+  model: local-model
+  environment:
+    SHARED: local
+    LOCAL_ONLY: "yes"

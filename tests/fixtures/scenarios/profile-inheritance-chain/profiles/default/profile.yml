@@ -1,0 +1,6 @@
+id: default
+inherits: [base]
+controls:
+  environment:
+    DEFAULT: "enabled"
+    SHARED: default

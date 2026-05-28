@@ -1,0 +1,8 @@
+id: engineering
+label: User Engineering
+inherits: [base]
+controls:
+  model: user-model
+  environment:
+    SHARED: user
+    USER_ONLY: "yes"
