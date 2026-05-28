@@ -1,4 +1,6 @@
 // Tests profile precedence, inheritance resolution, default inclusion, and cycle diagnostics.
+import { fileURLToPath } from 'node:url';
+
 import { describe, expect, it } from 'vitest';
 
 import type { LoadedProfile } from '../../src/profiles/ProfileLoader.js';
@@ -7,7 +9,7 @@ import { resolveProfile } from '../../src/profiles/ProfileMerger.js';
 import { createLocalProfileSource, createUriProfileSource } from '../../src/profiles/ProfileSource.js';
 
 const scenarioPath = (name: string, childPath = ''): string =>
-  new URL(`../fixtures/scenarios/${name}/${childPath}`, import.meta.url).pathname;
+  fileURLToPath(new URL(`../fixtures/scenarios/${name}/${childPath}`, import.meta.url));
 
 const createLoadedProfile = (loadedProfile: Omit<LoadedProfile, 'folderPath' | 'profilePath'>): LoadedProfile => ({
   ...loadedProfile,
