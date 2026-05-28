@@ -65,7 +65,7 @@ controls:
   project_overrides: allow
 ```
 
-The exact stable schema is governed by the requirements in `requirements/` and the JSON Schema files that will be added with implementation.
+The exact stable schema is governed by the requirements in `requirements/` and the JSON Schema files in `src/schemas/`, which are still expected to evolve with implementation.
 
 ## Design direction
 

@@ -1,0 +1,7 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bridl.dev/schemas/profile.schema.json",
+  "title": "Bridl profile",
+  "type": "object",
+  "additionalProperties": true
+}

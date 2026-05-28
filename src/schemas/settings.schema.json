@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bridl.dev/schemas/settings.schema.json",
+  "title": "Bridl settings",
+  "type": "object",
+  "properties": {
+    "default_profile": { "type": "string", "minLength": 1 },
+    "profile_sources": {
+      "type": "array",
+      "items": { "$ref": "profile-source.schema.json" }
+    }
+  },
+  "additionalProperties": true
+}
