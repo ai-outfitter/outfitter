@@ -70,6 +70,7 @@ requirements_traceability:
     include:
       - "requirements/BRIDL-REQ-*.md"
       - "src/**/*.ts"
+      - "src/schemas/**/*.json"
       - "bin/**/*.ts"
       - "tests/**/*.ts"
       - "tests/**/*.tsx"
@@ -189,6 +190,7 @@ update_readme:
       - "package.json"
       - "tsconfig.json"
       - "src/**/*.ts"
+      - "src/schemas/**/*.json"
       - "bin/**/*.ts"
   review:
     strategy: matches_together
