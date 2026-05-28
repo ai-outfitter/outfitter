@@ -1,0 +1,5 @@
+# snapper project configuration
+# Keep numbered Markdown headings such as "## 1. Title" on one heading line.
+extra_abbreviations = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10"]
+format = "markdown"
+max_width = 0
