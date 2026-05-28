@@ -25,5 +25,5 @@
 
 - Prefer `npm run check` before handing work back if auto-fixable lint issues may exist.
 - Use `npm run check-ci` when you need a non-mutating validation pass, such as in CI or before reviewing the final diff.
-- When adding files or changing directory layout, first check `doc/architecture.md` for current structure and update the relevant documentation afterward.
+- When adding files or changing directory layout, first check `doc/file_structure.md` for current structure and update the relevant documentation afterward.
 - When adding tests that validate formal requirements, include the required two-line traceability comment immediately before the relevant `it(...)` or `describe(...)` block.
