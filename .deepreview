@@ -157,6 +157,29 @@ test_file_quality:
       - FAIL: Issues found. List each with the test name, line number, and a
         concise description.
 
+doc_consistency:
+  description: "Verify architecture and file structure documentation stay consistent."
+  match:
+    include:
+      - "doc/architecture.md"
+      - "doc/file_structure.md"
+  review:
+    strategy: matches_together
+    additional_context:
+      unchanged_matching_files: true
+    instructions: |
+      Review doc/architecture.md and doc/file_structure.md together for consistency.
+
+      Check that:
+      1. doc/file_structure.md stays limited to repository file structure, not runtime instance file conventions.
+      2. Runtime file conventions such as settings directories, profile folders, and tack paths live in doc/architecture.md.
+      3. Cross-document links and filenames are accurate.
+      4. Terminology such as profile, tack, settings, adapter, and pi is used consistently.
+
+      Output Format:
+      - PASS: The documents are consistent and links are accurate.
+      - FAIL: Issues found. List each conflicting statement, missing update, or broken reference with a line reference.
+
 controllable_elements_matrix:
   description: "Verify BRIDL-REQ-007 controllable element documentation has a complete support matrix."
   match:

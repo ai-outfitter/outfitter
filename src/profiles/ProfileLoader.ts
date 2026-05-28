@@ -105,7 +105,7 @@ const addProfileFromFolder = (
   const profile = parseProfileYaml(readFileSync(profilePath, 'utf8'), fallbackId);
 
   if ('message' in profile) {
-    issues.push({ path: profilePath, message: profile.message });
+    issues.push({ path: `${profilePath}#${profile.path}`, message: profile.message });
   } else if (isProfileIncludedBySource(profile.id, source)) {
     profiles.push({ source, folderPath, profilePath, profile });
   }
@@ -176,4 +176,12 @@ const readEnvironment = (value: unknown): Readonly<Record<string, string>> | und
   return Object.fromEntries(
     Object.entries(environment).filter((entry): entry is [string, string] => typeof entry[1] === 'string'),
   );
+};
+
+export const readErrorMessage = (error: unknown): string => {
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  return String(error);
 };
