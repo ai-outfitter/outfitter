@@ -1,0 +1,7 @@
+id: engineering
+inherits: [base]
+controls:
+  model: engineering-model
+  environment:
+    ENGINEERING: "enabled"
+    SHARED: engineering

@@ -9,20 +9,20 @@ This plan describes the order of work. Formal obligations live in `requirements/
 - [x] Add the initial source layout for CLI command objects, settings, profiles, tack, adapters, schemas, and validation.
 - [x] Wire CI-equivalent local commands: typecheck, lint, test, coverage.
 
-## Phase 2: Schemas and configuration loading — In progress
+## Phase 2: Schemas and configuration loading — Done
 
 - [x] Define initial `settings.yml` and `profile.yml` JSON Schemas.
-- [ ] Implement YAML parsing and schema validation with useful diagnostics.
+- [x] Implement YAML parsing and schema validation with useful diagnostics.
 - [x] Implement `.bridl/settings.yml` discovery scaffolding across user, project, and project-local scopes.
 - [x] Implement deterministic settings merging into the internal `Settings` object.
 
-## Phase 3: Profile sources and profile resolution — In progress
+## Phase 3: Profile sources and profile resolution — Done
 
 - [x] Implement local profile source loading and `only` / `except` filters.
 - [x] Implement profile folder validation and `profile.yml` parsing.
-- [ ] Implement profile scope precedence and merge behavior.
-- [ ] Implement inheritance resolution, default-profile inclusion, and cycle detection.
-- [ ] Add scenario fixtures for common source, inheritance, and precedence combinations.
+- [x] Implement profile scope precedence and merge behavior.
+- [x] Implement inheritance resolution, default-profile inclusion, and cycle detection.
+- [x] Add scenario fixtures for common source, inheritance, and precedence combinations.
 
 ## Phase 4: Setup and sync commands
 

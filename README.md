@@ -72,7 +72,7 @@ See [`recommendation.md`](./recommendation.md) for current notes on pi startup b
 
 This repository is currently a skeleton. The README exists primarily to preserve project intent for future development and future agent sessions.
 
-A minimal executable CLI shell exists, but functional commands and a stable profile schema do not exist yet. The initial dependency and architecture decisions are documented in `package.json`, `doc/architecture.md`, and `requirements/`.
+A minimal executable CLI shell exists, with initial settings/profile schemas plus local profile loading and resolution internals. Functional end-user commands and a stable profile schema do not exist yet. The initial dependency and architecture decisions are documented in `package.json`, `doc/architecture.md`, and `requirements/`.
 
 ## Future work
 
@@ -80,6 +80,6 @@ A minimal executable CLI shell exists, but functional commands and a stable prof
 - Decide where organization-managed profiles are discovered from.
 - Implement `bridl run <profile>`.
 - Add validation and inspection commands.
-- Add support for profile inheritance or composition.
+- Wire resolved profile inheritance and composition into user-facing commands.
 - Add locking / policy controls for business-managed environments.
 - Add examples for common organizational deployments.

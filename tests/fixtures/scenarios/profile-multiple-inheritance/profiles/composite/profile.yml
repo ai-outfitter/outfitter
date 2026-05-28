@@ -1,0 +1,7 @@
+id: composite
+inherits: [first, second]
+controls:
+  model: composite-model
+  environment:
+    COMPOSITE: "enabled"
+    SHARED: composite
