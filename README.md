@@ -74,16 +74,16 @@ See [`recommendation.md`](./recommendation.md) for current notes on pi startup b
 
 This repository is under phased implementation.
 
-A minimal executable CLI shell exists, with initial settings/profile schemas, local profile loading and resolution internals, and first-pass `setup`, `sync`, and `create_profile` / `create-profile` commands.
-The `run` command and stable end-to-end pi launch behavior are still in progress.
+A minimal executable CLI exists, with initial settings/profile schemas, local and URI-backed profile loading, profile resolution internals, first-pass `setup`, `sync`, and `create_profile` / `create-profile` commands, and a first-pass `run` command for assembling a temporary tack and launching pi.
+Stable end-to-end pi launch behavior and user-facing examples will be hardened in a later phase.
 The initial dependency and architecture decisions are documented in `package.json`, `doc/architecture.md`, and `requirements/`.
 
 ## Future work
 
 - Define a stable profile schema.
 - Decide where organization-managed profiles are discovered from.
-- Implement stable `bridl run --profile <profile>` behavior.
+- Harden stable `bridl run --profile <profile>` behavior.
 - Add validation and inspection commands.
-- Wire resolved profile inheritance and composition into user-facing commands.
+- Expand user-facing documentation for resolved profile inheritance and composition.
 - Add locking / policy controls for business-managed environments.
 - Add examples for common organizational deployments.

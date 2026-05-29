@@ -21,6 +21,7 @@ Bridl is organized around clear TypeScript source boundaries, requirement docume
 ├── .prettierrc.json                   # Prettier formatting configuration
 ├── .snapperrc.toml                    # Snapper Markdown formatting configuration
 ├── plan.md                            # implementation plan
+├── contributor.md                     # local install and contributor workflow guide
 ├── src/                               # production TypeScript source
 │   ├── cli/                           # CLI parser construction and command registration
 │   │   ├── BridlCli.ts

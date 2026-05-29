@@ -168,25 +168,22 @@ Anything that must affect config paths, credential storage location, or initial 
 Each wrapper profile can map to something like:
 
 ```yaml
-agent_dir: ~/.bridl/work
-env:
-  ANTHROPIC_API_KEY: ...optional...
-  PI_OFFLINE: '1'
-args:
-  - --model
-  - anthropic/claude-sonnet-4
-  - --thinking
-  - medium
-extensions:
-  - /path/to/bootstrap.ts
-  - /path/to/team-extension
-system_prompt: /path/to/system.md
-append_system_prompts:
-  - /path/to/rules.md
-session_dir: ~/.bridl/work/sessions
+id: work
+controls:
+  environment:
+    ANTHROPIC_API_KEY: ...optional...
+    PI_OFFLINE: '1'
+  model: anthropic/claude-sonnet-4
+  thinking: medium
+  extensions:
+    - /path/to/bootstrap.ts
+    - /path/to/team-extension
+  system_prompt: /path/to/system.md
+  append_system_prompt: /path/to/rules.md
+  session_directory: ~/.bridl/work/sessions
 ```
 
-Bridl should persist this style of profile data as YAML and validate it with JSON Schema when read.
+Bridl persists this style of profile data as YAML, validates it with JSON Schema when read, and translates the resolved profile into a generated tack directory that becomes pi's `PI_CODING_AGENT_DIR`.
 
 The wrapper would translate that into:
 

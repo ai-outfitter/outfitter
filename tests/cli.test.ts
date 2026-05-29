@@ -1,9 +1,12 @@
 // Tests for the initial Bridl CLI shell and package foundation.
-import { readFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, symlinkSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
-import { createProgram } from '../src/cli.js';
+import { createProgram, isDirectCliExecution } from '../src/cli.js';
 
 interface PackageJson {
   dependencies: Record<string, string>;
@@ -44,6 +47,8 @@ describe('project foundation', () => {
     expect(buildTsconfig.compilerOptions.outDir).toBe('dist');
     expect(buildTsconfig.compilerOptions.types).toEqual(['node']);
     expect(packageJson.scripts.build).toContain('shx cp src/schemas/*.json dist/schemas/');
+    expect(packageJson.scripts.prepare).toBe('npm run build');
+    expect(packageJson.scripts.dev_install).toBe('node scripts/dev-install.mjs');
     expect(buildTsconfig.include).toEqual(['src/**/*.ts']);
   });
 
@@ -97,5 +102,22 @@ describe('project foundation', () => {
 
     expect(program.name()).toBe('bridl');
     expect(program.description()).toContain('Profile-oriented wrapper');
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-001.5).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('recognizes direct CLI execution through npm global symlinks', () => {
+    const temporaryDirectory = mkdtempSync(join(tmpdir(), 'bridl-cli-symlink-'));
+    const cliPath = fileURLToPath(new URL('../src/cli.ts', import.meta.url));
+    const symlinkPath = join(temporaryDirectory, 'bridl');
+    try {
+      symlinkSync(cliPath, symlinkPath);
+
+      expect(isDirectCliExecution(pathToFileURL(cliPath).href, symlinkPath)).toBe(true);
+      expect(isDirectCliExecution(pathToFileURL(cliPath).href, join(temporaryDirectory, 'missing'))).toBe(false);
+      expect(isDirectCliExecution(pathToFileURL(cliPath).href, undefined)).toBe(false);
+    } finally {
+      rmSync(temporaryDirectory, { recursive: true, force: true });
+    }
   });
 });
