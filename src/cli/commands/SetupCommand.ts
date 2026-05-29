@@ -283,9 +283,20 @@ const createInitialSettingsIfMissing = (settingsPath: string, starterSettingsPat
     settingsPath,
     starterSettingsPath === undefined
       ? 'default_profile: default\nprofile_sources:\n  - path: ./profiles\n'
-      : readFileSync(starterSettingsPath, 'utf8'),
+      : readStarterSettingsContent(starterSettingsPath),
   );
   return true;
+};
+
+const readStarterSettingsContent = (starterSettingsPath: string): string => {
+  const content = readFileSync(starterSettingsPath, 'utf8');
+  const loaded = loadSettingsFiles(createSettingsLoadPlan([{ scope: 'user', path: starterSettingsPath }]));
+
+  if (loaded.files[0]?.settings.defaultProfile !== undefined) {
+    return content;
+  }
+
+  return `default_profile: default\n${content}`;
 };
 
 const copyStarterProfileFilesIfPresent = (

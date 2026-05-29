@@ -1,6 +1,6 @@
 // Tests setup source repository behavior.
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -103,6 +103,9 @@ describe('setup sources', () => {
       join(emptySourceHomeDirectory, '.bridl', 'profiles', 'default', 'profile.yml'),
     );
     expect(nestedSourceResult.copiedStarterProfileFiles).toBe(1);
+    expect(readFileSync(join(nestedHomeDirectory, '.bridl', 'settings.yml'), 'utf8')).toContain(
+      'default_profile: default',
+    );
     expect(() =>
       executeSetupCommand({
         homeDirectory: join(root, 'missing-source-home'),
