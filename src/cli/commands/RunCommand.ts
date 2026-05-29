@@ -184,7 +184,7 @@ const loadResolvedProfile = (input: RunCommandInput): ResolvedRunProfile => {
     throw new Error(`Cannot run with invalid profiles: ${loadedProfiles.issues.map(formatProfileIssue).join('; ')}`);
   }
 
-  const profileId = input.profileId ?? loadedSettings.settings.defaultProfile ?? 'default';
+  const profileId = selectRunProfileId(input.profileId, loadedSettings.settings.defaultProfile);
   const resolution = resolveProfile({
     profiles: loadedProfiles.profiles,
     profileId,
@@ -199,6 +199,20 @@ const loadResolvedProfile = (input: RunCommandInput): ResolvedRunProfile => {
     profile: resolution.profile,
     profilePaths: findContributingProfilePaths(resolution.profileStack, loadedProfiles.profiles),
   };
+};
+
+const selectRunProfileId = (selectedProfileId: string | undefined, defaultProfileId: string | undefined): string => {
+  if (selectedProfileId !== undefined) {
+    return selectedProfileId;
+  }
+
+  if (defaultProfileId !== undefined) {
+    return defaultProfileId;
+  }
+
+  throw new Error(
+    'Cannot run without a selected profile or default_profile in settings.yml; pass --profile or run `bridl setup`.',
+  );
 };
 
 const findContributingProfilePaths = (

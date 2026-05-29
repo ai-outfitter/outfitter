@@ -154,7 +154,7 @@ describe('remote source settings', () => {
     ).toThrow('Cannot sync with invalid settings');
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-002.5, BRIDL-REQ-005.1).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-002.5, BRIDL-REQ-004.2, BRIDL-REQ-005.1).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('runs profiles loaded from GitHub shorthand repository subpaths', async () => {
     const root = createTemporaryRoot();
