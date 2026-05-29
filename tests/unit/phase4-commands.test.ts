@@ -516,6 +516,7 @@ describe('phase 4 setup and sync commands', () => {
 
     const missingNameProgram = new Command();
     missingNameProgram.exitOverride();
+    missingNameProgram.configureOutput({ writeErr: () => undefined });
     createCreateProfileCommand({ homeDirectory, projectDirectory }).register(missingNameProgram);
     await expect(missingNameProgram.parseAsync(['node', 'bridl', 'create_profile', '--scope', 'user'])).rejects.toThrow(
       "missing required argument 'name'",
