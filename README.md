@@ -56,6 +56,75 @@ profile_sources:
 
 Run `bridl sync` to fetch/update remote settings and profiles before using them.
 
+## Setup from a settings repository
+
+You can bootstrap a machine from a Git repository:
+
+```bash
+bridl setup https://github.com/my_account/bridl_config
+```
+
+`bridl setup <repo>` clones or updates the repository in Bridl's shared repository cache, then uses it as a non-overwriting starting point:
+
+- if `~/.bridl/settings.yml` does not exist, Bridl copies the starter `settings.yml`;
+- if starter profiles exist, Bridl copies missing profile files into `~/.bridl/profiles/`;
+- existing user settings and profile files are left unchanged;
+- after setup, Bridl runs the same sync behavior used by `bridl sync`.
+
+A setup repository can use either root-level Bridl files:
+
+```text
+bridl_config/
+  settings.yml
+  profiles/
+    engineering-default/
+      profile.yml
+    support/
+      profile.yml
+```
+
+or a `.bridl/` layout:
+
+```text
+bridl_config/
+  .bridl/
+    settings.yml
+    profiles/
+      engineering-default/
+        profile.yml
+      support/
+        profile.yml
+```
+
+Example `settings.yml` for a setup repository:
+
+```yaml
+default_profile: engineering-default
+
+profile_sources:
+  - path: ./profiles
+
+  # Optional: keep loading future updates from this same repo.
+  - github: my_account/bridl_config
+    ref: main
+    path: profiles
+```
+
+If you want ongoing centralized settings, use a small local `~/.bridl/settings.yml` that points at remote settings:
+
+```yaml
+remote_settings:
+  - github: my_account/bridl_config
+    ref: main
+    path: settings.yml
+```
+
+Then run:
+
+```bash
+bridl sync
+```
+
 ## Profile model sketch
 
 A profile will use YAML.
