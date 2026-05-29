@@ -68,7 +68,7 @@ export const executeSyncCommand = (
   }
 
   const synchronizer = dependencies.synchronizer ?? createGitSynchronizer();
-  const remoteSettingsResults = localSettings.settings.remoteSettings.map((source) =>
+  const remoteSettingsResults = localSettings.settings.remoteSettings!.map((source) =>
     syncRemoteSettingsSource(input.homeDirectory, source, synchronizer),
   );
   const loadedSettings = loadSettingsWithCachedRemoteSettings(input);
@@ -77,7 +77,7 @@ export const executeSyncCommand = (
     throw new Error(`Cannot sync with invalid settings: ${loadedSettings.issues.map(formatSettingsIssue).join('; ')}`);
   }
 
-  const uriSources = loadedSettings.settings.profileSources.filter(isRemoteProfileSource);
+  const uriSources = loadedSettings.settings.profileSources!.filter(isRemoteProfileSource);
   const profileSourceResults = uriSources.map((source) => syncUriSource(input.homeDirectory, source, synchronizer));
   const sourceResults = [...remoteSettingsResults, ...profileSourceResults];
 

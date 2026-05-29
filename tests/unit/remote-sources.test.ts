@@ -53,7 +53,7 @@ describe('remote source settings', () => {
       {
         synchronizer: {
           sync(source, cachePath) {
-            syncedSources.push(source.github ?? source.uri!);
+            syncedSources.push(source.github ?? source.uri);
             if (source.github === 'example/bridl-config' && source.path === 'settings.yml') {
               mkdirSync(cachePath, { recursive: true });
               writeFileSync(
@@ -111,7 +111,7 @@ describe('remote source settings', () => {
         {
           synchronizer: {
             sync(source, cachePath) {
-              unsafeSyncCalls.push(source.github ?? source.uri!);
+              unsafeSyncCalls.push(source.github ?? source.uri);
               mkdirSync(cachePath, { recursive: true });
               return 'updated';
             },
@@ -127,7 +127,7 @@ describe('remote source settings', () => {
         {
           synchronizer: {
             sync(source, cachePath) {
-              unsafeSyncCalls.push(source.github ?? source.uri!);
+              unsafeSyncCalls.push(source.github ?? source.uri);
               mkdirSync(cachePath, { recursive: true });
               return 'updated';
             },
@@ -218,7 +218,7 @@ describe('remote source settings', () => {
       {
         synchronizer: {
           sync(source, cachePath) {
-            unsafeProfileSyncCalls.push(source.github ?? source.uri!);
+            unsafeProfileSyncCalls.push(source.github ?? source.uri);
             mkdirSync(cachePath, { recursive: true });
             return 'updated';
           },

@@ -178,7 +178,7 @@ const loadResolvedProfile = (input: RunCommandInput): ResolvedRunProfile => {
     throw new Error(`Cannot run with invalid settings: ${loadedSettings.issues.map(formatSettingsIssue).join('; ')}`);
   }
 
-  const loadedProfiles = loadProfileSources(input.homeDirectory, loadedSettings.settings.profileSources);
+  const loadedProfiles = loadProfileSources(input.homeDirectory, loadedSettings.settings.profileSources!);
 
   if (loadedProfiles.issues.length > 0) {
     throw new Error(`Cannot run with invalid profiles: ${loadedProfiles.issues.map(formatProfileIssue).join('; ')}`);

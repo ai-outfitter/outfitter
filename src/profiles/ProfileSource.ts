@@ -4,12 +4,9 @@ interface ProfileSourceFilters {
   readonly except?: readonly string[];
 }
 
-export interface RemoteSourceReference {
-  readonly uri?: string;
-  readonly github?: string;
-  readonly ref?: string;
-  readonly path?: string;
-}
+export type RemoteSourceReference =
+  | { readonly uri: string; readonly github?: never; readonly ref?: string; readonly path?: string }
+  | { readonly github: string; readonly uri?: never; readonly ref?: string; readonly path?: string };
 
 export type ProfileSourceReference =
   | (ProfileSourceFilters & {

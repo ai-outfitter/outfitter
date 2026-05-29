@@ -111,13 +111,13 @@ export const loadSettings = (plan: SettingsLoadPlan): LoadedSettings => {
 export const loadSettingsWithCachedRemoteSettings = (input: SettingsDiscoveryInput): LoadedSettings => {
   const localSettings = loadSettings(discoverSettingsLoadPlan(input));
 
-  if (localSettings.issues.length > 0 || localSettings.settings.remoteSettings.length === 0) {
+  const remoteSettingsReferences = localSettings.settings.remoteSettings!;
+
+  if (localSettings.issues.length > 0 || remoteSettingsReferences.length === 0) {
     return localSettings;
   }
 
-  const remoteSettings = loadSettings(
-    discoverRemoteSettingsLoadPlan(input.homeDirectory, localSettings.settings.remoteSettings),
-  );
+  const remoteSettings = loadSettings(discoverRemoteSettingsLoadPlan(input.homeDirectory, remoteSettingsReferences));
   const files = [...remoteSettings.files, ...localSettings.files];
   const issues = [...remoteSettings.issues, ...localSettings.issues];
 
@@ -155,9 +155,17 @@ const addSettingsFile = (
 
 const convertSettingsDocument = (document: SettingsDocument, settingsDirectory: string): Settings => ({
   defaultProfile: document.default_profile,
-  profileSources: (document.profile_sources ?? []).map((source) => convertProfileSource(source, settingsDirectory)),
-  remoteSettings: document.remote_settings ?? [],
+  profileSources: document.profile_sources?.map((source) => convertProfileSource(source, settingsDirectory)),
+  remoteSettings: document.remote_settings?.map(convertRemoteSettingsSource),
 });
+
+const convertRemoteSettingsSource = (source: RemoteSettingsDocument): RemoteSettingsReference => {
+  if (source.uri !== undefined) {
+    return { uri: source.uri, ref: source.ref, path: source.path };
+  }
+
+  return { github: source.github!, ref: source.ref, path: source.path };
+};
 
 const convertProfileSource = (source: ProfileSourceDocument, settingsDirectory: string): ProfileSourceReference => {
   const filters = {

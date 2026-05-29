@@ -17,7 +17,11 @@ import { createSyncCommand } from '../../src/cli/commands/SyncCommand.js';
 import { createEmptyProfile } from '../../src/profiles/Profile.js';
 import { createProfileLoadPlan } from '../../src/profiles/ProfileLoader.js';
 import { mergeProfileStack } from '../../src/profiles/ProfileMerger.js';
-import { createLocalProfileSource, createUriProfileSource } from '../../src/profiles/ProfileSource.js';
+import {
+  createLocalProfileSource,
+  createUriProfileSource,
+  normalizeRemoteSourceUri,
+} from '../../src/profiles/ProfileSource.js';
 import {
   profileSchemaDocument,
   profileSourceSchemaDocument,
@@ -80,6 +84,7 @@ describe('source layout scaffolding', () => {
     const settings = emptySettings();
     const mergedSettings = mergeSettingsStack([
       settings,
+      { defaultProfile: 'remote', profileSources: [uriSource], remoteSettings: [] },
       { defaultProfile: 'engineering', profileSources: [localSource], remoteSettings: [] },
     ]);
     const settingsLoadPlan = createSettingsLoadPlan([
@@ -91,6 +96,19 @@ describe('source layout scaffolding', () => {
 
     expect(mergedSettings.defaultProfile).toBe('engineering');
     expect(mergedSettings.profileSources).toEqual([localSource]);
+    expect(
+      mergeSettingsStack([
+        {
+          defaultProfile: 'remote',
+          profileSources: [uriSource],
+          remoteSettings: [{ github: 'example/remote', path: 'settings.yml' }],
+        },
+        { profileSources: [], remoteSettings: [] },
+      ]),
+    ).toEqual({ profileSources: [], remoteSettings: [], defaultProfile: 'remote' });
+    expect(normalizeRemoteSourceUri({ github: 'example/bridl-config' })).toBe(
+      'git+https://github.com/example/bridl-config.git',
+    );
     expect(settingsLoadPlan.locations.map((location) => location.scope)).toEqual(['user', 'project', 'project-local']);
     expect(profileLoadPlan.sources).toEqual([localSource, uriSource]);
   });

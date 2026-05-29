@@ -23,7 +23,7 @@ export const resolveRemoteRepositorySubpath = (repositoryPath: string, subpath =
   const resolvedPath = resolve(repositoryPath, subpath);
   const relativePath = relative(repositoryPath, resolvedPath);
 
-  if (relativePath.startsWith('..') || isAbsolute(relativePath)) {
+  if (relativePath === '..' || relativePath.startsWith('../') || isAbsolute(relativePath)) {
     throw new Error(`Remote repository path '${subpath}' must stay inside the repository.`);
   }
 

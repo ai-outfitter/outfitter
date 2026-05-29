@@ -144,21 +144,33 @@ describe('settings loading', () => {
     const projectDirectory = join(root, 'project');
     writeSettings(
       join(homeDirectory, '.bridl', 'settings.yml'),
-      'default_profile: local\nremote_settings:\n  - github: example/bridl-config\n    ref: main\n    path: settings.yml\n',
+      'default_profile: local\nremote_settings:\n  - uri: git+https://github.com/example/bridl-config.git\n    ref: main\n    path: settings.yml\n',
     );
     const remoteSettingsPath = join(
-      createRemoteRepositoryCachePath(homeDirectory, { github: 'example/bridl-config', ref: 'main' }),
+      createRemoteRepositoryCachePath(homeDirectory, {
+        uri: 'git+https://github.com/example/bridl-config.git',
+        ref: 'main',
+      }),
       'settings.yml',
     );
     writeSettings(
       remoteSettingsPath,
-      'default_profile: remote\nprofile_sources:\n  - github: example/bridl-config\n    path: profiles\n',
+      'default_profile: remote\nprofile_sources:\n  - github: example/bridl-config\n    path: remote-profiles\n',
     );
 
     const loaded = loadSettingsWithCachedRemoteSettings({ homeDirectory, projectDirectory });
 
     expect(loaded.issues).toEqual([]);
     expect(loaded.settings.defaultProfile).toBe('local');
-    expect(loaded.settings.profileSources).toEqual([{ github: 'example/bridl-config', path: 'profiles' }]);
+    expect(loaded.settings.profileSources).toEqual([{ github: 'example/bridl-config', path: 'remote-profiles' }]);
+
+    writeSettings(
+      join(homeDirectory, '.bridl', 'settings.yml'),
+      'default_profile: local\nprofile_sources:\n  - path: ./local-profiles\nremote_settings:\n  - uri: git+https://github.com/example/bridl-config.git\n    ref: main\n    path: settings.yml\n',
+    );
+    const localOverrideLoaded = loadSettingsWithCachedRemoteSettings({ homeDirectory, projectDirectory });
+    expect(localOverrideLoaded.settings.profileSources).toEqual([
+      { path: join(homeDirectory, '.bridl', 'local-profiles') },
+    ]);
   });
 });
