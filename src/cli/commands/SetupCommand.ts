@@ -340,7 +340,7 @@ const copyDirectoryContentsWithoutOverwriting = (sourceDirectory: string, target
       continue;
     }
 
-    if (!existsSync(targetPath)) {
+    if (entry.isFile() && !existsSync(targetPath)) {
       mkdirSync(dirname(targetPath), { recursive: true });
       cpSync(sourcePath, targetPath, { force: false });
       copiedFiles += 1;

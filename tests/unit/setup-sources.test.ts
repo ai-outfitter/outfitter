@@ -1,6 +1,6 @@
 // Tests setup source repository behavior.
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -85,6 +85,10 @@ describe('setup sources', () => {
       join(nestedRepositoryPath, '.bridl', 'profiles', 'default', 'profile.yml'),
       'id: default\ncontrols: {}\n',
     );
+    symlinkSync(
+      join(root, 'outside-profile.yml'),
+      join(nestedRepositoryPath, '.bridl', 'profiles', 'default', 'linked.yml'),
+    );
     commitAll(nestedRepositoryPath, 'nested-setup');
     const nestedSourceResult = executeSetupCommand({
       homeDirectory: nestedHomeDirectory,
@@ -106,6 +110,7 @@ describe('setup sources', () => {
     expect(readFileSync(join(nestedHomeDirectory, '.bridl', 'settings.yml'), 'utf8')).toContain(
       'default_profile: default',
     );
+    expect(existsSync(join(nestedHomeDirectory, '.bridl', 'profiles', 'default', 'linked.yml'))).toBe(false);
     expect(() =>
       executeSetupCommand({
         homeDirectory: join(root, 'missing-source-home'),
