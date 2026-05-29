@@ -50,9 +50,11 @@ The `run` command assembles a temporary agent-specific configuration directory c
 1. Profiles MAY define `state_persistence` entries that map adapter-declared state paths to persistence strategies.
 2. Bridl MUST validate `state_persistence` values at profile read boundaries.
 3. Before launch, Bridl MUST resolve each adapter-declared state path to either a profile override strategy or the adapter default strategy.
-4. Bridl MUST reject strategies that are not allowed for the adapter-declared state path.
-5. For `symlink` strategy paths, Bridl MUST materialize the tack path as a symlink to the resolved profile or native CLI source path.
-6. For non-persistent strategies, Bridl MUST materialize normal temporary tack paths and detect writes after the child agent exits.
-7. Unknown writes MUST be governed by the adapter's `unknown` pseudo-path strategy and MUST NOT be persisted by symlink.
-8. Bridl MUST warn for `warn`, `prompt`, and symlink-replacement state write issues, fail for `error` state write issues, and ignore `discard` state writes.
-9. State path materialization MUST reject paths that escape the tack root.
+4. Bridl MUST reject profile `state_persistence` keys that are not declared by the selected adapter.
+5. Bridl MUST reject strategies that are not allowed for the adapter-declared state path.
+6. For `symlink` strategy paths, Bridl MUST materialize the tack path as a symlink to the resolved profile or native CLI source path.
+7. For non-persistent strategies, Bridl MUST materialize normal temporary tack paths and detect writes after the child agent exits.
+8. Unknown writes MUST be governed by the adapter's `unknown` pseudo-path strategy and MUST NOT be persisted by symlink.
+9. Bridl MUST warn for `warn`, `prompt`, and symlink-replacement state write issues, fail for `error` state write issues, and ignore `discard` state writes.
+10. State path materialization MUST reject paths that escape the tack root.
+11. During live tack updates, Bridl MUST update generated tack files without re-materializing declared state paths so post-launch write detection can still observe agent changes to those paths.

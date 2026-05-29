@@ -87,8 +87,10 @@ export const createPiAdapter = (): AgentAdapter => ({
 const createPiStatePaths = (
   profile: Profile,
   input: { readonly profileFolders?: readonly string[]; readonly homeDirectory?: string },
-): readonly TackStatePath[] =>
-  Object.entries(piStatePathDeclarations).map(([relativePath, declaration]) => {
+): readonly TackStatePath[] => {
+  assertDeclaredStatePersistenceKeys(profile);
+
+  return Object.entries(piStatePathDeclarations).map(([relativePath, declaration]) => {
     const strategy = resolveStateStrategy(profile, relativePath, declaration);
     const directory = relativePath.endsWith('/');
 
@@ -102,6 +104,15 @@ const createPiStatePaths = (
           : undefined,
     };
   });
+};
+
+const assertDeclaredStatePersistenceKeys = (profile: Profile): void => {
+  for (const relativePath of Object.keys(profile.statePersistence ?? {})) {
+    if (!(relativePath in piStatePathDeclarations)) {
+      throw new Error(`state_persistence path '${relativePath}' is not declared by the pi adapter`);
+    }
+  }
+};
 
 const resolveStateStrategy = (
   profile: Profile,

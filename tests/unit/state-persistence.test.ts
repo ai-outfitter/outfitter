@@ -18,6 +18,9 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { createPiAdapter } from '../../src/agents/pi/PiAdapter.js';
 import { executeRunCommand } from '../../src/cli/commands/RunCommand.js';
 import { parseProfileYaml } from '../../src/profiles/ProfileLoader.js';
+import { createTack } from '../../src/tack/Tack.js';
+import { writeTack } from '../../src/tack/TackAssembler.js';
+import { createTackFile } from '../../src/tack/TackFile.js';
 import {
   createTackStateBaseline,
   detectTackStateWrites,
@@ -255,6 +258,41 @@ describe('state persistence', () => {
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-005.6).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('can rewrite generated files without rematerializing state paths during live updates', () => {
+    const root = createTemporaryRoot();
+    const sourceFile = ensureStateSourcePath(join(root, 'source', 'settings.json'), false);
+    const tackRoot = join(root, 'tack');
+    const statePath = {
+      relativePath: 'settings.json',
+      strategy: 'symlink' as const,
+      sourcePath: sourceFile,
+      directory: false,
+    };
+    const initialTack = createTack(
+      tackRoot,
+      [createTackFile({ relativePath: 'bridl/profile.json', content: '{"version":1}\n' })],
+      [statePath],
+    );
+    writeTack(initialTack);
+    rmSync(join(tackRoot, 'settings.json'));
+    writeFileSync(join(tackRoot, 'settings.json'), 'agent replacement\n');
+
+    writeTack(
+      createTack(
+        tackRoot,
+        [createTackFile({ relativePath: 'bridl/profile.json', content: '{"version":2}\n' })],
+        [statePath],
+      ),
+      { materializeStatePaths: false },
+    );
+
+    expect(readFileSync(join(tackRoot, 'bridl', 'profile.json'), 'utf8')).toBe('{"version":2}\n');
+    expect(lstatSync(join(tackRoot, 'settings.json')).isSymbolicLink()).toBe(false);
+    expect(readFileSync(join(tackRoot, 'settings.json'), 'utf8')).toBe('agent replacement\n');
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-005.6).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('fails after launch when an error-strategy state path changes', async () => {
     const root = createTemporaryRoot();
     const homeDirectory = join(root, 'home');
@@ -306,5 +344,32 @@ describe('state persistence', () => {
         },
       ),
     ).rejects.toThrow('state_persistence strategy \'symlink\' is not allowed for "unknown"');
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-005.6).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('rejects state persistence keys that are undeclared by the pi adapter', async () => {
+    const root = createTemporaryRoot();
+    const homeDirectory = join(root, 'home');
+    const projectDirectory = join(root, 'project');
+    writeSettings(homeDirectory, 'default_profile: default\nprofile_sources:\n  - path: ./profiles\n');
+    writeProfile(
+      join(homeDirectory, '.bridl', 'profiles'),
+      'default',
+      ['id: default', 'state_persistence:', '  setting.json: warn', 'controls: {}', ''].join('\n'),
+    );
+
+    await expect(
+      executeRunCommand(
+        { homeDirectory, projectDirectory },
+        {
+          launcher: {
+            launch() {
+              return Promise.resolve(0);
+            },
+          },
+        },
+      ),
+    ).rejects.toThrow("state_persistence path 'setting.json' is not declared by the pi adapter");
   });
 });

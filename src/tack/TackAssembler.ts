@@ -13,19 +13,27 @@ export interface TackAssemblyInput {
   readonly files: readonly TackFile[];
 }
 
+export interface TackWriteOptions {
+  readonly materializeStatePaths?: boolean;
+}
+
 export const createTackRootDirectory = (profileId: string, agentId: string): string =>
   mkdtempSync(join(tmpdir(), `bridl-${profileId}-${agentId}-`));
 
 export const assembleTack = (input: TackAssemblyInput): Tack =>
   createTack(input.rootDirectory ?? createTackRootDirectory('profile', 'agent'), input.files);
 
-export const writeTack = (tack: Tack): void => {
+export const writeTack = (tack: Tack, options: TackWriteOptions = {}): void => {
   mkdirSync(tack.rootDirectory, { recursive: true });
 
   for (const file of tack.files) {
     const outputPath = resolveTackFileOutputPath(tack.rootDirectory, file.outputPath);
     mkdirSync(dirname(outputPath), { recursive: true });
     writeFileSync(outputPath, file.content);
+  }
+
+  if (options.materializeStatePaths === false) {
+    return;
   }
 
   for (const statePath of tack.statePaths.filter((statePath) => statePath.relativePath !== 'unknown')) {
