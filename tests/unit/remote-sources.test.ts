@@ -103,40 +103,6 @@ describe('remote source settings', () => {
     expect(thrownResult.sources[0]?.status).toBe('failed');
     expect(thrownResult.sources[0]?.message).toBe('network unavailable');
 
-    const unsafeSyncCalls: string[] = [];
-    writeSettings(homeDirectory, `remote_settings:\n  - github: example/absolute\n    path: /tmp/settings.yml\n`);
-    expect(() =>
-      executeSyncCommand(
-        { homeDirectory, projectDirectory },
-        {
-          synchronizer: {
-            sync(source, cachePath) {
-              unsafeSyncCalls.push(source.github ?? source.uri);
-              mkdirSync(cachePath, { recursive: true });
-              return 'updated';
-            },
-          },
-        },
-      ),
-    ).toThrow('must be relative');
-
-    writeSettings(homeDirectory, `remote_settings:\n  - github: example/escape\n    path: ../settings.yml\n`);
-    expect(() =>
-      executeSyncCommand(
-        { homeDirectory, projectDirectory },
-        {
-          synchronizer: {
-            sync(source, cachePath) {
-              unsafeSyncCalls.push(source.github ?? source.uri);
-              mkdirSync(cachePath, { recursive: true });
-              return 'updated';
-            },
-          },
-        },
-      ),
-    ).toThrow('must stay inside the repository');
-    expect(unsafeSyncCalls).toEqual([]);
-
     writeSettings(homeDirectory, `remote_settings:\n  - github: example/invalid\n    path: settings.yml\n`);
     expect(() =>
       executeSyncCommand(
@@ -152,6 +118,43 @@ describe('remote source settings', () => {
         },
       ),
     ).toThrow('Cannot sync with invalid settings');
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-002.5, BRIDL-REQ-004.2).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('reports unsafe remote settings subpaths as per-source sync failures', () => {
+    const root = createTemporaryRoot();
+    const homeDirectory = join(root, 'home');
+    const projectDirectory = join(root, 'project');
+    const unsafeSyncCalls: string[] = [];
+    const synchronizer = {
+      sync(source: { readonly github?: string; readonly uri?: string }, cachePath: string) {
+        unsafeSyncCalls.push(source.github ?? source.uri ?? 'unknown');
+        mkdirSync(cachePath, { recursive: true });
+        return 'updated' as const;
+      },
+    };
+
+    writeSettings(homeDirectory, `remote_settings:\n  - github: example/absolute\n    path: /tmp/settings.yml\n`);
+    const absolutePathResult = executeSyncCommand(
+      { homeDirectory, projectDirectory },
+      {
+        synchronizer,
+      },
+    );
+    expect(absolutePathResult.sources[0]?.status).toBe('failed');
+    expect(absolutePathResult.sources[0]?.message).toContain('must be relative');
+
+    writeSettings(homeDirectory, `remote_settings:\n  - github: example/escape\n    path: ../settings.yml\n`);
+    const escapingPathResult = executeSyncCommand(
+      { homeDirectory, projectDirectory },
+      {
+        synchronizer,
+      },
+    );
+    expect(escapingPathResult.sources[0]?.status).toBe('failed');
+    expect(escapingPathResult.sources[0]?.message).toContain('must stay inside the repository');
+    expect(unsafeSyncCalls).toEqual([]);
   });
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-002.5, BRIDL-REQ-004.2, BRIDL-REQ-005.1).

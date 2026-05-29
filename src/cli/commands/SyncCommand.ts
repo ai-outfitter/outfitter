@@ -68,10 +68,14 @@ export const executeSyncCommand = (
   }
 
   const synchronizer = dependencies.synchronizer ?? createGitSynchronizer();
-  const remoteSettingsResults = localSettings.settings.remoteSettings!.map((source) =>
+  const remoteSettingsSources = localSettings.settings.remoteSettings!;
+  const remoteSettingsResults = remoteSettingsSources.map((source) =>
     syncRemoteSettingsSource(input.homeDirectory, source, synchronizer),
   );
-  const loadedSettings = loadSettingsWithCachedRemoteSettings(input);
+  const syncedRemoteSettingsSources = remoteSettingsSources.filter(
+    (_source, index) => remoteSettingsResults[index]?.status !== 'failed',
+  );
+  const loadedSettings = loadSettingsWithCachedRemoteSettings(input, syncedRemoteSettingsSources);
 
   if (loadedSettings.issues.length > 0) {
     throw new Error(`Cannot sync with invalid settings: ${loadedSettings.issues.map(formatSettingsIssue).join('; ')}`);
@@ -128,9 +132,8 @@ const syncRemoteSettingsSource = (
   const cachePath = createRemoteRepositoryCachePath(homeDirectory, source);
   const displayUri = formatDisplayUri(source);
 
-  const settingsPath = resolveRemoteRepositorySubpath(cachePath, source.path);
-
   try {
+    const settingsPath = resolveRemoteRepositorySubpath(cachePath, source.path);
     const status = synchronizer.sync(source, cachePath);
 
     if (!existsSync(settingsPath)) {

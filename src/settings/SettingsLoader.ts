@@ -108,10 +108,13 @@ export const loadSettings = (plan: SettingsLoadPlan): LoadedSettings => {
   };
 };
 
-export const loadSettingsWithCachedRemoteSettings = (input: SettingsDiscoveryInput): LoadedSettings => {
+export const loadSettingsWithCachedRemoteSettings = (
+  input: SettingsDiscoveryInput,
+  remoteSettingsReferencesOverride?: readonly RemoteSettingsReference[],
+): LoadedSettings => {
   const localSettings = loadSettings(discoverSettingsLoadPlan(input));
 
-  const remoteSettingsReferences = localSettings.settings.remoteSettings!;
+  const remoteSettingsReferences = remoteSettingsReferencesOverride ?? localSettings.settings.remoteSettings!;
 
   if (localSettings.issues.length > 0 || remoteSettingsReferences.length === 0) {
     return localSettings;
