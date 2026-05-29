@@ -120,7 +120,7 @@ describe('remote source settings', () => {
     ).toThrow('Cannot sync with invalid settings');
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-002.5, BRIDL-REQ-004.2).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-002.6, BRIDL-REQ-004.2).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('reports unsafe remote settings subpaths as per-source sync failures', () => {
     const root = createTemporaryRoot();
