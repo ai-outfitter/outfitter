@@ -39,6 +39,29 @@ bridl create_profile regulated --scope user
 
 Under the hood, `bridl` will translate a selected profile into the appropriate `pi` launch environment, such as `PI_CODING_AGENT_DIR`, CLI flags, injected extensions, prompts, model settings, session directories, and environment variables. If `bridl` is run before `bridl setup`, it creates the initial settings and default profile automatically before launching.
 
+## Profiles, tacks, and CLI runtimes
+
+```mermaid
+flowchart TD
+  settings["Bridl settings\nuser / project / project-local"] --> selector["Profile selection\nbridl run --profile <id>"]
+  sources["Profile sources\nlocal folders + URI cache"] --> resolver["Profile resolver"]
+  selector --> resolver
+  resolver --> stack["Resolved profile stack\nprecedence + inheritance"]
+  stack --> controls["Generic Bridl controls\nmodel, env, prompts, skills"]
+  stack --> cliSpecific["CLI-specific overrides\ncli_specific/pi + pi controls"]
+  controls --> adapter["Agent adapter\ntranslate generic intent"]
+  cliSpecific --> adapter
+  adapter --> tack["Temporary tack\n$TMPDIR/bridl/tacks/<run-id>"]
+  tack --> files["Generated runtime files\nsettings, prompts, extensions"]
+  tack --> launch["Launch plan\nenv + argv + pass-through args"]
+  files --> runtime["Agent CLI runtime\npi first"]
+  launch --> runtime
+  runtime --> lifecycle["Bridl owns tack lifecycle\nwatch, warn, clean up"]
+  lifecycle -. live sync .-> tack
+```
+
+Profiles are the durable, user-editable inputs. A tack is the temporary runtime configuration directory assembled for one resolved profile and one target agent CLI. The CLI runtime, initially `pi`, receives only the translated files, environment variables, flags, and pass-through arguments needed for that launch.
+
 ## Profile model sketch
 
 A profile will use YAML.
