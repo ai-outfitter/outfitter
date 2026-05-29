@@ -20,9 +20,56 @@
       "type": "object",
       "properties": {
         "model": { "type": "string" },
+        "provider": { "type": "string" },
+        "thinking": { "type": "string" },
+        "args": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "session_directory": { "type": "string" },
+        "extensions": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "skills": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "prompt_template": { "type": "string" },
+        "system_prompt": { "type": "string" },
+        "append_system_prompt": { "type": "string" },
         "environment": {
           "type": "object",
           "additionalProperties": { "type": "string" }
+        },
+        "pi": {
+          "type": "object",
+          "properties": {
+            "model": { "type": "string" },
+            "provider": { "type": "string" },
+            "thinking": { "type": "string" },
+            "args": {
+              "type": "array",
+              "items": { "type": "string" }
+            },
+            "session_directory": { "type": "string" },
+            "extensions": {
+              "type": "array",
+              "items": { "type": "string" }
+            },
+            "skills": {
+              "type": "array",
+              "items": { "type": "string" }
+            },
+            "prompt_template": { "type": "string" },
+            "system_prompt": { "type": "string" },
+            "append_system_prompt": { "type": "string" },
+            "environment": {
+              "type": "object",
+              "additionalProperties": { "type": "string" }
+            }
+          },
+          "additionalProperties": true
         }
       },
       "additionalProperties": true

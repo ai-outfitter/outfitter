@@ -156,6 +156,14 @@ const readStringArray = (value: unknown): readonly string[] => {
   return [];
 };
 
+const readOptionalStringArray = (value: unknown): readonly string[] | undefined => {
+  if (Array.isArray(value)) {
+    return value.filter((item): item is string => typeof item === 'string');
+  }
+
+  return undefined;
+};
+
 const readControls = (value: unknown): ProfileControls => {
   const controls = readObject(value);
 
@@ -164,8 +172,42 @@ const readControls = (value: unknown): ProfileControls => {
   }
 
   return {
+    ...controls,
     model: readOptionalString(controls.model),
+    provider: readOptionalString(controls.provider),
+    thinking: readOptionalString(controls.thinking),
     environment: readEnvironment(controls.environment),
+    args: readOptionalStringArray(controls.args),
+    sessionDirectory: readOptionalString(controls.session_directory),
+    extensions: readOptionalStringArray(controls.extensions),
+    skills: readOptionalStringArray(controls.skills),
+    promptTemplate: readOptionalString(controls.prompt_template),
+    systemPrompt: readOptionalString(controls.system_prompt),
+    appendSystemPrompt: readOptionalString(controls.append_system_prompt),
+    pi: readPiControls(controls.pi),
+  };
+};
+
+const readPiControls = (value: unknown): ProfileControls['pi'] => {
+  const controls = readObject(value);
+
+  if (controls === undefined) {
+    return undefined;
+  }
+
+  return {
+    ...controls,
+    model: readOptionalString(controls.model),
+    provider: readOptionalString(controls.provider),
+    thinking: readOptionalString(controls.thinking),
+    environment: readEnvironment(controls.environment),
+    args: readOptionalStringArray(controls.args),
+    sessionDirectory: readOptionalString(controls.session_directory),
+    extensions: readOptionalStringArray(controls.extensions),
+    skills: readOptionalStringArray(controls.skills),
+    promptTemplate: readOptionalString(controls.prompt_template),
+    systemPrompt: readOptionalString(controls.system_prompt),
+    appendSystemPrompt: readOptionalString(controls.append_system_prompt),
   };
 };
 

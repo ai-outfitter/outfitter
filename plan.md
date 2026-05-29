@@ -37,21 +37,21 @@ Implemented in `phase-4-setup-sync`.
 - [x] Validate synced profiles and produce clear command output.
 - [x] Implement `create_profile` and the `create-profile` alias against the same command object.
 
-## Phase 5: Tack assembly core
+## Phase 5: Tack assembly core — Done
 
-- Implement tack directory creation in the system temp directory.
-- Implement `TackFile` objects for logical generated files.
-- Implement generic control merging with CLI-specific overrides.
-- Implement unsupported-control warnings and `--hard-tack` fatal behavior.
-- Implement file watching for tack inputs while the child process runs.
+- [x] Implement tack directory creation in the system temp directory.
+- [x] Implement `TackFile` objects for logical generated files.
+- [x] Implement generic control merging with CLI-specific overrides.
+- [x] Implement unsupported-control warnings and `--hard-tack` fatal behavior.
+- [x] Implement file watching for tack inputs while the child process runs.
 
-## Phase 6: Pi adapter and run command
+## Phase 6: Pi adapter and run command — Done
 
-- Implement the `AgentAdapter` abstraction.
-- Implement the pi adapter using native pi environment variables, flags, and resource conventions.
-- Implement `run` as the default command.
-- Preserve pass-through arguments to pi.
-- Add tests for generated pi launch env, argv, and tack files.
+- [x] Implement the `AgentAdapter` abstraction.
+- [x] Implement the pi adapter using native pi environment variables, flags, and resource conventions.
+- [x] Implement `run` as the default command.
+- [x] Preserve pass-through arguments to pi.
+- [x] Add tests for generated pi launch env, argv, and tack files.
 
 ## Phase 7: Documentation and review hardening
 

@@ -15,6 +15,8 @@
   ],
   "scripts": {
     "build": "tsc -p tsconfig.build.json && shx rm -rf dist/schemas && shx mkdir -p dist/schemas && shx cp src/schemas/*.json dist/schemas/ && shx chmod +x dist/cli.js",
+    "prepare": "npm run build",
+    "dev_install": "node scripts/dev-install.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
