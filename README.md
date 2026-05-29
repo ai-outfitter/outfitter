@@ -53,7 +53,7 @@ inherits:
 controls:
   model: anthropic/claude-sonnet-4
   environment:
-    ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+    TEAM_MODE: engineering
 ```
 
 The exact stable schema is governed by the requirements in `requirements/` and the JSON Schema files in `src/schemas/`, which are still expected to evolve with implementation.
