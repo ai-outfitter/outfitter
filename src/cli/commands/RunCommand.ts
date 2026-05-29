@@ -15,6 +15,8 @@ import type { ProfileSourceReference } from '../../profiles/ProfileSource.js';
 import { resolveProfile } from '../../profiles/ProfileMerger.js';
 import { discoverSettingsLoadPlan, loadSettings } from '../../settings/SettingsLoader.js';
 import { createTackRootDirectory, writeTack } from '../../tack/TackAssembler.js';
+import { createTackStateBaseline, detectTackStateWrites } from '../../tack/StatePersistence.js';
+import type { TackStateBaseline, TackStatePath, TackStateWriteIssue } from '../../tack/StatePersistence.js';
 import { watchTackInputs } from '../../tack/TackWatcher.js';
 import type { CommandObject } from './CommandObject.js';
 
@@ -57,15 +59,11 @@ export const executeRunCommand = async (
   const tackPlan = createAdapterTackPlan(adapter, resolvedProfile, tackRootDirectory);
   const warnings = tackPlan.warnings;
 
-  if (input.hardTack === true && warnings.length > 0) {
-    throw new Error(`Hard-tack failed for ${adapter.id}: ${warnings.join('; ')}`);
-  }
-
-  for (const warning of warnings) {
-    (dependencies.writeError ?? console.error)(warning);
-  }
+  failHardTackOnWarnings(adapter.id, warnings, input.hardTack);
+  emitWarnings(warnings, dependencies.writeError);
 
   writeTack(tackPlan.tack);
+  const stateBaseline = createTackStateBaseline(tackPlan.tack.rootDirectory);
   const launchPlan = adapter.createLaunchPlan(tackPlan.tack, resolvedProfile.profile, input.passThroughArgs ?? []);
   const watcher = watchTackInputs({
     tack: tackPlan.tack,
@@ -79,13 +77,21 @@ export const executeRunCommand = async (
       dependencies.launcher ??
       /* v8 ignore next -- tests inject launchers instead of spawning pi. */ createSpawnLauncher();
     const exitCode = await launcher.launch(launchPlan);
+    const stateWriteWarnings = handleTackStateWrites(
+      tackPlan.tack.rootDirectory,
+      tackPlan.tack.statePaths,
+      stateBaseline,
+    );
+
+    failHardTackOnWarnings(adapter.id, stateWriteWarnings, input.hardTack);
+    emitWarnings(stateWriteWarnings, dependencies.writeError);
 
     return {
       profileId: resolvedProfile.profile.id,
       agentId: adapter.id,
       launchPlan,
       tackDirectory: tackPlan.tack.rootDirectory,
-      warnings,
+      warnings: [...warnings, ...stateWriteWarnings],
       exitCode,
     };
   } finally {
@@ -144,13 +150,61 @@ const configureRunCommander = (
 interface ResolvedRunProfile {
   readonly profile: Profile;
   readonly profilePaths: readonly string[];
+  readonly profileFolders: readonly string[];
+  readonly homeDirectory: string;
 }
+
+const failHardTackOnWarnings = (
+  adapterId: string,
+  warnings: readonly string[],
+  hardTack: boolean | undefined,
+): void => {
+  if (hardTack === true && warnings.length > 0) {
+    throw new Error(`Hard-tack failed for ${adapterId}: ${warnings.join('; ')}`);
+  }
+};
+
+const emitWarnings = (warnings: readonly string[], writeError: ((message: string) => void) | undefined): void => {
+  const writer = writeError ?? console.error;
+
+  for (const warning of warnings) {
+    writer(warning);
+  }
+};
 
 const createAdapterTackPlan = (adapter: AgentAdapter, resolvedProfile: ResolvedRunProfile, rootDirectory: string) =>
   adapter.createTack(resolvedProfile.profile, {
     rootDirectory,
     profilePaths: resolvedProfile.profilePaths,
+    profileFolders: resolvedProfile.profileFolders,
+    homeDirectory: resolvedProfile.homeDirectory,
   });
+
+const handleTackStateWrites = (
+  tackRootDirectory: string,
+  statePaths: readonly TackStatePath[],
+  stateBaseline: TackStateBaseline,
+): readonly string[] => {
+  const warnings: string[] = [];
+
+  for (const issue of detectTackStateWrites(tackRootDirectory, statePaths, stateBaseline)) {
+    if (issue.strategy === 'error') {
+      throw new Error(formatTackStateWriteIssue(issue));
+    }
+
+    /* v8 ignore next -- state write issues are only emitted for warn/prompt or thrown for error. */
+    if (issue.strategy === 'warn' || issue.strategy === 'prompt') {
+      warnings.push(formatTackStateWriteIssue(issue));
+    }
+  }
+
+  return warnings;
+};
+
+const formatTackStateWriteIssue = (issue: TackStateWriteIssue): string =>
+  issue.unknown
+    ? `pi wrote undeclared tack state '${issue.relativePath}' and it was not persisted.`
+    : `pi wrote '${issue.relativePath}' with state_persistence '${issue.strategy}' and it was not persisted.`;
 
 const loadResolvedProfile = (input: RunCommandInput): ResolvedRunProfile => {
   const loadedSettings = loadSettings(discoverSettingsLoadPlan(input));
@@ -179,19 +233,30 @@ const loadResolvedProfile = (input: RunCommandInput): ResolvedRunProfile => {
   return {
     profile: resolution.profile,
     profilePaths: findContributingProfilePaths(resolution.profileStack, loadedProfiles.profiles),
+    profileFolders: findContributingProfileFolders(resolution.profileStack, loadedProfiles.profiles),
+    homeDirectory: input.homeDirectory,
   };
 };
 
 const findContributingProfilePaths = (
   profileStack: readonly Profile[],
   loadedProfiles: readonly LoadedProfile[],
-): readonly string[] => {
-  const contributingProfileIds = new Set(profileStack.map((profile) => profile.id));
+): readonly string[] =>
+  findContributingLoadedProfiles(profileStack, loadedProfiles).map((loadedProfile) => loadedProfile.profilePath);
 
-  return loadedProfiles
-    .filter((loadedProfile) => contributingProfileIds.has(loadedProfile.profile.id))
-    .map((loadedProfile) => loadedProfile.profilePath);
-};
+const findContributingProfileFolders = (
+  profileStack: readonly Profile[],
+  loadedProfiles: readonly LoadedProfile[],
+): readonly string[] =>
+  findContributingLoadedProfiles(profileStack, loadedProfiles).map((loadedProfile) => loadedProfile.folderPath);
+
+const findContributingLoadedProfiles = (
+  profileStack: readonly Profile[],
+  loadedProfiles: readonly LoadedProfile[],
+): readonly LoadedProfile[] =>
+  profileStack
+    .map((profile) => loadedProfiles.find((loadedProfile) => loadedProfile.profile.id === profile.id))
+    .filter((loadedProfile): loadedProfile is LoadedProfile => loadedProfile !== undefined);
 
 const loadProfileSources = (
   homeDirectory: string,

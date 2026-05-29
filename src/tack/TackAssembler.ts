@@ -5,6 +5,7 @@ import { dirname, isAbsolute, join, relative, resolve } from 'node:path';
 
 import type { Tack } from './Tack.js';
 import { createTack } from './Tack.js';
+import { materializeTackStatePath } from './StatePersistence.js';
 import type { TackFile } from './TackFile.js';
 
 export interface TackAssemblyInput {
@@ -25,6 +26,10 @@ export const writeTack = (tack: Tack): void => {
     const outputPath = resolveTackFileOutputPath(tack.rootDirectory, file.outputPath);
     mkdirSync(dirname(outputPath), { recursive: true });
     writeFileSync(outputPath, file.content);
+  }
+
+  for (const statePath of tack.statePaths.filter((statePath) => statePath.relativePath !== 'unknown')) {
+    materializeTackStatePath(tack.rootDirectory, statePath);
   }
 };
 

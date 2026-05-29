@@ -1,4 +1,8 @@
 // Defines profile shapes and control fragments used during profile resolution.
+import type { StatePersistenceStrategy } from '../tack/StatePersistence.js';
+
+export type StatePersistenceOverrides = Readonly<Record<string, StatePersistenceStrategy>>;
+
 interface BaseProfileControls {
   readonly [controlName: string]: unknown;
   readonly model?: string;
@@ -25,10 +29,12 @@ export interface Profile {
   readonly label?: string;
   readonly inherits: readonly string[];
   readonly controls: ProfileControls;
+  readonly statePersistence?: StatePersistenceOverrides;
 }
 
 export const createEmptyProfile = (id: string): Profile => ({
   id,
   inherits: [],
   controls: {},
+  statePersistence: {},
 });

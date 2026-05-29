@@ -16,6 +16,12 @@
         "pattern": "^[a-z0-9][a-z0-9._-]*[a-z0-9]$|^[a-z0-9]$"
       }
     },
+    "state_persistence": {
+      "type": "object",
+      "additionalProperties": {
+        "enum": ["symlink", "discard", "warn", "error", "prompt"]
+      }
+    },
     "controls": {
       "type": "object",
       "properties": {

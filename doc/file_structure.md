@@ -13,6 +13,7 @@ Bridl is organized around clear TypeScript source boundaries, requirement docume
 │   ├── architecture.md                # architectural rationale and runtime file conventions
 │   ├── controllable-elements.md       # controllable element terminology and support matrix
 │   ├── file_structure.md              # repository file structure overview
+│   ├── state_writeback_strategy.md    # tack state persistence and writeback design
 │   └── specs/                         # detailed supporting specs
 ├── requirements/                      # formal BRIDL requirement documents
 │   ├── BRIDL-REQ-001-project-foundation.md
