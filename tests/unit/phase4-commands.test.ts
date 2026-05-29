@@ -199,6 +199,9 @@ describe('phase 4 setup and sync commands', () => {
     expect(fallbackDefaultResult.defaultProfilePath).toBe(
       join(fallbackHomeDirectory, '.bridl', 'profiles', 'default', 'profile.yml'),
     );
+    expect(readFileSync(join(fallbackHomeDirectory, '.bridl', 'settings.yml'), 'utf8')).toContain(
+      'default_profile: default',
+    );
 
     const projectDefaultHomeDirectory = join(root, 'project-default-home');
     const projectDefaultDirectory = join(root, 'project-default');

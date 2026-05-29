@@ -73,6 +73,7 @@ export const executeSetupCommand = (
   assertValidDefaultProfileId(defaultProfileId);
 
   const createdSettings = createInitialSettingsIfMissing(settingsPath, starterLayout?.settingsPath);
+  ensureExistingUserSettingsDefaultProfile(settingsPath, loadedSettings.files, defaultProfileId);
   const copiedStarterProfileFiles = copyStarterProfileFilesIfPresent(
     starterLayout?.profilesPath,
     join(input.homeDirectory, '.bridl', 'profiles'),
@@ -260,12 +261,28 @@ const readStarterDefaultProfileId = (settingsPath?: string): string => {
   return loaded.files[0]?.settings.defaultProfile ?? 'default';
 };
 
-const readUserDefaultProfileId = (
-  files: readonly {
-    readonly location: { readonly scope: string };
-    readonly settings: { readonly defaultProfile?: string };
-  }[],
-): string => files.find((file) => file.location.scope === 'user')?.settings.defaultProfile ?? 'default';
+type LoadedSetupSettingsFile = {
+  readonly location: { readonly scope: string };
+  readonly settings: { readonly defaultProfile?: string };
+};
+
+const readUserDefaultProfileId = (files: readonly LoadedSetupSettingsFile[]): string =>
+  files.find((file) => file.location.scope === 'user')?.settings.defaultProfile ?? 'default';
+
+const ensureExistingUserSettingsDefaultProfile = (
+  settingsPath: string,
+  files: readonly LoadedSetupSettingsFile[],
+  defaultProfileId: string,
+): void => {
+  const userSettings = files.find((file) => file.location.scope === 'user');
+
+  if (userSettings === undefined || userSettings.settings.defaultProfile !== undefined) {
+    return;
+  }
+
+  const content = readFileSync(settingsPath, 'utf8');
+  writeFileSync(settingsPath, `${content}\ndefault_profile: ${defaultProfileId}\n`);
+};
 
 const assertValidDefaultProfileId = (profileId: string): void => {
   if (!isValidProfileId(profileId)) {
