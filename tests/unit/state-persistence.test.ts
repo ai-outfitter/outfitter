@@ -67,6 +67,11 @@ describe('state persistence', () => {
     if (!('message' in profile)) {
       expect(profile.statePersistence).toEqual({ 'settings.json': 'warn', 'cache/': 'discard', unknown: 'error' });
     }
+
+    expect(parseProfileYaml('id: invalid\nstate_persistence:\n  settings.json: persist\n', 'fallback')).toEqual({
+      path: '/state_persistence/settings.json',
+      message: 'must be equal to one of the allowed values',
+    });
   });
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-005.6).

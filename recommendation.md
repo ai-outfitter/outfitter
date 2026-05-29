@@ -16,16 +16,16 @@ Pi supports changing the global agent/config directory with:
 PI_CODING_AGENT_DIR=/path/to/profile-dir pi ...
 ```
 
-That directory controls the profile-scoped global state:
+In native pi, that directory can contain profile-scoped global state such as settings, auth, models, extensions, skills, prompts, themes, and sessions.
 
-- `settings.json`
+Bridl currently declares and materializes a narrower day-one state set for pi:
+
 - `auth.json`
-- `models.json`
-- global `extensions/`
-- global `skills/`
-- global `prompts/`
-- global `themes/`
-- sessions, unless separately overridden
+- `settings.json`
+- `mcp.json`
+- `plugins/`
+- `cache/`
+- `sessions/`
 
 Native pi can be isolated by pointing `PI_CODING_AGENT_DIR` at a different directory. Bridl's implemented model uses that same boundary with a temporary tack directory for each run, then symlinks adapter-declared durable state paths back to profile files or native pi files such as `~/.pi/agent/auth.json`.
 
@@ -43,7 +43,7 @@ Launch shape:
 PI_CODING_AGENT_DIR=/tmp/bridl-default-pi-... pi
 ```
 
-This keeps the runtime tack disposable while preserving intentional credentials, plugins, default models, themes, prompts, and other user-level settings through declared state paths.
+This keeps the runtime tack disposable while preserving intentional credentials, settings, MCP configuration, plugins, caches, and sessions through declared state paths.
 
 ### Other native launch controls
 
