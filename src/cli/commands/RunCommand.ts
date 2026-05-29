@@ -1,5 +1,7 @@
 // Provides the command object for launching selected profiles.
+import { existsSync } from 'node:fs';
 import { homedir } from 'node:os';
+import { join } from 'node:path';
 
 import type { ChildProcess } from 'node:child_process';
 import type { Command } from 'commander';
@@ -19,6 +21,8 @@ import { createTackStateBaseline, detectTackStateWrites } from '../../tack/State
 import type { TackStateBaseline, TackStatePath, TackStateWriteIssue } from '../../tack/StatePersistence.js';
 import { watchTackInputs } from '../../tack/TackWatcher.js';
 import type { CommandObject } from './CommandObject.js';
+import { executeSetupCommand } from './SetupCommand.js';
+import type { SetupCommandDependencies } from './SetupCommand.js';
 
 export interface RunCommandInput {
   readonly homeDirectory: string;
@@ -41,11 +45,9 @@ export interface AgentProcessLauncher {
   launch(plan: AgentLaunchPlan): Promise<number>;
 }
 
-export interface RunCommandDependencies {
+export interface RunCommandDependencies extends SetupCommandDependencies {
   readonly adapter?: AgentAdapter;
   readonly launcher?: AgentProcessLauncher;
-  readonly homeDirectory?: string;
-  readonly projectDirectory?: string;
   readonly writeError?: (message: string) => void;
 }
 
@@ -53,6 +55,7 @@ export const executeRunCommand = async (
   input: RunCommandInput,
   dependencies: RunCommandDependencies = {},
 ): Promise<RunCommandResult> => {
+  runSetupIfNeeded(input, dependencies);
   const resolvedProfile = loadResolvedProfile(input);
   const adapter = dependencies.adapter ?? createPiAdapter();
   const tackRootDirectory = createTackRootDirectory(resolvedProfile.profile.id, adapter.id);
@@ -192,19 +195,35 @@ const handleTackStateWrites = (
       throw new Error(formatTackStateWriteIssue(issue));
     }
 
-    /* v8 ignore next -- state write issues are only emitted for warn/prompt or thrown for error. */
-    if (issue.strategy === 'warn' || issue.strategy === 'prompt') {
-      warnings.push(formatTackStateWriteIssue(issue));
-    }
+    warnings.push(formatTackStateWriteIssue(issue));
   }
 
   return warnings;
 };
 
-const formatTackStateWriteIssue = (issue: TackStateWriteIssue): string =>
-  issue.unknown
-    ? `pi wrote undeclared tack state '${issue.relativePath}' and it was not persisted.`
-    : `pi wrote '${issue.relativePath}' with state_persistence '${issue.strategy}' and it was not persisted.`;
+const formatTackStateWriteIssue = (issue: TackStateWriteIssue): string => {
+  if (issue.unknown) {
+    return `pi wrote undeclared tack state '${issue.relativePath}' and it was not persisted.`;
+  }
+
+  if (issue.strategy === 'symlink') {
+    return `pi replaced symlinked state path '${issue.relativePath}' and the change was not persisted.`;
+  }
+
+  return `pi wrote '${issue.relativePath}' with state_persistence '${issue.strategy}' and it was not persisted.`;
+};
+
+const runSetupIfNeeded = (input: RunCommandInput, dependencies: RunCommandDependencies): void => {
+  const settingsPath = join(input.homeDirectory, '.bridl', 'settings.yml');
+
+  if (existsSync(settingsPath)) {
+    return;
+  }
+
+  /* v8 ignore next -- console fallback is direct CLI behavior; tests inject a writer. */
+  (dependencies.writeLine ?? console.log)('`bridl setup` has not been run yet - running now');
+  executeSetupCommand(input, dependencies);
+};
 
 const loadResolvedProfile = (input: RunCommandInput): ResolvedRunProfile => {
   const loadedSettings = loadSettings(discoverSettingsLoadPlan(input));

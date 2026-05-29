@@ -51,7 +51,7 @@ afterEach(() => {
 });
 
 describe('state persistence', () => {
-  // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-005.2, BRIDL-REQ-005.3).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-005.6).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('parses state persistence overrides from profile YAML', () => {
     const profile = parseProfileYaml(
@@ -67,7 +67,7 @@ describe('state persistence', () => {
     }
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-005.2, BRIDL-REQ-005.3, BRIDL-REQ-005.5).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-005.6).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('materializes pi state paths as symlinks and reports non-persistent writes', async () => {
     const root = createTemporaryRoot();
@@ -113,7 +113,7 @@ describe('state persistence', () => {
     expect(warnings).toEqual(result.warnings);
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-005.2, BRIDL-REQ-005.3, BRIDL-REQ-005.5).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-005.6).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('detects changed temporary state paths and protects tack path boundaries', () => {
     const root = createTemporaryRoot();
@@ -149,7 +149,7 @@ describe('state persistence', () => {
         [
           { relativePath: 'cache/', strategy: 'prompt', directory: true },
           { relativePath: 'notes.txt', strategy: 'warn', directory: false },
-          { relativePath: 'unknown', strategy: 'warn', directory: false },
+          { relativePath: 'unknown', strategy: 'discard', directory: false },
         ],
         baseline,
       ),
@@ -157,6 +157,9 @@ describe('state persistence', () => {
       { relativePath: 'cache/', strategy: 'prompt', unknown: false },
       { relativePath: 'notes.txt', strategy: 'warn', unknown: false },
     ]);
+    expect(
+      detectTackStateWrites(root, [{ relativePath: 'notes.txt', strategy: 'discard', directory: false }], baseline),
+    ).toEqual([]);
     expect(() =>
       materializeTackStatePath(root, { relativePath: '../outside.txt', strategy: 'warn', directory: false }),
     ).toThrow('must stay under tack root');
@@ -166,7 +169,34 @@ describe('state persistence', () => {
     expect(createTackStateBaseline(join(root, 'missing')).fingerprints.size).toBe(0);
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-005.2, BRIDL-REQ-005.5).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-005.6).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('reports when an agent replaces a symlinked state path instead of writing through it', async () => {
+    const root = createTemporaryRoot();
+    const homeDirectory = join(root, 'home');
+    const projectDirectory = join(root, 'project');
+    writeSettings(homeDirectory, 'default_profile: default\nprofile_sources:\n  - path: ./profiles\n');
+    writeProfile(join(homeDirectory, '.bridl', 'profiles'), 'default', 'id: default\ncontrols: {}\n');
+
+    const result = await executeRunCommand(
+      { homeDirectory, projectDirectory },
+      {
+        launcher: {
+          launch(plan) {
+            rmSync(join(plan.env.PI_CODING_AGENT_DIR, 'settings.json'));
+            writeFileSync(join(plan.env.PI_CODING_AGENT_DIR, 'settings.json'), 'not persisted\n');
+            return Promise.resolve(0);
+          },
+        },
+      },
+    );
+
+    expect(result.warnings).toContain(
+      "pi replaced symlinked state path 'settings.json' and the change was not persisted.",
+    );
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-005.6).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('fails after launch when an error-strategy state path changes', async () => {
     const root = createTemporaryRoot();
@@ -194,7 +224,7 @@ describe('state persistence', () => {
     ).rejects.toThrow("pi wrote 'settings.json' with state_persistence 'error' and it was not persisted.");
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-005.2, BRIDL-REQ-005.5).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-005.6).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('rejects state persistence strategies that are disallowed for a pi state path', async () => {
     const root = createTemporaryRoot();

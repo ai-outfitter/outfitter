@@ -393,6 +393,32 @@ describe('phase 5 tack assembly and phase 6 pi run support', () => {
     );
   });
 
+  // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-005.1).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('runs setup automatically before the default run when user setup has not run', async () => {
+    const root = createTemporaryRoot();
+    const homeDirectory = join(root, 'home');
+    const projectDirectory = join(root, 'project');
+    const messages: string[] = [];
+
+    const result = await executeRunCommand(
+      { homeDirectory, projectDirectory },
+      {
+        writeLine: (message) => messages.push(message),
+        launcher: {
+          launch() {
+            return Promise.resolve(0);
+          },
+        },
+      },
+    );
+
+    expect(messages).toEqual(['`bridl setup` has not been run yet - running now']);
+    expect(result.profileId).toBe('default');
+    expect(existsSync(join(homeDirectory, '.bridl', 'settings.yml'))).toBe(true);
+    expect(existsSync(join(homeDirectory, '.bridl', 'profiles', 'default', 'profile.yml'))).toBe(true);
+  });
+
   // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-005.1, BRIDL-REQ-006.1).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('reports invalid settings, invalid profile sources, missing profiles, URI caches, and child exit codes', async () => {

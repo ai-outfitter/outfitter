@@ -37,7 +37,7 @@ bridl setup
 bridl create_profile regulated --scope user
 ```
 
-Under the hood, `bridl` will translate a selected profile into the appropriate `pi` launch environment, such as `PI_CODING_AGENT_DIR`, CLI flags, injected extensions, prompts, model settings, session directories, and environment variables.
+Under the hood, `bridl` will translate a selected profile into the appropriate `pi` launch environment, such as `PI_CODING_AGENT_DIR`, CLI flags, injected extensions, prompts, model settings, session directories, and environment variables. If `bridl` is run before `bridl setup`, it creates the initial settings and default profile automatically before launching.
 
 ## Profile model sketch
 

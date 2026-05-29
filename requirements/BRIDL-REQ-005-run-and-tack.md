@@ -14,6 +14,7 @@ The `run` command assembles a temporary agent-specific configuration directory c
 4. The `run` command MUST accept `-p` and `--profile` options for selecting the profile.
 5. The `run` command MUST use the resolved default profile when no profile option is provided.
 6. The `run` command MUST pass unrecognized arguments through to the selected agent CLI unaltered.
+7. When invoked before user setup has created `~/.bridl/settings.yml`, the default `run` command MUST print `` `bridl setup` has not been run yet - running now `` and execute setup before resolving the profile.
 
 ### BRIDL-REQ-005.2: Tack Definition
 
@@ -34,8 +35,8 @@ The `run` command assembles a temporary agent-specific configuration directory c
 
 1. Bridl MUST keep its process alive while the child agent CLI is running.
 2. Bridl MUST use `fs.watch` or an equivalent Node file watching mechanism on tack input files while the child process is running.
-3. Bridl MUST update generated tack files when watched inputs change and the update is safe.
-4. Bridl MUST warn when a live update cannot be safely applied.
+3. Bridl MUST update generated tack files when watched inputs change and the generated output path remains inside the tack root.
+4. Bridl MUST warn when a live update cannot be applied because regeneration or tack-root path validation fails.
 
 ### BRIDL-REQ-005.5: Unsupported Controls and Hard Tack
 
@@ -43,3 +44,15 @@ The `run` command assembles a temporary agent-specific configuration directory c
 2. The `run` command MUST accept a `--hard-tack` option.
 3. When `--hard-tack` is enabled, unsupported controls MUST cause tack assembly to fail instead of only warning.
 4. Hard-tack failures MUST identify the unsupported control and selected agent CLI.
+
+### BRIDL-REQ-005.6: Tack State Persistence
+
+1. Profiles MAY define `state_persistence` entries that map adapter-declared state paths to persistence strategies.
+2. Bridl MUST validate `state_persistence` values at profile read boundaries.
+3. Before launch, Bridl MUST resolve each adapter-declared state path to either a profile override strategy or the adapter default strategy.
+4. Bridl MUST reject strategies that are not allowed for the adapter-declared state path.
+5. For `symlink` strategy paths, Bridl MUST materialize the tack path as a symlink to the resolved profile or native CLI source path.
+6. For non-persistent strategies, Bridl MUST materialize normal temporary tack paths and detect writes after the child agent exits.
+7. Unknown writes MUST be governed by the adapter's `unknown` pseudo-path strategy and MUST NOT be persisted by symlink.
+8. Bridl MUST warn for `warn`, `prompt`, and symlink-replacement state write issues, fail for `error` state write issues, and ignore `discard` state writes.
+9. State path materialization MUST reject paths that escape the tack root.

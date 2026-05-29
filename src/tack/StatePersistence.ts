@@ -5,6 +5,7 @@ import {
   mkdirSync,
   readdirSync,
   readFileSync,
+  readlinkSync,
   symlinkSync,
   unlinkSync,
   writeFileSync,
@@ -75,15 +76,18 @@ export const detectTackStateWrites = (
     const statePath = declaredPaths.find((candidate) => isWithinStatePath(changedPath, candidate));
 
     if (statePath !== undefined) {
-      /* v8 ignore next -- symlink and discard changes are intentionally ignored; warning/error/prompt paths are covered. */
-      if (statePath.strategy !== 'symlink' && statePath.strategy !== 'discard') {
+      if (shouldReportStatePathChange(changedPath, statePath)) {
         issues.set(statePath.relativePath, {
           relativePath: statePath.relativePath,
           strategy: statePath.strategy,
           unknown: false,
         });
       }
-    } else if (unknownStatePath !== undefined && isUserWritePath(changedPath)) {
+    } else if (
+      unknownStatePath !== undefined &&
+      unknownStatePath.strategy !== 'discard' &&
+      isUserWritePath(changedPath)
+    ) {
       issues.set(changedPath, { relativePath: changedPath, strategy: unknownStatePath.strategy, unknown: true });
     }
   }
@@ -134,6 +138,7 @@ const addFingerprint = (absolutePath: string, relativePath: string, fingerprints
   const stat = lstatSync(absolutePath);
 
   if (stat.isSymbolicLink()) {
+    fingerprints.set(relativePath, `symlink:${readlinkSync(absolutePath)}`);
     return;
   }
 
@@ -168,13 +173,26 @@ const resolveTackStateOutputPath = (rootDirectory: string, relativePath: string)
   return resolvedOutputPath;
 };
 
+const shouldReportStatePathChange = (changedPath: string, statePath: TackStatePath): boolean => {
+  if (statePath.strategy === 'discard') {
+    return false;
+  }
+
+  if (statePath.strategy === 'symlink') {
+    return changedPath === normalizeStateRelativePath(statePath.relativePath);
+  }
+
+  return true;
+};
+
 const isWithinStatePath = (changedPath: string, statePath: TackStatePath): boolean => {
-  const stateRelativePath = statePath.relativePath.endsWith('/')
-    ? statePath.relativePath.slice(0, -1)
-    : statePath.relativePath;
+  const stateRelativePath = normalizeStateRelativePath(statePath.relativePath);
 
   return changedPath === stateRelativePath || changedPath.startsWith(`${stateRelativePath}${sep}`);
 };
+
+const normalizeStateRelativePath = (relativePath: string): string =>
+  relativePath.endsWith('/') ? relativePath.slice(0, -1) : relativePath;
 
 const isUserWritePath = (relativePath: string): boolean =>
   relativePath !== 'bridl' && !relativePath.startsWith(`bridl${sep}`);
