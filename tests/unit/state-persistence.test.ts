@@ -180,6 +180,8 @@ describe('state persistence', () => {
     expect(
       detectTackStateWrites(root, [{ relativePath: 'notes.txt', strategy: 'discard', directory: false }], baseline),
     ).toEqual([]);
+    materializeTackStatePath(root, { relativePath: '..cache', strategy: 'warn', directory: false });
+    expect(existsSync(join(root, '..cache'))).toBe(false);
     expect(() =>
       materializeTackStatePath(root, { relativePath: '../outside.txt', strategy: 'warn', directory: false }),
     ).toThrow('must stay under tack root');

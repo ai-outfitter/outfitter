@@ -210,7 +210,7 @@ const resolveTackStateOutputPath = (rootDirectory: string, relativePath: string)
   const resolvedOutputPath = resolve(rootDirectory, normalizedRelativePath);
   const relativeOutputPath = relative(resolvedRootDirectory, resolvedOutputPath);
 
-  if (relativeOutputPath.startsWith('..') || isAbsolute(relativeOutputPath)) {
+  if (relativeOutputPath === '..' || relativeOutputPath.startsWith(`..${sep}`) || isAbsolute(relativeOutputPath)) {
     throw new Error(`State path '${relativePath}' must stay under tack root '${rootDirectory}'.`);
   }
 
