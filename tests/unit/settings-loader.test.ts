@@ -60,10 +60,16 @@ describe('settings loading', () => {
     const projectDirectory = join(root, 'project');
     writeSettings(
       join(homeDirectory, '.bridl', 'settings.yml'),
-      'default_profile: user-default\nprofile_sources:\n  - path: ./profiles\n',
+      'default_profile: user-default\ncache_directory: ./user-cache\nprofile_sources:\n  - path: ./profiles\n',
     );
-    writeSettings(join(projectDirectory, '.bridl', 'settings.yml'), 'default_profile: project-default\n');
-    writeSettings(join(projectDirectory, '.bridl', 'local', 'settings.yml'), 'default_profile: local-default\n');
+    writeSettings(
+      join(projectDirectory, '.bridl', 'settings.yml'),
+      'default_profile: project-default\ncache_directory: ./project-cache\n',
+    );
+    writeSettings(
+      join(projectDirectory, '.bridl', 'local', 'settings.yml'),
+      'default_profile: local-default\ncache_directory: ./local-cache\n',
+    );
 
     const loaded = loadSettings(discoverSettingsLoadPlan({ homeDirectory, projectDirectory }));
 
@@ -72,6 +78,7 @@ describe('settings loading', () => {
     expect(loaded.settings.defaultProfile).toBe('local-default');
     expect(loaded.settings.profileSources).toEqual([{ path: join(homeDirectory, '.bridl', 'profiles') }]);
     expect(loaded.settings.remoteSettings).toEqual([]);
+    expect(loaded.settings.cacheDirectory).toBe(join(projectDirectory, '.bridl', 'local', 'local-cache'));
   });
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-002.3).
@@ -122,6 +129,19 @@ describe('settings loading', () => {
     expect(result.files[0]?.settings.remoteSettings).toEqual([
       { github: 'example/bridl-config', ref: 'main', path: 'settings.yml' },
     ]);
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-002.7).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('resolves configured cache directories relative to the containing settings file', () => {
+    const root = createTemporaryRoot();
+    const settingsPath = join(root, '.bridl', 'settings.yml');
+    writeSettings(settingsPath, 'cache_directory: ./cache\n');
+
+    const result = loadSettingsFiles(createSettingsLoadPlan([{ scope: 'user', path: settingsPath }]));
+
+    expect(result.issues).toEqual([]);
+    expect(result.files[0]?.settings.cacheDirectory).toBe(join(root, '.bridl', 'cache'));
   });
 
   it('skips missing settings files and exposes generic YAML and schema helpers', () => {

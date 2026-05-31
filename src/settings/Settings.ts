@@ -7,6 +7,7 @@ export interface Settings {
   readonly defaultProfile?: string;
   readonly profileSources?: readonly ProfileSourceReference[];
   readonly remoteSettings?: readonly RemoteSettingsReference[];
+  readonly cacheDirectory?: string;
 }
 
 export const emptySettings = (): Settings => ({

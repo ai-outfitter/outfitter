@@ -5,6 +5,7 @@
   "type": "object",
   "properties": {
     "default_profile": { "type": "string", "minLength": 1 },
+    "cache_directory": { "type": "string", "minLength": 1 },
     "profile_sources": {
       "type": "array",
       "items": { "$ref": "profile-source.schema.json" }
