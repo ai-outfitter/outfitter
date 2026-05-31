@@ -25,6 +25,7 @@ export interface AgentAdapter {
       readonly profilePaths: readonly string[];
       readonly profileFolders?: readonly string[];
       readonly homeDirectory?: string;
+      readonly cacheDirectory?: string;
     },
   ): AgentTackPlan;
   createLaunchPlan(tack: Tack, profile?: Profile, passThroughArgs?: readonly string[]): AgentLaunchPlan;

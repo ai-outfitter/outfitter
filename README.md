@@ -56,6 +56,8 @@ profile_sources:
 
 Run `bridl sync` to fetch/update remote settings and profiles before using them.
 
+By default, Bridl keeps reusable runtime cache files under `~/.bridl/cache`. Set `cache_directory` in `settings.yml` to choose a different cache root; relative values resolve from the settings file that declares them. The pi adapter symlinks tack `utilities/` and `bin/` paths into this cache so pi-managed utilities such as `fd` and `rg` survive across temporary tack directories.
+
 ## Setup from a settings repository
 
 You can bootstrap a machine from a Git repository:
@@ -149,7 +151,7 @@ The exact stable schema is governed by the requirements in `requirements/` and t
 The current recommendation is to build `bridl` around pi's existing native configuration mechanisms:
 
 1. Use a temporary tack directory as `PI_CODING_AGENT_DIR` for each run.
-2. Persist intentional pi state through adapter-declared symlinks to profile or native pi files.
+2. Persist intentional pi state through adapter-declared symlinks to profile, native pi, or Bridl cache files.
 3. Layer profile-controlled environment variables and pi CLI flags on top.
 4. Use explicit `--extension` / `-e` injection for bootstrap behavior that needs to run inside pi.
 5. Decide per profile whether project-local `.pi` overrides are allowed.

@@ -56,3 +56,10 @@ The internal Settings object is the single source of resolved configuration for 
 4. A `remote_settings` entry MAY specify `ref` to select a branch, tag, or commit.
 5. Bridl MUST load cached remote settings files from their repository subpaths when resolving settings.
 6. Local discovered settings MUST take precedence over remote settings when both define the same setting.
+
+### BRIDL-REQ-002.7: Cache Directory Setting
+
+1. `settings.yml` MAY contain a `cache_directory` path.
+2. Relative `cache_directory` values MUST resolve relative to the settings file containing them.
+3. When `cache_directory` is not configured, Bridl MUST use `~/.bridl/cache` as the default cache directory.
+4. Agent adapters MUST receive the resolved cache directory when assembling a tack so persistent tack links use the configured cache location.

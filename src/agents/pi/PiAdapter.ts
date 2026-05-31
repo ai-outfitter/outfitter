@@ -37,6 +37,8 @@ const piStatePathDeclarations = {
   'plugins/': { defaultStrategy: 'symlink', allowedStrategies: ['symlink', 'discard', 'warn', 'error', 'prompt'] },
   'cache/': { defaultStrategy: 'symlink', allowedStrategies: ['symlink', 'discard', 'warn', 'error'] },
   'sessions/': { defaultStrategy: 'symlink', allowedStrategies: ['symlink', 'discard', 'warn', 'error'] },
+  'utilities/': { defaultStrategy: 'symlink', allowedStrategies: ['symlink', 'discard', 'warn', 'error'] },
+  'bin/': { defaultStrategy: 'symlink', allowedStrategies: ['symlink', 'discard', 'warn', 'error'] },
   unknown: { defaultStrategy: 'warn', allowedStrategies: ['discard', 'warn', 'error', 'prompt'] },
 } as const satisfies Readonly<Record<string, StatePathDeclaration>>;
 
@@ -85,7 +87,11 @@ export const createPiAdapter = (): AgentAdapter => ({
 
 const createPiStatePaths = (
   profile: Profile,
-  input: { readonly profileFolders?: readonly string[]; readonly homeDirectory?: string },
+  input: {
+    readonly profileFolders?: readonly string[];
+    readonly homeDirectory?: string;
+    readonly cacheDirectory?: string;
+  },
 ): readonly TackStatePath[] => {
   assertDeclaredStatePersistenceKeys(profile);
 
@@ -99,7 +105,13 @@ const createPiStatePaths = (
       directory,
       sourcePath:
         strategy === 'symlink' && relativePath !== 'unknown'
-          ? resolvePiStateSourcePath(input.profileFolders ?? [], input.homeDirectory, relativePath, directory)
+          ? resolvePiStateSourcePath(
+              input.profileFolders ?? [],
+              input.homeDirectory,
+              input.cacheDirectory,
+              relativePath,
+              directory,
+            )
           : undefined,
     };
   });
@@ -135,10 +147,24 @@ const resolveStateStrategy = (
 const resolvePiStateSourcePath = (
   profileFolders: readonly string[],
   homeDirectory: string | undefined,
+  cacheDirectory: string | undefined,
   relativePath: string,
   directory: boolean,
 ): string => {
   const normalizedRelativePath = directory ? relativePath.slice(0, -1) : relativePath;
+  const configuredCacheDirectory =
+    cacheDirectory ??
+    join(
+      /* v8 ignore next -- run command always passes homeDirectory; environment fallbacks are defensive. */
+      homeDirectory ?? process.env.HOME ?? '.',
+      '.bridl',
+      'cache',
+    );
+
+  if (relativePath === 'utilities/' || relativePath === 'bin/') {
+    return join(configuredCacheDirectory, 'utilities');
+  }
+
   const profileSource = [...profileFolders]
     .reverse()
     .map((profileFolder) => join(profileFolder, 'cli_specific', 'pi', normalizedRelativePath))

@@ -6,6 +6,7 @@ export const mergeSettingsStack = (settingsStack: readonly Settings[]): Settings
   let defaultProfile: string | undefined;
   let profileSources: Settings['profileSources'];
   let remoteSettings: Settings['remoteSettings'];
+  let cacheDirectory: string | undefined;
 
   for (const settings of settingsStack) {
     defaultProfile = settings.defaultProfile ?? defaultProfile;
@@ -17,6 +18,8 @@ export const mergeSettingsStack = (settingsStack: readonly Settings[]): Settings
     if (settings.remoteSettings !== undefined) {
       remoteSettings = settings.remoteSettings;
     }
+
+    cacheDirectory = settings.cacheDirectory ?? cacheDirectory;
   }
 
   return {
@@ -24,5 +27,6 @@ export const mergeSettingsStack = (settingsStack: readonly Settings[]): Settings
     defaultProfile,
     profileSources: profileSources ?? [],
     remoteSettings: remoteSettings ?? [],
+    cacheDirectory,
   };
 };

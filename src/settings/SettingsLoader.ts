@@ -41,6 +41,7 @@ interface SettingsDocument {
   readonly default_profile?: string;
   readonly profile_sources?: readonly ProfileSourceDocument[];
   readonly remote_settings?: readonly RemoteSettingsDocument[];
+  readonly cache_directory?: string;
 }
 
 interface ProfileSourceDocument {
@@ -194,6 +195,10 @@ const convertSettingsDocument = (document: SettingsDocument, settingsDirectory: 
   defaultProfile: document.default_profile,
   profileSources: document.profile_sources?.map((source) => convertProfileSource(source, settingsDirectory)),
   remoteSettings: document.remote_settings?.map(convertRemoteSettingsSource),
+  cacheDirectory:
+    document.cache_directory === undefined
+      ? undefined
+      : resolveConfigDirectory(document.cache_directory, settingsDirectory),
 });
 
 const convertRemoteSettingsSource = (source: RemoteSettingsDocument): RemoteSettingsReference => {
@@ -221,10 +226,13 @@ const convertProfileSource = (source: ProfileSourceDocument, settingsDirectory: 
   return { ...filters, path: resolveProfileSourcePath(source.path!, settingsDirectory) };
 };
 
-const resolveProfileSourcePath = (sourcePath: string, settingsDirectory: string): string => {
-  if (isAbsolute(sourcePath)) {
-    return sourcePath;
+const resolveProfileSourcePath = (sourcePath: string, settingsDirectory: string): string =>
+  resolveConfigDirectory(sourcePath, settingsDirectory);
+
+const resolveConfigDirectory = (configuredPath: string, settingsDirectory: string): string => {
+  if (isAbsolute(configuredPath)) {
+    return configuredPath;
   }
 
-  return resolve(settingsDirectory, sourcePath);
+  return resolve(settingsDirectory, configuredPath);
 };

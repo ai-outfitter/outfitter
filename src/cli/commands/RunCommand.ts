@@ -171,6 +171,7 @@ interface ResolvedRunProfile {
   readonly profilePaths: readonly string[];
   readonly profileFolders: readonly string[];
   readonly homeDirectory: string;
+  readonly cacheDirectory: string;
 }
 
 const failHardTackOnWarnings = (
@@ -197,6 +198,7 @@ const createAdapterTackPlan = (adapter: AgentAdapter, resolvedProfile: ResolvedR
     profilePaths: resolvedProfile.profilePaths,
     profileFolders: resolvedProfile.profileFolders,
     homeDirectory: resolvedProfile.homeDirectory,
+    cacheDirectory: resolvedProfile.cacheDirectory,
   });
 
 const handleTackStateWrites = (
@@ -271,6 +273,7 @@ const loadResolvedProfile = (input: RunCommandInput): ResolvedRunProfile => {
     profilePaths: findContributingProfilePaths(resolution.profileStack, loadedProfiles.profiles),
     profileFolders: findContributingProfileFolders(resolution.profileStack, loadedProfiles.profiles),
     homeDirectory: input.homeDirectory,
+    cacheDirectory: loadedSettings.settings.cacheDirectory ?? join(input.homeDirectory, '.bridl', 'cache'),
   };
 };
 

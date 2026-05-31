@@ -82,6 +82,7 @@ Bridl uses a `.bridl` folder convention at multiple scopes:
   profiles
   cache/
     profiles/
+    utilities/
 
 <project>/.bridl/
   settings.yml
@@ -129,6 +130,7 @@ profile_sources:
 
 ```yaml
 default_profile: engineering
+cache_directory: ./cache
 
 profile_sources:
   - path: ./profiles
@@ -162,6 +164,7 @@ Rules:
 - `profile_sources` entries MUST specify a local `path`, a remote `uri`, or a `github` shorthand.
 - `only` and `except` are optional filters; without either, all profiles from the source are loaded.
 - Local-only relative `path` values are resolved relative to the settings file containing them.
+- `cache_directory` optionally selects the Bridl cache root; relative values are resolved relative to the settings file containing them.
 - Remote `uri` and `github` profile sources can specify `ref` and repository-subdirectory `path` values.
 - `remote_settings` entries point at settings-style YAML files inside synced remote repositories.
 - `uri`, `github`, and `remote_settings` sources are fetched/cached by `bridl sync`.
@@ -294,11 +297,13 @@ A **tack** is the dynamically assembled runtime configuration directory for a sp
 
 Example term usage: “the tack for `data-analyst` on `claude`”.
 
-Tacks are generated under the system temp directory so they can be reclaimed trivially:
+Tacks are generated under the system temp directory so they can be reclaimed trivially, while adapter-declared state paths can be symlinked to durable profile, native CLI, or Bridl cache locations:
 
 ```text
 $TMPDIR/bridl/tacks/<run-id>/
 ```
+
+The pi adapter uses this state model for native pi state and for pi-managed utilities: tack `utilities/` and `bin/` both symlink to `<cache_directory>/utilities` by default, so temporary tack cleanup does not force pi to redownload helper binaries such as `fd` and `rg`.
 
 During `bridl run`, the Bridl process remains alive while the child agent CLI runs.
 It owns the tack lifecycle.
