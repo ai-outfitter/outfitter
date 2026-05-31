@@ -137,8 +137,19 @@ profile_sources:
       - support
 
   - uri: git+https://github.com/example/company-bridl-profiles.git
+    ref: main
+    path: profiles/team
     except:
       - experimental
+
+  - github: example/bridl-config
+    ref: main
+    path: profiles
+
+remote_settings:
+  - github: example/bridl-config
+    ref: main
+    path: settings.yml
 
 profiles:
   engineering:
@@ -148,14 +159,16 @@ profiles:
 Rules:
 
 - Every settings file MUST validate against `settings.schema.json`.
-- `profile_sources` entries MUST specify exactly one of `path` or `uri`.
+- `profile_sources` entries MUST specify a local `path`, a remote `uri`, or a `github` shorthand.
 - `only` and `except` are optional filters; without either, all profiles from the source are loaded.
-- Relative `path` values are resolved relative to the settings file containing them.
-- `uri` sources are fetched/cached by `bridl sync`.
+- Local-only relative `path` values are resolved relative to the settings file containing them.
+- Remote `uri` and `github` profile sources can specify `ref` and repository-subdirectory `path` values.
+- `remote_settings` entries point at settings-style YAML files inside synced remote repositories.
+- `uri`, `github`, and `remote_settings` sources are fetched/cached by `bridl sync`.
 
 ## Profile Sources and Sync
 
-A profile source can be local or URI-based.
+A profile source can be local, URI-based, or GitHub shorthand-based.
 
 ### Local Source
 
@@ -166,20 +179,43 @@ profile_sources:
 
 The path points to a folder containing profile folders, not a specific profile folder.
 
-### URI Source
+### URI or GitHub Source
 
 ```yaml
 profile_sources:
-  - uri: git+ssh://git@github.com/example/company-profiles.git#main
+  - uri: git+ssh://git@github.com/example/company-profiles.git
+    ref: main
+    path: profiles/team
+
+  - github: example/company-profiles
+    ref: main
+    path: profiles/team
 ```
 
-`bridl sync` fetches URI sources into:
+The `github: owner/repo` shorthand normalizes to `git+https://github.com/owner/repo.git` internally. Remote sources without `ref` or repository subpaths retain the original profile cache location for compatibility:
 
 ```text
 ~/.bridl/cache/profiles/<encoded-uri>/
 ```
 
-The encoded path must be filesystem-safe and deterministic for arbitrary URI strings, including non-GitHub URIs.
+Remote sources that specify `ref`, repository-subdirectory `path`, or `github` are fetched into the shared repository cache:
+
+```text
+~/.bridl/cache/repos/<encoded-uri-and-ref>/
+```
+
+Profile loading then reads from the requested subdirectory inside the cached repository.
+
+### Remote Settings Source
+
+```yaml
+remote_settings:
+  - github: example/bridl-config
+    ref: main
+    path: settings.yml
+```
+
+`bridl sync` fetches remote settings repositories into the shared repository cache, validates that the requested settings file exists, then loads cached remote settings as lower-precedence settings sources during later settings resolution.
 
 ## Profile Layout
 
@@ -355,8 +391,10 @@ Requirements:
 Responsibilities:
 
 - create `~/.bridl/settings.yml` when missing;
+- accept an optional setup source URI, for example `bridl setup https://github.com/example/bridl-config`, and clone/update it under `~/.bridl/cache/repos/<encoded-uri-and-ref>/`;
+- when a setup source is provided, use its root `settings.yml` or `.bridl/settings.yml` and `profiles/` or `.bridl/profiles/` as the initial non-overwriting user setup starting point;
 - create a default profile when missing;
-- validate all discovered settings files;
+- validate all discovered settings files and any starter settings file;
 - run `bridl sync` behavior for URI profile sources;
 - report actionable next steps.
 
@@ -366,9 +404,10 @@ Responsibilities:
 
 - read settings;
 - validate profile sources;
-- fetch/update URI-based profile sources;
-- store them under `~/.bridl/cache/profiles/<encoded-uri>/`;
-- validate fetched profiles.
+- fetch/update URI-based, GitHub shorthand, and remote settings sources;
+- store plain URI profile sources without `ref` or repository subpaths under `~/.bridl/cache/profiles/<encoded-uri>/` for compatibility;
+- store GitHub shorthand sources and sources with `ref` or repository subpaths under `~/.bridl/cache/repos/<encoded-uri-and-ref>/`;
+- validate fetched remote settings files and profiles.
 
 ### `bridl create_profile`
 

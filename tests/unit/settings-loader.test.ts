@@ -5,11 +5,14 @@ import { dirname, join } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
+import { createRemoteRepositoryCachePath } from '../../src/profiles/ProfileCache.js';
 import {
   createSettingsLoadPlan,
+  discoverRemoteSettingsLoadPlan,
   discoverSettingsLoadPlan,
   loadSettings,
   loadSettingsFiles,
+  loadSettingsWithCachedRemoteSettings,
 } from '../../src/settings/SettingsLoader.js';
 import { validateSchema } from '../../src/validation/SchemaValidator.js';
 import { parseYamlDocument } from '../../src/validation/YamlDocument.js';
@@ -68,6 +71,7 @@ describe('settings loading', () => {
     expect(loaded.files.map((file) => file.location.scope)).toEqual(['user', 'project', 'project-local']);
     expect(loaded.settings.defaultProfile).toBe('local-default');
     expect(loaded.settings.profileSources).toEqual([{ path: join(homeDirectory, '.bridl', 'profiles') }]);
+    expect(loaded.settings.remoteSettings).toEqual([]);
   });
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-002.3).
@@ -96,14 +100,14 @@ describe('settings loading', () => {
     });
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-002.5).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-002.5, BRIDL-REQ-002.6).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
-  it('validates profile source entries and resolves relative paths from the settings file', () => {
+  it('validates local, URI, GitHub, and remote settings entries from settings files', () => {
     const root = createTemporaryRoot();
     const settingsPath = join(root, '.bridl', 'settings.yml');
     writeSettings(
       settingsPath,
-      `profile_sources:\n  - path: ./profiles\n    only: [engineering]\n  - path: ${join(root, 'absolute-profiles')}\n  - uri: git+https://example.test/profiles.git\n    except: [sandbox]\n`,
+      `profile_sources:\n  - path: ./profiles\n    only: [engineering]\n  - path: ${join(root, 'absolute-profiles')}\n  - uri: git+https://example.test/profiles.git\n    path: team/profiles\n    ref: main\n    except: [sandbox]\n  - github: example/bridl-config\n    path: profiles\nremote_settings:\n  - github: example/bridl-config\n    ref: main\n    path: settings.yml\n`,
     );
 
     const result = loadSettingsFiles(createSettingsLoadPlan([{ scope: 'user', path: settingsPath }]));
@@ -112,7 +116,11 @@ describe('settings loading', () => {
     expect(result.files[0]?.settings.profileSources).toEqual([
       { path: join(root, '.bridl', 'profiles'), only: ['engineering'] },
       { path: join(root, 'absolute-profiles') },
-      { uri: 'git+https://example.test/profiles.git', except: ['sandbox'] },
+      { uri: 'git+https://example.test/profiles.git', path: 'team/profiles', ref: 'main', except: ['sandbox'] },
+      { github: 'example/bridl-config', path: 'profiles' },
+    ]);
+    expect(result.files[0]?.settings.remoteSettings).toEqual([
+      { github: 'example/bridl-config', ref: 'main', path: 'settings.yml' },
     ]);
   });
 
@@ -127,5 +135,75 @@ describe('settings loading', () => {
     expect(parseYamlDocument('answer: 42\n', '/inline')).toEqual({ ok: true, document: { answer: 42 } });
     expect(validateSchema('profile-source', { path: './profiles' })).toEqual({ valid: true, issues: [] });
     expect(validateSchema('settings', null).issues[0]?.path).toBe('/');
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-002.6).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('loads cached remote settings from repository subpaths with local settings precedence', () => {
+    const root = createTemporaryRoot();
+    const homeDirectory = join(root, 'home');
+    const projectDirectory = join(root, 'project');
+    writeSettings(
+      join(homeDirectory, '.bridl', 'settings.yml'),
+      'default_profile: local\nremote_settings:\n  - uri: git+https://github.com/example/bridl-config.git\n    ref: main\n    path: settings.yml\n',
+    );
+    const remoteSettingsPath = join(
+      createRemoteRepositoryCachePath(homeDirectory, {
+        uri: 'git+https://github.com/example/bridl-config.git',
+        ref: 'main',
+      }),
+      'settings.yml',
+    );
+    writeSettings(
+      remoteSettingsPath,
+      'default_profile: remote\nprofile_sources:\n  - github: example/bridl-config\n    path: remote-profiles\n',
+    );
+
+    const loaded = loadSettingsWithCachedRemoteSettings({ homeDirectory, projectDirectory });
+
+    expect(loaded.issues).toEqual([]);
+    expect(loaded.settings.defaultProfile).toBe('local');
+    expect(loaded.settings.profileSources).toEqual([{ github: 'example/bridl-config', path: 'remote-profiles' }]);
+
+    writeSettings(
+      join(homeDirectory, '.bridl', 'settings.yml'),
+      'default_profile: local\nprofile_sources:\n  - path: ./local-profiles\nremote_settings:\n  - uri: git+https://github.com/example/bridl-config.git\n    ref: main\n    path: settings.yml\n',
+    );
+    const localOverrideLoaded = loadSettingsWithCachedRemoteSettings({ homeDirectory, projectDirectory });
+    expect(localOverrideLoaded.settings.profileSources).toEqual([
+      { path: join(homeDirectory, '.bridl', 'local-profiles') },
+    ]);
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-002.6).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('reports invalid cached remote settings subpaths as settings issues', () => {
+    const root = createTemporaryRoot();
+    const homeDirectory = join(root, 'home');
+    const projectDirectory = join(root, 'project');
+    writeSettings(
+      join(homeDirectory, '.bridl', 'settings.yml'),
+      'remote_settings:\n  - github: example/absolute\n    path: /tmp/settings.yml\n  - github: example/escape\n    path: ../settings.yml\n',
+    );
+
+    const loaded = loadSettingsWithCachedRemoteSettings({ homeDirectory, projectDirectory });
+    const invalidPlan = discoverRemoteSettingsLoadPlan(homeDirectory, [
+      { github: 'example/absolute', path: '/tmp/settings.yml' },
+    ]);
+
+    expect(invalidPlan.locations).toEqual([]);
+    expect(loaded.files.map((file) => file.location.scope)).toEqual(['user']);
+    expect(loaded.issues).toEqual([
+      {
+        filePath: 'remote_settings[0]',
+        path: '/remote_settings/0/path',
+        message: "Remote repository path '/tmp/settings.yml' must be relative.",
+      },
+      {
+        filePath: 'remote_settings[1]',
+        path: '/remote_settings/1/path',
+        message: "Remote repository path '../settings.yml' must stay inside the repository.",
+      },
+    ]);
   });
 });

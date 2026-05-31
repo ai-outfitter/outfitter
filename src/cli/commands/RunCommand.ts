@@ -9,13 +9,17 @@ import spawn from 'cross-spawn';
 
 import type { AgentAdapter, AgentLaunchPlan } from '../../agents/AgentAdapter.js';
 import { createPiAdapter } from '../../agents/pi/PiAdapter.js';
-import { createProfileSourceCachePath } from '../../profiles/ProfileCache.js';
+import {
+  createProfileSourceCachePath,
+  createRemoteRepositoryCachePath,
+  resolveRemoteRepositorySubpath,
+} from '../../profiles/ProfileCache.js';
 import { loadLocalProfileSource } from '../../profiles/ProfileLoader.js';
 import type { LoadedProfile } from '../../profiles/ProfileLoader.js';
 import type { Profile } from '../../profiles/Profile.js';
 import type { ProfileSourceReference } from '../../profiles/ProfileSource.js';
 import { resolveProfile } from '../../profiles/ProfileMerger.js';
-import { discoverSettingsLoadPlan, loadSettings } from '../../settings/SettingsLoader.js';
+import { loadSettingsWithCachedRemoteSettings } from '../../settings/SettingsLoader.js';
 import { createTackRootDirectory, writeTack } from '../../tack/TackAssembler.js';
 import { watchTackInputs } from '../../tack/TackWatcher.js';
 import type { CommandObject } from './CommandObject.js';
@@ -168,19 +172,19 @@ const runSetupIfNeeded = (input: RunCommandInput, dependencies: RunCommandDepend
 };
 
 const loadResolvedProfile = (input: RunCommandInput): ResolvedRunProfile => {
-  const loadedSettings = loadSettings(discoverSettingsLoadPlan(input));
+  const loadedSettings = loadSettingsWithCachedRemoteSettings(input);
 
   if (loadedSettings.issues.length > 0) {
     throw new Error(`Cannot run with invalid settings: ${loadedSettings.issues.map(formatSettingsIssue).join('; ')}`);
   }
 
-  const loadedProfiles = loadProfileSources(input.homeDirectory, loadedSettings.settings.profileSources);
+  const loadedProfiles = loadProfileSources(input.homeDirectory, loadedSettings.settings.profileSources!);
 
   if (loadedProfiles.issues.length > 0) {
     throw new Error(`Cannot run with invalid profiles: ${loadedProfiles.issues.map(formatProfileIssue).join('; ')}`);
   }
 
-  const profileId = input.profileId ?? loadedSettings.settings.defaultProfile ?? 'default';
+  const profileId = selectRunProfileId(input.profileId, loadedSettings.settings.defaultProfile);
   const resolution = resolveProfile({
     profiles: loadedProfiles.profiles,
     profileId,
@@ -195,6 +199,20 @@ const loadResolvedProfile = (input: RunCommandInput): ResolvedRunProfile => {
     profile: resolution.profile,
     profilePaths: findContributingProfilePaths(resolution.profileStack, loadedProfiles.profiles),
   };
+};
+
+const selectRunProfileId = (selectedProfileId: string | undefined, defaultProfileId: string | undefined): string => {
+  if (selectedProfileId !== undefined) {
+    return selectedProfileId;
+  }
+
+  if (defaultProfileId !== undefined) {
+    return defaultProfileId;
+  }
+
+  throw new Error(
+    'Cannot run without a selected profile or default_profile in settings.yml; pass --profile or run `bridl setup`.',
+  );
 };
 
 const findContributingProfilePaths = (
@@ -228,11 +246,19 @@ const loadProfileSources = (
 };
 
 const materializeSource = (homeDirectory: string, source: ProfileSourceReference): ProfileSourceReference => {
-  if (source.uri === undefined) {
+  if (source.uri === undefined && source.github === undefined) {
     return source;
   }
 
-  return { path: createProfileSourceCachePath(homeDirectory, source.uri), only: source.only, except: source.except };
+  if (source.uri !== undefined && source.ref === undefined && source.path === undefined) {
+    return { path: createProfileSourceCachePath(homeDirectory, source.uri), only: source.only, except: source.except };
+  }
+
+  return {
+    path: resolveRemoteRepositorySubpath(createRemoteRepositoryCachePath(homeDirectory, source), source.path),
+    only: source.only,
+    except: source.except,
+  };
 };
 
 /* v8 ignore start -- the real child-process launcher is direct runtime behavior; tests inject a launcher. */

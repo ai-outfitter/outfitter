@@ -38,10 +38,21 @@ The internal Settings object is the single source of resolved configuration for 
 ### BRIDL-REQ-002.5: Profile Sources in Settings
 
 1. `settings.yml` MAY contain a `profile_sources` array.
-2. Each `profile_sources` entry MUST specify exactly one of `path` or `uri`.
-3. A `path` profile source MUST resolve relative to the settings file containing it when the path is relative.
-4. A `path` profile source MUST point to a folder containing profile folders rather than to one specific profile folder.
-5. A `uri` profile source MUST be syncable by `bridl sync`.
-6. A profile source MAY specify `only` to allow only named profiles from that source.
-7. A profile source MAY specify `except` to exclude named profiles from that source.
-8. If neither `only` nor `except` is specified, Bridl MUST load all profiles from the source.
+2. Each `profile_sources` entry MUST specify either a local `path`, a remote `uri`, or a `github` shorthand.
+3. A local-only `path` profile source MUST resolve relative to the settings file containing it when the path is relative.
+4. A local-only `path` profile source MUST point to a folder containing profile folders rather than to one specific profile folder.
+5. A `uri` or `github` profile source MUST be syncable by `bridl sync`.
+6. A `uri` or `github` profile source MAY specify `ref` to select a branch, tag, or commit.
+7. A `uri` or `github` profile source MAY specify `path` to load profiles from a repository subdirectory.
+8. A profile source MAY specify `only` to allow only named profiles from that source.
+9. A profile source MAY specify `except` to exclude named profiles from that source.
+10. If neither `only` nor `except` is specified, Bridl MUST load all profiles from the source.
+
+### BRIDL-REQ-002.6: Remote Settings Sources
+
+1. `settings.yml` MAY contain a `remote_settings` array.
+2. Each `remote_settings` entry MUST specify either a remote `uri` or a `github` shorthand.
+3. Each `remote_settings` entry MUST specify `path` to a settings-style YAML file inside the remote repository.
+4. A `remote_settings` entry MAY specify `ref` to select a branch, tag, or commit.
+5. Bridl MUST load cached remote settings files from their repository subpaths when resolving settings.
+6. Local discovered settings MUST take precedence over remote settings when both define the same setting.
