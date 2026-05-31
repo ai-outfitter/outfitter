@@ -6,6 +6,7 @@ import {
   readdirSync,
   readFileSync,
   readlinkSync,
+  statSync,
   symlinkSync,
   unlinkSync,
   writeFileSync,
@@ -96,14 +97,43 @@ export const detectTackStateWrites = (
 };
 
 export const ensureStateSourcePath = (sourcePath: string, directory: boolean): string => {
-  if (directory) {
-    mkdirSync(sourcePath, { recursive: true });
-  } else if (!existsSync(sourcePath)) {
-    mkdirSync(dirname(sourcePath), { recursive: true });
-    writeFileSync(sourcePath, '');
+  const sourceType = getExistingSourceType(sourcePath);
+
+  if (sourceType === undefined) {
+    if (directory) {
+      mkdirSync(sourcePath, { recursive: true });
+    } else {
+      mkdirSync(dirname(sourcePath), { recursive: true });
+      writeFileSync(sourcePath, '');
+    }
+
+    return sourcePath;
+  }
+
+  if (directory && sourceType !== 'directory') {
+    throw new Error(`State source path '${sourcePath}' must be a directory.`);
+  }
+
+  if (!directory && sourceType !== 'file') {
+    throw new Error(`State source path '${sourcePath}' must be a file.`);
   }
 
   return sourcePath;
+};
+
+const getExistingSourceType = (sourcePath: string): 'file' | 'directory' | undefined => {
+  try {
+    const stat = statSync(sourcePath);
+    return stat.isDirectory() ? 'directory' : 'file';
+  } catch (error) {
+    /* v8 ignore next -- non-ENOENT stat failures should surface as actionable filesystem errors. */
+    if (isNodeError(error) && error.code === 'ENOENT') {
+      return undefined;
+    }
+
+    /* v8 ignore next -- non-ENOENT stat failures should surface as actionable filesystem errors. */
+    throw error;
+  }
 };
 
 const materializeSymlink = (

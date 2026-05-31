@@ -194,6 +194,10 @@ describe('state persistence', () => {
       directory: false,
     });
     expect(readlinkSync(join(root, 'broken.json'))).toBe(sourceFile);
+    mkdirSync(join(root, 'source-directory.json'));
+    expect(() => ensureStateSourcePath(join(root, 'source-directory.json'), false)).toThrow('must be a file');
+    writeFileSync(join(root, 'source-file'), 'not a directory\n');
+    expect(() => ensureStateSourcePath(join(root, 'source-file'), true)).toThrow('must be a directory');
     expect(createTackStateBaseline(join(root, 'missing')).fingerprints.size).toBe(0);
   });
 
