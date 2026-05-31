@@ -8,6 +8,23 @@
     "profile_sources": {
       "type": "array",
       "items": { "$ref": "profile-source.schema.json" }
+    },
+    "remote_settings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "oneOf": [
+          { "required": ["uri", "path"], "not": { "required": ["github"] } },
+          { "required": ["github", "path"], "not": { "required": ["uri"] } }
+        ],
+        "properties": {
+          "path": { "type": "string", "minLength": 1 },
+          "uri": { "type": "string", "minLength": 1 },
+          "github": { "type": "string", "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$" },
+          "ref": { "type": "string", "minLength": 1 }
+        },
+        "additionalProperties": false
+      }
     }
   },
   "additionalProperties": true

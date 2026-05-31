@@ -14,17 +14,19 @@ Bridl provides setup and maintenance commands that create initial configuration,
 4. The `setup` command MUST validate discovered settings files.
 5. The `setup` command MUST run sync behavior for URI-based profile sources.
 6. The `setup` command SHOULD avoid overwriting existing user files unless a future explicit force option authorizes replacement.
+7. When provided a setup source URI, the `setup` command MUST use that source repository's Bridl `settings.yml` and profiles as the initial user setup starting point.
 
 ### BRIDL-REQ-004.2: Sync Command
 
 1. Bridl MUST provide a `sync` command.
 2. The `sync` command MUST read and validate settings before synchronizing sources.
 3. The `sync` command MUST fetch or update URI-based profile sources.
-4. The `sync` command MUST store URI-based profile sources under `~/.bridl/cache/profiles/<encoded-uri>/`.
+4. The `sync` command MUST store plain URI-based profile sources without `ref` or repository subpaths under `~/.bridl/cache/profiles/<encoded-uri>/`, and MUST store URI or GitHub sources with `ref` or repository subpaths under `~/.bridl/cache/repos/<encoded-uri-and-ref>/`.
 5. The encoded URI cache path MUST support non-GitHub URIs.
 6. The `sync` command MUST validate profiles loaded from synchronized sources.
 7. The `sync` command SHOULD report whether each source was updated, unchanged, skipped, or failed.
 8. The first version of `sync` MUST NOT require lockfile-based profile source reproducibility.
+9. The `sync` command MUST redact credentials embedded in source URIs from user-facing output.
 
 ### BRIDL-REQ-004.3: Create Profile Command
 

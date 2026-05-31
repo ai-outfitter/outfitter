@@ -4,12 +4,18 @@
   "title": "Bridl profile source",
   "type": "object",
   "oneOf": [
-    { "required": ["path"], "not": { "required": ["uri"] } },
-    { "required": ["uri"], "not": { "required": ["path"] } }
+    {
+      "required": ["path"],
+      "not": { "anyOf": [{ "required": ["uri"] }, { "required": ["github"] }, { "required": ["ref"] }] }
+    },
+    { "required": ["uri"], "not": { "required": ["github"] } },
+    { "required": ["github"], "not": { "required": ["uri"] } }
   ],
   "properties": {
     "path": { "type": "string", "minLength": 1 },
     "uri": { "type": "string", "minLength": 1 },
+    "github": { "type": "string", "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$" },
+    "ref": { "type": "string", "minLength": 1 },
     "only": {
       "type": "array",
       "items": { "type": "string", "minLength": 1 }

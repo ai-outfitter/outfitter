@@ -1,4 +1,4 @@
-// Tests the initial source layout scaffolding for Bridl modules.
+// Tests source layout, command registration, schemas, and small boundary helpers.
 import { readFileSync } from 'node:fs';
 
 import type { AnySchema } from 'ajv';
@@ -17,7 +17,11 @@ import { createSyncCommand } from '../../src/cli/commands/SyncCommand.js';
 import { createEmptyProfile } from '../../src/profiles/Profile.js';
 import { createProfileLoadPlan } from '../../src/profiles/ProfileLoader.js';
 import { mergeProfileStack } from '../../src/profiles/ProfileMerger.js';
-import { createLocalProfileSource, createUriProfileSource } from '../../src/profiles/ProfileSource.js';
+import {
+  createLocalProfileSource,
+  createUriProfileSource,
+  normalizeRemoteSourceUri,
+} from '../../src/profiles/ProfileSource.js';
 import {
   profileSchemaDocument,
   profileSourceSchemaDocument,
@@ -60,14 +64,17 @@ describe('source layout scaffolding', () => {
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-002.5).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
-  it('validates profile source entries with exactly one source location', () => {
+  it('validates profile source entries for local, URI, and GitHub source locations', () => {
     const ajv = new Ajv2020();
     const profileSourceSchema = readJson<AnySchema>('../../src/schemas/profile-source.schema.json');
     const validate = ajv.compile(profileSourceSchema);
 
     expect(validate({ path: './profiles' })).toBe(true);
     expect(validate({ uri: 'git+https://example.test/profiles.git' })).toBe(true);
-    expect(validate({ path: './profiles', uri: 'git+https://example.test/profiles.git' })).toBe(false);
+    expect(validate({ uri: 'git+https://example.test/profiles.git', path: 'profiles/team', ref: 'main' })).toBe(true);
+    expect(validate({ github: 'example/bridl-config', path: 'profiles' })).toBe(true);
+    expect(validate({ path: './profiles', ref: 'main' })).toBe(false);
+    expect(validate({ uri: 'git+https://example.test/profiles.git', github: 'example/profiles' })).toBe(false);
     expect(validate({ only: ['engineering'] })).toBe(false);
   });
 
@@ -77,7 +84,8 @@ describe('source layout scaffolding', () => {
     const settings = emptySettings();
     const mergedSettings = mergeSettingsStack([
       settings,
-      { defaultProfile: 'engineering', profileSources: [localSource] },
+      { defaultProfile: 'remote', profileSources: [uriSource], remoteSettings: [] },
+      { defaultProfile: 'engineering', profileSources: [localSource], remoteSettings: [] },
     ]);
     const settingsLoadPlan = createSettingsLoadPlan([
       { scope: 'user', path: '~/.bridl/settings.yml' },
@@ -88,6 +96,19 @@ describe('source layout scaffolding', () => {
 
     expect(mergedSettings.defaultProfile).toBe('engineering');
     expect(mergedSettings.profileSources).toEqual([localSource]);
+    expect(
+      mergeSettingsStack([
+        {
+          defaultProfile: 'remote',
+          profileSources: [uriSource],
+          remoteSettings: [{ github: 'example/remote', path: 'settings.yml' }],
+        },
+        { profileSources: [], remoteSettings: [] },
+      ]),
+    ).toEqual({ profileSources: [], remoteSettings: [], defaultProfile: 'remote' });
+    expect(normalizeRemoteSourceUri({ github: 'example/bridl-config' })).toBe(
+      'git+https://github.com/example/bridl-config.git',
+    );
     expect(settingsLoadPlan.locations.map((location) => location.scope)).toEqual(['user', 'project', 'project-local']);
     expect(profileLoadPlan.sources).toEqual([localSource, uriSource]);
   });

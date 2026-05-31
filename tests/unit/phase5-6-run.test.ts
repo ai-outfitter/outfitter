@@ -471,20 +471,21 @@ describe('phase 5 tack assembly and phase 6 pi run support', () => {
     const fallbackHome = join(root, 'fallback-home');
     writeSettings(fallbackHome, 'profile_sources:\n  - path: ./profiles\n');
     writeProfile(join(fallbackHome, '.bridl', 'profiles'), 'default', 'id: default\ncontrols: {}\n');
-    const fallbackResult = await executeRunCommand(
-      { homeDirectory: fallbackHome, projectDirectory },
-      {
-        launcher: {
-          launch() {
-            return Promise.resolve(0);
+    await expect(
+      executeRunCommand(
+        { homeDirectory: fallbackHome, projectDirectory },
+        {
+          launcher: {
+            launch() {
+              return Promise.resolve(0);
+            },
           },
         },
-      },
-    );
-    expect(fallbackResult.profileId).toBe('default');
+      ),
+    ).rejects.toThrow('Cannot run without a selected profile or default_profile');
 
     const spawnedHome = join(root, 'spawned-home');
-    writeSettings(spawnedHome, 'profile_sources:\n  - path: ./profiles\n');
+    writeSettings(spawnedHome, 'default_profile: default\nprofile_sources:\n  - path: ./profiles\n');
     writeProfile(join(spawnedHome, '.bridl', 'profiles'), 'default', 'id: default\ncontrols: {}\n');
     const spawnedResult = await executeRunCommand(
       { homeDirectory: spawnedHome, projectDirectory },
