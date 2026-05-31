@@ -61,6 +61,28 @@ export const createTackStateBaseline = (rootDirectory: string): TackStateBaselin
   fingerprints: fingerprintTree(rootDirectory),
 });
 
+export const updateTackStateBaselinePaths = (
+  rootDirectory: string,
+  baseline: TackStateBaseline,
+  outputPaths: readonly string[],
+): TackStateBaseline => {
+  const current = fingerprintTree(rootDirectory);
+  const fingerprints = new Map(baseline.fingerprints);
+
+  for (const outputPath of outputPaths) {
+    const relativePath = normalizeTackRelativePath(rootDirectory, outputPath);
+    const fingerprint = current.get(relativePath);
+
+    if (fingerprint === undefined) {
+      fingerprints.delete(relativePath);
+    } else {
+      fingerprints.set(relativePath, fingerprint);
+    }
+  }
+
+  return { fingerprints };
+};
+
 export const detectTackStateWrites = (
   rootDirectory: string,
   statePaths: readonly TackStatePath[],
@@ -207,15 +229,33 @@ const addFingerprint = (absolutePath: string, relativePath: string, fingerprints
 
 const resolveTackStateOutputPath = (rootDirectory: string, relativePath: string): string => {
   const normalizedRelativePath = relativePath.endsWith('/') ? relativePath.slice(0, -1) : relativePath;
+
+  return resolveTackRelativePath(rootDirectory, normalizedRelativePath, `State path '${relativePath}'`);
+};
+
+const normalizeTackRelativePath = (rootDirectory: string, outputPath: string): string => {
+  const resolvedOutputPath = isAbsolute(outputPath) ? resolve(outputPath) : resolve(rootDirectory, outputPath);
+  const relativeOutputPath = relative(resolve(rootDirectory), resolvedOutputPath);
+
+  assertTackRelativePath(rootDirectory, relativeOutputPath, `Tack file output path '${outputPath}'`);
+
+  return relativeOutputPath.split(sep).join(posixSeparator);
+};
+
+const resolveTackRelativePath = (rootDirectory: string, relativePath: string, label: string): string => {
   const resolvedRootDirectory = resolve(rootDirectory);
-  const resolvedOutputPath = resolve(rootDirectory, normalizedRelativePath);
+  const resolvedOutputPath = resolve(rootDirectory, relativePath);
   const relativeOutputPath = relative(resolvedRootDirectory, resolvedOutputPath);
 
-  if (relativeOutputPath === '..' || relativeOutputPath.startsWith(`..${sep}`) || isAbsolute(relativeOutputPath)) {
-    throw new Error(`State path '${relativePath}' must stay under tack root '${rootDirectory}'.`);
-  }
+  assertTackRelativePath(rootDirectory, relativeOutputPath, label);
 
   return resolvedOutputPath;
+};
+
+const assertTackRelativePath = (rootDirectory: string, relativePath: string, label: string): void => {
+  if (relativePath === '..' || relativePath.startsWith(`..${sep}`) || isAbsolute(relativePath)) {
+    throw new Error(`${label} must stay under tack root '${rootDirectory}'.`);
+  }
 };
 
 const shouldReportStatePathChange = (changedPath: string, statePath: TackStatePath): boolean => {

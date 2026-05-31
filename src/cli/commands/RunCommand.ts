@@ -21,7 +21,11 @@ import type { ProfileSourceReference } from '../../profiles/ProfileSource.js';
 import { resolveProfile } from '../../profiles/ProfileMerger.js';
 import { loadSettingsWithCachedRemoteSettings } from '../../settings/SettingsLoader.js';
 import { createTackRootDirectory, writeTack } from '../../tack/TackAssembler.js';
-import { createTackStateBaseline, detectTackStateWrites } from '../../tack/StatePersistence.js';
+import {
+  createTackStateBaseline,
+  detectTackStateWrites,
+  updateTackStateBaselinePaths,
+} from '../../tack/StatePersistence.js';
 import type { TackStateBaseline, TackStatePath, TackStateWriteIssue } from '../../tack/StatePersistence.js';
 import { watchTackInputs } from '../../tack/TackWatcher.js';
 import type { CommandObject } from './CommandObject.js';
@@ -70,11 +74,18 @@ export const executeRunCommand = async (
   emitWarnings(warnings, dependencies.writeError);
 
   writeTack(tackPlan.tack);
-  const stateBaseline = createTackStateBaseline(tackPlan.tack.rootDirectory);
+  let stateBaseline = createTackStateBaseline(tackPlan.tack.rootDirectory);
   const launchPlan = adapter.createLaunchPlan(tackPlan.tack, resolvedProfile.profile, input.passThroughArgs ?? []);
   const watcher = watchTackInputs({
     tack: tackPlan.tack,
     refreshTack: () => createAdapterTackPlan(adapter, loadResolvedProfile(input), tackRootDirectory).tack,
+    onTackWritten: (tack) => {
+      stateBaseline = updateTackStateBaselinePaths(
+        tack.rootDirectory,
+        stateBaseline,
+        tack.files.map((file) => file.outputPath),
+      );
+    },
     /* v8 ignore next -- watcher warnings are covered in TackWatcher tests; this adapter passes the stderr writer through. */
     warn: (message) => (dependencies.writeError ?? console.error)(message),
   });

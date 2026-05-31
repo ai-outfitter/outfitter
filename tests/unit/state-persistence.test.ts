@@ -26,6 +26,7 @@ import {
   detectTackStateWrites,
   ensureStateSourcePath,
   materializeTackStatePath,
+  updateTackStateBaselinePaths,
 } from '../../src/tack/StatePersistence.js';
 
 const temporaryRoots: string[] = [];
@@ -229,6 +230,8 @@ describe('state persistence', () => {
     expect(() => ensureStateSourcePath(join(root, 'source-directory.json'), false)).toThrow('must be a file');
     writeFileSync(join(root, 'source-file'), 'not a directory\n');
     expect(() => ensureStateSourcePath(join(root, 'source-file'), true)).toThrow('must be a directory');
+    rmSync(join(root, 'notes.txt'));
+    expect(updateTackStateBaselinePaths(root, baseline, ['notes.txt']).fingerprints.has('notes.txt')).toBe(false);
     expect(createTackStateBaseline(join(root, 'missing')).fingerprints.size).toBe(0);
   });
 
