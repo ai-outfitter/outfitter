@@ -135,6 +135,31 @@ describe('state persistence', () => {
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-005.6).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('assembles pi fallback state source paths without mutating native state directories', () => {
+    const root = createTemporaryRoot();
+    const homeDirectory = join(root, 'home');
+    const tack = createPiAdapter().createTack(
+      { id: 'default', inherits: [], controls: {} },
+      {
+        rootDirectory: join(root, 'tack'),
+        profilePaths: [join(root, 'profile.yml')],
+        profileFolders: [],
+        homeDirectory,
+      },
+    ).tack;
+
+    expect(tack.statePaths.find((statePath) => statePath.relativePath === 'settings.json')?.sourcePath).toBe(
+      join(homeDirectory, '.pi', 'agent', 'settings.json'),
+    );
+    expect(existsSync(join(homeDirectory, '.pi'))).toBe(false);
+
+    writeTack(tack);
+
+    expect(existsSync(join(homeDirectory, '.pi', 'agent', 'settings.json'))).toBe(true);
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-005.6).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('detects changed temporary state paths and protects tack path boundaries', () => {
     const root = createTemporaryRoot();
     const sourceFile = ensureStateSourcePath(join(root, 'source', 'settings.json'), false);
@@ -205,6 +230,28 @@ describe('state persistence', () => {
     writeFileSync(join(root, 'source-file'), 'not a directory\n');
     expect(() => ensureStateSourcePath(join(root, 'source-file'), true)).toThrow('must be a directory');
     expect(createTackStateBaseline(join(root, 'missing')).fingerprints.size).toBe(0);
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-005.6).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('does not create native fallback state paths while planning a pi tack', () => {
+    const root = createTemporaryRoot();
+    const homeDirectory = join(root, 'home');
+
+    const tack = createPiAdapter().createTack(
+      { id: 'default', controls: {} },
+      {
+        rootDirectory: join(root, 'tack'),
+        profilePaths: [],
+        profileFolders: [],
+        homeDirectory,
+      },
+    ).tack;
+
+    expect(tack.statePaths.find((statePath) => statePath.relativePath === 'settings.json')?.sourcePath).toBe(
+      join(homeDirectory, '.pi', 'agent', 'settings.json'),
+    );
+    expect(existsSync(join(homeDirectory, '.pi'))).toBe(false);
   });
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-005.6).

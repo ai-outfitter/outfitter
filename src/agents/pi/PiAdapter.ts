@@ -8,7 +8,6 @@ import type { Tack } from '../../tack/Tack.js';
 import { createTack } from '../../tack/Tack.js';
 import { createTackFile } from '../../tack/TackFile.js';
 import type { StatePathDeclaration, StatePersistenceStrategy, TackStatePath } from '../../tack/StatePersistence.js';
-import { ensureStateSourcePath } from '../../tack/StatePersistence.js';
 
 const genericControlNames = new Set([
   'model',
@@ -149,15 +148,12 @@ const resolvePiStateSourcePath = (
     return profileSource;
   }
 
-  return ensureStateSourcePath(
-    join(
-      /* v8 ignore next -- run command always passes homeDirectory; environment fallbacks are defensive. */
-      homeDirectory ?? process.env.HOME ?? '.',
-      '.pi',
-      'agent',
-      normalizedRelativePath,
-    ),
-    directory,
+  return join(
+    /* v8 ignore next -- run command always passes homeDirectory; environment fallbacks are defensive. */
+    homeDirectory ?? process.env.HOME ?? '.',
+    '.pi',
+    'agent',
+    normalizedRelativePath,
   );
 };
 
