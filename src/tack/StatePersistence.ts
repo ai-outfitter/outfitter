@@ -246,7 +246,7 @@ const addFingerprint = (
   }
 };
 
-const createEntryFingerprint = (absolutePath: string, stat: ReturnType<typeof lstatSync>): string => {
+const createEntryFingerprint = (absolutePath: string, stat: NonNullable<ReturnType<typeof lstatSync>>): string => {
   if (stat.isDirectory()) {
     return 'dir';
   }
