@@ -293,6 +293,52 @@ describe('state persistence', () => {
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-005.6).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('formats state write diagnostics with the selected adapter id', async () => {
+    const root = createTemporaryRoot();
+    const homeDirectory = join(root, 'home');
+    const projectDirectory = join(root, 'project');
+    writeSettings(homeDirectory, 'default_profile: default\nprofile_sources:\n  - path: ./profiles\n');
+    writeProfile(join(homeDirectory, '.bridl', 'profiles'), 'default', 'id: default\ncontrols: {}\n');
+
+    const result = await executeRunCommand(
+      { homeDirectory, projectDirectory },
+      {
+        adapter: {
+          id: 'mock-agent',
+          supportedControls: [],
+          createTack(_profile, tackInput) {
+            return {
+              tack: createTack(
+                tackInput.rootDirectory,
+                [],
+                [{ relativePath: 'state.json', strategy: 'warn', directory: false }],
+              ),
+              warnings: [],
+            };
+          },
+          createLaunchPlan(tack) {
+            return { command: 'mock-agent', args: [], env: { MOCK_AGENT_DIR: tack.rootDirectory } };
+          },
+          getUnsupportedControls() {
+            return [];
+          },
+        },
+        launcher: {
+          launch(plan) {
+            writeFileSync(join(plan.env.MOCK_AGENT_DIR, 'state.json'), 'changed\n');
+            return Promise.resolve(0);
+          },
+        },
+      },
+    );
+
+    expect(result.warnings).toContain(
+      "mock-agent wrote 'state.json' with state_persistence 'warn' and it was not persisted.",
+    );
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-005.6).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('fails after launch when an error-strategy state path changes', async () => {
     const root = createTemporaryRoot();
     const homeDirectory = join(root, 'home');
@@ -344,6 +390,33 @@ describe('state persistence', () => {
         },
       ),
     ).rejects.toThrow('state_persistence strategy \'symlink\' is not allowed for "unknown"');
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-005.6).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('rejects state persistence keys inherited from Object.prototype', async () => {
+    const root = createTemporaryRoot();
+    const homeDirectory = join(root, 'home');
+    const projectDirectory = join(root, 'project');
+    writeSettings(homeDirectory, 'default_profile: default\nprofile_sources:\n  - path: ./profiles\n');
+    writeProfile(
+      join(homeDirectory, '.bridl', 'profiles'),
+      'default',
+      ['id: default', 'state_persistence:', '  toString: warn', 'controls: {}', ''].join('\n'),
+    );
+
+    await expect(
+      executeRunCommand(
+        { homeDirectory, projectDirectory },
+        {
+          launcher: {
+            launch() {
+              return Promise.resolve(0);
+            },
+          },
+        },
+      ),
+    ).rejects.toThrow("state_persistence path 'toString' is not declared by the pi adapter");
   });
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-005.6).

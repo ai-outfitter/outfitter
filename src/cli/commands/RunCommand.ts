@@ -85,6 +85,7 @@ export const executeRunCommand = async (
       /* v8 ignore next -- tests inject launchers instead of spawning pi. */ createSpawnLauncher();
     const exitCode = await launcher.launch(launchPlan);
     const stateWriteWarnings = handleTackStateWrites(
+      adapter.id,
       tackPlan.tack.rootDirectory,
       tackPlan.tack.statePaths,
       stateBaseline,
@@ -188,6 +189,7 @@ const createAdapterTackPlan = (adapter: AgentAdapter, resolvedProfile: ResolvedR
   });
 
 const handleTackStateWrites = (
+  adapterId: string,
   tackRootDirectory: string,
   statePaths: readonly TackStatePath[],
   stateBaseline: TackStateBaseline,
@@ -196,25 +198,25 @@ const handleTackStateWrites = (
 
   for (const issue of detectTackStateWrites(tackRootDirectory, statePaths, stateBaseline)) {
     if (issue.strategy === 'error') {
-      throw new Error(formatTackStateWriteIssue(issue));
+      throw new Error(formatTackStateWriteIssue(adapterId, issue));
     }
 
-    warnings.push(formatTackStateWriteIssue(issue));
+    warnings.push(formatTackStateWriteIssue(adapterId, issue));
   }
 
   return warnings;
 };
 
-const formatTackStateWriteIssue = (issue: TackStateWriteIssue): string => {
+const formatTackStateWriteIssue = (adapterId: string, issue: TackStateWriteIssue): string => {
   if (issue.unknown) {
-    return `pi wrote undeclared tack state '${issue.relativePath}' and it was not persisted.`;
+    return `${adapterId} wrote undeclared tack state '${issue.relativePath}' and it was not persisted.`;
   }
 
   if (issue.strategy === 'symlink') {
-    return `pi replaced symlinked state path '${issue.relativePath}' and the change was not persisted.`;
+    return `${adapterId} replaced symlinked state path '${issue.relativePath}' and the change was not persisted.`;
   }
 
-  return `pi wrote '${issue.relativePath}' with state_persistence '${issue.strategy}' and it was not persisted.`;
+  return `${adapterId} wrote '${issue.relativePath}' with state_persistence '${issue.strategy}' and it was not persisted.`;
 };
 
 const runSetupIfNeeded = (input: RunCommandInput, dependencies: RunCommandDependencies): void => {

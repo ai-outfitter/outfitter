@@ -108,7 +108,7 @@ const createPiStatePaths = (
 
 const assertDeclaredStatePersistenceKeys = (profile: Profile): void => {
   for (const relativePath of Object.keys(profile.statePersistence ?? {})) {
-    if (!(relativePath in piStatePathDeclarations)) {
+    if (!Object.hasOwn(piStatePathDeclarations, relativePath)) {
       throw new Error(`state_persistence path '${relativePath}' is not declared by the pi adapter`);
     }
   }
