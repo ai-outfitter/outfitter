@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import type { ValidationIssue } from '../validation/SchemaValidator.js';
 import { validateSchema } from '../validation/SchemaValidator.js';
 import { parseYamlDocument } from '../validation/YamlDocument.js';
-import type { Profile, ProfileControls } from './Profile.js';
+import type { Profile, ProfileControls, StatePersistenceOverrides } from './Profile.js';
 import type { ProfileSourceReference } from './ProfileSource.js';
 
 const profileIdPattern = /^[a-z0-9][a-z0-9._-]*[a-z0-9]$|^[a-z0-9]$/u;
@@ -52,12 +52,15 @@ export const parseProfileDocument = (document: unknown, fallbackId: string): Pro
     return validationIssue;
   }
 
-  return {
+  const statePersistence = readStatePersistence(record.state_persistence);
+
+  return omitUndefined({
     id,
     label: readOptionalString(record.label),
     inherits: readStringArray(record.inherits),
     controls: readControls(record.controls),
-  };
+    statePersistence: Object.keys(statePersistence).length > 0 ? statePersistence : undefined,
+  });
 };
 
 export const parseProfileYaml = (content: string, fallbackId: string): Profile | ProfileLoadIssue => {
@@ -171,7 +174,7 @@ const readControls = (value: unknown): ProfileControls => {
     return {};
   }
 
-  return {
+  return omitUndefined({
     ...controls,
     model: readOptionalString(controls.model),
     provider: readOptionalString(controls.provider),
@@ -185,7 +188,7 @@ const readControls = (value: unknown): ProfileControls => {
     systemPrompt: readOptionalString(controls.system_prompt),
     appendSystemPrompt: readOptionalString(controls.append_system_prompt),
     pi: readPiControls(controls.pi),
-  };
+  });
 };
 
 const readPiControls = (value: unknown): ProfileControls['pi'] => {
@@ -195,7 +198,7 @@ const readPiControls = (value: unknown): ProfileControls['pi'] => {
     return undefined;
   }
 
-  return {
+  return omitUndefined({
     ...controls,
     model: readOptionalString(controls.model),
     provider: readOptionalString(controls.provider),
@@ -208,7 +211,24 @@ const readPiControls = (value: unknown): ProfileControls['pi'] => {
     promptTemplate: readOptionalString(controls.prompt_template),
     systemPrompt: readOptionalString(controls.system_prompt),
     appendSystemPrompt: readOptionalString(controls.append_system_prompt),
-  };
+  });
+};
+
+const omitUndefined = <T extends Readonly<Record<string, unknown>>>(record: T): T =>
+  Object.fromEntries(Object.entries(record).filter((entry) => entry[1] !== undefined)) as T;
+
+const readStatePersistence = (value: unknown): StatePersistenceOverrides => {
+  const statePersistence = readObject(value);
+
+  if (statePersistence === undefined) {
+    return {};
+  }
+
+  return Object.fromEntries(
+    Object.entries(statePersistence).filter(
+      (entry): entry is [string, StatePersistenceOverrides[string]] => typeof entry[1] === 'string',
+    ),
+  );
 };
 
 const readEnvironment = (value: unknown): Readonly<Record<string, string>> | undefined => {

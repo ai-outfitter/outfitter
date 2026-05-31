@@ -16,32 +16,34 @@ Pi supports changing the global agent/config directory with:
 PI_CODING_AGENT_DIR=/path/to/profile-dir pi ...
 ```
 
-That directory controls the profile-scoped global state:
+In native pi, that directory can contain profile-scoped global state such as settings, auth, models, extensions, skills, prompts, themes, and sessions.
 
-- `settings.json`
+Bridl currently declares and materializes a narrower day-one state set for pi:
+
 - `auth.json`
-- `models.json`
-- global `extensions/`
-- global `skills/`
-- global `prompts/`
-- global `themes/`
-- sessions, unless separately overridden
+- `settings.json`
+- `mcp.json`
+- `plugins/`
+- `cache/`
+- `sessions/`
 
-Recommended wrapper model:
+Native pi can be isolated by pointing `PI_CODING_AGENT_DIR` at a different directory. Bridl's implemented model uses that same boundary with a temporary tack directory for each run, then symlinks adapter-declared durable state paths back to profile files or native pi files such as `~/.pi/agent/auth.json`.
+
+Conceptually:
 
 ```text
-~/.bridl/work/
-~/.bridl/personal/
-~/.bridl/sandbox/
+/tmp/bridl-default-pi-.../      # temporary tack used as PI_CODING_AGENT_DIR
+profiles/default/cli_specific/pi/settings.json
+~/.pi/agent/auth.json           # native fallback for login state
 ```
 
-Launch example:
+Launch shape:
 
 ```bash
-PI_CODING_AGENT_DIR=~/.bridl/work pi
+PI_CODING_AGENT_DIR=/tmp/bridl-default-pi-... pi
 ```
 
-This is the cleanest boundary for different credentials, plugins, default models, themes, prompts, and other user-level settings.
+This keeps the runtime tack disposable while preserving intentional credentials, settings, MCP configuration, plugins, caches, and sessions through declared state paths.
 
 ### Other native launch controls
 
@@ -199,15 +201,16 @@ The wrapper would translate that into:
 Use this priority model:
 
 1. Wrapper profile env vars and CLI args.
-2. Profile-specific `PI_CODING_AGENT_DIR`.
-3. Optional injected bootstrap extension.
-4. Pi's normal project `.pi` overrides.
-5. Pi's normal runtime behavior.
+2. Temporary tack `PI_CODING_AGENT_DIR` assembled from the resolved Bridl profile.
+3. Adapter-declared state paths symlinked to profile or native pi sources.
+4. Optional injected bootstrap extension.
+5. Pi's normal project `.pi` overrides.
+6. Pi's normal runtime behavior.
 
 ### Which mechanism to use
 
-- Different credentials: separate `PI_CODING_AGENT_DIR`, env vars, or `--api-key`.
-- Different installed plugins/extensions: separate `PI_CODING_AGENT_DIR`, or explicit `-e`.
+- Different credentials: profile/native state path symlinks, env vars, or `--api-key`.
+- Different installed plugins/extensions: profile/native state path symlinks, or explicit `-e`.
 - Temporary one-off extension: `pi -e ...`.
 - Hard isolation from user config: set `PI_CODING_AGENT_DIR` to an empty/temp profile dir.
 - Hard isolation from project config: launch from controlled cwd or use `--no-extensions`, `--no-skills`, `--no-prompt-templates`, `--no-context-files`.
@@ -216,7 +219,7 @@ Use this priority model:
 
 ## Conclusion
 
-Pi already has a native profile mechanism through `PI_CODING_AGENT_DIR`; this should be the core of `bridl`'s wrapper design.
+Pi already has a native profile mechanism through `PI_CODING_AGENT_DIR`; Bridl uses a temporary tack at that boundary and makes durable writes explicit through declared state paths.
 
 For early in-process injection, use `-e bootstrap-extension`.
 It loads early enough to register providers/tools/flags and affect model availability and per-turn prompts, but not early enough to change config directory selection or initial settings discovery.

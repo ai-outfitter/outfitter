@@ -1,5 +1,6 @@
 // Defines the adapter contract for translating Bridl profiles to agent CLI launches.
 import type { Profile } from '../profiles/Profile.js';
+import type { StatePathDeclaration } from '../tack/StatePersistence.js';
 import type { Tack } from '../tack/Tack.js';
 
 export interface AgentLaunchPlan {
@@ -16,9 +17,15 @@ export interface AgentTackPlan {
 export interface AgentAdapter {
   readonly id: string;
   readonly supportedControls: readonly string[];
+  readonly statePaths?: Readonly<Record<string, StatePathDeclaration>>;
   createTack(
     profile: Profile,
-    input: { readonly rootDirectory: string; readonly profilePaths: readonly string[] },
+    input: {
+      readonly rootDirectory: string;
+      readonly profilePaths: readonly string[];
+      readonly profileFolders?: readonly string[];
+      readonly homeDirectory?: string;
+    },
   ): AgentTackPlan;
   createLaunchPlan(tack: Tack, profile?: Profile, passThroughArgs?: readonly string[]): AgentLaunchPlan;
   getUnsupportedControls(profile: Profile): readonly string[];

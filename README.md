@@ -38,7 +38,7 @@ bridl setup https://github.com/my_account/bridl_config
 bridl create_profile regulated --scope user
 ```
 
-Under the hood, `bridl` will translate a selected profile into the appropriate `pi` launch environment, such as `PI_CODING_AGENT_DIR`, CLI flags, injected extensions, prompts, model settings, session directories, and environment variables.
+Under the hood, `bridl` will translate a selected profile into the appropriate `pi` launch environment, such as `PI_CODING_AGENT_DIR`, CLI flags, injected extensions, prompts, model settings, session directories, and environment variables. If `bridl` is run before `bridl setup`, it creates the initial settings and default profile automatically before launching.
 
 `settings.yml` can point at local profiles, full Git URIs, or GitHub shorthand sources with optional refs and repository subpaths:
 
@@ -139,7 +139,7 @@ inherits:
 controls:
   model: anthropic/claude-sonnet-4
   environment:
-    ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+    TEAM_MODE: engineering
 ```
 
 The exact stable schema is governed by the requirements in `requirements/` and the JSON Schema files in `src/schemas/`, which are still expected to evolve with implementation.
@@ -148,11 +148,12 @@ The exact stable schema is governed by the requirements in `requirements/` and t
 
 The current recommendation is to build `bridl` around pi's existing native configuration mechanisms:
 
-1. Use profile-specific `PI_CODING_AGENT_DIR` values as the main isolation boundary.
-2. Layer profile-controlled environment variables and pi CLI flags on top.
-3. Use explicit `--extension` / `-e` injection for bootstrap behavior that needs to run inside pi.
-4. Decide per profile whether project-local `.pi` overrides are allowed.
-5. Keep the wrapper responsible for anything that must happen before pi starts, such as selecting config directories, setting credentials, or choosing session locations.
+1. Use a temporary tack directory as `PI_CODING_AGENT_DIR` for each run.
+2. Persist intentional pi state through adapter-declared symlinks to profile or native pi files.
+3. Layer profile-controlled environment variables and pi CLI flags on top.
+4. Use explicit `--extension` / `-e` injection for bootstrap behavior that needs to run inside pi.
+5. Decide per profile whether project-local `.pi` overrides are allowed.
+6. Keep the wrapper responsible for anything that must happen before pi starts, such as selecting config directories, setting credentials, or choosing session locations.
 
 See [`recommendation.md`](./recommendation.md) for current notes on pi startup behavior and wrapper strategy.
 

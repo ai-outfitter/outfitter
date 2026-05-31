@@ -338,14 +338,15 @@ Each supported CLI has an `AgentAdapter` implementation.
 ```ts
 interface AgentAdapter {
   readonly id: string;
-  readonly displayName: string;
-  assembleTack(input: TackAssemblyInput): Promise<TackAssemblyResult>;
-  buildLaunchCommand(input: LaunchInput): Promise<LaunchCommand>;
-  describeCapabilities(): AgentCapabilities;
+  readonly supportedControls: readonly string[];
+  readonly statePaths?: Readonly<Record<string, StatePathDeclaration>>;
+  createTack(profile: Profile, input: AgentTackInput): AgentTackPlan;
+  createLaunchPlan(tack: Tack, profile?: Profile, passThroughArgs?: readonly string[]): AgentLaunchPlan;
+  getUnsupportedControls(profile: Profile): readonly string[];
 }
 ```
 
-The adapter owns CLI-specific details such as env vars, flags, copied files, warnings, and unsupported controls.
+The adapter owns CLI-specific details such as env vars, flags, state path declarations, warnings, and unsupported controls.
 
 ### Initial Adapter: Pi
 

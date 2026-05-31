@@ -18,6 +18,7 @@ export interface WatchTackInput {
   readonly tack: Tack;
   readonly warn: (message: string) => void;
   readonly refreshTack?: () => Tack;
+  readonly onTackWritten?: (tack: Tack) => void;
 }
 
 export const createTackWatchPlan = (paths: readonly string[]): TackWatchPlan => ({
@@ -62,7 +63,9 @@ export const tackFileOutputPath = (tack: Tack, relativePath: string): string => 
 
 const updateTackFromWatchedInput = (input: WatchTackInput, watchPath: string): void => {
   try {
-    writeTack(input.refreshTack?.() ?? input.tack);
+    const tack = input.refreshTack?.() ?? input.tack;
+    writeTack(tack, { materializeStatePaths: false });
+    input.onTackWritten?.(tack);
   } catch (error) {
     /* v8 ignore next -- unsafe live-update failures are reported defensively; normal refresh behavior is covered. */
     input.warn(`Could not safely update tack from ${watchPath}: ${formatError(error)}`);
