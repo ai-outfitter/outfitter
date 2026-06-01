@@ -22,15 +22,14 @@ const footer = <Footer>BUSL-1.1 {new Date().getFullYear()} © Bridl.</Footer>;
 export default async function RootLayout({ children }: { children: ReactNode }): Promise<ReactNode> {
   return (
     <html lang="en" dir="ltr" suppressHydrationWarning>
-      <head>
-        <Head>{null}</Head>
-      </head>
+      <Head faviconGlyph="◇" />
       <body>
         <Layout
           navbar={navbar}
           pageMap={await getPageMap('/')}
           docsRepositoryBase="https://github.com/Unsupervisedcom/bridl/tree/main/doc_site/app"
           footer={footer}
+          nextThemes={{ forcedTheme: 'dark' }}
           sidebar={{ defaultMenuCollapseLevel: 1 }}
           toc={{ backToTop: true }}
         >
