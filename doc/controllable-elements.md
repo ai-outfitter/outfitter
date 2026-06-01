@@ -1,7 +1,7 @@
 # Controllable Elements
 
 This document defines cross-agent-CLI concepts that Bridl profiles may control.
-Pi and Claude Code are supported CLIs.
+Pi is the first supported CLI, and Claude Code is supported as an additional adapter.
 Other CLIs may be added later while keeping the profile model generic.
 
 Status values:
@@ -148,4 +148,5 @@ An early-startup customization used to register providers, tools, hooks, or addi
 ## Day-One Interpretation
 
 For v1, a Bridl profile may describe all defined terms generically.
+The Pi adapter is the first implementation, and pi remains the default adapter.
 Adapter-specific overrides live under `controls.pi` and `controls.claude`; unsupported controls warn at runtime, and `--hard-tack` makes those warnings fatal.
