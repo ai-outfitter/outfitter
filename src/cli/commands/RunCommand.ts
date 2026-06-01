@@ -9,7 +9,7 @@ import type { Command } from 'commander';
 import spawn from 'cross-spawn';
 
 import type { AgentAdapter, AgentLaunchPlan } from '../../agents/AgentAdapter.js';
-import { createPiAdapter } from '../../agents/pi/PiAdapter.js';
+import { createAgentAdapter } from '../../agents/AgentRegistry.js';
 import {
   createProfileSourceCachePath,
   createRemoteRepositoryCachePath,
@@ -40,6 +40,7 @@ export interface RunCommandInput {
   readonly homeDirectory: string;
   readonly projectDirectory: string;
   readonly profileId?: string;
+  readonly agentId?: string;
   readonly hardTack?: boolean;
   readonly passThroughArgs?: readonly string[];
 }
@@ -69,7 +70,8 @@ export const executeRunCommand = async (
 ): Promise<RunCommandResult> => {
   runSetupIfNeeded(input, dependencies);
   const resolvedProfile = loadResolvedProfile(input);
-  const adapter = dependencies.adapter ?? createPiAdapter();
+  const adapter =
+    dependencies.adapter ?? createAgentAdapter(selectRunAgentId(input.agentId, resolvedProfile.settings.defaultAgent));
   const tackRootDirectory = createTackRootDirectory(resolvedProfile.profile.id, adapter.id);
   const tackPlan = createAdapterTackPlan(adapter, resolvedProfile, tackRootDirectory);
   const warnings = tackPlan.warnings;
@@ -129,12 +131,16 @@ export const createRunCommand = (dependencies: RunCommandDependencies = {}): Com
     name: 'run',
     description: 'Assemble a profile tack and launch the selected agent CLI.',
     register(program: Command): void {
-      const action = async (args: readonly string[], options: { profile?: string; hardTack?: boolean }) => {
+      const action = async (
+        args: readonly string[],
+        options: { profile?: string; agent?: string; hardTack?: boolean },
+      ) => {
         const result = await executeRunCommand(
           {
             homeDirectory: dependencies.homeDirectory ?? homedir(),
             projectDirectory: dependencies.projectDirectory ?? process.cwd(),
             profileId: options.profile,
+            agentId: options.agent,
             hardTack: options.hardTack,
             passThroughArgs: args,
           },
@@ -158,11 +164,12 @@ export const createRunCommand = (dependencies: RunCommandDependencies = {}): Com
 
 const configureRunCommander = (
   command: Command,
-  action: (args: readonly string[], options: { profile?: string; hardTack?: boolean }) => Promise<void>,
+  action: (args: readonly string[], options: { profile?: string; agent?: string; hardTack?: boolean }) => Promise<void>,
 ): void => {
   command
     .argument('[args...]')
     .option('-p, --profile <profile>', 'Bridl profile id to run')
+    .option('--agent <agent>', 'agent adapter to launch: pi or claude')
     .option('--hard-tack', 'Fail instead of warning when controls cannot be translated')
     .allowUnknownOption(true)
     .allowExcessArguments(true)
@@ -208,7 +215,7 @@ const emitLaunchSummary = (
   writeLine: ((message: string) => void) | undefined,
 ): void => {
   const writer = writeLine ?? console.log;
-  const model = selectSummaryModel(resolvedProfile.profile);
+  const model = selectSummaryModel(resolvedProfile.profile, adapterId);
 
   writer(`${chalk.magenta('→')} resolving profile ${chalk.yellow(resolvedProfile.profile.id)}`);
 
@@ -223,8 +230,13 @@ const emitLaunchSummary = (
   writer(`${chalk.blue('↳')} launching ${chalk.cyan(adapterId)} …`);
 };
 
-const selectSummaryModel = (profile: Profile): string | undefined =>
-  profile.controls.pi?.model ?? profile.controls.model;
+const selectSummaryModel = (profile: Profile, adapterId: string): string | undefined => {
+  if (adapterId === 'claude') {
+    return profile.controls.claude?.model ?? profile.controls.model;
+  }
+
+  return profile.controls.pi?.model ?? profile.controls.model;
+};
 
 const formatProfileLayerSource = (layer: LoadedProfile): string => {
   if (layer.source.github !== undefined) {
@@ -352,6 +364,9 @@ const loadResolvedProfile = (input: RunCommandInput): ResolvedRunProfile => {
     settingsPaths: loadedSettings.files.map((file) => file.location.path),
   };
 };
+
+const selectRunAgentId = (selectedAgentId: string | undefined, defaultAgentId: string | undefined): string =>
+  selectedAgentId ?? defaultAgentId ?? 'pi';
 
 const selectRunProfileId = (selectedProfileId: string | undefined, defaultProfileId: string | undefined): string => {
   if (selectedProfileId !== undefined) {

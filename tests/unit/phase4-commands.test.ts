@@ -465,6 +465,7 @@ describe('phase 4 setup and sync commands', () => {
     expect(existsSync(join(byScope.profileDirectory, 'skills'))).toBe(true);
     expect(existsSync(join(byScope.profileDirectory, 'extensions'))).toBe(true);
     expect(existsSync(join(byScope.profileDirectory, 'cli_specific', 'pi'))).toBe(true);
+    expect(existsSync(join(byScope.profileDirectory, 'cli_specific', 'claude'))).toBe(true);
     expect(byProject.profileDirectory).toBe(join(projectDirectory, '.bridl', 'profiles', 'project-profile'));
     expect(byProjectLocal.profileDirectory).toBe(
       join(projectDirectory, '.bridl', 'local', 'profiles', 'local-profile'),

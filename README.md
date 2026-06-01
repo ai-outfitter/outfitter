@@ -1,8 +1,8 @@
 # bridl
 
-`bridl` is intended to be a management wrapper for launching [`pi`](https://github.com/earendil-works/pi-coding-agent) with configurable, reusable profiles.
+`bridl` is intended to be a management wrapper for launching [`pi`](https://github.com/earendil-works/pi-coding-agent) and Claude Code with configurable, reusable profiles.
 
-The goal is "manageable pi": organizations should be able to define standard pi loadouts, distribute them to their workforce, and launch pi consistently across teams, roles, projects, or environments.
+The goal is manageable agent CLI configuration: organizations should be able to define standard pi or Claude Code loadouts, distribute them to their workforce, and launch agent CLIs consistently across teams, roles, projects, or environments.
 
 ## Why this exists
 
@@ -38,7 +38,11 @@ bridl setup https://github.com/my_account/bridl_config
 bridl create_profile regulated --scope user
 ```
 
-Under the hood, `bridl` will translate a selected profile into the appropriate `pi` launch environment, such as `PI_CODING_AGENT_DIR`, CLI flags, injected extensions, prompts, model settings, session directories, and environment variables. If `bridl` is run before `bridl setup`, it creates the initial settings and default profile automatically before launching.
+Under the hood, `bridl` translates a selected profile into the selected agent launch environment.
+Pi runs use `PI_CODING_AGENT_DIR`; Claude Code runs use `CLAUDE_CONFIG_DIR`; both receive supported CLI flags, prompts, model settings, and environment variables.
+Select the adapter with `bridl run --agent <pi|claude>`, or set `default_agent` in `settings.yml`.
+If neither is set, Bridl defaults to pi for backward compatibility.
+If `bridl` is run before `bridl setup`, it creates the initial settings and default profile automatically before launching.
 
 `settings.yml` can point at local profiles, full Git URIs, or GitHub shorthand sources with optional refs and repository subpaths:
 
@@ -56,7 +60,9 @@ profile_sources:
 
 Run `bridl sync` to fetch/update remote settings and profiles before using them.
 
-By default, Bridl keeps reusable runtime cache files under `~/.bridl/cache`. Set `cache_directory` in `settings.yml` to choose a different cache root; relative values resolve from the settings file that declares them. The pi adapter symlinks tack `utilities/` and `bin/` paths into this cache so pi-managed utilities such as `fd` and `rg` survive across temporary tack directories.
+By default, Bridl keeps reusable runtime cache files under `~/.bridl/cache`.
+Set `cache_directory` in `settings.yml` to choose a different cache root; relative values resolve from the settings file that declares them.
+The pi adapter symlinks tack `utilities/` and `bin/` paths into this cache so pi-managed utilities such as `fd` and `rg` survive across temporary tack directories.
 
 Settings can also define arbitrary nested `custom_settings` values for Bridl-time tack templating:
 
@@ -72,7 +78,8 @@ Generated tack files can reference them with Bridl's LiquidJS-based custom delim
 command: '[[= bridl.custom_settings.build_commands.lint ]]'
 ```
 
-Control tags use `[[% ... %]]`, for example `[[% for item in bridl.custom_settings.items %]]`. Bridl intentionally does not use common `{{ ... }}` delimiters, and plain shell expressions like `[[ -f package.json ]]` are left alone.
+Control tags use `[[% ... %]]`, for example `[[% for item in bridl.custom_settings.items %]]`.
+Bridl intentionally does not use common `{{ ... }}` delimiters, and plain shell expressions like `[[ -f package.json ]]` are left alone.
 
 ## Setup from a settings repository
 
@@ -179,7 +186,7 @@ See [`recommendation.md`](./recommendation.md) for current notes on pi startup b
 
 This repository is under phased implementation.
 
-A minimal executable CLI exists, with initial settings/profile schemas, local and URI-backed profile loading, profile resolution internals, first-pass `setup`, `sync`, and `create_profile` / `create-profile` commands, and a first-pass `run` command for assembling a temporary tack and launching pi.
+A minimal executable CLI exists, with initial settings/profile schemas, local and URI-backed profile loading, profile resolution internals, first-pass `setup`, `sync`, and `create_profile` / `create-profile` commands, and a first-pass `run` command for assembling a temporary tack and launching pi or Claude Code.
 Stable end-to-end pi launch behavior and user-facing examples will be hardened in a later phase.
 The initial dependency and architecture decisions are documented in `package.json`, `doc/architecture.md`, and `requirements/`.
 

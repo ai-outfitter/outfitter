@@ -19,9 +19,11 @@ interface BaseProfileControls {
 }
 
 export type PiProfileControls = BaseProfileControls;
+export type ClaudeProfileControls = BaseProfileControls;
 
 export interface ProfileControls extends BaseProfileControls {
   readonly pi?: PiProfileControls;
+  readonly claude?: ClaudeProfileControls;
 }
 
 export interface Profile {

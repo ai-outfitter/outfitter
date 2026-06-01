@@ -1,8 +1,8 @@
 # Controllable Elements
 
 This document defines cross-agent-CLI concepts that Bridl profiles may control.
-Pi is the planned first supported CLI, but this project skeleton does not yet implement runtime adapter support.
-Other CLIs are listed to keep the model generic and to clarify future adapter work.
+Pi and Claude Code are supported CLIs.
+Other CLIs may be added later while keeping the profile model generic.
 
 Status values:
 
@@ -17,63 +17,63 @@ Status values:
 The root directory that stores agent-global configuration, credentials, installed resources, and related state.
 
 - Pi name: `PI_CODING_AGENT_DIR` / agent dir
-- Claude name: configuration directory / Claude config home, roadmap adapter mapping
+- Claude name: `CLAUDE_CONFIG_DIR` / Claude config home
 
 ### Session Directory
 
 The directory where conversation sessions, transcripts, or run state are stored.
 
 - Pi name: `PI_CODING_AGENT_SESSION_DIR` / `--session-dir`
-- Claude name: session storage, roadmap adapter mapping
+- Claude name: session storage, not mapped by Bridl yet
 
 ### Extensions
 
 Executable/plugin modules that add tools, providers, hooks, or runtime behavior.
 
 - Pi name: extensions, `--extension` / `-e`
-- Claude name: extensions/plugins/MCP-related customization, roadmap adapter mapping
+- Claude name: plugins via `--plugin-dir`
 
 ### Skills
 
 Reusable task instructions, workflows, or resource bundles exposed to the agent.
 
 - Pi name: skills, `--skill`
-- Claude name: skills, roadmap adapter mapping
+- Claude name: skills under the Claude config directory; generic `skills` control is not mapped yet
 
 ### Prompt Templates
 
 Named reusable prompts/templates available to the agent runtime.
 
 - Pi name: prompt templates, `--prompt-template`
-- Claude name: commands/prompts, roadmap adapter mapping
+- Claude name: commands/prompts under the Claude config directory; generic `prompt_template` control is not mapped yet
 
 ### System Prompt
 
 The primary instruction text supplied to the agent.
 
 - Pi name: `--system-prompt`, `SYSTEM.md`
-- Claude name: system prompt/instructions, roadmap adapter mapping
+- Claude name: `--system-prompt`
 
 ### Appended System Prompt
 
 Additional instruction text layered onto the primary system prompt.
 
 - Pi name: `--append-system-prompt`, `APPEND_SYSTEM.md`
-- Claude name: appended instructions, roadmap adapter mapping
+- Claude name: `--append-system-prompt`
 
 ### Model Selection
 
 The selected provider/model and related inference options.
 
 - Pi name: `--provider`, `--model`, `--models`, `--thinking`
-- Claude name: model flags/settings, roadmap adapter mapping
+- Claude name: `--model`, `--effort`
 
 ### Credentials and Environment
 
 Environment variables, API keys, auth files, and related secret material needed by providers or tools.
 
 - Pi name: provider env vars, `auth.json`, `--api-key`
-- Claude name: environment variables/auth config, roadmap adapter mapping
+- Claude name: environment variables and config files under `CLAUDE_CONFIG_DIR`
 
 ### Tool Availability
 
@@ -122,31 +122,30 @@ Arguments not recognized by Bridl that are forwarded unmodified to the inner age
 An early-startup customization used to register providers, tools, hooks, or additional runtime behavior.
 
 - Pi name: explicit bootstrap extension via `--extension` / `-e`
-- Claude name: startup hook/plugin mechanism, roadmap adapter mapping
+- Claude name: startup hook/plugin mechanism, not mapped by Bridl yet
 
 ## Support Matrix
 
-| Controllable Element        | Pi      | Claude  |
-| --------------------------- | ------- | ------- |
-| Agent Config Directory      | Roadmap | Roadmap |
-| Session Directory           | Roadmap | Roadmap |
-| Extensions                  | Roadmap | Roadmap |
-| Skills                      | Roadmap | Roadmap |
-| Prompt Templates            | Roadmap | Roadmap |
-| System Prompt               | Roadmap | Roadmap |
-| Appended System Prompt      | Roadmap | Roadmap |
-| Model Selection             | Roadmap | Roadmap |
-| Credentials and Environment | Roadmap | Roadmap |
-| Tool Availability           | Roadmap | Roadmap |
-| Context Files               | Roadmap | Roadmap |
-| Theme / UI Presentation     | Roadmap | Roadmap |
-| Project Override Policy     | Roadmap | Roadmap |
-| Working Directory           | Roadmap | Roadmap |
-| Pass-through Arguments      | Roadmap | Roadmap |
-| Bootstrap Hook              | Roadmap | Roadmap |
+| Controllable Element        | Pi        | Claude      |
+| --------------------------- | --------- | ----------- |
+| Agent Config Directory      | Supported | Supported   |
+| Session Directory           | Supported | Unsupported |
+| Extensions                  | Supported | Supported   |
+| Skills                      | Supported | Unsupported |
+| Prompt Templates            | Supported | Unsupported |
+| System Prompt               | Supported | Supported   |
+| Appended System Prompt      | Supported | Supported   |
+| Model Selection             | Supported | Supported   |
+| Credentials and Environment | Supported | Supported   |
+| Tool Availability           | Roadmap   | Roadmap     |
+| Context Files               | Roadmap   | Roadmap     |
+| Theme / UI Presentation     | Roadmap   | Roadmap     |
+| Project Override Policy     | Roadmap   | Roadmap     |
+| Working Directory           | Roadmap   | Roadmap     |
+| Pass-through Arguments      | Supported | Supported   |
+| Bootstrap Hook              | Supported | Roadmap     |
 
 ## Day-One Interpretation
 
 For v1, a Bridl profile may describe all defined terms generically.
-The Pi adapter is the first implementation target, and its matrix entries should move from Roadmap to Supported only as tested adapter behavior lands.
-Any non-Pi adapter should be considered experimental until its matrix entries are upgraded from Roadmap to Supported.
+Adapter-specific overrides live under `controls.pi` and `controls.claude`; unsupported controls warn at runtime, and `--hard-tack` makes those warnings fatal.

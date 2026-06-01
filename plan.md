@@ -74,4 +74,4 @@ Implemented in `phase-4-setup-sync`.
 - Profile IDs: filesystem-safe slugs with optional separate display labels.
 - Profile creation command: support both `create_profile` and `create-profile`.
 - URI profile source lockfiles: deferred beyond v1.
-- Adapter scope: pi supported day one; Claude remains roadmap documentation only.
+- Adapter scope: pi supported day one and remains the default; Claude Code is supported as an additional adapter.

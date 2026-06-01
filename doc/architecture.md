@@ -3,7 +3,7 @@
 ## Purpose
 
 Bridl is a TypeScript CLI that assembles and launches reproducible agent-CLI profiles.
-It is generic enough for organizations to define profiles once and run them across multiple agent CLIs, while supporting `pi` first, most deeply, and most natively.
+It is generic enough for organizations to define profiles once and run them across multiple agent CLIs, while supporting `pi` first and most deeply, plus Claude Code as an additional supported adapter.
 
 Formal implementation requirements live in `requirements/`; this document explains the architectural shape behind those requirements.
 
@@ -131,6 +131,7 @@ profile_sources:
 
 ```yaml
 default_profile: engineering
+default_agent: pi
 cache_directory: ./cache
 
 profile_sources:
@@ -162,6 +163,7 @@ profiles:
 Rules:
 
 - Every settings file MUST validate against `settings.schema.json`.
+- `default_agent`, when present, selects the run adapter (`pi` or `claude`) used when `bridl run --agent` is omitted.
 - `profile_sources` entries MUST specify a local `path`, a remote `uri`, or a `github` shorthand.
 - `only` and `except` are optional filters; without either, all profiles from the source are loaded.
 - Local-only relative `path` values are resolved relative to the settings file containing them.
@@ -169,11 +171,13 @@ Rules:
 - Remote `uri` and `github` profile sources can specify `ref` and repository-subdirectory `path` values.
 - `remote_settings` entries point at settings-style YAML files inside synced remote repositories.
 - `uri`, `github`, and `remote_settings` sources are fetched/cached by `bridl sync`.
-- `custom_settings` may contain arbitrary YAML-compatible nested data. Bridl deep-merges custom settings objects using normal settings precedence; arrays and scalar values are replaced by the higher-precedence settings layer.
+- `custom_settings` may contain arbitrary YAML-compatible nested data.
+  Bridl deep-merges custom settings objects using normal settings precedence; arrays and scalar values are replaced by the higher-precedence settings layer.
 
 ## Tack Template Rendering
 
-Bridl renders Bridl-time templates in generated tack files after profile and settings resolution and before writing the tack directory to disk. Source settings files are never rewritten.
+Bridl renders Bridl-time templates in generated tack files after profile and settings resolution and before writing the tack directory to disk.
+Source settings files are never rewritten.
 
 Bridl uses LiquidJS with custom delimiters rather than common `{{ ... }}` / `{% ... %}` delimiters so templates do not collide with common agent prompt, skill, command, Handlebars, Mustache, Jinja, or Claude Code syntaxes.
 
@@ -229,7 +233,9 @@ commands:
 [[% endfor %]]
 ```
 
-Undefined output variables and unknown filters are template errors. Undefined variables in `if`, `elsif`, and `unless` conditions are allowed and evaluate as falsy so templates can test optional custom settings. Template errors identify the tack file being rendered and stop tack assembly.
+Undefined output variables and unknown filters are template errors.
+Undefined variables in `if`, `elsif`, and `unless` conditions are allowed and evaluate as falsy so templates can test optional custom settings.
+Template errors identify the tack file being rendered and stop tack assembly.
 
 ## Profile Sources and Sync
 
@@ -257,7 +263,8 @@ profile_sources:
     path: profiles/team
 ```
 
-The `github: owner/repo` shorthand normalizes to `git+https://github.com/owner/repo.git` internally. Remote sources without `ref` or repository subpaths retain the original profile cache location for compatibility:
+The `github: owner/repo` shorthand normalizes to `git+https://github.com/owner/repo.git` internally.
+Remote sources without `ref` or repository subpaths retain the original profile cache location for compatibility:
 
 ```text
 ~/.bridl/cache/profiles/<encoded-uri>/
@@ -415,9 +422,9 @@ interface AgentAdapter {
 
 The adapter owns CLI-specific details such as env vars, flags, state path declarations, warnings, and unsupported controls.
 
-### Initial Adapter: Pi
+### Supported Adapters: Pi and Claude Code
 
-Pi is the only day-one supported adapter.
+Pi is the default adapter for backward compatibility.
 Bridl should prefer native pi mechanisms:
 
 - `PI_CODING_AGENT_DIR` for profile-scoped global state;
@@ -430,6 +437,10 @@ Bridl should prefer native pi mechanisms:
 - copied/generated pi settings in the tack where flags/env are not the right mechanism.
 
 If generic Bridl controls conflict with pi naming or behavior, prefer pi’s terminology and conventions.
+
+Claude Code is also supported through the `claude` adapter.
+Bridl launches `claude` with `CLAUDE_CONFIG_DIR` pointing at the tack root, maps supported controls to native flags (`--model`, `--effort`, `--system-prompt`, `--append-system-prompt`, and repeated `--plugin-dir`), and preserves Claude Code state paths such as `settings.json`, `agents/`, `skills/`, `commands/`, `plugins/`, `projects/`, and `debug/` through adapter-declared state persistence.
+Claude-specific profile overrides live under `controls.claude` and win over generic controls for Claude runs.
 
 ## CLI Commands
 
@@ -444,11 +455,13 @@ bridl
 bridl run
 bridl run --profile engineering
 bridl run -p support -- --model anthropic/claude-sonnet-4
+bridl run --agent claude -p support -- --permission-mode plan
 ```
 
 Requirements:
 
 - `-p` / `--profile` selects a profile.
+- `--agent <pi|claude>` selects the agent adapter; if omitted, `default_agent` from settings is used, then `pi`.
 - Without a selected profile, the unified settings default profile is used.
 - Unknown args are passed through to the inner agent CLI unaltered.
 - `--hard-tack` makes unsupported profile controls or tack assembly warnings fatal.
@@ -560,4 +573,4 @@ Each scenario should include realistic `.bridl` folders and expected resolution 
 4. Bridl profile IDs are filesystem-safe slugs; optional display names can carry spaces or punctuation.
 5. The public profile-creation command is `create_profile` to match the product requirement, with `create-profile` as an alias.
 6. URI profile source lockfiles are deferred beyond v1; v1 sync records cache metadata but does not require lockfile-driven reproducibility.
-7. Claude remains a documented roadmap adapter in `doc/controllable-elements.md`, but pi is the only supported day-one adapter.
+7. Claude Code is supported as an additional adapter, while pi remains the default adapter.

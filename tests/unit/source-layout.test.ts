@@ -6,6 +6,8 @@ import { Ajv2020 } from 'ajv/dist/2020.js';
 import { Command } from 'commander';
 import { describe, expect, it } from 'vitest';
 
+import { createClaudeAdapter } from '../../src/agents/claude/ClaudeAdapter.js';
+import { createClaudeTackPaths } from '../../src/agents/claude/ClaudeTackWriter.js';
 import { createPiAdapter } from '../../src/agents/pi/PiAdapter.js';
 import { createPiTackPaths } from '../../src/agents/pi/PiTackWriter.js';
 import { createBridlProgram, createDefaultCommands } from '../../src/cli/BridlCli.js';
@@ -109,6 +111,7 @@ describe('source layout scaffolding', () => {
       profileSources: [],
       remoteSettings: [],
       defaultProfile: 'remote',
+      defaultAgent: undefined,
       cacheDirectory: undefined,
       customSettings: {},
     });
@@ -133,20 +136,28 @@ describe('source layout scaffolding', () => {
     expect(mergedProfile.controls.model).toBe('pi/default');
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-006.3).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-006.3, BRIDL-REQ-006.5).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
-  it('creates a pi launch plan using PI_CODING_AGENT_DIR as the configuration boundary', () => {
+  it('creates pi and Claude Code launch plans using native config directory boundaries', () => {
     const tackRoot = 'bridl-tack-root';
     const tack = createTack(tackRoot, []);
     const launchPlan = createPiAdapter().createLaunchPlan(tack);
+    const claudeLaunchPlan = createClaudeAdapter().createLaunchPlan(tack);
     const piPaths = createPiTackPaths(tack.rootDirectory);
+    const claudePaths = createClaudeTackPaths(tack.rootDirectory);
 
     expect(launchPlan).toEqual({
       command: 'pi',
       args: [],
       env: { PI_CODING_AGENT_DIR: tackRoot },
     });
+    expect(claudeLaunchPlan).toEqual({
+      command: 'claude',
+      args: [],
+      env: { CLAUDE_CONFIG_DIR: tackRoot },
+    });
     expect(piPaths.agentDirectory).toBe(tackRoot);
+    expect(claudePaths.configDirectory).toBe(tackRoot);
   });
 
   it('defines tack, schema, and validation scaffolding boundaries', () => {

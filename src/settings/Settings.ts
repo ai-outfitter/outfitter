@@ -13,6 +13,7 @@ export type CustomSettings = Readonly<Record<string, SettingsValue>>;
 
 export interface Settings {
   readonly defaultProfile?: string;
+  readonly defaultAgent?: string;
   readonly profileSources?: readonly ProfileSourceReference[];
   readonly remoteSettings?: readonly RemoteSettingsReference[];
   readonly cacheDirectory?: string;

@@ -2,7 +2,8 @@
 
 This document describes Bridl's current model for handling writes that agent CLIs make inside a tack.
 
-A tack is temporary, but agent CLIs sometimes perform intentionally durable writes, such as logging in, installing plugins, changing settings, or updating MCP configuration. Bridl makes those paths explicit: adapter-declared writable paths are materialized with a resolved `state_persistence` strategy before the child CLI starts, and non-persistent or unknown writes are diagnosed after the child exits.
+A tack is temporary, but agent CLIs sometimes perform intentionally durable writes, such as logging in, installing plugins, changing settings, or updating MCP configuration.
+Bridl makes those paths explicit: adapter-declared writable paths are materialized with a resolved `state_persistence` strategy before the child CLI starts, and non-persistent or unknown writes are diagnosed after the child exits.
 
 ## Current behavior
 
@@ -13,7 +14,8 @@ A tack is temporary, but agent CLIs sometimes perform intentionally durable writ
 - Invalid or disallowed strategies fail before launch.
 - Non-persistent `warn` and `error` strategies are checked after the child CLI exits.
 - Unknown writes outside adapter-declared paths are checked with the adapter's `unknown` pseudo-path strategy.
-- `prompt` is reserved for a future interactive/control-plane workflow. When accepted by a declaration today, it is treated as a non-persistent diagnostic like `warn`.
+- `prompt` is reserved for a future interactive/control-plane workflow.
+  When accepted by a declaration today, it is treated as a non-persistent diagnostic like `warn`.
 
 ## Non-goals
 
@@ -23,7 +25,8 @@ A tack is temporary, but agent CLIs sometimes perform intentionally durable writ
 
 ## Profile stack
 
-State persistence is a normal profile setting. It resolves through the same profile stack as other profile data, with one adapter-provided native fallback layer for symlink sources:
+State persistence is a normal profile setting.
+It resolves through the same profile stack as other profile data, with one adapter-provided native fallback layer for symlink sources:
 
 ```text
 project-local profile
@@ -36,11 +39,14 @@ Bridl default profile
 native-cli-settings-profile
 ```
 
-The `native-cli-settings-profile` is synthesized by the adapter as a fallback source for native CLI files, such as `~/.pi/...`. It is not a user-editable Bridl profile.
+The `native-cli-settings-profile` is synthesized by the adapter as a fallback source for native CLI files, such as `~/.pi/...`.
+It is not a user-editable Bridl profile.
 
 ## Path-keyed adapter declarations
 
-Adapters declare writable state paths directly, using relative file paths as keys. Directory paths use a trailing slash. The same key is used for adapter coverage, `state_persistence` overrides, profile resource lookup, native fallback lookup, and tack materialization.
+Adapters declare writable state paths directly, using relative file paths as keys.
+Directory paths use a trailing slash.
+The same key is used for adapter coverage, `state_persistence` overrides, profile resource lookup, native fallback lookup, and tack materialization.
 
 The Pi adapter currently declares:
 
@@ -90,9 +96,11 @@ profiles/
         plugins/
 ```
 
-When a selected strategy is `symlink`, Bridl searches the resolved profile folders from highest to lowest precedence for `cli_specific/<adapter>/<state-path>`. If a profile contains the file or directory, Bridl symlinks the tack path to that source.
+When a selected strategy is `symlink`, Bridl searches the resolved profile folders from highest to lowest precedence for `cli_specific/<adapter>/<state-path>`.
+If a profile contains the file or directory, Bridl symlinks the tack path to that source.
 
-If no profile source exists for a Pi path, Bridl falls back to the corresponding native Pi agent path under `~/.pi/agent`. Missing native fallback files/directories are created so the tack symlink has a durable destination.
+If no profile source exists for a Pi path, Bridl falls back to the corresponding native Pi agent path under `~/.pi/agent`.
+Missing native fallback files/directories are created so the tack symlink has a durable destination.
 
 ## `state_persistence`
 
@@ -108,9 +116,11 @@ state_persistence:
   unknown: warn
 ```
 
-The values are concrete strategy names. `state_persistence` only needs overrides; omitted paths use the adapter declaration's `default_strategy`.
+The values are concrete strategy names.
+`state_persistence` only needs overrides; omitted paths use the adapter declaration's `default_strategy`.
 
-`state_persistence` is validated by the profile JSON Schema at read boundaries. Bridl also validates the resolved strategy against the adapter declaration before launch.
+`state_persistence` is validated by the profile JSON Schema at read boundaries.
+Bridl also validates the resolved strategy against the adapter declaration before launch.
 
 ## Tack materialization
 
@@ -148,23 +158,28 @@ Supported `unknown` strategies are non-persistent only:
 
 ### `symlink`
 
-Bridl resolves the state path through the profile hierarchy, then the native CLI fallback, and symlinks that source into the tack. Persistence happens because the CLI writes through the symlink to an intentional file or directory.
+Bridl resolves the state path through the profile hierarchy, then the native CLI fallback, and symlinks that source into the tack.
+Persistence happens because the CLI writes through the symlink to an intentional file or directory.
 
 ### `discard`
 
-Writes are allowed in the tack and are thrown away when the tack is deleted. Bridl does not emit diagnostics for changed `discard` paths.
+Writes are allowed in the tack and are thrown away when the tack is deleted.
+Bridl does not emit diagnostics for changed `discard` paths.
 
 ### `warn`
 
-Writes are allowed, discarded, and reported after the child exits. `--hard-tack` makes these warnings fatal.
+Writes are allowed, discarded, and reported after the child exits.
+`--hard-tack` makes these warnings fatal.
 
 ### `error`
 
-Writes are allowed during the child process but cause Bridl to fail after the child exits if the path changed. This is useful for CI and strict reproducibility.
+Writes are allowed during the child process but cause Bridl to fail after the child exits if the path changed.
+This is useful for CI and strict reproducibility.
 
 ### `prompt`
 
-`prompt` is reserved for a future interactive/control-plane workflow. Current implementations that allow it treat writes as non-persistent diagnostics, equivalent to `warn`, with the strategy name preserved in the message.
+`prompt` is reserved for a future interactive/control-plane workflow.
+Current implementations that allow it treat writes as non-persistent diagnostics, equivalent to `warn`, with the strategy name preserved in the message.
 
 ## Rationale
 

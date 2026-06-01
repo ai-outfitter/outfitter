@@ -57,9 +57,12 @@ Bridl is organized around clear TypeScript source boundaries, requirement docume
 │   │   └── StatePersistence.ts
 │   ├── agents/                        # agent adapter boundary and CLI-specific adapters
 │   │   ├── AgentAdapter.ts
-│   │   └── pi/                        # pi-specific adapter implementation
-│   │       ├── PiAdapter.ts
-│   │       └── PiTackWriter.ts
+│   │   ├── pi/                        # pi-specific adapter implementation
+│   │   │   ├── PiAdapter.ts
+│   │   │   └── PiTackWriter.ts
+│   │   └── claude/                    # Claude Code-specific adapter implementation
+│   │       ├── ClaudeAdapter.ts
+│   │       └── ClaudeTackWriter.ts
 │   ├── schemas/                       # JSON Schema artifacts for persisted formats
 │   │   ├── settings.schema.json
 │   │   ├── profile.schema.json
@@ -90,6 +93,7 @@ tests/fixtures/scenarios/
   uri-source-with-filter/
   profile-inheritance-chain/
   cli-specific-pi-overrides/
+  cli-specific-claude-overrides/
   unsupported-control-warning/
 ```
 

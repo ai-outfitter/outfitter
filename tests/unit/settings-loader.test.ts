@@ -60,11 +60,11 @@ describe('settings loading', () => {
     const projectDirectory = join(root, 'project');
     writeSettings(
       join(homeDirectory, '.bridl', 'settings.yml'),
-      'default_profile: user-default\ncache_directory: ./user-cache\nprofile_sources:\n  - path: ./profiles\n',
+      'default_profile: user-default\ndefault_agent: pi\ncache_directory: ./user-cache\nprofile_sources:\n  - path: ./profiles\n',
     );
     writeSettings(
       join(projectDirectory, '.bridl', 'settings.yml'),
-      'default_profile: project-default\ncache_directory: ./project-cache\n',
+      'default_profile: project-default\ndefault_agent: claude\ncache_directory: ./project-cache\n',
     );
     writeSettings(
       join(projectDirectory, '.bridl', 'local', 'settings.yml'),
@@ -76,6 +76,7 @@ describe('settings loading', () => {
     expect(loaded.issues).toEqual([]);
     expect(loaded.files.map((file) => file.location.scope)).toEqual(['user', 'project', 'project-local']);
     expect(loaded.settings.defaultProfile).toBe('local-default');
+    expect(loaded.settings.defaultAgent).toBe('claude');
     expect(loaded.settings.profileSources).toEqual([{ path: join(homeDirectory, '.bridl', 'profiles') }]);
     expect(loaded.settings.remoteSettings).toEqual([]);
     expect(loaded.settings.cacheDirectory).toBe(join(projectDirectory, '.bridl', 'local', 'local-cache'));

@@ -187,11 +187,12 @@ const readControls = (value: unknown): ProfileControls => {
     promptTemplate: readOptionalString(controls.prompt_template),
     systemPrompt: readOptionalString(controls.system_prompt),
     appendSystemPrompt: readOptionalString(controls.append_system_prompt),
-    pi: readPiControls(controls.pi),
+    pi: readAgentSpecificControls(controls.pi),
+    claude: readAgentSpecificControls(controls.claude),
   });
 };
 
-const readPiControls = (value: unknown): ProfileControls['pi'] => {
+const readAgentSpecificControls = (value: unknown): ProfileControls['pi'] => {
   const controls = readObject(value);
 
   if (controls === undefined) {

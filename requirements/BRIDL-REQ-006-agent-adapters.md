@@ -1,9 +1,9 @@
-# BRIDL-REQ-006: Agent Adapters and Pi Support
+# BRIDL-REQ-006: Agent Adapters, Pi Support, and Claude Code Support
 
 ## Overview
 
 Agent adapters translate generic Bridl profile controls into native configuration files, environment variables, and command-line arguments for specific agent CLIs.
-Pi is the only day-one supported adapter.
+Pi is the default and primary supported adapter; Claude Code is also supported through a dedicated adapter.
 
 ## Requirements
 
@@ -15,12 +15,14 @@ Pi is the only day-one supported adapter.
 4. Each adapter MUST return warnings for profile controls it cannot translate.
 5. Bridl SHOULD keep generic profile resolution independent from adapter-specific file generation.
 
-### BRIDL-REQ-006.2: Day-One Pi Adapter
+### BRIDL-REQ-006.2: Supported Adapter Availability
 
 1. Bridl MUST support the `pi` agent CLI on day one.
-2. Bridl MAY document other agent CLIs as roadmap adapters before implementing them.
-3. Non-pi adapters MUST NOT be presented as supported until their adapter implementation and tests exist.
-4. When generic Bridl terminology conflicts with pi terminology, the pi adapter SHOULD prefer pi naming for generated pi artifacts and user-facing pi diagnostics.
+2. Bridl MUST keep `pi` as the default adapter when no adapter is selected explicitly or through settings.
+3. Bridl MAY document other agent CLIs as roadmap adapters before implementing them.
+4. Non-pi adapters MUST NOT be presented as supported until their adapter implementation and tests exist.
+5. Bridl MUST support Claude Code through a `claude` adapter once implementation and tests are present.
+6. When generic Bridl terminology conflicts with pi terminology, the pi adapter SHOULD prefer pi naming for generated pi artifacts and user-facing pi diagnostics.
 
 ### BRIDL-REQ-006.3: Pi Launch Controls
 
@@ -40,3 +42,12 @@ Pi is the only day-one supported adapter.
 2. Bridl MUST choose pi configuration paths before launching pi.
 3. Bridl MAY use explicit bootstrap extensions for behavior that can run after pi has discovered its initial configuration directory.
 4. Bridl MUST document warnings when a requested pi control cannot be applied because pi startup order makes it impossible.
+
+### BRIDL-REQ-006.5: Claude Code Launch Controls
+
+1. The Claude Code adapter MUST use `CLAUDE_CONFIG_DIR` as the primary profile-scoped Claude Code configuration boundary.
+2. The Claude Code adapter MUST launch the native `claude` command.
+3. The Claude Code adapter MUST support profile-controlled environment variables.
+4. The Claude Code adapter MUST support profile-controlled pass-through Claude Code CLI arguments.
+5. The Claude Code adapter SHOULD support `--model`, `--effort`, `--system-prompt`, `--append-system-prompt`, and `--plugin-dir` where native Claude Code flags exist.
+6. The Claude Code adapter MUST return unsupported-control warnings for requested generic or `controls.claude` controls that it cannot translate.

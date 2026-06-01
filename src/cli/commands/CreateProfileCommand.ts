@@ -43,9 +43,13 @@ export const executeCreateProfileCommand = (input: CreateProfileInput): CreatePr
   const profileRoot = resolveProfileRoot(input);
   const profileDirectory = join(profileRoot, input.name);
   const profilePath = join(profileDirectory, 'profile.yml');
-  const resourceDirectories = ['prompts', 'skills', 'extensions', join('cli_specific', 'pi')].map((resourcePath) =>
-    join(profileDirectory, resourcePath),
-  );
+  const resourceDirectories = [
+    'prompts',
+    'skills',
+    'extensions',
+    join('cli_specific', 'pi'),
+    join('cli_specific', 'claude'),
+  ].map((resourcePath) => join(profileDirectory, resourcePath));
   const createdDirectories: string[] = [];
 
   if (!existsSync(profileDirectory)) {

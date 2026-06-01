@@ -1,13 +1,13 @@
-// Provides the pi adapter for tack generation and native pi launch plans.
+// Provides the Claude Code adapter for tack generation and native launch plans.
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 
 import type { AgentAdapter, AgentLaunchPlan, AgentTackPlan } from '../AgentAdapter.js';
-import type { PiProfileControls, Profile, ProfileControls } from '../../profiles/Profile.js';
+import type { ClaudeProfileControls, Profile, ProfileControls } from '../../profiles/Profile.js';
+import type { StatePathDeclaration, StatePersistenceStrategy, TackStatePath } from '../../tack/StatePersistence.js';
 import type { Tack } from '../../tack/Tack.js';
 import { createTack } from '../../tack/Tack.js';
 import { createTackFile } from '../../tack/TackFile.js';
-import type { StatePathDeclaration, StatePersistenceStrategy, TackStatePath } from '../../tack/StatePersistence.js';
 
 const genericControlNames = new Set([
   'model',
@@ -29,32 +29,47 @@ const genericControlNames = new Set([
   'claude',
 ]);
 
-const piControlNames = new Set(
-  [...genericControlNames].filter((controlName) => controlName !== 'pi' && controlName !== 'claude'),
-);
+const supportedClaudeGenericControls = new Set([
+  'model',
+  'thinking',
+  'environment',
+  'args',
+  'extensions',
+  'systemPrompt',
+  'system_prompt',
+  'appendSystemPrompt',
+  'append_system_prompt',
+  'pi',
+  'claude',
+]);
 
-const piStatePathDeclarations = {
-  'auth.json': { defaultStrategy: 'symlink', allowedStrategies: ['symlink', 'error', 'prompt'] },
+const claudeControlNames = new Set([
+  'model',
+  'thinking',
+  'environment',
+  'args',
+  'extensions',
+  'systemPrompt',
+  'system_prompt',
+  'appendSystemPrompt',
+  'append_system_prompt',
+]);
+
+const claudeStatePathDeclarations = {
   'settings.json': { defaultStrategy: 'symlink', allowedStrategies: ['symlink', 'warn', 'error', 'prompt'] },
-  'mcp.json': { defaultStrategy: 'symlink', allowedStrategies: ['symlink', 'warn', 'error', 'prompt'] },
+  'agents/': { defaultStrategy: 'symlink', allowedStrategies: ['symlink', 'discard', 'warn', 'error', 'prompt'] },
+  'skills/': { defaultStrategy: 'symlink', allowedStrategies: ['symlink', 'discard', 'warn', 'error', 'prompt'] },
+  'commands/': { defaultStrategy: 'symlink', allowedStrategies: ['symlink', 'discard', 'warn', 'error', 'prompt'] },
   'plugins/': { defaultStrategy: 'symlink', allowedStrategies: ['symlink', 'discard', 'warn', 'error', 'prompt'] },
-  'cache/': { defaultStrategy: 'symlink', allowedStrategies: ['symlink', 'discard', 'warn', 'error'] },
-  'sessions/': { defaultStrategy: 'symlink', allowedStrategies: ['symlink', 'discard', 'warn', 'error'] },
-  // Pi installs npm-sourced packages here for user-scoped `pi install npm:...` entries.
-  // Persisting it keeps package updates across Bridl's temporary tack directories.
-  'npm/': { defaultStrategy: 'symlink', allowedStrategies: ['symlink', 'discard', 'warn', 'error'] },
-  // Pi clones git-sourced packages here for user-scoped `pi install git:...` entries.
-  // Persisting it prevents every Bridl run from re-cloning or using stale temporary checkouts.
-  'git/': { defaultStrategy: 'symlink', allowedStrategies: ['symlink', 'discard', 'warn', 'error'] },
-  'utilities/': { defaultStrategy: 'symlink', allowedStrategies: ['symlink', 'discard', 'warn', 'error'] },
-  'bin/': { defaultStrategy: 'symlink', allowedStrategies: ['symlink', 'discard', 'warn', 'error'] },
+  'projects/': { defaultStrategy: 'symlink', allowedStrategies: ['symlink', 'discard', 'warn', 'error'] },
+  'debug/': { defaultStrategy: 'symlink', allowedStrategies: ['symlink', 'discard', 'warn', 'error'] },
   unknown: { defaultStrategy: 'warn', allowedStrategies: ['discard', 'warn', 'error', 'prompt'] },
 } as const satisfies Readonly<Record<string, StatePathDeclaration>>;
 
-export const createPiAdapter = (): AgentAdapter => ({
-  id: 'pi',
-  supportedControls: [...genericControlNames].filter((controlName) => !controlName.includes('_')),
-  statePaths: piStatePathDeclarations,
+export const createClaudeAdapter = (): AgentAdapter => ({
+  id: 'claude',
+  supportedControls: [...supportedClaudeGenericControls].filter((controlName) => !controlName.includes('_')),
+  statePaths: claudeStatePathDeclarations,
   createTack(profile: Profile, input): AgentTackPlan {
     const tack = createTack(
       input.rootDirectory,
@@ -67,25 +82,25 @@ export const createPiAdapter = (): AgentAdapter => ({
           strategy: 'transform',
         }),
       ],
-      createPiStatePaths(profile, input),
+      createClaudeStatePaths(profile, input),
     );
 
     return {
       tack,
       warnings: this.getUnsupportedControls(profile).map(
-        (controlName) => `pi adapter cannot translate requested control '${controlName}'.`,
+        (controlName) => `claude adapter cannot translate requested control '${controlName}'.`,
       ),
     };
   },
   createLaunchPlan(tack: Tack, profile?: Profile, passThroughArgs: readonly string[] = []): AgentLaunchPlan {
-    const controls = mergePiControls(profile?.controls ?? {});
+    const controls = mergeClaudeControls(profile?.controls ?? {});
 
     return {
-      command: 'pi',
-      args: [...createPiArgs(controls), ...passThroughArgs],
+      command: 'claude',
+      args: [...createClaudeArgs(controls), ...passThroughArgs],
       env: {
         ...controls.environment,
-        PI_CODING_AGENT_DIR: tack.rootDirectory,
+        CLAUDE_CONFIG_DIR: tack.rootDirectory,
       },
     };
   },
@@ -94,17 +109,16 @@ export const createPiAdapter = (): AgentAdapter => ({
   },
 });
 
-const createPiStatePaths = (
+const createClaudeStatePaths = (
   profile: Profile,
   input: {
     readonly profileFolders?: readonly string[];
     readonly homeDirectory?: string;
-    readonly cacheDirectory?: string;
   },
 ): readonly TackStatePath[] => {
   assertDeclaredStatePersistenceKeys(profile);
 
-  return Object.entries(piStatePathDeclarations).map(([relativePath, declaration]) => {
+  return Object.entries(claudeStatePathDeclarations).map(([relativePath, declaration]) => {
     const strategy = resolveStateStrategy(profile, relativePath, declaration);
     const directory = relativePath.endsWith('/');
 
@@ -114,13 +128,7 @@ const createPiStatePaths = (
       directory,
       sourcePath:
         strategy === 'symlink' && relativePath !== 'unknown'
-          ? resolvePiStateSourcePath(
-              input.profileFolders ?? [],
-              input.homeDirectory,
-              input.cacheDirectory,
-              relativePath,
-              directory,
-            )
+          ? resolveClaudeStateSourcePath(input.profileFolders ?? [], input.homeDirectory, relativePath, directory)
           : undefined,
     };
   });
@@ -128,8 +136,8 @@ const createPiStatePaths = (
 
 const assertDeclaredStatePersistenceKeys = (profile: Profile): void => {
   for (const relativePath of Object.keys(profile.statePersistence ?? {})) {
-    if (!Object.hasOwn(piStatePathDeclarations, relativePath)) {
-      throw new Error(`state_persistence path '${relativePath}' is not declared by the pi adapter`);
+    if (!Object.hasOwn(claudeStatePathDeclarations, relativePath)) {
+      throw new Error(`state_persistence path '${relativePath}' is not declared by the claude adapter`);
     }
   }
 };
@@ -141,7 +149,7 @@ const resolveStateStrategy = (
 ): StatePersistenceStrategy => {
   const strategy = profile.statePersistence?.[relativePath] ?? declaration.defaultStrategy;
 
-  /* v8 ignore next -- Pi declarations all define defaults; this guards future adapter declaration regressions. */
+  /* v8 ignore next -- Claude declarations all define defaults; this guards future adapter declaration regressions. */
   if (strategy === undefined) {
     throw new Error(`missing state_persistence strategy for "${relativePath}"`);
   }
@@ -153,30 +161,16 @@ const resolveStateStrategy = (
   return strategy;
 };
 
-const resolvePiStateSourcePath = (
+const resolveClaudeStateSourcePath = (
   profileFolders: readonly string[],
   homeDirectory: string | undefined,
-  cacheDirectory: string | undefined,
   relativePath: string,
   directory: boolean,
 ): string => {
   const normalizedRelativePath = directory ? relativePath.slice(0, -1) : relativePath;
-  const configuredCacheDirectory =
-    cacheDirectory ??
-    join(
-      /* v8 ignore next -- run command always passes homeDirectory; environment fallbacks are defensive. */
-      homeDirectory ?? process.env.HOME ?? '.',
-      '.bridl',
-      'cache',
-    );
-
-  if (relativePath === 'utilities/' || relativePath === 'bin/') {
-    return join(configuredCacheDirectory, 'utilities');
-  }
-
   const profileSource = [...profileFolders]
     .reverse()
-    .map((profileFolder) => join(profileFolder, 'cli_specific', 'pi', normalizedRelativePath))
+    .map((profileFolder) => join(profileFolder, 'cli_specific', 'claude', normalizedRelativePath))
     .find((candidate) => existsSync(candidate));
 
   if (profileSource !== undefined) {
@@ -186,19 +180,18 @@ const resolvePiStateSourcePath = (
   return join(
     /* v8 ignore next -- run command always passes homeDirectory; environment fallbacks are defensive. */
     homeDirectory ?? process.env.HOME ?? '.',
-    '.pi',
-    'agent',
+    '.claude',
     normalizedRelativePath,
   );
 };
 
-const mergePiControls = (controls: ProfileControls): PiProfileControls => ({
+const mergeClaudeControls = (controls: ProfileControls): ClaudeProfileControls => ({
   ...controls,
-  ...definedControls(controls.pi),
-  environment: { ...controls.environment, ...controls.pi?.environment },
+  ...definedControls(controls.claude),
+  environment: { ...controls.environment, ...controls.claude?.environment },
 });
 
-const definedControls = (controls: PiProfileControls | undefined): Partial<PiProfileControls> => {
+const definedControls = (controls: ClaudeProfileControls | undefined): Partial<ClaudeProfileControls> => {
   if (controls === undefined) {
     return {};
   }
@@ -206,16 +199,12 @@ const definedControls = (controls: PiProfileControls | undefined): Partial<PiPro
   return Object.fromEntries(Object.entries(controls).filter((entry) => entry[1] !== undefined));
 };
 
-const createPiArgs = (controls: PiProfileControls): readonly string[] => [
+const createClaudeArgs = (controls: ClaudeProfileControls): readonly string[] => [
   ...flagValue('--model', controls.model),
-  ...flagValue('--provider', controls.provider),
-  ...flagValue('--thinking', controls.thinking),
-  ...flagValue('--session-dir', controls.sessionDirectory),
-  ...flagValue('--prompt-template', controls.promptTemplate),
+  ...flagValue('--effort', controls.thinking),
   ...flagValue('--system-prompt', controls.systemPrompt),
   ...flagValue('--append-system-prompt', controls.appendSystemPrompt),
-  ...repeatFlag('--extension', controls.extensions),
-  ...repeatFlag('--skill', controls.skills),
+  ...repeatFlag('--plugin-dir', controls.extensions),
   ...(controls.args ?? []),
 ];
 
@@ -226,15 +215,49 @@ const repeatFlag = (flag: string, values: readonly string[] | undefined): readon
   values === undefined ? [] : values.flatMap((value) => [flag, value]);
 
 const findUnsupportedControls = (controls: ProfileControls): readonly string[] => {
-  const unsupported = Object.keys(controls).filter((controlName) => !genericControlNames.has(controlName));
+  const unsupported = findUnsupportedControlNames(controls, supportedClaudeGenericControls);
 
-  if (controls.pi !== undefined) {
+  if (controls.claude !== undefined) {
     unsupported.push(
-      ...Object.keys(controls.pi)
-        .filter((controlName) => !piControlNames.has(controlName))
-        .map((controlName) => `pi.${controlName}`),
+      ...findUnsupportedControlNames(controls.claude, claudeControlNames).map((controlName) => `claude.${controlName}`),
     );
   }
 
   return unsupported;
 };
+
+const findUnsupportedControlNames = (
+  controls: Readonly<Record<string, unknown>>,
+  supportedControls: ReadonlySet<string>,
+): string[] => {
+  const controlNames = new Set(Object.keys(controls));
+  const unsupported: string[] = [];
+
+  for (const { camelCase, snakeCase } of controlAliases) {
+    if (!controlNames.has(camelCase) && !controlNames.has(snakeCase)) {
+      continue;
+    }
+
+    if (!supportedControls.has(camelCase) && !supportedControls.has(snakeCase)) {
+      unsupported.push(controlNames.has(snakeCase) ? snakeCase : camelCase);
+    }
+
+    controlNames.delete(camelCase);
+    controlNames.delete(snakeCase);
+  }
+
+  unsupported.push(
+    ...[...controlNames].filter(
+      (controlName) => !genericControlNames.has(controlName) || !supportedControls.has(controlName),
+    ),
+  );
+
+  return unsupported;
+};
+
+const controlAliases = [
+  { camelCase: 'sessionDirectory', snakeCase: 'session_directory' },
+  { camelCase: 'promptTemplate', snakeCase: 'prompt_template' },
+  { camelCase: 'systemPrompt', snakeCase: 'system_prompt' },
+  { camelCase: 'appendSystemPrompt', snakeCase: 'append_system_prompt' },
+] as const;

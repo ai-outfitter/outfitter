@@ -4,6 +4,7 @@ import { emptySettings } from './Settings.js';
 
 export const mergeSettingsStack = (settingsStack: readonly Settings[]): Settings => {
   let defaultProfile: string | undefined;
+  let defaultAgent: string | undefined;
   let profileSources: Settings['profileSources'];
   let remoteSettings: Settings['remoteSettings'];
   let cacheDirectory: string | undefined;
@@ -11,31 +12,30 @@ export const mergeSettingsStack = (settingsStack: readonly Settings[]): Settings
 
   for (const settings of settingsStack) {
     defaultProfile = settings.defaultProfile ?? defaultProfile;
+    defaultAgent = settings.defaultAgent ?? defaultAgent;
 
-    if (settings.profileSources !== undefined) {
-      profileSources = settings.profileSources;
-    }
-
-    if (settings.remoteSettings !== undefined) {
-      remoteSettings = settings.remoteSettings;
-    }
-
+    profileSources = settings.profileSources ?? profileSources;
+    remoteSettings = settings.remoteSettings ?? remoteSettings;
     cacheDirectory = settings.cacheDirectory ?? cacheDirectory;
-
-    if (settings.customSettings !== undefined) {
-      customSettings = mergeCustomSettings(customSettings, settings.customSettings);
-    }
+    customSettings = mergeOptionalCustomSettings(customSettings, settings.customSettings);
   }
 
   return {
     ...emptySettings(),
     defaultProfile,
+    defaultAgent,
     profileSources: profileSources ?? [],
     remoteSettings: remoteSettings ?? [],
     cacheDirectory,
     customSettings: customSettings ?? {},
   };
 };
+
+const mergeOptionalCustomSettings = (
+  lowerPrecedence: CustomSettings | undefined,
+  higherPrecedence: CustomSettings | undefined,
+): CustomSettings | undefined =>
+  higherPrecedence === undefined ? lowerPrecedence : mergeCustomSettings(lowerPrecedence, higherPrecedence);
 
 const mergeCustomSettings = (
   lowerPrecedence: CustomSettings | undefined,

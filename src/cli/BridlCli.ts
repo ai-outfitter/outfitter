@@ -19,7 +19,7 @@ export const createBridlProgram = (commands: readonly CommandObject[] = createDe
 
   program
     .name('bridl')
-    .description('Profile-oriented wrapper for launching pi and future agent CLIs.')
+    .description('Profile-oriented wrapper for launching pi, Claude Code, and future agent CLIs.')
     .version('0.1.0');
 
   for (const command of commands) {

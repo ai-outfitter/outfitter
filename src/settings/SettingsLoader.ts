@@ -39,6 +39,7 @@ export interface SettingsLoadIssue extends ValidationIssue {
 
 interface SettingsDocument {
   readonly default_profile?: string;
+  readonly default_agent?: string;
   readonly profile_sources?: readonly ProfileSourceDocument[];
   readonly remote_settings?: readonly RemoteSettingsDocument[];
   readonly cache_directory?: string;
@@ -194,6 +195,7 @@ const addSettingsFile = (
 
 const convertSettingsDocument = (document: SettingsDocument, settingsDirectory: string): Settings => ({
   defaultProfile: document.default_profile,
+  defaultAgent: document.default_agent,
   profileSources: document.profile_sources?.map((source) => convertProfileSource(source, settingsDirectory)),
   remoteSettings: document.remote_settings?.map(convertRemoteSettingsSource),
   cacheDirectory:

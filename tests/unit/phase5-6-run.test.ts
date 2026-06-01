@@ -98,7 +98,7 @@ describe('phase 5 tack assembly and phase 6 pi run support', () => {
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-005.3, BRIDL-REQ-006.3).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
-  it('parses generic and pi array controls from profile YAML', () => {
+  it('parses generic, pi, and claude array controls from profile YAML', () => {
     const profile = parseProfileYaml(
       [
         'id: arrays',
@@ -110,6 +110,10 @@ describe('phase 5 tack assembly and phase 6 pi run support', () => {
         '    args: [--pi]',
         '    extensions: [ext-pi]',
         '    skills: [skill-pi]',
+        '  claude:',
+        '    args: [--claude]',
+        '    extensions: [plugin-claude]',
+        '    skills: [skill-claude]',
         '',
       ].join('\n'),
       'fallback',
@@ -123,6 +127,9 @@ describe('phase 5 tack assembly and phase 6 pi run support', () => {
       expect(profile.controls.pi?.args).toEqual(['--pi']);
       expect(profile.controls.pi?.extensions).toEqual(['ext-pi']);
       expect(profile.controls.pi?.skills).toEqual(['skill-pi']);
+      expect(profile.controls.claude?.args).toEqual(['--claude']);
+      expect(profile.controls.claude?.extensions).toEqual(['plugin-claude']);
+      expect(profile.controls.claude?.skills).toEqual(['skill-claude']);
     }
   });
 
