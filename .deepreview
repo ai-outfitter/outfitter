@@ -337,6 +337,53 @@ typescript_code_review:
         documentation still accurate after the changes? Flag any comments that
         describe behavior that no longer matches the code.
 
+release_workflow_safety:
+  description: "Review Bridl npm release workflow safety."
+  match:
+    include:
+      - ".github/workflows/release.yml"
+  review:
+    strategy: individual
+    instructions: |
+      Review the Bridl npm release workflow for release-safety concerns that
+      complement deterministic workflow tests.
+
+      Check that the workflow:
+      - Does not expose npm tokens or other secrets through logs, command-line
+        arguments, checked-in files, or environment variables beyond the npm
+        publish step.
+      - Uses release triggers intentionally and does not publish from pull
+        requests, arbitrary pushes, or untrusted forks.
+      - Avoids git mutation, repository write credentials, or unrelated network
+        side effects that are not required for dependency installation, CI, or
+        npm publishing.
+      - Keeps maintainer-facing step names, comments, and assumptions accurate
+        enough to diagnose release failures.
+
+release_metadata_sync:
+  description: "Review Bridl release metadata synchronization automation."
+  match:
+    include:
+      - "scripts/sync-release-version.mjs"
+  review:
+    strategy: individual
+    instructions: |
+      Review the Bridl release metadata synchronization script for correctness
+      and release safety.
+
+      Focus on judgment-based release safety concerns that complement the
+      deterministic unit tests for this script.
+
+      Check that the script:
+      - Keeps its mutation scope limited to release metadata files under the
+        configured project root.
+      - Avoids network access, npm publishing, git mutation, credential access,
+        or other side effects that belong in the GitHub Actions workflow.
+      - Produces actionable errors rather than silent success when release
+        metadata is malformed or unsafe to publish.
+      - Keeps implementation comments and workflow assumptions accurate enough
+        for a release maintainer to diagnose failures.
+
 suggest_new_reviews:
   description: "Analyze all changes and suggest new review rules that would catch issues going forward."
   match:

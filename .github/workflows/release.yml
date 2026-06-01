@@ -1,0 +1,47 @@
+name: Release
+
+on:
+  release:
+    types:
+      - published
+
+permissions:
+  contents: read
+
+jobs:
+  publish-npm:
+    name: Publish npm package
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22.19.0'
+          registry-url: https://registry.npmjs.org/
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Sync release version
+        run: node scripts/sync-release-version.mjs "${GITHUB_REF_NAME}"
+
+      - name: Format synchronized release metadata
+        run: npx prettier --write package.json package-lock.json
+
+      - name: Run CI checks
+        run: npm run check-ci
+
+      - name: Build package
+        run: npm run build
+
+      - name: Publish package to npm
+        run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
