@@ -17,22 +17,26 @@ if (version === undefined) {
   throw new Error('Usage: node scripts/sync-release-version.mjs <version|vversion> [--root=<path>]');
 }
 
-await updateJson('package.json', (packageJson) => {
-  assertPackageName(packageJson);
-  packageJson.version = version;
-});
+const packageJsonPath = path.join(projectRoot, 'package.json');
+const packageLockPath = path.join(projectRoot, 'package-lock.json');
+const packageJson = await readJson(packageJsonPath);
+const lockfile = await readJson(packageLockPath);
 
-await updateJson('package-lock.json', (lockfile) => {
-  assertPackageName(lockfile);
-  lockfile.version = version;
+assertPackageName(packageJson);
+assertPackageName(lockfile);
 
-  if (lockfile.packages?.[''] === undefined) {
-    throw new Error("Expected package-lock.json to include packages[''] root package metadata.");
-  }
+if (lockfile.packages?.[''] === undefined) {
+  throw new Error("Expected package-lock.json to include packages[''] root package metadata.");
+}
 
-  assertPackageName(lockfile.packages['']);
-  lockfile.packages[''].version = version;
-});
+assertPackageName(lockfile.packages['']);
+
+packageJson.version = version;
+lockfile.version = version;
+lockfile.packages[''].version = version;
+
+await writeJson(packageLockPath, lockfile);
+await writeJson(packageJsonPath, packageJson);
 
 console.log(`Synchronized Bridl release metadata to ${version}.`);
 
@@ -66,9 +70,10 @@ function assertPackageName(packageJson) {
   }
 }
 
-async function updateJson(relativePath, update) {
-  const filePath = path.join(projectRoot, relativePath);
-  const value = JSON.parse(await fs.readFile(filePath, 'utf8'));
-  update(value);
+async function readJson(filePath) {
+  return JSON.parse(await fs.readFile(filePath, 'utf8'));
+}
+
+async function writeJson(filePath, value) {
   await fs.writeFile(filePath, `${JSON.stringify(value, null, 2)}\n`);
 }

@@ -53,6 +53,9 @@ describe('release workflow', () => {
     expect(findStep(workflow, 'Sync release version').run).toBe(
       'node scripts/sync-release-version.mjs "${GITHUB_REF_NAME}"',
     );
+    expect(findStep(workflow, 'Format synchronized release metadata').run).toBe(
+      'npm exec -- prettier --write package.json package-lock.json',
+    );
     expect(findStep(workflow, 'Run CI checks').run).toBe('npm run check-ci');
     expect(findStep(workflow, 'Build package').run).toBe('npm run build');
     expect(findStep(workflow, 'Publish package to npm')).toMatchObject({

@@ -86,15 +86,26 @@ describe('release version synchronization script', () => {
     delete (missingRootPackageLockfile.packages as Record<string, unknown>)[''];
     writeJson(join(missingLockfileRootPackageRoot, 'package-lock.json'), missingRootPackageLockfile);
 
-    const originalPackageJson = readFileSync(join(invalidVersionRoot, 'package.json'), 'utf8');
-    const originalPackageLockJson = readFileSync(join(invalidVersionRoot, 'package-lock.json'), 'utf8');
+    const originalInvalidVersionPackageJson = readFileSync(join(invalidVersionRoot, 'package.json'), 'utf8');
+    const originalInvalidVersionPackageLockJson = readFileSync(join(invalidVersionRoot, 'package-lock.json'), 'utf8');
+    const originalLockfileMismatchPackageJson = readFileSync(join(lockfileMismatchRoot, 'package.json'), 'utf8');
+    const originalLockfileMismatchPackageLockJson = readFileSync(
+      join(lockfileMismatchRoot, 'package-lock.json'),
+      'utf8',
+    );
 
     expect(() => runScript(invalidVersionRoot, '01.2.3')).toThrow('Invalid Bridl release version: 01.2.3');
-    expect(readFileSync(join(invalidVersionRoot, 'package.json'), 'utf8')).toBe(originalPackageJson);
-    expect(readFileSync(join(invalidVersionRoot, 'package-lock.json'), 'utf8')).toBe(originalPackageLockJson);
+    expect(readFileSync(join(invalidVersionRoot, 'package.json'), 'utf8')).toBe(originalInvalidVersionPackageJson);
+    expect(readFileSync(join(invalidVersionRoot, 'package-lock.json'), 'utf8')).toBe(
+      originalInvalidVersionPackageLockJson,
+    );
     expect(() => runScript(invalidVersionRoot, '1.2.3-a..b')).toThrow('Invalid Bridl release version: 1.2.3-a..b');
     expect(() => runScript(packageMismatchRoot, '1.2.3')).toThrow("Expected package name 'bridl'");
     expect(() => runScript(lockfileMismatchRoot, '1.2.3')).toThrow("Expected package name 'bridl'");
+    expect(readFileSync(join(lockfileMismatchRoot, 'package.json'), 'utf8')).toBe(originalLockfileMismatchPackageJson);
+    expect(readFileSync(join(lockfileMismatchRoot, 'package-lock.json'), 'utf8')).toBe(
+      originalLockfileMismatchPackageLockJson,
+    );
     expect(() => runScript(missingLockfileRootPackageRoot, '1.2.3')).toThrow(
       "Expected package-lock.json to include packages[''] root package metadata.",
     );
