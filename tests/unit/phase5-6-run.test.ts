@@ -413,7 +413,14 @@ describe('phase 5 tack assembly and phase 6 pi run support', () => {
       },
     );
 
-    expect(messages).toEqual(['`bridl setup` has not been run yet - running now']);
+    expect(messages).toEqual([
+      '`bridl setup` has not been run yet - running now',
+      '→ resolving profile default',
+      `✓ profile layer default  ${join(homeDirectory, '.bridl', 'profiles', 'default')}`,
+      '✓ merged controls',
+      `✓ prepared tack  ${result.tackDirectory}`,
+      '↳ launching pi …',
+    ]);
     expect(result.profileId).toBe('default');
     expect(existsSync(join(homeDirectory, '.bridl', 'settings.yml'))).toBe(true);
     expect(existsSync(join(homeDirectory, '.bridl', 'profiles', 'default', 'profile.yml'))).toBe(true);

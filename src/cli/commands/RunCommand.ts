@@ -4,6 +4,7 @@ import { homedir } from 'node:os';
 import { join } from 'node:path';
 
 import type { ChildProcess } from 'node:child_process';
+import chalk from 'chalk';
 import type { Command } from 'commander';
 import spawn from 'cross-spawn';
 
@@ -12,6 +13,7 @@ import { createPiAdapter } from '../../agents/pi/PiAdapter.js';
 import {
   createProfileSourceCachePath,
   createRemoteRepositoryCachePath,
+  redactProfileSourceUriCredentials,
   resolveRemoteRepositorySubpath,
 } from '../../profiles/ProfileCache.js';
 import { loadLocalProfileSource } from '../../profiles/ProfileLoader.js';
@@ -78,6 +80,7 @@ export const executeRunCommand = async (
   writeTack(tackPlan.tack);
   let stateBaseline = createTackStateBaseline(tackPlan.tack.rootDirectory, tackPlan.tack.statePaths);
   const launchPlan = adapter.createLaunchPlan(tackPlan.tack, resolvedProfile.profile, input.passThroughArgs ?? []);
+  emitLaunchSummary(resolvedProfile, adapter.id, tackPlan.tack.rootDirectory, dependencies.writeLine);
   const watcher = watchTackInputs({
     tack: tackPlan.tack,
     refreshTack: () => createAdapterTackPlan(adapter, loadResolvedProfile(input), tackRootDirectory).tack,
@@ -177,6 +180,7 @@ interface ResolvedRunProfile {
   readonly projectDirectory: string;
   readonly settings: Settings;
   readonly settingsPaths: readonly string[];
+  readonly profileLayers: readonly LoadedProfile[];
 }
 
 const failHardTackOnWarnings = (
@@ -195,6 +199,54 @@ const emitWarnings = (warnings: readonly string[], writeError: ((message: string
   for (const warning of warnings) {
     writer(warning);
   }
+};
+
+const emitLaunchSummary = (
+  resolvedProfile: ResolvedRunProfile,
+  adapterId: string,
+  tackRootDirectory: string,
+  writeLine: ((message: string) => void) | undefined,
+): void => {
+  const writer = writeLine ?? console.log;
+  const model = selectSummaryModel(resolvedProfile.profile);
+
+  writer(`${chalk.magenta('→')} resolving profile ${chalk.yellow(resolvedProfile.profile.id)}`);
+
+  for (const layer of resolvedProfile.profileLayers) {
+    writer(
+      `${chalk.green('✓')} profile layer ${chalk.yellow(layer.profile.id)}  ${chalk.dim(formatProfileLayerSource(layer))}`,
+    );
+  }
+
+  writer(`${chalk.green('✓')} merged controls${model === undefined ? '' : `  model=${chalk.yellow(model)}`}`);
+  writer(`${chalk.green('✓')} prepared tack  ${chalk.dim(tackRootDirectory)}`);
+  writer(`${chalk.blue('↳')} launching ${chalk.cyan(adapterId)} …`);
+};
+
+const selectSummaryModel = (profile: Profile): string | undefined =>
+  profile.controls.pi?.model ?? profile.controls.model;
+
+const formatProfileLayerSource = (layer: LoadedProfile): string => {
+  if (layer.source.github !== undefined) {
+    return formatRemoteProfileSource(`github:${layer.source.github}`, layer.source.ref, layer.source.path);
+  }
+
+  if (layer.source.uri !== undefined) {
+    return formatRemoteProfileSource(
+      redactProfileSourceUriCredentials(layer.source.uri),
+      layer.source.ref,
+      layer.source.path,
+    );
+  }
+
+  return layer.folderPath;
+};
+
+const formatRemoteProfileSource = (source: string, ref: string | undefined, path: string | undefined): string => {
+  const refSuffix = ref === undefined ? '' : `@${ref}`;
+  const pathSuffix = path === undefined ? '' : `/${path}`;
+
+  return `${source}${refSuffix}${pathSuffix}`;
 };
 
 const createAdapterTackPlan = (adapter: AgentAdapter, resolvedProfile: ResolvedRunProfile, rootDirectory: string) => {
@@ -290,6 +342,7 @@ const loadResolvedProfile = (input: RunCommandInput): ResolvedRunProfile => {
 
   return {
     profile: resolution.profile,
+    profileLayers: findContributingLoadedProfiles(resolution.profileStack, loadedProfiles.profiles),
     profilePaths: findContributingProfilePaths(resolution.profileStack, loadedProfiles.profiles),
     profileFolders: findContributingProfileFolders(resolution.profileStack, loadedProfiles.profiles),
     homeDirectory: input.homeDirectory,
@@ -342,9 +395,10 @@ const loadProfileSources = (
   const profiles: LoadedProfile[] = [];
   const issues: { readonly path: string; readonly message: string }[] = [];
 
-  for (const source of sources.map((source) => materializeSource(homeDirectory, source))) {
-    const result = loadLocalProfileSource(source);
-    profiles.push(...result.profiles);
+  for (const source of sources) {
+    const materializedSource = materializeSource(homeDirectory, source);
+    const result = loadLocalProfileSource(materializedSource);
+    profiles.push(...result.profiles.map((profile) => ({ ...profile, source })));
     issues.push(...result.issues);
   }
 
