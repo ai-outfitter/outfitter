@@ -6,6 +6,9 @@ node_modules/
 dist/
 build/
 lib/
+.next/
+doc_site/.next/
+doc_site/out/
 *.tsbuildinfo
 
 # Test and coverage output

@@ -1,0 +1,190 @@
+---
+title: Bridl Agent Harness Manager
+description: Making your AI Harness manageable, composable and portable
+---
+
+<div className="bridl-hero">
+  <p className="bridl-eyebrow">Agent harness profiles</p>
+  <h1>Manageable, Composable and Portable Agent Harnesses</h1>
+  <p className="bridl-lede">
+    {
+      'Bridl is the missing layer for agent harness management. It gives you reusable profiles that travel with you between machines, adapt per repository, combine in useful ways, and even work cross-agent.'
+    }
+  </p>
+  <div className="bridl-actions">
+    <a className="bridl-button" href="#why-bridl">
+      Why Bridl?
+    </a>
+    <a className="bridl-button secondary" href="#feature-comparison">
+      Compare the gaps
+    </a>
+  </div>
+</div>
+
+## Why Bridl?
+
+Today, agent harness configuration is powerful but fragmented:
+
+- **Machine-global settings** are easy to create, but they are tied to a workstation and tend to become a personal junk drawer.
+- **Project-global settings** are useful for repo-specific guidance, but they force every role, language, and task intent through the same defaults.
+- **Some project-global resources are cross-agent**, such as skills lists, but the surrounding settings still often remain harness-specific.
+- **Organization-wide settings exist in limited forms**, but they are usually per-agent and often reserved for enterprise subscriptions.
+
+Bridl fills the gap with **profiles**: portable, composable configuration bundles that express what you want at the product boundary and then let adapters translate those choices into the right files, flags, environment variables, and native agent concepts.
+
+<div className="bridl-grid">
+  <div className="bridl-card">
+    <h3>Dotfile-esque defaults</h3>
+    <p>
+      {
+        "Keep user-global settings in source-controlled profile repos instead of burying them in a single machine's home directory."
+      }
+    </p>
+  </div>
+  <div className="bridl-card">
+    <h3>Language-specific setups</h3>
+    <p>{'Switch between TypeScript, Python, Rust, docs, or data profiles without rewriting project configuration.'}</p>
+  </div>
+  <div className="bridl-card">
+    <h3>Intent-specific modes</h3>
+    <p>
+      {
+        'Use a PM profile for planning, a DevOps profile for deployment work, and an engineer profile for implementation.'
+      }
+    </p>
+  </div>
+  <div className="bridl-card">
+    <h3>Cross-agent policy</h3>
+    <p>{'Describe common profile controls once, then let Bridl map them into supported agent-specific mechanisms.'}</p>
+  </div>
+</div>
+
+## Layered profiles in practice
+
+A Bridl setup can look like a dotfiles repo, a team starter repo, and a project-local override all working together. Functionally, Bridl resolves the relevant layers and launches the agent with one coherent tack of settings.
+
+<div className="bridl-layer-illustration">
+  <div className="bridl-layer-card" data-step="1">
+    <h3>User profile source</h3>
+    <div className="bridl-layer-text">
+      <code>github: nhorton/agent-profiles</code> provides <code>engineer</code>, shared skills, preferred defaults, and
+      machine-independent personal policy.
+    </div>
+  </div>
+  <div className="bridl-merge-arrow">＋</div>
+  <div className="bridl-layer-card" data-step="2">
+    <h3>Repository-local profile</h3>
+    <div className="bridl-layer-text">
+      <code>my_project/.bridl/profiles/engineer/profile.yml</code> adds repo-specific prompts, required tools, language
+      conventions, and project safety rules.
+    </div>
+  </div>
+  <div className="bridl-merge-arrow">↓</div>
+  <div className="bridl-layer-card" data-step="3">
+    <h3>Resolved Bridl profile</h3>
+    <div className="bridl-layer-text">
+      {
+        'Bridl combines these layers deterministically, warns when a requested control is unsupported, and prepares a temporary runtime tack.'
+      }
+    </div>
+  </div>
+  <div className="bridl-merge-arrow">↓</div>
+  <div className="bridl-layer-card" data-step="4">
+    <h3>Native agent launch</h3>
+    <div className="bridl-layer-text">
+      {
+        "Adapters translate the profile into the harness' native files, flags, environment variables, skills, prompts, and session behavior."
+      }
+    </div>
+  </div>
+</div>
+
+<div className="bridl-note">
+  <strong>The point is not to replace native agent configuration.</strong> The point is to make native configuration
+  reproducible, selectable, and shareable across users, repositories, roles, and eventually agent harnesses.
+</div>
+
+## Feature comparison
+
+The table below focuses on the configuration gaps Bridl profiles are designed to close.
+
+<table className="bridl-matrix" id="feature-comparison">
+  <thead>
+    <tr>
+      <th>Capability</th>
+      <th>Bridl</th>
+      <th>Claude Code Personal</th>
+      <th>Claude Code Enterprise</th>
+      <th>Pi.dev</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>User-wide settings on one machine</td>
+      <td>Yes</td>
+      <td>Yes</td>
+      <td>Yes</td>
+      <td>Yes</td>
+    </tr>
+    <tr>
+      <td>Machine-independent user defaults</td>
+      <td>Yes</td>
+      <td>No</td>
+      <td>No</td>
+      <td>No</td>
+    </tr>
+    <tr>
+      <td>Repo-specific guidance and controls</td>
+      <td>Yes</td>
+      <td>Yes</td>
+      <td>Yes</td>
+      <td>Yes</td>
+    </tr>
+    <tr>
+      <td>Organization-wide defaults</td>
+      <td>Yes</td>
+      <td>No</td>
+      <td>Yes</td>
+      <td>No</td>
+    </tr>
+    <tr>
+      <td>Different settings by language or stack</td>
+      <td>Yes</td>
+      <td>No</td>
+      <td>No</td>
+      <td>No</td>
+    </tr>
+    <tr>
+      <td>Different settings by work intent</td>
+      <td>Yes</td>
+      <td>No</td>
+      <td>No</td>
+      <td>No</td>
+    </tr>
+    <tr>
+      <td>Cross-agent settings vocabulary</td>
+      <td>Yes</td>
+      <td>No</td>
+      <td>No</td>
+      <td>No</td>
+    </tr>
+    <tr>
+      <td>Deterministic precedence between user, remote, project, and local policy</td>
+      <td>Yes</td>
+      <td>No</td>
+      <td>No</td>
+      <td>No</td>
+    </tr>
+  </tbody>
+</table>
+
+## What this enables
+
+With Bridl, teams and individual developers can treat agent harness setup like real development infrastructure:
+
+1. Put reusable defaults in a profile repo such as <code>agent-profiles</code>.
+2. Add project-local overrides only where the repository truly has unique needs.
+3. Select the profile that matches the work: language, role, risk level, or intent.
+4. Let Bridl assemble the runtime configuration and launch the agent harness consistently.
+
+The result is a workflow where agent customization is no longer a pile of hidden local state. It becomes a documented, reviewable, and reusable part of how work gets done.
