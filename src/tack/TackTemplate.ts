@@ -66,7 +66,7 @@ const renderTackFile = (
   try {
     return {
       ...file,
-      content: bridlTemplateEngine.parseAndRenderSync(file.content, context) as string,
+      content: renderTemplateContent(file.content, context),
       sourceInputs: [...file.sourceInputs, ...settingsPaths.filter((path) => !file.sourceInputs.includes(path))],
     };
   } catch (error) {
@@ -74,6 +74,17 @@ const renderTackFile = (
       cause: error,
     });
   }
+};
+
+const renderTemplateContent = (content: string, context: Readonly<Record<string, unknown>>): string => {
+  const renderedContent: unknown = bridlTemplateEngine.parseAndRenderSync(content, context);
+
+  /* v8 ignore next -- LiquidJS renders string content to strings; this guards future API regressions. */
+  if (typeof renderedContent !== 'string') {
+    throw new Error('LiquidJS returned non-string template output.');
+  }
+
+  return renderedContent;
 };
 
 const containsBridlTemplate = (content: string): boolean => content.includes('[[=') || content.includes('[[%');

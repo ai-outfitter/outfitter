@@ -229,7 +229,7 @@ commands:
 [[% endfor %]]
 ```
 
-Undefined variables and unknown filters are template errors. Template errors identify the tack file being rendered and stop tack assembly.
+Undefined output variables and unknown filters are template errors. Undefined variables in `if`, `elsif`, and `unless` conditions are allowed and evaluate as falsy so templates can test optional custom settings. Template errors identify the tack file being rendered and stop tack assembly.
 
 ## Profile Sources and Sync
 
