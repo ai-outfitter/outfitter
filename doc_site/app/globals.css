@@ -500,6 +500,7 @@
 }
 .bridl-layer-list p,
 .bridl-layer-copy {
+  grid-column: 2;
   margin: 0;
   color: var(--bridl-dim);
   font-size: 13.5px;
