@@ -49,11 +49,19 @@
   border-bottom: 1px solid var(--bridl-border);
 }
 
-.bridl-hero-bg,
-.bridl-hero-bg > * {
+.bridl-hero-bg {
   position: absolute;
   inset: 0;
   pointer-events: none;
+}
+
+.bridl-hero-bg > * {
+  position: absolute;
+  pointer-events: none;
+}
+
+.bridl-dots {
+  inset: 0;
 }
 
 .bridl-dots {
@@ -426,7 +434,7 @@
   height: 140px;
   background: radial-gradient(ellipse, rgba(124, 109, 255, 0.25), transparent 70%);
 }
-.bridl-card div {
+.bridl-card > div[aria-hidden='true'] {
   display: grid;
   width: 42px;
   height: 42px;
@@ -672,7 +680,7 @@
 .bridl-matrix td:not(:first-child) {
   font-size: 18px;
 }
-.bridl-matrix td:not(:first-child):has(+ td) {
+.bridl-matrix td:nth-child(n + 2):not(:last-child) {
   white-space: nowrap;
 }
 
