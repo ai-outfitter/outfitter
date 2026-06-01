@@ -125,6 +125,18 @@ profile_sources:
   - path: ./profiles
 ```
 
+A minimal user profile tree for that settings file looks like this:
+
+```text
+~/.bridl/
+  settings.yml
+  profiles/
+    user_default/
+      profile.yml
+      prompts/
+        system.md
+```
+
 ## Settings Schema
 
 `settings.yml` supports:
@@ -169,11 +181,62 @@ Rules:
 - Remote `uri` and `github` profile sources can specify `ref` and repository-subdirectory `path` values.
 - `remote_settings` entries point at settings-style YAML files inside synced remote repositories.
 - `uri`, `github`, and `remote_settings` sources are fetched/cached by `bridl sync`.
-- `custom_settings` may contain arbitrary YAML-compatible nested data. Bridl deep-merges custom settings objects using normal settings precedence; arrays and scalar values are replaced by the higher-precedence settings layer.
+- `custom_settings` may contain arbitrary YAML-compatible nested data.
+  Bridl deep-merges custom settings objects using normal settings precedence; arrays and scalar values are replaced by the higher-precedence settings layer.
+
+### Settings File Examples
+
+A user settings file can select a default profile and expose user-managed profiles:
+
+```yaml
+# ~/.bridl/settings.yml
+default_profile: personal-engineering
+cache_directory: ./cache
+
+profile_sources:
+  - path: ./profiles
+
+custom_settings:
+  build_commands:
+    lint: npm run lint
+    test: npm test
+```
+
+A project settings file can add checked-in project profiles and remote organizational profiles:
+
+```yaml
+# <project>/.bridl/settings.yml
+default_profile: project-engineering
+
+profile_sources:
+  - path: ./profiles
+  - github: example/company-bridl-config
+    ref: main
+    path: profiles/shared
+    only:
+      - base-typescript
+      - secure-review
+
+remote_settings:
+  - github: example/company-bridl-config
+    ref: main
+    path: settings.yml
+```
+
+A project-local settings file can override the default profile without changing checked-in files:
+
+```yaml
+# <project>/.bridl/local/settings.yml
+default_profile: local-sandbox
+
+profile_sources:
+  - path: ./profiles
+```
 
 ## Tack Template Rendering
 
-Bridl renders Bridl-time templates in generated tack files after profile and settings resolution and before writing the tack directory to disk. Source settings files are never rewritten.
+Bridl renders Bridl-time templates in generated tack files after profile and settings resolution and before writing the tack directory to disk.
+Source settings files are never rewritten.
 
 Bridl uses LiquidJS with custom delimiters rather than common `{{ ... }}` / `{% ... %}` delimiters so templates do not collide with common agent prompt, skill, command, Handlebars, Mustache, Jinja, or Claude Code syntaxes.
 
@@ -229,7 +292,9 @@ commands:
 [[% endfor %]]
 ```
 
-Undefined output variables and unknown filters are template errors. Undefined variables in `if`, `elsif`, and `unless` conditions are allowed and evaluate as falsy so templates can test optional custom settings. Template errors identify the tack file being rendered and stop tack assembly.
+Undefined output variables and unknown filters are template errors.
+Undefined variables in `if`, `elsif`, and `unless` conditions are allowed and evaluate as falsy so templates can test optional custom settings.
+Template errors identify the tack file being rendered and stop tack assembly.
 
 ## Profile Sources and Sync
 
@@ -257,7 +322,8 @@ profile_sources:
     path: profiles/team
 ```
 
-The `github: owner/repo` shorthand normalizes to `git+https://github.com/owner/repo.git` internally. Remote sources without `ref` or repository subpaths retain the original profile cache location for compatibility:
+The `github: owner/repo` shorthand normalizes to `git+https://github.com/owner/repo.git` internally.
+Remote sources without `ref` or repository subpaths retain the original profile cache location for compatibility:
 
 ```text
 ~/.bridl/cache/profiles/<encoded-uri>/
@@ -301,29 +367,26 @@ profiles/
 Example `profile.yml`:
 
 ```yaml
-name: engineering
+id: engineering
+label: Engineering
 inherits:
   - base-typescript
-
-agent:
-  default_cli: pi
 
 controls:
   model: anthropic/claude-sonnet-4
   system_prompt: ./prompts/system.md
-  append_system_prompts:
-    - ./prompts/company-policy.md
+  append_system_prompt: ./prompts/company-policy.md
   skills:
     - ./skills/debugging
   extensions:
     - ./extensions/company-bootstrap
-  env:
-    ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
-
-pi:
-  args:
-    - --thinking
-    - medium
+  environment:
+    TEAM_MODE: engineering
+    # Omit provider API keys here to inherit them from the parent environment.
+  pi:
+    args:
+      - --thinking
+      - medium
 ```
 
 Rules:
@@ -332,6 +395,119 @@ Rules:
 - `inherits` is an ordered array of profile names.
 - `cli_specific/<cli-name>/` contains files copied or translated directly into the generated tack for that CLI.
 - CLI-specific configuration wins over generic controls when both apply to the same generated artifact.
+
+### Profile Directory Examples
+
+A small user-level profile set can keep a base profile and a specialized profile side by side:
+
+```text
+~/.bridl/profiles/
+  base-typescript/
+    profile.yml
+    prompts/
+      system.md
+  personal-engineering/
+    profile.yml
+    prompts/
+      system.md
+    skills/
+      debugging/
+        SKILL.md
+```
+
+```yaml
+# ~/.bridl/profiles/base-typescript/profile.yml
+id: base-typescript
+label: Base TypeScript
+
+controls:
+  provider: anthropic
+  model: anthropic/claude-sonnet-4
+  thinking: medium
+  system_prompt: ./prompts/system.md
+  environment:
+    NODE_ENV: development
+```
+
+```yaml
+# ~/.bridl/profiles/personal-engineering/profile.yml
+id: personal-engineering
+label: Personal Engineering
+inherits:
+  - base-typescript
+
+controls:
+  append_system_prompt: ./prompts/system.md
+  skills:
+    - ./skills/debugging
+  pi:
+    args:
+      - --no-themes
+```
+
+A checked-in project profile set can add project-specific prompts and pi resources:
+
+```text
+<project>/.bridl/profiles/
+  project-engineering/
+    profile.yml
+    prompts/
+      system.md
+      review.md
+    extensions/
+      project-bootstrap/
+        package.json
+        src/
+          index.ts
+    cli_specific/
+      pi/
+        settings.json
+```
+
+```yaml
+# <project>/.bridl/profiles/project-engineering/profile.yml
+id: project-engineering
+label: Project Engineering
+inherits:
+  - base-typescript
+
+controls:
+  system_prompt: ./prompts/system.md
+  append_system_prompt: ./prompts/review.md
+  extensions:
+    - ./extensions/project-bootstrap
+  session_directory: ./.bridl/sessions/project-engineering
+  pi:
+    prompt_template: code-review
+    args:
+      - --model
+      - anthropic/claude-sonnet-4
+```
+
+A local-only sandbox profile can use the highest-precedence project-local layer:
+
+```text
+<project>/.bridl/local/
+  settings.yml
+  profiles/
+    local-sandbox/
+      profile.yml
+      prompts/
+        sandbox.md
+```
+
+```yaml
+# <project>/.bridl/local/profiles/local-sandbox/profile.yml
+id: local-sandbox
+label: Local Sandbox
+
+controls:
+  system_prompt: ./prompts/sandbox.md
+  environment:
+    BRIDL_EXPERIMENTAL_MODE: '1'
+  pi:
+    thinking: high
+```
 
 ## Profile Resolution and Inheritance
 
@@ -369,6 +545,31 @@ The pi adapter uses this state model for native pi state and for pi-managed util
 
 During `bridl run`, the Bridl process remains alive while the child agent CLI runs.
 It owns the tack lifecycle.
+
+### Functional State Updating Model
+
+Bridl treats agent state updates as an explicit product behavior rather than an accidental side effect of temporary tack files.
+Before launch, the selected adapter names the paths the agent CLI is expected to mutate, such as authentication files, settings files, plugin folders, caches, and sessions.
+The resolved profile then chooses a functional persistence strategy for each path:
+
+- `symlink`: writes are durable because the tack path points at a profile-managed or native CLI state path.
+- `discard`: writes are allowed for the run but thrown away with the temporary tack.
+- `warn`: writes are allowed and discarded, then reported after exit.
+- `error`: writes are allowed during the run but make the Bridl command fail after exit.
+- `prompt`: reserved for future interactive handling; currently treated as a non-persistent diagnostic.
+
+Unknown writes are handled separately from declared state paths.
+They are never silently persisted because Bridl has no declared durable destination for them.
+The adapter's `unknown` policy decides whether to discard, warn, error, or eventually prompt.
+
+The practical user model is:
+
+1. Put durable, editable CLI state under `cli_specific/<agent>/` in a profile, or let Bridl fall back to the native CLI state location.
+2. Use `state_persistence` in `profile.yml` only for paths that should deviate from the adapter defaults.
+3. Use `warn` or `error` for strict profiles and CI when unexpected state mutation should be visible.
+4. Use `discard` for caches, sessions, or experimental state that should not outlive the run.
+
+See `doc/state_writeback_strategy.md` for the complete functional contract and the current pi path policy.
 
 ### Tack Assembly
 
