@@ -1,0 +1,42 @@
+summary: "Controllable elements documentation support matrix."
+instructions: |
+  This DeepSchema validates deterministic parts of BRIDL-REQ-007.1,
+  BRIDL-REQ-007.2, and BRIDL-REQ-007.3 for the controllable elements document.
+  The document defines Bridl's cross-agent control vocabulary and support matrix.
+  Review deterministic structure so judgment-based DeepReview rules can focus on
+  whether mappings and roadmap/support claims are accurate.
+
+matchers:
+  - "doc/controllable-elements.md"
+
+requirements:
+  required-heading: >
+    The document MUST include the top-level heading `# Controllable Elements`.
+  required-defined-terms-section: >
+    The document MUST include a `## Defined Terms` section before the support
+    matrix.
+  required-support-matrix-section: >
+    The document MUST include a `## Support Matrix` section with a Markdown
+    table.
+  one-row-per-defined-term: >
+    Every `###` heading under `## Defined Terms` MUST have exactly one
+    corresponding support matrix row, and every support matrix row MUST
+    correspond to exactly one defined term.
+  documented-cli-columns: >
+    The support matrix MUST include one column for each documented agent CLI.
+  allowed-status-values: >
+    Every CLI support cell in the support matrix MUST contain exactly one of
+    `Unsupported`, `Supported`, or `Roadmap`.
+  status-definitions: >
+    The document MUST explain the meaning of each allowed support status:
+    `Unsupported`, `Supported`, and `Roadmap`.
+  supported-entry-policy: >
+    Pi MUST be the only CLI with `Supported` entries until another adapter is
+    implemented and tested.
+  required-initial-controllable-aspects: >
+    The `## Defined Terms` section and support matrix MUST include each
+    BRIDL-REQ-007.3 initial controllable aspect: Agent Config Directory, Session
+    Directory, Extensions, Skills, Prompt Templates, System Prompt, Appended
+    System Prompt, Model Selection, Credentials and Environment, Tool
+    Availability, Context Files, Theme / UI Presentation, Project Override
+    Policy, Working Directory, Pass-through Arguments, and Bootstrap Hook.

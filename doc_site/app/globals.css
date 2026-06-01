@@ -1,0 +1,169 @@
+:root {
+  --bridl-accent: #6d5dfc;
+  --bridl-accent-2: #00a6a6;
+  --bridl-border: color-mix(in srgb, currentColor 18%, transparent);
+  --bridl-muted-bg: color-mix(in srgb, currentColor 5%, transparent);
+}
+
+.bridl-hero {
+  display: grid;
+  gap: 1.5rem;
+  margin: 2rem 0 3rem;
+  padding: 2rem;
+  border: 1px solid var(--bridl-border);
+  border-radius: 1.5rem;
+  background:
+    radial-gradient(circle at top left, color-mix(in srgb, var(--bridl-accent) 22%, transparent), transparent 34rem),
+    radial-gradient(
+      circle at bottom right,
+      color-mix(in srgb, var(--bridl-accent-2) 18%, transparent),
+      transparent 28rem
+    ),
+    var(--bridl-muted-bg);
+}
+
+.bridl-eyebrow {
+  margin: 0;
+  color: var(--bridl-accent);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.bridl-hero h1 {
+  max-width: 14ch;
+  margin: 0;
+  font-size: clamp(2.6rem, 8vw, 5.25rem);
+  line-height: 0.95;
+  letter-spacing: -0.06em;
+}
+
+.bridl-lede {
+  max-width: 54rem;
+  margin: 0;
+  font-size: clamp(1.1rem, 2vw, 1.35rem);
+  line-height: 1.55;
+}
+
+.bridl-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.bridl-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.7rem 1rem;
+  border-radius: 999px;
+  background: var(--bridl-accent);
+  color: white;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.bridl-button.secondary {
+  border: 1px solid var(--bridl-border);
+  background: transparent;
+  color: inherit;
+}
+
+.bridl-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+  gap: 1rem;
+  margin: 1.5rem 0 2rem;
+}
+
+.bridl-card,
+.bridl-layer-card {
+  border: 1px solid var(--bridl-border);
+  border-radius: 1rem;
+  background: var(--bridl-muted-bg);
+}
+
+.bridl-card {
+  padding: 1.15rem;
+}
+
+.bridl-card h3,
+.bridl-layer-card h3 {
+  margin-top: 0;
+}
+
+.bridl-layer-illustration {
+  display: grid;
+  gap: 1rem;
+  margin: 1.5rem 0 2rem;
+}
+
+.bridl-layer-card {
+  position: relative;
+  padding: 1rem;
+}
+
+.bridl-layer-card::before {
+  display: inline-flex;
+  width: 2rem;
+  height: 2rem;
+  align-items: center;
+  justify-content: center;
+  margin-right: 0.5rem;
+  border-radius: 999px;
+  background: var(--bridl-accent);
+  color: white;
+  content: attr(data-step);
+  font-weight: 800;
+}
+
+.bridl-layer-card h3 {
+  display: inline;
+}
+
+.bridl-layer-text {
+  margin-top: 1rem;
+}
+
+.bridl-layer-text p,
+.bridl-layer-text :last-child {
+  margin-bottom: 0;
+}
+
+.bridl-merge-arrow {
+  justify-self: center;
+  color: var(--bridl-accent);
+  font-size: 1.5rem;
+  font-weight: 900;
+}
+
+.bridl-matrix {
+  width: 100%;
+  margin: 1.5rem 0 2rem;
+  border-collapse: collapse;
+  font-size: 0.92rem;
+}
+
+.bridl-matrix th,
+.bridl-matrix td {
+  padding: 0.85rem;
+  border: 1px solid var(--bridl-border);
+  vertical-align: top;
+}
+
+.bridl-matrix th {
+  background: var(--bridl-muted-bg);
+  text-align: left;
+}
+
+.bridl-matrix td:nth-child(n + 2) {
+  text-align: center;
+}
+
+.bridl-note {
+  padding: 1rem 1.2rem;
+  border-left: 4px solid var(--bridl-accent-2);
+  border-radius: 0.75rem;
+  background: var(--bridl-muted-bg);
+}

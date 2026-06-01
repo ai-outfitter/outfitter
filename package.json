@@ -17,6 +17,11 @@
     "build": "tsc -p tsconfig.build.json && shx rm -rf dist/schemas && shx mkdir -p dist/schemas && shx cp src/schemas/*.json dist/schemas/ && shx chmod +x dist/cli.js",
     "prepare": "npm run build",
     "dev_install": "node scripts/dev-install.mjs",
+    "docs:dev": "npm --prefix doc_site run dev --",
+    "docs:build": "npm --prefix doc_site run build",
+    "docs:start": "npm --prefix doc_site run start --",
+    "docs:lint": "eslint doc_site --config doc_site/eslint.config.js",
+    "docs:ci": "npm --prefix doc_site ci && npm run docs:lint && npm run docs:build",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
@@ -24,7 +29,7 @@
     "coverage": "vitest --run --coverage",
     "snapper:format": "node scripts/run-snapper.mjs --git-md -i",
     "check": "npm run snapper:format && prettier --write . && npm run lint:fix && npm run coverage",
-    "check-ci": "prettier --check . && npm run lint && npm run coverage"
+    "check-ci": "prettier --check . && npm run lint && npm run coverage && npm run docs:ci"
   },
   "dependencies": {
     "ajv": "^8.20.0",

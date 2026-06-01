@@ -15,6 +15,13 @@ Bridl is organized around clear TypeScript source boundaries, requirement docume
 │   ├── file_structure.md              # repository file structure overview
 │   ├── state_writeback_strategy.md    # tack state persistence and writeback design
 │   └── specs/                         # detailed supporting specs
+├── doc_site/                          # Nextra/Next.js documentation website
+│   ├── app/                           # App Router pages, layout, and site styles
+│   ├── eslint.config.js               # documentation site ESLint configuration
+│   ├── mdx-components.tsx             # Nextra MDX component bridge
+│   ├── next.config.mjs                # Next.js configuration wrapped by Nextra
+│   ├── package.json                   # documentation site package scripts and dependencies
+│   └── tsconfig.json                  # documentation site TypeScript configuration
 ├── requirements/                      # formal BRIDL requirement documents
 │   ├── BRIDL-REQ-001-project-foundation.md
 │   └── ...
