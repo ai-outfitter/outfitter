@@ -1,5 +1,3 @@
-@import url('https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700;800&family=Geist+Mono:wght@400;500;600&family=Instrument+Serif:ital@0;1&display=swap');
-
 :root {
   --bridl-bg: #09090b;
   --bridl-bg-2: #0d0d11;
@@ -16,9 +14,9 @@
   --bridl-teal: #18b8a6;
   --bridl-green: #46d39a;
   --bridl-amber: #f5b657;
-  --bridl-font: 'Geist', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
-  --bridl-mono: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  --bridl-serif: 'Instrument Serif', Georgia, serif;
+  --bridl-font: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --bridl-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  --bridl-serif: Georgia, serif;
 }
 
 .bridl-landing {
@@ -391,7 +389,8 @@
   letter-spacing: -0.04em;
   line-height: 1.08;
 }
-.bridl-section-head p {
+.bridl-section-head p,
+.bridl-section-copy {
   margin: 0;
   color: var(--bridl-dim);
   font-size: 17px;
@@ -444,7 +443,8 @@
   font-size: 17px;
   font-weight: 650;
 }
-.bridl-card p {
+.bridl-card p,
+.bridl-card-copy {
   margin: 0;
   color: var(--bridl-dim);
   font-size: 14px;
@@ -490,13 +490,15 @@
   margin: 0 0 5px;
   font-size: 15px;
 }
-.bridl-layer-list p {
+.bridl-layer-list p,
+.bridl-layer-copy {
   margin: 0;
   color: var(--bridl-dim);
   font-size: 13.5px;
   line-height: 1.55;
 }
-.bridl-layer-list code {
+.bridl-layer-list code,
+.bridl-layer-copy code {
   padding: 1px 6px;
   border: 1px solid rgba(52, 227, 227, 0.16);
   border-radius: 6px;
@@ -746,7 +748,7 @@
     margin-top: -1rem;
   }
   .bridl-wrap {
-    width: min(100% - 32px, 1180px);
+    width: min(calc(100% - 32px), 1180px);
   }
   .bridl-hero-inner {
     padding: 54px 0 64px;

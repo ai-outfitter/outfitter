@@ -1,6 +1,11 @@
 ---
 title: Bridl Agent Harness Manager
 description: Making your AI Harness manageable, composable and portable
+theme:
+  layout: full
+  toc: false
+  sidebar: false
+  pagination: false
 ---
 
 <div className="bridl-landing">
@@ -14,12 +19,11 @@ description: Making your AI Harness manageable, composable and portable
     </div>
     <div className="bridl-wrap bridl-hero-inner">
       <div className="bridl-copy">
-        <p className="bridl-badge"><span /> Agent harness profiles</p>
+        <p className="bridl-badge"><span aria-hidden="true" /> Agent harness profiles</p>
         <h1>Your agent harness, <span>finally manageable</span></h1>
-        <p className="bridl-lede">
-          Bridl is the control layer for AI coding agents. Define reusable profiles that travel between machines,
-          adapt per repo, compose in layers, and launch through native agent mechanisms.
-        </p>
+        <div className="bridl-lede">
+          Bridl is the pi-first control layer for AI coding agents. Define reusable profiles that travel between machines, adapt per repo, compose in layers, and launch through native pi configuration.
+        </div>
         <div className="bridl-actions">
           <a className="bridl-button primary" href="#get-started">Get started →</a>
           <a className="bridl-button ghost" href="#feature-comparison">Compare the gaps</a>
@@ -27,7 +31,7 @@ description: Making your AI Harness manageable, composable and portable
         <p className="bridl-sub"><code>$ npm i -g bridl</code> · pi-first · profile-driven · deterministic</p>
       </div>
       <div className="bridl-terminal bridl-float">
-        <div className="bridl-termbar"><i /><i /><i /><span>bridl — run</span></div>
+        <div className="bridl-termbar"><i aria-hidden="true" /><i aria-hidden="true" /><i aria-hidden="true" /><span>bridl — run</span></div>
         <pre>{`$ bridl run --profile engineering-default
 → resolving profile  engineering-default
   ✓ user source      github:nhorton/agent-profiles@main
@@ -41,17 +45,17 @@ description: Making your AI Harness manageable, composable and portable
 
 <div className="bridl-strip">
   <div className="bridl-wrap">
-    <strong>Adapts to</strong>
+    <strong>Built for</strong>
     <span>
-      <i className="indigo" /> pi
+      <i className="indigo" aria-hidden="true" /> pi today
     </span>
     <span>
-      <i className="cyan" /> Claude Code roadmap
+      <i className="cyan" aria-hidden="true" /> Claude Code roadmap
     </span>
     <span>
-      <i className="teal" /> your own adapters
+      <i className="teal" aria-hidden="true" /> custom adapters future
     </span>
-    <em>one profile vocabulary, many harnesses</em>
+    <em>generic profile vocabulary with a pi-first implementation</em>
   </div>
 </div>
 
@@ -59,34 +63,36 @@ description: Making your AI Harness manageable, composable and portable
   <p className="bridl-eyebrow">Why Bridl</p>
   <div className="bridl-section-head">
     <h2>Agent config is powerful — and fragmented</h2>
-    <p>
+    <div className="bridl-section-copy">
       Machine-global settings rot into a junk drawer. Project settings force every role and language through one
       default. Bridl fills the gap with portable, composable profiles.
-    </p>
+    </div>
   </div>
   <div className="bridl-cards">
     <div className="bridl-card">
-      <div>◇</div>
+      <div aria-hidden="true">◇</div>
       <h3>Like dotfiles, but shared</h3>
-      <p>
+      <div className="bridl-card-copy">
         Keep user-global settings in source-controlled profile repos instead of burying them in one machine's home
         directory.
-      </p>
+      </div>
     </div>
     <div className="bridl-card">
-      <div>⌘</div>
+      <div aria-hidden="true">⌘</div>
       <h3>Per-stack setups</h3>
       <p>Switch between TypeScript, Python, Rust, docs, or data profiles without rewriting project configuration.</p>
     </div>
     <div className="bridl-card">
-      <div>◌</div>
+      <div aria-hidden="true">◌</div>
       <h3>Intent-specific modes</h3>
       <p>Use a PM profile for planning, DevOps for deployment work, and engineering for implementation.</p>
     </div>
     <div className="bridl-card">
-      <div>✓</div>
-      <h3>Cross-agent policy</h3>
-      <p>Describe common profile controls once, then let adapters map them into supported native mechanisms.</p>
+      <div aria-hidden="true">✓</div>
+      <h3>Pi-first policy</h3>
+      <div className="bridl-card-copy">
+        Describe generic profile controls once, then let the pi adapter map supported controls into native settings.
+      </div>
     </div>
   </div>
 </section>
@@ -96,41 +102,41 @@ description: Making your AI Harness manageable, composable and portable
     <p className="bridl-eyebrow">Layered profiles in practice</p>
     <div className="bridl-section-head">
       <h2>Dotfiles, team standards, and repo overrides — resolved into one tack</h2>
-      <p>
+      <div className="bridl-section-copy">
         Bridl combines the relevant layers deterministically, warns when a requested control is unsupported, and
         prepares a clean runtime tack before launch.
-      </p>
+      </div>
     </div>
     <div className="bridl-layers">
       <div className="bridl-layer-list">
         <div>
           <span>1</span>
           <h3>User profile source</h3>
-          <p>
-            <code>github:nhorton/agent-profiles</code> provides shared skills and machine-independent policy.
-          </p>
+          <div className="bridl-layer-copy">
+            <code>github:nhorton/agent-profiles</code> provides shared defaults and machine-independent policy.
+          </div>
         </div>
         <div>
           <span>2</span>
           <h3>Organization standard</h3>
-          <p>
+          <div className="bridl-layer-copy">
             <code>github:acme/agent-standards</code> sets approved defaults and common controls.
-          </p>
+          </div>
         </div>
         <div>
           <span>3</span>
           <h3>Repository-local profile</h3>
-          <p>
-            <code>.bridl/profiles/engineer</code> adds repo prompts, tools, and safety rules.
-          </p>
+          <div className="bridl-layer-copy">
+            <code>.bridl/profiles/engineer</code> adds repo-specific guidance and safety rules.
+          </div>
         </div>
         <div>
           <span>4</span>
-          <h3>Native agent launch</h3>
-          <p>Adapters translate controls into files, flags, environment variables, skills, prompts, and sessions.</p>
+          <h3>Native pi launch</h3>
+          <p>The pi adapter translates supported controls into the runtime tack and native pi launch inputs.</p>
         </div>
       </div>
-      <div className="bridl-stack" aria-label="Profile layer stack">
+      <div className="bridl-stack" role="img" aria-label="Profile layer stack">
         <div className="stack-card a">
           <small>User profile source</small>
           <b>github:nhorton/agent-profiles</b>
@@ -148,7 +154,7 @@ description: Making your AI Harness manageable, composable and portable
           <small>Resolved profile</small>
           <b>17 controls merged · 0 conflicts</b>
         </div>
-        <div className="stack-launch">▶ native agent launch</div>
+        <div className="stack-launch">▶ native pi launch</div>
       </div>
     </div>
   </div>
@@ -166,17 +172,8 @@ description: Making your AI Harness manageable, composable and portable
     </div>
     <div className="bridl-config-card">
       <div><span className="active">profile.yml</span><span>settings.yml</span></div>
-      <pre>{`id: engineering-default
-label: Engineering Default
-inherits:
-  - base-typescript
-
-controls:
-model: anthropic/claude-sonnet-4
-environment:
-TEAM_MODE: engineering
-allow_project_overrides: true`}</pre>
-</div>
+      <pre>{'id: engineering-default\nlabel: Engineering Default\ninherits:\n  - base-typescript\n\ncontrols:\n  model: anthropic/claude-sonnet-4\n  environment:\n    TEAM_MODE: engineering\n  allow_project_overrides: true'}</pre>
+    </div>
 
   </section>
 
@@ -240,7 +237,7 @@ allow_project_overrides: true`}</pre>
           <td>—</td>
         </tr>
         <tr>
-          <td>Cross-agent settings vocabulary</td>
+          <td>Generic settings vocabulary, pi-first implementation</td>
           <td>✓</td>
           <td>—</td>
           <td>—</td>
@@ -263,7 +260,7 @@ allow_project_overrides: true`}</pre>
     <div>
       <p className="bridl-eyebrow">Get started</p>
       <h2>Treat agent setup like <em>real</em> infrastructure</h2>
-      <p>Documented, reviewable, reusable. Put defaults in a profile repo, override only where it matters, and launch consistently.</p>
+      <p>{'Documented, reviewable, reusable. Put defaults in a profile repo, override only where it matters, and launch consistently.'}</p>
       <code>$ npm i -g bridl</code>
     </div>
   </section>
