@@ -26,6 +26,8 @@ Bridl currently declares and materializes a narrower day-one state set for pi:
 - `plugins/`
 - `cache/`
 - `sessions/`
+- `npm/`
+- `git/`
 - `utilities/`
 - `bin/`
 
@@ -45,7 +47,7 @@ Launch shape:
 PI_CODING_AGENT_DIR=/tmp/bridl-default-pi-... pi
 ```
 
-This keeps the runtime tack disposable while preserving intentional credentials, settings, MCP configuration, plugins, caches, sessions, and pi-managed utilities through declared state paths. Bridl maps both tack `utilities/` and tack `bin/` to `<cache_directory>/utilities` by default so helper binaries such as `fd` and `rg` are reused across runs even though each tack directory is temporary.
+This keeps the runtime tack disposable while preserving intentional credentials, settings, MCP configuration, plugins, caches, sessions, pi package stores, and pi-managed utilities through declared state paths. Bridl maps native pi package directories such as `npm/` and `git/` back to `~/.pi/agent/` so user-scoped `pi install` packages survive across runs. Bridl maps both tack `utilities/` and tack `bin/` to `<cache_directory>/utilities` by default so helper binaries such as `fd` and `rg` are reused across runs even though each tack directory is temporary.
 
 ### Other native launch controls
 

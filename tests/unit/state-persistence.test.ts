@@ -161,6 +161,34 @@ describe('state persistence', () => {
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-005.6).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('persists pi package install directories across temporary tack directories', () => {
+    const root = createTemporaryRoot();
+    const homeDirectory = join(root, 'home');
+    const tack = createPiAdapter().createTack(
+      { id: 'default', controls: {} },
+      {
+        rootDirectory: join(root, 'tack'),
+        profilePaths: [],
+        profileFolders: [],
+        homeDirectory,
+      },
+    ).tack;
+
+    expect(tack.statePaths.find((statePath) => statePath.relativePath === 'npm/')?.sourcePath).toBe(
+      join(homeDirectory, '.pi', 'agent', 'npm'),
+    );
+    expect(tack.statePaths.find((statePath) => statePath.relativePath === 'git/')?.sourcePath).toBe(
+      join(homeDirectory, '.pi', 'agent', 'git'),
+    );
+
+    writeTack(tack);
+
+    expect(readlinkSync(join(tack.rootDirectory, 'npm'))).toBe(join(homeDirectory, '.pi', 'agent', 'npm'));
+    expect(readlinkSync(join(tack.rootDirectory, 'git'))).toBe(join(homeDirectory, '.pi', 'agent', 'git'));
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-005.6).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('detects changed temporary state paths and protects tack path boundaries', () => {
     const root = createTemporaryRoot();
     const sourceFile = ensureStateSourcePath(join(root, 'source', 'settings.json'), false);
