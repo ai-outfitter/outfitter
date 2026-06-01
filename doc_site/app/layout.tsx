@@ -17,7 +17,7 @@ export const metadata: Metadata = {
 };
 
 const navbar = <Navbar logo={<strong>Bridl</strong>} projectLink="https://github.com/Unsupervisedcom/bridl" />;
-const footer = <Footer>MIT {new Date().getFullYear()} © Bridl.</Footer>;
+const footer = <Footer>BUSL-1.1 {new Date().getFullYear()} © Bridl.</Footer>;
 
 export default async function RootLayout({ children }: { children: ReactNode }): Promise<ReactNode> {
   return (
