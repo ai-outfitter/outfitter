@@ -9,7 +9,7 @@ import type { Command } from 'commander';
 import spawn from 'cross-spawn';
 
 import type { AgentAdapter, AgentLaunchPlan } from '../../agents/AgentAdapter.js';
-import { createAgentAdapter } from '../../agents/AgentRegistry.js';
+import { createAgentAdapter, defaultAgentId as registryDefaultAgentId } from '../../agents/AgentRegistry.js';
 import {
   createProfileSourceCachePath,
   createRemoteRepositoryCachePath,
@@ -366,7 +366,7 @@ const loadResolvedProfile = (input: RunCommandInput): ResolvedRunProfile => {
 };
 
 const selectRunAgentId = (selectedAgentId: string | undefined, defaultAgentId: string | undefined): string =>
-  selectedAgentId ?? defaultAgentId ?? 'pi';
+  selectedAgentId ?? defaultAgentId ?? registryDefaultAgentId;
 
 const selectRunProfileId = (selectedProfileId: string | undefined, defaultProfileId: string | undefined): string => {
   if (selectedProfileId !== undefined) {

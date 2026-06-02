@@ -4,7 +4,9 @@
 
 **Licensor:** Unsupervised.com, Inc.
 
-**Licensed Work:** Bridl The Licensed Work is © 2026 Unsupervised.com, Inc.
+**Licensed Work:** Bridl
+
+The Licensed Work is © 2026 Unsupervised.com, Inc.
 
 **Additional Use Grant:** You may use the Licensed Work without a commercial license only when it is used with or for:
 
