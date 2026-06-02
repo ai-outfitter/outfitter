@@ -52,11 +52,24 @@ requirement_file_format:
       1. **Testability**: Each requirement MUST be specific enough to verify by
          TypeScript test, DeepSchema, DeepReview rule, or direct reviewer judgment.
 
-      2. **Stable identity risk**: Flag likely ID reassignment or semantic drift
-         only when the requirement text appears to reuse an existing ID for an
-         unrelated concept.
+      2. **Stable numbered identities**: Requirement item numbers are stable
+         identities. Existing numbered items should only change when that exact
+         requirement truly changed. For example, it is acceptable to update an
+         existing item if the requirement itself had a list of allowed values
+         and a new allowed value was added. Flag existing numbered items moved
+         to different numbers, existing numbered items reused for unrelated
+         requirements, removed requirements whose old numbered slot disappeared,
+         or new requirements inserted before existing entries in a way that
+         renumbers old entries. If a requirement is removed, its old number MUST
+         remain present and the replacement text MUST clearly say
+         `REQUIREMENT REMOVED`. Requirement numbers MUST NOT be reused for
+         another concept.
 
-      3. **Validation mechanism fit**: Flag requirements whose expected
+      3. **Stable identity risk**: Flag likely ID reassignment or semantic drift
+         when the requirement text appears to reuse an existing ID or numbered
+         item for an unrelated concept.
+
+      4. **Validation mechanism fit**: Flag requirements whose expected
          validation mechanism is unclear or obviously mismatched.
 
       Output Format:
