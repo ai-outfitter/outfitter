@@ -10,6 +10,15 @@ Status values:
 - **Roadmap**: the CLI appears to support this concept, but Bridl does not support it yet.
 - **Unsupported**: the agent CLI cannot meaningfully support the concept or no known native mechanism exists.
 
+## How to Read This Matrix
+
+A `Supported` entry means Bridl can control that concept for the agent CLI through at least one native mechanism: a config-directory boundary, state-path placement, generated files, environment variables, command-line flags, or pass-through arguments.
+It does not always mean there is a one-to-one native CLI flag or that every generic profile selector has been mapped.
+
+For example, Claude Code session/project state lives under Claude's config home rather than a standalone `--session-dir` flag.
+Bridl supports that session-directory concept for Claude by setting `CLAUDE_CONFIG_DIR` to the tack root, declaring Claude `projects/` state for persistence, and allowing `controls.session_directory` or `controls.claude.session_directory` to choose where that state is symlinked from.
+Likewise, Claude skills and commands are supported as native directories under the profiled `CLAUDE_CONFIG_DIR`, even though the generic `controls.skills` and `controls.prompt_template` selectors are not yet translated into Claude-specific selection flags.
+
 ## Defined Terms
 
 ### Agent Config Directory
@@ -24,7 +33,7 @@ The root directory that stores agent-global configuration, credentials, installe
 The directory where conversation sessions, transcripts, or run state are stored.
 
 - Pi name: `PI_CODING_AGENT_SESSION_DIR` / `--session-dir`
-- Claude name: session storage, not mapped by Bridl yet
+- Claude name: session/project state under `CLAUDE_CONFIG_DIR`, including `projects/` state managed by Bridl state persistence
 
 ### Extensions
 
@@ -38,14 +47,14 @@ Executable/plugin modules that add tools, providers, hooks, or runtime behavior.
 Reusable task instructions, workflows, or resource bundles exposed to the agent.
 
 - Pi name: skills, `--skill`
-- Claude name: skills under the Claude config directory; generic `skills` control is not mapped yet
+- Claude name: skills under the Claude config directory; Bridl can profile native Claude skills through `cli_specific/claude/skills`, but generic `skills` selection is not mapped yet
 
 ### Prompt Templates
 
 Named reusable prompts/templates available to the agent runtime.
 
 - Pi name: prompt templates, `--prompt-template`
-- Claude name: commands/prompts under the Claude config directory; generic `prompt_template` control is not mapped yet
+- Claude name: commands/prompts under the Claude config directory; Bridl can profile native Claude commands through `cli_specific/claude/commands`, but generic `prompt_template` selection is not mapped yet
 
 ### System Prompt
 
@@ -126,27 +135,28 @@ An early-startup customization used to register providers, tools, hooks, or addi
 
 ## Support Matrix
 
-| Controllable Element        | Pi        | Claude      |
-| --------------------------- | --------- | ----------- |
-| Agent Config Directory      | Supported | Supported   |
-| Session Directory           | Supported | Unsupported |
-| Extensions                  | Supported | Supported   |
-| Skills                      | Supported | Unsupported |
-| Prompt Templates            | Supported | Unsupported |
-| System Prompt               | Supported | Supported   |
-| Appended System Prompt      | Supported | Supported   |
-| Model Selection             | Supported | Supported   |
-| Credentials and Environment | Supported | Supported   |
-| Tool Availability           | Roadmap   | Roadmap     |
-| Context Files               | Roadmap   | Roadmap     |
-| Theme / UI Presentation     | Roadmap   | Roadmap     |
-| Project Override Policy     | Roadmap   | Roadmap     |
-| Working Directory           | Roadmap   | Roadmap     |
-| Pass-through Arguments      | Supported | Supported   |
-| Bootstrap Hook              | Supported | Roadmap     |
+| Controllable Element        | Pi        | Claude    |
+| --------------------------- | --------- | --------- |
+| Agent Config Directory      | Supported | Supported |
+| Session Directory           | Supported | Supported |
+| Extensions                  | Supported | Supported |
+| Skills                      | Supported | Supported |
+| Prompt Templates            | Supported | Supported |
+| System Prompt               | Supported | Supported |
+| Appended System Prompt      | Supported | Supported |
+| Model Selection             | Supported | Supported |
+| Credentials and Environment | Supported | Supported |
+| Tool Availability           | Roadmap   | Roadmap   |
+| Context Files               | Roadmap   | Roadmap   |
+| Theme / UI Presentation     | Roadmap   | Roadmap   |
+| Project Override Policy     | Roadmap   | Roadmap   |
+| Working Directory           | Roadmap   | Roadmap   |
+| Pass-through Arguments      | Supported | Supported |
+| Bootstrap Hook              | Supported | Roadmap   |
 
 ## Day-One Interpretation
 
 For v1, a Bridl profile may describe all defined terms generically.
 The Pi adapter is the first implementation, and pi remains the default adapter.
 Adapter-specific overrides live under `controls.pi` and `controls.claude`; unsupported controls warn at runtime, and `--hard-tack` makes those warnings fatal.
+For Claude Code, `skills/` and `commands/` are supported as native configuration directories inside the profiled `CLAUDE_CONFIG_DIR`; the generic `controls.skills` and `controls.prompt_template` selectors remain unmapped and warn if requested.

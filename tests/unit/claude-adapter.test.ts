@@ -48,6 +48,7 @@ describe('Claude Code adapter support', () => {
         provider: 'anthropic',
         thinking: 'medium',
         environment: { GENERIC: '1' },
+        sessionDirectory: '/tmp/generic-claude-sessions',
         extensions: ['generic-plugin'],
         skills: ['unsupported-skill'],
         promptTemplate: 'unsupported-template',
@@ -58,6 +59,7 @@ describe('Claude Code adapter support', () => {
           thinking: 'high',
           args: ['--permission-mode', 'plan'],
           environment: { CLAUDE_ONLY: '1' },
+          sessionDirectory: '/tmp/claude-specific-sessions',
           extensions: ['claude-plugin'],
           unsupportedClaudeControl: true,
         },
@@ -71,6 +73,7 @@ describe('Claude Code adapter support', () => {
 
     expect(adapter.id).toBe('claude');
     expect(adapter.supportedControls).toContain('model');
+    expect(adapter.supportedControls).toContain('sessionDirectory');
     expect(adapter.supportedControls).toContain('systemPrompt');
     expect(adapter.getUnsupportedControls(profile)).toEqual([
       'promptTemplate',
@@ -157,7 +160,15 @@ describe('Claude Code adapter support', () => {
     writeFileSync(profileSettingsPath, '{}\n');
     const adapter = createClaudeAdapter();
     const tackPlan = adapter.createTack(
-      { id: 'stateful', inherits: [], controls: {}, statePersistence: { 'projects/': 'discard' } },
+      {
+        id: 'stateful',
+        inherits: [],
+        controls: {
+          sessionDirectory: join(root, 'generic-sessions'),
+          claude: { sessionDirectory: join(root, 'claude-sessions') },
+        },
+        statePersistence: { 'debug/': 'discard' },
+      },
       {
         rootDirectory: join(root, 'tack'),
         profilePaths: [],
@@ -171,6 +182,10 @@ describe('Claude Code adapter support', () => {
       strategy: 'symlink',
     });
     expect(tackPlan.tack.statePaths.find((statePath) => statePath.relativePath === 'projects/')).toMatchObject({
+      strategy: 'symlink',
+      sourcePath: join(root, 'claude-sessions'),
+    });
+    expect(tackPlan.tack.statePaths.find((statePath) => statePath.relativePath === 'debug/')).toMatchObject({
       strategy: 'discard',
       sourcePath: undefined,
     });

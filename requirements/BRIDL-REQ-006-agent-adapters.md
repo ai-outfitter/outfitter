@@ -50,4 +50,5 @@ Pi is the default and primary supported adapter; Claude Code is also supported t
 3. The Claude Code adapter MUST support profile-controlled environment variables.
 4. The Claude Code adapter MUST support profile-controlled pass-through Claude Code CLI arguments.
 5. The Claude Code adapter SHOULD support `--model`, `--effort`, `--system-prompt`, `--append-system-prompt`, and `--plugin-dir` where native Claude Code flags exist.
-6. The Claude Code adapter MUST return unsupported-control warnings for requested generic or `controls.claude` controls that it cannot translate.
+6. The Claude Code adapter SHOULD support `controls.session_directory` and `controls.claude.session_directory` by routing Claude `projects/` session state through Bridl state persistence.
+7. The Claude Code adapter MUST return unsupported-control warnings for requested generic or `controls.claude` controls that it cannot translate.

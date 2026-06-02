@@ -34,6 +34,8 @@ const supportedClaudeGenericControls = new Set([
   'thinking',
   'environment',
   'args',
+  'sessionDirectory',
+  'session_directory',
   'extensions',
   'systemPrompt',
   'system_prompt',
@@ -48,6 +50,8 @@ const claudeControlNames = new Set([
   'thinking',
   'environment',
   'args',
+  'sessionDirectory',
+  'session_directory',
   'extensions',
   'systemPrompt',
   'system_prompt',
@@ -117,6 +121,7 @@ const createClaudeStatePaths = (
   },
 ): readonly TackStatePath[] => {
   assertDeclaredStatePersistenceKeys(profile);
+  const controls = mergeClaudeControls(profile.controls);
 
   return Object.entries(claudeStatePathDeclarations).map(([relativePath, declaration]) => {
     const strategy = resolveStateStrategy(profile, relativePath, declaration);
@@ -128,7 +133,13 @@ const createClaudeStatePaths = (
       directory,
       sourcePath:
         strategy === 'symlink' && relativePath !== 'unknown'
-          ? resolveClaudeStateSourcePath(input.profileFolders ?? [], input.homeDirectory, relativePath, directory)
+          ? resolveClaudeStateSourcePath(
+              input.profileFolders ?? [],
+              input.homeDirectory,
+              relativePath,
+              directory,
+              controls.sessionDirectory,
+            )
           : undefined,
     };
   });
@@ -166,8 +177,14 @@ const resolveClaudeStateSourcePath = (
   homeDirectory: string | undefined,
   relativePath: string,
   directory: boolean,
+  sessionDirectory: string | undefined,
 ): string => {
   const normalizedRelativePath = directory ? relativePath.slice(0, -1) : relativePath;
+
+  if (relativePath === 'projects/' && sessionDirectory !== undefined) {
+    return sessionDirectory;
+  }
+
   const profileSource = [...profileFolders]
     .reverse()
     .map((profileFolder) => join(profileFolder, 'cli_specific', 'claude', normalizedRelativePath))
