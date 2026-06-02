@@ -18,8 +18,9 @@ interface BaseProfileControls {
   readonly appendSystemPrompt?: string;
 }
 
-export type PiProfileControls = BaseProfileControls;
-export type ClaudeProfileControls = BaseProfileControls;
+export type AgentSpecificProfileControls = BaseProfileControls;
+export type PiProfileControls = AgentSpecificProfileControls;
+export type ClaudeProfileControls = AgentSpecificProfileControls;
 
 export interface ProfileControls extends BaseProfileControls {
   readonly pi?: PiProfileControls;

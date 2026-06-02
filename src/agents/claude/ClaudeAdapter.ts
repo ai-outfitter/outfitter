@@ -7,6 +7,7 @@ import {
   flagValue,
   mergeAgentSpecificControls,
   repeatFlag,
+  supportedControlNames,
 } from '../AdapterProfileControls.js';
 import { createDeclaredStatePaths, findProfileStateSource } from '../AdapterStatePaths.js';
 import type { ClaudeProfileControls, Profile, ProfileControls } from '../../profiles/Profile.js';
@@ -58,7 +59,7 @@ const claudeStatePathDeclarations = {
 
 export const createClaudeAdapter = (): AgentAdapter => ({
   id: 'claude',
-  supportedControls: [...supportedClaudeGenericControls].filter((controlName) => !controlName.includes('_')),
+  supportedControls: supportedControlNames(supportedClaudeGenericControls),
   statePaths: claudeStatePathDeclarations,
   createTack(profile: Profile, input): AgentTackPlan {
     const tack = createTack(

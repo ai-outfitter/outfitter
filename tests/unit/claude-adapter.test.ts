@@ -75,6 +75,8 @@ describe('Claude Code adapter support', () => {
     expect(adapter.supportedControls).toContain('model');
     expect(adapter.supportedControls).toContain('sessionDirectory');
     expect(adapter.supportedControls).toContain('systemPrompt');
+    expect(adapter.supportedControls).not.toContain('pi');
+    expect(adapter.supportedControls).not.toContain('claude');
     expect(adapter.getUnsupportedControls(profile)).toEqual([
       'promptTemplate',
       'provider',

@@ -2,7 +2,13 @@
 import { join } from 'node:path';
 
 import type { AgentAdapter, AgentLaunchPlan, AgentTackPlan } from '../AgentAdapter.js';
-import { flagValue, genericControlNames, mergeAgentSpecificControls, repeatFlag } from '../AdapterProfileControls.js';
+import {
+  flagValue,
+  genericControlNames,
+  mergeAgentSpecificControls,
+  repeatFlag,
+  supportedControlNames,
+} from '../AdapterProfileControls.js';
 import { createDeclaredStatePaths, findProfileStateSource } from '../AdapterStatePaths.js';
 import type { PiProfileControls, Profile, ProfileControls } from '../../profiles/Profile.js';
 import type { Tack } from '../../tack/Tack.js';
@@ -34,7 +40,7 @@ const piStatePathDeclarations = {
 
 export const createPiAdapter = (): AgentAdapter => ({
   id: 'pi',
-  supportedControls: [...genericControlNames].filter((controlName) => !controlName.includes('_')),
+  supportedControls: supportedControlNames(genericControlNames),
   statePaths: piStatePathDeclarations,
   createTack(profile: Profile, input): AgentTackPlan {
     const tack = createTack(

@@ -21,6 +21,9 @@ export const genericControlNames = new Set([
   'claude',
 ]);
 
+export const supportedControlNames = (controls: ReadonlySet<string>): readonly string[] =>
+  [...controls].filter((controlName) => !controlName.includes('_') && controlName !== 'pi' && controlName !== 'claude');
+
 export const controlAliases = [
   { camelCase: 'sessionDirectory', snakeCase: 'session_directory' },
   { camelCase: 'promptTemplate', snakeCase: 'prompt_template' },
