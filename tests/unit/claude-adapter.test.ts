@@ -215,7 +215,7 @@ describe('Claude Code adapter support', () => {
     expect(() => createAgentAdapter('other')).toThrow("Unknown agent 'other'. Expected one of: pi, claude.");
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-005.1, BRIDL-REQ-006.1).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-005.1, BRIDL-REQ-006.2, BRIDL-REQ-006.5).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('selects Claude Code from CLI input or settings while preserving pi as the default agent', async () => {
     const root = createTemporaryRoot();

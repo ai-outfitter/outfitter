@@ -18,11 +18,11 @@ Pi is the default and primary supported adapter; Claude Code is also supported t
 ### BRIDL-REQ-006.2: Supported Adapter Availability
 
 1. Bridl MUST support the `pi` agent CLI on day one.
-2. Bridl MUST keep `pi` as the default adapter when no adapter is selected explicitly or through settings.
-3. Bridl MAY document other agent CLIs as roadmap adapters before implementing them.
-4. Non-pi adapters MUST NOT be presented as supported until their adapter implementation and tests exist.
-5. Bridl MUST support Claude Code through a `claude` adapter once implementation and tests are present.
-6. When generic Bridl terminology conflicts with pi terminology, the pi adapter SHOULD prefer pi naming for generated pi artifacts and user-facing pi diagnostics.
+2. Bridl MAY document other agent CLIs as roadmap adapters before implementing them.
+3. Non-pi adapters MUST NOT be presented as supported until their adapter implementation and tests exist.
+4. When generic Bridl terminology conflicts with pi terminology, the pi adapter SHOULD prefer pi naming for generated pi artifacts and user-facing pi diagnostics.
+5. Bridl MUST keep `pi` as the default adapter when no adapter is selected explicitly or through settings.
+6. Bridl MUST support Claude Code through a `claude` adapter once implementation and tests are present.
 
 ### BRIDL-REQ-006.3: Pi Launch Controls
 
