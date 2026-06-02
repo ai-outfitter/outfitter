@@ -1,0 +1,251 @@
+// Tests sync command and profile source cache behavior.
+import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
+import { afterEach, describe, expect, it } from 'vitest';
+
+import { executeSyncCommand } from '../../src/cli/commands/SyncCommand.js';
+import {
+  createProfileSourceCachePath,
+  createRemoteRepositoryCachePath,
+  encodeProfileSourceUri,
+  normalizeGitUri,
+} from '../../src/profiles/ProfileCache.js';
+
+const temporaryRoots: string[] = [];
+
+const createTemporaryRoot = (): string => {
+  const root = mkdtempSync(join(tmpdir(), 'bridl-sync-command-'));
+  temporaryRoots.push(root);
+  return root;
+};
+
+const writeSettings = (homeDirectory: string, content: string): void => {
+  const settingsDirectory = join(homeDirectory, '.bridl');
+  mkdirSync(settingsDirectory, { recursive: true });
+  writeFileSync(join(settingsDirectory, 'settings.yml'), content);
+};
+
+const writeCachedProfile = (cachePath: string, profileId = 'remote'): void => {
+  const profileDirectory = join(cachePath, profileId);
+  mkdirSync(profileDirectory, { recursive: true });
+  writeFileSync(join(profileDirectory, 'profile.yml'), `id: ${profileId}\ncontrols: {}\n`);
+};
+
+const createGitProfileRepository = (root: string, repositoryName = 'remote-profiles'): string => {
+  const repositoryPath = join(root, repositoryName);
+  writeCachedProfile(repositoryPath, 'remote');
+  execFileSync('git', ['init', '--initial-branch', 'main'], { cwd: repositoryPath, stdio: 'pipe' });
+  execFileSync('git', ['add', '.'], { cwd: repositoryPath, stdio: 'pipe' });
+  execFileSync(
+    'git',
+    ['-c', 'user.name=Bridl Test', '-c', 'user.email=bridl@example.test', 'commit', '-m', 'profiles'],
+    { cwd: repositoryPath, stdio: 'pipe' },
+  );
+  return repositoryPath;
+};
+
+afterEach(() => {
+  for (const root of temporaryRoots.splice(0)) {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+describe('sync command', () => {
+  // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-004.2).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('encodes URI cache paths for arbitrary URIs and validates synced profiles', () => {
+    const root = createTemporaryRoot();
+    const homeDirectory = join(root, 'home');
+    const projectDirectory = join(root, 'project');
+    const firstUri = 'git+https://example.test/team/profiles.git?ref=v1';
+    const secondUri = 'file:///tmp/non-github profiles';
+    writeSettings(
+      homeDirectory,
+      `profile_sources:\n  - uri: ${firstUri}\n  - uri: ${secondUri}\n    only: [remote]\n  - path: ./profiles\n`,
+    );
+
+    const syncedUris: string[] = [];
+    const result = executeSyncCommand(
+      { homeDirectory, projectDirectory },
+      {
+        synchronizer: {
+          sync(source, cachePath) {
+            syncedUris.push(source.uri!);
+            writeCachedProfile(cachePath);
+            return source.uri === firstUri ? 'updated' : 'skipped';
+          },
+        },
+      },
+    );
+
+    expect(encodeProfileSourceUri(firstUri)).toMatch(/^[A-Za-z0-9_-]+$/u);
+    expect(createProfileSourceCachePath(homeDirectory, firstUri)).toBe(
+      join(homeDirectory, '.bridl', 'cache', 'profiles', encodeProfileSourceUri(firstUri)),
+    );
+    expect(syncedUris).toEqual([firstUri, secondUri]);
+    expect(result.sources.map((source) => source.status)).toEqual(['updated', 'skipped']);
+    expect(result.messages[0]).toContain(`${firstUri} -> ${createProfileSourceCachePath(homeDirectory, firstUri)}`);
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-004.2).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('redacts URI credentials from sync results and messages', () => {
+    const root = createTemporaryRoot();
+    const homeDirectory = join(root, 'home');
+    const projectDirectory = join(root, 'project');
+    const uri = 'git+https://user:secret@example.test/team/profiles.git';
+    const failedUri = 'https://token@example.test/private/profiles.git';
+    const unparsableUri = '//deploy-key@example.test/private/profiles.git';
+    writeSettings(
+      homeDirectory,
+      `profile_sources:\n  - uri: ${uri}\n  - uri: ${failedUri}\n  - uri: '${unparsableUri}'\n`,
+    );
+
+    const result = executeSyncCommand(
+      { homeDirectory, projectDirectory },
+      {
+        synchronizer: {
+          sync(source, cachePath) {
+            if (source.uri === failedUri || source.uri === unparsableUri) {
+              throw new Error(`Could not fetch ${source.uri}`);
+            }
+
+            writeCachedProfile(cachePath);
+            return 'updated';
+          },
+        },
+      },
+    );
+
+    expect(result.sources[0]?.uri).toBe('git+https://REDACTED@example.test/team/profiles.git');
+    expect(result.sources[1]?.uri).toBe('https://REDACTED@example.test/private/profiles.git');
+    expect(result.sources[2]?.uri).toBe('//REDACTED@example.test/private/profiles.git');
+    expect(result.messages[0]).toContain('git+https://REDACTED@example.test/team/profiles.git');
+    expect(result.messages[1]).toContain('Could not fetch https://REDACTED@example.test/private/profiles.git');
+    expect(result.messages[2]).toContain('Could not fetch //REDACTED@example.test/private/profiles.git');
+    expect(result.messages.join('\n')).not.toContain('secret');
+    expect(result.messages.join('\n')).not.toContain('token');
+    expect(result.messages.join('\n')).not.toContain('deploy-key');
+    expect(result.sources[0]?.cachePath).toBe(createProfileSourceCachePath(homeDirectory, uri));
+    expect(Buffer.from(encodeProfileSourceUri(uri), 'base64url').toString('utf8')).not.toContain('secret');
+    expect(Buffer.from(encodeProfileSourceUri(normalizeGitUri(uri)), 'base64url').toString('utf8')).not.toContain(
+      'secret',
+    );
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-004.2).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('fetches URI profile sources with the default git synchronizer and updates existing caches', () => {
+    const root = createTemporaryRoot();
+    const homeDirectory = join(root, 'home');
+    const projectDirectory = join(root, 'project');
+    const repositoryPath = createGitProfileRepository(root);
+    const uri = `git+file://${repositoryPath}`;
+    writeSettings(homeDirectory, `profile_sources:\n  - uri: ${uri}\n`);
+
+    const firstResult = executeSyncCommand({ homeDirectory, projectDirectory });
+    const secondResult = executeSyncCommand({ homeDirectory, projectDirectory });
+    writeSettings(homeDirectory, `profile_sources:\n  - uri: ${uri}\n    ref: main\n    path: .\n`);
+    const refResult = executeSyncCommand({ homeDirectory, projectDirectory });
+    writeFileSync(join(repositoryPath, 'remote', 'profile.yml'), 'id: remote\nlabel: Updated\ncontrols: {}\n');
+    execFileSync('git', ['add', '.'], { cwd: repositoryPath, stdio: 'pipe' });
+    execFileSync(
+      'git',
+      ['-c', 'user.name=Bridl Test', '-c', 'user.email=bridl@example.test', 'commit', '-m', 'update profiles'],
+      { cwd: repositoryPath, stdio: 'pipe' },
+    );
+    const secondRefResult = executeSyncCommand({ homeDirectory, projectDirectory });
+    const commitRef = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: repositoryPath, encoding: 'utf8' }).trim();
+    writeSettings(homeDirectory, `profile_sources:\n  - uri: ${uri}\n    ref: ${commitRef}\n    path: .\n`);
+    const commitRefResult = executeSyncCommand({ homeDirectory, projectDirectory });
+    const failedUri = `file://${join(root, 'missing-repository')}`;
+    writeSettings(homeDirectory, `profile_sources:\n  - uri: ${failedUri}\n`);
+    const failedResult = executeSyncCommand({ homeDirectory, projectDirectory });
+    writeSettings(homeDirectory, `profile_sources:\n  - uri: ${uri}\n    ref: --bad\n    path: .\n`);
+    const unsafeRefResult = executeSyncCommand({ homeDirectory, projectDirectory });
+
+    expect(firstResult.sources).toEqual([
+      {
+        uri,
+        cachePath: createProfileSourceCachePath(homeDirectory, uri),
+        status: 'updated',
+        message: '1 profile validated.',
+      },
+    ]);
+    expect(secondResult.sources[0]?.status).toBe('updated');
+    expect(refResult.sources[0]?.message).toBe('1 profile validated.');
+    expect(commitRefResult.sources[0]?.message).toBe('1 profile validated.');
+    expect(secondRefResult.sources[0]?.message).toBe('1 profile validated.');
+    expect(
+      readFileSync(
+        join(createRemoteRepositoryCachePath(homeDirectory, { uri, ref: 'main' }), 'remote', 'profile.yml'),
+        'utf8',
+      ),
+    ).toContain('label: Updated');
+    expect(failedResult.sources[0]?.status).toBe('failed');
+    expect(failedResult.sources[0]?.message).toContain('does not appear to be a git repository');
+    expect(unsafeRefResult.sources[0]?.status).toBe('failed');
+    expect(unsafeRefResult.sources[0]?.message).toContain("must not start with '-'");
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-004.2).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('reports sync validation failures, synchronizer failures, invalid settings, and no-op syncs clearly', () => {
+    const root = createTemporaryRoot();
+    const homeDirectory = join(root, 'home');
+    const projectDirectory = join(root, 'project');
+    const invalidProfileUri = 'https://example.test/invalid.git';
+    const failedUri = 'https://example.test/fail.git';
+    const stringFailureUri = 'https://example.test/string-fail.git';
+    const emptyUri = 'https://example.test/empty.git';
+    writeSettings(
+      homeDirectory,
+      `profile_sources:\n  - uri: ${invalidProfileUri}\n  - uri: ${failedUri}\n  - uri: ${stringFailureUri}\n  - uri: ${emptyUri}\n`,
+    );
+
+    const result = executeSyncCommand(
+      { homeDirectory, projectDirectory },
+      {
+        synchronizer: {
+          sync(source, cachePath) {
+            if (source.uri === failedUri) {
+              throw new Error('network unavailable');
+            }
+
+            if (source.uri === stringFailureUri) {
+              // eslint-disable-next-line @typescript-eslint/only-throw-error -- covers defensive formatting for non-Error throw values from injected dependencies.
+              throw 'string failure';
+            }
+
+            if (source.uri === emptyUri) {
+              mkdirSync(cachePath, { recursive: true });
+              return 'unchanged';
+            }
+
+            const profileDirectory = join(cachePath, 'broken');
+            mkdirSync(profileDirectory, { recursive: true });
+            writeFileSync(join(profileDirectory, 'profile.yml'), 'controls:\n  environment:\n    COUNT: 1\n');
+            return 'updated';
+          },
+        },
+      },
+    );
+
+    expect(result.sources.map((source) => source.status)).toEqual(['failed', 'failed', 'failed', 'unchanged']);
+    expect(result.sources[0]?.message).toContain('failed profile validation');
+    expect(result.sources[1]?.message).toBe('network unavailable');
+    expect(result.sources[2]?.message).toBe('string failure');
+    expect(result.sources[3]?.message).toBe('0 profiles validated.');
+
+    writeSettings(homeDirectory, 'profile_sources:\n  - only: [missing-source]\n');
+    expect(() => executeSyncCommand({ homeDirectory, projectDirectory })).toThrow('Cannot sync with invalid settings');
+
+    writeSettings(homeDirectory, 'default_profile: default\n');
+    expect(executeSyncCommand({ homeDirectory, projectDirectory }).messages).toEqual([
+      'No URI profile or remote settings sources configured; nothing to sync.',
+    ]);
+  });
+});

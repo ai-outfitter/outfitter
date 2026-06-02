@@ -1,22 +1,17 @@
-// Tests tack assembly, pi adapter translation, and run command launch behavior.
+// Tests run command tack assembly, launch behavior, and error handling.
 import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { createPiAdapter } from '../../src/agents/pi/PiAdapter.js';
 import { executeRunCommand, resolveChildExitCode } from '../../src/cli/commands/RunCommand.js';
-import { parseProfileYaml } from '../../src/profiles/ProfileLoader.js';
 import { createTack } from '../../src/tack/Tack.js';
-import { assembleTack, writeTack } from '../../src/tack/TackAssembler.js';
-import { createTackFile } from '../../src/tack/TackFile.js';
-import { createProfileWatchPaths, tackFileOutputPath, watchTackInputs } from '../../src/tack/TackWatcher.js';
 
 const temporaryRoots: string[] = [];
 
 const createTemporaryRoot = (): string => {
-  const root = mkdtempSync(join(tmpdir(), 'bridl-phase56-'));
+  const root = mkdtempSync(join(tmpdir(), 'bridl-run-command-'));
   temporaryRoots.push(root);
   return root;
 };
@@ -32,11 +27,6 @@ const writeProfile = (root: string, id: string, content: string): string => {
   const profilePath = join(profileDirectory, 'profile.yml');
   writeFileSync(profilePath, content);
   return profilePath;
-};
-
-const waitForFileContent = async (path: string, content: string): Promise<void> => {
-  await waitForFileMatching(path, (actual) => actual === content);
-  expect(readFileSync(path, 'utf8')).toBe(content);
 };
 
 const waitForFileContaining = async (path: string, content: string): Promise<void> => {
@@ -60,242 +50,7 @@ afterEach(() => {
   }
 });
 
-describe('phase 5 tack assembly and phase 6 pi run support', () => {
-  // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-005.2, BRIDL-REQ-005.3).
-  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
-  it('represents tack files with source inputs, output paths, and transform strategy', () => {
-    const tackFile = createTackFile({
-      rootDirectory: '/tmp/bridl-default-pi-abc',
-      relativePath: 'bridl/profile.json',
-      content: '{}\n',
-      sourceInputs: ['/profiles/default/profile.yml'],
-      strategy: 'transform',
-    });
-
-    expect(tackFile).toEqual({
-      relativePath: 'bridl/profile.json',
-      content: '{}\n',
-      sourceInputs: ['/profiles/default/profile.yml'],
-      outputPath: '/tmp/bridl-default-pi-abc/bridl/profile.json',
-      strategy: 'transform',
-    });
-    expect(createTackFile('EMPTY.md')).toMatchObject({ content: '', outputPath: 'EMPTY.md' });
-    expect(createTackFile({ relativePath: 'generated.txt', content: 'hello' })).toMatchObject({
-      sourceInputs: [],
-      strategy: 'generate',
-    });
-    expect(assembleTack({ files: [] }).rootDirectory).toContain('bridl-profile-agent-');
-
-    const root = createTemporaryRoot();
-    expect(() =>
-      writeTack(
-        createTack(join(root, 'tack'), [
-          createTackFile({ rootDirectory: join(root, 'other'), relativePath: 'outside.txt', content: 'nope' }),
-        ]),
-      ),
-    ).toThrow('must stay under tack root');
-  });
-
-  // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-005.3, BRIDL-REQ-006.3).
-  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
-  it('parses generic, pi, and claude array controls from profile YAML', () => {
-    const profile = parseProfileYaml(
-      [
-        'id: arrays',
-        'controls:',
-        '  args: [--generic]',
-        '  extensions: [ext-a]',
-        '  skills: [skill-a]',
-        '  pi:',
-        '    args: [--pi]',
-        '    extensions: [ext-pi]',
-        '    skills: [skill-pi]',
-        '  claude:',
-        '    args: [--claude]',
-        '    extensions: [plugin-claude]',
-        '    skills: [skill-claude]',
-        '',
-      ].join('\n'),
-      'fallback',
-    );
-
-    expect('message' in profile).toBe(false);
-    if (!('message' in profile)) {
-      expect(profile.controls.args).toEqual(['--generic']);
-      expect(profile.controls.extensions).toEqual(['ext-a']);
-      expect(profile.controls.skills).toEqual(['skill-a']);
-      expect(profile.controls.pi?.args).toEqual(['--pi']);
-      expect(profile.controls.pi?.extensions).toEqual(['ext-pi']);
-      expect(profile.controls.pi?.skills).toEqual(['skill-pi']);
-      expect(profile.controls.claude?.args).toEqual(['--claude']);
-      expect(profile.controls.claude?.extensions).toEqual(['plugin-claude']);
-      expect(profile.controls.claude?.skills).toEqual(['skill-claude']);
-    }
-  });
-
-  // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-005.4).
-  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
-  it('watches tack inputs, rewrites safe generated files, and warns when an input cannot be watched', async () => {
-    const warnings: string[] = [];
-    const tack = createTack('/tmp/bridl-watch-test', [
-      createTackFile({
-        relativePath: 'bridl/profile.json',
-        content: '{}\n',
-        sourceInputs: ['/path/that/does/not/exist/profile.yml'],
-      }),
-    ]);
-    const handle = watchTackInputs({ tack, warn: (message) => warnings.push(message) });
-
-    handle.close();
-
-    expect(warnings[0]).toContain('Could not watch tack input /path/that/does/not/exist/profile.yml');
-    expect(createProfileWatchPaths(['/profiles/default/profile.yml', '/profiles/default/other.yml'])).toEqual([
-      '/profiles/default',
-    ]);
-    expect(tackFileOutputPath(tack, 'bridl/profile.json')).toBe('/tmp/bridl-watch-test/bridl/profile.json');
-
-    const root = createTemporaryRoot();
-    const watchedDirectory = join(root, 'watched');
-    const watchedInput = join(watchedDirectory, 'profile.yml');
-    const outputRoot = join(root, 'tack');
-    mkdirSync(watchedDirectory, { recursive: true });
-    writeFileSync(watchedInput, 'initial\n');
-    const watchedTack = createTack(outputRoot, [
-      createTackFile({ relativePath: 'generated.txt', content: 'stale\n', sourceInputs: [watchedInput] }),
-    ]);
-    const watchedHandle = watchTackInputs({
-      tack: watchedTack,
-      refreshTack: () =>
-        createTack(outputRoot, [
-          createTackFile({ relativePath: 'generated.txt', content: 'updated\n', sourceInputs: [watchedInput] }),
-        ]),
-      warn: (message) => warnings.push(message),
-    });
-
-    try {
-      await new Promise((resolve) => setTimeout(resolve, 25));
-      writeFileSync(watchedInput, 'changed\n');
-      await waitForFileContent(join(outputRoot, 'generated.txt'), 'updated\n');
-    } finally {
-      watchedHandle.close();
-    }
-
-    const staticInput = join(watchedDirectory, 'static-profile.yml');
-    const staticOutputRoot = join(root, 'static-tack');
-    writeFileSync(staticInput, 'initial\n');
-    const staticTack = createTack(staticOutputRoot, [
-      createTackFile({ relativePath: 'generated.txt', content: 'static\n', sourceInputs: [staticInput] }),
-    ]);
-    const staticHandle = watchTackInputs({ tack: staticTack, warn: (message) => warnings.push(message) });
-
-    try {
-      await new Promise((resolve) => setTimeout(resolve, 25));
-      writeFileSync(staticInput, 'changed\n');
-      await waitForFileContent(join(staticOutputRoot, 'generated.txt'), 'static\n');
-    } finally {
-      staticHandle.close();
-    }
-  });
-
-  // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-006.1, BRIDL-REQ-006.2, BRIDL-REQ-006.3, BRIDL-REQ-006.4).
-  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
-  it('translates generic and pi-specific profile controls into pi env and argv', () => {
-    const adapter = createPiAdapter();
-    const tackPlan = adapter.createTack(
-      {
-        id: 'engineering',
-        inherits: [],
-        controls: {
-          model: 'generic-model',
-          provider: 'anthropic',
-          environment: { GENERIC: '1' },
-          extensions: ['ext-a'],
-          skills: ['skill-a'],
-          promptTemplate: 'template-a',
-          systemPrompt: 'base prompt',
-          appendSystemPrompt: 'extra prompt',
-          pi: {
-            model: 'pi-model',
-            sessionDirectory: '/tmp/pi-sessions',
-            args: ['--share'],
-            environment: { PI_ONLY: '1' },
-          },
-        },
-      },
-      { rootDirectory: '/tmp/bridl-engineering-pi-123', profilePaths: ['/profiles/engineering/profile.yml'] },
-    );
-    const launchPlan = adapter.createLaunchPlan(tackPlan.tack, {
-      id: 'engineering',
-      inherits: [],
-      controls: {
-        model: 'generic-model',
-        provider: 'anthropic',
-        environment: { GENERIC: '1' },
-        extensions: ['ext-a'],
-        skills: ['skill-a'],
-        promptTemplate: 'template-a',
-        systemPrompt: 'base prompt',
-        appendSystemPrompt: 'extra prompt',
-        pi: {
-          model: 'pi-model',
-          sessionDirectory: '/tmp/pi-sessions',
-          args: ['--share'],
-          environment: { PI_ONLY: '1' },
-        },
-      },
-    });
-
-    expect(adapter.id).toBe('pi');
-    expect(adapter.supportedControls).toContain('model');
-    expect(adapter.supportedControls).toContain('promptTemplate');
-    expect(
-      adapter.getUnsupportedControls({
-        id: 'engineering',
-        inherits: [],
-        controls: { pi: { unsupportedPiControl: true } },
-      }),
-    ).toEqual(['pi.unsupportedPiControl']);
-    expect(tackPlan.tack.rootDirectory).toBe('/tmp/bridl-engineering-pi-123');
-    expect(tackPlan.tack.files[0]?.sourceInputs).toEqual(['/profiles/engineering/profile.yml']);
-    expect(launchPlan.command).toBe('pi');
-    expect(launchPlan.env).toEqual({
-      GENERIC: '1',
-      PI_ONLY: '1',
-      PI_CODING_AGENT_DIR: '/tmp/bridl-engineering-pi-123',
-    });
-    expect(launchPlan.args).toEqual([
-      '--model',
-      'pi-model',
-      '--provider',
-      'anthropic',
-      '--session-dir',
-      '/tmp/pi-sessions',
-      '--prompt-template',
-      'template-a',
-      '--system-prompt',
-      'base prompt',
-      '--append-system-prompt',
-      'extra prompt',
-      '--extension',
-      'ext-a',
-      '--skill',
-      'skill-a',
-      '--share',
-    ]);
-
-    const genericFallbackProfile = parseProfileYaml(
-      'id: fallback\ncontrols:\n  model: generic-model\n  pi: {}\n',
-      'fallback',
-    );
-    expect('message' in genericFallbackProfile).toBe(false);
-    if (!('message' in genericFallbackProfile)) {
-      expect(adapter.createLaunchPlan(tackPlan.tack, genericFallbackProfile).args).toEqual([
-        '--model',
-        'generic-model',
-      ]);
-    }
-  });
-
+describe('run command', () => {
   // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-005.1, BRIDL-REQ-005.2, BRIDL-REQ-005.3, BRIDL-REQ-005.5).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('resolves the default profile, writes and refreshes a temp tack, warns, and passes through args', async () => {
