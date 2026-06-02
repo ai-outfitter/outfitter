@@ -77,7 +77,7 @@ Bridl is organized around clear TypeScript source boundaries, requirement docume
 ├── tests/                             # automated tests
 │   ├── fixtures/                      # reusable test fixtures
 │   │   └── scenarios/                 # realistic .bridl scenarios and expected outputs
-│   └── unit/                          # unit tests
+│   └── unit/                          # unit tests grouped by functionality under test
 ├── package-lock.json                  # locked npm dependency graph
 └── package.json                       # npm package metadata and scripts
 ```
