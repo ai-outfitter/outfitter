@@ -1,33 +1,14 @@
 // Provides the pi adapter for tack generation and native pi launch plans.
-import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 
 import type { AgentAdapter, AgentLaunchPlan, AgentTackPlan } from '../AgentAdapter.js';
+import { flagValue, genericControlNames, mergeAgentSpecificControls, repeatFlag } from '../AdapterProfileControls.js';
+import { createDeclaredStatePaths, findProfileStateSource } from '../AdapterStatePaths.js';
 import type { PiProfileControls, Profile, ProfileControls } from '../../profiles/Profile.js';
 import type { Tack } from '../../tack/Tack.js';
 import { createTack } from '../../tack/Tack.js';
 import { createTackFile } from '../../tack/TackFile.js';
-import type { StatePathDeclaration, StatePersistenceStrategy, TackStatePath } from '../../tack/StatePersistence.js';
-
-const genericControlNames = new Set([
-  'model',
-  'provider',
-  'thinking',
-  'environment',
-  'args',
-  'sessionDirectory',
-  'session_directory',
-  'extensions',
-  'skills',
-  'promptTemplate',
-  'prompt_template',
-  'systemPrompt',
-  'system_prompt',
-  'appendSystemPrompt',
-  'append_system_prompt',
-  'pi',
-  'claude',
-]);
+import type { StatePathDeclaration, TackStatePath } from '../../tack/StatePersistence.js';
 
 const piControlNames = new Set(
   [...genericControlNames].filter((controlName) => controlName !== 'pi' && controlName !== 'claude'),
@@ -102,55 +83,19 @@ const createPiStatePaths = (
     readonly cacheDirectory?: string;
   },
 ): readonly TackStatePath[] => {
-  assertDeclaredStatePersistenceKeys(profile);
-
-  return Object.entries(piStatePathDeclarations).map(([relativePath, declaration]) => {
-    const strategy = resolveStateStrategy(profile, relativePath, declaration);
-    const directory = relativePath.endsWith('/');
-
-    return {
-      relativePath,
-      strategy,
-      directory,
-      sourcePath:
-        strategy === 'symlink' && relativePath !== 'unknown'
-          ? resolvePiStateSourcePath(
-              input.profileFolders ?? [],
-              input.homeDirectory,
-              input.cacheDirectory,
-              relativePath,
-              directory,
-            )
-          : undefined,
-    };
+  return createDeclaredStatePaths({
+    adapterId: 'pi',
+    declarations: piStatePathDeclarations,
+    profile,
+    resolveSourcePath: (relativePath, directory) =>
+      resolvePiStateSourcePath(
+        input.profileFolders ?? [],
+        input.homeDirectory,
+        input.cacheDirectory,
+        relativePath,
+        directory,
+      ),
   });
-};
-
-const assertDeclaredStatePersistenceKeys = (profile: Profile): void => {
-  for (const relativePath of Object.keys(profile.statePersistence ?? {})) {
-    if (!Object.hasOwn(piStatePathDeclarations, relativePath)) {
-      throw new Error(`state_persistence path '${relativePath}' is not declared by the pi adapter`);
-    }
-  }
-};
-
-const resolveStateStrategy = (
-  profile: Profile,
-  relativePath: string,
-  declaration: StatePathDeclaration,
-): StatePersistenceStrategy => {
-  const strategy = profile.statePersistence?.[relativePath] ?? declaration.defaultStrategy;
-
-  /* v8 ignore next -- Pi declarations all define defaults; this guards future adapter declaration regressions. */
-  if (strategy === undefined) {
-    throw new Error(`missing state_persistence strategy for "${relativePath}"`);
-  }
-
-  if (!declaration.allowedStrategies.includes(strategy)) {
-    throw new Error(`state_persistence strategy '${strategy}' is not allowed for "${relativePath}"`);
-  }
-
-  return strategy;
 };
 
 const resolvePiStateSourcePath = (
@@ -174,10 +119,7 @@ const resolvePiStateSourcePath = (
     return join(configuredCacheDirectory, 'utilities');
   }
 
-  const profileSource = [...profileFolders]
-    .reverse()
-    .map((profileFolder) => join(profileFolder, 'cli_specific', 'pi', normalizedRelativePath))
-    .find((candidate) => existsSync(candidate));
+  const profileSource = findProfileStateSource(profileFolders, 'pi', relativePath, directory);
 
   if (profileSource !== undefined) {
     return profileSource;
@@ -192,19 +134,8 @@ const resolvePiStateSourcePath = (
   );
 };
 
-const mergePiControls = (controls: ProfileControls): PiProfileControls => ({
-  ...controls,
-  ...definedControls(controls.pi),
-  environment: { ...controls.environment, ...controls.pi?.environment },
-});
-
-const definedControls = (controls: PiProfileControls | undefined): Partial<PiProfileControls> => {
-  if (controls === undefined) {
-    return {};
-  }
-
-  return Object.fromEntries(Object.entries(controls).filter((entry) => entry[1] !== undefined));
-};
+const mergePiControls = (controls: ProfileControls): PiProfileControls =>
+  mergeAgentSpecificControls<PiProfileControls>(controls, 'pi');
 
 const createPiArgs = (controls: PiProfileControls): readonly string[] => [
   ...flagValue('--model', controls.model),
@@ -218,12 +149,6 @@ const createPiArgs = (controls: PiProfileControls): readonly string[] => [
   ...repeatFlag('--skill', controls.skills),
   ...(controls.args ?? []),
 ];
-
-const flagValue = (flag: string, value: string | undefined): readonly string[] =>
-  value === undefined ? [] : [flag, value];
-
-const repeatFlag = (flag: string, values: readonly string[] | undefined): readonly string[] =>
-  values === undefined ? [] : values.flatMap((value) => [flag, value]);
 
 const findUnsupportedControls = (controls: ProfileControls): readonly string[] => {
   const unsupported = Object.keys(controls).filter((controlName) => !genericControlNames.has(controlName));

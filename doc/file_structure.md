@@ -56,6 +56,8 @@ Bridl is organized around clear TypeScript source boundaries, requirement docume
 │   │   ├── TackWatcher.ts
 │   │   └── StatePersistence.ts
 │   ├── agents/                        # agent adapter boundary and CLI-specific adapters
+│   │   ├── AdapterProfileControls.ts
+│   │   ├── AdapterStatePaths.ts
 │   │   ├── AgentAdapter.ts
 │   │   ├── AgentRegistry.ts
 │   │   ├── pi/                        # pi-specific adapter implementation

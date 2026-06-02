@@ -1,33 +1,19 @@
 // Provides the Claude Code adapter for tack generation and native launch plans.
-import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 
 import type { AgentAdapter, AgentLaunchPlan, AgentTackPlan } from '../AgentAdapter.js';
+import {
+  findUnsupportedControlNames,
+  flagValue,
+  mergeAgentSpecificControls,
+  repeatFlag,
+} from '../AdapterProfileControls.js';
+import { createDeclaredStatePaths, findProfileStateSource } from '../AdapterStatePaths.js';
 import type { ClaudeProfileControls, Profile, ProfileControls } from '../../profiles/Profile.js';
-import type { StatePathDeclaration, StatePersistenceStrategy, TackStatePath } from '../../tack/StatePersistence.js';
+import type { StatePathDeclaration, TackStatePath } from '../../tack/StatePersistence.js';
 import type { Tack } from '../../tack/Tack.js';
 import { createTack } from '../../tack/Tack.js';
 import { createTackFile } from '../../tack/TackFile.js';
-
-const genericControlNames = new Set([
-  'model',
-  'provider',
-  'thinking',
-  'environment',
-  'args',
-  'sessionDirectory',
-  'session_directory',
-  'extensions',
-  'skills',
-  'promptTemplate',
-  'prompt_template',
-  'systemPrompt',
-  'system_prompt',
-  'appendSystemPrompt',
-  'append_system_prompt',
-  'pi',
-  'claude',
-]);
 
 const supportedClaudeGenericControls = new Set([
   'model',
@@ -120,56 +106,21 @@ const createClaudeStatePaths = (
     readonly homeDirectory?: string;
   },
 ): readonly TackStatePath[] => {
-  assertDeclaredStatePersistenceKeys(profile);
   const controls = mergeClaudeControls(profile.controls);
 
-  return Object.entries(claudeStatePathDeclarations).map(([relativePath, declaration]) => {
-    const strategy = resolveStateStrategy(profile, relativePath, declaration);
-    const directory = relativePath.endsWith('/');
-
-    return {
-      relativePath,
-      strategy,
-      directory,
-      sourcePath:
-        strategy === 'symlink' && relativePath !== 'unknown'
-          ? resolveClaudeStateSourcePath(
-              input.profileFolders ?? [],
-              input.homeDirectory,
-              relativePath,
-              directory,
-              controls.sessionDirectory,
-            )
-          : undefined,
-    };
+  return createDeclaredStatePaths({
+    adapterId: 'claude',
+    declarations: claudeStatePathDeclarations,
+    profile,
+    resolveSourcePath: (relativePath, directory) =>
+      resolveClaudeStateSourcePath(
+        input.profileFolders ?? [],
+        input.homeDirectory,
+        relativePath,
+        directory,
+        controls.sessionDirectory,
+      ),
   });
-};
-
-const assertDeclaredStatePersistenceKeys = (profile: Profile): void => {
-  for (const relativePath of Object.keys(profile.statePersistence ?? {})) {
-    if (!Object.hasOwn(claudeStatePathDeclarations, relativePath)) {
-      throw new Error(`state_persistence path '${relativePath}' is not declared by the claude adapter`);
-    }
-  }
-};
-
-const resolveStateStrategy = (
-  profile: Profile,
-  relativePath: string,
-  declaration: StatePathDeclaration,
-): StatePersistenceStrategy => {
-  const strategy = profile.statePersistence?.[relativePath] ?? declaration.defaultStrategy;
-
-  /* v8 ignore next -- Claude declarations all define defaults; this guards future adapter declaration regressions. */
-  if (strategy === undefined) {
-    throw new Error(`missing state_persistence strategy for "${relativePath}"`);
-  }
-
-  if (!declaration.allowedStrategies.includes(strategy)) {
-    throw new Error(`state_persistence strategy '${strategy}' is not allowed for "${relativePath}"`);
-  }
-
-  return strategy;
 };
 
 const resolveClaudeStateSourcePath = (
@@ -185,10 +136,7 @@ const resolveClaudeStateSourcePath = (
     return sessionDirectory;
   }
 
-  const profileSource = [...profileFolders]
-    .reverse()
-    .map((profileFolder) => join(profileFolder, 'cli_specific', 'claude', normalizedRelativePath))
-    .find((candidate) => existsSync(candidate));
+  const profileSource = findProfileStateSource(profileFolders, 'claude', relativePath, directory);
 
   if (profileSource !== undefined) {
     return profileSource;
@@ -202,19 +150,8 @@ const resolveClaudeStateSourcePath = (
   );
 };
 
-const mergeClaudeControls = (controls: ProfileControls): ClaudeProfileControls => ({
-  ...controls,
-  ...definedControls(controls.claude),
-  environment: { ...controls.environment, ...controls.claude?.environment },
-});
-
-const definedControls = (controls: ClaudeProfileControls | undefined): Partial<ClaudeProfileControls> => {
-  if (controls === undefined) {
-    return {};
-  }
-
-  return Object.fromEntries(Object.entries(controls).filter((entry) => entry[1] !== undefined));
-};
+const mergeClaudeControls = (controls: ProfileControls): ClaudeProfileControls =>
+  mergeAgentSpecificControls<ClaudeProfileControls>(controls, 'claude');
 
 const createClaudeArgs = (controls: ClaudeProfileControls): readonly string[] => [
   ...flagValue('--model', controls.model),
@@ -224,12 +161,6 @@ const createClaudeArgs = (controls: ClaudeProfileControls): readonly string[] =>
   ...repeatFlag('--plugin-dir', controls.extensions),
   ...(controls.args ?? []),
 ];
-
-const flagValue = (flag: string, value: string | undefined): readonly string[] =>
-  value === undefined ? [] : [flag, value];
-
-const repeatFlag = (flag: string, values: readonly string[] | undefined): readonly string[] =>
-  values === undefined ? [] : values.flatMap((value) => [flag, value]);
 
 const findUnsupportedControls = (controls: ProfileControls): readonly string[] => {
   const unsupported = findUnsupportedControlNames(controls, supportedClaudeGenericControls);
@@ -242,39 +173,3 @@ const findUnsupportedControls = (controls: ProfileControls): readonly string[] =
 
   return unsupported;
 };
-
-const findUnsupportedControlNames = (
-  controls: Readonly<Record<string, unknown>>,
-  supportedControls: ReadonlySet<string>,
-): string[] => {
-  const controlNames = new Set(Object.keys(controls));
-  const unsupported: string[] = [];
-
-  for (const { camelCase, snakeCase } of controlAliases) {
-    if (!controlNames.has(camelCase) && !controlNames.has(snakeCase)) {
-      continue;
-    }
-
-    if (!supportedControls.has(camelCase) && !supportedControls.has(snakeCase)) {
-      unsupported.push(controlNames.has(snakeCase) ? snakeCase : camelCase);
-    }
-
-    controlNames.delete(camelCase);
-    controlNames.delete(snakeCase);
-  }
-
-  unsupported.push(
-    ...[...controlNames].filter(
-      (controlName) => !genericControlNames.has(controlName) || !supportedControls.has(controlName),
-    ),
-  );
-
-  return unsupported;
-};
-
-const controlAliases = [
-  { camelCase: 'sessionDirectory', snakeCase: 'session_directory' },
-  { camelCase: 'promptTemplate', snakeCase: 'prompt_template' },
-  { camelCase: 'systemPrompt', snakeCase: 'system_prompt' },
-  { camelCase: 'appendSystemPrompt', snakeCase: 'append_system_prompt' },
-] as const;
