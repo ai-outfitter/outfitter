@@ -3,4 +3,8 @@ export default {
     title: 'Home',
     type: 'page',
   },
+  'state-persistence': {
+    title: 'State Persistence',
+    type: 'page',
+  },
 };

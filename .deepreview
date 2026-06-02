@@ -158,27 +158,40 @@ test_file_quality:
         concise description.
 
 doc_consistency:
-  description: "Verify architecture and file structure documentation stay consistent."
+  description: "Verify architecture, file structure, state writeback, and public docs stay current when requirements change."
   match:
     include:
-      - "doc/architecture.md"
-      - "doc/file_structure.md"
+      - "requirements/BRIDL-REQ-*.md"
   review:
     strategy: matches_together
     additional_context:
       unchanged_matching_files: true
     instructions: |
-      Review doc/architecture.md and doc/file_structure.md together for consistency.
+      Review changed requirements and verify that the documentation stays current.
+
+      Documentation files to keep updated:
+      - doc/architecture.md
+      - doc/file_structure.md
+      - doc/state_writeback_strategy.md
+      - doc/controllable-elements.md
+      - doc_site/app/page.mdx
+      - doc_site/app/state-persistence/page.mdx
+
+      Implementation file to consult when requirements affect Pi state path behavior:
+      - src/agents/pi/PiAdapter.ts
 
       Check that:
       1. doc/file_structure.md stays limited to repository file structure, not runtime instance file conventions.
       2. Runtime file conventions such as settings directories, profile folders, and tack paths live in doc/architecture.md.
-      3. Cross-document links and filenames are accurate.
-      4. Terminology such as profile, tack, settings, adapter, and pi is used consistently.
+      3. State writeback and state updating details in doc/architecture.md stay consistent with doc/state_writeback_strategy.md, including tack/state terminology, strategy names, Pi path policy, and cross-document links.
+      4. Pi state path declarations and special Pi path resolution behavior documented in doc/state_writeback_strategy.md match src/agents/pi/PiAdapter.ts when Pi state path requirements change.
+      5. Public documentation site claims in doc_site/app/page.mdx and doc_site/app/state-persistence/page.mdx stay aligned with architecture and support boundaries.
+      6. Cross-document links and filenames are accurate.
+      7. Terminology such as profile, tack, settings, adapter, and pi is used consistently.
 
       Output Format:
-      - PASS: The documents are consistent and links are accurate.
-      - FAIL: Issues found. List each conflicting statement, missing update, or broken reference with a line reference.
+      - PASS: The documentation is current with the changed requirements and links are accurate.
+      - FAIL: Issues found. List each stale, missing, conflicting, or broken documentation statement with a line reference.
 
 doc_site_product_consistency:
   description: "Verify public documentation site claims stay aligned with Bridl architecture and controllable element support."
@@ -187,6 +200,7 @@ doc_site_product_consistency:
       - "doc_site/app/**/*.mdx"
       - "doc_site/app/layout.tsx"
       - "doc/architecture.md"
+      - "doc/state_writeback_strategy.md"
       - "doc/controllable-elements.md"
   review:
     strategy: matches_together
@@ -195,18 +209,19 @@ doc_site_product_consistency:
     instructions: |
       Review public documentation site MDX pages against Bridl's architecture and
       controllable element documentation. This rule provides judgment-based
-      review coverage for public claims related to BRIDL-REQ-006.2 adapter
-      support boundaries and BRIDL-REQ-007 cross-agent controllable-element
-      support documentation.
+      review coverage for public claims related to BRIDL-REQ-005.6 tack state
+      persistence, BRIDL-REQ-006.2 adapter support boundaries, and
+      BRIDL-REQ-007 cross-agent controllable-element support documentation.
 
       Check that:
       1. Public docs do not overstate implemented adapter support, especially for
          non-pi agents that are roadmap-only.
       2. Claims about profile precedence, tack behavior, setup repositories,
          remote profile sources, and adapter translation match doc/architecture.md.
-      3. Claims about cross-agent or generic controls match doc/controllable-elements.md
+      3. Claims about state persistence, state update scenarios, and Pi path policy match doc/state_writeback_strategy.md.
+      4. Claims about cross-agent or generic controls match doc/controllable-elements.md
          and distinguish supported, roadmap, and unsupported behavior accurately.
-      4. Marketing copy may be aspirational, but it MUST NOT present roadmap-only
+      5. Marketing copy may be aspirational, but it MUST NOT present roadmap-only
          capabilities as already implemented.
 
       Output Format:
@@ -220,6 +235,7 @@ doc_site_requirements_sync:
       - "requirements/BRIDL-REQ-*.md"
       - "doc_site/app/**/*.mdx"
       - "doc_site/app/layout.tsx"
+      - "doc_site/app/_meta.js"
   review:
     strategy: matches_together
     additional_context:
