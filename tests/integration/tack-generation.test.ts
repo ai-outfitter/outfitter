@@ -66,4 +66,65 @@ describe('integration fixture tack generation', () => {
     expect(readFixtureText(fixture, 'home/.bridl/profiles/default/profile.yml')).toContain('USER_DEFAULT');
     expect(readFixtureText(fixture, 'project/.bridl/profiles/repo-review/profile.yml')).toContain('REPO_PROFILE');
   });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-003.2, BRIDL-REQ-005.3).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('runs a realistic TypeScript profile stack over the user default without writing back inherited profiles', async () => {
+    const fixture = copyFixtureToTemp('language_stack_with_personal_default');
+    const warnings: string[] = [];
+    let tackSummary: unknown;
+
+    const result = await runFixture(fixture, {
+      profileId: 'typescript-review',
+      agentId: 'pi',
+      warnings,
+      launcher: {
+        launch(plan) {
+          const tackRoot = tackRootFromLaunchPlan(plan);
+          tackSummary = {
+            profileId: 'typescript-review',
+            agentId: 'pi',
+            launchCommand: plan.command,
+            launchArgs: plan.args,
+            launchEnv: {
+              PI_CODING_AGENT_DIR: tokenizeFixturePath(fixture, plan.env.PI_CODING_AGENT_DIR, tackRoot),
+              EDITOR_STYLE: plan.env.EDITOR_STYLE,
+              LANGUAGE_STACK: plan.env.LANGUAGE_STACK,
+              PERSONAL_DEFAULT: plan.env.PERSONAL_DEFAULT,
+              REPO_REVIEW_BASE: plan.env.REPO_REVIEW_BASE,
+              REVIEW_STACK: plan.env.REVIEW_STACK,
+              SELECTED_PROFILE: plan.env.SELECTED_PROFILE,
+              TOOLING_STACK: plan.env.TOOLING_STACK,
+            },
+            ...(summarizePiTack(fixture, tackRoot) as Record<string, unknown>),
+          };
+
+          writeFileSync(join(tackRoot, 'bridl', 'profile.json'), '{"mutated":true}\n');
+          writeFileSync(join(tackRoot, 'settings.json'), '{"language-stack":"updated"}\n');
+          writeFileSync(join(tackRoot, 'scratch.log'), 'scratch output\n');
+
+          return Promise.resolve(0);
+        },
+      },
+    });
+
+    expect(tackSummary).toEqual(readExpectedJson(fixture, 'pi/tack-summary.json'));
+    expect(result.profileId).toBe('typescript-review');
+    expect(result.agentId).toBe('pi');
+    expect(result.warnings).toEqual(readExpectedJson(fixture, 'pi/warnings.json'));
+    expect(warnings).toEqual(result.warnings);
+    expect(readFileSync(join(fixture.home, '.pi', 'agent', 'settings.json'), 'utf8')).toBe(
+      '{"language-stack":"updated"}\n',
+    );
+    expect(readFixtureText(fixture, 'home/.bridl/profiles/default/profile.yml')).toContain('PERSONAL_DEFAULT');
+    expect(readFixtureText(fixture, 'project/.bridl/profiles/repo-review-base/profile.yml')).toContain(
+      'REPO_REVIEW_BASE',
+    );
+    expect(readFixtureText(fixture, 'project/.bridl/profiles/language-typescript/profile.yml')).toContain(
+      'LANGUAGE_STACK',
+    );
+    expect(readFixtureText(fixture, 'project/.bridl/profiles/tooling-node-vitest/profile.yml')).toContain(
+      'TOOLING_STACK',
+    );
+  });
 });

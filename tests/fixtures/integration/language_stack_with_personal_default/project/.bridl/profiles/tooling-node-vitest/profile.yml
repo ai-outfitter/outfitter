@@ -1,0 +1,9 @@
+id: tooling-node-vitest
+label: Node and Vitest Tooling
+inherits: [repo-review-base]
+controls:
+  provider: local-node
+  environment:
+    TOOLING_STACK: node-vitest
+    REVIEW_STACK: tooling-node-vitest
+  prompt_template: Use npm scripts and Vitest evidence when reviewing changes.

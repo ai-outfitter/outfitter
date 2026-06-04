@@ -1,0 +1,11 @@
+id: language-typescript
+label: TypeScript Language Standards
+inherits: [repo-review-base]
+controls:
+  environment:
+    LANGUAGE_STACK: typescript
+    REVIEW_STACK: language-typescript
+  extensions:
+    - tsconfig
+  skills:
+    - strict-typescript
