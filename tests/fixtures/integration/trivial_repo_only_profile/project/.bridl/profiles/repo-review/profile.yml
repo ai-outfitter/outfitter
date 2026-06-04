@@ -1,0 +1,9 @@
+id: repo-review
+label: Repository Review
+controls:
+  model: repo-review-model
+  environment:
+    REPO_PROFILE: 'enabled'
+    SHARED_LAYER: repo-review
+  args:
+    - --repo-flag

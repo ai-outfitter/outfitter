@@ -1,0 +1,39 @@
+summary: "Integration fixture directory structure."
+instructions: |
+  Integration fixtures are copied to temporary directories and then exercised by
+  Vitest integration tests. Their static filesystem layout must stay predictable
+  so tests can discover home, project, README, and optional expected outputs.
+
+  This schema validates the structural contract documented in
+  tests/fixtures/integration/README.md. Judgment-based README freshness is
+  handled by the integration_fixture_readme DeepReview rule.
+
+matchers:
+  - "tests/fixtures/integration/*/README.md"
+
+requirements:
+  fixture-readme-required: >
+    Every integration fixture set MUST have a README.md at its root.
+  fixture-home-required: >
+    Every integration fixture set MUST have a home/ directory at its root.
+  fixture-project-required: >
+    Every integration fixture set MUST have a project/ directory at its root.
+  no-adapter-prefix-required: >
+    Fixture directory names MUST describe the scenario rather than beginning
+    with an adapter-specific prefix such as pi_ or claude_.
+  optional-expected-shape: >
+    If expected/ exists, adapter-specific expectations SHOULD be grouped under
+    short adapter subdirectories such as expected/pi/ or expected/claude/ when
+    the expected output is not adapter-neutral.
+
+verification_bash_command:
+  - "root=$(dirname \"$1\"); test -f \"$root/README.md\" || { echo \"FAIL: missing fixture README.md\"; exit 1; }"
+  - "root=$(dirname \"$1\"); test -d \"$root/home\" || { echo \"FAIL: fixture missing home/ directory: $root\"; exit 1; }"
+  - "root=$(dirname \"$1\"); test -d \"$root/project\" || { echo \"FAIL: fixture missing project/ directory: $root\"; exit 1; }"
+  - "root=$(dirname \"$1\"); name=$(basename \"$root\"); case \"$name\" in pi_*|claude_*) echo \"FAIL: fixture name should not start with adapter prefix: $name\"; exit 1;; esac"
+
+references:
+  - path: "../../../tests/fixtures/integration/README.md"
+    description: "Integration fixture directory contract and authoring rules."
+  - path: "../../../INTEGRATION_TEST_FIXTURES.md"
+    description: "Scenario catalog for existing and proposed fixture sets."

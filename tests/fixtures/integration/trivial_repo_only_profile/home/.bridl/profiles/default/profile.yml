@@ -1,0 +1,7 @@
+id: default
+label: Personal Default
+controls:
+  model: user-default-model
+  environment:
+    USER_DEFAULT: 'enabled'
+    SHARED_LAYER: user-default
