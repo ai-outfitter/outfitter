@@ -1,0 +1,10 @@
+id: typescript-base
+label: TypeScript Base
+controls:
+  model: repo-base-model
+  provider: repo-provider
+  environment:
+    REPO_STACK: typescript
+    SHARED_LAYER: repo-base
+  args:
+    - --base-review

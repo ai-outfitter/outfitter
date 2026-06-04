@@ -1,5 +1,5 @@
 // Tests fixture-backed integration behavior for tack generation and state ownership.
-import { lstatSync, mkdirSync, readFileSync, readlinkSync, unlinkSync, writeFileSync } from 'node:fs';
+import { existsSync, lstatSync, mkdirSync, readFileSync, readlinkSync, unlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
@@ -246,6 +246,70 @@ describe('integration fixture tack generation', () => {
     );
     expect(readFixtureText(fixture, 'project/.bridl/profiles/state-replacement/profile.yml')).toContain(
       'state_persistence',
+    );
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-002.2, BRIDL-REQ-005.6).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('uses project-local sandbox defaults and keeps sandbox state writes temporary', async () => {
+    const fixture = copyFixtureToTemp('local_sandbox_overrides');
+    const warnings: string[] = [];
+    let tackSummary: unknown;
+
+    const result = await runFixture(fixture, {
+      agentId: 'pi',
+      warnings,
+      launcher: {
+        launch(plan) {
+          const tackRoot = tackRootFromLaunchPlan(plan);
+          tackSummary = {
+            profileId: 'local-sandbox',
+            agentId: 'pi',
+            launchCommand: plan.command,
+            launchArgs: plan.args,
+            launchEnv: {
+              LOCAL_SANDBOX: plan.env.LOCAL_SANDBOX,
+              PI_CODING_AGENT_DIR: tokenizeFixturePath(fixture, plan.env.PI_CODING_AGENT_DIR, tackRoot),
+              REPO_REVIEW: plan.env.REPO_REVIEW,
+              REPO_STACK: plan.env.REPO_STACK,
+              SHARED_LAYER: plan.env.SHARED_LAYER,
+            },
+            generatedProfile: JSON.parse(readFileSync(join(tackRoot, 'bridl', 'profile.json'), 'utf8')) as unknown,
+            stateTargets: {
+              'auth.json': tokenizeFixturePath(fixture, readlinkSync(join(tackRoot, 'auth.json')), tackRoot),
+              'mcp.json': tokenizeFixturePath(fixture, readlinkSync(join(tackRoot, 'mcp.json')), tackRoot),
+              utilities: tokenizeFixturePath(fixture, readlinkSync(join(tackRoot, 'utilities')), tackRoot),
+            },
+            sandboxState: {
+              cacheExists: existsSync(join(tackRoot, 'cache')),
+              sessionsExists: existsSync(join(tackRoot, 'sessions')),
+              settingsExists: existsSync(join(tackRoot, 'settings.json')),
+            },
+          };
+
+          writeFileSync(join(tackRoot, 'bridl', 'profile.json'), '{"mutated":true}\n');
+          writeFileSync(join(tackRoot, 'settings.json'), '{"theme":"sandbox"}\n');
+          mkdirSync(join(tackRoot, 'cache'), { recursive: true });
+          writeFileSync(join(tackRoot, 'cache', 'experiment.json'), '{"cached":true}\n');
+          mkdirSync(join(tackRoot, 'sessions'), { recursive: true });
+          writeFileSync(join(tackRoot, 'sessions', 'scratch.log'), 'sandbox session\n');
+          writeFileSync(join(tackRoot, 'scratch.txt'), 'unknown sandbox write\n');
+
+          return Promise.resolve(0);
+        },
+      },
+    });
+
+    expect(tackSummary).toEqual(readExpectedJson(fixture, 'pi/tack-summary.json'));
+    expect(result.profileId).toBe('local-sandbox');
+    expect(result.agentId).toBe('pi');
+    expect(result.warnings).toEqual(readExpectedJson(fixture, 'pi/warnings.json'));
+    expect(warnings).toEqual(result.warnings);
+    expect(readFileSync(join(fixture.home, '.pi', 'agent', 'settings.json'), 'utf8')).toBe('{ "theme": "stable" }\n');
+    expect(existsSync(join(fixture.project, '.bridl', 'local', 'cache', 'cache', 'experiment.json'))).toBe(false);
+    expect(readFixtureText(fixture, 'project/.bridl/profiles/repo-review/profile.yml')).toContain('--repo-review');
+    expect(readFixtureText(fixture, 'project/.bridl/local/profiles/local-sandbox/profile.yml')).toContain(
+      'settings.json: warn',
     );
   });
 });

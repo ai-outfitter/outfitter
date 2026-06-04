@@ -1,0 +1,11 @@
+id: repo-review
+label: Repository Review
+inherits:
+  - typescript-base
+controls:
+  model: repo-review-model
+  environment:
+    REPO_REVIEW: 'enabled'
+    SHARED_LAYER: repo-review
+  args:
+    - --repo-review
