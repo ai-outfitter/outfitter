@@ -117,7 +117,7 @@ Location: `tests/fixtures/integration/strict_ci_profile/`
 
 This fixture should model a locked CI profile. It should use strict `state_persistence` values such as `unknown: error`, important settings/config paths as `error`, and caches/sessions as `discard`.
 
-Use it to test reproducibility enforcement, post-run diagnostics, and `--hard-tack` behavior.
+Use it to test reproducibility enforcement and post-run diagnostics for strict state persistence.
 
 Write-back focus: the fake launcher should attempt both declared and unknown writes. Tests should assert failure or warnings without durable persistence for non-persistent paths.
 
@@ -188,7 +188,7 @@ Write-back focus: replacement should be diagnosed as not persisted, and the orig
 | `remote_baseline_local_selection` | Existing | remote + 3 | 1-2 | implicit default | all | mixed | source ownership |
 | `language_stack_with_personal_default` | Existing | user + repo | 1 | 2-3 | all | native fallback | inherited output |
 | `local_sandbox_overrides` | Existing | user + repo + local | 1-2 | 1 | all | temporary | local overrides |
-| `strict_ci_profile` | Proposed | repo | 1 | 0-1 | all | temporary | errors |
+| `strict_ci_profile` | Existing | repo | 1 | 0-1 | all | temporary | errors |
 | `profile_owned_cli_state` | Proposed | user + repo | 1 | 0-1 | all | profile state | symlink writes |
 | `native_fallback_cli_state` | Existing | user + repo | 1 | 0-1 | all | native fallback | fallback writes |
 | `cache_backed_tooling_state` | Existing | user + repo | 1 | 0 | adapter subset | cache | cache writes |
@@ -207,7 +207,7 @@ Write-back focus: replacement should be diagnosed as not persisted, and the orig
 | `remote_baseline_local_selection` | Proposed | remote + 3 | 1-2 | implicit default | all | mixed | source ownership |
 | `language_stack_with_personal_default` | Proposed | user + repo | 1 | 2-3 | all | native fallback | inherited output |
 | `local_sandbox_overrides` | Proposed | user + repo + local | 1-2 | 1 | all | temporary | local overrides |
-| `strict_ci_profile` | Proposed | repo | 1 | 0-1 | all | temporary | errors |
+| `strict_ci_profile` | Existing | repo | 1 | 0-1 | all | temporary | errors |
 | `profile_owned_cli_state` | Proposed | user + repo | 1 | 0-1 | all | profile state | symlink writes |
 | `native_fallback_cli_state` | Proposed | user + repo | 1 | 0-1 | all | native fallback | fallback writes |
 | `cache_backed_tooling_state` | Added | user + repo | 1 | implicit default | pi subset | cache | cache writes |

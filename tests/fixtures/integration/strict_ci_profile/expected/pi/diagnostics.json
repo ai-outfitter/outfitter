@@ -1,0 +1,4 @@
+{
+  "declaredSettingsError": "pi wrote 'settings.json' with state_persistence 'error' and it was not persisted.",
+  "unknownWriteError": "pi wrote undeclared tack state 'undeclared-state.json' and it was not persisted."
+}
