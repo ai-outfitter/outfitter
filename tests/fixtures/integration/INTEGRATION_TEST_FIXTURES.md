@@ -5,7 +5,7 @@ This catalog has two groups:
 1. Existing small profile-resolution fixtures already under `tests/fixtures/scenarios/`.
 2. Proposed full-directory integration fixtures for tack generation and state persistence under `tests/fixtures/integration/`.
 
-The proposed integration fixture names should usually describe the user/project situation, not the agent CLI. The same fixture should be usable from pi, Claude Code, and future adapter tests when possible. Adapter-specific expectations can live under `expected/pi/`, `expected/claude/`, or be asserted directly by adapter-specific test cases.
+Integration fixture names should usually describe the user/project situation, not the agent CLI. The same fixture should be usable from pi, Claude Code, and future adapter tests when possible. Adapter-specific expectations can live under `expected/pi/`, `expected/claude/`, or be asserted directly by adapter-specific test cases.
 
 ## Existing profile-resolution fixtures
 
@@ -49,7 +49,7 @@ A compact negative fixture where `engineering` inherits a missing profile id.
 
 Use it to verify missing inherited profile diagnostics.
 
-## Proposed integration fixtures
+## Integration fixtures
 
 ### `trivial_repo_only_profile`
 
@@ -59,7 +59,7 @@ This is the ordinary happy path: the repository defines one checked-in profile, 
 
 The selected repo profile should compose with the user's implicit default profile. The fixture should intentionally omit profile-owned CLI state files so adapter defaults fall through to native standard locations, such as each adapter's normal config/state directory.
 
-Use it as the first integration smoke test. It should run under multiple adapters and assert the selected profile, launch plan, generated tack basics, and native fallback state ownership.
+Use it as the first integration smoke test. It currently runs under pi and asserts the selected profile, launch plan, generated tack basics, and native fallback state ownership.
 
 Write-back focus: generated tack files must not rewrite repo or user profile YAML. Durable CLI state should go only to adapter-declared native fallback paths.
 
@@ -180,7 +180,7 @@ Write-back focus: replacement should be diagnosed as not persisted, and the orig
 | `profile-multiple-inheritance`         | Existing | none                | 1            | 2 parents        | none           | none            | none             |
 | `profile-cycle`                        | Existing | none                | 1            | cycle            | none           | none            | diagnostics      |
 | `profile-missing-inheritance`          | Existing | none                | 1            | missing          | none           | none            | diagnostics      |
-| `trivial_repo_only_profile`            | Proposed | user + repo         | 1            | implicit default | all            | native fallback | generated files  |
+| `trivial_repo_only_profile`            | Existing | user + repo         | 1            | implicit default | all            | native fallback | generated files  |
 | `heavily_overridden_engineering`       | Proposed | remote + 3          | 5            | 1-2              | all            | highest profile | source ownership |
 | `remote_baseline_local_selection`      | Proposed | remote + 3          | 1-2          | implicit default | all            | mixed           | source ownership |
 | `language_stack_with_personal_default` | Proposed | user + repo         | 1            | 2-3              | all            | native fallback | inherited output |
