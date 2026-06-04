@@ -73,6 +73,15 @@ describe('integration fixture tack generation', () => {
     const fixture = copyFixtureToTemp('language_stack_with_personal_default');
     const warnings: string[] = [];
     let tackSummary: unknown;
+    const inheritedProfilePaths = [
+      'home/.bridl/profiles/default/profile.yml',
+      'project/.bridl/profiles/repo-review-base/profile.yml',
+      'project/.bridl/profiles/language-typescript/profile.yml',
+      'project/.bridl/profiles/tooling-node-vitest/profile.yml',
+    ] as const;
+    const originalInheritedProfiles = new Map(
+      inheritedProfilePaths.map((profilePath) => [profilePath, readFixtureText(fixture, profilePath)]),
+    );
 
     const result = await runFixture(fixture, {
       profileId: 'typescript-review',
@@ -116,15 +125,8 @@ describe('integration fixture tack generation', () => {
     expect(readFileSync(join(fixture.home, '.pi', 'agent', 'settings.json'), 'utf8')).toBe(
       '{"language-stack":"updated"}\n',
     );
-    expect(readFixtureText(fixture, 'home/.bridl/profiles/default/profile.yml')).toContain('PERSONAL_DEFAULT');
-    expect(readFixtureText(fixture, 'project/.bridl/profiles/repo-review-base/profile.yml')).toContain(
-      'REPO_REVIEW_BASE',
-    );
-    expect(readFixtureText(fixture, 'project/.bridl/profiles/language-typescript/profile.yml')).toContain(
-      'LANGUAGE_STACK',
-    );
-    expect(readFixtureText(fixture, 'project/.bridl/profiles/tooling-node-vitest/profile.yml')).toContain(
-      'TOOLING_STACK',
-    );
+    for (const [profilePath, originalProfileYaml] of originalInheritedProfiles) {
+      expect(readFixtureText(fixture, profilePath)).toBe(originalProfileYaml);
+    }
   });
 });
