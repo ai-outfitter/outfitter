@@ -1,0 +1,82 @@
+{
+  "profileId": "stateful-review",
+  "agentId": "pi",
+  "launchCommand": "pi",
+  "launchArgs": [
+    "--model",
+    "pi-stateful-model",
+    "--provider",
+    "generic-provider",
+    "--thinking",
+    "medium",
+    "--session-dir",
+    "./sessions/stateful-review",
+    "--prompt-template",
+    "pi-review-template",
+    "--system-prompt",
+    "Review repository state using profile-owned CLI files.",
+    "--extension",
+    "generic-extension",
+    "--extension",
+    "team-extension",
+    "--skill",
+    "repo-audit",
+    "--pi-owned-state"
+  ],
+  "launchEnv": {
+    "PI_CODING_AGENT_DIR": "<tack>",
+    "PERSONAL_DEFAULT": "enabled",
+    "TEAM_BASE": "enabled",
+    "SELECTED_PROFILE": "stateful-review",
+    "PI_PROFILE_STATE": "profile-owned",
+    "SHARED_LAYER": "stateful-review"
+  },
+  "generatedProfile": {
+    "id": "stateful-review",
+    "label": "Stateful Repository Review",
+    "controls": {
+      "model": "generic-stateful-model",
+      "environment": {
+        "PERSONAL_DEFAULT": "enabled",
+        "SHARED_LAYER": "stateful-review",
+        "TEAM_BASE": "enabled",
+        "SELECTED_PROFILE": "stateful-review"
+      },
+      "args": ["--generic-review", "--personal-default"],
+      "provider": "generic-provider",
+      "thinking": "medium",
+      "extensions": ["generic-extension", "team-extension"],
+      "session_directory": "./sessions/stateful-review",
+      "skills": ["repo-audit"],
+      "system_prompt": "Review repository state using profile-owned CLI files.",
+      "pi": {
+        "model": "pi-stateful-model",
+        "environment": {
+          "PI_PROFILE_STATE": "profile-owned"
+        },
+        "args": ["--pi-owned-state"],
+        "prompt_template": "pi-review-template",
+        "promptTemplate": "pi-review-template"
+      },
+      "claude": {
+        "model": "claude-stateful-model",
+        "thinking": "low",
+        "environment": {
+          "CLAUDE_PROFILE_STATE": "profile-owned"
+        },
+        "args": ["--claude-owned-state"],
+        "system_prompt": "Claude should use profile-owned settings.",
+        "systemPrompt": "Claude should use profile-owned settings."
+      },
+      "sessionDirectory": "./sessions/stateful-review",
+      "systemPrompt": "Review repository state using profile-owned CLI files."
+    }
+  },
+  "stateTargets": {
+    "auth.json": "<project>/.bridl/profiles/stateful-review/cli_specific/pi/auth.json",
+    "settings.json": "<project>/.bridl/profiles/stateful-review/cli_specific/pi/settings.json",
+    "mcp.json": "<project>/.bridl/profiles/stateful-review/cli_specific/pi/mcp.json",
+    "plugins": "<project>/.bridl/profiles/stateful-review/cli_specific/pi/plugins",
+    "utilities": "<home>/.bridl/cache/utilities"
+  }
+}

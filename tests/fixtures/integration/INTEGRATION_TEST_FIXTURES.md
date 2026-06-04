@@ -189,7 +189,7 @@ Write-back focus: replacement should be diagnosed as not persisted, and the orig
 | `language_stack_with_personal_default` | Existing | user + repo | 1 | 2-3 | all | native fallback | inherited output |
 | `local_sandbox_overrides` | Existing | user + repo + local | 1-2 | 1 | all | temporary | local overrides |
 | `strict_ci_profile` | Existing | repo | 1 | 0-1 | all | temporary | errors |
-| `profile_owned_cli_state` | Proposed | user + repo | 1 | 0-1 | all | profile state | symlink writes |
+| `profile_owned_cli_state` | Existing | user + repo | 1 | 0-1 | all | profile state | symlink writes |
 | `native_fallback_cli_state` | Existing | user + repo | 1 | 0-1 | all | native fallback | fallback writes |
 | `cache_backed_tooling_state` | Existing | user + repo | 1 | 0 | adapter subset | cache | cache writes |
 | `adapter_specific_overrides` | Existing | user + repo | 1 | 0-1 | all | mixed | adapter controls |
@@ -208,7 +208,7 @@ Write-back focus: replacement should be diagnosed as not persisted, and the orig
 | `language_stack_with_personal_default` | Proposed | user + repo | 1 | 2-3 | all | native fallback | inherited output |
 | `local_sandbox_overrides` | Proposed | user + repo + local | 1-2 | 1 | all | temporary | local overrides |
 | `strict_ci_profile` | Existing | repo | 1 | 0-1 | all | temporary | errors |
-| `profile_owned_cli_state` | Proposed | user + repo | 1 | 0-1 | all | profile state | symlink writes |
+| `profile_owned_cli_state` | Existing | user + repo | 1 | 0-1 | all | profile state | symlink writes |
 | `native_fallback_cli_state` | Proposed | user + repo | 1 | 0-1 | all | native fallback | fallback writes |
 | `cache_backed_tooling_state` | Added | user + repo | 1 | implicit default | pi subset | cache | cache writes |
 | `adapter_specific_overrides` | Existing | user + repo | 1 | 0-1 | all | mixed | adapter controls |

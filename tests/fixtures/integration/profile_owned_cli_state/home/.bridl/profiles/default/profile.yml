@@ -1,0 +1,9 @@
+id: default
+label: Personal State Defaults
+controls:
+  model: personal-default-model
+  environment:
+    PERSONAL_DEFAULT: 'enabled'
+    SHARED_LAYER: personal-default
+  args:
+    - --personal-default

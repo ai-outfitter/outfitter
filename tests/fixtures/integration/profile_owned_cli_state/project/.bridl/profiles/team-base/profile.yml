@@ -1,0 +1,10 @@
+id: team-base
+label: Team Base Controls
+controls:
+  provider: team-provider
+  thinking: high
+  environment:
+    TEAM_BASE: 'enabled'
+    SHARED_LAYER: team-base
+  extensions:
+    - team-extension
