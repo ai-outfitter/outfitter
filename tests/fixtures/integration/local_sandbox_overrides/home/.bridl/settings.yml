@@ -1,0 +1,5 @@
+default_profile: developer-default
+default_agent: pi
+cache_directory: ./cache
+profile_sources:
+  - path: ./profiles
