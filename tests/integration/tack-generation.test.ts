@@ -129,4 +129,58 @@ describe('integration fixture tack generation', () => {
       expect(readFixtureText(fixture, profilePath)).toBe(originalProfileYaml);
     }
   });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-003.1, BRIDL-REQ-003.3).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('uses cached remote baseline settings while project-local settings select a local profile offline', async () => {
+    const fixture = copyFixtureToTemp('remote_baseline_local_selection');
+    const warnings: string[] = [];
+    let tackSummary: unknown;
+
+    const result = await runFixture(fixture, {
+      warnings,
+      launcher: {
+        launch(plan) {
+          const tackRoot = tackRootFromLaunchPlan(plan);
+          tackSummary = {
+            profileId: 'local-selection',
+            agentId: 'pi',
+            launchCommand: plan.command,
+            launchArgs: plan.args,
+            launchEnv: {
+              PI_CODING_AGENT_DIR: tokenizeFixturePath(fixture, plan.env.PI_CODING_AGENT_DIR, tackRoot),
+              LOCAL_SELECTION: plan.env.LOCAL_SELECTION,
+              PROJECT_PROFILE: plan.env.PROJECT_PROFILE,
+              REMOTE_BASELINE: plan.env.REMOTE_BASELINE,
+              SHARED_BASELINE: plan.env.SHARED_BASELINE,
+              SHARED_SELECTION: plan.env.SHARED_SELECTION,
+              USER_DEFAULT: plan.env.USER_DEFAULT,
+            },
+            ...(summarizePiTack(fixture, tackRoot) as Record<string, unknown>),
+          };
+
+          writeFileSync(join(tackRoot, 'bridl', 'profile.json'), '{"mutated":true}\n');
+          writeFileSync(join(tackRoot, 'settings.json'), '{"owner":"pi-write","source":"LOCAL_SELECTION"}\n');
+          writeFileSync(join(tackRoot, 'unexpected.txt'), 'unknown write\n');
+
+          return Promise.resolve(0);
+        },
+      },
+    });
+
+    expect(tackSummary).toEqual(readExpectedJson(fixture, 'pi/tack-summary.json'));
+    expect(result.profileId).toBe('local-selection');
+    expect(result.agentId).toBe('pi');
+    expect(result.warnings).toEqual(readExpectedJson(fixture, 'pi/warnings.json'));
+    expect(warnings).toEqual(result.warnings);
+    expect(
+      readFileSync(
+        join(fixture.project, '.bridl', 'local', 'profiles', 'local-selection', 'cli_specific', 'pi', 'settings.json'),
+        'utf8',
+      ),
+    ).toBe('{"owner":"pi-write","source":"LOCAL_SELECTION"}\n');
+    expect(readFixtureText(fixture, 'home/.bridl/settings.yml')).toContain('remote_settings');
+    expect(readFixtureText(fixture, 'project/.bridl/settings.yml')).not.toContain('default_profile');
+    expect(readFixtureText(fixture, 'project/.bridl/local/settings.yml')).toContain('default_profile: local-selection');
+  });
 });

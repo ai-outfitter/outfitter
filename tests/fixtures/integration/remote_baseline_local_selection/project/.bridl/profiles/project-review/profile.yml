@@ -1,0 +1,11 @@
+id: project-review
+label: Project Review
+inherits:
+  - remote-baseline
+controls:
+  model: project-review-model
+  environment:
+    PROJECT_PROFILE: enabled
+    SHARED_BASELINE: project
+  args:
+    - --project-review
