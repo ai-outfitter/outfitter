@@ -29,7 +29,6 @@ Bridl is organized around clear TypeScript source boundaries, requirement docume
 ├── .prettierignore                    # Prettier ignore rules
 ├── .prettierrc.json                   # Prettier formatting configuration
 ├── .snapperrc.toml                    # Snapper Markdown formatting configuration
-├── INTEGRATION_TEST_FIXTURES.md       # integration fixture catalog and planning table
 ├── plan.md                            # implementation plan
 ├── contributor.md                     # local install and contributor workflow guide
 ├── src/                               # production TypeScript source
@@ -78,7 +77,9 @@ Bridl is organized around clear TypeScript source boundaries, requirement docume
 │   └── run-snapper.mjs                # pinned Snapper binary downloader/runner
 ├── tests/                             # automated tests
 │   ├── fixtures/                      # reusable test fixtures
+│   │   ├── integration/               # fixture-backed integration scenarios and catalog
 │   │   └── scenarios/                 # realistic .bridl scenarios and expected outputs
+│   ├── integration/                   # integration tests and fixture harness
 │   └── unit/                          # unit tests grouped by functionality under test
 ├── package-lock.json                  # locked npm dependency graph
 └── package.json                       # npm package metadata and scripts
