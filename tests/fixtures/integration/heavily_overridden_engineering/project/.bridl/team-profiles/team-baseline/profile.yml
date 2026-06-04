@@ -1,0 +1,9 @@
+id: team-baseline
+label: Team Baseline
+controls:
+  provider: team-provider
+  environment:
+    TEAM_BASELINE: 'enabled'
+    BASE_SHARED: team-baseline
+  skills:
+    - code-review

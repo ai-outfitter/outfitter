@@ -1,0 +1,8 @@
+id: engineering
+label: Supplemental Engineering
+controls:
+  environment:
+    SUPPLEMENTAL_ONLY: 'enabled'
+    SHARED: supplemental
+    SOURCE_ORDER: supplemental
+  system_prompt: Supplemental engineering guardrails

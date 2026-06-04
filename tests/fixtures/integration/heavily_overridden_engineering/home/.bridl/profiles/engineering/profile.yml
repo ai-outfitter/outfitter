@@ -1,0 +1,9 @@
+id: engineering
+label: User Engineering Preferences
+controls:
+  environment:
+    USER_ONLY: 'enabled'
+    SHARED: user
+    SOURCE_ORDER: user
+  extensions:
+    - personal-lint

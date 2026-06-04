@@ -1,0 +1,10 @@
+id: engineering
+label: Remote Engineering Baseline
+controls:
+  model: remote-model
+  environment:
+    REMOTE_ONLY: 'enabled'
+    SHARED: remote
+    SOURCE_ORDER: remote
+  args:
+    - --remote-flag

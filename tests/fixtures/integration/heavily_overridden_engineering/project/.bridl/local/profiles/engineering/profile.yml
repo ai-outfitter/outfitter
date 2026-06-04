@@ -1,0 +1,23 @@
+id: engineering
+label: Local Engineering Override
+inherits:
+  - team-baseline
+state_persistence:
+  settings.json: symlink
+  unknown: warn
+controls:
+  model: local-model
+  thinking: high
+  environment:
+    LOCAL_ONLY: 'enabled'
+    SHARED: local
+    SOURCE_ORDER: local
+  args:
+    - --local-flag
+  pi:
+    model: local-pi-model
+    environment:
+      PI_ONLY: 'enabled'
+      PI_SHARED: local-pi
+    args:
+      - --pi-local-flag
