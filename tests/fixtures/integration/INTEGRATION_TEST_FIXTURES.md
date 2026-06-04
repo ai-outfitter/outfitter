@@ -192,7 +192,7 @@ Write-back focus: replacement should be diagnosed as not persisted, and the orig
 | `profile_owned_cli_state` | Proposed | user + repo | 1 | 0-1 | all | profile state | symlink writes |
 | `native_fallback_cli_state` | Existing | user + repo | 1 | 0-1 | all | native fallback | fallback writes |
 | `cache_backed_tooling_state` | Existing | user + repo | 1 | 0 | adapter subset | cache | cache writes |
-| `adapter_specific_overrides` | Proposed | user + repo | 1 | 0-1 | all | mixed | adapter controls |
+| `adapter_specific_overrides` | Existing | user + repo | 1 | 0-1 | all | mixed | adapter controls |
 | `state_path_replaced_by_agent` | Existing | user + repo | 1 | 0 | all | profile/native | symlink replaced |
 =======
 | Fixture | Status | Settings layers | Same-id defs | Inherit depth | Adapters | State owner | Mutation focus |
@@ -211,7 +211,7 @@ Write-back focus: replacement should be diagnosed as not persisted, and the orig
 | `profile_owned_cli_state` | Proposed | user + repo | 1 | 0-1 | all | profile state | symlink writes |
 | `native_fallback_cli_state` | Proposed | user + repo | 1 | 0-1 | all | native fallback | fallback writes |
 | `cache_backed_tooling_state` | Added | user + repo | 1 | implicit default | pi subset | cache | cache writes |
-| `adapter_specific_overrides` | Proposed | user + repo | 1 | 0-1 | all | mixed | adapter controls |
+| `adapter_specific_overrides` | Existing | user + repo | 1 | 0-1 | all | mixed | adapter controls |
 | `state_path_replaced_by_agent` | Proposed | user + repo | 1 | 0 | all | profile/native | symlink replaced |
 
 > > > > > > > 1ec01b1 (Add cache-backed tooling integration fixture):INTEGRATION_TEST_FIXTURES.md
