@@ -1,0 +1,8 @@
+id: default
+label: Personal Default
+controls:
+  environment:
+    USER_DEFAULT: 'enabled'
+    DEFAULT_SHARED: user-default
+    SHARED: user-default
+  append_system_prompt: Personal review preferences
