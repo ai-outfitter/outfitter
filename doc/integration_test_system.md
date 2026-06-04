@@ -13,7 +13,7 @@ The core risk is that a generated tack can look correct in isolated unit tests w
 - Traverse fixtures through the same public loading, resolution, tack assembly, and run/write detection paths used by commands.
 - Assert the resulting tack shape, symlinks, generated files, argv/env launch plan, warnings, and durable write results.
 - Make source ownership explicit enough that tests prove Bridl does not perform unsupported generic write-back into composed settings/profile inputs.
-- Keep fixtures reusable across tests and documented in the root-level fixture catalog.
+- Keep fixtures reusable across tests and documented in the integration fixture catalog.
 
 ## Non-goals
 
@@ -192,5 +192,5 @@ When adding or changing a fixture:
 1. Add or update the fixture root `README.md` in the same change.
 2. Add static fixture files under `home/`, `project/`, optional `cache/` or `native/`, and optional `expected/`.
 3. Add a Vitest integration test that copies the fixture, runs through command code, and asserts the tack/write-back behavior.
-4. Update `INTEGRATION_TEST_FIXTURES.md` when the fixture's scenario, status, or purpose changes.
+4. Update `tests/fixtures/integration/INTEGRATION_TEST_FIXTURES.md` when the fixture's scenario, status, or purpose changes.
 5. Run `npm run check-ci` before opening or updating the PR.
