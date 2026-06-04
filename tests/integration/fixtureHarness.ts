@@ -13,6 +13,7 @@ export interface IntegrationFixture {
   readonly root: string;
   readonly home: string;
   readonly project: string;
+  readonly cache: string;
   readonly expected: string;
 }
 
@@ -37,6 +38,7 @@ export const copyFixtureToTemp = (name: string): IntegrationFixture => {
     root,
     home: join(root, 'home'),
     project: join(root, 'project'),
+    cache: join(root, 'cache'),
     expected: join(root, 'expected'),
   };
 };
@@ -102,5 +104,6 @@ export const tokenizeFixturePath = (fixture: IntegrationFixture, path: string, t
   return path
     .replaceAll(fixture.home, '<home>')
     .replaceAll(fixture.project, '<project>')
+    .replaceAll(fixture.cache, '<cache>')
     .replaceAll(fixture.root, '<fixture>');
 };

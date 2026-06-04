@@ -19,7 +19,7 @@ requirements:
   fixture-project-required: >
     Every integration fixture set MUST have a project/ directory at its root.
   no-adapter-prefix-required: >
-    Fixture directory names SHOULD describe the scenario rather than beginning
+    Fixture directory names MUST describe the scenario rather than beginning
     with an adapter-specific prefix such as pi_ or claude_.
   optional-expected-shape: >
     If expected/ exists, adapter-specific expectations SHOULD be grouped under
