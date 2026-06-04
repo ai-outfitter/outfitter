@@ -1,0 +1,6 @@
+id: default
+label: Personal Defaults for State Replacement
+controls:
+  environment:
+    USER_DEFAULT: 'enabled'
+    SHARED_STATE_OWNER: user-default

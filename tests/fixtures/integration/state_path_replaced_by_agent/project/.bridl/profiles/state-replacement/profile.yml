@@ -1,0 +1,13 @@
+id: state-replacement
+label: State Path Replacement Regression
+state_persistence:
+  settings.json: symlink
+  sessions/: symlink
+  unknown: warn
+controls:
+  model: state-replacement-model
+  environment:
+    REPLACEMENT_PROFILE: 'enabled'
+    SHARED_STATE_OWNER: project-profile
+  args:
+    - --state-replacement

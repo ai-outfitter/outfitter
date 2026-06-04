@@ -78,8 +78,8 @@ Bridl is organized around clear TypeScript source boundaries, requirement docume
 ├── tests/                             # automated tests
 │   ├── fixtures/                      # reusable test fixtures
 │   │   ├── integration/               # fixture-backed integration scenarios and catalog
-│   │   └── scenarios/                 # realistic .bridl scenarios and expected outputs
-│   ├── integration/                   # integration tests and fixture harness
+│   │   └── scenarios/                 # compact profile-resolution scenarios and expected outputs
+│   ├── integration/                   # fixture-backed integration tests and harness helpers
 │   └── unit/                          # unit tests grouped by functionality under test
 ├── package-lock.json                  # locked npm dependency graph
 └── package.json                       # npm package metadata and scripts
@@ -87,7 +87,10 @@ Bridl is organized around clear TypeScript source boundaries, requirement docume
 
 The exact layout may evolve, but these boundaries should stay recognizable.
 
-## Test Scenario Fixtures
+## Test Fixtures
+
+Integration fixtures should live under `tests/fixtures/integration/` with full `home/`, `project/`, and optional
+`expected/` trees. Fixture-backed integration tests and shared harness helpers should live under `tests/integration/`.
 
 Scenario fixtures should live under `tests/fixtures/scenarios/`, for example:
 

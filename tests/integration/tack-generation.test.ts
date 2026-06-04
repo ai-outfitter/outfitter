@@ -1,5 +1,5 @@
 // Tests fixture-backed integration behavior for tack generation and state ownership.
-import { readFileSync, writeFileSync } from 'node:fs';
+import { lstatSync, mkdirSync, readFileSync, readlinkSync, unlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
@@ -182,5 +182,70 @@ describe('integration fixture tack generation', () => {
     expect(readFixtureText(fixture, 'home/.bridl/settings.yml')).toContain('remote_settings');
     expect(readFixtureText(fixture, 'project/.bridl/settings.yml')).not.toContain('default_profile');
     expect(readFixtureText(fixture, 'project/.bridl/local/settings.yml')).toContain('default_profile: local-selection');
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-005.6).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('diagnoses declared persistent state symlinks replaced by the agent without changing sources', async () => {
+    const fixture = copyFixtureToTemp('state_path_replaced_by_agent');
+    const warnings: string[] = [];
+    const sourceSettingsPath = join(
+      fixture.project,
+      '.bridl',
+      'profiles',
+      'state-replacement',
+      'cli_specific',
+      'pi',
+      'settings.json',
+    );
+    const sourceSessionsPath = join(
+      fixture.project,
+      '.bridl',
+      'profiles',
+      'state-replacement',
+      'cli_specific',
+      'pi',
+      'sessions',
+    );
+
+    const result = await runFixture(fixture, {
+      profileId: 'state-replacement',
+      agentId: 'pi',
+      warnings,
+      launcher: {
+        launch(plan) {
+          const tackRoot = tackRootFromLaunchPlan(plan);
+          const settingsPath = join(tackRoot, 'settings.json');
+          const sessionsPath = join(tackRoot, 'sessions');
+
+          expect(plan.env.REPLACEMENT_PROFILE).toBe('enabled');
+          expect(plan.env.SHARED_STATE_OWNER).toBe('project-profile');
+          expect(lstatSync(settingsPath).isSymbolicLink()).toBe(true);
+          expect(lstatSync(sessionsPath).isSymbolicLink()).toBe(true);
+          expect(readlinkSync(settingsPath)).toBe(sourceSettingsPath);
+          expect(readlinkSync(sessionsPath)).toBe(sourceSessionsPath);
+
+          unlinkSync(settingsPath);
+          writeFileSync(settingsPath, '{"agent":"replaced symlink with file"}\n');
+          unlinkSync(sessionsPath);
+          mkdirSync(sessionsPath);
+          writeFileSync(join(sessionsPath, 'replacement.log'), 'agent replaced symlink with directory\n');
+
+          return Promise.resolve(0);
+        },
+      },
+    });
+
+    expect(result.profileId).toBe('state-replacement');
+    expect(result.agentId).toBe('pi');
+    expect(result.warnings).toEqual(readExpectedJson(fixture, 'pi/warnings.json'));
+    expect(warnings).toEqual(result.warnings);
+    expect(readFileSync(sourceSettingsPath, 'utf8')).toBe('{ "profileOwned": "unchanged", "theme": "dark" }\n');
+    expect(readFileSync(join(sourceSessionsPath, 'session.txt'), 'utf8')).toBe(
+      'profile-owned session remains unchanged\n',
+    );
+    expect(readFixtureText(fixture, 'project/.bridl/profiles/state-replacement/profile.yml')).toContain(
+      'state_persistence',
+    );
   });
 });
