@@ -145,7 +145,9 @@ Write-back focus: writes persist only through declared native fallback symlinks.
 
 Location: `tests/fixtures/integration/cache_backed_tooling_state/`
 
-This fixture should configure an explicit `cache_directory`. Adapters with reusable helper, tooling, utility, or cache paths should use that cache rather than profile folders.
+Status: implemented for pi reusable tooling paths.
+
+This fixture configures an explicit `cache_directory`. Adapters with reusable helper, tooling, utility, or cache paths should use that cache rather than profile folders.
 
 Use it to verify cache reuse across temporary tacks.
 
@@ -173,21 +175,43 @@ Write-back focus: replacement should be diagnosed as not persisted, and the orig
 
 ## Summary matrix
 
-| Fixture                                | Status   | Settings layers     | Same-id defs | Inherit depth    | Adapters       | State owner     | Mutation focus   |
+<<<<<<< HEAD:tests/fixtures/integration/INTEGRATION_TEST_FIXTURES.md
+| Fixture | Status | Settings layers | Same-id defs | Inherit depth | Adapters | State owner | Mutation focus |
 | -------------------------------------- | -------- | ------------------- | ------------ | ---------------- | -------------- | --------------- | ---------------- |
-| `profile-precedence`                   | Existing | none                | 3            | 0                | none           | none            | none             |
-| `profile-inheritance-chain`            | Existing | none                | 1            | 1 + default      | none           | none            | none             |
-| `profile-multiple-inheritance`         | Existing | none                | 1            | 2 parents        | none           | none            | none             |
-| `profile-cycle`                        | Existing | none                | 1            | cycle            | none           | none            | diagnostics      |
-| `profile-missing-inheritance`          | Existing | none                | 1            | missing          | none           | none            | diagnostics      |
-| `trivial_repo_only_profile`            | Existing | user + repo         | 1            | implicit default | pi             | native fallback | generated files  |
-| `heavily_overridden_engineering`       | Proposed | remote + 3          | 5            | 1-2              | all            | highest profile | source ownership |
-| `remote_baseline_local_selection`      | Existing | remote + 3          | 1-2          | implicit default | all            | mixed           | source ownership |
-| `language_stack_with_personal_default` | Existing | user + repo         | 1            | 2-3              | all            | native fallback | inherited output |
-| `local_sandbox_overrides`              | Existing | user + repo + local | 1-2          | 1                | all            | temporary       | local overrides  |
-| `strict_ci_profile`                    | Proposed | repo                | 1            | 0-1              | all            | temporary       | errors           |
-| `profile_owned_cli_state`              | Proposed | user + repo         | 1            | 0-1              | all            | profile state   | symlink writes   |
-| `native_fallback_cli_state`            | Existing | user + repo         | 1            | 0-1              | all            | native fallback | fallback writes  |
-| `cache_backed_tooling_state`           | Proposed | user + repo         | 1            | 0                | adapter subset | cache           | cache writes     |
-| `adapter_specific_overrides`           | Proposed | user + repo         | 1            | 0-1              | all            | mixed           | adapter controls |
-| `state_path_replaced_by_agent`         | Existing | user + repo         | 1            | 0                | all            | profile/native  | symlink replaced |
+| `profile-precedence` | Existing | none | 3 | 0 | none | none | none |
+| `profile-inheritance-chain` | Existing | none | 1 | 1 + default | none | none | none |
+| `profile-multiple-inheritance` | Existing | none | 1 | 2 parents | none | none | none |
+| `profile-cycle` | Existing | none | 1 | cycle | none | none | diagnostics |
+| `profile-missing-inheritance` | Existing | none | 1 | missing | none | none | diagnostics |
+| `trivial_repo_only_profile` | Existing | user + repo | 1 | implicit default | pi | native fallback | generated files |
+| `heavily_overridden_engineering` | Proposed | remote + 3 | 5 | 1-2 | all | highest profile | source ownership |
+| `remote_baseline_local_selection` | Existing | remote + 3 | 1-2 | implicit default | all | mixed | source ownership |
+| `language_stack_with_personal_default` | Existing | user + repo | 1 | 2-3 | all | native fallback | inherited output |
+| `local_sandbox_overrides` | Existing | user + repo + local | 1-2 | 1 | all | temporary | local overrides |
+| `strict_ci_profile` | Proposed | repo | 1 | 0-1 | all | temporary | errors |
+| `profile_owned_cli_state` | Proposed | user + repo | 1 | 0-1 | all | profile state | symlink writes |
+| `native_fallback_cli_state` | Existing | user + repo | 1 | 0-1 | all | native fallback | fallback writes |
+| `cache_backed_tooling_state` | Existing | user + repo | 1 | 0 | adapter subset | cache | cache writes |
+| `adapter_specific_overrides` | Proposed | user + repo | 1 | 0-1 | all | mixed | adapter controls |
+| `state_path_replaced_by_agent` | Existing | user + repo | 1 | 0 | all | profile/native | symlink replaced |
+=======
+| Fixture | Status | Settings layers | Same-id defs | Inherit depth | Adapters | State owner | Mutation focus |
+| -------------------------------------- | -------- | ------------------- | ------------ | ---------------- | --------- | --------------- | ---------------- |
+| `profile-precedence` | Existing | none | 3 | 0 | none | none | none |
+| `profile-inheritance-chain` | Existing | none | 1 | 1 + default | none | none | none |
+| `profile-multiple-inheritance` | Existing | none | 1 | 2 parents | none | none | none |
+| `profile-cycle` | Existing | none | 1 | cycle | none | none | diagnostics |
+| `profile-missing-inheritance` | Existing | none | 1 | missing | none | none | diagnostics |
+| `trivial_repo_only_profile` | Proposed | user + repo | 1 | implicit default | all | native fallback | generated files |
+| `heavily_overridden_engineering` | Proposed | remote + 3 | 5 | 1-2 | all | highest profile | source ownership |
+| `remote_baseline_local_selection` | Proposed | remote + 3 | 1-2 | implicit default | all | mixed | source ownership |
+| `language_stack_with_personal_default` | Proposed | user + repo | 1 | 2-3 | all | native fallback | inherited output |
+| `local_sandbox_overrides` | Proposed | user + repo + local | 1-2 | 1 | all | temporary | local overrides |
+| `strict_ci_profile` | Proposed | repo | 1 | 0-1 | all | temporary | errors |
+| `profile_owned_cli_state` | Proposed | user + repo | 1 | 0-1 | all | profile state | symlink writes |
+| `native_fallback_cli_state` | Proposed | user + repo | 1 | 0-1 | all | native fallback | fallback writes |
+| `cache_backed_tooling_state` | Added | user + repo | 1 | implicit default | pi subset | cache | cache writes |
+| `adapter_specific_overrides` | Proposed | user + repo | 1 | 0-1 | all | mixed | adapter controls |
+| `state_path_replaced_by_agent` | Proposed | user + repo | 1 | 0 | all | profile/native | symlink replaced |
+
+> > > > > > > 1ec01b1 (Add cache-backed tooling integration fixture):INTEGRATION_TEST_FIXTURES.md

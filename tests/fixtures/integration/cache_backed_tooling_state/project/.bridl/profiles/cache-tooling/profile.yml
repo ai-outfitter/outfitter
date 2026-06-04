@@ -1,0 +1,9 @@
+id: cache-tooling
+label: Cache Backed Tooling State
+controls:
+  model: cache-tooling-model
+  environment:
+    CACHE_TOOLING_PROFILE: 'enabled'
+    TOOLING_OWNER: configured-cache
+  args:
+    - --cache-tooling

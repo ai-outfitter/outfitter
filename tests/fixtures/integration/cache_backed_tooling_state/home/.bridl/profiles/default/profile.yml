@@ -1,0 +1,7 @@
+id: default
+label: Personal Cache Defaults
+controls:
+  model: personal-cache-model
+  environment:
+    PERSONAL_CACHE_DEFAULT: 'enabled'
+    TOOLING_OWNER: user-default

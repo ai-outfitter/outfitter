@@ -411,4 +411,104 @@ describe('integration fixture tack generation', () => {
       'fallback-review-model',
     );
   });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-005.3, BRIDL-REQ-005.6).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('uses the configured cache directory for reusable pi tooling state across tacks', async () => {
+    const fixture = copyFixtureToTemp('cache_backed_tooling_state');
+    const warnings: string[] = [];
+    let tackSummary: unknown;
+    let secondRunObservedCachedUtility = false;
+
+    const firstResult = await runFixture(fixture, {
+      profileId: 'cache-tooling',
+      agentId: 'pi',
+      warnings,
+      launcher: {
+        launch(plan) {
+          const tackRoot = tackRootFromLaunchPlan(plan);
+          tackSummary = {
+            profileId: 'cache-tooling',
+            agentId: 'pi',
+            launchCommand: plan.command,
+            launchArgs: plan.args,
+            launchEnv: {
+              CACHE_TOOLING_PROFILE: plan.env.CACHE_TOOLING_PROFILE,
+              PERSONAL_CACHE_DEFAULT: plan.env.PERSONAL_CACHE_DEFAULT,
+              PI_CODING_AGENT_DIR: tokenizeFixturePath(fixture, plan.env.PI_CODING_AGENT_DIR, tackRoot),
+              TOOLING_OWNER: plan.env.TOOLING_OWNER,
+            },
+            generatedProfile: JSON.parse(readFileSync(join(tackRoot, 'bridl', 'profile.json'), 'utf8')) as unknown,
+            stateTargets: {
+              bin: tokenizeFixturePath(fixture, readlinkSync(join(tackRoot, 'bin')), tackRoot),
+              cache: tokenizeFixturePath(fixture, readlinkSync(join(tackRoot, 'cache')), tackRoot),
+              git: tokenizeFixturePath(fixture, readlinkSync(join(tackRoot, 'git')), tackRoot),
+              npm: tokenizeFixturePath(fixture, readlinkSync(join(tackRoot, 'npm')), tackRoot),
+              utilities: tokenizeFixturePath(fixture, readlinkSync(join(tackRoot, 'utilities')), tackRoot),
+            },
+          };
+
+          writeFileSync(join(tackRoot, 'utilities', 'from-utilities.txt'), 'installed through utilities\n');
+          writeFileSync(join(tackRoot, 'bin', 'from-bin.txt'), 'installed through bin\n');
+
+          return Promise.resolve(0);
+        },
+      },
+    });
+
+    const secondResult = await runFixture(fixture, {
+      profileId: 'cache-tooling',
+      agentId: 'pi',
+      warnings,
+      launcher: {
+        launch(plan) {
+          const tackRoot = tackRootFromLaunchPlan(plan);
+          secondRunObservedCachedUtility =
+            readFileSync(join(tackRoot, 'utilities', 'from-utilities.txt'), 'utf8') ===
+              'installed through utilities\n' &&
+            readFileSync(join(tackRoot, 'bin', 'from-bin.txt'), 'utf8') === 'installed through bin\n';
+
+          return Promise.resolve(0);
+        },
+      },
+    });
+
+    expect(tackSummary).toEqual(readExpectedJson(fixture, 'pi/tack-summary.json'));
+    expect(firstResult.profileId).toBe('cache-tooling');
+    expect(firstResult.agentId).toBe('pi');
+    expect(firstResult.warnings).toEqual(readExpectedJson(fixture, 'pi/warnings.json'));
+    expect(secondResult.warnings).toEqual(readExpectedJson(fixture, 'pi/warnings.json'));
+    expect(warnings).toEqual([]);
+    expect(secondRunObservedCachedUtility).toBe(true);
+    expect(readFileSync(join(fixture.root, 'cache', 'utilities', 'from-utilities.txt'), 'utf8')).toBe(
+      'installed through utilities\n',
+    );
+    expect(readFileSync(join(fixture.root, 'cache', 'utilities', 'from-bin.txt'), 'utf8')).toBe(
+      'installed through bin\n',
+    );
+    expect(existsSync(join(fixture.home, '.pi', 'agent', 'utilities', 'from-utilities.txt'))).toBe(false);
+    expect(existsSync(join(fixture.home, '.pi', 'agent', 'bin', 'from-bin.txt'))).toBe(false);
+    expect(
+      existsSync(
+        join(
+          fixture.project,
+          '.bridl',
+          'profiles',
+          'cache-tooling',
+          'cli_specific',
+          'pi',
+          'utilities',
+          'from-utilities.txt',
+        ),
+      ),
+    ).toBe(false);
+    expect(
+      existsSync(
+        join(fixture.project, '.bridl', 'profiles', 'cache-tooling', 'cli_specific', 'pi', 'bin', 'from-bin.txt'),
+      ),
+    ).toBe(false);
+    expect(readFixtureText(fixture, 'project/.bridl/profiles/cache-tooling/profile.yml')).toContain(
+      'CACHE_TOOLING_PROFILE',
+    );
+  });
 });
