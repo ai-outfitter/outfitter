@@ -13,6 +13,7 @@ Bridl is organized around clear TypeScript source boundaries, requirement docume
 │   ├── architecture.md                # architectural rationale and runtime file conventions
 │   ├── controllable-elements.md       # controllable element terminology and support matrix
 │   ├── file_structure.md              # repository file structure overview
+│   ├── integration_test_system.md     # fixture-backed integration test design
 │   ├── state_writeback_strategy.md    # tack state persistence and writeback design
 │   └── specs/                         # detailed supporting specs
 ├── doc_site/                          # Nextra/Next.js documentation website
@@ -28,6 +29,7 @@ Bridl is organized around clear TypeScript source boundaries, requirement docume
 ├── .prettierignore                    # Prettier ignore rules
 ├── .prettierrc.json                   # Prettier formatting configuration
 ├── .snapperrc.toml                    # Snapper Markdown formatting configuration
+├── INTEGRATION_TEST_FIXTURES.md       # integration fixture catalog and planning table
 ├── plan.md                            # implementation plan
 ├── contributor.md                     # local install and contributor workflow guide
 ├── src/                               # production TypeScript source
