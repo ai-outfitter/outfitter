@@ -312,4 +312,103 @@ describe('integration fixture tack generation', () => {
       'settings.json: warn',
     );
   });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-005.3, BRIDL-REQ-005.6).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('creates and owns pi native fallback state when profiles provide no cli-specific state', async () => {
+    const fixture = copyFixtureToTemp('native_fallback_cli_state');
+    const warnings: string[] = [];
+    let tackSummary: unknown;
+
+    const result = await runFixture(fixture, {
+      profileId: 'fallback-review',
+      agentId: 'pi',
+      warnings,
+      launcher: {
+        launch(plan) {
+          const tackRoot = tackRootFromLaunchPlan(plan);
+          tackSummary = {
+            profileId: 'fallback-review',
+            agentId: 'pi',
+            launchCommand: plan.command,
+            launchArgs: plan.args,
+            launchEnv: {
+              PI_CODING_AGENT_DIR: tokenizeFixturePath(fixture, plan.env.PI_CODING_AGENT_DIR, tackRoot),
+              FALLBACK_LAYER: plan.env.FALLBACK_LAYER,
+              PROJECT_NATIVE_FALLBACK: plan.env.PROJECT_NATIVE_FALLBACK,
+              USER_NATIVE_DEFAULT: plan.env.USER_NATIVE_DEFAULT,
+            },
+            generatedProfile: JSON.parse(readFileSync(join(tackRoot, 'bridl', 'profile.json'), 'utf8')) as unknown,
+            stateTargets: Object.fromEntries(
+              [
+                'auth.json',
+                'settings.json',
+                'mcp.json',
+                'plugins',
+                'cache',
+                'sessions',
+                'npm',
+                'git',
+                'utilities',
+                'bin',
+              ].map((relativePath) => [
+                relativePath,
+                tokenizeFixturePath(fixture, readlinkSync(join(tackRoot, relativePath)), tackRoot),
+              ]),
+            ),
+          };
+
+          writeFileSync(join(tackRoot, 'auth.json'), '{"token":"native-auth"}\n');
+          writeFileSync(join(tackRoot, 'settings.json'), '{"approval":"on-request"}\n');
+          writeFileSync(join(tackRoot, 'mcp.json'), '{"servers":{}}\n');
+          writeFileSync(join(tackRoot, 'plugins', 'review.json'), '{"enabled":true}\n');
+          writeFileSync(join(tackRoot, 'cache', 'index.json'), '{"cached":true}\n');
+          writeFileSync(join(tackRoot, 'sessions', 'session.json'), '{"id":"fixture-session"}\n');
+          writeFileSync(join(tackRoot, 'npm', 'package.json'), '{"name":"fixture-package"}\n');
+          writeFileSync(join(tackRoot, 'git', 'checkout.json'), '{"repo":"fixture-repo"}\n');
+          writeFileSync(join(tackRoot, 'utilities', 'tool.txt'), 'utility cache\n');
+          writeFileSync(join(tackRoot, 'bin', 'pi-helper'), 'helper cache\n');
+          writeFileSync(join(tackRoot, 'bridl', 'profile.json'), '{"mutated":true}\n');
+          mkdirSync(join(tackRoot, 'scratch'), { recursive: true });
+          writeFileSync(join(tackRoot, 'scratch', 'native-note.txt'), 'undeclared write\n');
+
+          return Promise.resolve(0);
+        },
+      },
+    });
+
+    expect(tackSummary).toEqual(readExpectedJson(fixture, 'pi/tack-summary.json'));
+    expect(result.profileId).toBe('fallback-review');
+    expect(result.agentId).toBe('pi');
+    expect(result.warnings).toEqual(readExpectedJson(fixture, 'pi/warnings.json'));
+    expect(warnings).toEqual(result.warnings);
+    expect(existsSync(join(fixture.project, '.bridl', 'profiles', 'fallback-review', 'cli_specific'))).toBe(false);
+    expect(readFileSync(join(fixture.home, '.pi', 'agent', 'auth.json'), 'utf8')).toBe('{"token":"native-auth"}\n');
+    expect(readFileSync(join(fixture.home, '.pi', 'agent', 'settings.json'), 'utf8')).toBe(
+      '{"approval":"on-request"}\n',
+    );
+    expect(readFileSync(join(fixture.home, '.pi', 'agent', 'mcp.json'), 'utf8')).toBe('{"servers":{}}\n');
+    expect(readFileSync(join(fixture.home, '.pi', 'agent', 'plugins', 'review.json'), 'utf8')).toBe(
+      '{"enabled":true}\n',
+    );
+    expect(readFileSync(join(fixture.home, '.pi', 'agent', 'cache', 'index.json'), 'utf8')).toBe('{"cached":true}\n');
+    expect(readFileSync(join(fixture.home, '.pi', 'agent', 'sessions', 'session.json'), 'utf8')).toBe(
+      '{"id":"fixture-session"}\n',
+    );
+    expect(readFileSync(join(fixture.home, '.pi', 'agent', 'npm', 'package.json'), 'utf8')).toBe(
+      '{"name":"fixture-package"}\n',
+    );
+    expect(readFileSync(join(fixture.home, '.pi', 'agent', 'git', 'checkout.json'), 'utf8')).toBe(
+      '{"repo":"fixture-repo"}\n',
+    );
+    expect(readFileSync(join(fixture.home, '.bridl', 'cache', 'utilities', 'tool.txt'), 'utf8')).toBe(
+      'utility cache\n',
+    );
+    expect(readFileSync(join(fixture.home, '.bridl', 'cache', 'utilities', 'pi-helper'), 'utf8')).toBe(
+      'helper cache\n',
+    );
+    expect(readFixtureText(fixture, 'project/.bridl/profiles/fallback-review/profile.yml')).toContain(
+      'fallback-review-model',
+    );
+  });
 });
