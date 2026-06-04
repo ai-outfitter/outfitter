@@ -182,7 +182,7 @@ Write-back focus: replacement should be diagnosed as not persisted, and the orig
 | `profile-missing-inheritance`          | Existing | none                | 1            | missing          | none           | none            | diagnostics      |
 | `trivial_repo_only_profile`            | Existing | user + repo         | 1            | implicit default | pi             | native fallback | generated files  |
 | `heavily_overridden_engineering`       | Proposed | remote + 3          | 5            | 1-2              | all            | highest profile | source ownership |
-| `remote_baseline_local_selection`      | Proposed | remote + 3          | 1-2          | implicit default | all            | mixed           | source ownership |
+| `remote_baseline_local_selection`      | Existing | remote + 3          | 1-2          | implicit default | all            | mixed           | source ownership |
 | `language_stack_with_personal_default` | Existing | user + repo         | 1            | 2-3              | all            | native fallback | inherited output |
 | `local_sandbox_overrides`              | Proposed | user + repo + local | 1-2          | 1                | all            | temporary       | local overrides  |
 | `strict_ci_profile`                    | Proposed | repo                | 1            | 0-1              | all            | temporary       | errors           |
