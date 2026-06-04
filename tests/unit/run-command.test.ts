@@ -167,6 +167,13 @@ describe('run command', () => {
       { homeDirectory, projectDirectory },
       {
         writeLine: (message) => messages.push(message),
+        synchronizer: {
+          sync(_source, cachePath) {
+            mkdirSync(join(cachePath, 'profiles', 'engineer'), { recursive: true });
+            writeFileSync(join(cachePath, 'profiles', 'engineer', 'profile.yml'), 'id: engineer\ncontrols: {}\n');
+            return 'updated';
+          },
+        },
         launcher: {
           launch() {
             return Promise.resolve(0);
@@ -177,15 +184,16 @@ describe('run command', () => {
 
     expect(messages).toEqual([
       '`bridl setup` has not been run yet - running now',
-      '→ resolving profile default',
-      `✓ profile layer default  ${join(homeDirectory, '.bridl', 'profiles', 'default')}`,
+      '→ resolving profile engineer',
+      `✓ profile layer engineer  ${join(homeDirectory, '.bridl', 'profiles', 'engineer')}`,
+      '✓ profile layer engineer  github:Unsupervisedcom/applepi-default-profiles@main/profiles',
       '✓ merged controls',
       `✓ prepared tack  ${result.tackDirectory}`,
       '↳ launching pi …',
     ]);
-    expect(result.profileId).toBe('default');
+    expect(result.profileId).toBe('engineer');
     expect(existsSync(join(homeDirectory, '.bridl', 'settings.yml'))).toBe(true);
-    expect(existsSync(join(homeDirectory, '.bridl', 'profiles', 'default', 'profile.yml'))).toBe(true);
+    expect(existsSync(join(homeDirectory, '.bridl', 'profiles', 'engineer', 'profile.yml'))).toBe(true);
   });
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-005.1, BRIDL-REQ-006.1).

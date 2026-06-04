@@ -68,7 +68,7 @@ export const executeRunCommand = async (
   input: RunCommandInput,
   dependencies: RunCommandDependencies = {},
 ): Promise<RunCommandResult> => {
-  runSetupIfNeeded(input, dependencies);
+  await runSetupIfNeeded(input, dependencies);
   const resolvedProfile = loadResolvedProfile(input);
   const adapter =
     dependencies.adapter ?? createAgentAdapter(selectRunAgentId(input.agentId, resolvedProfile.settings.defaultAgent));
@@ -316,7 +316,7 @@ const formatTackStateWriteIssue = (adapterId: string, issue: TackStateWriteIssue
   return `${adapterId} wrote '${issue.relativePath}' with state_persistence '${issue.strategy}' and it was not persisted.`;
 };
 
-const runSetupIfNeeded = (input: RunCommandInput, dependencies: RunCommandDependencies): void => {
+const runSetupIfNeeded = async (input: RunCommandInput, dependencies: RunCommandDependencies): Promise<void> => {
   const settingsPath = join(input.homeDirectory, '.bridl', 'settings.yml');
 
   if (existsSync(settingsPath)) {
@@ -325,7 +325,7 @@ const runSetupIfNeeded = (input: RunCommandInput, dependencies: RunCommandDepend
 
   /* v8 ignore next -- console fallback is direct CLI behavior; tests inject a writer. */
   (dependencies.writeLine ?? console.log)('`bridl setup` has not been run yet - running now');
-  executeSetupCommand(input, dependencies);
+  await executeSetupCommand(input, dependencies);
 };
 
 const loadResolvedProfile = (input: RunCommandInput): ResolvedRunProfile => {
