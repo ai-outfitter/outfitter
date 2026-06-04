@@ -187,7 +187,7 @@ Write-back focus: replacement should be diagnosed as not persisted, and the orig
 | `local_sandbox_overrides`              | Existing | user + repo + local | 1-2          | 1                | all            | temporary       | local overrides  |
 | `strict_ci_profile`                    | Proposed | repo                | 1            | 0-1              | all            | temporary       | errors           |
 | `profile_owned_cli_state`              | Proposed | user + repo         | 1            | 0-1              | all            | profile state   | symlink writes   |
-| `native_fallback_cli_state`            | Proposed | user + repo         | 1            | 0-1              | all            | native fallback | fallback writes  |
+| `native_fallback_cli_state`            | Existing | user + repo         | 1            | 0-1              | all            | native fallback | fallback writes  |
 | `cache_backed_tooling_state`           | Proposed | user + repo         | 1            | 0                | adapter subset | cache           | cache writes     |
 | `adapter_specific_overrides`           | Proposed | user + repo         | 1            | 0-1              | all            | mixed           | adapter controls |
 | `state_path_replaced_by_agent`         | Existing | user + repo         | 1            | 0                | all            | profile/native  | symlink replaced |
