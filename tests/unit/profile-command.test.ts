@@ -1,4 +1,4 @@
-// Tests create-profile command behavior.
+// Tests profile command behavior.
 import { existsSync, mkdtempSync, mkdirSync, rmSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -7,16 +7,18 @@ import { Command } from 'commander';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import {
+  createProfileCommand,
   executeCreateProfileCommand,
-  createCreateProfileCommand,
-} from '../../src/cli/commands/CreateProfileCommand.js';
+  executeListProfilesCommand,
+} from '../../src/cli/commands/ProfileCommand.js';
 import { createSetupCommand } from '../../src/cli/commands/SetupCommand.js';
 import { createSyncCommand } from '../../src/cli/commands/SyncCommand.js';
+import { createProfileSourceCachePath, createRemoteRepositoryCachePath } from '../../src/profiles/ProfileCache.js';
 
 const temporaryRoots: string[] = [];
 
 const createTemporaryRoot = (): string => {
-  const root = mkdtempSync(join(tmpdir(), 'applepi-create-profile-command-'));
+  const root = mkdtempSync(join(tmpdir(), 'applepi-profile-command-'));
   temporaryRoots.push(root);
   return root;
 };
@@ -27,16 +29,22 @@ const writeSettings = (homeDirectory: string, content: string): void => {
   writeFileSync(join(settingsDirectory, 'settings.yml'), content);
 };
 
+const writeProfile = (profilesRoot: string, id: string, content = `id: ${id}\ncontrols: {}\n`): void => {
+  const profileDirectory = join(profilesRoot, id);
+  mkdirSync(profileDirectory, { recursive: true });
+  writeFileSync(join(profileDirectory, 'profile.yml'), content);
+};
+
 afterEach(() => {
   for (const root of temporaryRoots.splice(0)) {
     rmSync(root, { recursive: true, force: true });
   }
 });
 
-describe('create-profile command', () => {
+describe('profile command', () => {
   // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-004.3).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
-  it('creates placeholder profiles by scope or path and exposes create-profile as the same command alias', () => {
+  it('creates placeholder profiles by scope or path under profile create', async () => {
     const root = createTemporaryRoot();
     const homeDirectory = join(root, 'home');
     const projectDirectory = join(root, 'project');
@@ -79,14 +87,19 @@ describe('create-profile command', () => {
         .createdProfile,
     ).toBe(false);
 
+    const messages: string[] = [];
     const program = new Command();
-    createCreateProfileCommand().register(program);
-    expect(program.commands[0]?.aliases()).toEqual(['create-profile']);
+    createProfileCommand({ homeDirectory, projectDirectory, writeLine: (message) => messages.push(message) }).register(
+      program,
+    );
+    await program.parseAsync(['node', 'applepi', 'profile', 'create', 'valid', '--path', join(root, 'cli-profiles')]);
+
+    expect(messages).toContainEqual(expect.stringContaining("Created profile 'valid'"));
   });
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-004.3, APPLEPI-REQ-004.4).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
-  it('rejects invalid create_profile inputs and wires command actions to the command object executors', async () => {
+  it('rejects invalid profile create inputs and missing command arguments', async () => {
     const root = createTemporaryRoot();
     const homeDirectory = join(root, 'home');
     const projectDirectory = join(root, 'project');
@@ -101,36 +114,29 @@ describe('create-profile command', () => {
       executeCreateProfileCommand({ name: 'valid', scope: 'user', path: root, homeDirectory, projectDirectory }),
     ).toThrow('requires exactly one destination');
 
-    const messages: string[] = [];
-    const createProgram = new Command();
-    createCreateProfileCommand({
-      homeDirectory,
-      projectDirectory,
-      writeLine: (message) => messages.push(message),
-    }).register(createProgram);
-    await createProgram.parseAsync([
-      'node',
-      'applepi',
-      'create-profile',
-      'valid',
-      '--path',
-      join(root, 'cli-profiles'),
-    ]);
-    expect(messages).toContainEqual(expect.stringContaining("Created profile 'valid'"));
-    await createProgram.parseAsync(['node', 'applepi', 'create_profile', 'scoped', '--scope', 'user']);
+    const program = new Command();
+    createProfileCommand({ homeDirectory, projectDirectory, writeLine: () => undefined }).register(program);
+    await program.parseAsync(['node', 'applepi', 'profile', 'create', 'scoped', '--scope', 'user']);
     expect(existsSync(join(homeDirectory, '.applepi', 'profiles', 'scoped', 'profile.yml'))).toBe(true);
     await expect(
-      createProgram.parseAsync(['node', 'applepi', 'create_profile', 'valid', '--scope', 'invalid']),
+      program.parseAsync(['node', 'applepi', 'profile', 'create', 'valid', '--scope', 'invalid']),
     ).rejects.toThrow("Unknown profile scope 'invalid'");
 
     const missingNameProgram = new Command();
     missingNameProgram.exitOverride();
     missingNameProgram.configureOutput({ writeErr: () => undefined });
-    createCreateProfileCommand({ homeDirectory, projectDirectory }).register(missingNameProgram);
+    createProfileCommand({ homeDirectory, projectDirectory }).register(missingNameProgram);
     await expect(
-      missingNameProgram.parseAsync(['node', 'applepi', 'create_profile', '--scope', 'user']),
+      missingNameProgram.parseAsync(['node', 'applepi', 'profile', 'create', '--scope', 'user']),
     ).rejects.toThrow("missing required argument 'name'");
+  });
 
+  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-004.5).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('wires setup and sync command actions to command object executors', async () => {
+    const root = createTemporaryRoot();
+    const homeDirectory = join(root, 'home');
+    const projectDirectory = join(root, 'project');
     const syncMessages: string[] = [];
     const syncProgram = new Command();
     writeSettings(homeDirectory, 'default_profile: default\n');
@@ -162,5 +168,70 @@ describe('create-profile command', () => {
     await setupProgram.parseAsync(['node', 'applepi', 'setup']);
     expect(setupMessages).toContain('Welcome to ApplePi. ApplePi is the easiest way to run Pi.');
     expect(setupMessages).toContainEqual(expect.stringContaining('Created user settings'));
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-004.5).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('lists unique profiles from configured local and cached remote sources', async () => {
+    const root = createTemporaryRoot();
+    const homeDirectory = join(root, 'home');
+    const projectDirectory = join(root, 'project');
+    const localProfiles = join(homeDirectory, '.applepi', 'profiles');
+    const remoteSource = { github: 'example/team-profiles', ref: 'main', path: 'profiles' };
+    const uri = 'https://example.test/plain-profiles.git';
+    const remoteProfiles = join(createRemoteRepositoryCachePath(homeDirectory, remoteSource), 'profiles');
+    const uriProfiles = createProfileSourceCachePath(homeDirectory, uri);
+    writeSettings(
+      homeDirectory,
+      [
+        'profile_sources:',
+        '  - path: ./profiles',
+        '  - github: example/team-profiles',
+        '    ref: main',
+        '    path: profiles',
+        `  - uri: ${uri}`,
+        '',
+      ].join('\n'),
+    );
+    writeProfile(localProfiles, 'engineering', 'id: engineering\nlabel: User Engineering\ncontrols: {}\n');
+    writeProfile(localProfiles, 'research');
+    writeProfile(remoteProfiles, 'engineering', 'id: engineering\nlabel: Remote Engineering\ncontrols: {}\n');
+    writeProfile(remoteProfiles, 'support');
+    writeProfile(uriProfiles, 'plain-uri');
+
+    const result = executeListProfilesCommand({ homeDirectory, projectDirectory });
+
+    expect(result.profiles.map((profile) => profile.id)).toEqual(['engineering', 'plain-uri', 'research', 'support']);
+    expect(result.profiles.find((profile) => profile.id === 'engineering')?.label).toBe('Remote Engineering');
+    expect(result.messages).toEqual(['engineering', 'plain-uri', 'research', 'support']);
+
+    const messages: string[] = [];
+    const program = new Command();
+    createProfileCommand({ homeDirectory, projectDirectory, writeLine: (message) => messages.push(message) }).register(
+      program,
+    );
+    await program.parseAsync(['node', 'applepi', 'profile', 'list']);
+    expect(messages).toEqual(['engineering', 'plain-uri', 'research', 'support']);
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-004.5).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('reports empty profile lists and invalid list inputs', () => {
+    const root = createTemporaryRoot();
+    const homeDirectory = join(root, 'home');
+    const projectDirectory = join(root, 'project');
+    writeSettings(homeDirectory, 'profile_sources: []\n');
+
+    expect(executeListProfilesCommand({ homeDirectory, projectDirectory }).messages).toEqual(['No profiles found.']);
+
+    writeSettings(homeDirectory, 'profile_sources:\n  - only: [bad]\n');
+    expect(() => executeListProfilesCommand({ homeDirectory, projectDirectory })).toThrow(
+      'Cannot list profiles with invalid settings',
+    );
+
+    writeSettings(homeDirectory, 'profile_sources:\n  - path: ./missing\n');
+    expect(() => executeListProfilesCommand({ homeDirectory, projectDirectory })).toThrow(
+      'Cannot list profiles with invalid profiles',
+    );
   });
 });

@@ -694,16 +694,27 @@ Responsibilities:
 - report whether each source was updated, unchanged, skipped, or failed;
 - redact credentials embedded in source URIs from user-facing output.
 
-### `applepi create_profile`
+### `applepi profile list`
+
+Lists profile IDs from configured local and cached remote profile sources.
+
+Responsibilities:
+
+- read and validate settings;
+- load configured local and cached remote profile sources;
+- report unique profile IDs deterministically;
+- use the highest-precedence loaded definition when duplicate profile IDs exist.
+
+### `applepi profile create`
 
 Creates a placeholder profile folder at a requested scope.
 
 Example shape:
 
 ```bash
-applepi create_profile engineering --scope user
-applepi create_profile support --scope project
-applepi create_profile sandbox --scope project-local
+applepi profile create engineering --scope user
+applepi profile create support --scope project
+applepi profile create sandbox --scope project-local
 ```
 
 Responsibilities:
@@ -775,6 +786,6 @@ Each scenario should include realistic `.applepi` folders and expected resolutio
 2. ApplePi uses Commander for CLI parsing.
 3. ApplePi uses Vitest with V8 coverage for tests.
 4. ApplePi profile IDs are filesystem-safe slugs; optional display names can carry spaces or punctuation.
-5. The public profile-creation command is `create_profile` to match the product requirement, with `create-profile` as an alias.
+5. Profile-management commands use a resource namespace: `profile list` and `profile create`.
 6. URI profile source lockfiles are deferred beyond v1; v1 sync records cache metadata but does not require lockfile-driven reproducibility.
 7. Claude Code is supported as an additional adapter, while pi remains the default adapter.
