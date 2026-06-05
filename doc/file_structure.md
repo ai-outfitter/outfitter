@@ -55,6 +55,9 @@ ApplePi is organized around clear TypeScript source boundaries, requirement docu
 │   │   ├── ProfileLoader.ts
 │   │   ├── ProfileMerger.ts
 │   │   └── ProfileSource.ts
+│   ├── merge/                         # reusable deterministic value and array merge policy helpers
+│   │   ├── ArrayMergePolicy.ts
+│   │   └── SettingsValueMerger.ts
 │   ├── composite profile/                          # generated runtime composite profile assembly and watching
 │   │   ├── Composite profile.ts
 │   │   ├── Composite profileAssembler.ts

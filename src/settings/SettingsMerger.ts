@@ -1,5 +1,6 @@
 // Provides deterministic Settings merge scaffolding.
-import type { CustomSettings, Settings, SettingsValue } from './Settings.js';
+import { mergeObjectsWithPolicy } from '../merge/SettingsValueMerger.js';
+import type { CustomSettings, Settings } from './Settings.js';
 import { emptySettings } from './Settings.js';
 
 export const mergeSettingsStack = (settingsStack: readonly Settings[]): Settings => {
@@ -40,25 +41,4 @@ const mergeOptionalCustomSettings = (
 const mergeCustomSettings = (
   lowerPrecedence: CustomSettings | undefined,
   higherPrecedence: CustomSettings,
-): CustomSettings => mergeSettingsValue(lowerPrecedence ?? {}, higherPrecedence);
-
-const mergeSettingsValue = (lowerPrecedence: CustomSettings, higherPrecedence: CustomSettings): CustomSettings => ({
-  ...lowerPrecedence,
-  ...Object.fromEntries(
-    Object.entries(higherPrecedence).map(([key, value]) => [
-      key,
-      key in lowerPrecedence ? mergeSettingsMember(lowerPrecedence[key], value) : value,
-    ]),
-  ),
-});
-
-const mergeSettingsMember = (lowerPrecedence: SettingsValue, higherPrecedence: SettingsValue): SettingsValue => {
-  if (isPlainSettingsObject(lowerPrecedence) && isPlainSettingsObject(higherPrecedence)) {
-    return mergeSettingsValue(lowerPrecedence, higherPrecedence);
-  }
-
-  return higherPrecedence;
-};
-
-const isPlainSettingsObject = (value: SettingsValue): value is CustomSettings =>
-  value !== null && typeof value === 'object' && !Array.isArray(value);
+): CustomSettings => mergeObjectsWithPolicy(lowerPrecedence, higherPrecedence);
