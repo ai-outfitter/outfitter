@@ -98,6 +98,7 @@ describe('live composite profile update state accounting', () => {
             return [];
           },
         },
+        writeLine: () => undefined,
         launcher: {
           async launch(plan) {
             expect(readFileSync(join(plan.env.MOCK_AGENT_DIR, 'generated.txt'), 'utf8')).toBe('Initial\n');

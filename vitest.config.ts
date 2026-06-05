@@ -5,7 +5,7 @@ const coverage = {
   all: true,
   include: ['src/**/*.ts'],
   provider: 'v8' as const,
-  reporter: ['text', 'html'],
+  reporter: ['text-summary', 'html'],
   thresholds: {
     statements: 100,
     branches: 100,
@@ -17,5 +17,7 @@ const coverage = {
 export default defineConfig({
   test: {
     coverage,
+    reporters: ['dot'],
+    setupFiles: ['tests/setup.ts'],
   },
 });
