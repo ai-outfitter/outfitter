@@ -1,4 +1,8 @@
 // Tests pi adapter translation behavior.
+import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
 import { describe, expect, it } from 'vitest';
 
 import { createPiAdapter } from '../../src/agents/pi/PiAdapter.js';
@@ -111,4 +115,108 @@ describe('pi adapter', () => {
       ]);
     }
   });
+
+  it('transforms pi settings packages when profile extensions would duplicate native packages', () => {
+    const { homeDirectory, settingsPath } = createPiSettingsTestHome();
+    writeFileSync(
+      settingsPath,
+      JSON.stringify({
+        packages: [
+          'npm:pi-subagents',
+          { source: 'npm:kept-package', extensions: ['index.ts'] },
+          { source: 'git+https://github.com/applepi-ai/deepwork.git#main' },
+          { source: 42, note: 'kept because it has no string source' },
+          null,
+        ],
+        theme: 'dark',
+      }),
+    );
+
+    const adapter = createPiAdapter();
+    const compositeProfilePlan = adapter.createCompositeProfile(
+      {
+        id: 'engineering',
+        inherits: [],
+        controls: {
+          pi: {
+            extensions: ['npm:pi-subagents@2', 'git:github.com/applepi-ai/deepwork#v1'],
+          },
+        },
+      },
+      {
+        rootDirectory: '/tmp/applepi-engineering-pi-456',
+        profilePaths: ['/profiles/engineering/profile.yml'],
+        homeDirectory,
+      },
+    );
+
+    const transformedSettings = compositeProfilePlan.compositeProfile.files.find(
+      (file) => file.relativePath === 'settings.json',
+    );
+
+    expect(transformedSettings?.sourceInputs).toEqual([settingsPath, '/profiles/engineering/profile.yml']);
+    expect(JSON.parse(transformedSettings?.content ?? '{}')).toEqual({
+      packages: [
+        { source: 'npm:kept-package', extensions: ['index.ts'] },
+        { source: 42, note: 'kept because it has no string source' },
+        null,
+      ],
+      theme: 'dark',
+    });
+    expect(
+      compositeProfilePlan.compositeProfile.statePaths.some((statePath) => statePath.relativePath === 'settings.json'),
+    ).toBe(false);
+  });
+
+  it('keeps native pi settings state when settings do not need reconciliation or cannot be parsed', () => {
+    const noDuplicate = createPiSettingsTestHome();
+    writeFileSync(noDuplicate.settingsPath, JSON.stringify({ packages: ['npm:kept-package'] }));
+
+    const invalid = createPiSettingsTestHome();
+    writeFileSync(invalid.settingsPath, 'not json');
+
+    const nonObject = createPiSettingsTestHome();
+    writeFileSync(nonObject.settingsPath, '[]');
+
+    const malformedPackages = createPiSettingsTestHome();
+    writeFileSync(malformedPackages.settingsPath, JSON.stringify({ packages: {} }));
+
+    const adapter = createPiAdapter();
+    const profile = {
+      id: 'engineering',
+      inherits: [],
+      controls: { pi: { extensions: ['npm:pi-subagents'] } },
+    };
+
+    for (const homeDirectory of [
+      noDuplicate.homeDirectory,
+      invalid.homeDirectory,
+      nonObject.homeDirectory,
+      malformedPackages.homeDirectory,
+    ]) {
+      const compositeProfilePlan = adapter.createCompositeProfile(profile, {
+        rootDirectory: '/tmp/applepi-engineering-pi-789',
+        profilePaths: ['/profiles/engineering/profile.yml'],
+        homeDirectory,
+      });
+
+      expect(compositeProfilePlan.compositeProfile.files.some((file) => file.relativePath === 'settings.json')).toBe(
+        false,
+      );
+      expect(
+        compositeProfilePlan.compositeProfile.statePaths.some(
+          (statePath) => statePath.relativePath === 'settings.json',
+        ),
+      ).toBe(true);
+    }
+  });
 });
+
+const createPiSettingsTestHome = (): { readonly homeDirectory: string; readonly settingsPath: string } => {
+  const homeDirectory = mkdtempSync(join(tmpdir(), 'applepi-pi-settings-'));
+  const settingsDirectory = join(homeDirectory, '.pi', 'agent');
+  const settingsPath = join(settingsDirectory, 'settings.json');
+  mkdirSync(settingsDirectory, { recursive: true });
+
+  return { homeDirectory, settingsPath };
+};
