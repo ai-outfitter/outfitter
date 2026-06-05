@@ -1,4 +1,4 @@
-// Provides the command object for creating a Bridl profile folder.
+// Provides the command object for creating a ApplePi profile folder.
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
@@ -86,7 +86,7 @@ export const executeCreateProfileCommand = (input: CreateProfileInput): CreatePr
 export const createCreateProfileCommand = (dependencies: CreateProfileCommandDependencies = {}): CommandObject => {
   const command: CommandObject = {
     name: 'create_profile',
-    description: 'Create a new Bridl profile skeleton.',
+    description: 'Create a new ApplePi profile skeleton.',
     register(program: Command): void {
       program
         .command(command.name)
@@ -119,7 +119,7 @@ export const createCreateProfileCommand = (dependencies: CreateProfileCommandDep
 
 const assertValidCreateProfileInput = (input: CreateProfileInput): void => {
   if (!isValidProfileId(input.name)) {
-    throw new Error(`Profile name '${input.name}' is not a filesystem-safe Bridl profile id.`);
+    throw new Error(`Profile name '${input.name}' is not a filesystem-safe ApplePi profile id.`);
   }
 
   if (
@@ -137,11 +137,11 @@ const resolveProfileRoot = (input: CreateProfileInput): string => {
 
   switch (input.scope) {
     case 'user':
-      return join(input.homeDirectory, '.bridl', 'profiles');
+      return join(input.homeDirectory, '.applepi', 'profiles');
     case 'project':
-      return join(input.projectDirectory, '.bridl', 'profiles');
+      return join(input.projectDirectory, '.applepi', 'profiles');
     case 'project-local':
-      return join(input.projectDirectory, '.bridl', 'local', 'profiles');
+      return join(input.projectDirectory, '.applepi', 'local', 'profiles');
     /* v8 ignore next 2 -- assertValidCreateProfileInput rejects missing scopes before this exhaustive guard. */
     default:
       throw new Error('Create profile requires exactly one destination: --scope or --path.');

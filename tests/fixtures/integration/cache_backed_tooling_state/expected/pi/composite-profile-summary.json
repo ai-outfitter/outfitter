@@ -1,0 +1,32 @@
+{
+  "profileId": "cache-tooling",
+  "agentId": "pi",
+  "launchCommand": "pi",
+  "launchArgs": ["--model", "cache-tooling-model", "--cache-tooling"],
+  "launchEnv": {
+    "CACHE_TOOLING_PROFILE": "enabled",
+    "PERSONAL_CACHE_DEFAULT": "enabled",
+    "PI_CODING_AGENT_DIR": "<composite-profile>",
+    "TOOLING_OWNER": "configured-cache"
+  },
+  "generatedProfile": {
+    "id": "cache-tooling",
+    "label": "Cache Backed Tooling State",
+    "controls": {
+      "model": "cache-tooling-model",
+      "environment": {
+        "CACHE_TOOLING_PROFILE": "enabled",
+        "PERSONAL_CACHE_DEFAULT": "enabled",
+        "TOOLING_OWNER": "configured-cache"
+      },
+      "args": ["--cache-tooling"]
+    }
+  },
+  "stateTargets": {
+    "bin": "<cache>/utilities",
+    "cache": "<project>/.applepi/profiles/cache-tooling/cli_specific/pi/cache",
+    "git": "<project>/.applepi/profiles/cache-tooling/cli_specific/pi/git",
+    "npm": "<project>/.applepi/profiles/cache-tooling/cli_specific/pi/npm",
+    "utilities": "<cache>/utilities"
+  }
+}

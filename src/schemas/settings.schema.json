@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://bridl.dev/schemas/settings.schema.json",
-  "title": "Bridl settings",
+  "$id": "https://applepi.dev/schemas/settings.schema.json",
+  "title": "ApplePi settings",
   "type": "object",
   "properties": {
     "default_profile": { "type": "string", "minLength": 1 },
@@ -30,7 +30,7 @@
     },
     "custom_settings": {
       "type": "object",
-      "description": "Arbitrary YAML-compatible values exposed to Bridl tack templates as bridl.custom_settings."
+      "description": "Arbitrary YAML-compatible values exposed to ApplePi compositeProfile templates as applepi.custom_settings."
     }
   },
   "additionalProperties": true

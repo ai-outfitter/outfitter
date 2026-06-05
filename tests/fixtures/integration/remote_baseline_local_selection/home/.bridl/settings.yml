@@ -1,9 +1,0 @@
-default_agent: pi
-remote_settings:
-  - github: acme/bridl-baseline
-    ref: v1
-    path: settings/bridl.yml
-custom_settings:
-  origin:
-    user: USER_SETTINGS
-    shared: USER_SETTINGS

@@ -1,8 +1,8 @@
 summary: "Controllable elements documentation support matrix."
 instructions: |
-  This DeepSchema validates deterministic parts of BRIDL-REQ-007.1,
-  BRIDL-REQ-007.2, and BRIDL-REQ-007.3 for the controllable elements document.
-  The document defines Bridl's cross-agent control vocabulary and support matrix.
+  This DeepSchema validates deterministic parts of APPLEPI-REQ-007.1,
+  APPLEPI-REQ-007.2, and APPLEPI-REQ-007.3 for the controllable elements document.
+  The document defines ApplePi's cross-agent control vocabulary and support matrix.
   Review deterministic structure so judgment-based DeepReview rules can focus on
   whether mappings and roadmap/support claims are accurate.
 
@@ -35,7 +35,7 @@ requirements:
     implemented and tested.
   required-initial-controllable-aspects: >
     The `## Defined Terms` section and support matrix MUST include each
-    BRIDL-REQ-007.3 initial controllable aspect: Agent Config Directory, Session
+    APPLEPI-REQ-007.3 initial controllable aspect: Agent Config Directory, Session
     Directory, Extensions, Skills, Prompt Templates, System Prompt, Appended
     System Prompt, Model Selection, Credentials and Environment, Tool
     Availability, Context Files, Theme / UI Presentation, Project Override

@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 
-// Defines the initial Bridl executable entrypoint.
+// Defines the initial ApplePi executable entrypoint.
 import { realpathSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
-import { createBridlProgram } from './cli/BridlCli.js';
+import { createApplePiProgram } from './cli/ApplePiCli.js';
 
-export const createProgram = createBridlProgram;
+export const createProgram = createApplePiProgram;
 
 export const isDirectCliExecution = (moduleUrl: string, argvPath: string | undefined): boolean => {
   if (argvPath === undefined) {

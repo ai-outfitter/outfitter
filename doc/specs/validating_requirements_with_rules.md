@@ -44,7 +44,7 @@ Do not spend reviewer judgment on facts that TypeScript tests or JSON Schema can
 Tests that validate a formal requirement should use a durable comment immediately before the relevant `it(...)`, `test(...)`, or `describe(...)` block:
 
 ```ts
-// THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-008.3).
+// THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-008.3).
 // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
 it('rejects stale requirement traceability comments', () => {
   // ...

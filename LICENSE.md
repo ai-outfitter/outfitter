@@ -4,7 +4,7 @@
 
 **Licensor:** Unsupervised.com, Inc.
 
-**Licensed Work:** Bridl
+**Licensed Work:** ApplePi
 
 The Licensed Work is © 2026 Unsupervised.com, Inc.
 

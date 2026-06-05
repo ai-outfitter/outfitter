@@ -27,7 +27,7 @@ const temporaryRoots: string[] = [];
 const fixturesRoot = fileURLToPath(new URL('../fixtures/integration/', import.meta.url));
 
 export const copyFixtureToTemp = (name: string): IntegrationFixture => {
-  const temporaryRoot = mkdtempSync(join(tmpdir(), `bridl-fixture-${name}-`));
+  const temporaryRoot = mkdtempSync(join(tmpdir(), `applepi-fixture-${name}-`));
   temporaryRoots.push(temporaryRoot);
   const root = join(temporaryRoot, name);
 
@@ -61,7 +61,7 @@ export const runFixture = async (
       projectDirectory: fixture.project,
       profileId: options.profileId,
       agentId: options.agentId,
-      hardTack: options.hardTack,
+      strict: options.strict,
       passThroughArgs: options.passThroughArgs,
     },
     {
@@ -77,37 +77,60 @@ export const readExpectedJson = <T>(fixture: IntegrationFixture, relativePath: s
 export const readFixtureText = (fixture: IntegrationFixture, relativePath: string): string =>
   readFileSync(join(fixture.root, relativePath), 'utf8');
 
-export const tackRootFromLaunchPlan = (plan: AgentLaunchPlan): string => {
-  const tackRoot = plan.env.PI_CODING_AGENT_DIR ?? plan.env.CLAUDE_CONFIG_DIR;
+export const compositeProfileRootFromLaunchPlan = (plan: AgentLaunchPlan): string => {
+  const compositeProfileRoot = plan.env.PI_CODING_AGENT_DIR ?? plan.env.CLAUDE_CONFIG_DIR;
 
-  if (tackRoot === undefined) {
+  if (compositeProfileRoot === undefined) {
     throw new Error('Launch plan did not include a known adapter config directory environment variable.');
   }
 
-  return tackRoot;
+  return compositeProfileRoot;
 };
 
-export const summarizePiTack = (fixture: IntegrationFixture, tackRoot: string): unknown => ({
-  generatedProfile: JSON.parse(readFileSync(join(tackRoot, 'bridl', 'profile.json'), 'utf8')) as unknown,
+export const summarizePiCompositeProfile = (fixture: IntegrationFixture, compositeProfileRoot: string): unknown => ({
+  generatedProfile: JSON.parse(readFileSync(join(compositeProfileRoot, 'applepi', 'profile.json'), 'utf8')) as unknown,
   stateTargets: {
-    'auth.json': tokenizeFixturePath(fixture, readlinkSync(join(tackRoot, 'auth.json')), tackRoot),
-    'settings.json': tokenizeFixturePath(fixture, readlinkSync(join(tackRoot, 'settings.json')), tackRoot),
-    utilities: tokenizeFixturePath(fixture, readlinkSync(join(tackRoot, 'utilities')), tackRoot),
+    'auth.json': tokenizeFixturePath(
+      fixture,
+      readlinkSync(join(compositeProfileRoot, 'auth.json')),
+      compositeProfileRoot,
+    ),
+    'settings.json': tokenizeFixturePath(
+      fixture,
+      readlinkSync(join(compositeProfileRoot, 'settings.json')),
+      compositeProfileRoot,
+    ),
+    utilities: tokenizeFixturePath(
+      fixture,
+      readlinkSync(join(compositeProfileRoot, 'utilities')),
+      compositeProfileRoot,
+    ),
   },
 });
 
-export const summarizeClaudeTack = (fixture: IntegrationFixture, tackRoot: string): unknown => ({
-  generatedProfile: JSON.parse(readFileSync(join(tackRoot, 'bridl', 'profile.json'), 'utf8')) as unknown,
+export const summarizeClaudeCompositeProfile = (
+  fixture: IntegrationFixture,
+  compositeProfileRoot: string,
+): unknown => ({
+  generatedProfile: JSON.parse(readFileSync(join(compositeProfileRoot, 'applepi', 'profile.json'), 'utf8')) as unknown,
   stateTargets: {
-    'settings.json': tokenizeFixturePath(fixture, readlinkSync(join(tackRoot, 'settings.json')), tackRoot),
-    agents: tokenizeFixturePath(fixture, readlinkSync(join(tackRoot, 'agents')), tackRoot),
-    projects: tokenizeFixturePath(fixture, readlinkSync(join(tackRoot, 'projects')), tackRoot),
+    'settings.json': tokenizeFixturePath(
+      fixture,
+      readlinkSync(join(compositeProfileRoot, 'settings.json')),
+      compositeProfileRoot,
+    ),
+    agents: tokenizeFixturePath(fixture, readlinkSync(join(compositeProfileRoot, 'agents')), compositeProfileRoot),
+    projects: tokenizeFixturePath(fixture, readlinkSync(join(compositeProfileRoot, 'projects')), compositeProfileRoot),
   },
 });
 
-export const tokenizeFixturePath = (fixture: IntegrationFixture, path: string, tackRoot?: string): string => {
-  if (tackRoot !== undefined && path === tackRoot) {
-    return '<tack>';
+export const tokenizeFixturePath = (
+  fixture: IntegrationFixture,
+  path: string,
+  compositeProfileRoot?: string,
+): string => {
+  if (compositeProfileRoot !== undefined && path === compositeProfileRoot) {
+    return '<composite-profile>';
   }
 
   return path

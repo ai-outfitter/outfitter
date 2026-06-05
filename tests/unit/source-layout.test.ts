@@ -7,10 +7,10 @@ import { Command } from 'commander';
 import { describe, expect, it } from 'vitest';
 
 import { createClaudeAdapter } from '../../src/agents/claude/ClaudeAdapter.js';
-import { createClaudeTackPaths } from '../../src/agents/claude/ClaudeTackWriter.js';
+import { createClaudeCompositeProfilePaths } from '../../src/agents/claude/ClaudeCompositeProfileWriter.js';
 import { createPiAdapter } from '../../src/agents/pi/PiAdapter.js';
-import { createPiTackPaths } from '../../src/agents/pi/PiTackWriter.js';
-import { createBridlProgram, createDefaultCommands } from '../../src/cli/BridlCli.js';
+import { createPiCompositeProfilePaths } from '../../src/agents/pi/PiCompositeProfileWriter.js';
+import { createApplePiProgram, createDefaultCommands } from '../../src/cli/ApplePiCli.js';
 import { describeCommandObject } from '../../src/cli/commands/CommandObject.js';
 import { createCreateProfileCommand } from '../../src/cli/commands/CreateProfileCommand.js';
 import { createRunCommand } from '../../src/cli/commands/RunCommand.js';
@@ -32,28 +32,28 @@ import {
 import { emptySettings } from '../../src/settings/Settings.js';
 import { createSettingsLoadPlan } from '../../src/settings/SettingsLoader.js';
 import { mergeSettingsStack } from '../../src/settings/SettingsMerger.js';
-import { createTack } from '../../src/tack/Tack.js';
-import { assembleTack } from '../../src/tack/TackAssembler.js';
-import { createTackFile } from '../../src/tack/TackFile.js';
-import { createTackWatchPlan } from '../../src/tack/TackWatcher.js';
+import { createCompositeProfile } from '../../src/compositeProfile/CompositeProfile.js';
+import { assembleCompositeProfile } from '../../src/compositeProfile/CompositeProfileAssembler.js';
+import { createCompositeProfileFile } from '../../src/compositeProfile/CompositeProfileFile.js';
+import { createCompositeProfileWatchPlan } from '../../src/compositeProfile/CompositeProfileWatcher.js';
 import { createValidationResult } from '../../src/validation/SchemaValidator.js';
 
 const readJson = <T>(relativePath: string): T =>
   JSON.parse(readFileSync(new URL(relativePath, import.meta.url), 'utf8')) as T;
 
 describe('source layout scaffolding', () => {
-  // THIS TEST VALIDATES COMMAND-AVAILABILITY CLAUSES IN HARD REQUIREMENTS (BRIDL-REQ-004.1, BRIDL-REQ-004.2, BRIDL-REQ-004.3, BRIDL-REQ-005.1).
+  // THIS TEST VALIDATES COMMAND-AVAILABILITY CLAUSES IN HARD REQUIREMENTS (APPLEPI-REQ-004.1, APPLEPI-REQ-004.2, APPLEPI-REQ-004.3, APPLEPI-REQ-005.1).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('exposes focused command objects for the initial CLI commands', () => {
     const commands = createDefaultCommands();
-    const program = createBridlProgram(commands);
+    const program = createApplePiProgram(commands);
 
     expect(commands.map((command) => command.name)).toEqual(['run', 'setup', 'sync', 'create_profile']);
     expect(program.commands.map((command) => command.name())).toEqual(['run', 'setup', 'sync', 'create_profile']);
     expect(program.commands.at(3)?.aliases()).toEqual(['create-profile']);
     expect(describeCommandObject(createRunCommand())).toEqual({
       name: 'run',
-      description: 'Assemble a profile tack and launch the selected agent CLI.',
+      description: 'Assemble a profile compositeProfile and launch the selected agent CLI.',
     });
 
     const standaloneProgram = new Command();
@@ -64,7 +64,7 @@ describe('source layout scaffolding', () => {
     expect(standaloneProgram.commands.map((command) => command.name())).toEqual(['setup', 'sync', 'create_profile']);
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-002.5).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-002.5).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('validates profile source entries for local, URI, and GitHub source locations', () => {
     const ajv = new Ajv2020();
@@ -74,7 +74,7 @@ describe('source layout scaffolding', () => {
     expect(validate({ path: './profiles' })).toBe(true);
     expect(validate({ uri: 'git+https://example.test/profiles.git' })).toBe(true);
     expect(validate({ uri: 'git+https://example.test/profiles.git', path: 'profiles/team', ref: 'main' })).toBe(true);
-    expect(validate({ github: 'example/bridl-config', path: 'profiles' })).toBe(true);
+    expect(validate({ github: 'example/applepi-config', path: 'profiles' })).toBe(true);
     expect(validate({ path: './profiles', ref: 'main' })).toBe(false);
     expect(validate({ uri: 'git+https://example.test/profiles.git', github: 'example/profiles' })).toBe(false);
     expect(validate({ only: ['engineering'] })).toBe(false);
@@ -90,9 +90,9 @@ describe('source layout scaffolding', () => {
       { defaultProfile: 'engineering', profileSources: [localSource], remoteSettings: [] },
     ]);
     const settingsLoadPlan = createSettingsLoadPlan([
-      { scope: 'user', path: '~/.bridl/settings.yml' },
-      { scope: 'project', path: '.bridl/settings.yml' },
-      { scope: 'project-local', path: '.bridl/local/settings.yml' },
+      { scope: 'user', path: '~/.applepi/settings.yml' },
+      { scope: 'project', path: '.applepi/settings.yml' },
+      { scope: 'project-local', path: '.applepi/local/settings.yml' },
     ]);
     const profileLoadPlan = createProfileLoadPlan([localSource, uriSource]);
 
@@ -115,14 +115,14 @@ describe('source layout scaffolding', () => {
       cacheDirectory: undefined,
       customSettings: {},
     });
-    expect(normalizeRemoteSourceUri({ github: 'example/bridl-config' })).toBe(
-      'git+https://github.com/example/bridl-config.git',
+    expect(normalizeRemoteSourceUri({ github: 'example/applepi-config' })).toBe(
+      'git+https://github.com/example/applepi-config.git',
     );
     expect(settingsLoadPlan.locations.map((location) => location.scope)).toEqual(['user', 'project', 'project-local']);
     expect(profileLoadPlan.sources).toEqual([localSource, uriSource]);
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-003.6).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-003.6).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('merges profile layers deterministically with higher-precedence values winning', () => {
     const baseProfile = createEmptyProfile('base');
@@ -136,37 +136,40 @@ describe('source layout scaffolding', () => {
     expect(mergedProfile.controls.model).toBe('pi/default');
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-006.3, BRIDL-REQ-006.5).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-006.3, APPLEPI-REQ-006.5).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('creates pi and Claude Code launch plans using native config directory boundaries', () => {
-    const tackRoot = 'bridl-tack-root';
-    const tack = createTack(tackRoot, []);
-    const launchPlan = createPiAdapter().createLaunchPlan(tack);
-    const claudeLaunchPlan = createClaudeAdapter().createLaunchPlan(tack);
-    const piPaths = createPiTackPaths(tack.rootDirectory);
-    const claudePaths = createClaudeTackPaths(tack.rootDirectory);
+    const compositeProfileRoot = 'applepi-compositeProfile-root';
+    const compositeProfile = createCompositeProfile(compositeProfileRoot, []);
+    const launchPlan = createPiAdapter().createLaunchPlan(compositeProfile);
+    const claudeLaunchPlan = createClaudeAdapter().createLaunchPlan(compositeProfile);
+    const piPaths = createPiCompositeProfilePaths(compositeProfile.rootDirectory);
+    const claudePaths = createClaudeCompositeProfilePaths(compositeProfile.rootDirectory);
 
     expect(launchPlan).toEqual({
       command: 'pi',
       args: [],
-      env: { PI_CODING_AGENT_DIR: tackRoot },
+      env: { PI_CODING_AGENT_DIR: compositeProfileRoot },
     });
     expect(claudeLaunchPlan).toEqual({
       command: 'claude',
       args: [],
-      env: { CLAUDE_CONFIG_DIR: tackRoot },
+      env: { CLAUDE_CONFIG_DIR: compositeProfileRoot },
     });
-    expect(piPaths.agentDirectory).toBe(tackRoot);
-    expect(claudePaths.configDirectory).toBe(tackRoot);
+    expect(piPaths.agentDirectory).toBe(compositeProfileRoot);
+    expect(claudePaths.configDirectory).toBe(compositeProfileRoot);
   });
 
-  it('defines tack, schema, and validation scaffolding boundaries', () => {
-    const tackFile = createTackFile('SYSTEM.md', 'hello');
-    const tack = createTack('bridl-tack-root', [tackFile]);
-    const assembledTack = assembleTack({ rootDirectory: tack.rootDirectory, files: tack.files });
-    const watchPlan = createTackWatchPlan(['profile.yml']);
+  it('defines compositeProfile, schema, and validation scaffolding boundaries', () => {
+    const compositeProfileFile = createCompositeProfileFile('SYSTEM.md', 'hello');
+    const compositeProfile = createCompositeProfile('applepi-compositeProfile-root', [compositeProfileFile]);
+    const assembledCompositeProfile = assembleCompositeProfile({
+      rootDirectory: compositeProfile.rootDirectory,
+      files: compositeProfile.files,
+    });
+    const watchPlan = createCompositeProfileWatchPlan(['profile.yml']);
 
-    expect(assembledTack.files).toEqual([tackFile]);
+    expect(assembledCompositeProfile.files).toEqual([compositeProfileFile]);
     expect(watchPlan.paths).toEqual(['profile.yml']);
     expect(settingsSchemaDocument.id).toBe('settings');
     expect(profileSchemaDocument.id).toBe('profile');

@@ -16,13 +16,13 @@ import { createSyncCommand } from '../../src/cli/commands/SyncCommand.js';
 const temporaryRoots: string[] = [];
 
 const createTemporaryRoot = (): string => {
-  const root = mkdtempSync(join(tmpdir(), 'bridl-create-profile-command-'));
+  const root = mkdtempSync(join(tmpdir(), 'applepi-create-profile-command-'));
   temporaryRoots.push(root);
   return root;
 };
 
 const writeSettings = (homeDirectory: string, content: string): void => {
-  const settingsDirectory = join(homeDirectory, '.bridl');
+  const settingsDirectory = join(homeDirectory, '.applepi');
   mkdirSync(settingsDirectory, { recursive: true });
   writeFileSync(join(settingsDirectory, 'settings.yml'), content);
 };
@@ -34,7 +34,7 @@ afterEach(() => {
 });
 
 describe('create-profile command', () => {
-  // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-004.3).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-004.3).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('creates placeholder profiles by scope or path and exposes create-profile as the same command alias', () => {
     const root = createTemporaryRoot();
@@ -67,9 +67,9 @@ describe('create-profile command', () => {
     expect(existsSync(join(byScope.profileDirectory, 'extensions'))).toBe(true);
     expect(existsSync(join(byScope.profileDirectory, 'cli_specific', 'pi'))).toBe(true);
     expect(existsSync(join(byScope.profileDirectory, 'cli_specific', 'claude'))).toBe(true);
-    expect(byProject.profileDirectory).toBe(join(projectDirectory, '.bridl', 'profiles', 'project-profile'));
+    expect(byProject.profileDirectory).toBe(join(projectDirectory, '.applepi', 'profiles', 'project-profile'));
     expect(byProjectLocal.profileDirectory).toBe(
-      join(projectDirectory, '.bridl', 'local', 'profiles', 'local-profile'),
+      join(projectDirectory, '.applepi', 'local', 'profiles', 'local-profile'),
     );
     expect(byPath.profileDirectory).toBe(join(customRoot, 'research'));
 
@@ -84,7 +84,7 @@ describe('create-profile command', () => {
     expect(program.commands[0]?.aliases()).toEqual(['create-profile']);
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-004.3, BRIDL-REQ-004.4).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-004.3, APPLEPI-REQ-004.4).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('rejects invalid create_profile inputs and wires command actions to the command object executors', async () => {
     const root = createTemporaryRoot();
@@ -108,21 +108,28 @@ describe('create-profile command', () => {
       projectDirectory,
       writeLine: (message) => messages.push(message),
     }).register(createProgram);
-    await createProgram.parseAsync(['node', 'bridl', 'create-profile', 'valid', '--path', join(root, 'cli-profiles')]);
+    await createProgram.parseAsync([
+      'node',
+      'applepi',
+      'create-profile',
+      'valid',
+      '--path',
+      join(root, 'cli-profiles'),
+    ]);
     expect(messages).toContainEqual(expect.stringContaining("Created profile 'valid'"));
-    await createProgram.parseAsync(['node', 'bridl', 'create_profile', 'scoped', '--scope', 'user']);
-    expect(existsSync(join(homeDirectory, '.bridl', 'profiles', 'scoped', 'profile.yml'))).toBe(true);
+    await createProgram.parseAsync(['node', 'applepi', 'create_profile', 'scoped', '--scope', 'user']);
+    expect(existsSync(join(homeDirectory, '.applepi', 'profiles', 'scoped', 'profile.yml'))).toBe(true);
     await expect(
-      createProgram.parseAsync(['node', 'bridl', 'create_profile', 'valid', '--scope', 'invalid']),
+      createProgram.parseAsync(['node', 'applepi', 'create_profile', 'valid', '--scope', 'invalid']),
     ).rejects.toThrow("Unknown profile scope 'invalid'");
 
     const missingNameProgram = new Command();
     missingNameProgram.exitOverride();
     missingNameProgram.configureOutput({ writeErr: () => undefined });
     createCreateProfileCommand({ homeDirectory, projectDirectory }).register(missingNameProgram);
-    await expect(missingNameProgram.parseAsync(['node', 'bridl', 'create_profile', '--scope', 'user'])).rejects.toThrow(
-      "missing required argument 'name'",
-    );
+    await expect(
+      missingNameProgram.parseAsync(['node', 'applepi', 'create_profile', '--scope', 'user']),
+    ).rejects.toThrow("missing required argument 'name'");
 
     const syncMessages: string[] = [];
     const syncProgram = new Command();
@@ -130,7 +137,7 @@ describe('create-profile command', () => {
     createSyncCommand({ homeDirectory, projectDirectory, writeLine: (message) => syncMessages.push(message) }).register(
       syncProgram,
     );
-    await syncProgram.parseAsync(['node', 'bridl', 'sync']);
+    await syncProgram.parseAsync(['node', 'applepi', 'sync']);
     expect(syncMessages).toEqual(['No URI profile or remote settings sources configured; nothing to sync.']);
 
     const setupMessages: string[] = [];
@@ -152,8 +159,8 @@ describe('create-profile command', () => {
         return Promise.resolve('engineer');
       },
     }).register(setupProgram);
-    await setupProgram.parseAsync(['node', 'bridl', 'setup']);
-    expect(setupMessages).toContain('Welcome to Bridl. Bridl is the easiest way to run Pi.');
+    await setupProgram.parseAsync(['node', 'applepi', 'setup']);
+    expect(setupMessages).toContain('Welcome to ApplePi. ApplePi is the easiest way to run Pi.');
     expect(setupMessages).toContainEqual(expect.stringContaining('Created user settings'));
   });
 });

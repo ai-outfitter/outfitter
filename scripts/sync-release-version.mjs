@@ -11,7 +11,7 @@ const rootArg = args.find((arg) => arg.startsWith('--root='));
 const projectRoot = path.resolve(
   rootArg ? rootArg.slice('--root='.length) : path.dirname(dirnameFromImportMeta(import.meta.url)),
 );
-const version = normalizeVersion(versionArg ?? process.env.BRIDL_RELEASE_VERSION ?? process.env.GITHUB_REF_NAME);
+const version = normalizeVersion(versionArg ?? process.env.APPLEPI_RELEASE_VERSION ?? process.env.GITHUB_REF_NAME);
 
 if (version === undefined) {
   throw new Error('Usage: node scripts/sync-release-version.mjs <version|vversion> [--root=<path>]');
@@ -38,7 +38,7 @@ lockfile.packages[''].version = version;
 await writeJson(packageLockPath, lockfile);
 await writeJson(packageJsonPath, packageJson);
 
-console.log(`Synchronized Bridl release metadata to ${version}.`);
+console.log(`Synchronized ApplePi release metadata to ${version}.`);
 
 function dirnameFromImportMeta(importMetaUrl) {
   return path.dirname(fileURLToPath(importMetaUrl));
@@ -52,7 +52,7 @@ function normalizeVersion(rawVersion) {
   const version = rawVersion.startsWith('v') ? rawVersion.slice(1) : rawVersion;
 
   if (!isSemanticVersion(version)) {
-    throw new Error(`Invalid Bridl release version: ${rawVersion}`);
+    throw new Error(`Invalid ApplePi release version: ${rawVersion}`);
   }
 
   return version;
@@ -65,8 +65,8 @@ function isSemanticVersion(version) {
 }
 
 function assertPackageName(packageJson) {
-  if (packageJson.name !== 'bridl') {
-    throw new Error(`Expected package name 'bridl' but found '${packageJson.name}'.`);
+  if (packageJson.name !== 'applepi') {
+    throw new Error(`Expected package name 'applepi' but found '${packageJson.name}'.`);
   }
 }
 

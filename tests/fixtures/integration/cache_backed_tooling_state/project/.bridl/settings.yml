@@ -1,4 +1,0 @@
-cache_directory: ../../cache
-profile_sources:
-  - path: ../../home/.bridl/profiles
-  - path: ./profiles

@@ -1,13 +1,13 @@
-# Bridl Architecture
+# ApplePi Architecture
 
 ## Purpose
 
-Bridl is a TypeScript CLI that assembles and launches reproducible agent-CLI profiles.
+ApplePi is a TypeScript CLI that assembles and launches reproducible agent-CLI profiles.
 It is generic enough for organizations to define profiles once and run them across multiple agent CLIs, while supporting `pi` first and most deeply, plus Claude Code as an additional supported adapter.
 
 Formal implementation requirements live in `requirements/`; this document explains the architectural shape behind those requirements.
 
-> Naming rule: any occurrence of `bridle` in docs, prompts, examples, or generated text is a typo/autocorrect and MUST be treated as `bridl`.
+> Naming rule: any occurrence of `applepi` in docs, prompts, examples, or generated text is a typo/autocorrect and MUST be treated as `applepi`.
 
 ## Architectural Principles
 
@@ -18,7 +18,7 @@ Formal implementation requirements live in `requirements/`; this document explai
 5. **YAML for persisted config**: user-editable persisted config uses `.yml`/`.yaml` rather than JSON so comments are possible.
 6. **JSON Schema for validation**: every YAML file format has a corresponding JSON Schema used wherever the file is read.
 7. **Deterministic merging**: settings and profile layers merge predictably using normal precedence: project-local, project, then user.
-8. **Warn on partial support**: if a profile asks for a control an agent adapter cannot support, Bridl warns to stderr; `--hard-tack` makes unsupported controls fatal.
+8. **Warn on partial support**: if a profile asks for a control an agent adapter cannot support, ApplePi warns to stderr; `--strict` makes unsupported controls fatal.
 9. **Complete test coverage early**: the project starts with a test framework and a 100% global coverage requirement.
 10. **Complexity limits early**: ESLint is configured immediately with maximum complexity `10`.
 
@@ -27,7 +27,7 @@ Formal implementation requirements live in `requirements/`; this document explai
 - Runtime: Node.js `>=22.19.0`.
 - Language: TypeScript.
 - Package manager: npm.
-  This matches the current pi-coding-agent package distribution model and gives Bridl a conventional `package-lock.json`-based install path.
+  This matches the current pi-coding-agent package distribution model and gives ApplePi a conventional `package-lock.json`-based install path.
 - CLI framework: Commander `^14`.
   Commander is the initial choice because it supports default commands, command aliases, `allowUnknownOption`, pass-through argument collection, and testable parser construction without spawning child processes.
 - Test framework: Vitest `^4` with `@vitest/coverage-v8`.
@@ -36,7 +36,7 @@ Formal implementation requirements live in `requirements/`; this document explai
 - Linting: ESLint `^10`, `@eslint/js`, and `typescript-eslint`, with `complexity: ["error", 10]`.
 - Schema and validation: TypeBox for schema authoring where TypeScript-schema coupling is useful, JSON Schema artifacts for persisted format contracts, and AJV for runtime validation.
 - YAML: `yaml`, matching pi's dependency choice.
-- Merge behavior: `defu`, so Bridl can use controlled deep defaults while documenting key-specific array behavior.
+- Merge behavior: `defu`, so ApplePi can use controlled deep defaults while documenting key-specific array behavior.
 - Process launch: `cross-spawn`, matching pi's dependency choice and avoiding platform-specific spawn edge cases.
 - Filesystem discovery and URI parsing: `glob` and `hosted-git-info`, aligned with pi where compatible with Node `>=22.19.0`.
 
@@ -49,7 +49,7 @@ Runtime dependencies in the first `package.json`:
 - `ajv`: JSON Schema validation at file-read boundaries.
 - `typebox`: Type-friendly schema definitions and schema-derived types where useful.
 - `defu`: controlled deep merging for settings and profiles.
-- `liquidjs`: safe Bridl-time tack templating with custom delimiters that avoid common agent template syntaxes.
+- `liquidjs`: safe ApplePi-time composite profile templating with custom delimiters that avoid common agent template syntaxes.
 - `cross-spawn`: portable child process launch for agent CLIs.
 - `glob`: profile/resource discovery.
 - `hosted-git-info`: parsing hosted git URIs for sync/cache handling; pinned to the latest line compatible with Node `>=22.19.0`.
@@ -75,50 +75,50 @@ The repository layout and source/test directory boundaries live in `doc/file_str
 
 ## Settings Resolution
 
-Bridl uses a `.bridl` folder convention at multiple scopes:
+ApplePi uses a `.applepi` folder convention at multiple scopes:
 
 ```text
-~/.bridl/
+~/.applepi/
   settings.yml
   profiles
   cache/
     profiles/
     utilities/
 
-<project>/.bridl/
+<project>/.applepi/
   settings.yml
   profiles/
 
-<project>/.bridl/local/
+<project>/.applepi/local/
   settings.yml
   profiles/
 ```
 
-All discovered `settings.yml` files are collectively referred to as Bridl settings.
+All discovered `settings.yml` files are collectively referred to as ApplePi settings.
 The internal `Settings` object is the single conceptual result of reading all settings sources and applying precedence.
 
-Note they are all the same in conceptual structure, with the exceptions that the <project>/.bridl/ contains the local one inside it, and the ~/.bridl includes the cache folder.
+Note they are all the same in conceptual structure, with the exceptions that the <project>/.applepi/ contains the local one inside it, and the ~/.applepi includes the cache folder.
 
 ### Settings Precedence
 
 Highest to lowest:
 
-1. Project-local: `<project>/.bridl/local/settings.yml`
-2. Project: `<project>/.bridl/settings.yml`
-3. User: `~/.bridl/settings.yml`
+1. Project-local: `<project>/.applepi/local/settings.yml`
+2. Project: `<project>/.applepi/settings.yml`
+3. User: `~/.applepi/settings.yml`
 4. Built-in defaults
 
 Future sources can be added behind the same `SettingsLoader` abstraction.
 
 ### Required User Default Profile
 
-`~/.bridl/settings.yml` MUST declare a default profile after setup completes.
-This guarantees `bridl run` can resolve a profile even when no `--profile` is provided.
+`~/.applepi/settings.yml` MUST declare a default profile after setup completes.
+This guarantees `applepi run` can resolve a profile even when no `--profile` is provided.
 
 Example:
 
 ```yaml
-# ~/.bridl/settings.yml
+# ~/.applepi/settings.yml
 default_profile: user_default
 
 profile_sources:
@@ -128,7 +128,7 @@ profile_sources:
 A minimal user profile tree for that settings file looks like this:
 
 ```text
-~/.bridl/
+~/.applepi/
   settings.yml
   profiles/
     user_default/
@@ -152,18 +152,18 @@ profile_sources:
       - engineering
       - support
 
-  - uri: git+https://github.com/example/company-bridl-profiles.git
+  - uri: git+https://github.com/example/company-applepi-profiles.git
     ref: main
     path: profiles/team
     except:
       - experimental
 
-  - github: example/bridl-config
+  - github: example/applepi-config
     ref: main
     path: profiles
 
 remote_settings:
-  - github: example/bridl-config
+  - github: example/applepi-config
     ref: main
     path: settings.yml
 
@@ -175,23 +175,23 @@ profiles:
 Rules:
 
 - Every settings file MUST validate against `settings.schema.json`.
-- `default_agent`, when present, selects the run adapter (`pi` or `claude`) used when `bridl run --agent` is omitted.
+- `default_agent`, when present, selects the run adapter (`pi` or `claude`) used when `applepi run --agent` is omitted.
 - `profile_sources` entries MUST specify a local `path`, a remote `uri`, or a `github` shorthand.
 - `only` and `except` are optional filters; without either, all profiles from the source are loaded.
 - Local-only relative `path` values are resolved relative to the settings file containing them.
-- `cache_directory` optionally selects the Bridl cache root; relative values are resolved relative to the settings file containing them.
+- `cache_directory` optionally selects the ApplePi cache root; relative values are resolved relative to the settings file containing them.
 - Remote `uri` and `github` profile sources can specify `ref` and repository-subdirectory `path` values.
 - `remote_settings` entries point at settings-style YAML files inside synced remote repositories.
-- `uri`, `github`, and `remote_settings` sources are fetched/cached by `bridl sync`.
+- `uri`, `github`, and `remote_settings` sources are fetched/cached by `applepi sync`.
 - `custom_settings` may contain arbitrary YAML-compatible nested data.
-  Bridl deep-merges custom settings objects using normal settings precedence; arrays and scalar values are replaced by the higher-precedence settings layer.
+  ApplePi deep-merges custom settings objects using normal settings precedence; arrays and scalar values are replaced by the higher-precedence settings layer.
 
 ### Settings File Examples
 
 A user settings file can select a default profile and expose user-managed profiles:
 
 ```yaml
-# ~/.bridl/settings.yml
+# ~/.applepi/settings.yml
 default_profile: personal-engineering
 cache_directory: ./cache
 
@@ -207,12 +207,12 @@ custom_settings:
 A project settings file can add checked-in project profiles and remote organizational profiles:
 
 ```yaml
-# <project>/.bridl/settings.yml
+# <project>/.applepi/settings.yml
 default_profile: project-engineering
 
 profile_sources:
   - path: ./profiles
-  - github: example/company-bridl-config
+  - github: example/company-applepi-config
     ref: main
     path: profiles/shared
     only:
@@ -220,7 +220,7 @@ profile_sources:
       - secure-review
 
 remote_settings:
-  - github: example/company-bridl-config
+  - github: example/company-applepi-config
     ref: main
     path: settings.yml
 ```
@@ -228,19 +228,19 @@ remote_settings:
 A project-local settings file can override the default profile without changing checked-in files:
 
 ```yaml
-# <project>/.bridl/local/settings.yml
+# <project>/.applepi/local/settings.yml
 default_profile: local-sandbox
 
 profile_sources:
   - path: ./profiles
 ```
 
-## Tack Template Rendering
+## Composite profile Template Rendering
 
-Bridl renders Bridl-time templates in generated tack files after profile and settings resolution and before writing the tack directory to disk.
+ApplePi renders ApplePi-time templates in generated composite profile files after profile and settings resolution and before writing the composite profile directory to disk.
 Source settings files are never rewritten.
 
-Bridl uses LiquidJS with custom delimiters rather than common `{{ ... }}` / `{% ... %}` delimiters so templates do not collide with common agent prompt, skill, command, Handlebars, Mustache, Jinja, or Claude Code syntaxes.
+ApplePi uses LiquidJS with custom delimiters rather than common `{{ ... }}` / `{% ... %}` delimiters so templates do not collide with common agent prompt, skill, command, Handlebars, Mustache, Jinja, or Claude Code syntaxes.
 
 Canonical delimiters:
 
@@ -249,12 +249,12 @@ Canonical delimiters:
 [[% tag %]]        Liquid control tag, such as if, for, endif, or endfor
 ```
 
-Bridl only treats `[[=` and `[[%` as template openers, so plain shell or Bash expressions such as `[[ -f package.json ]]` pass through unchanged.
+ApplePi only treats `[[=` and `[[%` as template openers, so plain shell or Bash expressions such as `[[ -f package.json ]]` pass through unchanged.
 
 Template context:
 
 ```yaml
-bridl:
+applepi:
   custom_settings: # resolved settings.custom_settings
   settings: # resolved settings using YAML-style key names
   profile: # resolved profile object
@@ -274,14 +274,14 @@ custom_settings:
 ```
 
 ```yaml
-# any generated tack settings file containing Bridl template delimiters
+# any generated composite profile settings file containing ApplePi template delimiters
 hooks:
   lint:
-    command: "[[= bridl.custom_settings.build_commands.lint ]]"
+    command: "[[= applepi.custom_settings.build_commands.lint ]]"
 
-[[% if bridl.custom_settings.build_commands.test %]]
+[[% if applepi.custom_settings.build_commands.test %]]
   test:
-    command: "[[= bridl.custom_settings.build_commands.test ]]"
+    command: "[[= applepi.custom_settings.build_commands.test ]]"
 [[% endif %]]
 ```
 
@@ -289,14 +289,14 @@ Liquid loops and filters are available with the same custom tag and output delim
 
 ```yaml
 commands:
-[[% for command in bridl.custom_settings.commands %]]
+[[% for command in applepi.custom_settings.commands %]]
   - "[[= command ]]"
 [[% endfor %]]
 ```
 
 Undefined output variables and unknown filters are template errors.
 Undefined variables in `if`, `elsif`, and `unless` conditions are allowed and evaluate as falsy so templates can test optional custom settings.
-Template errors identify the tack file being rendered and stop tack assembly.
+Template errors identify the composite profile file being rendered and stop composite profile assembly.
 
 ## Profile Sources and Sync
 
@@ -328,13 +328,13 @@ The `github: owner/repo` shorthand normalizes to `git+https://github.com/owner/r
 Remote sources without `ref` or repository subpaths retain the original profile cache location for compatibility:
 
 ```text
-~/.bridl/cache/profiles/<encoded-uri>/
+~/.applepi/cache/profiles/<encoded-uri>/
 ```
 
 Remote sources that specify `ref`, repository-subdirectory `path`, or `github` are fetched into the shared repository cache:
 
 ```text
-~/.bridl/cache/repos/<encoded-uri-and-ref>/
+~/.applepi/cache/repos/<encoded-uri-and-ref>/
 ```
 
 Profile loading then reads from the requested subdirectory inside the cached repository.
@@ -343,12 +343,12 @@ Profile loading then reads from the requested subdirectory inside the cached rep
 
 ```yaml
 remote_settings:
-  - github: example/bridl-config
+  - github: example/applepi-config
     ref: main
     path: settings.yml
 ```
 
-`bridl sync` fetches remote settings repositories into the shared repository cache, validates that the requested settings file exists, then loads cached remote settings as lower-precedence settings sources during later settings resolution.
+`applepi sync` fetches remote settings repositories into the shared repository cache, validates that the requested settings file exists, then loads cached remote settings as lower-precedence settings sources during later settings resolution.
 
 ## Profile Layout
 
@@ -395,7 +395,7 @@ Rules:
 
 - Every `profile.yml` MUST validate against `profile.schema.json`.
 - `inherits` is an ordered array of profile names.
-- `cli_specific/<cli-name>/` contains files copied or translated directly into the generated tack for that CLI.
+- `cli_specific/<cli-name>/` contains files copied or translated directly into the generated composite profile for that CLI.
 - CLI-specific configuration wins over generic controls when both apply to the same generated artifact.
 
 ### Profile Directory Examples
@@ -403,7 +403,7 @@ Rules:
 A small user-level profile set can keep a base profile and a specialized profile side by side:
 
 ```text
-~/.bridl/profiles/
+~/.applepi/profiles/
   base-typescript/
     profile.yml
     prompts/
@@ -418,7 +418,7 @@ A small user-level profile set can keep a base profile and a specialized profile
 ```
 
 ```yaml
-# ~/.bridl/profiles/base-typescript/profile.yml
+# ~/.applepi/profiles/base-typescript/profile.yml
 id: base-typescript
 label: Base TypeScript
 
@@ -432,7 +432,7 @@ controls:
 ```
 
 ```yaml
-# ~/.bridl/profiles/personal-engineering/profile.yml
+# ~/.applepi/profiles/personal-engineering/profile.yml
 id: personal-engineering
 label: Personal Engineering
 inherits:
@@ -450,7 +450,7 @@ controls:
 A checked-in project profile set can add project-specific prompts and pi resources:
 
 ```text
-<project>/.bridl/profiles/
+<project>/.applepi/profiles/
   project-engineering/
     profile.yml
     prompts/
@@ -467,7 +467,7 @@ A checked-in project profile set can add project-specific prompts and pi resourc
 ```
 
 ```yaml
-# <project>/.bridl/profiles/project-engineering/profile.yml
+# <project>/.applepi/profiles/project-engineering/profile.yml
 id: project-engineering
 label: Project Engineering
 inherits:
@@ -478,7 +478,7 @@ controls:
   append_system_prompt: ./prompts/review.md
   extensions:
     - ./extensions/project-bootstrap
-  session_directory: ./.bridl/sessions/project-engineering
+  session_directory: ./.applepi/sessions/project-engineering
   pi:
     prompt_template: code-review
     args:
@@ -489,7 +489,7 @@ controls:
 A local-only sandbox profile can use the highest-precedence project-local layer:
 
 ```text
-<project>/.bridl/local/
+<project>/.applepi/local/
   settings.yml
   profiles/
     local-sandbox/
@@ -499,21 +499,21 @@ A local-only sandbox profile can use the highest-precedence project-local layer:
 ```
 
 ```yaml
-# <project>/.bridl/local/profiles/local-sandbox/profile.yml
+# <project>/.applepi/local/profiles/local-sandbox/profile.yml
 id: local-sandbox
 label: Local Sandbox
 
 controls:
   system_prompt: ./prompts/sandbox.md
   environment:
-    BRIDL_EXPERIMENTAL_MODE: '1'
+    APPLEPI_EXPERIMENTAL_MODE: '1'
   pi:
     thinking: high
 ```
 
 ## Profile Resolution and Inheritance
 
-When `bridl run --profile X` is invoked, Bridl builds an ordered profile stack.
+When `applepi run --profile X` is invoked, ApplePi builds an ordered profile stack.
 
 Highest to lowest precedence:
 
@@ -531,51 +531,51 @@ Notes:
 - Profile merging should use `defu` or a similar controlled deep-merge utility.
 - YAML merge behavior should be explicitly documented per key; arrays should not be blindly merged where order or duplication matters.
 
-## Tack Model
+## Composite profile Model
 
-A **tack** is the dynamically assembled runtime configuration directory for a specific profile and agent CLI.
+A **composite profile** is the dynamically assembled runtime configuration directory for a specific profile and agent CLI.
 
-Example term usage: “the tack for `data-analyst` on `claude`”.
+Example term usage: “the composite profile for `data-analyst` on `claude`”.
 
-Tacks are generated under the system temp directory so they can be reclaimed trivially, while adapter-declared state paths can be symlinked to durable profile, native CLI, or Bridl cache locations:
+Composite profiles are generated under the system temp directory so they can be reclaimed trivially, while adapter-declared state paths can be symlinked to durable profile, native CLI, or ApplePi cache locations:
 
 ```text
-$TMPDIR/bridl-<profile-id>-<agent-id>-<random>/
+$TMPDIR/applepi-<profile-id>-<agent-id>-<random>/
 ```
 
-The pi adapter uses this state model for native pi state and for pi-managed utilities: tack `utilities/` and `bin/` both symlink to `<cache_directory>/utilities` by default, so temporary tack cleanup does not force pi to redownload helper binaries such as `fd` and `rg`.
+The pi adapter uses this state model for native pi state and for pi-managed utilities: composite profile `utilities/` and `bin/` both symlink to `<cache_directory>/utilities` by default, so temporary composite profile cleanup does not force pi to redownload helper binaries such as `fd` and `rg`.
 
-During `bridl run`, the Bridl process remains alive while the child agent CLI runs.
-It owns the tack lifecycle.
+During `applepi run`, the ApplePi process remains alive while the child agent CLI runs.
+It owns the composite profile lifecycle.
 
 ### Functional State Updating Model
 
-Bridl treats agent state updates as an explicit product behavior rather than an accidental side effect of temporary tack files.
+ApplePi treats agent state updates as an explicit product behavior rather than an accidental side effect of temporary composite profile files.
 Before launch, the selected adapter names the paths the agent CLI is expected to mutate, such as authentication files, settings files, plugin folders, caches, and sessions.
 The resolved profile then chooses a functional persistence strategy for each path:
 
-- `symlink`: writes are durable because the tack path points at a profile-managed or native CLI state path.
-- `discard`: writes are allowed for the run but thrown away with the temporary tack.
+- `symlink`: writes are durable because the composite profile path points at a profile-managed or native CLI state path.
+- `discard`: writes are allowed for the run but thrown away with the temporary composite profile.
 - `warn`: writes are allowed and discarded, then reported after exit.
-- `error`: writes are allowed during the run but make the Bridl command fail after exit.
+- `error`: writes are allowed during the run but make the ApplePi command fail after exit.
 - `prompt`: reserved for future interactive handling; currently treated as a non-persistent diagnostic.
 
 Unknown writes are handled separately from declared state paths.
-They are never silently persisted because Bridl has no declared durable destination for them.
+They are never silently persisted because ApplePi has no declared durable destination for them.
 The adapter's `unknown` policy decides whether to discard, warn, error, or eventually prompt.
 
 The practical user model is:
 
-1. Put durable, editable CLI state under `cli_specific/<agent>/` in a profile, or let Bridl fall back to the native CLI state location.
+1. Put durable, editable CLI state under `cli_specific/<agent>/` in a profile, or let ApplePi fall back to the native CLI state location.
 2. Use `state_persistence` in `profile.yml` only for paths that should deviate from the adapter defaults.
 3. Use `warn` or `error` for strict profiles and CI when unexpected state mutation should be visible.
 4. Use `discard` for caches, sessions, or experimental state that should not outlive the run.
 
 See `doc/state_writeback_strategy.md` for the complete functional contract and the current pi path policy.
 
-### Tack Assembly
+### Composite profile Assembly
 
-`TackAssembler` resolves:
+`Composite profileAssembler` resolves:
 
 1. the requested profile stack;
 2. generic controls;
@@ -583,7 +583,7 @@ See `doc/state_writeback_strategy.md` for the complete functional contract and t
 4. generated files;
 5. child process env and argv.
 
-Each logical file in the tack has an object instance, represented by `TackFile`, that knows:
+Each logical file in the composite profile has an object instance, represented by `Composite profileFile`, that knows:
 
 - source inputs;
 - generated output path;
@@ -596,10 +596,10 @@ Each logical file in the tack has an object instance, represented by `TackFile`,
 
 While the child agent process runs:
 
-- `fs.watch` runs on input files/folders used by each logical `TackFile`;
-- changed inputs are revalidated and regenerated into the tack where safe;
+- `fs.watch` runs on input files/folders used by each logical `Composite profileFile`;
+- changed inputs are revalidated and regenerated into the composite profile where safe;
 - unsupported or unsafe live updates produce warnings;
-- fatal tack errors stop the run only when `--hard-tack` is enabled or when the child CLI cannot continue safely.
+- fatal composite profile errors stop the run only when `--strict` is enabled or when the child CLI cannot continue safely.
 
 ## Agent Adapter Boundary
 
@@ -610,8 +610,8 @@ interface AgentAdapter {
   readonly id: string;
   readonly supportedControls: readonly string[];
   readonly statePaths?: Readonly<Record<string, StatePathDeclaration>>;
-  createTack(profile: Profile, input: AgentTackInput): AgentTackPlan;
-  createLaunchPlan(tack: Tack, profile?: Profile, passThroughArgs?: readonly string[]): AgentLaunchPlan;
+  createComposite profile(profile: Profile, input: AgentComposite profileInput): AgentComposite profilePlan;
+  createLaunchPlan(composite profile: Composite profile, profile?: Profile, passThroughArgs?: readonly string[]): AgentLaunchPlan;
   getUnsupportedControls(profile: Profile): readonly string[];
 }
 ```
@@ -621,7 +621,7 @@ The adapter owns CLI-specific details such as env vars, flags, state path declar
 ### Supported Adapters: Pi and Claude Code
 
 Pi is the default adapter for backward compatibility.
-Bridl should prefer native pi mechanisms:
+ApplePi should prefer native pi mechanisms:
 
 - `PI_CODING_AGENT_DIR` for profile-scoped global state;
 - `PI_CODING_AGENT_SESSION_DIR` or `--session-dir` for sessions;
@@ -630,28 +630,28 @@ Bridl should prefer native pi mechanisms:
 - `--prompt-template` for prompt templates;
 - `--system-prompt` and `--append-system-prompt` for prompts;
 - model/provider/thinking flags where supported;
-- copied/generated pi settings in the tack where flags/env are not the right mechanism.
+- copied/generated pi settings in the composite profile where flags/env are not the right mechanism.
 
-If generic Bridl controls conflict with pi naming or behavior, prefer pi’s terminology and conventions.
+If generic ApplePi controls conflict with pi naming or behavior, prefer pi’s terminology and conventions.
 
 Claude Code is also supported through the `claude` adapter.
-Bridl launches `claude` with `CLAUDE_CONFIG_DIR` pointing at the tack root, maps supported controls to native flags (`--model`, `--effort`, `--system-prompt`, `--append-system-prompt`, and repeated `--plugin-dir`), and preserves Claude Code state paths such as `settings.json`, `agents/`, `skills/`, `commands/`, `plugins/`, `projects/`, and `debug/` through adapter-declared state persistence.
+ApplePi launches `claude` with `CLAUDE_CONFIG_DIR` pointing at the composite profile root, maps supported controls to native flags (`--model`, `--effort`, `--system-prompt`, `--append-system-prompt`, and repeated `--plugin-dir`), and preserves Claude Code state paths such as `settings.json`, `agents/`, `skills/`, `commands/`, `plugins/`, `projects/`, and `debug/` through adapter-declared state persistence.
 Claude-specific profile overrides live under `controls.claude` and win over generic controls for Claude runs.
 
 ## CLI Commands
 
-### `bridl run`
+### `applepi run`
 
 `run` is the default command when no command is specified.
 
 Examples:
 
 ```bash
-bridl
-bridl run
-bridl run --profile engineering
-bridl run -p support -- --model anthropic/claude-sonnet-4
-bridl run --agent claude -p support -- --permission-mode plan
+applepi
+applepi run
+applepi run --profile engineering
+applepi run -p support -- --model anthropic/claude-sonnet-4
+applepi run --agent claude -p support -- --permission-mode plan
 ```
 
 Requirements:
@@ -660,47 +660,47 @@ Requirements:
 - `--agent <pi|claude>` selects the agent adapter; if omitted, `default_agent` from settings is used, then `pi`.
 - Without a selected profile, the unified settings default profile is used.
 - Unknown args are passed through to the inner agent CLI unaltered.
-- `--hard-tack` makes unsupported profile controls or tack assembly warnings fatal.
-- The child agent CLI runs with the generated tack, env, and argv.
+- `--strict` makes unsupported profile controls or composite profile assembly warnings fatal.
+- The child agent CLI runs with the generated composite profile, env, and argv.
 
-### `bridl setup`
+### `applepi setup`
 
 Responsibilities:
 
-- create `~/.bridl/settings.yml` when missing;
-- accept an optional setup source URI, for example `bridl setup https://github.com/example/bridl-config`, and clone/update it under `~/.bridl/cache/repos/<encoded-uri-and-ref>/`;
-- when a setup source is provided, use its root `settings.yml` or `.bridl/settings.yml` and `profiles/` or `.bridl/profiles/` as the initial non-overwriting user setup starting point;
+- create `~/.applepi/settings.yml` when missing;
+- accept an optional setup source URI, for example `applepi setup https://github.com/example/applepi-config`, and clone/update it under `~/.applepi/cache/repos/<encoded-uri-and-ref>/`;
+- when a setup source is provided, use its root `settings.yml` or `.applepi/settings.yml` and `profiles/` or `.applepi/profiles/` as the initial non-overwriting user setup starting point;
 - require an interactive TTY on both stdin and stdout before running setup prompts;
 - create a default profile when missing;
 - validate all discovered settings files and any starter settings file;
-- run `bridl sync` behavior for URI profile sources before profile selection;
+- run `applepi sync` behavior for URI profile sources before profile selection;
 - show a setup wizard with synced profile choices, preserve display labels where available, validate the selected profile ID, and write the selected default profile to user settings;
 - create any missing fallback default profile file for the final selected default profile;
 - report actionable next steps.
 
-### `bridl sync`
+### `applepi sync`
 
 Responsibilities:
 
 - read settings;
 - validate profile sources;
 - fetch/update URI-based, GitHub shorthand, and remote settings sources;
-- store plain URI profile sources without `ref` or repository subpaths under `~/.bridl/cache/profiles/<encoded-uri>/` for compatibility;
-- store GitHub shorthand sources and sources with `ref` or repository subpaths under `~/.bridl/cache/repos/<encoded-uri-and-ref>/`;
+- store plain URI profile sources without `ref` or repository subpaths under `~/.applepi/cache/profiles/<encoded-uri>/` for compatibility;
+- store GitHub shorthand sources and sources with `ref` or repository subpaths under `~/.applepi/cache/repos/<encoded-uri-and-ref>/`;
 - validate fetched remote settings files and profiles;
 - report whether each source was updated, unchanged, skipped, or failed;
 - redact credentials embedded in source URIs from user-facing output.
 
-### `bridl create_profile`
+### `applepi create_profile`
 
 Creates a placeholder profile folder at a requested scope.
 
 Example shape:
 
 ```bash
-bridl create_profile engineering --scope user
-bridl create_profile support --scope project
-bridl create_profile sandbox --scope project-local
+applepi create_profile engineering --scope user
+applepi create_profile support --scope project
+applepi create_profile sandbox --scope project-local
 ```
 
 Responsibilities:
@@ -720,7 +720,7 @@ class RunCommand {
   constructor(
     private readonly settingsLoader: SettingsLoader,
     private readonly profileLoader: ProfileLoader,
-    private readonly tackAssembler: TackAssembler,
+    private readonly composite profileAssembler: Composite profileAssembler,
     private readonly processRunner: ProcessRunner,
   ) {}
 
@@ -743,7 +743,7 @@ Validation happens at every file boundary:
 
 - settings read: `settings.schema.json`;
 - profile read: `profile.schema.json`;
-- generated tack metadata: tack schema, if persisted;
+- generated composite profile metadata: composite profile schema, if persisted;
 - command inputs: typed parser output plus runtime validation;
 - URI cache metadata: schema-backed YAML.
 
@@ -760,18 +760,18 @@ Requirements:
 - deterministic tests for profile inheritance and cycle detection;
 - deterministic tests for URI cache path encoding;
 - deterministic tests for generated pi launch env/argv;
-- deterministic tests for unsupported controls and `--hard-tack`;
+- deterministic tests for unsupported controls and `--strict`;
 - scenario fixtures for common combinations instead of one-off bespoke setup.
 
 Scenario fixture directory conventions are documented in `doc/file_structure.md`.
-Each scenario should include realistic `.bridl` folders and expected resolution output.
+Each scenario should include realistic `.applepi` folders and expected resolution output.
 
 ## Settled Initial Decisions
 
-1. Bridl uses npm and commits `package-lock.json`.
-2. Bridl uses Commander for CLI parsing.
-3. Bridl uses Vitest with V8 coverage for tests.
-4. Bridl profile IDs are filesystem-safe slugs; optional display names can carry spaces or punctuation.
+1. ApplePi uses npm and commits `package-lock.json`.
+2. ApplePi uses Commander for CLI parsing.
+3. ApplePi uses Vitest with V8 coverage for tests.
+4. ApplePi profile IDs are filesystem-safe slugs; optional display names can carry spaces or punctuation.
 5. The public profile-creation command is `create_profile` to match the product requirement, with `create-profile` as an alias.
 6. URI profile source lockfiles are deferred beyond v1; v1 sync records cache metadata but does not require lockfile-driven reproducibility.
 7. Claude Code is supported as an additional adapter, while pi remains the default adapter.

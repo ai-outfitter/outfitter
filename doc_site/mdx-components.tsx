@@ -1,4 +1,4 @@
-// Merges Bridl documentation MDX components with Nextra's default docs components.
+// Merges ApplePi documentation MDX components with Nextra's default docs components.
 import type { MDXComponents } from 'mdx/types';
 import { useMDXComponents as getNextraComponents } from 'nextra-theme-docs';
 

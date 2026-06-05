@@ -12,13 +12,13 @@ import { createProfileSourceCachePath, createRemoteRepositoryCachePath } from '.
 const temporaryRoots: string[] = [];
 
 const createTemporaryRoot = (): string => {
-  const root = mkdtempSync(join(tmpdir(), 'bridl-setup-command-'));
+  const root = mkdtempSync(join(tmpdir(), 'applepi-setup-command-'));
   temporaryRoots.push(root);
   return root;
 };
 
 const writeSettings = (homeDirectory: string, content: string): void => {
-  const settingsDirectory = join(homeDirectory, '.bridl');
+  const settingsDirectory = join(homeDirectory, '.applepi');
   mkdirSync(settingsDirectory, { recursive: true });
   writeFileSync(join(settingsDirectory, 'settings.yml'), content);
 };
@@ -44,7 +44,7 @@ afterEach(() => {
 });
 
 describe('setup command', () => {
-  // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-002.4, BRIDL-REQ-004.1).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-002.4, APPLEPI-REQ-004.1).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('creates initial user settings and a default user profile without overwriting existing files', async () => {
     const root = createTemporaryRoot();
@@ -55,8 +55,8 @@ describe('setup command', () => {
       { homeDirectory, projectDirectory },
       { synchronizer: defaultProfileSynchronizer },
     );
-    const settingsPath = join(homeDirectory, '.bridl', 'settings.yml');
-    const defaultProfilePath = join(homeDirectory, '.bridl', 'profiles', 'engineer', 'profile.yml');
+    const settingsPath = join(homeDirectory, '.applepi', 'settings.yml');
+    const defaultProfilePath = join(homeDirectory, '.applepi', 'profiles', 'engineer', 'profile.yml');
 
     expect(firstResult.createdSettings).toBe(true);
     expect(firstResult.createdDefaultProfile).toBe(true);
@@ -86,13 +86,13 @@ describe('setup command', () => {
     expect(readFileSync(defaultProfilePath, 'utf8')).toBe('id: default\nlabel: Custom\n');
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-004.1).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-004.1).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('uses a setup source repository as the initial user settings and profiles without overwriting files', async () => {
     const root = createTemporaryRoot();
     const homeDirectory = join(root, 'home');
     const projectDirectory = join(root, 'project');
-    const setupSourceUri = 'https://user:secret@example.test/bridl-config';
+    const setupSourceUri = 'https://user:secret@example.test/applepi-config';
     const sourceCachePath = join(root, 'starter-cache');
     mkdirSync(join(sourceCachePath, 'profiles', 'team'), { recursive: true });
     writeFileSync(
@@ -123,15 +123,15 @@ describe('setup command', () => {
     expect(result.copiedStarterProfileFiles).toBe(1);
     expect(result.messages.join('\n')).not.toContain('secret');
     expect(result.createdDefaultProfile).toBe(false);
-    expect(readFileSync(join(homeDirectory, '.bridl', 'settings.yml'), 'utf8')).toBe(
+    expect(readFileSync(join(homeDirectory, '.applepi', 'settings.yml'), 'utf8')).toBe(
       'default_profile: team\nprofile_sources:\n  - path: ./profiles\n',
     );
-    expect(readFileSync(join(homeDirectory, '.bridl', 'profiles', 'team', 'profile.yml'), 'utf8')).toBe(
+    expect(readFileSync(join(homeDirectory, '.applepi', 'profiles', 'team', 'profile.yml'), 'utf8')).toBe(
       'id: team\nlabel: Team\ncontrols: {}\n',
     );
 
-    writeFileSync(join(homeDirectory, '.bridl', 'settings.yml'), 'default_profile: custom\n');
-    writeFileSync(join(homeDirectory, '.bridl', 'profiles', 'team', 'profile.yml'), 'id: team\nlabel: Custom\n');
+    writeFileSync(join(homeDirectory, '.applepi', 'settings.yml'), 'default_profile: custom\n');
+    writeFileSync(join(homeDirectory, '.applepi', 'profiles', 'team', 'profile.yml'), 'id: team\nlabel: Custom\n');
     const secondResult = await executeSetupCommand(
       { homeDirectory, projectDirectory, setupSourceUri },
       {
@@ -148,13 +148,13 @@ describe('setup command', () => {
 
     expect(secondResult.createdSettings).toBe(false);
     expect(secondResult.copiedStarterProfileFiles).toBe(0);
-    expect(readFileSync(join(homeDirectory, '.bridl', 'settings.yml'), 'utf8')).toBe('default_profile: custom\n');
-    expect(readFileSync(join(homeDirectory, '.bridl', 'profiles', 'team', 'profile.yml'), 'utf8')).toBe(
+    expect(readFileSync(join(homeDirectory, '.applepi', 'settings.yml'), 'utf8')).toBe('default_profile: custom\n');
+    expect(readFileSync(join(homeDirectory, '.applepi', 'profiles', 'team', 'profile.yml'), 'utf8')).toBe(
       'id: team\nlabel: Custom\n',
     );
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-004.1).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-004.1).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('validates discovered settings before setup and runs URI sync behavior', async () => {
     const root = createTemporaryRoot();
@@ -191,16 +191,16 @@ describe('setup command', () => {
     writeSettings(fallbackHomeDirectory, 'profile_sources: []\n');
     const fallbackDefaultResult = await executeSetupCommand({ homeDirectory: fallbackHomeDirectory, projectDirectory });
     expect(fallbackDefaultResult.defaultProfilePath).toBe(
-      join(fallbackHomeDirectory, '.bridl', 'profiles', 'engineer', 'profile.yml'),
+      join(fallbackHomeDirectory, '.applepi', 'profiles', 'engineer', 'profile.yml'),
     );
-    expect(readFileSync(join(fallbackHomeDirectory, '.bridl', 'settings.yml'), 'utf8')).toContain(
+    expect(readFileSync(join(fallbackHomeDirectory, '.applepi', 'settings.yml'), 'utf8')).toContain(
       'default_profile: engineer',
     );
 
     const projectDefaultHomeDirectory = join(root, 'project-default-home');
     const projectDefaultDirectory = join(root, 'project-default');
-    mkdirSync(join(projectDefaultDirectory, '.bridl'), { recursive: true });
-    writeFileSync(join(projectDefaultDirectory, '.bridl', 'settings.yml'), 'default_profile: remote\n');
+    mkdirSync(join(projectDefaultDirectory, '.applepi'), { recursive: true });
+    writeFileSync(join(projectDefaultDirectory, '.applepi', 'settings.yml'), 'default_profile: remote\n');
     const projectDefaultResult = await executeSetupCommand(
       {
         homeDirectory: projectDefaultHomeDirectory,
@@ -210,7 +210,7 @@ describe('setup command', () => {
     );
     expect(readFileSync(projectDefaultResult.settingsPath, 'utf8')).toContain('default_profile: engineer');
     expect(projectDefaultResult.defaultProfilePath).toBe(
-      join(projectDefaultHomeDirectory, '.bridl', 'profiles', 'engineer', 'profile.yml'),
+      join(projectDefaultHomeDirectory, '.applepi', 'profiles', 'engineer', 'profile.yml'),
     );
 
     const unsafeDefaultHomeDirectory = join(root, 'unsafe-default-home');
@@ -227,15 +227,15 @@ describe('setup command', () => {
 
     const invalidProjectHomeDirectory = join(root, 'invalid-project-home');
     const invalidProjectDirectory = join(root, 'invalid-project');
-    mkdirSync(join(invalidProjectDirectory, '.bridl'), { recursive: true });
-    writeFileSync(join(invalidProjectDirectory, '.bridl', 'settings.yml'), 'profile_sources:\n  - only: [remote]\n');
+    mkdirSync(join(invalidProjectDirectory, '.applepi'), { recursive: true });
+    writeFileSync(join(invalidProjectDirectory, '.applepi', 'settings.yml'), 'profile_sources:\n  - only: [remote]\n');
     await expect(
       executeSetupCommand({ homeDirectory: invalidProjectHomeDirectory, projectDirectory: invalidProjectDirectory }),
     ).rejects.toThrow('Cannot setup with invalid settings');
-    expect(existsSync(join(invalidProjectHomeDirectory, '.bridl', 'settings.yml'))).toBe(false);
+    expect(existsSync(join(invalidProjectHomeDirectory, '.applepi', 'settings.yml'))).toBe(false);
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-002.4, BRIDL-REQ-003.2, BRIDL-REQ-004.1).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-002.4, APPLEPI-REQ-003.2, APPLEPI-REQ-004.1).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('requires an interactive terminal and lets the setup wizard choose the default profile', async () => {
     const root = createTemporaryRoot();
@@ -311,19 +311,19 @@ describe('setup command', () => {
       },
     );
 
-    expect(result.defaultProfilePath).toBe(join(homeDirectory, '.bridl', 'profiles', 'data_analyst', 'profile.yml'));
+    expect(result.defaultProfilePath).toBe(join(homeDirectory, '.applepi', 'profiles', 'data_analyst', 'profile.yml'));
     expect(readFileSync(result.defaultProfilePath, 'utf8')).toBe('id: data_analyst\nlabel: Default\ncontrols: {}\n');
     expect(result.messages).toContain("Selected default profile 'data_analyst'.");
     expect(messages).toEqual([
-      'Welcome to Bridl. Bridl is the easiest way to run Pi.',
-      'Bridl manages full pi configurations for you, so you can use different profiles in different situations.',
+      'Welcome to ApplePi. ApplePi is the easiest way to run Pi.',
+      'ApplePi manages full pi configurations for you, so you can use different profiles in different situations.',
     ]);
-    expect(readFileSync(join(homeDirectory, '.bridl', 'settings.yml'), 'utf8')).toContain(
+    expect(readFileSync(join(homeDirectory, '.applepi', 'settings.yml'), 'utf8')).toContain(
       'default_profile: data_analyst',
     );
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-004.1).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-004.1).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('loads wizard choices from legacy URI and repository subpath sources', async () => {
     const root = createTemporaryRoot();
@@ -386,14 +386,14 @@ describe('setup command', () => {
     expect(result.messages).toContain("Selected default profile 'repository'.");
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-004.1).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-004.1).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('updates the effective default profile when duplicate settings keys are present', () => {
     const root = createTemporaryRoot();
     const homeDirectory = join(root, 'home');
     const missingDefaultHomeDirectory = join(root, 'missing-default-home');
-    const settingsPath = join(homeDirectory, '.bridl', 'settings.yml');
-    const missingDefaultSettingsPath = join(missingDefaultHomeDirectory, '.bridl', 'settings.yml');
+    const settingsPath = join(homeDirectory, '.applepi', 'settings.yml');
+    const missingDefaultSettingsPath = join(missingDefaultHomeDirectory, '.applepi', 'settings.yml');
     writeSettings(
       homeDirectory,
       ['default_profile: legacy', 'profile_sources: []', 'default_profile: current', ''].join('\n'),
@@ -409,7 +409,7 @@ describe('setup command', () => {
     expect(readFileSync(missingDefaultSettingsPath, 'utf8')).toBe('profile_sources: []\ndefault_profile: selected\n');
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-004.1).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-004.1).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('uses the readline setup prompt when no selector dependency is injected', async () => {
     const root = createTemporaryRoot();
@@ -432,17 +432,17 @@ describe('setup command', () => {
     );
 
     expect(result.messages).toContain("Selected default profile 'solo'.");
-    expect(messages[0]).toContain('Welcome to Bridl');
-    expect(readFileSync(join(homeDirectory, '.bridl', 'settings.yml'), 'utf8')).toContain('default_profile: solo');
+    expect(messages[0]).toContain('Welcome to ApplePi');
+    expect(readFileSync(join(homeDirectory, '.applepi', 'settings.yml'), 'utf8')).toContain('default_profile: solo');
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-004.1).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-004.1).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('rejects out-of-range readline setup prompt selections', async () => {
     const root = createTemporaryRoot();
     const homeDirectory = join(root, 'home');
     const projectDirectory = join(root, 'project');
-    const profilesDirectory = join(homeDirectory, '.bridl', 'profiles');
+    const profilesDirectory = join(homeDirectory, '.applepi', 'profiles');
     const input = Object.assign(new PassThrough(), { isTTY: true });
     const output = Object.assign(new PassThrough(), { isTTY: true });
     writeSettings(homeDirectory, 'default_profile: labeled\nprofile_sources:\n  - path: ./profiles\n');

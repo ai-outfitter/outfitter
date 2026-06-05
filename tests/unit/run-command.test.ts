@@ -1,4 +1,4 @@
-// Tests run command tack assembly, launch behavior, and error handling.
+// Tests run command composite profile assembly, launch behavior, and error handling.
 import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -6,19 +6,19 @@ import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { executeRunCommand, resolveChildExitCode } from '../../src/cli/commands/RunCommand.js';
-import { createTack } from '../../src/tack/Tack.js';
+import { createCompositeProfile } from '../../src/compositeProfile/CompositeProfile.js';
 
 const temporaryRoots: string[] = [];
 
 const createTemporaryRoot = (): string => {
-  const root = mkdtempSync(join(tmpdir(), 'bridl-run-command-'));
+  const root = mkdtempSync(join(tmpdir(), 'applepi-run-command-'));
   temporaryRoots.push(root);
   return root;
 };
 
 const writeSettings = (homeDirectory: string, content: string): void => {
-  mkdirSync(join(homeDirectory, '.bridl'), { recursive: true });
-  writeFileSync(join(homeDirectory, '.bridl', 'settings.yml'), content);
+  mkdirSync(join(homeDirectory, '.applepi'), { recursive: true });
+  writeFileSync(join(homeDirectory, '.applepi', 'settings.yml'), content);
 };
 
 const writeProfile = (root: string, id: string, content: string): string => {
@@ -51,13 +51,13 @@ afterEach(() => {
 });
 
 describe('run command', () => {
-  // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-005.1, BRIDL-REQ-005.2, BRIDL-REQ-005.3, BRIDL-REQ-005.4, BRIDL-REQ-005.5).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-005.1, APPLEPI-REQ-005.2, APPLEPI-REQ-005.3, APPLEPI-REQ-005.4, APPLEPI-REQ-005.5).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
-  it('resolves the default profile, writes and refreshes a temp tack, warns, and passes through args', async () => {
+  it('resolves the default profile, writes and refreshes a temp compositeProfile, warns, and passes through args', async () => {
     const root = createTemporaryRoot();
     const homeDirectory = join(root, 'home');
     const projectDirectory = join(root, 'project');
-    const profilesDirectory = join(homeDirectory, '.bridl', 'profiles');
+    const profilesDirectory = join(homeDirectory, '.applepi', 'profiles');
     writeSettings(homeDirectory, 'default_profile: default\nprofile_sources:\n  - path: ./profiles\n');
     const baseProfilePath = writeProfile(
       profilesDirectory,
@@ -114,7 +114,7 @@ describe('run command', () => {
                   ].join('\n'),
                 );
                 resolve(
-                  waitForFileContaining(join(plan.env.PI_CODING_AGENT_DIR, 'bridl', 'profile.json'), 'LIVE_ENV').then(
+                  waitForFileContaining(join(plan.env.PI_CODING_AGENT_DIR, 'applepi', 'profile.json'), 'LIVE_ENV').then(
                     () => 0,
                   ),
                 );
@@ -126,16 +126,16 @@ describe('run command', () => {
     );
 
     expect(result.profileId).toBe('default');
-    expect(result.tackDirectory).toContain('bridl-default-pi-');
-    expect(existsSync(join(result.tackDirectory, 'bridl', 'profile.json'))).toBe(true);
-    const profileMetadata = readFileSync(join(result.tackDirectory, 'bridl', 'profile.json'), 'utf8');
+    expect(result.compositeProfileDirectory).toContain('applepi-default-pi-');
+    expect(existsSync(join(result.compositeProfileDirectory, 'applepi', 'profile.json'))).toBe(true);
+    const profileMetadata = readFileSync(join(result.compositeProfileDirectory, 'applepi', 'profile.json'), 'utf8');
     expect(profileMetadata).toContain('test-model');
     expect(profileMetadata).toContain('BASE_ENV');
     expect(profileMetadata).toContain('LIVE_ENV');
     expect(profileMetadata).not.toContain('unrelated-model');
     expect(result.launchPlan.args).toEqual(['--model', 'test-model', '--debug', 'prompt text']);
     expect(result.launchPlan.env.TEST_ENV).toBe('yes');
-    expect(result.launchPlan.env.PI_CODING_AGENT_DIR).toBe(result.tackDirectory);
+    expect(result.launchPlan.env.PI_CODING_AGENT_DIR).toBe(result.compositeProfileDirectory);
     expect(result.warnings).toEqual(["pi adapter cannot translate requested control 'unsupported_feature'."]);
     expect(warnings).toEqual(result.warnings);
     expect(launches).toHaveLength(1);
@@ -155,7 +155,7 @@ describe('run command', () => {
     );
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-005.1).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-005.1).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('runs setup automatically before the default run when user setup has not run', async () => {
     const root = createTemporaryRoot();
@@ -183,20 +183,20 @@ describe('run command', () => {
     );
 
     expect(messages).toEqual([
-      '`bridl setup` has not been run yet - running now',
+      '`applepi setup` has not been run yet - running now',
       '→ resolving profile engineer',
-      `✓ profile layer engineer  ${join(homeDirectory, '.bridl', 'profiles', 'engineer')}`,
+      `✓ profile layer engineer  ${join(homeDirectory, '.applepi', 'profiles', 'engineer')}`,
       '✓ profile layer engineer  github:Unsupervisedcom/applepi-default-profiles@main/profiles',
       '✓ merged controls',
-      `✓ prepared tack  ${result.tackDirectory}`,
+      `✓ prepared composite profile  ${result.compositeProfileDirectory}`,
       '↳ launching pi …',
     ]);
     expect(result.profileId).toBe('engineer');
-    expect(existsSync(join(homeDirectory, '.bridl', 'settings.yml'))).toBe(true);
-    expect(existsSync(join(homeDirectory, '.bridl', 'profiles', 'engineer', 'profile.yml'))).toBe(true);
+    expect(existsSync(join(homeDirectory, '.applepi', 'settings.yml'))).toBe(true);
+    expect(existsSync(join(homeDirectory, '.applepi', 'profiles', 'engineer', 'profile.yml'))).toBe(true);
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-002.3, BRIDL-REQ-002.4, BRIDL-REQ-003.1, BRIDL-REQ-006.1).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-002.3, APPLEPI-REQ-002.4, APPLEPI-REQ-003.1, APPLEPI-REQ-006.1).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('reports invalid settings, invalid profile sources, missing profiles, URI caches, and child exit codes', async () => {
     const root = createTemporaryRoot();
@@ -210,7 +210,7 @@ describe('run command', () => {
     const badProfileHome = join(root, 'bad-profile-home');
     writeSettings(badProfileHome, 'default_profile: default\nprofile_sources:\n  - path: ./profiles\n');
     writeProfile(
-      join(badProfileHome, '.bridl', 'profiles'),
+      join(badProfileHome, '.applepi', 'profiles'),
       'default',
       'id: default\ncontrols:\n  environment:\n    COUNT: 1\n',
     );
@@ -220,7 +220,7 @@ describe('run command', () => {
 
     const missingProfileHome = join(root, 'missing-profile-home');
     writeSettings(missingProfileHome, 'default_profile: missing\nprofile_sources:\n  - path: ./profiles\n');
-    mkdirSync(join(missingProfileHome, '.bridl', 'profiles'), { recursive: true });
+    mkdirSync(join(missingProfileHome, '.applepi', 'profiles'), { recursive: true });
     await expect(executeRunCommand({ homeDirectory: missingProfileHome, projectDirectory })).rejects.toThrow(
       "Cannot resolve profile 'missing'",
     );
@@ -229,7 +229,7 @@ describe('run command', () => {
     const uri = 'https://example.test/team/profiles.git';
     writeSettings(uriHome, `default_profile: cached\nprofile_sources:\n  - uri: ${uri}\n`);
     writeProfile(
-      join(uriHome, '.bridl', 'cache', 'profiles', Buffer.from(uri).toString('base64url')),
+      join(uriHome, '.applepi', 'cache', 'profiles', Buffer.from(uri).toString('base64url')),
       'cached',
       'id: cached\ncontrols: {}\n',
     );
@@ -247,7 +247,7 @@ describe('run command', () => {
 
     const fallbackHome = join(root, 'fallback-home');
     writeSettings(fallbackHome, 'profile_sources:\n  - path: ./profiles\n');
-    writeProfile(join(fallbackHome, '.bridl', 'profiles'), 'default', 'id: default\ncontrols: {}\n');
+    writeProfile(join(fallbackHome, '.applepi', 'profiles'), 'default', 'id: default\ncontrols: {}\n');
     await expect(
       executeRunCommand(
         { homeDirectory: fallbackHome, projectDirectory },
@@ -263,18 +263,22 @@ describe('run command', () => {
 
     const spawnedHome = join(root, 'spawned-home');
     writeSettings(spawnedHome, 'default_profile: default\nprofile_sources:\n  - path: ./profiles\n');
-    writeProfile(join(spawnedHome, '.bridl', 'profiles'), 'default', 'id: default\ncontrols: {}\n');
+    writeProfile(join(spawnedHome, '.applepi', 'profiles'), 'default', 'id: default\ncontrols: {}\n');
     const spawnedResult = await executeRunCommand(
       { homeDirectory: spawnedHome, projectDirectory },
       {
         adapter: {
           id: 'node',
           supportedControls: [],
-          createTack(_profile, tackInput) {
-            return { tack: createTack(tackInput.rootDirectory, []), warnings: [] };
+          createCompositeProfile(_profile, compositeProfileInput) {
+            return { compositeProfile: createCompositeProfile(compositeProfileInput.rootDirectory, []), warnings: [] };
           },
-          createLaunchPlan(tack) {
-            return { command: process.execPath, args: ['-e', 'process.exit(0)'], env: { TACK: tack.rootDirectory } };
+          createLaunchPlan(compositeProfile) {
+            return {
+              command: process.execPath,
+              args: ['-e', 'process.exit(0)'],
+              env: { COMPOSITE_PROFILE: compositeProfile.rootDirectory },
+            };
           },
           getUnsupportedControls() {
             return [];
@@ -293,22 +297,22 @@ describe('run command', () => {
     expect(resolveChildExitCode(null, null)).toBe(1);
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-005.5).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-005.5).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
-  it('makes unsupported control warnings fatal when hard tack is enabled', async () => {
+  it('makes unsupported control warnings fatal when strict is enabled', async () => {
     const root = createTemporaryRoot();
     const homeDirectory = join(root, 'home');
     const projectDirectory = join(root, 'project');
     writeSettings(homeDirectory, 'default_profile: default\nprofile_sources:\n  - path: ./profiles\n');
     writeProfile(
-      join(homeDirectory, '.bridl', 'profiles'),
+      join(homeDirectory, '.applepi', 'profiles'),
       'default',
       'id: default\ncontrols:\n  unsupported_feature: true\n',
     );
 
     await expect(
       executeRunCommand(
-        { homeDirectory, projectDirectory, hardTack: true },
+        { homeDirectory, projectDirectory, strict: true },
         {
           launcher: {
             launch() {
@@ -317,6 +321,6 @@ describe('run command', () => {
           },
         },
       ),
-    ).rejects.toThrow("Hard-tack failed for pi: pi adapter cannot translate requested control 'unsupported_feature'.");
+    ).rejects.toThrow("Strict failed for pi: pi adapter cannot translate requested control 'unsupported_feature'.");
   });
 });

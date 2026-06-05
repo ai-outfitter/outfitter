@@ -4,19 +4,22 @@ This fixture models the ordinary case where a repository contributes one checked
 
 ## Setup
 
-- `home/.bridl/settings.yml` defines the user default profile as `default`.
-- `home/.bridl/profiles/default/profile.yml` contributes personal defaults such as `USER_DEFAULT` environment values.
-- `project/.bridl/settings.yml` declares the profile sources needed for this synthetic test tree: the user profile source and the repo profile source.
-- `project/.bridl/profiles/repo-review/profile.yml` defines the selected repository profile.
+- `home/.applepi/settings.yml` defines the user default profile as `default`.
+- `home/.applepi/profiles/default/profile.yml` contributes personal defaults such as `USER_DEFAULT` environment values.
+- `project/.applepi/settings.yml` declares the profile sources needed for this synthetic test tree: the user profile source and the repo profile source.
+- `project/.applepi/profiles/repo-review/profile.yml` defines the selected repository profile.
 
-The test selects `repo-review` explicitly, so Bridl should resolve the user's `default` profile as the implicit lower-precedence profile and then layer `repo-review` above it.
+The test selects `repo-review` explicitly, so ApplePi should resolve the user's `default` profile as the implicit lower-precedence profile and then layer `repo-review` above it.
 
 ## Expected behavior
 
 The selected profile should contain both user-default and repo-specific controls, with repo values winning shared keys.
 
-This fixture intentionally does not provide any `cli_specific/<adapter>/` state files. Adapter-declared persistent state should therefore use each adapter's native fallback or configured cache behavior rather than writing state into the repo profile.
+This fixture intentionally does not provide any `cli_specific/<adapter>/` state files.
+Adapter-declared persistent state should therefore use each adapter's native fallback or configured cache behavior rather than writing state into the repo profile.
 
 ## Mutation/write-back behavior
 
-Tests may mutate generated tack files and unknown user-write paths from the fake launcher. Generated tack mutations must not rewrite source settings or profile YAML. Unknown writes should be handled by the selected adapter's `unknown` state policy.
+Tests may mutate generated composite profile files and unknown user-write paths from the fake launcher.
+Generated composite profile mutations must not rewrite source settings or profile YAML.
+Unknown writes should be handled by the selected adapter's `unknown` state policy.

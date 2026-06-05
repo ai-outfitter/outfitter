@@ -1,21 +1,21 @@
 # State Writeback Strategy
 
-This document describes Bridl's current model for handling writes that agent CLIs make inside a tack.
+This document describes ApplePi's current model for handling writes that agent CLIs make inside a composite profile.
 
-A tack is temporary, but agent CLIs sometimes perform intentionally durable writes, such as logging in, installing plugins, changing settings, or updating MCP configuration.
-Bridl makes those paths explicit: adapter-declared writable paths are materialized with a resolved `state_persistence` strategy before the child CLI starts, and non-persistent or unknown writes are diagnosed after the child exits.
+A composite profile is temporary, but agent CLIs sometimes perform intentionally durable writes, such as logging in, installing plugins, changing settings, or updating MCP configuration.
+ApplePi makes those paths explicit: adapter-declared writable paths are materialized with a resolved `state_persistence` strategy before the child CLI starts, and non-persistent or unknown writes are diagnosed after the child exits.
 
 ## Functional model
 
-Bridl separates three kinds of files that may exist in a tack:
+ApplePi separates three kinds of files that may exist in a composite profile:
 
-1. **Generated runtime files**: files Bridl assembles from settings, profiles, templates, and adapter rules.
-   Bridl may regenerate these while the child agent is running when their source inputs change.
+1. **Generated runtime files**: files ApplePi assembles from settings, profiles, templates, and adapter rules.
+   ApplePi may regenerate these while the child agent is running when their source inputs change.
 2. **Declared state paths**: adapter-known files or directories the agent CLI may update intentionally, such as auth, settings, MCP config, plugins, caches, and sessions.
 3. **Unknown writes**: files or directories the agent creates outside the adapter-declared state paths.
 
 Only declared state paths can be made durable automatically.
-Unknown writes are never silently persisted because Bridl does not know their intended owner, merge rules, or durable destination.
+Unknown writes are never silently persisted because ApplePi does not know their intended owner, merge rules, or durable destination.
 Generated runtime files and declared state paths are deliberately handled separately so live profile/template updates do not erase or re-baseline agent state changes made during the same run.
 
 The user-facing state update lifecycle is:
@@ -23,21 +23,21 @@ The user-facing state update lifecycle is:
 1. **Choose a profile**.
    Profile resolution determines the effective `state_persistence` map using normal profile precedence.
 2. **Resolve adapter defaults**.
-   For each path the selected adapter declares, Bridl uses the profile override when present and otherwise uses the adapter default.
-3. **Prepare the tack**.
-   Durable paths are connected to a profile-managed or native CLI location; non-durable paths are created as normal temporary tack paths.
+   For each path the selected adapter declares, ApplePi uses the profile override when present and otherwise uses the adapter default.
+3. **Prepare the composite profile**.
+   Durable paths are connected to a profile-managed or native CLI location; non-durable paths are created as normal temporary composite profile paths.
 4. **Run the agent**.
-   The agent CLI reads and writes the tack as if it were its normal configuration directory.
+   The agent CLI reads and writes the composite profile as if it were its normal configuration directory.
 5. **Classify changes after exit**.
-   Bridl checks non-durable declared paths and unknown paths and reports or fails according to their strategies.
+   ApplePi checks non-durable declared paths and unknown paths and reports or fails according to their strategies.
 6. **Clean up temporary state**.
-   Temporary tack contents are discarded; durable symlink targets remain in their profile or native CLI location.
+   Temporary composite profile contents are discarded; durable symlink targets remain in their profile or native CLI location.
 
 ## Current behavior
 
-- Tacks remain temporary and reproducible by default.
-- Bridl does not do generic post-run copy-back or JSON/YAML merge-back.
-- Persistent state is represented by symlinking a tack path to a profile file/directory or to the native CLI fallback path.
+- Composite profiles remain temporary and reproducible by default.
+- ApplePi does not do generic post-run copy-back or JSON/YAML merge-back.
+- Persistent state is represented by symlinking a composite profile path to a profile file/directory or to the native CLI fallback path.
 - Every adapter-declared state path has a resolved strategy before launch: profile overrides win, otherwise the adapter `default_strategy` is used.
 - Invalid or disallowed strategies fail before launch.
 - Non-persistent `warn` and `error` strategies are checked after the child CLI exits.
@@ -47,9 +47,9 @@ The user-facing state update lifecycle is:
 
 ## Non-goals
 
-- Bridl does not implement generic copy-back from the tack to profiles.
-- Bridl does not implement generic structured merge-back.
-- Bridl does not silently persist unknown writes.
+- ApplePi does not implement generic copy-back from the composite profile to profiles.
+- ApplePi does not implement generic structured merge-back.
+- ApplePi does not silently persist unknown writes.
 
 ## Profile stack and native fallback
 
@@ -63,7 +63,7 @@ user profile
 URI/cache profiles
 explicit inheritance
 implicit user default profile
-Bridl default profile
+ApplePi default profile
 ```
 
 Native CLI state is not represented as an extra profile layer.
@@ -74,7 +74,7 @@ Claude Code `projects/` is additionally controlled by `controls.session_director
 
 Adapters declare writable state paths directly, using relative file paths as keys.
 Directory paths use a trailing slash.
-The same key is used for adapter coverage, `state_persistence` overrides, profile resource lookup, native fallback lookup, and tack materialization.
+The same key is used for adapter coverage, `state_persistence` overrides, profile resource lookup, native fallback lookup, and composite profile materialization.
 
 The Pi adapter currently declares:
 
@@ -182,16 +182,16 @@ profiles/
         plugins/
 ```
 
-Except for special adapter paths described below, when a selected strategy is `symlink`, Bridl searches the resolved profile folders from highest to lowest precedence for `cli_specific/<adapter>/<state-path>`.
-If a profile contains the file or directory, Bridl symlinks the tack path to that source.
+Except for special adapter paths described below, when a selected strategy is `symlink`, ApplePi searches the resolved profile folders from highest to lowest precedence for `cli_specific/<adapter>/<state-path>`.
+If a profile contains the file or directory, ApplePi symlinks the composite profile path to that source.
 
-For most Pi paths, if no profile source exists, Bridl falls back to the corresponding native Pi agent path under `~/.pi/agent`.
-Missing native fallback files/directories are created so the tack symlink has a durable destination.
+For most Pi paths, if no profile source exists, ApplePi falls back to the corresponding native Pi agent path under `~/.pi/agent`.
+Missing native fallback files/directories are created so the composite profile symlink has a durable destination.
 
 Pi `utilities/` and `bin/` are special cache-backed paths: both resolve to `<cache_directory>/utilities` instead of profile or native Pi state.
-This keeps pi-managed helper binaries reusable across temporary tacks without treating them as user-editable profile files.
+This keeps pi-managed helper binaries reusable across temporary composite profiles without treating them as user-editable profile files.
 
-For most Claude Code paths, if no profile source exists, Bridl falls back to the corresponding native Claude Code path under `~/.claude`.
+For most Claude Code paths, if no profile source exists, ApplePi falls back to the corresponding native Claude Code path under `~/.claude`.
 Claude Code `projects/` is special: `controls.claude.session_directory` overrides generic `controls.session_directory`, and the selected session directory becomes the `projects/` symlink source.
 If neither session-directory control is present, `projects/` falls back to `~/.claude/projects`.
 
@@ -213,7 +213,7 @@ The values are concrete strategy names.
 `state_persistence` only needs overrides; omitted paths use the adapter declaration's `default_strategy`.
 
 `state_persistence` is validated by the profile JSON Schema at read boundaries.
-Bridl also validates the resolved strategy against the adapter declaration before launch.
+ApplePi also validates the resolved strategy against the adapter declaration before launch.
 
 Functional examples:
 
@@ -242,19 +242,19 @@ state_persistence:
   unknown: warn
 ```
 
-## Tack materialization
+## Composite profile materialization
 
-Before launch, Bridl processes each adapter-declared state path:
+Before launch, ApplePi processes each adapter-declared state path:
 
 1. Resolve the path's strategy from profile `state_persistence` overrides, then the adapter `default_strategy`.
 2. Validate that the strategy is allowed for that path.
 3. Resolve a source path through the profile hierarchy when the strategy is `symlink`.
-4. Materialize the tack path.
+4. Materialize the composite profile path.
 5. Record a baseline fingerprint for non-persistent and unknown write detection.
 
-For `symlink`, Bridl creates a symlink from the tack path to the resolved profile or native CLI source.
+For `symlink`, ApplePi creates a symlink from the composite profile path to the resolved profile or native CLI source.
 
-For `discard`, `warn`, `error`, and `prompt`, Bridl creates normal temporary tack paths where needed and observes whether they changed.
+For `discard`, `warn`, `error`, and `prompt`, ApplePi creates normal temporary composite profile paths where needed and observes whether they changed.
 
 ## Unknown writes
 
@@ -286,22 +286,22 @@ Use `prompt` only as a forward-compatible declaration for future interactive han
 
 ### `symlink`
 
-Bridl resolves the state path through the profile hierarchy, then the native CLI fallback, and symlinks that source into the tack.
+ApplePi resolves the state path through the profile hierarchy, then the native CLI fallback, and symlinks that source into the composite profile.
 Persistence happens because the CLI writes through the symlink to an intentional file or directory.
 
 ### `discard`
 
-Writes are allowed in the tack and are thrown away when the tack is deleted.
-Bridl does not emit diagnostics for changed `discard` paths.
+Writes are allowed in the composite profile and are thrown away when the composite profile is deleted.
+ApplePi does not emit diagnostics for changed `discard` paths.
 
 ### `warn`
 
 Writes are allowed, discarded, and reported after the child exits.
-`--hard-tack` makes these warnings fatal.
+`--strict` makes these warnings fatal.
 
 ### `error`
 
-Writes are allowed during the child process but cause Bridl to fail after the child exits if the path changed.
+Writes are allowed during the child process but cause ApplePi to fail after the child exits if the path changed.
 This is useful for CI and strict reproducibility.
 
 ### `prompt`
@@ -318,4 +318,4 @@ Path-keyed state declarations keep the model simple:
 - the native fallback exposes native CLI files at those same paths;
 - `state_persistence` says what to do with each path.
 
-This avoids ambiguous writeback behavior and gives users a clear rule: if a CLI write should persist, configure that tack path as `symlink` and provide or accept the profile/native file that should receive the mutation.
+This avoids ambiguous writeback behavior and gives users a clear rule: if a CLI write should persist, configure that composite profile path as `symlink` and provide or accept the profile/native file that should receive the mutation.

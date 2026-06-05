@@ -1,4 +1,4 @@
-# Bridl Phased Implementation Plan
+# ApplePi Phased Implementation Plan
 
 This plan describes the order of work.
 Formal obligations live in `requirements/`.
@@ -7,14 +7,14 @@ Formal obligations live in `requirements/`.
 
 - [x] Use npm with the committed `package.json` and `package-lock.json` as the dependency baseline.
 - [x] Use Commander for CLI parsing, Vitest with V8 coverage for tests, ESLint with `typescript-eslint` for linting, and TypeScript strict mode.
-- [x] Add the initial source layout for CLI command objects, settings, profiles, tack, adapters, schemas, and validation.
+- [x] Add the initial source layout for CLI command objects, settings, profiles, composite profile, adapters, schemas, and validation.
 - [x] Wire CI-equivalent local commands: typecheck, lint, test, coverage.
 
 ## Phase 2: Schemas and configuration loading — Done
 
 - [x] Define initial `settings.yml` and `profile.yml` JSON Schemas.
 - [x] Implement YAML parsing and schema validation with useful diagnostics.
-- [x] Implement `.bridl/settings.yml` discovery scaffolding across user, project, and project-local scopes.
+- [x] Implement `.applepi/settings.yml` discovery scaffolding across user, project, and project-local scopes.
 - [x] Implement deterministic settings merging into the internal `Settings` object.
 
 ## Phase 3: Profile sources and profile resolution — Done
@@ -37,13 +37,13 @@ Implemented in `phase-4-setup-sync`.
 - [x] Validate synced profiles and produce clear command output.
 - [x] Implement `create_profile` and the `create-profile` alias against the same command object.
 
-## Phase 5: Tack assembly core — Done
+## Phase 5: Composite profile assembly core — Done
 
-- [x] Implement tack directory creation in the system temp directory.
-- [x] Implement `TackFile` objects for logical generated files.
+- [x] Implement composite profile directory creation in the system temp directory.
+- [x] Implement `Composite profileFile` objects for logical generated files.
 - [x] Implement generic control merging with CLI-specific overrides.
-- [x] Implement unsupported-control warnings and `--hard-tack` fatal behavior.
-- [x] Implement file watching for tack inputs while the child process runs.
+- [x] Implement unsupported-control warnings and `--strict` fatal behavior.
+- [x] Implement file watching for composite profile inputs while the child process runs.
 
 ## Phase 6: Pi adapter and run command — Done
 
@@ -51,7 +51,7 @@ Implemented in `phase-4-setup-sync`.
 - [x] Implement the pi adapter using native pi environment variables, flags, and resource conventions.
 - [x] Implement `run` as the default command.
 - [x] Preserve pass-through arguments to pi.
-- [x] Add tests for generated pi launch env, argv, and tack files.
+- [x] Add tests for generated pi launch env, argv, and composite profile files.
 
 ## Phase 7: Documentation and review hardening
 

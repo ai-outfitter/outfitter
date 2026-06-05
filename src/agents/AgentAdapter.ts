@@ -1,8 +1,8 @@
-// Defines the adapter contract for translating Bridl profiles to agent CLI launches.
+// Defines the adapter contract for translating ApplePi profiles to agent CLI launches.
 import type { Profile } from '../profiles/Profile.js';
 import type { Settings } from '../settings/Settings.js';
-import type { StatePathDeclaration } from '../tack/StatePersistence.js';
-import type { Tack } from '../tack/Tack.js';
+import type { StatePathDeclaration } from '../compositeProfile/StatePersistence.js';
+import type { CompositeProfile } from '../compositeProfile/CompositeProfile.js';
 
 export interface AgentLaunchPlan {
   readonly command: string;
@@ -10,8 +10,8 @@ export interface AgentLaunchPlan {
   readonly env: Readonly<Record<string, string>>;
 }
 
-export interface AgentTackPlan {
-  readonly tack: Tack;
+export interface AgentCompositeProfilePlan {
+  readonly compositeProfile: CompositeProfile;
   readonly warnings: readonly string[];
 }
 
@@ -19,7 +19,7 @@ export interface AgentAdapter {
   readonly id: string;
   readonly supportedControls: readonly string[];
   readonly statePaths?: Readonly<Record<string, StatePathDeclaration>>;
-  createTack(
+  createCompositeProfile(
     profile: Profile,
     input: {
       readonly rootDirectory: string;
@@ -30,7 +30,11 @@ export interface AgentAdapter {
       readonly settings?: Settings;
       readonly projectDirectory?: string;
     },
-  ): AgentTackPlan;
-  createLaunchPlan(tack: Tack, profile?: Profile, passThroughArgs?: readonly string[]): AgentLaunchPlan;
+  ): AgentCompositeProfilePlan;
+  createLaunchPlan(
+    compositeProfile: CompositeProfile,
+    profile?: Profile,
+    passThroughArgs?: readonly string[],
+  ): AgentLaunchPlan;
   getUnsupportedControls(profile: Profile): readonly string[];
 }

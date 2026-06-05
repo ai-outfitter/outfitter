@@ -1,6 +1,6 @@
-# bridl
+# applepi
 
-`bridl` is intended to be a management wrapper for launching [`pi`](https://github.com/earendil-works/pi-coding-agent) and Claude Code with configurable, reusable profiles.
+`applepi` is intended to be a management wrapper for launching [`pi`](https://github.com/earendil-works/pi-coding-agent) and Claude Code with configurable, reusable profiles.
 
 The goal is manageable agent CLI configuration: organizations should be able to define standard pi or Claude Code loadouts, distribute them to their workforce, and launch agent CLIs consistently across teams, roles, projects, or environments.
 
@@ -9,7 +9,7 @@ The goal is manageable agent CLI configuration: organizations should be able to 
 Pi is highly configurable through settings directories, extensions, skills, prompts, themes, model settings, environment variables, and CLI flags.
 That flexibility is powerful, but businesses often need a higher-level control plane for repeatable deployments.
 
-`bridl` should make it easy to answer questions like:
+`applepi` should make it easy to answer questions like:
 
 - Which pi configuration should this employee or team use?
 - Which extensions, skills, prompts, models, and providers are approved?
@@ -29,42 +29,42 @@ Example profile concepts:
 A launch flow is intended to look like:
 
 ```bash
-bridl
-bridl run --profile engineering-default
-bridl run -p support -- --cwd ~/work/customer-issue
-bridl sync
-bridl setup
-bridl setup https://github.com/my_account/bridl_config
-bridl create_profile regulated --scope user
+applepi
+applepi run --profile engineering-default
+applepi run -p support -- --cwd ~/work/customer-issue
+applepi sync
+applepi setup
+applepi setup https://github.com/my_account/applepi_config
+applepi create_profile regulated --scope user
 ```
 
-Under the hood, `bridl` translates a selected profile into the selected agent launch environment.
+Under the hood, `applepi` translates a selected profile into the selected agent launch environment.
 Pi runs use `PI_CODING_AGENT_DIR`; Claude Code runs use `CLAUDE_CONFIG_DIR`; both receive supported CLI flags, prompts, model settings, and environment variables.
-Select the adapter with `bridl run --agent <pi|claude>`, or set `default_agent` in `settings.yml`.
-If neither is set, Bridl defaults to pi for backward compatibility.
-If `bridl` is run before `bridl setup`, it creates the initial settings and default profile automatically before launching.
+Select the adapter with `applepi run --agent <pi|claude>`, or set `default_agent` in `settings.yml`.
+If neither is set, ApplePi defaults to pi for backward compatibility.
+If `applepi` is run before `applepi setup`, it creates the initial settings and default profile automatically before launching.
 
 `settings.yml` can point at local profiles, full Git URIs, or GitHub shorthand sources with optional refs and repository subpaths:
 
 ```yaml
 remote_settings:
-  - github: my_account/bridl_config
+  - github: my_account/applepi_config
     ref: main
     path: settings.yml
 
 profile_sources:
-  - github: my_account/bridl_config
+  - github: my_account/applepi_config
     ref: main
     path: profiles
 ```
 
-Run `bridl sync` to fetch/update remote settings and profiles before using them.
+Run `applepi sync` to fetch/update remote settings and profiles before using them.
 
-By default, Bridl keeps reusable runtime cache files under `~/.bridl/cache`.
+By default, ApplePi keeps reusable runtime cache files under `~/.applepi/cache`.
 Set `cache_directory` in `settings.yml` to choose a different cache root; relative values resolve from the settings file that declares them.
-The pi adapter symlinks tack `utilities/` and `bin/` paths into this cache so pi-managed utilities such as `fd` and `rg` survive across temporary tack directories.
+The pi adapter symlinks composite profile `utilities/` and `bin/` paths into this cache so pi-managed utilities such as `fd` and `rg` survive across temporary composite profile directories.
 
-Settings can also define arbitrary nested `custom_settings` values for Bridl-time tack templating:
+Settings can also define arbitrary nested `custom_settings` values for ApplePi-time composite profile templating:
 
 ```yaml
 custom_settings:
@@ -72,35 +72,36 @@ custom_settings:
     lint: npm run lint
 ```
 
-Generated tack files can reference them with Bridl's LiquidJS-based custom delimiters:
+Generated composite profile files can reference them with ApplePi's LiquidJS-based custom delimiters:
 
 ```yaml
-command: '[[= bridl.custom_settings.build_commands.lint ]]'
+command: '[[= applepi.custom_settings.build_commands.lint ]]'
 ```
 
-Control tags use `[[% ... %]]`, for example `[[% for item in bridl.custom_settings.items %]]`.
-Bridl intentionally does not use common `{{ ... }}` delimiters, and plain shell expressions like `[[ -f package.json ]]` are left alone.
+Control tags use `[[% ... %]]`, for example `[[% for item in applepi.custom_settings.items %]]`.
+ApplePi intentionally does not use common `{{ ... }}` delimiters, and plain shell expressions like `[[ -f package.json ]]` are left alone.
 
 ## Setup from a settings repository
 
 You can bootstrap a machine from a Git repository:
 
 ```bash
-bridl setup https://github.com/my_account/bridl_config
+applepi setup https://github.com/my_account/applepi_config
 ```
 
-`bridl setup` requires an interactive terminal on both stdin and stdout. When a repository is provided, it clones or updates the repository in Bridl's shared repository cache, then uses it as a non-overwriting starting point:
+`applepi setup` requires an interactive terminal on both stdin and stdout.
+When a repository is provided, it clones or updates the repository in ApplePi's shared repository cache, then uses it as a non-overwriting starting point:
 
-- if `~/.bridl/settings.yml` does not exist, Bridl copies the starter `settings.yml`;
-- if starter profiles exist, Bridl copies missing profile files into `~/.bridl/profiles/`;
+- if `~/.applepi/settings.yml` does not exist, ApplePi copies the starter `settings.yml`;
+- if starter profiles exist, ApplePi copies missing profile files into `~/.applepi/profiles/`;
 - existing user settings and profile files are otherwise left unchanged;
-- after setup, Bridl runs the same sync behavior used by `bridl sync`;
-- Bridl then shows a short setup wizard that lists synced profiles and writes the selected default profile to user settings.
+- after setup, ApplePi runs the same sync behavior used by `applepi sync`;
+- ApplePi then shows a short setup wizard that lists synced profiles and writes the selected default profile to user settings.
 
-A setup repository can use either root-level Bridl files:
+A setup repository can use either root-level ApplePi files:
 
 ```text
-bridl_config/
+applepi_config/
   settings.yml
   profiles/
     engineering-default/
@@ -109,11 +110,11 @@ bridl_config/
       profile.yml
 ```
 
-or a `.bridl/` layout:
+or a `.applepi/` layout:
 
 ```text
-bridl_config/
-  .bridl/
+applepi_config/
+  .applepi/
     settings.yml
     profiles/
       engineering-default/
@@ -131,16 +132,16 @@ profile_sources:
   - path: ./profiles
 
   # Optional: keep loading future updates from this same repo.
-  - github: my_account/bridl_config
+  - github: my_account/applepi_config
     ref: main
     path: profiles
 ```
 
-If you want ongoing centralized settings, use a small local `~/.bridl/settings.yml` that points at remote settings:
+If you want ongoing centralized settings, use a small local `~/.applepi/settings.yml` that points at remote settings:
 
 ```yaml
 remote_settings:
-  - github: my_account/bridl_config
+  - github: my_account/applepi_config
     ref: main
     path: settings.yml
 ```
@@ -148,7 +149,7 @@ remote_settings:
 Then run:
 
 ```bash
-bridl sync
+applepi sync
 ```
 
 ## Profile model sketch
@@ -172,10 +173,10 @@ The exact stable schema is governed by the requirements in `requirements/` and t
 
 ## Design direction
 
-The current recommendation is to build `bridl` around pi's existing native configuration mechanisms:
+The current recommendation is to build `applepi` around pi's existing native configuration mechanisms:
 
-1. Use a temporary tack directory as `PI_CODING_AGENT_DIR` for each run.
-2. Persist intentional pi state through adapter-declared symlinks to profile, native pi, or Bridl cache files.
+1. Use a temporary composite profile directory as `PI_CODING_AGENT_DIR` for each run.
+2. Persist intentional pi state through adapter-declared symlinks to profile, native pi, or ApplePi cache files.
 3. Layer profile-controlled environment variables and pi CLI flags on top.
 4. Use explicit `--extension` / `-e` injection for bootstrap behavior that needs to run inside pi.
 5. Decide per profile whether project-local `.pi` overrides are allowed.
@@ -187,7 +188,7 @@ See [`recommendation.md`](./recommendation.md) for current notes on pi startup b
 
 This repository is under phased implementation.
 
-A minimal executable CLI exists, with initial settings/profile schemas, local and URI-backed profile loading, profile resolution internals, first-pass `setup`, `sync`, and `create_profile` / `create-profile` commands, and a first-pass `run` command for assembling a temporary tack and launching pi or Claude Code.
+A minimal executable CLI exists, with initial settings/profile schemas, local and URI-backed profile loading, profile resolution internals, first-pass `setup`, `sync`, and `create_profile` / `create-profile` commands, and a first-pass `run` command for assembling a temporary composite profile and launching pi or Claude Code.
 Stable end-to-end pi launch behavior and user-facing examples will be hardened in a later phase.
 The initial dependency and architecture decisions are documented in `package.json`, `doc/architecture.md`, and `requirements/`.
 
@@ -195,7 +196,7 @@ The initial dependency and architecture decisions are documented in `package.jso
 
 - Define a stable profile schema.
 - Decide where organization-managed profiles are discovered from.
-- Harden stable `bridl run --profile <profile>` behavior.
+- Harden stable `applepi run --profile <profile>` behavior.
 - Add validation and inspection commands.
 - Expand user-facing documentation for resolved profile inheritance and composition.
 - Add locking / policy controls for business-managed environments.

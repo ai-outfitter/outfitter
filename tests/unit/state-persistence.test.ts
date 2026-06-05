@@ -1,4 +1,4 @@
-// Tests profile state persistence parsing and pi tack state materialization.
+// Tests profile state persistence parsing and pi composite profile state materialization.
 import {
   existsSync,
   lstatSync,
@@ -18,28 +18,28 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { createPiAdapter } from '../../src/agents/pi/PiAdapter.js';
 import { executeRunCommand } from '../../src/cli/commands/RunCommand.js';
 import { parseProfileYaml } from '../../src/profiles/ProfileLoader.js';
-import { createTack } from '../../src/tack/Tack.js';
-import { writeTack } from '../../src/tack/TackAssembler.js';
-import { createTackFile } from '../../src/tack/TackFile.js';
+import { createCompositeProfile } from '../../src/compositeProfile/CompositeProfile.js';
+import { writeCompositeProfile } from '../../src/compositeProfile/CompositeProfileAssembler.js';
+import { createCompositeProfileFile } from '../../src/compositeProfile/CompositeProfileFile.js';
 import {
-  createTackStateBaseline,
-  detectTackStateWrites,
+  createCompositeProfileStateBaseline,
+  detectCompositeProfileStateWrites,
   ensureStateSourcePath,
-  materializeTackStatePath,
-  updateTackStateBaselinePaths,
-} from '../../src/tack/StatePersistence.js';
+  materializeCompositeProfileStatePath,
+  updateCompositeProfileStateBaselinePaths,
+} from '../../src/compositeProfile/StatePersistence.js';
 
 const temporaryRoots: string[] = [];
 
 const createTemporaryRoot = (): string => {
-  const root = mkdtempSync(join(tmpdir(), 'bridl-state-'));
+  const root = mkdtempSync(join(tmpdir(), 'applepi-state-'));
   temporaryRoots.push(root);
   return root;
 };
 
 const writeSettings = (homeDirectory: string, content: string): void => {
-  mkdirSync(join(homeDirectory, '.bridl'), { recursive: true });
-  writeFileSync(join(homeDirectory, '.bridl', 'settings.yml'), content);
+  mkdirSync(join(homeDirectory, '.applepi'), { recursive: true });
+  writeFileSync(join(homeDirectory, '.applepi', 'settings.yml'), content);
 };
 
 const writeProfile = (root: string, id: string, content: string): string => {
@@ -57,7 +57,7 @@ afterEach(() => {
 });
 
 describe('state persistence', () => {
-  // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-005.6).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-005.6).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('parses state persistence overrides from profile YAML', () => {
     const profile = parseProfileYaml(
@@ -78,13 +78,13 @@ describe('state persistence', () => {
     });
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-005.6).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-005.6).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('materializes pi state paths as symlinks and reports non-persistent writes', async () => {
     const root = createTemporaryRoot();
     const homeDirectory = join(root, 'home');
     const projectDirectory = join(root, 'project');
-    const profilesDirectory = join(homeDirectory, '.bridl', 'profiles');
+    const profilesDirectory = join(homeDirectory, '.applepi', 'profiles');
     const settingsPath = join(profilesDirectory, 'default', 'cli_specific', 'pi', 'settings.json');
     const nativeAuthPath = join(homeDirectory, '.pi', 'agent', 'auth.json');
     writeSettings(homeDirectory, 'default_profile: default\nprofile_sources:\n  - path: ./profiles\n');
@@ -113,14 +113,14 @@ describe('state persistence', () => {
         writeError: (message) => warnings.push(message),
         launcher: {
           launch(plan) {
-            const tackPiDirectory = plan.env.PI_CODING_AGENT_DIR;
-            expect(lstatSync(join(tackPiDirectory, 'settings.json')).isSymbolicLink()).toBe(true);
-            expect(readlinkSync(join(tackPiDirectory, 'settings.json'))).toBe(settingsPath);
-            expect(readlinkSync(join(tackPiDirectory, 'auth.json'))).toBe(nativeAuthPath);
-            writeFileSync(join(tackPiDirectory, 'settings.json'), '{"theme":"light"}\n');
-            writeFileSync(join(tackPiDirectory, 'cache', 'entry.txt'), 'discarded cache\n');
-            writeFileSync(join(tackPiDirectory, 'mcp.json'), '{"servers":{}}\n');
-            writeFileSync(join(tackPiDirectory, 'unexpected.txt'), 'unknown write\n');
+            const compositeProfilePiDirectory = plan.env.PI_CODING_AGENT_DIR;
+            expect(lstatSync(join(compositeProfilePiDirectory, 'settings.json')).isSymbolicLink()).toBe(true);
+            expect(readlinkSync(join(compositeProfilePiDirectory, 'settings.json'))).toBe(settingsPath);
+            expect(readlinkSync(join(compositeProfilePiDirectory, 'auth.json'))).toBe(nativeAuthPath);
+            writeFileSync(join(compositeProfilePiDirectory, 'settings.json'), '{"theme":"light"}\n');
+            writeFileSync(join(compositeProfilePiDirectory, 'cache', 'entry.txt'), 'discarded cache\n');
+            writeFileSync(join(compositeProfilePiDirectory, 'mcp.json'), '{"servers":{}}\n');
+            writeFileSync(join(compositeProfilePiDirectory, 'unexpected.txt'), 'unknown write\n');
             return Promise.resolve(0);
           },
         },
@@ -130,97 +130,99 @@ describe('state persistence', () => {
     expect(readFileSync(settingsPath, 'utf8')).toBe('{"theme":"light"}\n');
     expect(result.warnings).toContain("pi wrote 'cache/' with state_persistence 'warn' and it was not persisted.");
     expect(result.warnings).toContain("pi wrote 'mcp.json' with state_persistence 'prompt' and it was not persisted.");
-    expect(result.warnings).toContain("pi wrote undeclared tack state 'unexpected.txt' and it was not persisted.");
+    expect(result.warnings).toContain(
+      "pi wrote undeclared composite profile state 'unexpected.txt' and it was not persisted.",
+    );
     expect(warnings).toEqual(result.warnings);
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-005.6).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-005.6).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('assembles pi fallback state source paths without mutating native state directories', () => {
     const root = createTemporaryRoot();
     const homeDirectory = join(root, 'home');
-    const tack = createPiAdapter().createTack(
+    const compositeProfile = createPiAdapter().createCompositeProfile(
       { id: 'default', inherits: [], controls: {} },
       {
-        rootDirectory: join(root, 'tack'),
+        rootDirectory: join(root, 'compositeProfile'),
         profilePaths: [join(root, 'profile.yml')],
         profileFolders: [],
         homeDirectory,
       },
-    ).tack;
+    ).compositeProfile;
 
-    expect(tack.statePaths.find((statePath) => statePath.relativePath === 'settings.json')?.sourcePath).toBe(
-      join(homeDirectory, '.pi', 'agent', 'settings.json'),
-    );
+    expect(
+      compositeProfile.statePaths.find((statePath) => statePath.relativePath === 'settings.json')?.sourcePath,
+    ).toBe(join(homeDirectory, '.pi', 'agent', 'settings.json'));
     expect(existsSync(join(homeDirectory, '.pi'))).toBe(false);
 
-    writeTack(tack);
+    writeCompositeProfile(compositeProfile);
 
     expect(existsSync(join(homeDirectory, '.pi', 'agent', 'settings.json'))).toBe(true);
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-005.6).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-005.6).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
-  it('persists pi package install directories across temporary tack directories', () => {
+  it('persists pi package install directories across temporary composite profile directories', () => {
     const root = createTemporaryRoot();
     const homeDirectory = join(root, 'home');
-    const tack = createPiAdapter().createTack(
+    const compositeProfile = createPiAdapter().createCompositeProfile(
       { id: 'default', inherits: [], controls: {} },
       {
-        rootDirectory: join(root, 'tack'),
+        rootDirectory: join(root, 'compositeProfile'),
         profilePaths: [],
         profileFolders: [],
         homeDirectory,
       },
-    ).tack;
+    ).compositeProfile;
 
-    expect(tack.statePaths.find((statePath) => statePath.relativePath === 'npm/')?.sourcePath).toBe(
+    expect(compositeProfile.statePaths.find((statePath) => statePath.relativePath === 'npm/')?.sourcePath).toBe(
       join(homeDirectory, '.pi', 'agent', 'npm'),
     );
-    expect(tack.statePaths.find((statePath) => statePath.relativePath === 'git/')?.sourcePath).toBe(
+    expect(compositeProfile.statePaths.find((statePath) => statePath.relativePath === 'git/')?.sourcePath).toBe(
       join(homeDirectory, '.pi', 'agent', 'git'),
     );
 
-    writeTack(tack);
+    writeCompositeProfile(compositeProfile);
 
-    expect(readlinkSync(join(tack.rootDirectory, 'npm'))).toBe(join(homeDirectory, '.pi', 'agent', 'npm'));
-    expect(readlinkSync(join(tack.rootDirectory, 'git'))).toBe(join(homeDirectory, '.pi', 'agent', 'git'));
+    expect(readlinkSync(join(compositeProfile.rootDirectory, 'npm'))).toBe(join(homeDirectory, '.pi', 'agent', 'npm'));
+    expect(readlinkSync(join(compositeProfile.rootDirectory, 'git'))).toBe(join(homeDirectory, '.pi', 'agent', 'git'));
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-005.6).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-005.6).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
-  it('detects changed temporary state paths and protects tack path boundaries', () => {
+  it('detects changed temporary state paths and protects compositeProfile path boundaries', () => {
     const root = createTemporaryRoot();
     const sourceFile = ensureStateSourcePath(join(root, 'source', 'settings.json'), false);
     const sourceDirectory = ensureStateSourcePath(join(root, 'source', 'plugins'), true);
     writeFileSync(sourceFile, '{}\n');
-    materializeTackStatePath(root, {
+    materializeCompositeProfileStatePath(root, {
       relativePath: 'settings.json',
       strategy: 'symlink',
       sourcePath: sourceFile,
       directory: false,
     });
-    materializeTackStatePath(root, {
+    materializeCompositeProfileStatePath(root, {
       relativePath: 'plugins/',
       strategy: 'symlink',
       sourcePath: sourceDirectory,
       directory: true,
     });
-    materializeTackStatePath(root, { relativePath: 'cache/', strategy: 'prompt', directory: true });
-    materializeTackStatePath(root, { relativePath: 'logs/cache/', strategy: 'warn', directory: true });
-    materializeTackStatePath(root, { relativePath: 'notes.txt', strategy: 'warn', directory: false });
+    materializeCompositeProfileStatePath(root, { relativePath: 'cache/', strategy: 'prompt', directory: true });
+    materializeCompositeProfileStatePath(root, { relativePath: 'logs/cache/', strategy: 'warn', directory: true });
+    materializeCompositeProfileStatePath(root, { relativePath: 'notes.txt', strategy: 'warn', directory: false });
     expect(existsSync(join(root, 'source', 'plugins'))).toBe(true);
     expect(lstatSync(join(root, 'plugins')).isSymbolicLink()).toBe(true);
-    const baseline = createTackStateBaseline(root);
+    const baseline = createCompositeProfileStateBaseline(root);
 
     writeFileSync(join(root, 'cache', 'entry.txt'), 'changed\n');
     writeFileSync(join(root, 'logs', 'cache', 'entry.txt'), 'changed\n');
     writeFileSync(join(root, 'notes.txt'), 'changed\n');
-    mkdirSync(join(root, 'bridl'), { recursive: true });
-    writeFileSync(join(root, 'bridl', 'profile.json'), '{}\n');
+    mkdirSync(join(root, 'applepi'), { recursive: true });
+    writeFileSync(join(root, 'applepi', 'profile.json'), '{}\n');
 
     expect(
-      detectTackStateWrites(
+      detectCompositeProfileStateWrites(
         root,
         [
           { relativePath: 'cache/', strategy: 'prompt', directory: true },
@@ -236,18 +238,26 @@ describe('state persistence', () => {
       { relativePath: 'notes.txt', strategy: 'warn', unknown: false },
     ]);
     expect(
-      detectTackStateWrites(root, [{ relativePath: 'notes.txt', strategy: 'discard', directory: false }], baseline),
+      detectCompositeProfileStateWrites(
+        root,
+        [{ relativePath: 'notes.txt', strategy: 'discard', directory: false }],
+        baseline,
+      ),
     ).toEqual([]);
-    materializeTackStatePath(root, { relativePath: '..cache', strategy: 'warn', directory: false });
+    materializeCompositeProfileStatePath(root, { relativePath: '..cache', strategy: 'warn', directory: false });
     expect(existsSync(join(root, '..cache'))).toBe(false);
     expect(() =>
-      materializeTackStatePath(root, { relativePath: '../outside.txt', strategy: 'warn', directory: false }),
-    ).toThrow('must stay under tack root');
+      materializeCompositeProfileStatePath(root, {
+        relativePath: '../outside.txt',
+        strategy: 'warn',
+        directory: false,
+      }),
+    ).toThrow('must stay under compositeProfile root');
     expect(() =>
-      materializeTackStatePath(root, { relativePath: 'bad.json', strategy: 'symlink', directory: false }),
+      materializeCompositeProfileStatePath(root, { relativePath: 'bad.json', strategy: 'symlink', directory: false }),
     ).toThrow('uses symlink without a source path');
     symlinkSync(join(root, 'deleted-target.json'), join(root, 'broken.json'));
-    materializeTackStatePath(root, {
+    materializeCompositeProfileStatePath(root, {
       relativePath: 'broken.json',
       strategy: 'symlink',
       sourcePath: sourceFile,
@@ -259,33 +269,35 @@ describe('state persistence', () => {
     writeFileSync(join(root, 'source-file'), 'not a directory\n');
     expect(() => ensureStateSourcePath(join(root, 'source-file'), true)).toThrow('must be a directory');
     rmSync(join(root, 'notes.txt'));
-    expect(updateTackStateBaselinePaths(root, baseline, ['notes.txt']).fingerprints.has('notes.txt')).toBe(false);
-    expect(createTackStateBaseline(join(root, 'missing')).fingerprints.size).toBe(0);
+    expect(updateCompositeProfileStateBaselinePaths(root, baseline, ['notes.txt']).fingerprints.has('notes.txt')).toBe(
+      false,
+    );
+    expect(createCompositeProfileStateBaseline(join(root, 'missing')).fingerprints.size).toBe(0);
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-005.6).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-005.6).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
-  it('does not create native fallback state paths while planning a pi tack', () => {
+  it('does not create native fallback state paths while planning a pi compositeProfile', () => {
     const root = createTemporaryRoot();
     const homeDirectory = join(root, 'home');
 
-    const tack = createPiAdapter().createTack(
+    const compositeProfile = createPiAdapter().createCompositeProfile(
       { id: 'default', inherits: [], controls: {} },
       {
-        rootDirectory: join(root, 'tack'),
+        rootDirectory: join(root, 'compositeProfile'),
         profilePaths: [],
         profileFolders: [],
         homeDirectory,
       },
-    ).tack;
+    ).compositeProfile;
 
-    expect(tack.statePaths.find((statePath) => statePath.relativePath === 'settings.json')?.sourcePath).toBe(
-      join(homeDirectory, '.pi', 'agent', 'settings.json'),
-    );
+    expect(
+      compositeProfile.statePaths.find((statePath) => statePath.relativePath === 'settings.json')?.sourcePath,
+    ).toBe(join(homeDirectory, '.pi', 'agent', 'settings.json'));
     expect(existsSync(join(homeDirectory, '.pi'))).toBe(false);
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-005.6).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-005.6).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('resolves state sources using profile stack order rather than loaded folder order', () => {
     const root = createTemporaryRoot();
@@ -298,33 +310,33 @@ describe('state persistence', () => {
     writeFileSync(baseSettings, '{"source":"base"}\n');
     writeFileSync(explicitSettings, '{"source":"explicit"}\n');
 
-    const tack = createPiAdapter().createTack(
+    const compositeProfile = createPiAdapter().createCompositeProfile(
       {
         id: 'alpha',
         inherits: ['zbase'],
         controls: {},
       },
       {
-        rootDirectory: join(root, 'tack'),
+        rootDirectory: join(root, 'compositeProfile'),
         profilePaths: [join(baseFolder, 'profile.yml'), join(explicitFolder, 'profile.yml')],
         profileFolders: [baseFolder, explicitFolder],
         homeDirectory: join(root, 'home'),
       },
-    ).tack;
+    ).compositeProfile;
 
-    expect(tack.statePaths.find((statePath) => statePath.relativePath === 'settings.json')?.sourcePath).toBe(
-      explicitSettings,
-    );
+    expect(
+      compositeProfile.statePaths.find((statePath) => statePath.relativePath === 'settings.json')?.sourcePath,
+    ).toBe(explicitSettings);
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-005.6).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-005.6).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('reports when an agent replaces a symlinked state path instead of writing through it', async () => {
     const root = createTemporaryRoot();
     const homeDirectory = join(root, 'home');
     const projectDirectory = join(root, 'project');
     writeSettings(homeDirectory, 'default_profile: default\nprofile_sources:\n  - path: ./profiles\n');
-    writeProfile(join(homeDirectory, '.bridl', 'profiles'), 'default', 'id: default\ncontrols: {}\n');
+    writeProfile(join(homeDirectory, '.applepi', 'profiles'), 'default', 'id: default\ncontrols: {}\n');
 
     const result = await executeRunCommand(
       { homeDirectory, projectDirectory },
@@ -344,49 +356,49 @@ describe('state persistence', () => {
     );
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-005.6).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-005.6).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('can rewrite generated files without rematerializing state paths during live updates', () => {
     const root = createTemporaryRoot();
     const sourceFile = ensureStateSourcePath(join(root, 'source', 'settings.json'), false);
-    const tackRoot = join(root, 'tack');
+    const compositeProfileRoot = join(root, 'compositeProfile');
     const statePath = {
       relativePath: 'settings.json',
       strategy: 'symlink' as const,
       sourcePath: sourceFile,
       directory: false,
     };
-    const initialTack = createTack(
-      tackRoot,
-      [createTackFile({ relativePath: 'bridl/profile.json', content: '{"version":1}\n' })],
+    const initialCompositeProfile = createCompositeProfile(
+      compositeProfileRoot,
+      [createCompositeProfileFile({ relativePath: 'applepi/profile.json', content: '{"version":1}\n' })],
       [statePath],
     );
-    writeTack(initialTack);
-    rmSync(join(tackRoot, 'settings.json'));
-    writeFileSync(join(tackRoot, 'settings.json'), 'agent replacement\n');
+    writeCompositeProfile(initialCompositeProfile);
+    rmSync(join(compositeProfileRoot, 'settings.json'));
+    writeFileSync(join(compositeProfileRoot, 'settings.json'), 'agent replacement\n');
 
-    writeTack(
-      createTack(
-        tackRoot,
-        [createTackFile({ relativePath: 'bridl/profile.json', content: '{"version":2}\n' })],
+    writeCompositeProfile(
+      createCompositeProfile(
+        compositeProfileRoot,
+        [createCompositeProfileFile({ relativePath: 'applepi/profile.json', content: '{"version":2}\n' })],
         [statePath],
       ),
       { materializeStatePaths: false },
     );
 
-    expect(readFileSync(join(tackRoot, 'bridl', 'profile.json'), 'utf8')).toBe('{"version":2}\n');
-    expect(lstatSync(join(tackRoot, 'settings.json')).isSymbolicLink()).toBe(false);
-    expect(readFileSync(join(tackRoot, 'settings.json'), 'utf8')).toBe('agent replacement\n');
+    expect(readFileSync(join(compositeProfileRoot, 'applepi', 'profile.json'), 'utf8')).toBe('{"version":2}\n');
+    expect(lstatSync(join(compositeProfileRoot, 'settings.json')).isSymbolicLink()).toBe(false);
+    expect(readFileSync(join(compositeProfileRoot, 'settings.json'), 'utf8')).toBe('agent replacement\n');
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-005.6).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-005.6).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('formats state write diagnostics with the selected adapter id', async () => {
     const root = createTemporaryRoot();
     const homeDirectory = join(root, 'home');
     const projectDirectory = join(root, 'project');
     writeSettings(homeDirectory, 'default_profile: default\nprofile_sources:\n  - path: ./profiles\n');
-    writeProfile(join(homeDirectory, '.bridl', 'profiles'), 'default', 'id: default\ncontrols: {}\n');
+    writeProfile(join(homeDirectory, '.applepi', 'profiles'), 'default', 'id: default\ncontrols: {}\n');
 
     const result = await executeRunCommand(
       { homeDirectory, projectDirectory },
@@ -394,18 +406,18 @@ describe('state persistence', () => {
         adapter: {
           id: 'mock-agent',
           supportedControls: [],
-          createTack(_profile, tackInput) {
+          createCompositeProfile(_profile, compositeProfileInput) {
             return {
-              tack: createTack(
-                tackInput.rootDirectory,
+              compositeProfile: createCompositeProfile(
+                compositeProfileInput.rootDirectory,
                 [],
                 [{ relativePath: 'state.json', strategy: 'warn', directory: false }],
               ),
               warnings: [],
             };
           },
-          createLaunchPlan(tack) {
-            return { command: 'mock-agent', args: [], env: { MOCK_AGENT_DIR: tack.rootDirectory } };
+          createLaunchPlan(compositeProfile) {
+            return { command: 'mock-agent', args: [], env: { MOCK_AGENT_DIR: compositeProfile.rootDirectory } };
           },
           getUnsupportedControls() {
             return [];
@@ -425,7 +437,7 @@ describe('state persistence', () => {
     );
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-005.6).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-005.6).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('fails after launch when an error-strategy state path changes', async () => {
     const root = createTemporaryRoot();
@@ -433,7 +445,7 @@ describe('state persistence', () => {
     const projectDirectory = join(root, 'project');
     writeSettings(homeDirectory, 'default_profile: default\nprofile_sources:\n  - path: ./profiles\n');
     writeProfile(
-      join(homeDirectory, '.bridl', 'profiles'),
+      join(homeDirectory, '.applepi', 'profiles'),
       'default',
       ['id: default', 'state_persistence:', '  settings.json: error', 'controls: {}', ''].join('\n'),
     );
@@ -453,7 +465,7 @@ describe('state persistence', () => {
     ).rejects.toThrow("pi wrote 'settings.json' with state_persistence 'error' and it was not persisted.");
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-005.6).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-005.6).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('rejects state persistence strategies that are disallowed for a pi state path', async () => {
     const root = createTemporaryRoot();
@@ -461,7 +473,7 @@ describe('state persistence', () => {
     const projectDirectory = join(root, 'project');
     writeSettings(homeDirectory, 'default_profile: default\nprofile_sources:\n  - path: ./profiles\n');
     writeProfile(
-      join(homeDirectory, '.bridl', 'profiles'),
+      join(homeDirectory, '.applepi', 'profiles'),
       'default',
       ['id: default', 'state_persistence:', '  unknown: symlink', 'controls: {}', ''].join('\n'),
     );
@@ -480,7 +492,7 @@ describe('state persistence', () => {
     ).rejects.toThrow('state_persistence strategy \'symlink\' is not allowed for "unknown"');
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-005.6).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-005.6).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('rejects state persistence keys inherited from Object.prototype', async () => {
     const root = createTemporaryRoot();
@@ -488,7 +500,7 @@ describe('state persistence', () => {
     const projectDirectory = join(root, 'project');
     writeSettings(homeDirectory, 'default_profile: default\nprofile_sources:\n  - path: ./profiles\n');
     writeProfile(
-      join(homeDirectory, '.bridl', 'profiles'),
+      join(homeDirectory, '.applepi', 'profiles'),
       'default',
       ['id: default', 'state_persistence:', '  toString: warn', 'controls: {}', ''].join('\n'),
     );
@@ -507,7 +519,7 @@ describe('state persistence', () => {
     ).rejects.toThrow("state_persistence path 'toString' is not declared by the pi adapter");
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-005.6).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-005.6).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('rejects state persistence keys that are undeclared by the pi adapter', async () => {
     const root = createTemporaryRoot();
@@ -515,7 +527,7 @@ describe('state persistence', () => {
     const projectDirectory = join(root, 'project');
     writeSettings(homeDirectory, 'default_profile: default\nprofile_sources:\n  - path: ./profiles\n');
     writeProfile(
-      join(homeDirectory, '.bridl', 'profiles'),
+      join(homeDirectory, '.applepi', 'profiles'),
       'default',
       ['id: default', 'state_persistence:', '  setting.json: warn', 'controls: {}', ''].join('\n'),
     );

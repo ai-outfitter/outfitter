@@ -1,13 +1,13 @@
 release_workflow_safety:
-  description: "Review Bridl npm release workflow safety."
+  description: "Review ApplePi npm release workflow safety."
   match:
     include:
       - "release.yml"
   review:
     strategy: individual
     instructions: |
-      Review the Bridl npm release workflow for release-safety concerns that
-      complement deterministic workflow tests for BRIDL-REQ-009.2.
+      Review the ApplePi npm release workflow for release-safety concerns that
+      complement deterministic workflow tests for APPLEPI-REQ-009.2.
 
       Check that the workflow:
       - Does not expose npm tokens or other secrets through logs, command-line

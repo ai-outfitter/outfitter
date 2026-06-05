@@ -10,7 +10,7 @@ import {
   readExpectedJson,
   readFixtureText,
   runFixture,
-  tackRootFromLaunchPlan,
+  compositeProfileRootFromLaunchPlan,
   tokenizeFixturePath,
 } from './fixtureHarness.js';
 
@@ -18,8 +18,8 @@ afterEach(() => {
   cleanupIntegrationFixtures();
 });
 
-describe('strict CI integration fixture tack generation', () => {
-  // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-005.6).
+describe('strict CI integration fixture composite profile generation', () => {
+  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-005.6).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('fails a strict CI profile when declared error-state configuration changes', async () => {
     const fixture = copyFixtureToTemp('strict_ci_profile');
@@ -31,11 +31,11 @@ describe('strict CI integration fixture tack generation', () => {
         agentId: 'pi',
         launcher: {
           launch(plan) {
-            const tackRoot = tackRootFromLaunchPlan(plan);
-            const settingsPath = join(tackRoot, 'settings.json');
-            const mcpPath = join(tackRoot, 'mcp.json');
-            const cachePath = join(tackRoot, 'cache');
-            const sessionsPath = join(tackRoot, 'sessions');
+            const compositeProfileRoot = compositeProfileRootFromLaunchPlan(plan);
+            const settingsPath = join(compositeProfileRoot, 'settings.json');
+            const mcpPath = join(compositeProfileRoot, 'mcp.json');
+            const cachePath = join(compositeProfileRoot, 'cache');
+            const sessionsPath = join(compositeProfileRoot, 'sessions');
 
             launchSummary = {
               profileId: 'ci-strict',
@@ -43,11 +43,13 @@ describe('strict CI integration fixture tack generation', () => {
               launchCommand: plan.command,
               launchArgs: plan.args,
               launchEnv: {
-                PI_CODING_AGENT_DIR: tokenizeFixturePath(fixture, plan.env.PI_CODING_AGENT_DIR, tackRoot),
-                BRIDL_FIXTURE: plan.env.BRIDL_FIXTURE,
+                PI_CODING_AGENT_DIR: tokenizeFixturePath(fixture, plan.env.PI_CODING_AGENT_DIR, compositeProfileRoot),
+                APPLEPI_FIXTURE: plan.env.APPLEPI_FIXTURE,
                 CI_PROFILE: plan.env.CI_PROFILE,
               },
-              generatedProfile: JSON.parse(readFileSync(join(tackRoot, 'bridl', 'profile.json'), 'utf8')) as unknown,
+              generatedProfile: JSON.parse(
+                readFileSync(join(compositeProfileRoot, 'applepi', 'profile.json'), 'utf8'),
+              ) as unknown,
               strictStateFiles: {
                 'settings.json': existsSync(settingsPath) ? 'present-before-launch' : 'absent-before-launch',
                 'mcp.json': existsSync(mcpPath) ? 'present-before-launch' : 'absent-before-launch',
@@ -56,11 +58,11 @@ describe('strict CI integration fixture tack generation', () => {
               },
             };
 
-            mkdirSync(join(tackRoot, 'cache'), { recursive: true });
-            mkdirSync(join(tackRoot, 'sessions'), { recursive: true });
+            mkdirSync(join(compositeProfileRoot, 'cache'), { recursive: true });
+            mkdirSync(join(compositeProfileRoot, 'sessions'), { recursive: true });
             writeFileSync(settingsPath, '{"ci":"mutated"}\n');
-            writeFileSync(join(tackRoot, 'cache', 'index.json'), '{"ephemeral":true}\n');
-            writeFileSync(join(tackRoot, 'sessions', 'run.json'), '{"ephemeral":true}\n');
+            writeFileSync(join(compositeProfileRoot, 'cache', 'index.json'), '{"ephemeral":true}\n');
+            writeFileSync(join(compositeProfileRoot, 'sessions', 'run.json'), '{"ephemeral":true}\n');
 
             return Promise.resolve(0);
           },
@@ -71,12 +73,12 @@ describe('strict CI integration fixture tack generation', () => {
     expect(launchSummary).toEqual(readExpectedJson(fixture, 'pi/launch-summary.json'));
     expect(existsSync(join(fixture.home, '.pi', 'agent', 'settings.json'))).toBe(false);
     expect(existsSync(join(fixture.home, '.pi', 'agent', 'cache', 'index.json'))).toBe(false);
-    expect(readFixtureText(fixture, 'project/.bridl/profiles/ci-strict/profile.yml')).toContain('unknown: error');
+    expect(readFixtureText(fixture, 'project/.applepi/profiles/ci-strict/profile.yml')).toContain('unknown: error');
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-005.6).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-005.6).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
-  it('fails a strict CI profile when undeclared tack state is written', async () => {
+  it('fails a strict CI profile when undeclared composite profile state is written', async () => {
     const fixture = copyFixtureToTemp('strict_ci_profile');
     const diagnostics = readExpectedJson<Record<string, string>>(fixture, 'pi/diagnostics.json');
 
@@ -85,9 +87,9 @@ describe('strict CI integration fixture tack generation', () => {
         agentId: 'pi',
         launcher: {
           launch(plan) {
-            const tackRoot = tackRootFromLaunchPlan(plan);
+            const compositeProfileRoot = compositeProfileRootFromLaunchPlan(plan);
 
-            writeFileSync(join(tackRoot, 'undeclared-state.json'), '{"unexpected":true}\n');
+            writeFileSync(join(compositeProfileRoot, 'undeclared-state.json'), '{"unexpected":true}\n');
 
             return Promise.resolve(0);
           },
@@ -96,6 +98,8 @@ describe('strict CI integration fixture tack generation', () => {
     ).rejects.toThrow(diagnostics.unknownWriteError);
 
     expect(existsSync(join(fixture.home, '.pi', 'agent', 'undeclared-state.json'))).toBe(false);
-    expect(readFixtureText(fixture, 'project/.bridl/profiles/ci-strict/profile.yml')).toContain('settings.json: error');
+    expect(readFixtureText(fixture, 'project/.applepi/profiles/ci-strict/profile.yml')).toContain(
+      'settings.json: error',
+    );
   });
 });

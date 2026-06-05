@@ -1,4 +1,4 @@
-// Defines named JSON Schema document metadata for Bridl persisted formats.
+// Defines named JSON Schema document metadata for ApplePi persisted formats.
 export interface SchemaDocument {
   readonly id: string;
   readonly path: string;

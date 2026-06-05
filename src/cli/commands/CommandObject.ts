@@ -1,4 +1,4 @@
-// Defines the shared contract for Bridl CLI command objects.
+// Defines the shared contract for ApplePi CLI command objects.
 import type { Command } from 'commander';
 
 export interface CommandObject {

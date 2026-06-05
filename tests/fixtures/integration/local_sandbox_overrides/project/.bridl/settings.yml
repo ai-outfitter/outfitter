@@ -1,5 +1,0 @@
-default_profile: repo-review
-default_agent: pi
-profile_sources:
-  - path: ../../home/.bridl/profiles
-  - path: ./profiles

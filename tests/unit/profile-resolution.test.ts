@@ -18,7 +18,7 @@ const createLoadedProfile = (loadedProfile: Omit<LoadedProfile, 'folderPath' | '
 });
 
 describe('profile resolution', () => {
-  // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-003.3, BRIDL-REQ-003.6).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-003.3, APPLEPI-REQ-003.6).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('merges same-id profile definitions with project-local precedence over project and user definitions', () => {
     const userProfiles = loadLocalProfileSource(
@@ -81,7 +81,7 @@ describe('profile resolution', () => {
     ).toBe('user');
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-003.4, BRIDL-REQ-003.5).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-003.4, APPLEPI-REQ-003.5).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('resolves inherited profiles below explicit profiles and includes the implicit user default without duplicates', () => {
     const loaded = loadLocalProfileSource(
@@ -123,7 +123,7 @@ describe('profile resolution', () => {
     expect(multipleInheritanceResult.profile?.controls.environment?.SHARED).toBe('composite');
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-003.4).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-003.4).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('reports missing inherited profiles and inheritance cycles as resolution issues', () => {
     const cycleProfiles = loadLocalProfileSource(createLocalProfileSource(scenarioPath('profile-cycle', 'profiles')));

@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://bridl.dev/schemas/profile-source.schema.json",
-  "title": "Bridl profile source",
+  "$id": "https://applepi.dev/schemas/profile-source.schema.json",
+  "title": "ApplePi profile source",
   "type": "object",
   "oneOf": [
     {

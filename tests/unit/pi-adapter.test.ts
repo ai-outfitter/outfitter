@@ -5,11 +5,11 @@ import { createPiAdapter } from '../../src/agents/pi/PiAdapter.js';
 import { parseProfileYaml } from '../../src/profiles/ProfileLoader.js';
 
 describe('pi adapter', () => {
-  // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-006.1, BRIDL-REQ-006.2, BRIDL-REQ-006.3, BRIDL-REQ-006.4).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-006.1, APPLEPI-REQ-006.2, APPLEPI-REQ-006.3, APPLEPI-REQ-006.4).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('translates generic and pi-specific profile controls into pi env and argv', () => {
     const adapter = createPiAdapter();
-    const tackPlan = adapter.createTack(
+    const compositeProfilePlan = adapter.createCompositeProfile(
       {
         id: 'engineering',
         inherits: [],
@@ -30,9 +30,9 @@ describe('pi adapter', () => {
           },
         },
       },
-      { rootDirectory: '/tmp/bridl-engineering-pi-123', profilePaths: ['/profiles/engineering/profile.yml'] },
+      { rootDirectory: '/tmp/applepi-engineering-pi-123', profilePaths: ['/profiles/engineering/profile.yml'] },
     );
-    const launchPlan = adapter.createLaunchPlan(tackPlan.tack, {
+    const launchPlan = adapter.createLaunchPlan(compositeProfilePlan.compositeProfile, {
       id: 'engineering',
       inherits: [],
       controls: {
@@ -63,13 +63,13 @@ describe('pi adapter', () => {
         controls: { pi: { unsupportedPiControl: true } },
       }),
     ).toEqual(['pi.unsupportedPiControl']);
-    expect(tackPlan.tack.rootDirectory).toBe('/tmp/bridl-engineering-pi-123');
-    expect(tackPlan.tack.files[0]?.sourceInputs).toEqual(['/profiles/engineering/profile.yml']);
+    expect(compositeProfilePlan.compositeProfile.rootDirectory).toBe('/tmp/applepi-engineering-pi-123');
+    expect(compositeProfilePlan.compositeProfile.files[0]?.sourceInputs).toEqual(['/profiles/engineering/profile.yml']);
     expect(launchPlan.command).toBe('pi');
     expect(launchPlan.env).toEqual({
       GENERIC: '1',
       PI_ONLY: '1',
-      PI_CODING_AGENT_DIR: '/tmp/bridl-engineering-pi-123',
+      PI_CODING_AGENT_DIR: '/tmp/applepi-engineering-pi-123',
     });
     expect(launchPlan.args).toEqual([
       '--model',
@@ -97,7 +97,7 @@ describe('pi adapter', () => {
     );
     expect('message' in genericFallbackProfile).toBe(false);
     if (!('message' in genericFallbackProfile)) {
-      expect(adapter.createLaunchPlan(tackPlan.tack, genericFallbackProfile).args).toEqual([
+      expect(adapter.createLaunchPlan(compositeProfilePlan.compositeProfile, genericFallbackProfile).args).toEqual([
         '--model',
         'generic-model',
       ]);

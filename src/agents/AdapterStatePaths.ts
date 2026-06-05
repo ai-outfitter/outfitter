@@ -1,9 +1,13 @@
-// Shared helpers for adapter-declared tack state paths.
+// Shared helpers for adapter-declared composite profile state paths.
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 
 import type { Profile } from '../profiles/Profile.js';
-import type { StatePathDeclaration, StatePersistenceStrategy, TackStatePath } from '../tack/StatePersistence.js';
+import type {
+  StatePathDeclaration,
+  StatePersistenceStrategy,
+  CompositeProfileStatePath,
+} from '../compositeProfile/StatePersistence.js';
 
 export interface DeclaredStatePathInput {
   readonly adapterId: string;
@@ -12,7 +16,7 @@ export interface DeclaredStatePathInput {
   readonly resolveSourcePath: (relativePath: string, directory: boolean) => string;
 }
 
-export const createDeclaredStatePaths = (input: DeclaredStatePathInput): readonly TackStatePath[] => {
+export const createDeclaredStatePaths = (input: DeclaredStatePathInput): readonly CompositeProfileStatePath[] => {
   assertDeclaredStatePersistenceKeys(input.adapterId, input.declarations, input.profile);
 
   return Object.entries(input.declarations).map(([relativePath, declaration]) => {

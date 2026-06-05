@@ -17,10 +17,10 @@ import {
   findProfileStateSource,
   resolveStateStrategy,
 } from '../../src/agents/AdapterStatePaths.js';
-import type { ProfileControls } from '../../src/profiles/Profile.js';
-import type { StatePathDeclaration } from '../../src/tack/StatePersistence.js';
+import type { Profile, ProfileControls } from '../../src/profiles/Profile.js';
+import type { StatePathDeclaration } from '../../src/compositeProfile/StatePersistence.js';
 
-const createTemporaryRoot = (): string => mkdtempSync(join(tmpdir(), 'bridl-adapter-helpers-'));
+const createTemporaryRoot = (): string => mkdtempSync(join(tmpdir(), 'applepi-adapter-helpers-'));
 
 describe('adapter helper modules', () => {
   it('merges agent-specific controls and constructs argv fragments', () => {
@@ -75,7 +75,12 @@ describe('adapter helper modules', () => {
       unknown: { defaultStrategy: 'warn', allowedStrategies: ['discard', 'warn'] },
     } as const satisfies Readonly<Record<string, StatePathDeclaration>>;
     const sourceCalls: string[] = [];
-    const profile = { id: 'test', inherits: [], controls: {}, statePersistence: { 'settings.json': 'warn' } };
+    const profile = {
+      id: 'test',
+      inherits: [],
+      controls: {},
+      statePersistence: { 'settings.json': 'warn' },
+    } satisfies Profile;
 
     expect(
       createDeclaredStatePaths({

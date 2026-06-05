@@ -17,13 +17,13 @@ import {
 const temporaryRoots: string[] = [];
 
 const createTemporaryRoot = (): string => {
-  const root = mkdtempSync(join(tmpdir(), 'bridl-sync-command-'));
+  const root = mkdtempSync(join(tmpdir(), 'applepi-sync-command-'));
   temporaryRoots.push(root);
   return root;
 };
 
 const writeSettings = (homeDirectory: string, content: string): void => {
-  const settingsDirectory = join(homeDirectory, '.bridl');
+  const settingsDirectory = join(homeDirectory, '.applepi');
   mkdirSync(settingsDirectory, { recursive: true });
   writeFileSync(join(settingsDirectory, 'settings.yml'), content);
 };
@@ -41,7 +41,7 @@ const createGitProfileRepository = (root: string, repositoryName = 'remote-profi
   execFileSync('git', ['add', '.'], { cwd: repositoryPath, stdio: 'pipe' });
   execFileSync(
     'git',
-    ['-c', 'user.name=Bridl Test', '-c', 'user.email=bridl@example.test', 'commit', '-m', 'profiles'],
+    ['-c', 'user.name=ApplePi Test', '-c', 'user.email=applepi@example.test', 'commit', '-m', 'profiles'],
     { cwd: repositoryPath, stdio: 'pipe' },
   );
   return repositoryPath;
@@ -54,7 +54,7 @@ afterEach(() => {
 });
 
 describe('sync command', () => {
-  // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-004.2).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-004.2).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('encodes URI cache paths for arbitrary URIs and validates synced profiles', () => {
     const root = createTemporaryRoot();
@@ -83,14 +83,14 @@ describe('sync command', () => {
 
     expect(encodeProfileSourceUri(firstUri)).toMatch(/^[A-Za-z0-9_-]+$/u);
     expect(createProfileSourceCachePath(homeDirectory, firstUri)).toBe(
-      join(homeDirectory, '.bridl', 'cache', 'profiles', encodeProfileSourceUri(firstUri)),
+      join(homeDirectory, '.applepi', 'cache', 'profiles', encodeProfileSourceUri(firstUri)),
     );
     expect(syncedUris).toEqual([firstUri, secondUri]);
     expect(result.sources.map((source) => source.status)).toEqual(['updated', 'skipped']);
     expect(result.messages[0]).toContain(`${firstUri} -> ${createProfileSourceCachePath(homeDirectory, firstUri)}`);
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-004.2).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-004.2).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('redacts URI credentials from sync results and messages', () => {
     const root = createTemporaryRoot();
@@ -136,7 +136,7 @@ describe('sync command', () => {
     );
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-004.2).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-004.2).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('fetches URI profile sources with the default git synchronizer and updates existing caches', () => {
     const root = createTemporaryRoot();
@@ -154,7 +154,7 @@ describe('sync command', () => {
     execFileSync('git', ['add', '.'], { cwd: repositoryPath, stdio: 'pipe' });
     execFileSync(
       'git',
-      ['-c', 'user.name=Bridl Test', '-c', 'user.email=bridl@example.test', 'commit', '-m', 'update profiles'],
+      ['-c', 'user.name=ApplePi Test', '-c', 'user.email=applepi@example.test', 'commit', '-m', 'update profiles'],
       { cwd: repositoryPath, stdio: 'pipe' },
     );
     const secondRefResult = executeSyncCommand({ homeDirectory, projectDirectory });
@@ -191,7 +191,7 @@ describe('sync command', () => {
     expect(unsafeRefResult.sources[0]?.message).toContain("must not start with '-'");
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-004.2).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-004.2).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('reports sync validation failures, synchronizer failures, invalid settings, and no-op syncs clearly', () => {
     const root = createTemporaryRoot();

@@ -13,14 +13,14 @@ import { parseProfileYaml } from '../../src/profiles/ProfileLoader.js';
 const temporaryRoots: string[] = [];
 
 const createTemporaryRoot = (): string => {
-  const root = mkdtempSync(join(tmpdir(), 'bridl-claude-'));
+  const root = mkdtempSync(join(tmpdir(), 'applepi-claude-'));
   temporaryRoots.push(root);
   return root;
 };
 
 const writeSettings = (homeDirectory: string, content: string): void => {
-  mkdirSync(join(homeDirectory, '.bridl'), { recursive: true });
-  writeFileSync(join(homeDirectory, '.bridl', 'settings.yml'), content);
+  mkdirSync(join(homeDirectory, '.applepi'), { recursive: true });
+  writeFileSync(join(homeDirectory, '.applepi', 'settings.yml'), content);
 };
 
 const writeProfile = (root: string, id: string, content: string): void => {
@@ -36,7 +36,7 @@ afterEach(() => {
 });
 
 describe('Claude Code adapter support', () => {
-  // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-006.1, BRIDL-REQ-006.2, BRIDL-REQ-006.5).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-006.1, APPLEPI-REQ-006.2, APPLEPI-REQ-006.5).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('translates generic and claude-specific profile controls into Claude Code env and argv', () => {
     const adapter = createClaudeAdapter();
@@ -65,11 +65,11 @@ describe('Claude Code adapter support', () => {
         },
       },
     };
-    const tackPlan = adapter.createTack(profile, {
-      rootDirectory: '/tmp/bridl-engineering-claude-123',
+    const compositeProfilePlan = adapter.createCompositeProfile(profile, {
+      rootDirectory: '/tmp/applepi-engineering-claude-123',
       profilePaths: ['/profiles/engineering/profile.yml'],
     });
-    const launchPlan = adapter.createLaunchPlan(tackPlan.tack, profile, ['--verbose']);
+    const launchPlan = adapter.createLaunchPlan(compositeProfilePlan.compositeProfile, profile, ['--verbose']);
 
     expect(adapter.id).toBe('claude');
     expect(adapter.supportedControls).toContain('model');
@@ -83,19 +83,19 @@ describe('Claude Code adapter support', () => {
       'skills',
       'claude.unsupportedClaudeControl',
     ]);
-    expect(tackPlan.warnings).toEqual([
+    expect(compositeProfilePlan.warnings).toEqual([
       "claude adapter cannot translate requested control 'promptTemplate'.",
       "claude adapter cannot translate requested control 'provider'.",
       "claude adapter cannot translate requested control 'skills'.",
       "claude adapter cannot translate requested control 'claude.unsupportedClaudeControl'.",
     ]);
-    expect(tackPlan.tack.rootDirectory).toBe('/tmp/bridl-engineering-claude-123');
-    expect(tackPlan.tack.files[0]?.sourceInputs).toEqual(['/profiles/engineering/profile.yml']);
+    expect(compositeProfilePlan.compositeProfile.rootDirectory).toBe('/tmp/applepi-engineering-claude-123');
+    expect(compositeProfilePlan.compositeProfile.files[0]?.sourceInputs).toEqual(['/profiles/engineering/profile.yml']);
     expect(launchPlan.command).toBe('claude');
     expect(launchPlan.env).toEqual({
       GENERIC: '1',
       CLAUDE_ONLY: '1',
-      CLAUDE_CONFIG_DIR: '/tmp/bridl-engineering-claude-123',
+      CLAUDE_CONFIG_DIR: '/tmp/applepi-engineering-claude-123',
     });
     expect(launchPlan.args).toEqual([
       '--model',
@@ -130,7 +130,7 @@ describe('Claude Code adapter support', () => {
     expect('message' in genericFallbackProfile).toBe(false);
     if (!('message' in genericFallbackProfile)) {
       expect(adapter.getUnsupportedControls(genericFallbackProfile)).toEqual([]);
-      expect(adapter.createLaunchPlan(tackPlan.tack, genericFallbackProfile).args).toEqual([
+      expect(adapter.createLaunchPlan(compositeProfilePlan.compositeProfile, genericFallbackProfile).args).toEqual([
         '--model',
         'generic-model',
         '--effort',
@@ -161,7 +161,7 @@ describe('Claude Code adapter support', () => {
     mkdirSync(join(profileFolder, 'cli_specific', 'claude'), { recursive: true });
     writeFileSync(profileSettingsPath, '{}\n');
     const adapter = createClaudeAdapter();
-    const tackPlan = adapter.createTack(
+    const compositeProfilePlan = adapter.createCompositeProfile(
       {
         id: 'stateful',
         inherits: [],
@@ -172,38 +172,46 @@ describe('Claude Code adapter support', () => {
         statePersistence: { 'debug/': 'discard' },
       },
       {
-        rootDirectory: join(root, 'tack'),
+        rootDirectory: join(root, 'compositeProfile'),
         profilePaths: [],
         profileFolders: [profileFolder],
         homeDirectory: join(root, 'home'),
       },
     );
 
-    expect(tackPlan.tack.statePaths.find((statePath) => statePath.relativePath === 'settings.json')).toMatchObject({
+    expect(
+      compositeProfilePlan.compositeProfile.statePaths.find((statePath) => statePath.relativePath === 'settings.json'),
+    ).toMatchObject({
       sourcePath: profileSettingsPath,
       strategy: 'symlink',
     });
-    expect(tackPlan.tack.statePaths.find((statePath) => statePath.relativePath === 'projects/')).toMatchObject({
+    expect(
+      compositeProfilePlan.compositeProfile.statePaths.find((statePath) => statePath.relativePath === 'projects/'),
+    ).toMatchObject({
       strategy: 'symlink',
       sourcePath: join(root, 'claude-sessions'),
     });
-    expect(tackPlan.tack.statePaths.find((statePath) => statePath.relativePath === 'debug/')).toMatchObject({
+    expect(
+      compositeProfilePlan.compositeProfile.statePaths.find((statePath) => statePath.relativePath === 'debug/'),
+    ).toMatchObject({
       strategy: 'discard',
       sourcePath: undefined,
     });
-    expect(tackPlan.tack.statePaths.find((statePath) => statePath.relativePath === 'agents/')).toMatchObject({
+    expect(
+      compositeProfilePlan.compositeProfile.statePaths.find((statePath) => statePath.relativePath === 'agents/'),
+    ).toMatchObject({
       sourcePath: join(root, 'home', '.claude', 'agents'),
     });
     expect(() =>
-      adapter.createTack(
+      adapter.createCompositeProfile(
         { id: 'bad', inherits: [], controls: {}, statePersistence: { 'settings.json': 'discard' } },
-        { rootDirectory: join(root, 'bad-tack'), profilePaths: [] },
+        { rootDirectory: join(root, 'bad-compositeProfile'), profilePaths: [] },
       ),
     ).toThrow('state_persistence strategy');
     expect(() =>
-      adapter.createTack(
+      adapter.createCompositeProfile(
         { id: 'bad', inherits: [], controls: {}, statePersistence: { 'missing.json': 'warn' } },
-        { rootDirectory: join(root, 'missing-tack'), profilePaths: [] },
+        { rootDirectory: join(root, 'missing-compositeProfile'), profilePaths: [] },
       ),
     ).toThrow("state_persistence path 'missing.json' is not declared by the claude adapter");
   });
@@ -217,13 +225,13 @@ describe('Claude Code adapter support', () => {
     expect(() => createAgentAdapter('other')).toThrow("Unknown agent 'other'. Expected one of: pi, claude.");
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-005.1, BRIDL-REQ-006.2, BRIDL-REQ-006.5).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-005.1, APPLEPI-REQ-006.2, APPLEPI-REQ-006.5).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('selects Claude Code from CLI input or settings while preserving pi as the default agent', async () => {
     const root = createTemporaryRoot();
     const homeDirectory = join(root, 'home');
     const projectDirectory = join(root, 'project');
-    const profilesDirectory = join(homeDirectory, '.bridl', 'profiles');
+    const profilesDirectory = join(homeDirectory, '.applepi', 'profiles');
     writeSettings(homeDirectory, 'default_profile: default\nprofile_sources:\n  - path: ./profiles\n');
     writeProfile(
       profilesDirectory,
@@ -278,13 +286,13 @@ describe('Claude Code adapter support', () => {
     );
 
     expect(defaultResult.agentId).toBe('pi');
-    expect(defaultResult.tackDirectory).toContain('bridl-default-pi-');
+    expect(defaultResult.compositeProfileDirectory).toContain('applepi-default-pi-');
     expect(defaultResult.launchPlan.command).toBe('pi');
     expect(cliClaudeResult.agentId).toBe('claude');
-    expect(cliClaudeResult.tackDirectory).toContain('bridl-default-claude-');
-    expect(existsSync(join(cliClaudeResult.tackDirectory, 'bridl', 'profile.json'))).toBe(true);
+    expect(cliClaudeResult.compositeProfileDirectory).toContain('applepi-default-claude-');
+    expect(existsSync(join(cliClaudeResult.compositeProfileDirectory, 'applepi', 'profile.json'))).toBe(true);
     expect(cliClaudeResult.launchPlan.command).toBe('claude');
-    expect(cliClaudeResult.launchPlan.env.CLAUDE_CONFIG_DIR).toBe(cliClaudeResult.tackDirectory);
+    expect(cliClaudeResult.launchPlan.env.CLAUDE_CONFIG_DIR).toBe(cliClaudeResult.compositeProfileDirectory);
     expect(cliClaudeResult.launchPlan.args).toEqual([
       '--model',
       'generic-model',
@@ -298,22 +306,22 @@ describe('Claude Code adapter support', () => {
     expect(messages).toContain('↳ launching claude …');
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-005.5, BRIDL-REQ-006.5).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-005.5, APPLEPI-REQ-006.5).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
-  it('makes Claude Code unsupported control warnings fatal when hard tack is enabled', async () => {
+  it('makes Claude Code unsupported control warnings fatal when strict is enabled', async () => {
     const root = createTemporaryRoot();
     const homeDirectory = join(root, 'home');
     const projectDirectory = join(root, 'project');
     writeSettings(homeDirectory, 'default_profile: default\nprofile_sources:\n  - path: ./profiles\n');
     writeProfile(
-      join(homeDirectory, '.bridl', 'profiles'),
+      join(homeDirectory, '.applepi', 'profiles'),
       'default',
       'id: default\ncontrols:\n  provider: anthropic\n',
     );
 
     await expect(
       executeRunCommand(
-        { homeDirectory, projectDirectory, agentId: 'claude', hardTack: true },
+        { homeDirectory, projectDirectory, agentId: 'claude', strict: true },
         {
           launcher: {
             launch() {
@@ -322,6 +330,6 @@ describe('Claude Code adapter support', () => {
           },
         },
       ),
-    ).rejects.toThrow("Hard-tack failed for claude: claude adapter cannot translate requested control 'provider'.");
+    ).rejects.toThrow("Strict failed for claude: claude adapter cannot translate requested control 'provider'.");
   });
 });

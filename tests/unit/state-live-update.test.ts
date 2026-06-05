@@ -1,4 +1,4 @@
-// Tests state-write accounting when live tack updates regenerate files.
+// Tests state-write accounting when live composite profile updates regenerate files.
 import { execFileSync } from 'node:child_process';
 import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -7,25 +7,25 @@ import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { executeRunCommand } from '../../src/cli/commands/RunCommand.js';
-import { createTack } from '../../src/tack/Tack.js';
+import { createCompositeProfile } from '../../src/compositeProfile/CompositeProfile.js';
 import {
-  createTackStateBaseline,
-  detectTackStateWrites,
-  updateTackStateBaselinePaths,
-} from '../../src/tack/StatePersistence.js';
-import { createTackFile } from '../../src/tack/TackFile.js';
+  createCompositeProfileStateBaseline,
+  detectCompositeProfileStateWrites,
+  updateCompositeProfileStateBaselinePaths,
+} from '../../src/compositeProfile/StatePersistence.js';
+import { createCompositeProfileFile } from '../../src/compositeProfile/CompositeProfileFile.js';
 
 const temporaryRoots: string[] = [];
 
 const createTemporaryRoot = (): string => {
-  const root = mkdtempSync(join(tmpdir(), 'bridl-state-live-'));
+  const root = mkdtempSync(join(tmpdir(), 'applepi-state-live-'));
   temporaryRoots.push(root);
   return root;
 };
 
 const writeSettings = (homeDirectory: string, content: string): void => {
-  mkdirSync(join(homeDirectory, '.bridl'), { recursive: true });
-  writeFileSync(join(homeDirectory, '.bridl', 'settings.yml'), content);
+  mkdirSync(join(homeDirectory, '.applepi'), { recursive: true });
+  writeFileSync(join(homeDirectory, '.applepi', 'settings.yml'), content);
 };
 
 const writeProfile = (root: string, id: string, content: string): string => {
@@ -58,14 +58,14 @@ afterEach(() => {
   }
 });
 
-describe('live tack update state accounting', () => {
-  // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-005.4, BRIDL-REQ-005.6).
+describe('live composite profile update state accounting', () => {
+  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-005.4, APPLEPI-REQ-005.6).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
-  it('does not report live-regenerated tack files as agent state writes', async () => {
+  it('does not report live-regenerated compositeProfile files as agent state writes', async () => {
     const root = createTemporaryRoot();
     const homeDirectory = join(root, 'home');
     const projectDirectory = join(root, 'project');
-    const profilesDirectory = join(homeDirectory, '.bridl', 'profiles');
+    const profilesDirectory = join(homeDirectory, '.applepi', 'profiles');
     const profilePath = writeProfile(profilesDirectory, 'default', 'id: default\nlabel: Initial\ncontrols: {}\n');
     writeSettings(homeDirectory, 'default_profile: default\nprofile_sources:\n  - path: ./profiles\n');
 
@@ -75,15 +75,15 @@ describe('live tack update state accounting', () => {
         adapter: {
           id: 'mock-agent',
           supportedControls: [],
-          createTack(profile, tackInput) {
+          createCompositeProfile(profile, compositeProfileInput) {
             return {
-              tack: createTack(
-                tackInput.rootDirectory,
+              compositeProfile: createCompositeProfile(
+                compositeProfileInput.rootDirectory,
                 [
-                  createTackFile({
+                  createCompositeProfileFile({
                     relativePath: 'generated.txt',
                     content: `${profile.label}\n`,
-                    sourceInputs: tackInput.profilePaths,
+                    sourceInputs: compositeProfileInput.profilePaths,
                   }),
                 ],
                 [{ relativePath: 'unknown', strategy: 'warn', directory: false }],
@@ -91,8 +91,8 @@ describe('live tack update state accounting', () => {
               warnings: [],
             };
           },
-          createLaunchPlan(tack) {
-            return { command: 'mock-agent', args: [], env: { MOCK_AGENT_DIR: tack.rootDirectory } };
+          createLaunchPlan(compositeProfile) {
+            return { command: 'mock-agent', args: [], env: { MOCK_AGENT_DIR: compositeProfile.rootDirectory } };
           },
           getUnsupportedControls() {
             return [];
@@ -118,16 +118,24 @@ describe('live tack update state accounting', () => {
     const generatedPath = join(root, 'generated.txt');
     mkdirSync(root, { recursive: true });
     writeFileSync(generatedPath, 'generated\n');
-    const baseline = createTackStateBaseline(root);
+    const baseline = createCompositeProfileStateBaseline(root);
 
     rmSync(generatedPath);
-    const updatedBaseline = updateTackStateBaselinePaths(root, baseline, ['generated.txt']);
+    const updatedBaseline = updateCompositeProfileStateBaselinePaths(root, baseline, ['generated.txt']);
 
     expect(
-      detectTackStateWrites(root, [{ relativePath: 'unknown', strategy: 'warn', directory: false }], baseline),
+      detectCompositeProfileStateWrites(
+        root,
+        [{ relativePath: 'unknown', strategy: 'warn', directory: false }],
+        baseline,
+      ),
     ).toEqual([{ relativePath: 'generated.txt', strategy: 'warn', unknown: true }]);
     expect(
-      detectTackStateWrites(root, [{ relativePath: 'unknown', strategy: 'warn', directory: false }], updatedBaseline),
+      detectCompositeProfileStateWrites(
+        root,
+        [{ relativePath: 'unknown', strategy: 'warn', directory: false }],
+        updatedBaseline,
+      ),
     ).toEqual([]);
   });
 
@@ -135,12 +143,16 @@ describe('live tack update state accounting', () => {
     const root = createTemporaryRoot();
     const pipePath = join(root, 'cache', 'pipe');
     mkdirSync(join(root, 'cache'), { recursive: true });
-    const baseline = createTackStateBaseline(root);
+    const baseline = createCompositeProfileStateBaseline(root);
 
     execFileSync('mkfifo', [pipePath]);
 
     expect(
-      detectTackStateWrites(root, [{ relativePath: 'cache/', strategy: 'warn', directory: true }], baseline),
+      detectCompositeProfileStateWrites(
+        root,
+        [{ relativePath: 'cache/', strategy: 'warn', directory: true }],
+        baseline,
+      ),
     ).toEqual([{ relativePath: 'cache/', strategy: 'warn', unknown: false }]);
   });
 
@@ -155,17 +167,17 @@ describe('live tack update state accounting', () => {
     writeFileSync(join(root, 'discarded.txt'), 'before\n');
     execFileSync('mkfifo', [pipePath]);
 
-    const baseline = createTackStateBaseline(root, statePaths);
+    const baseline = createCompositeProfileStateBaseline(root, statePaths);
     writeFileSync(join(root, 'outside.txt'), 'reported\n');
 
-    expect(detectTackStateWrites(root, statePaths, baseline)).toEqual([
+    expect(detectCompositeProfileStateWrites(root, statePaths, baseline)).toEqual([
       { relativePath: 'outside.txt', strategy: 'warn', unknown: true },
     ]);
 
-    const unfilteredBaseline = createTackStateBaseline(root);
+    const unfilteredBaseline = createCompositeProfileStateBaseline(root);
     writeFileSync(join(root, 'discarded.txt'), 'after\n');
     expect(
-      detectTackStateWrites(
+      detectCompositeProfileStateWrites(
         root,
         [{ relativePath: 'discarded.txt', strategy: 'discard', directory: false }],
         unfilteredBaseline,

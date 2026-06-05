@@ -15,7 +15,7 @@ integration_fixture_consistency:
       - the user/project setup represented by home/ and project/;
       - the selected profile or profiles and relevant inheritance/default behavior;
       - any adapter-specific controls or cli_specific state files present;
-      - expected durable state ownership: profile, native fallback, cache, or temporary tack;
+      - expected durable state ownership: profile, native fallback, cache, or temporary composite profile;
       - mutation/write-back behavior that tests are expected to exercise.
 
       Check catalog consistency:

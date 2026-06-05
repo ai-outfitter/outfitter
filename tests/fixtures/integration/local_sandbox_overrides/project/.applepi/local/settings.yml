@@ -1,0 +1,6 @@
+default_profile: local-sandbox
+cache_directory: ./cache
+profile_sources:
+  - path: ../../../home/.applepi/profiles
+  - path: ../profiles
+  - path: ./profiles

@@ -1,7 +1,7 @@
-// Provides the Claude Code adapter for tack generation and native launch plans.
+// Provides the Claude Code adapter for composite profile generation and native launch plans.
 import { join } from 'node:path';
 
-import type { AgentAdapter, AgentLaunchPlan, AgentTackPlan } from '../AgentAdapter.js';
+import type { AgentAdapter, AgentLaunchPlan, AgentCompositeProfilePlan } from '../AgentAdapter.js';
 import {
   findUnsupportedControlNames,
   flagValue,
@@ -11,10 +11,10 @@ import {
 } from '../AdapterProfileControls.js';
 import { createDeclaredStatePaths, findProfileStateSource } from '../AdapterStatePaths.js';
 import type { ClaudeProfileControls, Profile, ProfileControls } from '../../profiles/Profile.js';
-import type { StatePathDeclaration, TackStatePath } from '../../tack/StatePersistence.js';
-import type { Tack } from '../../tack/Tack.js';
-import { createTack } from '../../tack/Tack.js';
-import { createTackFile } from '../../tack/TackFile.js';
+import type { StatePathDeclaration, CompositeProfileStatePath } from '../../compositeProfile/StatePersistence.js';
+import type { CompositeProfile } from '../../compositeProfile/CompositeProfile.js';
+import { createCompositeProfile } from '../../compositeProfile/CompositeProfile.js';
+import { createCompositeProfileFile } from '../../compositeProfile/CompositeProfileFile.js';
 
 const supportedClaudeGenericControls = new Set([
   'model',
@@ -61,13 +61,13 @@ export const createClaudeAdapter = (): AgentAdapter => ({
   id: 'claude',
   supportedControls: supportedControlNames(supportedClaudeGenericControls),
   statePaths: claudeStatePathDeclarations,
-  createTack(profile: Profile, input): AgentTackPlan {
-    const tack = createTack(
+  createCompositeProfile(profile: Profile, input): AgentCompositeProfilePlan {
+    const compositeProfile = createCompositeProfile(
       input.rootDirectory,
       [
-        createTackFile({
+        createCompositeProfileFile({
           rootDirectory: input.rootDirectory,
-          relativePath: 'bridl/profile.json',
+          relativePath: 'applepi/profile.json',
           content: `${JSON.stringify({ id: profile.id, label: profile.label, controls: profile.controls }, null, 2)}\n`,
           sourceInputs: input.profilePaths,
           strategy: 'transform',
@@ -77,13 +77,17 @@ export const createClaudeAdapter = (): AgentAdapter => ({
     );
 
     return {
-      tack,
+      compositeProfile,
       warnings: this.getUnsupportedControls(profile).map(
         (controlName) => `claude adapter cannot translate requested control '${controlName}'.`,
       ),
     };
   },
-  createLaunchPlan(tack: Tack, profile?: Profile, passThroughArgs: readonly string[] = []): AgentLaunchPlan {
+  createLaunchPlan(
+    compositeProfile: CompositeProfile,
+    profile?: Profile,
+    passThroughArgs: readonly string[] = [],
+  ): AgentLaunchPlan {
     const controls = mergeClaudeControls(profile?.controls ?? {});
 
     return {
@@ -91,7 +95,7 @@ export const createClaudeAdapter = (): AgentAdapter => ({
       args: [...createClaudeArgs(controls), ...passThroughArgs],
       env: {
         ...controls.environment,
-        CLAUDE_CONFIG_DIR: tack.rootDirectory,
+        CLAUDE_CONFIG_DIR: compositeProfile.rootDirectory,
       },
     };
   },
@@ -106,7 +110,7 @@ const createClaudeStatePaths = (
     readonly profileFolders?: readonly string[];
     readonly homeDirectory?: string;
   },
-): readonly TackStatePath[] => {
+): readonly CompositeProfileStatePath[] => {
   const controls = mergeClaudeControls(profile.controls);
 
   return createDeclaredStatePaths({

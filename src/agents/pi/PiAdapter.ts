@@ -1,7 +1,7 @@
-// Provides the pi adapter for tack generation and native pi launch plans.
+// Provides the pi adapter for composite profile generation and native pi launch plans.
 import { join } from 'node:path';
 
-import type { AgentAdapter, AgentLaunchPlan, AgentTackPlan } from '../AgentAdapter.js';
+import type { AgentAdapter, AgentLaunchPlan, AgentCompositeProfilePlan } from '../AgentAdapter.js';
 import {
   flagValue,
   genericControlNames,
@@ -11,10 +11,10 @@ import {
 } from '../AdapterProfileControls.js';
 import { createDeclaredStatePaths, findProfileStateSource } from '../AdapterStatePaths.js';
 import type { PiProfileControls, Profile, ProfileControls } from '../../profiles/Profile.js';
-import type { Tack } from '../../tack/Tack.js';
-import { createTack } from '../../tack/Tack.js';
-import { createTackFile } from '../../tack/TackFile.js';
-import type { StatePathDeclaration, TackStatePath } from '../../tack/StatePersistence.js';
+import type { CompositeProfile } from '../../compositeProfile/CompositeProfile.js';
+import { createCompositeProfile } from '../../compositeProfile/CompositeProfile.js';
+import { createCompositeProfileFile } from '../../compositeProfile/CompositeProfileFile.js';
+import type { StatePathDeclaration, CompositeProfileStatePath } from '../../compositeProfile/StatePersistence.js';
 
 const piControlNames = new Set(
   [...genericControlNames].filter((controlName) => controlName !== 'pi' && controlName !== 'claude'),
@@ -28,10 +28,10 @@ const piStatePathDeclarations = {
   'cache/': { defaultStrategy: 'symlink', allowedStrategies: ['symlink', 'discard', 'warn', 'error'] },
   'sessions/': { defaultStrategy: 'symlink', allowedStrategies: ['symlink', 'discard', 'warn', 'error'] },
   // Pi installs npm-sourced packages here for user-scoped `pi install npm:...` entries.
-  // Persisting it keeps package updates across Bridl's temporary tack directories.
+  // Persisting it keeps package updates across ApplePi's temporary composite profile directories.
   'npm/': { defaultStrategy: 'symlink', allowedStrategies: ['symlink', 'discard', 'warn', 'error'] },
   // Pi clones git-sourced packages here for user-scoped `pi install git:...` entries.
-  // Persisting it prevents every Bridl run from re-cloning or using stale temporary checkouts.
+  // Persisting it prevents every ApplePi run from re-cloning or using stale temporary checkouts.
   'git/': { defaultStrategy: 'symlink', allowedStrategies: ['symlink', 'discard', 'warn', 'error'] },
   'utilities/': { defaultStrategy: 'symlink', allowedStrategies: ['symlink', 'discard', 'warn', 'error'] },
   'bin/': { defaultStrategy: 'symlink', allowedStrategies: ['symlink', 'discard', 'warn', 'error'] },
@@ -42,13 +42,13 @@ export const createPiAdapter = (): AgentAdapter => ({
   id: 'pi',
   supportedControls: supportedControlNames(genericControlNames),
   statePaths: piStatePathDeclarations,
-  createTack(profile: Profile, input): AgentTackPlan {
-    const tack = createTack(
+  createCompositeProfile(profile: Profile, input): AgentCompositeProfilePlan {
+    const compositeProfile = createCompositeProfile(
       input.rootDirectory,
       [
-        createTackFile({
+        createCompositeProfileFile({
           rootDirectory: input.rootDirectory,
-          relativePath: 'bridl/profile.json',
+          relativePath: 'applepi/profile.json',
           content: `${JSON.stringify({ id: profile.id, label: profile.label, controls: profile.controls }, null, 2)}\n`,
           sourceInputs: input.profilePaths,
           strategy: 'transform',
@@ -58,13 +58,17 @@ export const createPiAdapter = (): AgentAdapter => ({
     );
 
     return {
-      tack,
+      compositeProfile,
       warnings: this.getUnsupportedControls(profile).map(
         (controlName) => `pi adapter cannot translate requested control '${controlName}'.`,
       ),
     };
   },
-  createLaunchPlan(tack: Tack, profile?: Profile, passThroughArgs: readonly string[] = []): AgentLaunchPlan {
+  createLaunchPlan(
+    compositeProfile: CompositeProfile,
+    profile?: Profile,
+    passThroughArgs: readonly string[] = [],
+  ): AgentLaunchPlan {
     const controls = mergePiControls(profile?.controls ?? {});
 
     return {
@@ -72,7 +76,7 @@ export const createPiAdapter = (): AgentAdapter => ({
       args: [...createPiArgs(controls), ...passThroughArgs],
       env: {
         ...controls.environment,
-        PI_CODING_AGENT_DIR: tack.rootDirectory,
+        PI_CODING_AGENT_DIR: compositeProfile.rootDirectory,
       },
     };
   },
@@ -88,7 +92,7 @@ const createPiStatePaths = (
     readonly homeDirectory?: string;
     readonly cacheDirectory?: string;
   },
-): readonly TackStatePath[] => {
+): readonly CompositeProfileStatePath[] => {
   return createDeclaredStatePaths({
     adapterId: 'pi',
     declarations: piStatePathDeclarations,
@@ -117,7 +121,7 @@ const resolvePiStateSourcePath = (
     join(
       /* v8 ignore next -- run command always passes homeDirectory; environment fallbacks are defensive. */
       homeDirectory ?? process.env.HOME ?? '.',
-      '.bridl',
+      '.applepi',
       'cache',
     );
 

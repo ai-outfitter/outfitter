@@ -1,0 +1,5 @@
+default_profile: repo-review
+default_agent: pi
+profile_sources:
+  - path: ../../home/.applepi/profiles
+  - path: ./profiles

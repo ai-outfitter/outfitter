@@ -23,15 +23,22 @@ import type { ProfileSourceReference } from '../../profiles/ProfileSource.js';
 import { resolveProfile } from '../../profiles/ProfileMerger.js';
 import type { Settings } from '../../settings/Settings.js';
 import { loadSettingsWithCachedRemoteSettings } from '../../settings/SettingsLoader.js';
-import { createTackRootDirectory, writeTack } from '../../tack/TackAssembler.js';
-import { renderTackTemplates } from '../../tack/TackTemplate.js';
 import {
-  createTackStateBaseline,
-  detectTackStateWrites,
-  updateTackStateBaselinePaths,
-} from '../../tack/StatePersistence.js';
-import type { TackStateBaseline, TackStatePath, TackStateWriteIssue } from '../../tack/StatePersistence.js';
-import { watchTackInputs } from '../../tack/TackWatcher.js';
+  createCompositeProfileRootDirectory,
+  writeCompositeProfile,
+} from '../../compositeProfile/CompositeProfileAssembler.js';
+import { renderCompositeProfileTemplates } from '../../compositeProfile/CompositeProfileTemplate.js';
+import {
+  createCompositeProfileStateBaseline,
+  detectCompositeProfileStateWrites,
+  updateCompositeProfileStateBaselinePaths,
+} from '../../compositeProfile/StatePersistence.js';
+import type {
+  CompositeProfileStateBaseline,
+  CompositeProfileStatePath,
+  CompositeProfileStateWriteIssue,
+} from '../../compositeProfile/StatePersistence.js';
+import { watchCompositeProfileInputs } from '../../compositeProfile/CompositeProfileWatcher.js';
 import type { CommandObject } from './CommandObject.js';
 import { executeSetupCommand } from './SetupCommand.js';
 import type { SetupCommandDependencies } from './SetupCommand.js';
@@ -41,7 +48,7 @@ export interface RunCommandInput {
   readonly projectDirectory: string;
   readonly profileId?: string;
   readonly agentId?: string;
-  readonly hardTack?: boolean;
+  readonly strict?: boolean;
   readonly passThroughArgs?: readonly string[];
 }
 
@@ -49,7 +56,7 @@ export interface RunCommandResult {
   readonly profileId: string;
   readonly agentId: string;
   readonly launchPlan: AgentLaunchPlan;
-  readonly tackDirectory: string;
+  readonly compositeProfileDirectory: string;
   readonly warnings: readonly string[];
   readonly exitCode: number;
 }
@@ -72,28 +79,46 @@ export const executeRunCommand = async (
   const resolvedProfile = loadResolvedProfile(input);
   const adapter =
     dependencies.adapter ?? createAgentAdapter(selectRunAgentId(input.agentId, resolvedProfile.settings.defaultAgent));
-  const tackRootDirectory = createTackRootDirectory(resolvedProfile.profile.id, adapter.id);
-  const tackPlan = createAdapterTackPlan(adapter, resolvedProfile, tackRootDirectory);
-  const warnings = tackPlan.warnings;
+  const compositeProfileRootDirectory = createCompositeProfileRootDirectory(resolvedProfile.profile.id, adapter.id);
+  const compositeProfilePlan = createAdapterCompositeProfilePlan(
+    adapter,
+    resolvedProfile,
+    compositeProfileRootDirectory,
+  );
+  const warnings = compositeProfilePlan.warnings;
 
-  failHardTackOnWarnings(adapter.id, warnings, input.hardTack);
+  failStrictOnWarnings(adapter.id, warnings, input.strict);
   emitWarnings(warnings, dependencies.writeError);
 
-  writeTack(tackPlan.tack);
-  let stateBaseline = createTackStateBaseline(tackPlan.tack.rootDirectory, tackPlan.tack.statePaths);
-  const launchPlan = adapter.createLaunchPlan(tackPlan.tack, resolvedProfile.profile, input.passThroughArgs ?? []);
-  emitLaunchSummary(resolvedProfile, adapter.id, tackPlan.tack.rootDirectory, dependencies.writeLine);
-  const watcher = watchTackInputs({
-    tack: tackPlan.tack,
-    refreshTack: () => createAdapterTackPlan(adapter, loadResolvedProfile(input), tackRootDirectory).tack,
-    onTackWritten: (tack) => {
-      stateBaseline = updateTackStateBaselinePaths(
-        tack.rootDirectory,
+  writeCompositeProfile(compositeProfilePlan.compositeProfile);
+  let stateBaseline = createCompositeProfileStateBaseline(
+    compositeProfilePlan.compositeProfile.rootDirectory,
+    compositeProfilePlan.compositeProfile.statePaths,
+  );
+  const launchPlan = adapter.createLaunchPlan(
+    compositeProfilePlan.compositeProfile,
+    resolvedProfile.profile,
+    input.passThroughArgs ?? [],
+  );
+  emitLaunchSummary(
+    resolvedProfile,
+    adapter.id,
+    compositeProfilePlan.compositeProfile.rootDirectory,
+    dependencies.writeLine,
+  );
+  const watcher = watchCompositeProfileInputs({
+    compositeProfile: compositeProfilePlan.compositeProfile,
+    refreshCompositeProfile: () =>
+      createAdapterCompositeProfilePlan(adapter, loadResolvedProfile(input), compositeProfileRootDirectory)
+        .compositeProfile,
+    onCompositeProfileWritten: (compositeProfile) => {
+      stateBaseline = updateCompositeProfileStateBaselinePaths(
+        compositeProfile.rootDirectory,
         stateBaseline,
-        tack.files.map((file) => file.outputPath),
+        compositeProfile.files.map((file) => file.outputPath),
       );
     },
-    /* v8 ignore next -- watcher warnings are covered in TackWatcher tests; this adapter passes the stderr writer through. */
+    /* v8 ignore next -- watcher warnings are covered in CompositeProfileWatcher tests; this adapter passes the stderr writer through. */
     warn: (message) => (dependencies.writeError ?? console.error)(message),
   });
 
@@ -102,21 +127,21 @@ export const executeRunCommand = async (
       dependencies.launcher ??
       /* v8 ignore next -- tests inject launchers instead of spawning pi. */ createSpawnLauncher();
     const exitCode = await launcher.launch(launchPlan);
-    const stateWriteWarnings = handleTackStateWrites(
+    const stateWriteWarnings = handleCompositeProfileStateWrites(
       adapter.id,
-      tackPlan.tack.rootDirectory,
-      tackPlan.tack.statePaths,
+      compositeProfilePlan.compositeProfile.rootDirectory,
+      compositeProfilePlan.compositeProfile.statePaths,
       stateBaseline,
     );
 
-    failHardTackOnWarnings(adapter.id, stateWriteWarnings, input.hardTack);
+    failStrictOnWarnings(adapter.id, stateWriteWarnings, input.strict);
     emitWarnings(stateWriteWarnings, dependencies.writeError);
 
     return {
       profileId: resolvedProfile.profile.id,
       agentId: adapter.id,
       launchPlan,
-      tackDirectory: tackPlan.tack.rootDirectory,
+      compositeProfileDirectory: compositeProfilePlan.compositeProfile.rootDirectory,
       warnings: [...warnings, ...stateWriteWarnings],
       exitCode,
     };
@@ -129,11 +154,11 @@ export const executeRunCommand = async (
 export const createRunCommand = (dependencies: RunCommandDependencies = {}): CommandObject => {
   const command: CommandObject = {
     name: 'run',
-    description: 'Assemble a profile tack and launch the selected agent CLI.',
+    description: 'Assemble a profile compositeProfile and launch the selected agent CLI.',
     register(program: Command): void {
       const action = async (
         args: readonly string[],
-        options: { profile?: string; agent?: string; hardTack?: boolean },
+        options: { profile?: string; agent?: string; strict?: boolean },
       ) => {
         const result = await executeRunCommand(
           {
@@ -141,7 +166,7 @@ export const createRunCommand = (dependencies: RunCommandDependencies = {}): Com
             projectDirectory: dependencies.projectDirectory ?? process.cwd(),
             profileId: options.profile,
             agentId: options.agent,
-            hardTack: options.hardTack,
+            strict: options.strict,
             passThroughArgs: args,
           },
           dependencies,
@@ -164,13 +189,13 @@ export const createRunCommand = (dependencies: RunCommandDependencies = {}): Com
 
 const configureRunCommander = (
   command: Command,
-  action: (args: readonly string[], options: { profile?: string; agent?: string; hardTack?: boolean }) => Promise<void>,
+  action: (args: readonly string[], options: { profile?: string; agent?: string; strict?: boolean }) => Promise<void>,
 ): void => {
   command
     .argument('[args...]')
-    .option('-p, --profile <profile>', 'Bridl profile id to run')
+    .option('-p, --profile <profile>', 'ApplePi profile id to run')
     .option('--agent <agent>', 'agent adapter to launch: pi or claude')
-    .option('--hard-tack', 'Fail instead of warning when controls cannot be translated')
+    .option('--strict', 'Fail instead of warning when controls cannot be translated')
     .allowUnknownOption(true)
     .allowExcessArguments(true)
     .action(action);
@@ -190,13 +215,9 @@ interface ResolvedRunProfile {
   readonly profileLayers: readonly LoadedProfile[];
 }
 
-const failHardTackOnWarnings = (
-  adapterId: string,
-  warnings: readonly string[],
-  hardTack: boolean | undefined,
-): void => {
-  if (hardTack === true && warnings.length > 0) {
-    throw new Error(`Hard-tack failed for ${adapterId}: ${warnings.join('; ')}`);
+const failStrictOnWarnings = (adapterId: string, warnings: readonly string[], strict: boolean | undefined): void => {
+  if (strict === true && warnings.length > 0) {
+    throw new Error(`Strict failed for ${adapterId}: ${warnings.join('; ')}`);
   }
 };
 
@@ -211,7 +232,7 @@ const emitWarnings = (warnings: readonly string[], writeError: ((message: string
 const emitLaunchSummary = (
   resolvedProfile: ResolvedRunProfile,
   adapterId: string,
-  tackRootDirectory: string,
+  compositeProfileRootDirectory: string,
   writeLine: ((message: string) => void) | undefined,
 ): void => {
   const writer = writeLine ?? console.log;
@@ -226,7 +247,7 @@ const emitLaunchSummary = (
   }
 
   writer(`${chalk.green('✓')} merged controls${model === undefined ? '' : `  model=${chalk.yellow(model)}`}`);
-  writer(`${chalk.green('✓')} prepared tack  ${chalk.dim(tackRootDirectory)}`);
+  writer(`${chalk.green('✓')} prepared composite profile  ${chalk.dim(compositeProfileRootDirectory)}`);
   writer(`${chalk.blue('↳')} launching ${chalk.cyan(adapterId)} …`);
 };
 
@@ -261,8 +282,12 @@ const formatRemoteProfileSource = (source: string, ref: string | undefined, path
   return `${source}${refSuffix}${pathSuffix}`;
 };
 
-const createAdapterTackPlan = (adapter: AgentAdapter, resolvedProfile: ResolvedRunProfile, rootDirectory: string) => {
-  const tackPlan = adapter.createTack(resolvedProfile.profile, {
+const createAdapterCompositeProfilePlan = (
+  adapter: AgentAdapter,
+  resolvedProfile: ResolvedRunProfile,
+  rootDirectory: string,
+) => {
+  const compositeProfilePlan = adapter.createCompositeProfile(resolvedProfile.profile, {
     rootDirectory,
     profilePaths: resolvedProfile.profilePaths,
     profileFolders: resolvedProfile.profileFolders,
@@ -273,9 +298,9 @@ const createAdapterTackPlan = (adapter: AgentAdapter, resolvedProfile: ResolvedR
   });
 
   return {
-    ...tackPlan,
-    tack: renderTackTemplates({
-      tack: tackPlan.tack,
+    ...compositeProfilePlan,
+    compositeProfile: renderCompositeProfileTemplates({
+      compositeProfile: compositeProfilePlan.compositeProfile,
       settings: resolvedProfile.settings,
       settingsPaths: resolvedProfile.settingsPaths,
       profile: resolvedProfile.profile,
@@ -285,28 +310,28 @@ const createAdapterTackPlan = (adapter: AgentAdapter, resolvedProfile: ResolvedR
   };
 };
 
-const handleTackStateWrites = (
+const handleCompositeProfileStateWrites = (
   adapterId: string,
-  tackRootDirectory: string,
-  statePaths: readonly TackStatePath[],
-  stateBaseline: TackStateBaseline,
+  compositeProfileRootDirectory: string,
+  statePaths: readonly CompositeProfileStatePath[],
+  stateBaseline: CompositeProfileStateBaseline,
 ): readonly string[] => {
   const warnings: string[] = [];
 
-  for (const issue of detectTackStateWrites(tackRootDirectory, statePaths, stateBaseline)) {
+  for (const issue of detectCompositeProfileStateWrites(compositeProfileRootDirectory, statePaths, stateBaseline)) {
     if (issue.strategy === 'error') {
-      throw new Error(formatTackStateWriteIssue(adapterId, issue));
+      throw new Error(formatCompositeProfileStateWriteIssue(adapterId, issue));
     }
 
-    warnings.push(formatTackStateWriteIssue(adapterId, issue));
+    warnings.push(formatCompositeProfileStateWriteIssue(adapterId, issue));
   }
 
   return warnings;
 };
 
-const formatTackStateWriteIssue = (adapterId: string, issue: TackStateWriteIssue): string => {
+const formatCompositeProfileStateWriteIssue = (adapterId: string, issue: CompositeProfileStateWriteIssue): string => {
   if (issue.unknown) {
-    return `${adapterId} wrote undeclared tack state '${issue.relativePath}' and it was not persisted.`;
+    return `${adapterId} wrote undeclared composite profile state '${issue.relativePath}' and it was not persisted.`;
   }
 
   if (issue.strategy === 'symlink') {
@@ -317,14 +342,14 @@ const formatTackStateWriteIssue = (adapterId: string, issue: TackStateWriteIssue
 };
 
 const runSetupIfNeeded = async (input: RunCommandInput, dependencies: RunCommandDependencies): Promise<void> => {
-  const settingsPath = join(input.homeDirectory, '.bridl', 'settings.yml');
+  const settingsPath = join(input.homeDirectory, '.applepi', 'settings.yml');
 
   if (existsSync(settingsPath)) {
     return;
   }
 
   /* v8 ignore next -- console fallback is direct CLI behavior; tests inject a writer. */
-  (dependencies.writeLine ?? console.log)('`bridl setup` has not been run yet - running now');
+  (dependencies.writeLine ?? console.log)('`applepi setup` has not been run yet - running now');
   await executeSetupCommand(input, dependencies);
 };
 
@@ -358,7 +383,7 @@ const loadResolvedProfile = (input: RunCommandInput): ResolvedRunProfile => {
     profilePaths: findContributingProfilePaths(resolution.profileStack, loadedProfiles.profiles),
     profileFolders: findContributingProfileFolders(resolution.profileStack, loadedProfiles.profiles),
     homeDirectory: input.homeDirectory,
-    cacheDirectory: loadedSettings.settings.cacheDirectory ?? join(input.homeDirectory, '.bridl', 'cache'),
+    cacheDirectory: loadedSettings.settings.cacheDirectory ?? join(input.homeDirectory, '.applepi', 'cache'),
     projectDirectory: input.projectDirectory,
     settings: loadedSettings.settings,
     settingsPaths: loadedSettings.files.map((file) => file.location.path),
@@ -378,7 +403,7 @@ const selectRunProfileId = (selectedProfileId: string | undefined, defaultProfil
   }
 
   throw new Error(
-    'Cannot run without a selected profile or default_profile in settings.yml; pass --profile or run `bridl setup`.',
+    'Cannot run without a selected profile or default_profile in settings.yml; pass --profile or run `applepi setup`.',
   );
 };
 

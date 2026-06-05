@@ -1,5 +1,5 @@
 ---
-title: Bridl Agent Harness Manager
+title: ApplePi Agent Harness Manager
 description: Making your AI Harness manageable, composable and portable
 theme:
   layout: full
@@ -8,43 +8,43 @@ theme:
   pagination: false
 ---
 
-<div className="bridl-landing">
-  <section className="bridl-hero">
-    <div className="bridl-hero-bg" aria-hidden="true">
-      <div className="bridl-dots" />
-      <div className="bridl-glow" />
-      <div className="bridl-beam beam-one" />
-      <div className="bridl-beam beam-two" />
-      <div className="bridl-beam beam-three" />
+<div className="applepi-landing">
+  <section className="applepi-hero">
+    <div className="applepi-hero-bg" aria-hidden="true">
+      <div className="applepi-dots" />
+      <div className="applepi-glow" />
+      <div className="applepi-beam beam-one" />
+      <div className="applepi-beam beam-two" />
+      <div className="applepi-beam beam-three" />
     </div>
-    <div className="bridl-wrap bridl-hero-inner">
-      <div className="bridl-copy">
-        <p className="bridl-badge"><span aria-hidden="true" /> Agent harness profiles</p>
+    <div className="applepi-wrap applepi-hero-inner">
+      <div className="applepi-copy">
+        <p className="applepi-badge"><span aria-hidden="true" /> Agent harness profiles</p>
         <h1>Your agent harness, <span>finally manageable</span></h1>
-        <div className="bridl-lede">
-          Bridl is the pi-first control layer for AI coding agents. Define reusable profiles that travel between machines, adapt per repo, compose in layers, and launch through native pi configuration.
+        <div className="applepi-lede">
+          ApplePi is the pi-first control layer for AI coding agents. Define reusable profiles that travel between machines, adapt per repo, compose in layers, and launch through native pi configuration.
         </div>
-        <div className="bridl-actions">
-          <a className="bridl-button primary" href="#get-started">Get started →</a>
-          <a className="bridl-button ghost" href="#feature-comparison">Compare the gaps</a>
+        <div className="applepi-actions">
+          <a className="applepi-button primary" href="#get-started">Get started →</a>
+          <a className="applepi-button ghost" href="#feature-comparison">Compare the gaps</a>
         </div>
-        <p className="bridl-sub"><code>$ npm i -g bridl</code> · pi-first · profile-driven · deterministic</p>
+        <p className="applepi-sub"><code>$ npm i -g applepi</code> · pi-first · profile-driven · deterministic</p>
       </div>
-      <div className="bridl-terminal bridl-float">
-        <div className="bridl-termbar"><i aria-hidden="true" /><i aria-hidden="true" /><i aria-hidden="true" /><span>bridl — run</span></div>
-        <pre>{`$ bridl run --profile engineering-default
+      <div className="applepi-terminal applepi-float">
+        <div className="applepi-termbar"><i aria-hidden="true" /><i aria-hidden="true" /><i aria-hidden="true" /><span>applepi — run</span></div>
+        <pre>{`$ applepi run --profile engineering-default
 → resolving profile  engineering-default
   ✓ user source      github:nhorton/agent-profiles@main
-  ✓ repo overlay     .bridl/profiles/engineer
+  ✓ repo overlay     .applepi/profiles/engineer
   ✓ merged controls  model=claude-sonnet-4
-  ✓ prepared tack    /tmp/bridl-engineering-default-pi-a91f
+  ✓ prepared composite profile    /tmp/applepi-engineering-default-pi-a91f
 ↳ launching pi …`}</pre>
       </div>
     </div>
   </section>
 
-<div className="bridl-strip">
-  <div className="bridl-wrap">
+<div className="applepi-strip">
+  <div className="applepi-wrap">
     <strong>Built for</strong>
     <span>
       <i className="indigo" aria-hidden="true" /> pi today
@@ -59,84 +59,86 @@ theme:
   </div>
 </div>
 
-<section className="bridl-section bridl-wrap" id="why-bridl">
-  <p className="bridl-eyebrow">Why Bridl</p>
-  <div className="bridl-section-head">
+<section className="applepi-section applepi-wrap" id="why-applepi">
+  <p className="applepi-eyebrow">Why ApplePi</p>
+  <div className="applepi-section-head">
     <h2>Agent config is powerful — and fragmented</h2>
-    <div className="bridl-section-copy">
+    <div className="applepi-section-copy">
       Machine-global settings rot into a junk drawer. Project settings force every role and language through one
-      default. Bridl fills the gap with portable, composable profiles.
+      default. ApplePi fills the gap with portable, composable profiles.
     </div>
   </div>
-  <div className="bridl-cards">
-    <div className="bridl-card">
+  <div className="applepi-cards">
+    <div className="applepi-card">
       <div aria-hidden="true">◇</div>
       <h3>Like dotfiles, but shared</h3>
-      <div className="bridl-card-copy">
+      <div className="applepi-card-copy">
         Keep user-global settings in source-controlled profile repos instead of burying them in one machine's home
         directory.
       </div>
     </div>
-    <div className="bridl-card">
+    <div className="applepi-card">
       <div aria-hidden="true">⌘</div>
       <h3>Per-stack setups</h3>
       <p>Switch between TypeScript, Python, Rust, docs, or data profiles without rewriting project configuration.</p>
     </div>
-    <div className="bridl-card">
+    <div className="applepi-card">
       <div aria-hidden="true">◌</div>
       <h3>Intent-specific modes</h3>
       <p>Use a PM profile for planning, DevOps for deployment work, and engineering for implementation.</p>
     </div>
-    <div className="bridl-card">
+    <div className="applepi-card">
       <div aria-hidden="true">✓</div>
       <h3>Pi-first policy</h3>
-      <div className="bridl-card-copy">
+      <div className="applepi-card-copy">
         Describe generic profile controls once, then let the pi adapter map supported controls into native settings.
       </div>
     </div>
   </div>
 </section>
 
-<section className="bridl-section bridl-layers-band">
-  <div className="bridl-wrap">
-    <p className="bridl-eyebrow">Layered profiles in practice</p>
-    <div className="bridl-section-head">
-      <h2>Dotfiles, team standards, and repo overrides — resolved into one tack</h2>
-      <div className="bridl-section-copy">
-        Bridl combines the relevant layers deterministically, warns when a requested control is unsupported, and
-        prepares a clean runtime tack before launch.
+<section className="applepi-section applepi-layers-band">
+  <div className="applepi-wrap">
+    <p className="applepi-eyebrow">Layered profiles in practice</p>
+    <div className="applepi-section-head">
+      <h2>Dotfiles, team standards, and repo overrides — resolved into one composite profile</h2>
+      <div className="applepi-section-copy">
+        ApplePi combines the relevant layers deterministically, warns when a requested control is unsupported, and
+        prepares a clean runtime composite profile before launch.
       </div>
     </div>
-    <div className="bridl-layers">
-      <div className="bridl-layer-list">
+    <div className="applepi-layers">
+      <div className="applepi-layer-list">
         <div>
           <span>1</span>
           <h3>User profile source</h3>
-          <div className="bridl-layer-copy">
+          <div className="applepi-layer-copy">
             <code>github:nhorton/agent-profiles</code> provides shared defaults and machine-independent policy.
           </div>
         </div>
         <div>
           <span>2</span>
           <h3>Organization standard</h3>
-          <div className="bridl-layer-copy">
+          <div className="applepi-layer-copy">
             <code>github:acme/agent-standards</code> sets approved defaults and common controls.
           </div>
         </div>
         <div>
           <span>3</span>
           <h3>Repository-local profile</h3>
-          <div className="bridl-layer-copy">
-            <code>.bridl/profiles/engineer</code> adds repo-specific guidance and safety rules.
+          <div className="applepi-layer-copy">
+            <code>.applepi/profiles/engineer</code> adds repo-specific guidance and safety rules.
           </div>
         </div>
         <div>
           <span>4</span>
           <h3>Native pi launch</h3>
-          <p>The pi adapter translates supported controls into the runtime tack and native pi launch inputs.</p>
+          <p>
+            The pi adapter translates supported controls into the runtime composite profile and native pi launch inputs.
+          </p>
         </div>
       </div>
-      <div className="bridl-stack" role="img" aria-label="Profile layer stack">
+      <div className="applepi-stack" role="img" aria-label="Profile layer stack">
         <div className="stack-card a">
           <small>User profile source</small>
           <b>github:nhorton/agent-profiles</b>
@@ -147,7 +149,7 @@ theme:
         </div>
         <div className="stack-card c">
           <small>Repository overlay</small>
-          <b>.bridl/profiles/engineer</b>
+          <b>.applepi/profiles/engineer</b>
         </div>
         <div className="stack-plus">＋</div>
         <div className="stack-result">
@@ -160,34 +162,34 @@ theme:
   </div>
 </section>
 
-  <section className="bridl-section bridl-wrap bridl-showcase">
+  <section className="applepi-section applepi-wrap applepi-showcase">
     <div>
-      <p className="bridl-eyebrow">One command</p>
+      <p className="applepi-eyebrow">One command</p>
       <h2>Select a profile. Launch consistently.</h2>
-      <div className="bridl-feature-list">
+      <div className="applepi-feature-list">
         <p><strong>Pick the right loadout</strong><br />One flag selects language, role, risk level, or intent.</p>
-        <p><strong>Sync from anywhere</strong><br /><code>bridl sync</code> pulls remote settings and profile sources before a run.</p>
-        <p><strong>Deterministic every time</strong><br />The same profile resolves to the same tack: reviewable and reproducible.</p>
+        <p><strong>Sync from anywhere</strong><br /><code>applepi sync</code> pulls remote settings and profile sources before a run.</p>
+        <p><strong>Deterministic every time</strong><br />The same profile resolves to the same composite profile: reviewable and reproducible.</p>
       </div>
     </div>
-    <div className="bridl-config-card">
+    <div className="applepi-config-card">
       <div><span className="active">profile.yml</span><span>settings.yml</span></div>
       <pre>{'id: engineering-default\nlabel: Engineering Default\ninherits:\n  - base-typescript\n\ncontrols:\n  model: anthropic/claude-sonnet-4\n  environment:\n    TEAM_MODE: engineering'}</pre>
     </div>
 
   </section>
 
-<section className="bridl-section bridl-wrap" id="feature-comparison">
-  <p className="bridl-eyebrow">Feature comparison</p>
-  <div className="bridl-section-head">
-    <h2>The configuration gaps Bridl closes</h2>
+<section className="applepi-section applepi-wrap" id="feature-comparison">
+  <p className="applepi-eyebrow">Feature comparison</p>
+  <div className="applepi-section-head">
+    <h2>The configuration gaps ApplePi closes</h2>
   </div>
-  <div className="bridl-matrix-wrap">
-    <table className="bridl-matrix">
+  <div className="applepi-matrix-wrap">
+    <table className="applepi-matrix">
       <thead>
         <tr>
           <th>Capability</th>
-          <th>Bridl</th>
+          <th>ApplePi</th>
           <th>Claude Enterprise</th>
           <th>Claude Personal</th>
           <th>Pi.dev</th>
@@ -255,13 +257,13 @@ theme:
   </div>
 </section>
 
-  <section className="bridl-cta" id="get-started">
-    <div className="bridl-dots" aria-hidden="true" />
+  <section className="applepi-cta" id="get-started">
+    <div className="applepi-dots" aria-hidden="true" />
     <div>
-      <p className="bridl-eyebrow">Get started</p>
+      <p className="applepi-eyebrow">Get started</p>
       <h2>Treat agent setup like <em>real</em> infrastructure</h2>
       <p>{'Documented, reviewable, reusable. Put defaults in a profile repo, override only where it matters, and launch consistently.'}</p>
-      <code>$ npm i -g bridl</code>
+      <code>$ npm i -g applepi</code>
     </div>
   </section>
 </div>

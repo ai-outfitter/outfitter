@@ -1,5 +1,5 @@
 // Defines profile shapes and control fragments used during profile resolution.
-import type { StatePersistenceStrategy } from '../tack/StatePersistence.js';
+import type { StatePersistenceStrategy } from '../compositeProfile/StatePersistence.js';
 
 export type StatePersistenceOverrides = Readonly<Record<string, StatePersistenceStrategy>>;
 

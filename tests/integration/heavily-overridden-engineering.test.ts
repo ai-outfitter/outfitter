@@ -10,8 +10,8 @@ import {
   readExpectedJson,
   readFixtureText,
   runFixture,
-  summarizePiTack,
-  tackRootFromLaunchPlan,
+  summarizePiCompositeProfile,
+  compositeProfileRootFromLaunchPlan,
   tokenizeFixturePath,
 } from './fixtureHarness.js';
 
@@ -19,21 +19,21 @@ afterEach(() => {
   cleanupIntegrationFixtures();
 });
 
-describe('heavily overridden integration fixture tack generation', () => {
-  // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-003.3, BRIDL-REQ-003.4, BRIDL-REQ-005.3, BRIDL-REQ-005.6).
+describe('heavily overridden integration fixture composite profile generation', () => {
+  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-003.3, APPLEPI-REQ-003.4, APPLEPI-REQ-005.3, APPLEPI-REQ-005.6).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('merges a heavily overridden engineering profile and writes back only highest-precedence owned state', async () => {
     const fixture = copyFixtureToTemp('heavily_overridden_engineering');
     const warnings: string[] = [];
-    let tackSummary: unknown;
+    let compositeProfileSummary: unknown;
     const sourceProfilePaths = [
-      'home/.bridl/cache/repos/Z2l0K2h0dHBzOi8vZ2l0aHViLmNvbS9hY21lL2VuZ2luZWVyaW5nLXByb2ZpbGVzLmdpdCNtYWlu/profiles/engineering/profile.yml',
-      'home/.bridl/profiles/default/profile.yml',
-      'home/.bridl/profiles/engineering/profile.yml',
-      'project/.bridl/local/profiles/engineering/profile.yml',
-      'project/.bridl/profiles/engineering/profile.yml',
-      'project/.bridl/team-profiles/engineering/profile.yml',
-      'project/.bridl/team-profiles/team-baseline/profile.yml',
+      'home/.applepi/cache/repos/Z2l0K2h0dHBzOi8vZ2l0aHViLmNvbS9hY21lL2VuZ2luZWVyaW5nLXByb2ZpbGVzLmdpdCNtYWlu/profiles/engineering/profile.yml',
+      'home/.applepi/profiles/default/profile.yml',
+      'home/.applepi/profiles/engineering/profile.yml',
+      'project/.applepi/local/profiles/engineering/profile.yml',
+      'project/.applepi/profiles/engineering/profile.yml',
+      'project/.applepi/team-profiles/engineering/profile.yml',
+      'project/.applepi/team-profiles/team-baseline/profile.yml',
     ] as const;
     const originalSourceProfiles = new Map(
       sourceProfilePaths.map((profilePath) => [profilePath, readFixtureText(fixture, profilePath)]),
@@ -45,14 +45,14 @@ describe('heavily overridden integration fixture tack generation', () => {
       warnings,
       launcher: {
         launch(plan) {
-          const tackRoot = tackRootFromLaunchPlan(plan);
-          tackSummary = {
+          const compositeProfileRoot = compositeProfileRootFromLaunchPlan(plan);
+          compositeProfileSummary = {
             profileId: 'engineering',
             agentId: 'pi',
             launchCommand: plan.command,
             launchArgs: plan.args,
             launchEnv: {
-              PI_CODING_AGENT_DIR: tokenizeFixturePath(fixture, plan.env.PI_CODING_AGENT_DIR, tackRoot),
+              PI_CODING_AGENT_DIR: tokenizeFixturePath(fixture, plan.env.PI_CODING_AGENT_DIR, compositeProfileRoot),
               BASE_SHARED: plan.env.BASE_SHARED,
               DEFAULT_SHARED: plan.env.DEFAULT_SHARED,
               LOCAL_ONLY: plan.env.LOCAL_ONLY,
@@ -66,26 +66,26 @@ describe('heavily overridden integration fixture tack generation', () => {
               USER_DEFAULT: plan.env.USER_DEFAULT,
               USER_ONLY: plan.env.USER_ONLY,
             },
-            ...(summarizePiTack(fixture, tackRoot) as Record<string, unknown>),
+            ...(summarizePiCompositeProfile(fixture, compositeProfileRoot) as Record<string, unknown>),
           };
 
-          writeFileSync(join(tackRoot, 'bridl', 'profile.json'), '{"mutated":true}\n');
-          writeFileSync(join(tackRoot, 'settings.json'), '{"owner":"project-local","version":2}\n');
-          writeFileSync(join(tackRoot, 'unexpected-local.txt'), 'unknown write\n');
+          writeFileSync(join(compositeProfileRoot, 'applepi', 'profile.json'), '{"mutated":true}\n');
+          writeFileSync(join(compositeProfileRoot, 'settings.json'), '{"owner":"project-local","version":2}\n');
+          writeFileSync(join(compositeProfileRoot, 'unexpected-local.txt'), 'unknown write\n');
 
           return Promise.resolve(0);
         },
       },
     });
 
-    expect(tackSummary).toEqual(readExpectedJson(fixture, 'pi/tack-summary.json'));
+    expect(compositeProfileSummary).toEqual(readExpectedJson(fixture, 'pi/composite-profile-summary.json'));
     expect(result.profileId).toBe('engineering');
     expect(result.agentId).toBe('pi');
     expect(result.warnings).toEqual(readExpectedJson(fixture, 'pi/warnings.json'));
     expect(warnings).toEqual(result.warnings);
     expect(
       readFileSync(
-        join(fixture.project, '.bridl', 'local', 'profiles', 'engineering', 'cli_specific', 'pi', 'settings.json'),
+        join(fixture.project, '.applepi', 'local', 'profiles', 'engineering', 'cli_specific', 'pi', 'settings.json'),
         'utf8',
       ),
     ).toBe('{"owner":"project-local","version":2}\n');

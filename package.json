@@ -1,10 +1,10 @@
 {
-  "name": "bridl",
+  "name": "applepi",
   "version": "0.1.0",
   "description": "Profile-oriented wrapper for launching pi, Claude Code, and future agent CLIs with reproducible configuration.",
   "type": "module",
   "bin": {
-    "bridl": "dist/cli.js"
+    "applepi": "dist/cli.js"
   },
   "files": [
     "dist",

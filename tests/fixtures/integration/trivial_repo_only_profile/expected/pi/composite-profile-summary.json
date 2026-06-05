@@ -1,0 +1,30 @@
+{
+  "profileId": "repo-review",
+  "agentId": "pi",
+  "launchCommand": "pi",
+  "launchArgs": ["--model", "repo-review-model", "--repo-flag"],
+  "launchEnv": {
+    "PI_CODING_AGENT_DIR": "<composite-profile>",
+    "REPO_PROFILE": "enabled",
+    "SHARED_LAYER": "repo-review",
+    "USER_DEFAULT": "enabled"
+  },
+  "generatedProfile": {
+    "id": "repo-review",
+    "label": "Repository Review",
+    "controls": {
+      "model": "repo-review-model",
+      "environment": {
+        "REPO_PROFILE": "enabled",
+        "SHARED_LAYER": "repo-review",
+        "USER_DEFAULT": "enabled"
+      },
+      "args": ["--repo-flag"]
+    }
+  },
+  "stateTargets": {
+    "auth.json": "<home>/.pi/agent/auth.json",
+    "settings.json": "<home>/.pi/agent/settings.json",
+    "utilities": "<home>/.applepi/cache/utilities"
+  }
+}

@@ -1,32 +1,32 @@
 ---
 title: State Persistence
-description: How Bridl handles agent state writes inside temporary tacks
+description: How ApplePi handles agent state writes inside temporary composite profiles
 ---
 
 # State Persistence
 
-Bridl creates a temporary runtime directory, called a **tack**, each time it launches an agent profile. The tack should be disposable, but agent CLIs also write durable state such as logins, settings, plugins, caches, and sessions.
+ApplePi creates a temporary runtime directory, called a **composite profile**, each time it launches an agent profile. The composite profile should be disposable, but agent CLIs also write durable state such as logins, settings, plugins, caches, and sessions.
 
-Bridl makes those writes explicit with `state_persistence` rules. Each selected adapter declares the state paths it knows about and the strategies each path allows, then the resolved profile can override paths with an allowed strategy such as persisting, discarding, warning, or failing after the run.
+ApplePi makes those writes explicit with `state_persistence` rules. Each selected adapter declares the state paths it knows about and the strategies each path allows, then the resolved profile can override paths with an allowed strategy such as persisting, discarding, warning, or failing after the run.
 
 ## The lifecycle
 
-1. Bridl resolves the profile and its `state_persistence` overrides.
+1. ApplePi resolves the profile and its `state_persistence` overrides.
 2. The selected adapter fills in defaults for every declared state path.
 3. Durable paths are connected to a profile-managed file/directory or to a native fallback location.
-4. The agent runs inside the tack and reads/writes those paths normally.
-5. After the agent exits, Bridl checks non-durable and unknown writes.
-6. Temporary tack contents are deleted; durable symlink targets remain.
+4. The agent runs inside the composite profile and reads/writes those paths normally.
+5. After the agent exits, ApplePi checks non-durable and unknown writes.
+6. Temporary composite profile contents are deleted; durable symlink targets remain.
 
 ## Strategies
 
-| Strategy  | Behavior                                                                 |
-| --------- | ------------------------------------------------------------------------ |
-| `symlink` | Persist writes by pointing the tack path at a durable destination.       |
-| `discard` | Allow writes for this run and throw them away when the tack is deleted.  |
-| `warn`    | Allow and discard writes, then report them after the agent exits.        |
-| `error`   | Allow writes during the run, then fail if the path changed.              |
-| `prompt`  | Reserved for future interactive handling; currently treated like `warn`. |
+| Strategy  | Behavior                                                                             |
+| --------- | ------------------------------------------------------------------------------------ |
+| `symlink` | Persist writes by pointing the composite profile path at a durable destination.      |
+| `discard` | Allow writes for this run and throw them away when the composite profile is deleted. |
+| `warn`    | Allow and discard writes, then report them after the agent exits.                    |
+| `error`   | Allow writes during the run, then fail if the path changed.                          |
+| `prompt`  | Reserved for future interactive handling; currently treated like `warn`.             |
 
 Unknown writes outside adapter-declared paths are never silently persisted. They are governed by the adapter's `unknown` policy.
 
@@ -46,7 +46,7 @@ state_persistence:
   plugins/: symlink
 ```
 
-Update scenario: you run `bridl run --profile engineering`, complete a provider login, and pi writes `auth.json`. Because the path is symlinked, the login lands in the profile-provided or native pi state location rather than disappearing with the tack.
+Update scenario: you run `applepi run --profile engineering`, complete a provider login, and pi writes `auth.json`. Because the path is symlinked, the login lands in the profile-provided or native pi state location rather than disappearing with the composite profile.
 
 ## Example: strict CI profile
 
@@ -64,7 +64,7 @@ state_persistence:
   unknown: error
 ```
 
-Update scenario: a CI run unexpectedly edits `mcp.json` or creates an undeclared state file. The agent process can finish, but Bridl fails afterward because the profile declared those changes unacceptable.
+Update scenario: a CI run unexpectedly edits `mcp.json` or creates an undeclared state file. The agent process can finish, but ApplePi fails afterward because the profile declared those changes unacceptable.
 
 ## Example: exploratory plugin work
 
@@ -80,7 +80,7 @@ state_persistence:
   unknown: warn
 ```
 
-Update scenario: you experiment with plugin installation during a run. Bridl lets the agent continue, discards the temporary plugin changes afterward, and reports what changed so you can decide whether to promote it into a profile.
+Update scenario: you experiment with plugin installation during a run. ApplePi lets the agent continue, discards the temporary plugin changes afterward, and reports what changed so you can decide whether to promote it into a profile.
 
 ## Example: keep caches out of profiles
 
@@ -96,12 +96,12 @@ state_persistence:
   sessions/: discard
 ```
 
-Update scenario: pi writes session transcripts and cache entries while investigating a problem. Those files help during the run, but Bridl deletes them with the tack so the profile stays clean.
+Update scenario: pi writes session transcripts and cache entries while investigating a problem. Those files help during the run, but ApplePi deletes them with the composite profile so the profile stays clean.
 
 ## Pi defaults and special paths
 
-Pi is Bridl's day-one adapter. Most symlinked pi state paths resolve to profile files under `cli_specific/pi/` when present, or to the native pi agent directory as a fallback.
+Pi is ApplePi's day-one adapter. Most symlinked pi state paths resolve to profile files under `cli_specific/pi/` when present, or to the native pi agent directory as a fallback.
 
-Pi `utilities/` and `bin/` are special cache-backed paths. Both resolve to `<cache_directory>/utilities` so helper binaries such as `fd` and `rg` are reused across temporary tacks without becoming profile-editable state.
+Pi `utilities/` and `bin/` are special cache-backed paths. Both resolve to `<cache_directory>/utilities` so helper binaries such as `fd` and `rg` are reused across temporary composite profiles without becoming profile-editable state.
 
 See `doc/state_writeback_strategy.md` in the repository for the complete path policy.

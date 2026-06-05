@@ -1,0 +1,64 @@
+{
+  "profileId": "typescript-review",
+  "agentId": "pi",
+  "launchCommand": "pi",
+  "launchArgs": [
+    "--model",
+    "typescript-review-model",
+    "--provider",
+    "local-node",
+    "--prompt-template",
+    "Use npm scripts and Vitest evidence when reviewing changes.",
+    "--system-prompt",
+    "Review for correctness, maintainability, and project conventions.",
+    "--append-system-prompt",
+    "Prefer concise, practical feedback.",
+    "--extension",
+    "tsconfig",
+    "--skill",
+    "strict-typescript",
+    "--review-scope=typescript",
+    "--personal-flag"
+  ],
+  "launchEnv": {
+    "PI_CODING_AGENT_DIR": "<composite-profile>",
+    "EDITOR_STYLE": "noah",
+    "LANGUAGE_STACK": "typescript",
+    "PERSONAL_DEFAULT": "enabled",
+    "REPO_REVIEW_BASE": "enabled",
+    "REVIEW_STACK": "selected-typescript-review",
+    "SELECTED_PROFILE": "typescript-review",
+    "TOOLING_STACK": "node-vitest"
+  },
+  "generatedProfile": {
+    "id": "typescript-review",
+    "label": "TypeScript Review",
+    "controls": {
+      "model": "typescript-review-model",
+      "environment": {
+        "EDITOR_STYLE": "noah",
+        "LANGUAGE_STACK": "typescript",
+        "PERSONAL_DEFAULT": "enabled",
+        "REPO_REVIEW_BASE": "enabled",
+        "REVIEW_STACK": "selected-typescript-review",
+        "SELECTED_PROFILE": "typescript-review",
+        "TOOLING_STACK": "node-vitest"
+      },
+      "append_system_prompt": "Prefer concise, practical feedback.",
+      "args": ["--review-scope=typescript", "--personal-flag"],
+      "system_prompt": "Review for correctness, maintainability, and project conventions.",
+      "extensions": ["tsconfig"],
+      "skills": ["strict-typescript"],
+      "provider": "local-node",
+      "prompt_template": "Use npm scripts and Vitest evidence when reviewing changes.",
+      "appendSystemPrompt": "Prefer concise, practical feedback.",
+      "systemPrompt": "Review for correctness, maintainability, and project conventions.",
+      "promptTemplate": "Use npm scripts and Vitest evidence when reviewing changes."
+    }
+  },
+  "stateTargets": {
+    "auth.json": "<home>/.pi/agent/auth.json",
+    "settings.json": "<home>/.pi/agent/settings.json",
+    "utilities": "<home>/.applepi/cache/utilities"
+  }
+}

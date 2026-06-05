@@ -1,11 +1,11 @@
-# Bridl File Structure
+# ApplePi File Structure
 
-This document records the key repository file and directory structure used by Bridl.
-See `doc/architecture.md` for runtime file conventions such as `.bridl` settings folders, profile folders, and generated tack directories.
+This document records the key repository file and directory structure used by ApplePi.
+See `doc/architecture.md` for runtime file conventions such as `.applepi` settings folders, profile folders, and generated composite profile directories.
 
 ## Repository Layout
 
-Bridl is organized around clear TypeScript source boundaries, requirement documents, and scenario-based tests.
+ApplePi is organized around clear TypeScript source boundaries, requirement documents, and scenario-based tests.
 
 ```text
 .                                      # repository root
@@ -20,7 +20,7 @@ Bridl is organized around clear TypeScript source boundaries, requirement docume
 │   ├── controllable-elements.md       # controllable element terminology and support matrix
 │   ├── file_structure.md              # repository file structure overview
 │   ├── integration_test_system.md     # fixture-backed integration test design
-│   ├── state_writeback_strategy.md    # tack state persistence and writeback design
+│   ├── state_writeback_strategy.md    # composite profile state persistence and writeback design
 │   └── specs/                         # detailed supporting specs
 ├── doc_site/                          # Nextra/Next.js documentation website
 │   ├── app/                           # App Router pages, layout, and site styles
@@ -29,8 +29,8 @@ Bridl is organized around clear TypeScript source boundaries, requirement docume
 │   ├── next.config.mjs                # Next.js configuration wrapped by Nextra
 │   ├── package.json                   # documentation site package scripts and dependencies
 │   └── tsconfig.json                  # documentation site TypeScript configuration
-├── requirements/                      # formal BRIDL requirement documents
-│   ├── BRIDL-REQ-001-project-foundation.md
+├── requirements/                      # formal APPLEPI requirement documents
+│   ├── APPLEPI-REQ-001-project-foundation.md
 │   └── ...
 ├── .prettierignore                    # Prettier ignore rules
 ├── .prettierrc.json                   # Prettier formatting configuration
@@ -39,7 +39,7 @@ Bridl is organized around clear TypeScript source boundaries, requirement docume
 ├── contributor.md                     # local install and contributor workflow guide
 ├── src/                               # production TypeScript source
 │   ├── cli/                           # CLI parser construction and command registration
-│   │   ├── BridlCli.ts
+│   │   ├── ApplePiCli.ts
 │   │   └── commands/                  # command objects for non-trivial CLI behavior
 │   │       ├── RunCommand.ts
 │   │       ├── SetupCommand.ts
@@ -55,12 +55,12 @@ Bridl is organized around clear TypeScript source boundaries, requirement docume
 │   │   ├── ProfileLoader.ts
 │   │   ├── ProfileMerger.ts
 │   │   └── ProfileSource.ts
-│   ├── tack/                          # generated runtime tack assembly and watching
-│   │   ├── Tack.ts
-│   │   ├── TackAssembler.ts
-│   │   ├── TackFile.ts
-│   │   ├── TackTemplate.ts
-│   │   ├── TackWatcher.ts
+│   ├── composite profile/                          # generated runtime composite profile assembly and watching
+│   │   ├── Composite profile.ts
+│   │   ├── Composite profileAssembler.ts
+│   │   ├── Composite profileFile.ts
+│   │   ├── Composite profileTemplate.ts
+│   │   ├── Composite profileWatcher.ts
 │   │   └── StatePersistence.ts
 │   ├── agents/                        # agent adapter boundary and CLI-specific adapters
 │   │   ├── AdapterProfileControls.ts
@@ -69,10 +69,10 @@ Bridl is organized around clear TypeScript source boundaries, requirement docume
 │   │   ├── AgentRegistry.ts
 │   │   ├── pi/                        # pi-specific adapter implementation
 │   │   │   ├── PiAdapter.ts
-│   │   │   └── PiTackWriter.ts
+│   │   │   └── PiComposite profileWriter.ts
 │   │   └── claude/                    # Claude Code-specific adapter implementation
 │   │       ├── ClaudeAdapter.ts
-│   │       └── ClaudeTackWriter.ts
+│   │       └── ClaudeComposite profileWriter.ts
 │   ├── schemas/                       # JSON Schema artifacts for persisted formats
 │   │   ├── settings.schema.json
 │   │   ├── profile.schema.json
@@ -96,8 +96,8 @@ The exact layout may evolve, but these boundaries should stay recognizable.
 
 ## Test Fixtures
 
-Integration fixtures should live under `tests/fixtures/integration/` with full `home/`, `project/`, and optional
-`expected/` trees. Fixture-backed integration tests and shared harness helpers should live under `tests/integration/`.
+Integration fixtures should live under `tests/fixtures/integration/` with full `home/`, `project/`, and optional `expected/` trees.
+Fixture-backed integration tests and shared harness helpers should live under `tests/integration/`.
 
 Scenario fixtures should live under `tests/fixtures/scenarios/`, for example:
 
@@ -110,4 +110,4 @@ tests/fixtures/scenarios/
   profile-precedence/
 ```
 
-Each scenario should include realistic `.bridl` folders and expected resolution output.
+Each scenario should include realistic `.applepi` folders and expected resolution output.

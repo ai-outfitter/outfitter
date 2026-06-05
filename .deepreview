@@ -40,10 +40,10 @@ prompt_best_practices:
       - FAIL: Issues found. List each issue with location, severity, best practice violated, description, and suggested improvement.
 
 requirements_traceability:
-  description: "Verify BRIDL-REQ-008 traceability between requirements, TypeScript tests, DeepSchemas, and DeepReview rules."
+  description: "Verify APPLEPI-REQ-008 traceability between requirements, TypeScript tests, DeepSchemas, and DeepReview rules."
   match:
     include:
-      - "requirements/BRIDL-REQ-*.md"
+      - "requirements/APPLEPI-REQ-*.md"
       - "src/**/*.ts"
       - "src/schemas/**/*.json"
       - "bin/**/*.ts"
@@ -58,8 +58,8 @@ requirements_traceability:
     instructions: |
       Review the changed files for requirements traceability.
 
-      Requirements live in `requirements/` as `BRIDL-REQ-NNN-<topic>.md`,
-      with individually numbered items such as `BRIDL-REQ-008.3`. Each
+      Requirements live in `requirements/` as `APPLEPI-REQ-NNN-<topic>.md`,
+      with individually numbered items such as `APPLEPI-REQ-008.3`. Each
       requirement should be validated by TypeScript tests, DeepSchemas, or
       `.deepreview` rules using the mechanism that fits the requirement.
 
@@ -84,13 +84,13 @@ requirements_traceability:
 
    
 integration_fixture_requirement_coverage:
-  description: "Require fixture-backed integration coverage when requirements change tack, profile, adapter, or state behavior."
+  description: "Require fixture-backed integration coverage when requirements change composite profile, profile, adapter, or state behavior."
   match:
     include:
-      - "requirements/BRIDL-REQ-003-profiles.md"
-      - "requirements/BRIDL-REQ-005-run-and-tack.md"
-      - "requirements/BRIDL-REQ-006-agent-adapters.md"
-      - "requirements/BRIDL-REQ-007-controllable-elements.md"
+      - "requirements/APPLEPI-REQ-003-profiles.md"
+      - "requirements/APPLEPI-REQ-005-run-and-composite profile.md"
+      - "requirements/APPLEPI-REQ-006-agent-adapters.md"
+      - "requirements/APPLEPI-REQ-007-controllable-elements.md"
   review:
     strategy: all_changed_files
     additional_context:
@@ -98,29 +98,29 @@ integration_fixture_requirement_coverage:
     instructions: |
       Review changed /added requirements for user-visible behavior that should be
       validated by fixture-backed integration tests. Focus only on requirement text
-      changes / additions that alter observable profile, tack, adapter, or state behavior.
+      changes / additions that alter observable profile, composite profile, adapter, or state behavior.
 
       If a changed requirement affects any of these areas, the PR MUST update
       fixture-backed integration coverage under tests/integration/ and
       tests/fixtures/integration/:
       - profile selection, inheritance, source precedence, or merging;
       - settings precedence or profile source resolution;
-      - tack directory assembly or generated adapter config files;
+      - composite profile directory assembly or generated adapter config files;
       - launch command, launch args, or launch environment;
-      - state persistence, write-back, warning, error, or hard-tack behavior;
+      - state persistence, write-back, warning, error, or strict behavior;
       - adapter-specific translation for pi or future agents.
 
       Acceptable evidence includes:
       1. A new integration fixture scenario.
       2. An update to an existing integration fixture, expected snapshot, or test.
       3. A clear PR explanation for why deterministic unit coverage is sufficient
-         and no realistic tack-level fixture is needed.
+         and no realistic composite profile-level fixture is needed.
 
       Do NOT require integration fixture changes for:
       - purely editorial requirement clarifications with no behavior change;
       - requirement governance wording that does not affect runtime behavior;
       - behavior that is better validated by a DeepSchema, DeepReview rule, or
-        focused unit test than by a realistic tack-generation fixture.
+        focused unit test than by a realistic composite profile-generation fixture.
 
       Output Format:
       - PASS: Integration fixture coverage is appropriate for the requirement change.
@@ -130,7 +130,7 @@ doc_consistency:
   description: "Verify architecture, file structure, state writeback, and public docs stay current when requirements or related docs change."
   match:
     include:
-      - "requirements/BRIDL-REQ-*.md"
+      - "requirements/APPLEPI-REQ-*.md"
       - "doc/architecture.md"
       - "doc/file_structure.md"
       - "doc/state_writeback_strategy.md"
@@ -149,7 +149,7 @@ doc_consistency:
       public documentation site content stay current. This rule provides
       judgment-based review coverage for keeping docs aligned with formal
       requirement changes, including adapter boundaries, controllable-element
-      documentation, tack/state persistence, and other product requirements
+      documentation, composite profile/state persistence, and other product requirements
       that affect public claims.
 
       Documentation files to keep updated:
@@ -168,21 +168,21 @@ doc_consistency:
 
       Check that:
       1. doc/file_structure.md stays limited to repository file structure, not runtime instance file conventions.
-      2. Runtime file conventions such as settings directories, profile folders, and tack paths live in doc/architecture.md.
-      3. State writeback and state updating details in doc/architecture.md stay consistent with doc/state_writeback_strategy.md, including tack/state terminology, strategy names, Pi path policy, and cross-document links.
+      2. Runtime file conventions such as settings directories, profile folders, and composite profile paths live in doc/architecture.md.
+      3. State writeback and state updating details in doc/architecture.md stay consistent with doc/state_writeback_strategy.md, including composite profile/state terminology, strategy names, Pi path policy, and cross-document links.
       4. Pi state path declarations and special Pi path resolution behavior documented in doc/state_writeback_strategy.md match src/agents/pi/PiAdapter.ts when Pi state path requirements change.
       5. Public documentation site claims in doc_site/app/page.mdx, doc_site/app/state-persistence/page.mdx, other MDX pages, layout metadata, and docs navigation stay aligned with architecture, requirements, and support boundaries.
       6. Public docs do not omit important user-facing requirement changes when the homepage, docs pages, or metadata already discuss the affected product area.
       7. Public docs do not present roadmap, unsupported, or unimplemented requirements as currently supported unless the requirement says they are.
       8. Cross-document links and filenames are accurate.
-      9. Terminology such as profile, tack, settings, adapter, controllable elements, setup repositories, agent harnesses, and pi is used consistently.
+      9. Terminology such as profile, composite profile, settings, adapter, controllable elements, setup repositories, agent harnesses, and pi is used consistently.
 
       Output Format:
       - PASS: Documentation and public docs site content remain consistent with the changed requirements and links are accurate.
       - FAIL: Issues found. List each stale, missing, conflicting, contradictory, or broken documentation statement with a line reference.
 
 doc_site_product_consistency:
-  description: "Verify public documentation site claims stay aligned with Bridl architecture and controllable element support."
+  description: "Verify public documentation site claims stay aligned with ApplePi architecture and controllable element support."
   match:
     include:
       - "doc_site/app/**/*.mdx"
@@ -195,16 +195,16 @@ doc_site_product_consistency:
     additional_context:
       unchanged_matching_files: true
     instructions: |
-      Review public documentation site MDX pages against Bridl's architecture and
+      Review public documentation site MDX pages against ApplePi's architecture and
       controllable element documentation. This rule provides judgment-based
-      review coverage for public claims related to BRIDL-REQ-005.6 tack state
-      persistence, BRIDL-REQ-006.2 adapter support boundaries, and
-      BRIDL-REQ-007 cross-agent controllable-element support documentation.
+      review coverage for public claims related to APPLEPI-REQ-005.6 composite profile state
+      persistence, APPLEPI-REQ-006.2 adapter support boundaries, and
+      APPLEPI-REQ-007 cross-agent controllable-element support documentation.
 
       Check that:
       1. Public docs do not overstate implemented adapter support, especially for
          unsupported or unimplemented non-pi agents.
-      2. Claims about profile precedence, tack behavior, setup repositories,
+      2. Claims about profile precedence, composite profile behavior, setup repositories,
          remote profile sources, and adapter translation match doc/architecture.md.
       3. Claims about state persistence, state update scenarios, and Pi path policy match doc/state_writeback_strategy.md.
       4. Claims about cross-agent or generic controls match doc/controllable-elements.md
