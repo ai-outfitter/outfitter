@@ -163,7 +163,7 @@ describe('state persistence', () => {
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-005.6).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
-  it('persists pi package install directories across temporary composite profile directories', () => {
+  it('persists pi package install and temporary runtime directories across composite profiles', () => {
     const root = createTemporaryRoot();
     const homeDirectory = join(root, 'home');
     const compositeProfile = createPiAdapter().createCompositeProfile(
@@ -182,11 +182,15 @@ describe('state persistence', () => {
     expect(compositeProfile.statePaths.find((statePath) => statePath.relativePath === 'git/')?.sourcePath).toBe(
       join(homeDirectory, '.pi', 'agent', 'git'),
     );
+    expect(compositeProfile.statePaths.find((statePath) => statePath.relativePath === 'tmp/')?.sourcePath).toBe(
+      join(homeDirectory, '.pi', 'agent', 'tmp'),
+    );
 
     writeCompositeProfile(compositeProfile);
 
     expect(readlinkSync(join(compositeProfile.rootDirectory, 'npm'))).toBe(join(homeDirectory, '.pi', 'agent', 'npm'));
     expect(readlinkSync(join(compositeProfile.rootDirectory, 'git'))).toBe(join(homeDirectory, '.pi', 'agent', 'git'));
+    expect(readlinkSync(join(compositeProfile.rootDirectory, 'tmp'))).toBe(join(homeDirectory, '.pi', 'agent', 'tmp'));
   });
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-005.6).

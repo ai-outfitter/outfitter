@@ -104,7 +104,9 @@ theme:
       <h2>Dotfiles, team standards, and repo overrides — resolved into one composite profile</h2>
       <div className="applepi-section-copy">
         ApplePi combines the relevant layers deterministically, warns when a requested control is unsupported, and
-        prepares a clean runtime composite profile before launch.
+        prepares a clean runtime composite profile before launch. If no profile owns a declared CLI state path, ApplePi
+        symlinks that path to the native CLI fallback, such as <code>~/.pi/agent/settings.json</code>; that fallback is
+        durable state, not a hidden base profile layer.
       </div>
     </div>
     <div className="applepi-layers">
@@ -135,6 +137,7 @@ theme:
           <h3>Native pi launch</h3>
           <p>
             The pi adapter translates supported controls into the runtime composite profile and native pi launch inputs.
+            Missing profile-owned state symlinks fall back directly to native pi files, not inherited profile controls.
           </p>
         </div>
       </div>

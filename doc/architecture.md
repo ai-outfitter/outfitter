@@ -447,6 +447,9 @@ controls:
       - --no-themes
 ```
 
+If no resolved profile folder provides `cli_specific/<adapter>/<state-path>` for an adapter-declared symlink path, ApplePi falls back directly to the native CLI state location for that path, such as `~/.pi/agent/settings.json` or `~/.claude/settings.json`.
+That native fallback is not a hidden base profile: it does not participate in `inherits`, cannot contribute profile controls, and only supplies durable symlink targets for declared CLI state.
+
 A checked-in project profile set can add project-specific prompts and pi resources:
 
 ```text
@@ -543,7 +546,7 @@ Composite profiles are generated under the system temp directory so they can be 
 $TMPDIR/applepi-<profile-id>-<agent-id>-<random>/
 ```
 
-The pi adapter uses this state model for native pi state and for pi-managed utilities: composite profile `utilities/` and `bin/` both symlink to `<cache_directory>/utilities` by default, so temporary composite profile cleanup does not force pi to redownload helper binaries such as `fd` and `rg`.
+The pi adapter uses this state model for native pi state and for pi-managed utilities: most declared pi state paths, including `tmp/`, symlink to `~/.pi/agent/<path>` by default, while composite profile `utilities/` and `bin/` both symlink to `<cache_directory>/utilities` by default, so temporary composite profile cleanup does not force pi to redownload helper binaries such as `fd` and `rg`.
 
 During `applepi run`, the ApplePi process remains alive while the child agent CLI runs.
 It owns the composite profile lifecycle.

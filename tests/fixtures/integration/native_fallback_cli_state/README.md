@@ -14,7 +14,7 @@ This forces the pi adapter to use native fallback locations for pi-owned state i
 
 ## Expected behavior
 
-ApplePi should assemble a pi composite profile whose declared state paths are symlinks to pi's native user state under `home/.pi/agent/`, except for pi utility/bin state, which is owned by ApplePi's cache under `home/.applepi/cache/utilities`.
+ApplePi should assemble a pi composite profile whose declared state paths are symlinks to pi's native user state under `home/.pi/agent/`, including pi runtime `tmp/` state, except for pi utility/bin state, which is owned by ApplePi's cache under `home/.applepi/cache/utilities`.
 
 If those native fallback files or directories do not already exist, composite profile materialization should create them before launching pi.
 The selected profile still resolves generic controls from the user default and project profile, with the project profile winning shared keys.

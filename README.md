@@ -176,7 +176,7 @@ The exact stable schema is governed by the requirements in `requirements/` and t
 The current recommendation is to build `applepi` around pi's existing native configuration mechanisms:
 
 1. Use a temporary composite profile directory as `PI_CODING_AGENT_DIR` for each run.
-2. Persist intentional pi state through adapter-declared symlinks to profile, native pi, or ApplePi cache files.
+2. Persist intentional pi state through adapter-declared symlinks to profile, native pi, or ApplePi cache files. Native pi fallback is only a durable target for declared state symlinks; it is not an inherited base profile layer.
 3. Layer profile-controlled environment variables and pi CLI flags on top.
 4. Use explicit `--extension` / `-e` injection for bootstrap behavior that needs to run inside pi.
 5. Decide per profile whether project-local `.pi` overrides are allowed.
