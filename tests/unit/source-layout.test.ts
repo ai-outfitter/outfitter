@@ -12,7 +12,7 @@ import { createPiAdapter } from '../../src/agents/pi/PiAdapter.js';
 import { createPiCompositeProfilePaths } from '../../src/agents/pi/PiCompositeProfileWriter.js';
 import { createApplePiProgram, createDefaultCommands } from '../../src/cli/ApplePiCli.js';
 import { describeCommandObject } from '../../src/cli/commands/CommandObject.js';
-import { createProfileCommand } from '../../src/cli/commands/ProfileCommand.js';
+import { createProfileCommand } from '../../src/cli/commands/profile/ProfileCommand.js';
 import { createRunCommand } from '../../src/cli/commands/RunCommand.js';
 import { createSetupCommand } from '../../src/cli/commands/SetupCommand.js';
 import { createSyncCommand } from '../../src/cli/commands/SyncCommand.js';

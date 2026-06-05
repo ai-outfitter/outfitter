@@ -1,9 +1,9 @@
 // Provides the parent profile command namespace for ApplePi profile management.
 import { Command } from 'commander';
 
-import type { CommandObject } from './CommandObject.js';
-import { createProfileCreateCommand } from './ProfileCreateCommand.js';
-import { createProfileListCommand } from './ProfileListCommand.js';
+import type { CommandObject } from '../CommandObject.js';
+import { createProfileCreateCommand } from './CreateCommand.js';
+import { createProfileListCommand } from './ListCommand.js';
 
 export interface ProfileCommandDependencies {
   readonly homeDirectory?: string;
@@ -28,5 +28,5 @@ export const createProfileCommand = (dependencies: ProfileCommandDependencies = 
   return command;
 };
 
-export { executeCreateProfileCommand } from './ProfileCreateCommand.js';
-export { executeListProfilesCommand } from './ProfileListCommand.js';
+export { executeCreateProfileCommand } from './CreateCommand.js';
+export { executeListProfilesCommand } from './ListCommand.js';

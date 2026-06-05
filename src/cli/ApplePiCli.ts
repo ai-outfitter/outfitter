@@ -2,7 +2,7 @@
 import { Command } from 'commander';
 
 import type { CommandObject } from './commands/CommandObject.js';
-import { createProfileCommand } from './commands/ProfileCommand.js';
+import { createProfileCommand } from './commands/profile/ProfileCommand.js';
 import { createRunCommand } from './commands/RunCommand.js';
 import { createSetupCommand } from './commands/SetupCommand.js';
 import { createSyncCommand } from './commands/SyncCommand.js';

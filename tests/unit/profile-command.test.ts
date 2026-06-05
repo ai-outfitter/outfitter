@@ -10,7 +10,7 @@ import {
   createProfileCommand,
   executeCreateProfileCommand,
   executeListProfilesCommand,
-} from '../../src/cli/commands/ProfileCommand.js';
+} from '../../src/cli/commands/profile/ProfileCommand.js';
 import { createSetupCommand } from '../../src/cli/commands/SetupCommand.js';
 import { createSyncCommand } from '../../src/cli/commands/SyncCommand.js';
 import { createProfileSourceCachePath, createRemoteRepositoryCachePath } from '../../src/profiles/ProfileCache.js';

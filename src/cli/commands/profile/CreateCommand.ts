@@ -5,7 +5,7 @@ import { join } from 'node:path';
 
 import { Command } from 'commander';
 
-import { isValidProfileId } from '../../profiles/ProfileLoader.js';
+import { isValidProfileId } from '../../../profiles/ProfileLoader.js';
 import type { ProfileCommandDependencies } from './ProfileCommand.js';
 
 export type CreateProfileScope = 'user' | 'project' | 'project-local';
