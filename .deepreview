@@ -134,16 +134,11 @@ integration_fixture_requirement_coverage:
     additional_context:
       unchanged_matching_files: true
     instructions: |
-      Review changed requirements for user-visible behavior that should be
-      validated by fixture-backed integration tests.
+      Review changed /added requirements for user-visible behavior that should be
+      validated by fixture-backed integration tests. Focus only on requirement text 
+      changes / additions that alter observable profile, tack, adapter, or state behavior.
 
-      This rule is intentionally requirement-triggered. Implementation changes
-      should already be traceable to requirements through the requirements
-      governance process, so avoid requiring fixture updates for every TypeScript
-      refactor. Focus only on requirement text changes that alter observable
-      profile, tack, adapter, or state behavior.
-
-      If a changed requirement affects any of these areas, the PR SHOULD update
+      If a changed requirement affects any of these areas, the PR MUST update
       fixture-backed integration coverage under tests/integration/ and
       tests/fixtures/integration/:
       - profile selection, inheritance, source precedence, or merging;
