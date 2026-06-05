@@ -11,7 +11,7 @@ import {
   supportedControlNames,
 } from '../AdapterProfileControls.js';
 import { createDeclaredStatePaths, findProfileStateSource } from '../AdapterStatePaths.js';
-import { normalizeExtensionResourceIdentity } from '../ResourceIdentity.js';
+import { filterPiSettingsPackagesDuplicatingExtensions } from './PiSettingsMergePolicy.js';
 import type { PiProfileControls, Profile, ProfileControls } from '../../profiles/Profile.js';
 import type { CompositeProfile } from '../../compositeProfile/CompositeProfile.js';
 import { createCompositeProfile } from '../../compositeProfile/CompositeProfile.js';
@@ -113,9 +113,9 @@ const createPiSettingsTransformFile = (
   }
 
   const controls = mergePiControls(profile.controls);
-  const extensionIdentities = new Set((controls.extensions ?? []).map(normalizeExtensionResourceIdentity));
+  const extensionSources = controls.extensions ?? [];
 
-  if (extensionIdentities.size === 0) {
+  if (extensionSources.length === 0) {
     return undefined;
   }
 
@@ -131,10 +131,7 @@ const createPiSettingsTransformFile = (
     return undefined;
   }
 
-  const filteredPackages = settings.packages.filter((entry: unknown) => {
-    const source = readPiSettingsPackageSource(entry);
-    return source === undefined || !extensionIdentities.has(normalizeExtensionResourceIdentity(source));
-  });
+  const filteredPackages = filterPiSettingsPackagesDuplicatingExtensions(settings.packages, extensionSources);
 
   if (filteredPackages.length === settings.packages.length) {
     return undefined;
@@ -160,19 +157,6 @@ const readPiSettingsDocument = (settingsPath: string): PiSettingsDocument | unde
 
 const isPiSettingsDocument = (value: unknown): value is PiSettingsDocument =>
   value !== null && typeof value === 'object' && !Array.isArray(value);
-
-const readPiSettingsPackageSource = (entry: unknown): string | undefined => {
-  if (typeof entry === 'string') {
-    return entry;
-  }
-
-  if (entry === null || typeof entry !== 'object' || Array.isArray(entry)) {
-    return undefined;
-  }
-
-  const record = entry as Readonly<Record<string, unknown>>;
-  return typeof record.source === 'string' ? record.source : undefined;
-};
 
 const createPiStatePaths = (
   profile: Profile,

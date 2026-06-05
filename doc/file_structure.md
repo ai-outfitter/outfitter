@@ -72,6 +72,7 @@ ApplePi is organized around clear TypeScript source boundaries, requirement docu
 │   │   ├── AgentRegistry.ts
 │   │   ├── pi/                        # pi-specific adapter implementation
 │   │   │   ├── PiAdapter.ts
+│   │   │   ├── PiSettingsMergePolicy.ts
 │   │   │   └── PiComposite profileWriter.ts
 │   │   └── claude/                    # Claude Code-specific adapter implementation
 │   │       ├── ClaudeAdapter.ts
