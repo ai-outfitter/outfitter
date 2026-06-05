@@ -44,6 +44,7 @@ Bridl provides setup and maintenance commands that create initial configuration,
 
 ### BRIDL-REQ-004.4: Command Object Implementation
 
-1. The `setup`, `sync`, `create_profile`, and `create-profile` command entry points MUST execute the same command object rather than duplicate implementation logic.
+1. The `setup`, `sync`, and profile-creation command entry points MUST execute command objects rather than duplicate implementation logic in parser callbacks.
 2. Command objects MUST accept typed input objects rather than reading directly from `process.argv`.
 3. Command objects SHOULD receive filesystem, settings, profile, and process dependencies through constructors or equivalent dependency injection.
+4. The `create_profile` command and `create-profile` alias MUST execute the same profile-creation command object.
