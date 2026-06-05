@@ -45,12 +45,21 @@ const waitForFileMatching = async (path: string, predicate: (content: string) =>
   }
 };
 
-const isRunCommandSummaryMessage = (text: string): boolean =>
-  text.startsWith('→ resolving profile ') ||
-  text.startsWith('✓ profile layer ') ||
-  text.startsWith('✓ merged controls') ||
-  text.startsWith('✓ prepared composite profile ') ||
-  text.startsWith('↳ launching ');
+const isRunCommandSummaryMessage = (text: string): boolean => {
+  const normalizedText = stripAnsiCodes(text);
+
+  return (
+    normalizedText.startsWith('→ resolving profile ') ||
+    normalizedText.startsWith('✓ profile layer ') ||
+    normalizedText.startsWith('✓ merged controls') ||
+    normalizedText.startsWith('✓ prepared composite profile ') ||
+    normalizedText.startsWith('↳ launching ')
+  );
+};
+
+const ansiEscapePattern = new RegExp(`${String.fromCharCode(27)}\\[[0-?]*[ -/]*[@-~]`, 'g');
+
+const stripAnsiCodes = (text: string): string => text.replace(ansiEscapePattern, '');
 
 afterEach(() => {
   for (const root of temporaryRoots.splice(0)) {

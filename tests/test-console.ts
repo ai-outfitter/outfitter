@@ -69,5 +69,21 @@ const formatConsoleArgument = (argument: unknown): string => {
     return argument.stack ?? argument.message;
   }
 
-  return JSON.stringify(argument);
+  return stringifyBestEffort(argument);
+};
+
+const stringifyBestEffort = (argument: unknown): string => {
+  try {
+    return JSON.stringify(argument) ?? stringifyWithStringConstructor(argument);
+  } catch {
+    return stringifyWithStringConstructor(argument);
+  }
+};
+
+const stringifyWithStringConstructor = (argument: unknown): string => {
+  try {
+    return String(argument);
+  } catch {
+    return '<unformattable console argument>';
+  }
 };
