@@ -13,6 +13,8 @@
     "Include Claude-only diagnostics.",
     "--plugin-dir",
     "./tools/claude-plugin",
+    "--plugin-dir",
+    "./tools/generic-extension",
     "--claude-flag"
   ],
   "launchEnv": {

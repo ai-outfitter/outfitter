@@ -19,6 +19,8 @@
     "Include pi-only diagnostics.",
     "--extension",
     "./tools/pi-extension",
+    "--extension",
+    "./tools/generic-extension",
     "--skill",
     "repo-review",
     "--pi-flag"

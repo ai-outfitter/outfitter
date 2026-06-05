@@ -81,6 +81,63 @@ describe('profile resolution', () => {
     ).toBe('user');
   });
 
+  it('uses path-specific array merge policies and deduplicates profile launch resources by identity', () => {
+    const result = resolveProfile({
+      profileId: 'selected',
+      defaultProfileId: 'default',
+      profiles: [
+        createLoadedProfile({
+          source: createLocalProfileSource('<user-profiles>'),
+          profile: {
+            id: 'default',
+            inherits: [],
+            controls: {
+              args: ['--default'],
+              extensions: ['npm:pi-subagents@1', 'git:github.com/applepi-ai/deepwork#main'],
+              skills: ['./skills/review'],
+              custom_list: ['default'],
+            },
+          },
+        }),
+        createLoadedProfile({
+          source: createLocalProfileSource('<project-profiles>'),
+          profile: {
+            id: 'base',
+            inherits: [],
+            controls: {
+              args: ['--base'],
+              extensions: ['npm:base-only', 'npm:pi-subagents@2'],
+              skills: ['./skills/base'],
+            },
+          },
+        }),
+        createLoadedProfile({
+          source: createLocalProfileSource('<project-profiles>'),
+          profile: {
+            id: 'selected',
+            inherits: ['base'],
+            controls: {
+              args: ['--selected'],
+              extensions: ['npm:pi-subagents@3'],
+              skills: ['./skills/review'],
+              custom_list: ['selected'],
+            },
+          },
+        }),
+      ],
+    });
+
+    expect(result.issues).toEqual([]);
+    expect(result.profile?.controls.args).toEqual(['--selected', '--base', '--default']);
+    expect(result.profile?.controls.extensions).toEqual([
+      'npm:pi-subagents@3',
+      'npm:base-only',
+      'git:github.com/applepi-ai/deepwork#main',
+    ]);
+    expect(result.profile?.controls.skills).toEqual(['./skills/review', './skills/base']);
+    expect(result.profile?.controls.custom_list).toEqual(['selected']);
+  });
+
   // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-003.4, APPLEPI-REQ-003.5).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('resolves inherited profiles below explicit profiles and includes the implicit user default without duplicates', () => {

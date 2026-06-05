@@ -108,6 +108,8 @@ describe('Claude Code adapter support', () => {
       'extra prompt',
       '--plugin-dir',
       'claude-plugin',
+      '--plugin-dir',
+      'generic-plugin',
       '--permission-mode',
       'plan',
       '--verbose',
