@@ -1,12 +1,20 @@
 // Tests pi adapter translation behavior.
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 
 import { createPiAdapter } from '../../src/agents/pi/PiAdapter.js';
 import { parseProfileYaml } from '../../src/profiles/ProfileLoader.js';
+
+const temporaryPiSettingsTestHomes: string[] = [];
+
+afterEach(() => {
+  for (const homeDirectory of temporaryPiSettingsTestHomes.splice(0)) {
+    rmSync(homeDirectory, { recursive: true, force: true });
+  }
+});
 
 describe('pi adapter', () => {
   // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-006.1, APPLEPI-REQ-006.2, APPLEPI-REQ-006.3, APPLEPI-REQ-006.4).
@@ -233,6 +241,7 @@ describe('pi adapter', () => {
 
 const createPiSettingsTestHome = (): { readonly homeDirectory: string; readonly settingsPath: string } => {
   const homeDirectory = mkdtempSync(join(tmpdir(), 'applepi-pi-settings-'));
+  temporaryPiSettingsTestHomes.push(homeDirectory);
   const settingsDirectory = join(homeDirectory, '.pi', 'agent');
   const settingsPath = join(settingsDirectory, 'settings.json');
   mkdirSync(settingsDirectory, { recursive: true });
