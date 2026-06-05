@@ -6,7 +6,7 @@ import { join } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { executeSetupCommand } from '../../src/cli/commands/SetupCommand.js';
+import { executeSetupCommand, updateSettingsDefaultProfile } from '../../src/cli/commands/SetupCommand.js';
 import { createProfileSourceCachePath, createRemoteRepositoryCachePath } from '../../src/profiles/ProfileCache.js';
 
 const temporaryRoots: string[] = [];
@@ -384,6 +384,27 @@ describe('setup command', () => {
     );
 
     expect(result.messages).toContain("Selected default profile 'repository'.");
+  });
+
+  it('updates the effective default profile when duplicate settings keys are present', () => {
+    const root = createTemporaryRoot();
+    const homeDirectory = join(root, 'home');
+    const missingDefaultHomeDirectory = join(root, 'missing-default-home');
+    const settingsPath = join(homeDirectory, '.bridl', 'settings.yml');
+    const missingDefaultSettingsPath = join(missingDefaultHomeDirectory, '.bridl', 'settings.yml');
+    writeSettings(
+      homeDirectory,
+      ['default_profile: legacy', 'profile_sources: []', 'default_profile: current', ''].join('\n'),
+    );
+    writeSettings(missingDefaultHomeDirectory, 'profile_sources: []\n');
+
+    updateSettingsDefaultProfile(settingsPath, 'selected');
+    updateSettingsDefaultProfile(missingDefaultSettingsPath, 'selected');
+
+    expect(readFileSync(settingsPath, 'utf8')).toBe(
+      ['default_profile: selected', 'profile_sources: []', 'default_profile: selected', ''].join('\n'),
+    );
+    expect(readFileSync(missingDefaultSettingsPath, 'utf8')).toBe('profile_sources: []\ndefault_profile: selected\n');
   });
 
   it('uses the readline setup prompt when no selector dependency is injected', async () => {

@@ -531,11 +531,11 @@ const promptForSetupProfile = async (
   }
 };
 
-const updateSettingsDefaultProfile = (settingsPath: string, profileId: string): void => {
+export const updateSettingsDefaultProfile = (settingsPath: string, profileId: string): void => {
   const content = readFileSync(settingsPath, 'utf8');
   const nextContent = /^default_profile:.*$/mu.test(content)
-    ? content.replace(/^default_profile:.*$/mu, `default_profile: ${profileId}`)
-    : /* v8 ignore next -- setup ensures a default_profile exists before the wizard updates it. */ `${content.replace(/\s*$/u, '\n')}default_profile: ${profileId}\n`;
+    ? content.replace(/^default_profile:.*$/gmu, `default_profile: ${profileId}`)
+    : `${content.replace(/\s*$/u, '\n')}default_profile: ${profileId}\n`;
 
   writeFileSync(settingsPath, nextContent);
 };
