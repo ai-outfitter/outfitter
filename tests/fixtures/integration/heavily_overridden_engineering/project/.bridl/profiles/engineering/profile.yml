@@ -1,0 +1,8 @@
+id: engineering
+label: Repository Engineering
+controls:
+  environment:
+    REPO_ONLY: 'enabled'
+    SHARED: repo
+    SOURCE_ORDER: repo
+  prompt_template: Review {{project.name}} with repository standards

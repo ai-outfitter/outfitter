@@ -1,0 +1,4 @@
+default_profile: default
+default_agent: pi
+profile_sources:
+  - path: ./profiles

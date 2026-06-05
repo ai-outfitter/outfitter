@@ -1,0 +1,8 @@
+id: repo-review-base
+label: Repository Review Base
+controls:
+  model: repo-review-model
+  environment:
+    REPO_REVIEW_BASE: 'enabled'
+    REVIEW_STACK: repo-base
+  system_prompt: Review for correctness, maintainability, and project conventions.

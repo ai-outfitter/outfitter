@@ -1,0 +1,10 @@
+id: fallback-review
+label: Native Fallback Review
+controls:
+  model: fallback-review-model
+  provider: openai
+  environment:
+    PROJECT_NATIVE_FALLBACK: 'enabled'
+    FALLBACK_LAYER: project
+  args:
+    - --native-fallback-fixture

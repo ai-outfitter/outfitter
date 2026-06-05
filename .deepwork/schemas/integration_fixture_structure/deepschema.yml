@@ -35,5 +35,5 @@ verification_bash_command:
 references:
   - path: "../../../tests/fixtures/integration/README.md"
     description: "Integration fixture directory contract and authoring rules."
-  - path: "../../../INTEGRATION_TEST_FIXTURES.md"
+  - path: "../../../tests/fixtures/integration/INTEGRATION_TEST_FIXTURES.md"
     description: "Scenario catalog for existing and proposed fixture sets."

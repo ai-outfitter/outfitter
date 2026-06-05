@@ -1,0 +1,85 @@
+{
+  "profileId": "adapter-review",
+  "agentId": "claude",
+  "launchCommand": "claude",
+  "launchArgs": [
+    "--model",
+    "claude-specialized-model",
+    "--effort",
+    "deep",
+    "--system-prompt",
+    "Use the Claude-specific repository review policy.",
+    "--append-system-prompt",
+    "Include Claude-only diagnostics.",
+    "--plugin-dir",
+    "./tools/claude-plugin",
+    "--claude-flag"
+  ],
+  "launchEnv": {
+    "CLAUDE_CONFIG_DIR": "<tack>",
+    "ADAPTER_ENV": "claude",
+    "CLAUDE_ONLY": "enabled",
+    "GENERIC_ENV": "enabled",
+    "SHARED_LAYER": "adapter-review",
+    "USER_DEFAULT": "enabled"
+  },
+  "generatedProfile": {
+    "id": "adapter-review",
+    "label": "Adapter-Specific Review",
+    "controls": {
+      "model": "generic-model",
+      "thinking": "balanced",
+      "environment": {
+        "ADAPTER_ENV": "generic",
+        "GENERIC_ENV": "enabled",
+        "SHARED_LAYER": "adapter-review",
+        "USER_DEFAULT": "enabled"
+      },
+      "args": ["--generic-flag"],
+      "extensions": ["./tools/generic-extension"],
+      "system_prompt": "Use the shared repository review policy.",
+      "append_system_prompt": "Include the shared checklist.",
+      "pi": {
+        "model": "pi-specialized-model",
+        "provider": "openai-compatible",
+        "thinking": "high",
+        "session_directory": "pi-review-sessions",
+        "prompt_template": "./prompts/pi-review.md",
+        "system_prompt": "Use the pi-specific repository review policy.",
+        "append_system_prompt": "Include pi-only diagnostics.",
+        "environment": {
+          "ADAPTER_ENV": "pi",
+          "PI_ONLY": "enabled"
+        },
+        "args": ["--pi-flag"],
+        "extensions": ["./tools/pi-extension"],
+        "skills": ["repo-review"],
+        "sessionDirectory": "pi-review-sessions",
+        "promptTemplate": "./prompts/pi-review.md",
+        "systemPrompt": "Use the pi-specific repository review policy.",
+        "appendSystemPrompt": "Include pi-only diagnostics."
+      },
+      "claude": {
+        "model": "claude-specialized-model",
+        "thinking": "deep",
+        "system_prompt": "Use the Claude-specific repository review policy.",
+        "append_system_prompt": "Include Claude-only diagnostics.",
+        "environment": {
+          "ADAPTER_ENV": "claude",
+          "CLAUDE_ONLY": "enabled"
+        },
+        "args": ["--claude-flag"],
+        "extensions": ["./tools/claude-plugin"],
+        "systemPrompt": "Use the Claude-specific repository review policy.",
+        "appendSystemPrompt": "Include Claude-only diagnostics."
+      },
+      "systemPrompt": "Use the shared repository review policy.",
+      "appendSystemPrompt": "Include the shared checklist."
+    }
+  },
+  "stateTargets": {
+    "settings.json": "<project>/.bridl/profiles/adapter-review/cli_specific/claude/settings.json",
+    "agents": "<home>/.claude/agents",
+    "projects": "<home>/.claude/projects"
+  }
+}

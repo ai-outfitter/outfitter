@@ -1,0 +1,10 @@
+id: remote-baseline
+label: Remote Baseline
+controls:
+  model: remote-baseline-model
+  provider: remote-provider
+  environment:
+    REMOTE_BASELINE: enabled
+    SHARED_BASELINE: remote
+  args:
+    - --remote-baseline

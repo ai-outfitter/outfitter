@@ -1,0 +1,44 @@
+id: adapter-review
+label: Adapter-Specific Review
+controls:
+  model: generic-model
+  thinking: balanced
+  environment:
+    GENERIC_ENV: 'enabled'
+    ADAPTER_ENV: generic
+    SHARED_LAYER: adapter-review
+  args:
+    - --generic-flag
+  extensions:
+    - ./tools/generic-extension
+  system_prompt: Use the shared repository review policy.
+  append_system_prompt: Include the shared checklist.
+  pi:
+    model: pi-specialized-model
+    provider: openai-compatible
+    thinking: high
+    session_directory: pi-review-sessions
+    prompt_template: ./prompts/pi-review.md
+    system_prompt: Use the pi-specific repository review policy.
+    append_system_prompt: Include pi-only diagnostics.
+    environment:
+      ADAPTER_ENV: pi
+      PI_ONLY: 'enabled'
+    args:
+      - --pi-flag
+    extensions:
+      - ./tools/pi-extension
+    skills:
+      - repo-review
+  claude:
+    model: claude-specialized-model
+    thinking: deep
+    system_prompt: Use the Claude-specific repository review policy.
+    append_system_prompt: Include Claude-only diagnostics.
+    environment:
+      ADAPTER_ENV: claude
+      CLAUDE_ONLY: 'enabled'
+    args:
+      - --claude-flag
+    extensions:
+      - ./tools/claude-plugin

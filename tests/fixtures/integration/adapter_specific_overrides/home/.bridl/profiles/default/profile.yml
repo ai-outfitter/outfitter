@@ -1,0 +1,6 @@
+id: default
+label: Personal Adapter Defaults
+controls:
+  environment:
+    USER_DEFAULT: 'enabled'
+    SHARED_LAYER: user-default

@@ -1,0 +1,9 @@
+id: default
+label: User Default
+controls:
+  thinking: user-default-thinking
+  environment:
+    USER_DEFAULT: enabled
+    SHARED_SELECTION: user-default
+  args:
+    - --user-default

@@ -1,0 +1,30 @@
+{
+  "profileId": "ci-strict",
+  "agentId": "pi",
+  "launchCommand": "pi",
+  "launchArgs": ["--model", "ci-review-model", "--provider", "ci-provider", "--ci", "--no-interactive"],
+  "launchEnv": {
+    "PI_CODING_AGENT_DIR": "<tack>",
+    "BRIDL_FIXTURE": "strict_ci_profile",
+    "CI_PROFILE": "locked"
+  },
+  "generatedProfile": {
+    "id": "ci-strict",
+    "label": "Strict CI Profile",
+    "controls": {
+      "model": "ci-review-model",
+      "provider": "ci-provider",
+      "environment": {
+        "BRIDL_FIXTURE": "strict_ci_profile",
+        "CI_PROFILE": "locked"
+      },
+      "args": ["--ci", "--no-interactive"]
+    }
+  },
+  "strictStateFiles": {
+    "settings.json": "absent-before-launch",
+    "mcp.json": "absent-before-launch",
+    "cache/": "directory",
+    "sessions/": "directory"
+  }
+}

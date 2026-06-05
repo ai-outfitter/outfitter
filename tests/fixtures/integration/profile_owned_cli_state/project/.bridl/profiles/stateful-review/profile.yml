@@ -1,0 +1,36 @@
+id: stateful-review
+label: Stateful Repository Review
+inherits:
+  - team-base
+controls:
+  model: generic-stateful-model
+  provider: generic-provider
+  thinking: medium
+  environment:
+    SELECTED_PROFILE: stateful-review
+    SHARED_LAYER: stateful-review
+  args:
+    - --generic-review
+  session_directory: ./sessions/stateful-review
+  extensions:
+    - generic-extension
+  skills:
+    - repo-audit
+  system_prompt: Review repository state using profile-owned CLI files.
+  pi:
+    model: pi-stateful-model
+    environment:
+      PI_PROFILE_STATE: profile-owned
+    args:
+      - --pi-owned-state
+    prompt_template: pi-review-template
+  claude:
+    model: claude-stateful-model
+    thinking: low
+    environment:
+      CLAUDE_PROFILE_STATE: profile-owned
+    args:
+      - --claude-owned-state
+    system_prompt: Claude should use profile-owned settings.
+state_persistence:
+  unknown: warn

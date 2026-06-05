@@ -96,6 +96,15 @@ export const summarizePiTack = (fixture: IntegrationFixture, tackRoot: string): 
   },
 });
 
+export const summarizeClaudeTack = (fixture: IntegrationFixture, tackRoot: string): unknown => ({
+  generatedProfile: JSON.parse(readFileSync(join(tackRoot, 'bridl', 'profile.json'), 'utf8')) as unknown,
+  stateTargets: {
+    'settings.json': tokenizeFixturePath(fixture, readlinkSync(join(tackRoot, 'settings.json')), tackRoot),
+    agents: tokenizeFixturePath(fixture, readlinkSync(join(tackRoot, 'agents')), tackRoot),
+    projects: tokenizeFixturePath(fixture, readlinkSync(join(tackRoot, 'projects')), tackRoot),
+  },
+});
+
 export const tokenizeFixturePath = (fixture: IntegrationFixture, path: string, tackRoot?: string): string => {
   if (tackRoot !== undefined && path === tackRoot) {
     return '<tack>';

@@ -1,0 +1,7 @@
+id: default
+label: Native Fallback User Defaults
+controls:
+  model: user-native-model
+  environment:
+    USER_NATIVE_DEFAULT: 'enabled'
+    FALLBACK_LAYER: user

@@ -1,0 +1,11 @@
+id: default
+label: Personal Defaults
+controls:
+  model: personal-fallback-model
+  environment:
+    PERSONAL_DEFAULT: 'enabled'
+    EDITOR_STYLE: noah
+    REVIEW_STACK: personal
+  append_system_prompt: Prefer concise, practical feedback.
+  args:
+    - --personal-flag

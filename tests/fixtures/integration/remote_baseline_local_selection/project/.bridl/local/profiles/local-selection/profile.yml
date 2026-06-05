@@ -1,0 +1,14 @@
+id: local-selection
+label: Local Selection
+inherits:
+  - default
+  - project-review
+state_persistence:
+  settings.json: symlink
+controls:
+  model: local-selection-model
+  environment:
+    LOCAL_SELECTION: enabled
+    SHARED_SELECTION: local
+  args:
+    - --local-selection

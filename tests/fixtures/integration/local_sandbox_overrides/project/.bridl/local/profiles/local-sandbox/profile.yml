@@ -1,0 +1,18 @@
+id: local-sandbox
+label: Local Sandbox
+inherits:
+  - repo-review
+controls:
+  system_prompt: ./prompts/sandbox.md
+  environment:
+    LOCAL_SANDBOX: 'enabled'
+    SHARED_LAYER: local-sandbox
+  pi:
+    thinking: high
+    args:
+      - --sandbox-mode
+state_persistence:
+  settings.json: warn
+  cache/: discard
+  sessions/: discard
+  unknown: discard

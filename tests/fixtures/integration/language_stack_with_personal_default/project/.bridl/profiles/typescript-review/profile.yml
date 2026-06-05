@@ -1,0 +1,10 @@
+id: typescript-review
+label: TypeScript Review
+inherits: [language-typescript, tooling-node-vitest]
+controls:
+  model: typescript-review-model
+  environment:
+    SELECTED_PROFILE: typescript-review
+    REVIEW_STACK: selected-typescript-review
+  args:
+    - --review-scope=typescript
