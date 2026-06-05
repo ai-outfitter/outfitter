@@ -38,8 +38,9 @@ The user-facing state update lifecycle is:
 - Composite profiles remain temporary and reproducible by default.
 - ApplePi does not do generic post-run copy-back or JSON/YAML merge-back.
 - Persistent state is represented by symlinking a composite profile path to a profile file/directory or to the native CLI fallback path.
-- Every adapter-declared state path has a resolved strategy before launch: profile overrides win, otherwise the adapter `default_strategy` is used.
-- Invalid or disallowed strategies fail before launch.
+- Adapters may generate a concrete runtime file for a declared state path when they need deterministic launch-time reconciliation. For example, the Pi adapter can generate a transformed `settings.json` that removes native `packages` entries already supplied by profile-controlled extensions, and then mark that declared path as `discard` for write detection during the run.
+- Every adapter-declared state path has a resolved strategy before launch: profile overrides win, otherwise the adapter `default_strategy` is used, except for adapter-generated reconciliation files that are intentionally treated as discarded runtime files.
+- Invalid or disallowed profile-requested `state_persistence` strategies fail before launch; adapter-internal reconciliation may still choose a one-run handling strategy for a generated runtime file.
 - Non-persistent `warn` and `error` strategies are checked after the child CLI exits.
 - Unknown writes outside adapter-declared paths are checked with the adapter's `unknown` pseudo-path strategy.
 - `prompt` is reserved for a future interactive/control-plane workflow.
@@ -88,6 +89,12 @@ state_paths:
   settings.json:
     default_strategy: symlink
     allowed_strategies: [symlink, warn, error, prompt]
+    note: >-
+      When profile-controlled Pi extensions duplicate native settings packages,
+      ApplePi may generate a transformed runtime settings.json and treat this
+      declared path as discard for that launch. That discard handling is
+      adapter-internal; users still cannot request settings.json: discard
+      because discard is not listed in allowed_strategies.
 
   mcp.json:
     default_strategy: symlink

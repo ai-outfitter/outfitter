@@ -106,9 +106,10 @@ Highest to lowest:
 1. Project-local: `<project>/.applepi/local/settings.yml`
 2. Project: `<project>/.applepi/settings.yml`
 3. User: `~/.applepi/settings.yml`
-4. Built-in defaults
+4. Cached remote settings referenced by local settings
+5. Built-in defaults
 
-Future sources can be added behind the same `SettingsLoader` abstraction.
+Additional sources can be added behind the same `SettingsLoader` abstraction.
 
 ### Required User Default Profile
 
@@ -548,6 +549,8 @@ $TMPDIR/applepi-<profile-id>-<agent-id>-<random>/
 
 The pi adapter uses this state model for native pi state and for pi-managed utilities: most declared pi state paths, including `tmp/`, symlink to `~/.pi/agent/<path>` by default, while composite profile `utilities/` and `bin/` both symlink to `<cache_directory>/utilities` by default, so temporary composite profile cleanup does not force pi to redownload helper binaries such as `fd` and `rg`.
 
+When profile-controlled Pi extensions would duplicate native Pi `settings.json` package entries, ApplePi generates a reconciled runtime `settings.json` inside the composite profile for that launch. The generated file preserves unrelated settings and package entries, removes duplicate native package entries by normalized resource identity, and keeps the declared `settings.json` state path non-durable with `discard` write handling so runtime edits are not reported as unknown state.
+
 During `applepi run`, the ApplePi process remains alive while the child agent CLI runs.
 It owns the composite profile lifecycle.
 
@@ -578,7 +581,7 @@ See `doc/state_writeback_strategy.md` for the complete functional contract and t
 
 ### Composite profile Assembly
 
-`Composite profileAssembler` resolves:
+`CompositeProfileAssembler` resolves:
 
 1. the requested profile stack;
 2. generic controls;
@@ -586,7 +589,7 @@ See `doc/state_writeback_strategy.md` for the complete functional contract and t
 4. generated files;
 5. child process env and argv.
 
-Each logical file in the composite profile has an object instance, represented by `Composite profileFile`, that knows:
+Each logical file in the composite profile has an object instance, represented by `CompositeProfileFile`, that knows:
 
 - source inputs;
 - generated output path;
@@ -599,7 +602,7 @@ Each logical file in the composite profile has an object instance, represented b
 
 While the child agent process runs:
 
-- `fs.watch` runs on input files/folders used by each logical `Composite profileFile`;
+- `fs.watch` runs on input files/folders used by each logical `CompositeProfileFile`;
 - changed inputs are revalidated and regenerated into the composite profile where safe;
 - unsupported or unsafe live updates produce warnings;
 - fatal composite profile errors stop the run only when `--strict` is enabled or when the child CLI cannot continue safely.
@@ -613,8 +616,23 @@ interface AgentAdapter {
   readonly id: string;
   readonly supportedControls: readonly string[];
   readonly statePaths?: Readonly<Record<string, StatePathDeclaration>>;
-  createComposite profile(profile: Profile, input: AgentComposite profileInput): AgentComposite profilePlan;
-  createLaunchPlan(composite profile: Composite profile, profile?: Profile, passThroughArgs?: readonly string[]): AgentLaunchPlan;
+  createCompositeProfile(
+    profile: Profile,
+    input: {
+      readonly rootDirectory: string;
+      readonly profilePaths: readonly string[];
+      readonly profileFolders?: readonly string[];
+      readonly homeDirectory?: string;
+      readonly cacheDirectory?: string;
+      readonly settings?: Settings;
+      readonly projectDirectory?: string;
+    },
+  ): AgentCompositeProfilePlan;
+  createLaunchPlan(
+    compositeProfile: CompositeProfile,
+    profile?: Profile,
+    passThroughArgs?: readonly string[],
+  ): AgentLaunchPlan;
   getUnsupportedControls(profile: Profile): readonly string[];
 }
 ```
@@ -633,9 +651,10 @@ ApplePi should prefer native pi mechanisms:
 - `--prompt-template` for prompt templates;
 - `--system-prompt` and `--append-system-prompt` for prompts;
 - model/provider/thinking flags where supported;
-- copied/generated pi settings in the composite profile where flags/env are not the right mechanism.
+- generated Pi settings reconciliation in the composite profile where flags/env are not the right mechanism.
 
 If generic ApplePi controls conflict with pi naming or behavior, prefer pi’s terminology and conventions.
+Because ApplePi chooses `PI_CODING_AGENT_DIR` and other startup-sensitive configuration before launching pi, a requested pi control that would require changing startup discovery after pi has already begun cannot be applied by an extension or late runtime hook. The pi adapter reports such unsupported or startup-order-impossible controls through normal adapter warnings, and `--strict` makes those warnings fatal.
 
 Claude Code is also supported through the `claude` adapter.
 ApplePi launches `claude` with `CLAUDE_CONFIG_DIR` pointing at the composite profile root, maps supported controls to native flags (`--model`, `--effort`, `--system-prompt`, `--append-system-prompt`, and repeated `--plugin-dir`), and preserves Claude Code state paths such as `settings.json`, `agents/`, `skills/`, `commands/`, `plugins/`, `projects/`, and `debug/` through adapter-declared state persistence.

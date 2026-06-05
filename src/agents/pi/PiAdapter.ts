@@ -1,4 +1,5 @@
 // Provides the pi adapter for composite profile generation and native pi launch plans.
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import type { AgentAdapter, AgentLaunchPlan, AgentCompositeProfilePlan } from '../AgentAdapter.js';
@@ -10,6 +11,7 @@ import {
   supportedControlNames,
 } from '../AdapterProfileControls.js';
 import { createDeclaredStatePaths, findProfileStateSource } from '../AdapterStatePaths.js';
+import { filterPiSettingsPackagesDuplicatingExtensions } from './PiSettingsMergePolicy.js';
 import type { PiProfileControls, Profile, ProfileControls } from '../../profiles/Profile.js';
 import type { CompositeProfile } from '../../compositeProfile/CompositeProfile.js';
 import { createCompositeProfile } from '../../compositeProfile/CompositeProfile.js';
@@ -46,6 +48,8 @@ export const createPiAdapter = (): AgentAdapter => ({
   supportedControls: supportedControlNames(genericControlNames),
   statePaths: piStatePathDeclarations,
   createCompositeProfile(profile: Profile, input): AgentCompositeProfilePlan {
+    const statePaths = createPiStatePaths(profile, input);
+    const transformedSettingsFile = createPiSettingsTransformFile(profile, input, statePaths);
     const compositeProfile = createCompositeProfile(
       input.rootDirectory,
       [
@@ -56,8 +60,9 @@ export const createPiAdapter = (): AgentAdapter => ({
           sourceInputs: input.profilePaths,
           strategy: 'transform',
         }),
+        ...(transformedSettingsFile === undefined ? [] : [transformedSettingsFile]),
       ],
-      createPiStatePaths(profile, input),
+      transformedSettingsFile === undefined ? statePaths : markPiSettingsStatePathDiscarded(statePaths),
     );
 
     return {
@@ -87,6 +92,86 @@ export const createPiAdapter = (): AgentAdapter => ({
     return findUnsupportedControls(profile.controls);
   },
 });
+
+type PiSettingsDocument = Readonly<Record<string, unknown>> & {
+  readonly packages?: unknown;
+};
+
+const markPiSettingsStatePathDiscarded = (
+  statePaths: readonly CompositeProfileStatePath[],
+): readonly CompositeProfileStatePath[] =>
+  statePaths.map((statePath) =>
+    statePath.relativePath === 'settings.json'
+      ? { relativePath: statePath.relativePath, strategy: 'discard', directory: statePath.directory }
+      : statePath,
+  );
+
+const createPiSettingsTransformFile = (
+  profile: Profile,
+  input: {
+    readonly rootDirectory: string;
+    readonly profilePaths: readonly string[];
+    readonly homeDirectory?: string;
+  },
+  statePaths: readonly CompositeProfileStatePath[],
+): ReturnType<typeof createCompositeProfileFile> | undefined => {
+  if (input.homeDirectory === undefined) {
+    return undefined;
+  }
+
+  const controls = mergePiControls(profile.controls);
+  const extensionSources = controls.extensions ?? [];
+
+  if (extensionSources.length === 0) {
+    return undefined;
+  }
+
+  const settingsStatePath = statePaths.find((statePath) => statePath.relativePath === 'settings.json');
+
+  if (settingsStatePath?.sourcePath === undefined || !existsSync(settingsStatePath.sourcePath)) {
+    return undefined;
+  }
+
+  const settings = readPiSettingsDocument(settingsStatePath.sourcePath);
+
+  if (settings === undefined || !Array.isArray(settings.packages)) {
+    return undefined;
+  }
+
+  const filteredPackages = filterPiSettingsPackagesDuplicatingExtensions(settings.packages, extensionSources);
+
+  if (filteredPackages.length === settings.packages.length) {
+    return undefined;
+  }
+
+  return createCompositeProfileFile({
+    rootDirectory: input.rootDirectory,
+    relativePath: 'settings.json',
+    content: `${JSON.stringify({ ...settings, packages: filteredPackages }, null, 2)}\n`,
+    sourceInputs: [settingsStatePath.sourcePath, ...input.profilePaths],
+    strategy: 'transform',
+  });
+};
+
+const readPiSettingsDocument = (settingsPath: string): PiSettingsDocument | undefined => {
+  let content: string;
+
+  try {
+    content = readFileSync(settingsPath, 'utf8');
+  } catch (error) {
+    throw new Error(`Could not read pi settings file '${settingsPath}': ${String(error)}`, { cause: error });
+  }
+
+  try {
+    const parsed: unknown = JSON.parse(content);
+    return isPiSettingsDocument(parsed) ? parsed : undefined;
+  } catch {
+    return undefined;
+  }
+};
+
+const isPiSettingsDocument = (value: unknown): value is PiSettingsDocument =>
+  value !== null && typeof value === 'object' && !Array.isArray(value);
 
 const createPiStatePaths = (
   profile: Profile,

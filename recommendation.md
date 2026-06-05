@@ -28,6 +28,7 @@ ApplePi currently declares and materializes a narrower day-one state set for pi:
 - `sessions/`
 - `npm/`
 - `git/`
+- `tmp/`
 - `utilities/`
 - `bin/`
 

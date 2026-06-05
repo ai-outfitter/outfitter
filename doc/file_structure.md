@@ -62,12 +62,12 @@ ApplePi is organized around clear TypeScript source boundaries, requirement docu
 │   ├── merge/                         # reusable deterministic value and array merge policy helpers
 │   │   ├── ArrayMergePolicy.ts
 │   │   └── SettingsValueMerger.ts
-│   ├── composite profile/                          # generated runtime composite profile assembly and watching
-│   │   ├── Composite profile.ts
-│   │   ├── Composite profileAssembler.ts
-│   │   ├── Composite profileFile.ts
-│   │   ├── Composite profileTemplate.ts
-│   │   ├── Composite profileWatcher.ts
+│   ├── compositeProfile/              # generated runtime composite profile assembly and watching
+│   │   ├── CompositeProfile.ts
+│   │   ├── CompositeProfileAssembler.ts
+│   │   ├── CompositeProfileFile.ts
+│   │   ├── CompositeProfileTemplate.ts
+│   │   ├── CompositeProfileWatcher.ts
 │   │   └── StatePersistence.ts
 │   ├── agents/                        # agent adapter boundary and CLI-specific adapters
 │   │   ├── AdapterProfileControls.ts
@@ -76,10 +76,11 @@ ApplePi is organized around clear TypeScript source boundaries, requirement docu
 │   │   ├── AgentRegistry.ts
 │   │   ├── pi/                        # pi-specific adapter implementation
 │   │   │   ├── PiAdapter.ts
-│   │   │   └── PiComposite profileWriter.ts
+│   │   │   ├── PiSettingsMergePolicy.ts
+│   │   │   └── PiCompositeProfileWriter.ts
 │   │   └── claude/                    # Claude Code-specific adapter implementation
 │   │       ├── ClaudeAdapter.ts
-│   │       └── ClaudeComposite profileWriter.ts
+│   │       └── ClaudeCompositeProfileWriter.ts
 │   ├── schemas/                       # JSON Schema artifacts for persisted formats
 │   │   ├── settings.schema.json
 │   │   ├── profile.schema.json
