@@ -168,15 +168,9 @@ describe('setup command', () => {
       {
         synchronizer: {
           sync(source, cachePath) {
-            if (source.uri === uri) {
-              writeCachedProfile(cachePath);
-              return 'unchanged';
-            }
-
-            expect(source.github).toBe('Unsupervisedcom/applepi-default-profiles');
-            writeCachedProfile(join(cachePath, 'profiles'), 'engineer');
-            writeCachedProfile(join(cachePath, 'profiles'), 'data_analyst');
-            return 'updated';
+            expect(source.uri).toBe(uri);
+            writeCachedProfile(cachePath);
+            return 'unchanged';
           },
         },
       },
@@ -191,19 +185,11 @@ describe('setup command', () => {
         status: 'unchanged',
         message: '1 profile validated.',
       },
-      expect.objectContaining({
-        uri: 'git+https://github.com/Unsupervisedcom/applepi-default-profiles.git#main:profiles',
-        status: 'updated',
-        message: '2 profiles validated.',
-      }),
     ]);
 
     const fallbackHomeDirectory = join(root, 'fallback-home');
     writeSettings(fallbackHomeDirectory, 'profile_sources: []\n');
-    const fallbackDefaultResult = await executeSetupCommand(
-      { homeDirectory: fallbackHomeDirectory, projectDirectory },
-      { synchronizer: defaultProfileSynchronizer },
-    );
+    const fallbackDefaultResult = await executeSetupCommand({ homeDirectory: fallbackHomeDirectory, projectDirectory });
     expect(fallbackDefaultResult.defaultProfilePath).toBe(
       join(fallbackHomeDirectory, '.bridl', 'profiles', 'default', 'profile.yml'),
     );
@@ -367,15 +353,12 @@ describe('setup command', () => {
         input,
         output,
         writeLine: (message) => messages.push(message),
-        synchronizer: defaultProfileSynchronizer,
       },
     );
 
-    expect(result.messages).toContain("Selected default profile 'data_analyst'.");
+    expect(result.messages).toContain("Selected default profile 'solo'.");
     expect(messages[0]).toContain('Welcome to Bridl');
-    expect(readFileSync(join(homeDirectory, '.bridl', 'settings.yml'), 'utf8')).toContain(
-      'default_profile: data_analyst',
-    );
+    expect(readFileSync(join(homeDirectory, '.bridl', 'settings.yml'), 'utf8')).toContain('default_profile: solo');
   });
 
   it('rejects out-of-range readline setup prompt selections', async () => {
@@ -398,7 +381,6 @@ describe('setup command', () => {
           input,
           output,
           writeLine: () => undefined,
-          synchronizer: defaultProfileSynchronizer,
         },
       ),
     ).rejects.toThrow('out of range');
