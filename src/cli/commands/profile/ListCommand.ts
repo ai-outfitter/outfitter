@@ -12,7 +12,9 @@ import { loadLocalProfileSource } from '../../../profiles/ProfileLoader.js';
 import type { LoadedProfile } from '../../../profiles/ProfileLoader.js';
 import type { ProfileSourceReference } from '../../../profiles/ProfileSource.js';
 import { loadSettingsWithCachedRemoteSettings } from '../../../settings/SettingsLoader.js';
-import type { ProfileCommandDependencies } from './Command.js';
+import type { CommandObject } from '../CommandObject.js';
+import type { ProfileCommandDependencies } from './Shared.js';
+import { getOrCreateProfileCommander } from './Shared.js';
 
 export interface ListedProfile {
   readonly id: string;
@@ -30,7 +32,19 @@ export interface ListProfilesResult {
   readonly messages: readonly string[];
 }
 
-export const createProfileListCommand = (dependencies: ProfileCommandDependencies): Command =>
+export const createProfileListCommand = (dependencies: ProfileCommandDependencies): CommandObject => {
+  const command: CommandObject = {
+    name: 'profile list',
+    description: 'List available ApplePi profiles.',
+    register(program: Command): void {
+      getOrCreateProfileCommander(program).addCommand(createProfileListCommander(dependencies));
+    },
+  };
+
+  return command;
+};
+
+const createProfileListCommander = (dependencies: ProfileCommandDependencies): Command =>
   new Command('list').description('List available ApplePi profiles.').action(() => {
     const result = executeListProfilesCommand({
       /* v8 ignore next -- default process home is exercised by the direct CLI entrypoint, not unit tests. */

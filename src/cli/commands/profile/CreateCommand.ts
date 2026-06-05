@@ -6,7 +6,9 @@ import { join } from 'node:path';
 import { Command } from 'commander';
 
 import { isValidProfileId } from '../../../profiles/ProfileLoader.js';
-import type { ProfileCommandDependencies } from './Command.js';
+import type { CommandObject } from '../CommandObject.js';
+import type { ProfileCommandDependencies } from './Shared.js';
+import { getOrCreateProfileCommander } from './Shared.js';
 
 export type CreateProfileScope = 'user' | 'project' | 'project-local';
 
@@ -31,7 +33,19 @@ interface CreateProfileOptions {
   readonly path?: string;
 }
 
-export const createProfileCreateCommand = (dependencies: ProfileCommandDependencies): Command =>
+export const createProfileCreateCommand = (dependencies: ProfileCommandDependencies): CommandObject => {
+  const command: CommandObject = {
+    name: 'profile create',
+    description: 'Create a new ApplePi profile skeleton.',
+    register(program: Command): void {
+      getOrCreateProfileCommander(program).addCommand(createProfileCreateCommander(dependencies));
+    },
+  };
+
+  return command;
+};
+
+const createProfileCreateCommander = (dependencies: ProfileCommandDependencies): Command =>
   new Command('create')
     .description('Create a new ApplePi profile skeleton.')
     .argument('<name>', 'filesystem-safe profile name')

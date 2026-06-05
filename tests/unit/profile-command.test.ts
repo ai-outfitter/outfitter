@@ -7,7 +7,7 @@ import { Command } from 'commander';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import {
-  createProfileCommand,
+  createProfileCommands,
   executeCreateProfileCommand,
   executeListProfilesCommand,
 } from '../../src/cli/commands/profile/Command.js';
@@ -33,6 +33,15 @@ const writeProfile = (profilesRoot: string, id: string, content = `id: ${id}\nco
   const profileDirectory = join(profilesRoot, id);
   mkdirSync(profileDirectory, { recursive: true });
   writeFileSync(join(profileDirectory, 'profile.yml'), content);
+};
+
+const registerProfileCommands = (
+  program: Command,
+  dependencies: Parameters<typeof createProfileCommands>[0] = {},
+): void => {
+  for (const command of createProfileCommands(dependencies)) {
+    command.register(program);
+  }
 };
 
 afterEach(() => {
@@ -89,9 +98,11 @@ describe('profile command', () => {
 
     const messages: string[] = [];
     const program = new Command();
-    createProfileCommand({ homeDirectory, projectDirectory, writeLine: (message) => messages.push(message) }).register(
-      program,
-    );
+    registerProfileCommands(program, {
+      homeDirectory,
+      projectDirectory,
+      writeLine: (message) => messages.push(message),
+    });
     await program.parseAsync(['node', 'applepi', 'profile', 'create', 'valid', '--path', join(root, 'cli-profiles')]);
 
     expect(messages).toContainEqual(expect.stringContaining("Created profile 'valid'"));
@@ -115,7 +126,7 @@ describe('profile command', () => {
     ).toThrow('requires exactly one destination');
 
     const program = new Command();
-    createProfileCommand({ homeDirectory, projectDirectory, writeLine: () => undefined }).register(program);
+    registerProfileCommands(program, { homeDirectory, projectDirectory, writeLine: () => undefined });
     await program.parseAsync(['node', 'applepi', 'profile', 'create', 'scoped', '--scope', 'user']);
     expect(existsSync(join(homeDirectory, '.applepi', 'profiles', 'scoped', 'profile.yml'))).toBe(true);
     await expect(
@@ -123,7 +134,7 @@ describe('profile command', () => {
     ).rejects.toThrow("Unknown profile scope 'invalid'");
 
     const missingNameProgram = new Command();
-    createProfileCommand({ homeDirectory, projectDirectory }).register(missingNameProgram);
+    registerProfileCommands(missingNameProgram, { homeDirectory, projectDirectory });
     const profileCreateCommand = missingNameProgram.commands[0]?.commands.find(
       (command) => command.name() === 'create',
     );
@@ -210,9 +221,11 @@ describe('profile command', () => {
 
     const messages: string[] = [];
     const program = new Command();
-    createProfileCommand({ homeDirectory, projectDirectory, writeLine: (message) => messages.push(message) }).register(
-      program,
-    );
+    registerProfileCommands(program, {
+      homeDirectory,
+      projectDirectory,
+      writeLine: (message) => messages.push(message),
+    });
     await program.parseAsync(['node', 'applepi', 'profile', 'list']);
     expect(messages).toEqual(['engineering', 'plain-uri', 'research', 'support']);
   });
