@@ -141,6 +141,7 @@ Tests should assert failure or warnings without durable persistence for non-pers
 Location: `tests/fixtures/integration/profile_owned_cli_state/`
 
 This fixture should include a selected profile with generic controls plus adapter-specific state files under paths such as `cli_specific/pi/` and `cli_specific/claude/`.
+It also includes inherited and selected Pi `.mcp.json` fragments so Pi can prove generated MCP config merging across contributing profile folders.
 
 Use it to let each adapter prove it selects its own profile-owned state without putting an adapter name in the fixture name.
 

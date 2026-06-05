@@ -38,9 +38,11 @@ ApplePi is organized around clear TypeScript source boundaries, requirement docu
 ├── plan.md                            # implementation plan
 ├── contributor.md                     # local install and contributor workflow guide
 ├── src/                               # production TypeScript source
+│   ├── cli.ts                         # executable CLI entry point
 │   ├── cli/                           # CLI parser construction and command registration
 │   │   ├── ApplePiCli.ts
 │   │   └── commands/                  # command objects for non-trivial CLI behavior
+│   │       ├── CommandObject.ts
 │   │       ├── RunCommand.ts
 │   │       ├── SetupCommand.ts
 │   │       ├── SyncCommand.ts
@@ -74,8 +76,11 @@ ApplePi is organized around clear TypeScript source boundaries, requirement docu
 │   │   ├── AdapterStatePaths.ts
 │   │   ├── AgentAdapter.ts
 │   │   ├── AgentRegistry.ts
+│   │   ├── LaunchResources.ts
+│   │   ├── ResourceIdentity.ts
 │   │   ├── pi/                        # pi-specific adapter implementation
 │   │   │   ├── PiAdapter.ts
+│   │   │   ├── PiMcpConfig.ts
 │   │   │   ├── PiSettingsMergePolicy.ts
 │   │   │   └── PiCompositeProfileWriter.ts
 │   │   └── claude/                    # Claude Code-specific adapter implementation
@@ -84,9 +89,11 @@ ApplePi is organized around clear TypeScript source boundaries, requirement docu
 │   ├── schemas/                       # JSON Schema artifacts for persisted formats
 │   │   ├── settings.schema.json
 │   │   ├── profile.schema.json
-│   │   └── profile-source.schema.json
+│   │   ├── profile-source.schema.json
+│   │   └── SchemaDocument.ts
 │   └── validation/                    # shared validation helpers
-│       └── SchemaValidator.ts
+│       ├── SchemaValidator.ts
+│       └── YamlDocument.ts
 ├── scripts/                           # local development and formatting helper scripts
 │   ├── .deepreview                    # script-specific DeepWork review rules
 │   └── run-snapper.mjs                # pinned Snapper binary downloader/runner

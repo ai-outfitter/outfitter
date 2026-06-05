@@ -19,7 +19,7 @@ afterEach(() => {
 });
 
 describe('profile-owned CLI state integration fixture composite profile generation', () => {
-  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-005.3, APPLEPI-REQ-005.6).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-005.3, APPLEPI-REQ-005.6, APPLEPI-REQ-006.3).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('uses pi state owned by the selected profile and writes through declared symlinks', async () => {
     const fixture = copyFixtureToTemp('profile_owned_cli_state');
@@ -49,6 +49,7 @@ describe('profile-owned CLI state integration fixture composite profile generati
             generatedProfile: JSON.parse(
               readFileSync(join(compositeProfileRoot, 'applepi', 'profile.json'), 'utf8'),
             ) as unknown,
+            mcpConfig: JSON.parse(readFileSync(join(compositeProfileRoot, '.mcp.json'), 'utf8')) as unknown,
             stateTargets: {
               'auth.json': tokenizeFixturePath(
                 fixture,

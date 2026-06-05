@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "shared": { "command": "selected-command" },
+    "selectedOnly": { "command": "selected-only-command" }
+  },
+  "metadata": {
+    "labels": [{ "identity": "shared-label", "value": "selected" }, { "value": { "other": "selected" } }]
+  }
+}

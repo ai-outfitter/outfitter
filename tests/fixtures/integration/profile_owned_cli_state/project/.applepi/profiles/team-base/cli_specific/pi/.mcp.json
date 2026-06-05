@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "shared": { "command": "base-command", "args": ["--base"] },
+    "baseOnly": { "command": "base-only-command" }
+  },
+  "metadata": {
+    "labels": [{ "identity": "shared-label", "value": "base" }, { "value": { "nested": "base" } }]
+  }
+}
