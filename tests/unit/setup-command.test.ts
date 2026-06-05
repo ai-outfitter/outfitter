@@ -191,10 +191,10 @@ describe('setup command', () => {
     writeSettings(fallbackHomeDirectory, 'profile_sources: []\n');
     const fallbackDefaultResult = await executeSetupCommand({ homeDirectory: fallbackHomeDirectory, projectDirectory });
     expect(fallbackDefaultResult.defaultProfilePath).toBe(
-      join(fallbackHomeDirectory, '.bridl', 'profiles', 'default', 'profile.yml'),
+      join(fallbackHomeDirectory, '.bridl', 'profiles', 'engineer', 'profile.yml'),
     );
     expect(readFileSync(join(fallbackHomeDirectory, '.bridl', 'settings.yml'), 'utf8')).toContain(
-      'default_profile: default',
+      'default_profile: engineer',
     );
 
     const projectDefaultHomeDirectory = join(root, 'project-default-home');

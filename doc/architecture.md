@@ -540,7 +540,7 @@ Example term usage: “the tack for `data-analyst` on `claude`”.
 Tacks are generated under the system temp directory so they can be reclaimed trivially, while adapter-declared state paths can be symlinked to durable profile, native CLI, or Bridl cache locations:
 
 ```text
-$TMPDIR/bridl/tacks/<run-id>/
+$TMPDIR/bridl-<profile-id>-<agent-id>-<random>/
 ```
 
 The pi adapter uses this state model for native pi state and for pi-managed utilities: tack `utilities/` and `bin/` both symlink to `<cache_directory>/utilities` by default, so temporary tack cleanup does not force pi to redownload helper binaries such as `fd` and `rg`.

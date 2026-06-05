@@ -290,7 +290,7 @@ type LoadedSetupSettingsFile = {
 };
 
 const readUserDefaultProfileId = (files: readonly LoadedSetupSettingsFile[]): string =>
-  files.find((file) => file.location.scope === 'user')?.settings.defaultProfile ?? 'default';
+  files.find((file) => file.location.scope === 'user')?.settings.defaultProfile ?? 'engineer';
 
 const ensureExistingUserSettingsDefaultProfile = (
   settingsPath: string,
