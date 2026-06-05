@@ -1,0 +1,30 @@
+controllable_elements_matrix:
+  description: "Review controllable element mappings and support-status claims for judgment-based accuracy."
+  match:
+    include:
+      - "controllable-elements.md"
+  review:
+    strategy: individual
+    instructions: |
+      Review doc/controllable-elements.md for judgment-based mapping accuracy.
+      This rule provides judgment-based review coverage for BRIDL-REQ-007.1,
+      BRIDL-REQ-007.2, and BRIDL-REQ-007.3 concerns that cannot be validated
+      deterministically by the controllable_elements_matrix DeepSchema.
+
+      Deterministic facts such as table shape, one row per defined term, allowed
+      status values, and status definition presence are handled by the
+      controllable_elements_matrix DeepSchema. Do not duplicate those exact
+      checks here.
+
+      Check the following judgment-based concerns:
+      1. Pi mechanism descriptions accurately reflect pi terminology and native
+         behavior.
+      2. Non-pi mappings are clearly framed as roadmap/experimental unless a
+         supported adapter exists.
+      3. Support status claims do not overstate tested Bridl behavior.
+      4. Defined controllable elements are meaningful product-boundary concepts,
+         not implementation-only details.
+
+      Output Format:
+      - PASS: Mappings and support-status claims are accurate and appropriately qualified.
+      - FAIL: Issues found. List each inaccurate or overstated mapping/status claim with a line reference.

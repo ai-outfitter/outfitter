@@ -9,7 +9,13 @@ Bridl is organized around clear TypeScript source boundaries, requirement docume
 
 ```text
 .                                      # repository root
+├── .deepreview                        # root DeepWork review rules for project-wide checks
+├── .deepwork/                         # DeepWork schemas and generated review instruction scratch files
+│   └── schemas/                       # project-specific DeepSchema definitions
+├── .github/                           # GitHub automation configuration
+│   └── workflows/                     # GitHub Actions workflows and local .deepreview rules
 ├── doc/                               # architecture, design, and specification docs
+│   ├── .deepreview                    # documentation-specific DeepWork review rules
 │   ├── architecture.md                # architectural rationale and runtime file conventions
 │   ├── controllable-elements.md       # controllable element terminology and support matrix
 │   ├── file_structure.md              # repository file structure overview
@@ -74,10 +80,11 @@ Bridl is organized around clear TypeScript source boundaries, requirement docume
 │   └── validation/                    # shared validation helpers
 │       └── SchemaValidator.ts
 ├── scripts/                           # local development and formatting helper scripts
+│   ├── .deepreview                    # script-specific DeepWork review rules
 │   └── run-snapper.mjs                # pinned Snapper binary downloader/runner
 ├── tests/                             # automated tests
 │   ├── fixtures/                      # reusable test fixtures
-│   │   ├── integration/               # fixture-backed integration scenarios and catalog
+│   │   ├── integration/               # fixture-backed integration scenarios, catalog, and local .deepreview
 │   │   └── scenarios/                 # compact profile-resolution scenarios and expected outputs
 │   ├── integration/                   # fixture-backed integration tests and harness helpers
 │   └── unit/                          # unit tests grouped by functionality under test

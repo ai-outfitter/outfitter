@@ -1,0 +1,27 @@
+release_metadata_sync:
+  description: "Review Bridl release metadata synchronization automation."
+  match:
+    include:
+      - "sync-release-version.mjs"
+  review:
+    strategy: individual
+    instructions: |
+      Review the Bridl release metadata synchronization script for correctness
+      and release safety.
+
+      Focus on judgment-based release safety concerns that complement the
+      deterministic unit tests for BRIDL-REQ-009.1 release metadata synchronization.
+
+      Check that the script:
+      - Keeps its mutation scope limited to release metadata files under the
+        configured project root.
+      - Avoids network access, npm publishing, git mutation, credential access,
+        or other side effects that belong in the GitHub Actions workflow.
+      - Produces actionable errors rather than silent success when release
+        metadata is malformed or unsafe to publish.
+      - Keeps implementation comments and workflow assumptions accurate enough
+        for a release maintainer to diagnose failures.
+
+      Output Format:
+      - PASS: The release metadata synchronization script is correctly scoped and safe.
+      - FAIL: Issues found. List each correctness or release-safety concern with a line reference.

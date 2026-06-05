@@ -1,5 +1,5 @@
 prompt_best_practices:
-  description: "Review prompt/instruction markdown files for Anthropic prompt engineering best practices."
+  description: "Review prompt/instruction files for Anthropic prompt engineering best practices."
   match:
     include:
       - "**/CLAUDE.md"
@@ -7,11 +7,13 @@ prompt_best_practices:
       - ".claude/**/*.md"
       - ".deepwork/review/*.md"
       - ".deepwork/jobs/**/*.md"
+      - "**/.deepreview"
+      - ".deepwork/schemas/**/*.yml"
   review:
     strategy: individual
     instructions: |
-      Review this markdown file as a prompt or instruction file, evaluating it
-      against Anthropic's prompt engineering best practices.
+      Review this file as a prompt or instruction file, evaluating its natural-language
+      instructions against Anthropic's prompt engineering best practices.
 
       For each issue found, report:
       1. Location (section or line)
@@ -33,49 +35,9 @@ prompt_best_practices:
       instruction for a simple task does not need few-shot examples or XML tags.
       Do not flag issues for best practices that are irrelevant to the file's purpose.
 
-requirement_file_format:
-  description: "Review BRIDL-REQ-008.1 requirement files for judgment-based quality that complements deterministic DeepSchema checks."
-  match:
-    include:
-      - "requirements/BRIDL-REQ-*.md"
-  review:
-    strategy: individual
-    instructions: |
-      Review this requirements specification file for requirement quality.
-
-      Deterministic format facts such as filename shape, heading ID shape,
-      section ID consistency, and RFC 2119 keyword presence are handled by the
-      requirements_file DeepSchema. Do not duplicate those exact checks here.
-
-      Check the following judgment-based concerns:
-
-      1. **Testability**: Each requirement MUST be specific enough to verify by
-         TypeScript test, DeepSchema, DeepReview rule, or direct reviewer judgment.
-
-      2. **Stable numbered identities**: Requirement item numbers are stable
-         identities. Existing numbered items should only change when that exact
-         requirement truly changed. For example, it is acceptable to update an
-         existing item if the requirement itself had a list of allowed values
-         and a new allowed value was added. Flag existing numbered items moved
-         to different numbers, existing numbered items reused for unrelated
-         requirements, removed requirements whose old numbered slot disappeared,
-         or new requirements inserted before existing entries in a way that
-         renumbers old entries. If a requirement is removed, its old number MUST
-         remain present and the replacement text MUST clearly say
-         `REQUIREMENT REMOVED`. Requirement numbers MUST NOT be reused for
-         another concept.
-
-      3. **Stable identity risk**: Flag likely ID reassignment or semantic drift
-         when the requirement text appears to reuse an existing ID or numbered
-         item for an unrelated concept.
-
-      4. **Validation mechanism fit**: Flag requirements whose expected
-         validation mechanism is unclear or obviously mismatched.
-
       Output Format:
-      - PASS: All requirements are specific, stable, and validation-ready.
-      - FAIL: Issues found. List each with the section ID, requirement number,
-        and a concise description of the issue.
+      - PASS: No prompt best-practice issues found.
+      - FAIL: Issues found. List each issue with location, severity, best practice violated, description, and suggested improvement.
 
 requirements_traceability:
   description: "Verify BRIDL-REQ-008 traceability between requirements, TypeScript tests, DeepSchemas, and DeepReview rules."
@@ -89,7 +51,7 @@ requirements_traceability:
       - "tests/**/*.tsx"
       - "**/*.test.ts"
       - "**/*.spec.ts"
-      - ".deepreview"
+      - "**/.deepreview"
       - ".deepwork/schemas/**/*.yml"
   review:
     strategy: all_changed_files
@@ -130,12 +92,12 @@ integration_fixture_requirement_coverage:
       - "requirements/BRIDL-REQ-006-agent-adapters.md"
       - "requirements/BRIDL-REQ-007-controllable-elements.md"
   review:
-    strategy: matches_together
+    strategy: all_changed_files
     additional_context:
       unchanged_matching_files: true
     instructions: |
       Review changed /added requirements for user-visible behavior that should be
-      validated by fixture-backed integration tests. Focus only on requirement text 
+      validated by fixture-backed integration tests. Focus only on requirement text
       changes / additions that alter observable profile, tack, adapter, or state behavior.
 
       If a changed requirement affects any of these areas, the PR MUST update
@@ -164,66 +126,31 @@ integration_fixture_requirement_coverage:
       - PASS: Integration fixture coverage is appropriate for the requirement change.
       - FAIL: List each changed requirement that lacks fixture coverage or a sufficient justification.
 
-test_file_quality:
-  description: "Verify BRIDL-REQ-008.3 TypeScript test traceability comments are durable and correctly formatted."
-  match:
-    include:
-      - "tests/**/*.ts"
-      - "tests/**/*.tsx"
-      - "**/*.test.ts"
-      - "**/*.spec.ts"
-    exclude:
-      - "node_modules/**"
-      - "dist/**"
-      - "build/**"
-      - "coverage/**"
-  review:
-    strategy: individual
-    instructions: |
-      Review this TypeScript test file for requirement traceability comment quality.
-
-      Tests that validate a formal requirement MUST have a two-line traceability
-      comment immediately before the relevant `it(...)`, `test(...)`, or
-      `describe(...)` block:
-
-      ```ts
-      // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-008.3).
-      // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
-      it("validates durable behavior", () => {
-        // ...
-      });
-      ```
-
-      Check the following:
-      1. **Both lines present**: Every traceability comment MUST include both
-         the `THIS TEST VALIDATES` line and the `YOU MUST NOT MODIFY` line.
-      2. **Placement**: The comment block MUST appear immediately before the
-         test case or test group it governs.
-      3. **Valid requirement ID**: Requirement IDs MUST follow `BRIDL-REQ-NNN.M`
-         unless the test intentionally validates an external standard.
-      4. **Durable comments**: Comments MUST describe lasting behavior or policy,
-         not line numbers, pull request numbers, or current-diff context.
-      5. **Accuracy**: Comments MUST still match the test behavior after changes.
-
-      Do NOT flag tests that have no requirement reference and are merely utility
-      or edge-case tests without formal requirement coverage claims.
-
-      Output Format:
-      - PASS: All traceability comments are correctly formatted.
-      - FAIL: Issues found. List each with the test name, line number, and a
-        concise description.
-
 doc_consistency:
-  description: "Verify architecture, file structure, state writeback, and public docs stay current when requirements change."
+  description: "Verify architecture, file structure, state writeback, and public docs stay current when requirements or related docs change."
   match:
     include:
       - "requirements/BRIDL-REQ-*.md"
+      - "doc/architecture.md"
+      - "doc/file_structure.md"
+      - "doc/state_writeback_strategy.md"
+      - "doc/controllable-elements.md"
+      - "doc_site/app/**/*.mdx"
+      - "doc_site/app/layout.tsx"
+      - "doc_site/app/_meta.js"
+      - "src/agents/pi/PiAdapter.ts"
   review:
-    strategy: matches_together
+    strategy: all_changed_files
     additional_context:
       unchanged_matching_files: true
     instructions: |
-      Review changed requirements and verify that the documentation stays current.
+      Review changed requirements, related documentation, and Pi state-path
+      implementation changes together to verify that repository documentation and
+      public documentation site content stay current. This rule provides
+      judgment-based review coverage for keeping docs aligned with formal
+      requirement changes, including adapter boundaries, controllable-element
+      documentation, tack/state persistence, and other product requirements
+      that affect public claims.
 
       Documentation files to keep updated:
       - doc/architecture.md
@@ -232,6 +159,9 @@ doc_consistency:
       - doc/controllable-elements.md
       - doc_site/app/page.mdx
       - doc_site/app/state-persistence/page.mdx
+      - doc_site/app/**/*.mdx
+      - doc_site/app/layout.tsx
+      - doc_site/app/_meta.js
 
       Implementation file to consult when requirements affect Pi state path behavior:
       - src/agents/pi/PiAdapter.ts
@@ -241,13 +171,15 @@ doc_consistency:
       2. Runtime file conventions such as settings directories, profile folders, and tack paths live in doc/architecture.md.
       3. State writeback and state updating details in doc/architecture.md stay consistent with doc/state_writeback_strategy.md, including tack/state terminology, strategy names, Pi path policy, and cross-document links.
       4. Pi state path declarations and special Pi path resolution behavior documented in doc/state_writeback_strategy.md match src/agents/pi/PiAdapter.ts when Pi state path requirements change.
-      5. Public documentation site claims in doc_site/app/page.mdx and doc_site/app/state-persistence/page.mdx stay aligned with architecture and support boundaries.
-      6. Cross-document links and filenames are accurate.
-      7. Terminology such as profile, tack, settings, adapter, and pi is used consistently.
+      5. Public documentation site claims in doc_site/app/page.mdx, doc_site/app/state-persistence/page.mdx, other MDX pages, layout metadata, and docs navigation stay aligned with architecture, requirements, and support boundaries.
+      6. Public docs do not omit important user-facing requirement changes when the homepage, docs pages, or metadata already discuss the affected product area.
+      7. Public docs do not present roadmap, unsupported, or unimplemented requirements as currently supported unless the requirement says they are.
+      8. Cross-document links and filenames are accurate.
+      9. Terminology such as profile, tack, settings, adapter, controllable elements, setup repositories, agent harnesses, and pi is used consistently.
 
       Output Format:
-      - PASS: The documentation is current with the changed requirements and links are accurate.
-      - FAIL: Issues found. List each stale, missing, conflicting, or broken documentation statement with a line reference.
+      - PASS: Documentation and public docs site content remain consistent with the changed requirements and links are accurate.
+      - FAIL: Issues found. List each stale, missing, conflicting, contradictory, or broken documentation statement with a line reference.
 
 doc_site_product_consistency:
   description: "Verify public documentation site claims stay aligned with Bridl architecture and controllable element support."
@@ -271,7 +203,7 @@ doc_site_product_consistency:
 
       Check that:
       1. Public docs do not overstate implemented adapter support, especially for
-         non-pi agents that are roadmap-only.
+         unsupported or unimplemented non-pi agents.
       2. Claims about profile precedence, tack behavior, setup repositories,
          remote profile sources, and adapter translation match doc/architecture.md.
       3. Claims about state persistence, state update scenarios, and Pi path policy match doc/state_writeback_strategy.md.
@@ -283,71 +215,6 @@ doc_site_product_consistency:
       Output Format:
       - PASS: Public docs site claims are consistent with architecture and support docs.
       - FAIL: Issues found. List each inaccurate or overstated claim with a line reference.
-
-doc_site_requirements_sync:
-  description: "Verify public documentation site claims stay aligned with formal requirements changes."
-  match:
-    include:
-      - "requirements/BRIDL-REQ-*.md"
-      - "doc_site/app/**/*.mdx"
-      - "doc_site/app/layout.tsx"
-      - "doc_site/app/_meta.js"
-  review:
-    strategy: matches_together
-    additional_context:
-      unchanged_matching_files: true
-    instructions: |
-      Review formal requirement documents and public documentation site content
-      together. This rule provides judgment-based review coverage for keeping
-      the documentation site aligned with requirement changes, including
-      BRIDL-REQ-006 adapter boundaries, BRIDL-REQ-007 controllable-element
-      documentation, and other product requirements that affect public claims.
-
-      Check that:
-      1. When a requirement changes, public docs copy, metadata, feature tables,
-         and examples do not contradict the new requirement text.
-      2. Public docs do not omit an important user-facing requirement change when
-         the homepage or docs metadata already discusses the affected product area.
-      3. Public docs do not present roadmap, unsupported, or unimplemented
-         requirements as currently supported unless the requirement says they are.
-      4. Requirement language and docs language use compatible terminology for
-         profiles, tacks, adapters, controllable elements, setup repositories,
-         and agent harnesses.
-
-      Output Format:
-      - PASS: Public docs site content remains consistent with the requirements.
-      - FAIL: Issues found. List each stale, missing, or contradictory docs claim with a line reference.
-
-controllable_elements_matrix:
-  description: "Review controllable element mappings and support-status claims for judgment-based accuracy."
-  match:
-    include:
-      - "doc/controllable-elements.md"
-  review:
-    strategy: individual
-    instructions: |
-      Review doc/controllable-elements.md for judgment-based mapping accuracy.
-      This rule provides judgment-based review coverage for BRIDL-REQ-007.1,
-      BRIDL-REQ-007.2, and BRIDL-REQ-007.3 concerns that cannot be validated
-      deterministically by the controllable_elements_matrix DeepSchema.
-
-      Deterministic facts such as table shape, one row per defined term, allowed
-      status values, and status definition presence are handled by the
-      controllable_elements_matrix DeepSchema. Do not duplicate those exact
-      checks here.
-
-      Check the following judgment-based concerns:
-      1. Pi mechanism descriptions accurately reflect pi terminology and native
-         behavior.
-      2. Non-pi mappings are clearly framed as roadmap/experimental unless a
-         supported adapter exists.
-      3. Support status claims do not overstate tested Bridl behavior.
-      4. Defined controllable elements are meaningful product-boundary concepts,
-         not implementation-only details.
-
-      Output Format:
-      - PASS: Mappings and support-status claims are accurate and appropriately qualified.
-      - FAIL: Issues found. List each inaccurate or overstated mapping/status claim with a line reference.
 
 update_readme:
   description: "Ensure README.md and recommendation.md stay current as the TypeScript project skeleton and profile-wrapper design evolve."
@@ -372,6 +239,10 @@ update_readme:
       source files. Flag any sections that are now outdated or inaccurate.
       If a documentation file itself was changed, verify the updates are correct
       and consistent with the source files.
+
+      Output Format:
+      - PASS: README.md and recommendation.md are current with the changed source files.
+      - FAIL: Issues found. List each outdated or inaccurate section with a file and line reference.
     additional_context:
       unchanged_matching_files: true
 
@@ -409,52 +280,9 @@ typescript_code_review:
         documentation still accurate after the changes? Flag any comments that
         describe behavior that no longer matches the code.
 
-release_workflow_safety:
-  description: "Review Bridl npm release workflow safety."
-  match:
-    include:
-      - ".github/workflows/release.yml"
-  review:
-    strategy: individual
-    instructions: |
-      Review the Bridl npm release workflow for release-safety concerns that
-      complement deterministic workflow tests.
-
-      Check that the workflow:
-      - Does not expose npm tokens or other secrets through logs, command-line
-        arguments, checked-in files, or environment variables beyond the npm
-        publish step.
-      - Uses release triggers intentionally and does not publish from pull
-        requests, arbitrary pushes, or untrusted forks.
-      - Avoids git mutation, repository write credentials, or unrelated network
-        side effects that are not required for dependency installation, CI, or
-        npm publishing.
-      - Keeps maintainer-facing step names, comments, and assumptions accurate
-        enough to diagnose release failures.
-
-release_metadata_sync:
-  description: "Review Bridl release metadata synchronization automation."
-  match:
-    include:
-      - "scripts/sync-release-version.mjs"
-  review:
-    strategy: individual
-    instructions: |
-      Review the Bridl release metadata synchronization script for correctness
-      and release safety.
-
-      Focus on judgment-based release safety concerns that complement the
-      deterministic unit tests for this script.
-
-      Check that the script:
-      - Keeps its mutation scope limited to release metadata files under the
-        configured project root.
-      - Avoids network access, npm publishing, git mutation, credential access,
-        or other side effects that belong in the GitHub Actions workflow.
-      - Produces actionable errors rather than silent success when release
-        metadata is malformed or unsafe to publish.
-      - Keeps implementation comments and workflow assumptions accurate enough
-        for a release maintainer to diagnose failures.
+      Output Format:
+      - PASS: The TypeScript file follows project conventions and has no actionable issues.
+      - FAIL: Issues found. List each issue with a file, line reference, severity, and concise description.
 
 suggest_new_reviews:
   description: "Analyze all changes and suggest new review rules that would catch issues going forward."
@@ -481,53 +309,6 @@ suggest_new_reviews:
          - Catches an issue likely to recur and worth ongoing cost
       5. If no rules are warranted, say so. An empty suggestion list is valid.
 
-integration_fixture_readme:
-  description: "Review integration fixture README files for scenario accuracy and write-back expectations."
-  match:
-    include:
-      - "tests/fixtures/integration/*/README.md"
-  review:
-    strategy: individual
-    instructions: |
-      Review this integration fixture README against the files in the same fixture
-      directory. The README is the durable human contract for the fixture set.
-
-      Check that the README accurately explains:
-      - the user/project setup represented by home/ and project/;
-      - the selected profile or profiles and relevant inheritance/default behavior;
-      - any adapter-specific controls or cli_specific state files present;
-      - expected durable state ownership: profile, native fallback, cache, or temporary tack;
-      - mutation/write-back behavior that tests are expected to exercise.
-
-      Flag stale or missing README details when fixture files changed without a
-      matching explanation update. Do not require every expected JSON assertion to
-      be duplicated verbatim in prose.
-
       Output Format:
-      - PASS: The README matches the fixture setup and write-back expectations.
-      - FAIL: Issues found. List each stale or missing detail with the fixture path.
-
-integration_fixture_catalog:
-  description: "Review the fixture catalog when integration fixture sets change."
-  match:
-    include:
-      - "tests/fixtures/integration/INTEGRATION_TEST_FIXTURES.md"
-      - "tests/fixtures/integration/**"
-  review:
-    strategy: matches_together
-    instructions: |
-      Review integration fixture changes for catalog consistency.
-
-      Check that:
-      - every fixture set under tests/fixtures/integration/ is represented in
-        tests/fixtures/integration/INTEGRATION_TEST_FIXTURES.md unless it is an intentionally shared helper
-        directory documented in tests/fixtures/integration/README.md;
-      - catalog entries describe scenarios rather than adapter-only mechanics;
-      - adapter-specific expectations are described as adapter-specific details,
-        not as the fixture's primary identity;
-      - adding, removing, or materially changing a fixture is reflected in both
-        the fixture README and the catalog.
-
-      Output Format:
-      - PASS: Fixture catalog and fixture directories are consistent.
-      - FAIL: Issues found. List each missing or stale catalog/README item.
+      - PASS: No new review rules are warranted.
+      - FAIL: Suggestions found. List each proposed rule or scope expansion with the target files, issue pattern, and why it is worth the ongoing review cost.

@@ -1,0 +1,37 @@
+integration_fixture_consistency:
+  description: "Review integration fixture README files and catalog entries for scenario accuracy, structure, and write-back expectations."
+  match:
+    include:
+      - "INTEGRATION_TEST_FIXTURES.md"
+      - "**/*"
+  review:
+    strategy: matches_together
+    instructions: |
+      Review integration fixture changes for README and catalog consistency.
+      Fixture README files are the durable human contract for each fixture set;
+      the fixture catalog is the durable overview of all fixture scenarios.
+
+      Check that each changed fixture README accurately explains:
+      - the user/project setup represented by home/ and project/;
+      - the selected profile or profiles and relevant inheritance/default behavior;
+      - any adapter-specific controls or cli_specific state files present;
+      - expected durable state ownership: profile, native fallback, cache, or temporary tack;
+      - mutation/write-back behavior that tests are expected to exercise.
+
+      Check catalog consistency:
+      - every fixture set under tests/fixtures/integration/ is represented in
+        tests/fixtures/integration/INTEGRATION_TEST_FIXTURES.md unless it is an intentionally shared helper
+        directory documented in tests/fixtures/integration/README.md;
+      - catalog entries describe scenarios rather than adapter-only mechanics;
+      - adapter-specific expectations are described as adapter-specific details,
+        not as the fixture's primary identity;
+      - adding, removing, or materially changing a fixture is reflected in both
+        the fixture README and the catalog.
+
+      Flag stale or missing README details when fixture files changed without a
+      matching explanation update. Do not require every expected JSON assertion to
+      be duplicated verbatim in prose.
+
+      Output Format:
+      - PASS: Fixture README files, fixture directories, and fixture catalog are consistent.
+      - FAIL: Issues found. List each stale, missing, or inaccurate README/catalog item with the fixture path.

@@ -1,0 +1,26 @@
+release_workflow_safety:
+  description: "Review Bridl npm release workflow safety."
+  match:
+    include:
+      - "release.yml"
+  review:
+    strategy: individual
+    instructions: |
+      Review the Bridl npm release workflow for release-safety concerns that
+      complement deterministic workflow tests for BRIDL-REQ-009.2.
+
+      Check that the workflow:
+      - Does not expose npm tokens or other secrets through logs, command-line
+        arguments, checked-in files, or environment variables beyond the npm
+        publish step.
+      - Uses release triggers intentionally and does not publish from pull
+        requests, arbitrary pushes, or untrusted forks.
+      - Avoids git mutation, repository write credentials, or unrelated network
+        side effects that are not required for dependency installation, CI, or
+        npm publishing.
+      - Keeps maintainer-facing step names, comments, and assumptions accurate
+        enough to diagnose release failures.
+
+      Output Format:
+      - PASS: The release workflow is appropriately scoped and safe.
+      - FAIL: Issues found. List each unsafe or inaccurate workflow concern with a line reference.

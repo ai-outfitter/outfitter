@@ -4,6 +4,20 @@ instructions: |
   requirements. The goal is durable traceability without brittle comments tied
   to temporary implementation details.
 
+  Tests that validate a formal requirement MUST have a two-line traceability
+  comment immediately before the relevant `it(...)`, `test(...)`, or
+  `describe(...)` block. Do not flag tests that have no requirement reference
+  and are merely utility or edge-case tests without formal requirement coverage
+  claims:
+
+  ```ts
+  // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-008.3).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it("validates durable behavior", () => {
+    // ...
+  });
+  ```
+
 matchers:
   - "tests/**/*.ts"
   - "tests/**/*.tsx"
@@ -11,6 +25,22 @@ matchers:
   - "**/*.spec.ts"
 
 requirements:
+  required-two-line-traceability-comment: >
+    Tests that validate a formal requirement MUST include both traceability
+    comment lines: `THIS TEST VALIDATES A HARD REQUIREMENT (...)` with one or
+    more requirement IDs such as `BRIDL-REQ-NNN.M` or comma-separated IDs such
+    as `BRIDL-REQ-005.3, BRIDL-REQ-005.6`, and `YOU MUST NOT MODIFY THIS TEST
+    UNLESS THE REQUIREMENT CHANGES.`
+
+  immediate-traceability-comment-placement: >
+    The two-line traceability comment block MUST appear immediately before the
+    `it(...)`, `test(...)`, or `describe(...)` block it governs.
+
+  no-false-positive-for-unclaimed-coverage: >
+    Tests without a formal requirement reference MUST NOT be flagged solely for
+    lacking traceability comments when they are utility tests or edge-case tests
+    that do not claim formal requirement coverage.
+
   durable-traceability-comments: >
     Tests that validate a formal requirement MUST include a durable traceability
     comment identifying the requirement ID and warning that the test must not be
