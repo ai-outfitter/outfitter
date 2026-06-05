@@ -345,8 +345,10 @@ describe('pi adapter', () => {
     const root = createTemporaryPiAdapterTestRoot('applepi-pi-mcp-invalid-test-');
     const nonObjectProfileFolder = join(root, 'non-object-profile');
     const malformedProfileFolder = join(root, 'malformed-profile');
+    const unreadableProfileFolder = join(root, 'unreadable-profile');
     writePiMcpConfig(nonObjectProfileFolder, '[]\n');
     writePiMcpConfig(malformedProfileFolder, '{invalid-json}\n');
+    mkdirSync(join(unreadableProfileFolder, 'cli_specific', 'pi', '.mcp.json'), { recursive: true });
 
     expect(() =>
       createPiAdapter().createCompositeProfile(
@@ -372,6 +374,16 @@ describe('pi adapter', () => {
     ).toThrow(
       `Pi MCP config '${join(malformedProfileFolder, 'cli_specific', 'pi', '.mcp.json')}' must contain valid JSON.`,
     );
+    expect(() =>
+      createPiAdapter().createCompositeProfile(
+        { id: 'engineering', inherits: [], controls: {} },
+        {
+          rootDirectory: join(root, 'unreadable-composite'),
+          profilePaths: [],
+          profileFolders: [unreadableProfileFolder],
+        },
+      ),
+    ).toThrow(`Could not read Pi MCP config '${join(unreadableProfileFolder, 'cli_specific', 'pi', '.mcp.json')}`);
   });
 });
 

@@ -49,12 +49,20 @@ const readPiMcpConfigSource = (sourcePath: string): JsonObject => {
 };
 
 const parsePiMcpConfigJson = (sourcePath: string): unknown => {
-  const content = readFileSync(sourcePath, 'utf8');
+  const content = readPiMcpConfigContent(sourcePath);
 
   try {
     return JSON.parse(content) as unknown;
   } catch (error) {
     throw new Error(`Pi MCP config '${sourcePath}' must contain valid JSON.`, { cause: error });
+  }
+};
+
+const readPiMcpConfigContent = (sourcePath: string): string => {
+  try {
+    return readFileSync(sourcePath, 'utf8');
+  } catch (error) {
+    throw new Error(`Could not read Pi MCP config '${sourcePath}': ${String(error)}`, { cause: error });
   }
 };
 
