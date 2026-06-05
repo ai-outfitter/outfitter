@@ -121,6 +121,49 @@ requirements_traceability:
       See doc/specs/validating_requirements_with_rules.md for project guidance.
 
    
+integration_fixture_requirement_coverage:
+  description: "Require fixture-backed integration coverage when requirements change tack, profile, adapter, or state behavior."
+  match:
+    include:
+      - "requirements/BRIDL-REQ-003-profiles.md"
+      - "requirements/BRIDL-REQ-005-run-and-tack.md"
+      - "requirements/BRIDL-REQ-006-agent-adapters.md"
+      - "requirements/BRIDL-REQ-007-controllable-elements.md"
+  review:
+    strategy: matches_together
+    additional_context:
+      unchanged_matching_files: true
+    instructions: |
+      Review changed /added requirements for user-visible behavior that should be
+      validated by fixture-backed integration tests. Focus only on requirement text 
+      changes / additions that alter observable profile, tack, adapter, or state behavior.
+
+      If a changed requirement affects any of these areas, the PR MUST update
+      fixture-backed integration coverage under tests/integration/ and
+      tests/fixtures/integration/:
+      - profile selection, inheritance, source precedence, or merging;
+      - settings precedence or profile source resolution;
+      - tack directory assembly or generated adapter config files;
+      - launch command, launch args, or launch environment;
+      - state persistence, write-back, warning, error, or hard-tack behavior;
+      - adapter-specific translation for pi or future agents.
+
+      Acceptable evidence includes:
+      1. A new integration fixture scenario.
+      2. An update to an existing integration fixture, expected snapshot, or test.
+      3. A clear PR explanation for why deterministic unit coverage is sufficient
+         and no realistic tack-level fixture is needed.
+
+      Do NOT require integration fixture changes for:
+      - purely editorial requirement clarifications with no behavior change;
+      - requirement governance wording that does not affect runtime behavior;
+      - behavior that is better validated by a DeepSchema, DeepReview rule, or
+        focused unit test than by a realistic tack-generation fixture.
+
+      Output Format:
+      - PASS: Integration fixture coverage is appropriate for the requirement change.
+      - FAIL: List each changed requirement that lacks fixture coverage or a sufficient justification.
+
 test_file_quality:
   description: "Verify BRIDL-REQ-008.3 TypeScript test traceability comments are durable and correctly formatted."
   match:
