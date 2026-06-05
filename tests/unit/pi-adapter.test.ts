@@ -116,6 +116,8 @@ describe('pi adapter', () => {
     }
   });
 
+  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-006.6).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('transforms pi settings packages when profile extensions would duplicate native packages', () => {
     const { homeDirectory, settingsPath } = createPiSettingsTestHome();
     writeFileSync(
@@ -172,6 +174,8 @@ describe('pi adapter', () => {
     });
   });
 
+  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-006.6).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('keeps native pi settings state when settings do not need reconciliation or cannot be parsed', () => {
     const noDuplicate = createPiSettingsTestHome();
     writeFileSync(noDuplicate.settingsPath, JSON.stringify({ packages: ['npm:kept-package'] }));
@@ -213,6 +217,17 @@ describe('pi adapter', () => {
         ),
       ).toBe(true);
     }
+
+    const unreadable = createPiSettingsTestHome();
+    mkdirSync(unreadable.settingsPath);
+
+    expect(() =>
+      adapter.createCompositeProfile(profile, {
+        rootDirectory: '/tmp/applepi-engineering-pi-789',
+        profilePaths: ['/profiles/engineering/profile.yml'],
+        homeDirectory: unreadable.homeDirectory,
+      }),
+    ).toThrow(/Could not read pi settings file/u);
   });
 });
 

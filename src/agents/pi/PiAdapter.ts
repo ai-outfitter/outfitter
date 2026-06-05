@@ -154,8 +154,16 @@ const createPiSettingsTransformFile = (
 };
 
 const readPiSettingsDocument = (settingsPath: string): PiSettingsDocument | undefined => {
+  let content: string;
+
   try {
-    const parsed: unknown = JSON.parse(readFileSync(settingsPath, 'utf8'));
+    content = readFileSync(settingsPath, 'utf8');
+  } catch (error) {
+    throw new Error(`Could not read pi settings file '${settingsPath}': ${String(error)}`, { cause: error });
+  }
+
+  try {
+    const parsed: unknown = JSON.parse(content);
     return isPiSettingsDocument(parsed) ? parsed : undefined;
   } catch {
     return undefined;

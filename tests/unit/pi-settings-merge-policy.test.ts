@@ -10,6 +10,8 @@ import {
 } from '../../src/agents/pi/PiSettingsMergePolicy.js';
 
 describe('Pi settings merge policies', () => {
+  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-006.6).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('declares merge policies for Pi settings resource arrays', () => {
     expect(Object.keys(piSettingsArrayPolicies).sort()).toEqual([
       'extensions',
@@ -38,6 +40,8 @@ describe('Pi settings merge policies', () => {
     expect(mergeArrayByPolicy(['dark.json'], ['dark.json'], piSettingsArrayPolicies.themes)).toEqual(['dark.json']);
   });
 
+  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-006.6).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('normalizes package entries and filters package duplicates of profile extensions', () => {
     const packages = [
       'npm:pi-subagents',
@@ -64,6 +68,8 @@ describe('Pi settings merge policies', () => {
     expect(filterPiSettingsPackagesDuplicatingExtensions(packages, [])).toBe(packages);
   });
 
+  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-006.6).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('keeps malformed package-like entries distinct when applying generic package dedupe', () => {
     expect(
       mergeArrayByPolicy(

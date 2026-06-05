@@ -52,3 +52,11 @@ Pi is the default and primary supported adapter; Claude Code is also supported t
 5. The Claude Code adapter SHOULD support `--model`, `--effort`, `--system-prompt`, `--append-system-prompt`, and `--plugin-dir` where native Claude Code flags exist.
 6. The Claude Code adapter SHOULD support `controls.session_directory` and `controls.claude.session_directory` by routing Claude `projects/` session state through ApplePi state persistence.
 7. The Claude Code adapter MUST return unsupported-control warnings for requested generic or `controls.claude` controls that it cannot translate.
+
+### APPLEPI-REQ-006.6: Pi Settings Reconciliation
+
+1. When profile-controlled Pi extensions duplicate native Pi `settings.json` package entries, the pi adapter MUST avoid launching pi with both copies enabled.
+2. The pi adapter MUST compare duplicate Pi extension and package entries by normalized resource identity rather than raw source string.
+3. The pi adapter MUST preserve unrelated Pi settings and unrelated package entries when generating a reconciled runtime `settings.json`.
+4. The pi adapter MUST keep reconciled runtime `settings.json` writes non-durable and declared so they are discarded without being reported as unknown state.
+5. The pi adapter MUST fall back to native Pi `settings.json` state persistence when reconciliation is unnecessary or the settings file cannot be interpreted safely.

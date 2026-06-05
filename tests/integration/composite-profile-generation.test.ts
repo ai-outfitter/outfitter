@@ -68,6 +68,53 @@ describe('integration fixture composite profile generation', () => {
     expect(readFixtureText(fixture, 'project/.applepi/profiles/repo-review/profile.yml')).toContain('REPO_PROFILE');
   });
 
+  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-006.6).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('reconciles native pi packages duplicated by profile-controlled extensions in the composite settings file', async () => {
+    const fixture = copyFixtureToTemp('trivial_repo_only_profile');
+    const nativeSettingsDirectory = join(fixture.home, '.pi', 'agent');
+    const nativeSettingsPath = join(nativeSettingsDirectory, 'settings.json');
+    const profilePath = join(fixture.project, '.applepi', 'profiles', 'repo-review', 'profile.yml');
+    const warnings: string[] = [];
+    let compositeSettings: unknown;
+    let settingsIsSymlink = true;
+
+    mkdirSync(nativeSettingsDirectory, { recursive: true });
+    writeFileSync(
+      nativeSettingsPath,
+      `${JSON.stringify({ packages: ['npm:pi-subagents', 'npm:kept-package'], theme: 'dark' })}\n`,
+    );
+    writeFileSync(
+      profilePath,
+      [readFileSync(profilePath, 'utf8'), '  pi:', '    extensions:', '      - npm:pi-subagents@2', ''].join('\n'),
+    );
+
+    const result = await runFixture(fixture, {
+      profileId: 'repo-review',
+      agentId: 'pi',
+      warnings,
+      launcher: {
+        launch(plan) {
+          const compositeProfileRoot = compositeProfileRootFromLaunchPlan(plan);
+          const settingsPath = join(compositeProfileRoot, 'settings.json');
+          settingsIsSymlink = lstatSync(settingsPath).isSymbolicLink();
+          compositeSettings = JSON.parse(readFileSync(settingsPath, 'utf8'));
+          writeFileSync(settingsPath, '{"runtime":"updated"}\n');
+
+          return Promise.resolve(0);
+        },
+      },
+    });
+
+    expect(settingsIsSymlink).toBe(false);
+    expect(compositeSettings).toEqual({ packages: ['npm:kept-package'], theme: 'dark' });
+    expect(readFileSync(nativeSettingsPath, 'utf8')).toBe(
+      `${JSON.stringify({ packages: ['npm:pi-subagents', 'npm:kept-package'], theme: 'dark' })}\n`,
+    );
+    expect(result.warnings).toEqual([]);
+    expect(warnings).toEqual([]);
+  });
+
   // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-003.2, APPLEPI-REQ-005.3).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('runs a realistic TypeScript profile stack over the user default without writing back inherited profiles', async () => {
