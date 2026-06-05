@@ -12,7 +12,7 @@ import { loadLocalProfileSource } from '../../../profiles/ProfileLoader.js';
 import type { LoadedProfile } from '../../../profiles/ProfileLoader.js';
 import type { ProfileSourceReference } from '../../../profiles/ProfileSource.js';
 import { loadSettingsWithCachedRemoteSettings } from '../../../settings/SettingsLoader.js';
-import type { ProfileCommandDependencies } from './ProfileCommand.js';
+import type { ProfileCommandDependencies } from './Command.js';
 
 export interface ListedProfile {
   readonly id: string;
