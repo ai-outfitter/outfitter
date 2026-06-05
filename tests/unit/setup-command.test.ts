@@ -386,6 +386,8 @@ describe('setup command', () => {
     expect(result.messages).toContain("Selected default profile 'repository'.");
   });
 
+  // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-004.1).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('updates the effective default profile when duplicate settings keys are present', () => {
     const root = createTemporaryRoot();
     const homeDirectory = join(root, 'home');
@@ -407,6 +409,8 @@ describe('setup command', () => {
     expect(readFileSync(missingDefaultSettingsPath, 'utf8')).toBe('profile_sources: []\ndefault_profile: selected\n');
   });
 
+  // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-004.1).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('uses the readline setup prompt when no selector dependency is injected', async () => {
     const root = createTemporaryRoot();
     const homeDirectory = join(root, 'home');
@@ -432,6 +436,8 @@ describe('setup command', () => {
     expect(readFileSync(join(homeDirectory, '.bridl', 'settings.yml'), 'utf8')).toContain('default_profile: solo');
   });
 
+  // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-004.1).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('rejects out-of-range readline setup prompt selections', async () => {
     const root = createTemporaryRoot();
     const homeDirectory = join(root, 'home');

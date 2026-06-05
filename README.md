@@ -89,11 +89,11 @@ You can bootstrap a machine from a Git repository:
 bridl setup https://github.com/my_account/bridl_config
 ```
 
-`bridl setup <repo>` requires an interactive terminal on both stdin and stdout. It clones or updates the repository in Bridl's shared repository cache, then uses it as a non-overwriting starting point:
+`bridl setup` requires an interactive terminal on both stdin and stdout. When a repository is provided, it clones or updates the repository in Bridl's shared repository cache, then uses it as a non-overwriting starting point:
 
 - if `~/.bridl/settings.yml` does not exist, Bridl copies the starter `settings.yml`;
 - if starter profiles exist, Bridl copies missing profile files into `~/.bridl/profiles/`;
-- existing user settings and profile files are left unchanged;
+- existing user settings and profile files are otherwise left unchanged;
 - after setup, Bridl runs the same sync behavior used by `bridl sync`;
 - Bridl then shows a short setup wizard that lists synced profiles and writes the selected default profile to user settings.
 

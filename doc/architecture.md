@@ -687,7 +687,9 @@ Responsibilities:
 - fetch/update URI-based, GitHub shorthand, and remote settings sources;
 - store plain URI profile sources without `ref` or repository subpaths under `~/.bridl/cache/profiles/<encoded-uri>/` for compatibility;
 - store GitHub shorthand sources and sources with `ref` or repository subpaths under `~/.bridl/cache/repos/<encoded-uri-and-ref>/`;
-- validate fetched remote settings files and profiles.
+- validate fetched remote settings files and profiles;
+- report whether each source was updated, unchanged, skipped, or failed;
+- redact credentials embedded in source URIs from user-facing output.
 
 ### `bridl create_profile`
 
