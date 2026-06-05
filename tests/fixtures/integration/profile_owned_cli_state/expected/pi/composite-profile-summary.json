@@ -72,6 +72,37 @@
       "systemPrompt": "Review repository state using profile-owned CLI files."
     }
   },
+  "mcpConfig": {
+    "mcpServers": {
+      "shared": {
+        "command": "selected-command"
+      },
+      "baseOnly": {
+        "command": "base-only-command"
+      },
+      "selectedOnly": {
+        "command": "selected-only-command"
+      }
+    },
+    "metadata": {
+      "labels": [
+        {
+          "value": {
+            "nested": "base"
+          }
+        },
+        {
+          "identity": "shared-label",
+          "value": "selected"
+        },
+        {
+          "value": {
+            "other": "selected"
+          }
+        }
+      ]
+    }
+  },
   "stateTargets": {
     "auth.json": "<project>/.applepi/profiles/stateful-review/cli_specific/pi/auth.json",
     "settings.json": "<project>/.applepi/profiles/stateful-review/cli_specific/pi/settings.json",

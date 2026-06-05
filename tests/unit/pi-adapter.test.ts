@@ -351,7 +351,11 @@ describe('pi adapter', () => {
     expect(() =>
       createPiAdapter().createCompositeProfile(
         { id: 'engineering', inherits: [], controls: {} },
-        { rootDirectory: join(root, 'non-object-composite'), profilePaths: [], profileFolders: [nonObjectProfileFolder] },
+        {
+          rootDirectory: join(root, 'non-object-composite'),
+          profilePaths: [],
+          profileFolders: [nonObjectProfileFolder],
+        },
       ),
     ).toThrow(
       `Pi MCP config '${join(nonObjectProfileFolder, 'cli_specific', 'pi', '.mcp.json')}' must contain a JSON object.`,
@@ -359,7 +363,11 @@ describe('pi adapter', () => {
     expect(() =>
       createPiAdapter().createCompositeProfile(
         { id: 'engineering', inherits: [], controls: {} },
-        { rootDirectory: join(root, 'malformed-composite'), profilePaths: [], profileFolders: [malformedProfileFolder] },
+        {
+          rootDirectory: join(root, 'malformed-composite'),
+          profilePaths: [],
+          profileFolders: [malformedProfileFolder],
+        },
       ),
     ).toThrow(
       `Pi MCP config '${join(malformedProfileFolder, 'cli_specific', 'pi', '.mcp.json')}' must contain valid JSON.`,

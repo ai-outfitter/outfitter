@@ -9,7 +9,7 @@ This fixture models a repository profile that owns selected agent CLI state alon
 - `project/.applepi/profiles/team-base/profile.yml` contributes shared repository controls inherited by the selected profile.
 - `project/.applepi/profiles/stateful-review/profile.yml` is the selected profile.
   It includes generic controls plus `controls.pi` and `controls.claude` adapter-specific overrides.
-- `project/.applepi/profiles/stateful-review/cli_specific/pi/` contains Pi-owned state files such as `auth.json`, `settings.json`, `mcp.json`, and `plugins/`.
+- `project/.applepi/profiles/stateful-review/cli_specific/pi/` contains Pi-owned state files such as `auth.json`, `settings.json`, `mcp.json`, `.mcp.json`, and `plugins/`.
 - `project/.applepi/profiles/stateful-review/cli_specific/claude/` contains Claude-owned state files such as `settings.json`, `agents/`, `commands/`, `skills/`, and `plugins/`.
 
 ## Expected behavior
