@@ -123,9 +123,12 @@ describe('profile command', () => {
     ).rejects.toThrow("Unknown profile scope 'invalid'");
 
     const missingNameProgram = new Command();
-    missingNameProgram.exitOverride();
-    missingNameProgram.configureOutput({ writeErr: () => undefined });
     createProfileCommand({ homeDirectory, projectDirectory }).register(missingNameProgram);
+    const profileCreateCommand = missingNameProgram.commands[0]?.commands.find(
+      (command) => command.name() === 'create',
+    );
+    profileCreateCommand?.exitOverride();
+    profileCreateCommand?.configureOutput({ writeErr: () => undefined });
     await expect(
       missingNameProgram.parseAsync(['node', 'applepi', 'profile', 'create', '--scope', 'user']),
     ).rejects.toThrow("missing required argument 'name'");

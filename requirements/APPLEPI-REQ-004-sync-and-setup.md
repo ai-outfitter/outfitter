@@ -43,7 +43,7 @@ ApplePi provides setup and maintenance commands that create initial configuratio
 
 ### APPLEPI-REQ-004.4: Command Object Implementation
 
-1. The `setup`, `sync`, and profile command entry points MUST execute command objects rather than duplicate implementation logic in parser callbacks.
+1. All CLI command entry points MUST execute command objects rather than duplicate implementation logic in parser callbacks.
 2. Command objects MUST accept typed input objects rather than reading directly from `process.argv`.
 3. Command objects SHOULD receive filesystem, settings, profile, and process dependencies through constructors or equivalent dependency injection.
 4. The `profile create` parser entry point MUST execute the profile-creation command object.
