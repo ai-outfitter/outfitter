@@ -115,7 +115,7 @@ state_paths:
 
   tmp/:
     default_strategy: symlink
-    allowed_strategies: [symlink, discard, warn, error]
+    allowed_strategies: [symlink, discard]
 
   utilities/:
     default_strategy: symlink
