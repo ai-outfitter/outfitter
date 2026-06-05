@@ -17,6 +17,7 @@ import type { CompositeProfile } from '../../compositeProfile/CompositeProfile.j
 import { createCompositeProfile } from '../../compositeProfile/CompositeProfile.js';
 import { createCompositeProfileFile } from '../../compositeProfile/CompositeProfileFile.js';
 import type { StatePathDeclaration, CompositeProfileStatePath } from '../../compositeProfile/StatePersistence.js';
+import { createPiMcpConfigFile } from './PiMcpConfig.js';
 
 const piControlNames = new Set(
   [...genericControlNames].filter((controlName) => controlName !== 'pi' && controlName !== 'claude'),
@@ -60,8 +61,9 @@ export const createPiAdapter = (): AgentAdapter => ({
           sourceInputs: input.profilePaths,
           strategy: 'transform',
         }),
-        ...(transformedSettingsFile === undefined ? [] : [transformedSettingsFile]),
-      ],
+        createPiMcpConfigFile(input.rootDirectory, input.profileFolders),
+        transformedSettingsFile,
+      ].filter((file) => file !== undefined),
       transformedSettingsFile === undefined ? statePaths : markPiSettingsStatePathDiscarded(statePaths),
     );
 
