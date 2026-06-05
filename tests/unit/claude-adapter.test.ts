@@ -156,6 +156,8 @@ describe('Claude Code adapter support', () => {
     }
   });
 
+  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-006.5).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('declares Claude Code state paths and validates state persistence overrides', () => {
     const root = createTemporaryRoot();
     const profileFolder = join(root, 'profile');

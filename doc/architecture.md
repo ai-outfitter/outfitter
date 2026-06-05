@@ -642,6 +642,7 @@ ApplePi should prefer native pi mechanisms:
 - generated Pi settings reconciliation in the composite profile where flags/env are not the right mechanism.
 
 If generic ApplePi controls conflict with pi naming or behavior, prefer pi’s terminology and conventions.
+Because ApplePi chooses `PI_CODING_AGENT_DIR` and other startup-sensitive configuration before launching pi, a requested pi control that would require changing startup discovery after pi has already begun cannot be applied by an extension or late runtime hook. The pi adapter reports such unsupported or startup-order-impossible controls through normal adapter warnings, and `--strict` makes those warnings fatal.
 
 Claude Code is also supported through the `claude` adapter.
 ApplePi launches `claude` with `CLAUDE_CONFIG_DIR` pointing at the composite profile root, maps supported controls to native flags (`--model`, `--effort`, `--system-prompt`, `--append-system-prompt`, and repeated `--plugin-dir`), and preserves Claude Code state paths such as `settings.json`, `agents/`, `skills/`, `commands/`, `plugins/`, `projects/`, and `debug/` through adapter-declared state persistence.
