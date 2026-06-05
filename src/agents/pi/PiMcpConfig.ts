@@ -65,12 +65,14 @@ const mergePiMcpConfigObjects = (
 ): JsonObject => ({
   ...lowerPrecedence,
   ...Object.fromEntries(
-    Object.entries(higherPrecedence).map(([key, value]) => [
-      key,
-      key in lowerPrecedence
-        ? mergePiMcpConfigValue(lowerPrecedence[key], value as MergeableValue, [...path, key])
-        : clonePiMcpConfigValue(value as MergeableValue),
-    ]),
+    Object.entries(higherPrecedence)
+      .filter((entry): entry is [string, MergeableValue] => entry[1] !== undefined)
+      .map(([key, value]) => [
+        key,
+        key in lowerPrecedence
+          ? mergePiMcpConfigValue(lowerPrecedence[key], value, [...path, key])
+          : clonePiMcpConfigValue(value),
+      ]),
   ),
 });
 

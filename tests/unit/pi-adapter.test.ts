@@ -8,11 +8,11 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { createPiAdapter } from '../../src/agents/pi/PiAdapter.js';
 import { parseProfileYaml } from '../../src/profiles/ProfileLoader.js';
 
-const temporaryPiSettingsTestHomes: string[] = [];
+const temporaryPiAdapterTestRoots: string[] = [];
 
 afterEach(() => {
-  for (const homeDirectory of temporaryPiSettingsTestHomes.splice(0)) {
-    rmSync(homeDirectory, { recursive: true, force: true });
+  for (const root of temporaryPiAdapterTestRoots.splice(0)) {
+    rmSync(root, { recursive: true, force: true });
   }
 });
 
@@ -23,7 +23,7 @@ const writePiMcpConfig = (profileFolder: string, content: object | string): void
 };
 
 describe('pi adapter', () => {
-  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-006.1, APPLEPI-REQ-006.2, APPLEPI-REQ-006.3).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-006.1, APPLEPI-REQ-006.2, APPLEPI-REQ-006.3, APPLEPI-REQ-006.4).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('translates generic and pi-specific profile controls into pi env and argv', () => {
     const adapter = createPiAdapter();
@@ -251,7 +251,7 @@ describe('pi adapter', () => {
   // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-006.3).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('merges pi .mcp.json profile fragments with unique array identities keeping the last entry', () => {
-    const root = mkdtempSync(join(tmpdir(), 'applepi-pi-mcp-test-'));
+    const root = createTemporaryPiAdapterTestRoot('applepi-pi-mcp-test-');
     const baseProfileFolder = join(root, 'base');
     const explicitProfileFolder = join(root, 'explicit');
 
@@ -342,7 +342,7 @@ describe('pi adapter', () => {
   });
 
   it('rejects pi .mcp.json profile fragments that are invalid or not JSON objects', () => {
-    const root = mkdtempSync(join(tmpdir(), 'applepi-pi-mcp-invalid-test-'));
+    const root = createTemporaryPiAdapterTestRoot('applepi-pi-mcp-invalid-test-');
     const nonObjectProfileFolder = join(root, 'non-object-profile');
     const malformedProfileFolder = join(root, 'malformed-profile');
     writePiMcpConfig(nonObjectProfileFolder, '[]\n');
@@ -375,9 +375,14 @@ describe('pi adapter', () => {
   });
 });
 
+const createTemporaryPiAdapterTestRoot = (prefix: string): string => {
+  const root = mkdtempSync(join(tmpdir(), prefix));
+  temporaryPiAdapterTestRoots.push(root);
+  return root;
+};
+
 const createPiSettingsTestHome = (): { readonly homeDirectory: string; readonly settingsPath: string } => {
-  const homeDirectory = mkdtempSync(join(tmpdir(), 'applepi-pi-settings-'));
-  temporaryPiSettingsTestHomes.push(homeDirectory);
+  const homeDirectory = createTemporaryPiAdapterTestRoot('applepi-pi-settings-');
   const settingsDirectory = join(homeDirectory, '.pi', 'agent');
   const settingsPath = join(settingsDirectory, 'settings.json');
   mkdirSync(settingsDirectory, { recursive: true });
