@@ -1,5 +1,6 @@
 // Provides the command object for first-run Bridl setup.
 import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { createInterface } from 'node:readline/promises';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 
@@ -7,16 +8,19 @@ import type { Command } from 'commander';
 import spawn from 'cross-spawn';
 
 import {
+  createProfileSourceCachePath,
   createRemoteRepositoryCachePath,
   normalizeGitUri,
   redactProfileSourceUriCredentials,
+  resolveRemoteRepositorySubpath,
 } from '../../profiles/ProfileCache.js';
-import { isValidProfileId } from '../../profiles/ProfileLoader.js';
+import { isValidProfileId, loadLocalProfileSource } from '../../profiles/ProfileLoader.js';
 import {
   createSettingsLoadPlan,
   discoverSettingsLoadPlan,
   loadSettings,
   loadSettingsFiles,
+  loadSettingsWithCachedRemoteSettings,
 } from '../../settings/SettingsLoader.js';
 import type { CommandObject } from './CommandObject.js';
 import type { SyncCommandDependencies, SyncCommandResult } from './SyncCommand.js';
@@ -44,7 +48,18 @@ export interface SetupSourceSynchronizer {
 
 export type SetupCommandDependencies = SyncCommandDependencies & {
   readonly setupSourceSynchronizer?: SetupSourceSynchronizer;
+  readonly input?: { readonly isTTY?: boolean } & NodeJS.ReadableStream;
+  readonly output?: { readonly isTTY?: boolean } & NodeJS.WritableStream;
+  readonly interactive?: boolean;
+  readonly selectDefaultProfile?: (profiles: readonly SetupProfileChoice[], currentDefault: string) => Promise<string>;
 };
+
+export interface SetupProfileChoice {
+  readonly id: string;
+  readonly label?: string;
+}
+
+const defaultProfileSourceRepository = 'Unsupervisedcom/applepi-default-profiles';
 
 interface StarterLayout {
   readonly cachePath: string;
@@ -52,10 +67,11 @@ interface StarterLayout {
   readonly profilesPath?: string;
 }
 
-export const executeSetupCommand = (
+export const executeSetupCommand = async (
   input: SetupCommandInput,
   dependencies: SetupCommandDependencies = {},
-): SetupCommandResult => {
+): Promise<SetupCommandResult> => {
+  requireInteractiveTerminalIfNeeded(dependencies);
   const settingsPath = join(input.homeDirectory, '.bridl', 'settings.yml');
   const initialSettingsMissing = !existsSync(settingsPath);
   const starterLayout = input.setupSourceUri
@@ -78,9 +94,15 @@ export const executeSetupCommand = (
     starterLayout?.profilesPath,
     join(input.homeDirectory, '.bridl', 'profiles'),
   );
-  const defaultProfilePath = join(input.homeDirectory, '.bridl', 'profiles', defaultProfileId, 'profile.yml');
-  const createdDefaultProfile = createDefaultProfileIfMissing(defaultProfilePath, defaultProfileId);
   const syncResult = executeSyncCommand(input, dependencies);
+  const selectedDefaultProfileId = await selectDefaultProfileIfInteractive(
+    input,
+    settingsPath,
+    defaultProfileId,
+    dependencies,
+  );
+  const defaultProfilePath = join(input.homeDirectory, '.bridl', 'profiles', selectedDefaultProfileId, 'profile.yml');
+  const createdDefaultProfile = createDefaultProfileIfMissing(defaultProfilePath, selectedDefaultProfileId);
 
   return {
     settingsPath,
@@ -95,7 +117,7 @@ export const executeSetupCommand = (
       settingsPath,
       createdSettings,
       copiedStarterProfileFiles,
-      defaultProfileId,
+      defaultProfileId: selectedDefaultProfileId,
       defaultProfilePath,
       createdDefaultProfile,
       syncResult,
@@ -142,8 +164,9 @@ const buildSetupMessages = (input: SetupMessageInput): readonly string[] => {
 
   messages.push(
     input.createdDefaultProfile
-      ? `Created default user profile '${input.defaultProfileId}' at ${input.defaultProfilePath}.`
-      : `Default user profile '${input.defaultProfileId}' already exists at ${input.defaultProfilePath}; left unchanged.`,
+      ? `Created default user profile at ${input.defaultProfilePath}.`
+      : `Default user profile at ${input.defaultProfilePath} already exists; left unchanged.`,
+    `Selected default profile '${input.defaultProfileId}'.`,
     ...input.syncResult.messages,
   );
 
@@ -158,8 +181,8 @@ export const createSetupCommand = (dependencies: SetupCommandDependencies = {}):
       program
         .command(`${command.name} [source]`)
         .description(command.description)
-        .action((source?: string) => {
-          const result = executeSetupCommand(
+        .action(async (source?: string) => {
+          const result = await executeSetupCommand(
             {
               /* v8 ignore next -- default process home is exercised by the direct CLI entrypoint, not unit tests. */
               homeDirectory: dependencies.homeDirectory ?? homedir(),
@@ -167,7 +190,7 @@ export const createSetupCommand = (dependencies: SetupCommandDependencies = {}):
               projectDirectory: dependencies.projectDirectory ?? process.cwd(),
               setupSourceUri: source,
             },
-            dependencies,
+            { ...dependencies, interactive: true },
           );
 
           for (const message of result.messages) {
@@ -254,11 +277,11 @@ const validateStarterSettingsIfPresent = (settingsPath?: string): void => {
 
 const readStarterDefaultProfileId = (settingsPath?: string): string => {
   if (settingsPath === undefined) {
-    return 'default';
+    return 'engineer';
   }
 
   const loaded = loadSettingsFiles(createSettingsLoadPlan([{ scope: 'user', path: settingsPath }]));
-  return loaded.files[0]?.settings.defaultProfile ?? 'default';
+  return loaded.files[0]?.settings.defaultProfile ?? 'engineer';
 };
 
 type LoadedSetupSettingsFile = {
@@ -267,7 +290,7 @@ type LoadedSetupSettingsFile = {
 };
 
 const readUserDefaultProfileId = (files: readonly LoadedSetupSettingsFile[]): string =>
-  files.find((file) => file.location.scope === 'user')?.settings.defaultProfile ?? 'default';
+  files.find((file) => file.location.scope === 'user')?.settings.defaultProfile ?? 'engineer';
 
 const ensureExistingUserSettingsDefaultProfile = (
   settingsPath: string,
@@ -290,6 +313,17 @@ const assertValidDefaultProfileId = (profileId: string): void => {
   }
 };
 
+const createDefaultSettingsContent = (): string =>
+  [
+    'default_profile: engineer',
+    'profile_sources:',
+    '  - path: ./profiles',
+    `  - github: ${defaultProfileSourceRepository}`,
+    '    ref: main',
+    '    path: profiles',
+    '',
+  ].join('\n');
+
 const createInitialSettingsIfMissing = (settingsPath: string, starterSettingsPath?: string): boolean => {
   if (existsSync(settingsPath)) {
     return false;
@@ -299,7 +333,7 @@ const createInitialSettingsIfMissing = (settingsPath: string, starterSettingsPat
   writeFileSync(
     settingsPath,
     starterSettingsPath === undefined
-      ? 'default_profile: default\nprofile_sources:\n  - path: ./profiles\n'
+      ? createDefaultSettingsContent()
       : readStarterSettingsContent(starterSettingsPath),
   );
   return true;
@@ -313,7 +347,7 @@ const readStarterSettingsContent = (starterSettingsPath: string): string => {
     return content;
   }
 
-  return `default_profile: default\n${content}`;
+  return `default_profile: engineer\n${content}`;
 };
 
 const copyStarterProfileFilesIfPresent = (
@@ -358,6 +392,152 @@ const createDefaultProfileIfMissing = (profilePath: string, profileId: string): 
   mkdirSync(dirname(profilePath), { recursive: true });
   writeFileSync(profilePath, `id: ${profileId}\nlabel: Default\ncontrols: {}\n`);
   return true;
+};
+
+const requireInteractiveTerminalIfNeeded = (dependencies: SetupCommandDependencies): void => {
+  if (dependencies.interactive !== true) {
+    return;
+  }
+
+  /* v8 ignore next -- default process streams are direct terminal behavior; tests inject streams. */
+  const inputIsTty = (dependencies.input ?? process.stdin).isTTY === true;
+  /* v8 ignore next -- default process streams are direct terminal behavior; tests inject streams. */
+  const outputIsTty = (dependencies.output ?? process.stdout).isTTY === true;
+
+  if (!inputIsTty || !outputIsTty) {
+    throw new Error('`bridl setup` requires an interactive TTY on both stdin and stdout.');
+  }
+};
+
+const selectDefaultProfileIfInteractive = async (
+  input: SetupCommandInput,
+  settingsPath: string,
+  currentDefault: string,
+  dependencies: SetupCommandDependencies,
+): Promise<string> => {
+  if (dependencies.interactive !== true) {
+    return currentDefault;
+  }
+
+  const profiles = discoverSetupProfileChoices(input);
+  const writer = dependencies.writeLine ?? console.log;
+  writer('Welcome to Bridl. Bridl is the easiest way to run Pi.');
+  writer('Bridl manages full pi configurations for you, so you can use different profiles in different situations.');
+  const selectedProfile = await selectSetupProfile(profiles, currentDefault, dependencies);
+  assertValidSelectedDefaultProfile(selectedProfile, profiles);
+  updateSettingsDefaultProfile(settingsPath, selectedProfile);
+  return selectedProfile;
+};
+
+const assertValidSelectedDefaultProfile = (selectedProfile: string, profiles: readonly SetupProfileChoice[]): void => {
+  assertValidDefaultProfileId(selectedProfile);
+
+  if (profiles.length > 0 && profiles.every((profile) => profile.id !== selectedProfile)) {
+    throw new Error(`Selected default profile '${selectedProfile}' was not one of the available setup profiles.`);
+  }
+};
+
+const discoverSetupProfileChoices = (input: SetupCommandInput): readonly SetupProfileChoice[] => {
+  const loadedSettings = loadSettingsWithCachedRemoteSettings(input);
+  const choices = new Map<string, SetupProfileChoice>();
+
+  for (const source of loadedSettings.settings.profileSources!) {
+    const materializedPath = materializeSetupProfileSource(input.homeDirectory, source);
+    const loadedProfiles = loadLocalProfileSource({ path: materializedPath, only: source.only, except: source.except });
+
+    for (const profile of loadedProfiles.profiles) {
+      const existingChoice = choices.get(profile.profile.id);
+      choices.set(profile.profile.id, {
+        id: profile.profile.id,
+        label: profile.profile.label ?? existingChoice?.label,
+      });
+    }
+  }
+
+  return [...choices.values()].sort((left, right) => left.id.localeCompare(right.id));
+};
+
+const materializeSetupProfileSource = (
+  homeDirectory: string,
+  source: { readonly path?: string; readonly uri?: string; readonly github?: string; readonly ref?: string },
+): string => {
+  if (source.path !== undefined && source.uri === undefined && source.github === undefined) {
+    return source.path;
+  }
+
+  if (source.uri !== undefined && source.ref === undefined && source.path === undefined) {
+    return createProfileSourceCachePath(homeDirectory, source.uri);
+  }
+
+  if (source.uri !== undefined) {
+    return resolveRemoteRepositorySubpath(
+      createRemoteRepositoryCachePath(homeDirectory, { uri: source.uri, ref: source.ref }),
+      source.path,
+    );
+  }
+
+  return resolveRemoteRepositorySubpath(
+    createRemoteRepositoryCachePath(homeDirectory, { github: source.github!, ref: source.ref }),
+    source.path,
+  );
+};
+
+const selectSetupProfile = async (
+  profiles: readonly SetupProfileChoice[],
+  currentDefault: string,
+  dependencies: SetupCommandDependencies,
+): Promise<string> => {
+  if (dependencies.selectDefaultProfile !== undefined) {
+    return dependencies.selectDefaultProfile(profiles, currentDefault);
+  }
+
+  return promptForSetupProfile(profiles, currentDefault, dependencies);
+};
+
+const promptForSetupProfile = async (
+  profiles: readonly SetupProfileChoice[],
+  currentDefault: string,
+  dependencies: SetupCommandDependencies,
+): Promise<string> => {
+  const candidates = profiles.length > 0 ? profiles : [{ id: currentDefault }];
+  /* v8 ignore next -- default process streams are direct terminal behavior; tests inject streams. */
+  const output = dependencies.output ?? process.stdout;
+  /* v8 ignore next -- default process streams are direct terminal behavior; tests inject streams. */
+  const readline = createInterface({ input: dependencies.input ?? process.stdin, output });
+
+  try {
+    output.write('\nChoose the default profile for your sessions:\n');
+    candidates.forEach((profile, index) => {
+      const label = profile.label === undefined ? '' : ` - ${profile.label}`;
+      output.write(`${index + 1}. ${profile.id}${label}\n`);
+    });
+
+    const currentIndex = Math.max(
+      candidates.findIndex((profile) => profile.id === currentDefault),
+      0,
+    );
+    const answer = await readline.question(`Default profile [${currentIndex + 1}]: `);
+    const selectedIndex = Number.parseInt(answer.trim() || String(currentIndex + 1), 10) - 1;
+
+    const selectedProfile = candidates[selectedIndex];
+
+    if (selectedProfile === undefined) {
+      throw new Error('Selected default profile number is out of range.');
+    }
+
+    return selectedProfile.id;
+  } finally {
+    readline.close();
+  }
+};
+
+export const updateSettingsDefaultProfile = (settingsPath: string, profileId: string): void => {
+  const content = readFileSync(settingsPath, 'utf8');
+  const nextContent = /^default_profile:.*$/mu.test(content)
+    ? content.replace(/^default_profile:.*$/gmu, `default_profile: ${profileId}`)
+    : `${content.replace(/\s*$/u, '\n')}default_profile: ${profileId}\n`;
+
+  writeFileSync(settingsPath, nextContent);
 };
 
 const formatSettingsIssue = (issue: {

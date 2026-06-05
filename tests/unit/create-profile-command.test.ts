@@ -138,9 +138,22 @@ describe('create-profile command', () => {
     createSetupCommand({
       homeDirectory: join(root, 'setup-home'),
       projectDirectory,
+      input: { isTTY: true } as NodeJS.ReadableStream & { isTTY: true },
+      output: { isTTY: true } as NodeJS.WritableStream & { isTTY: true },
       writeLine: (message) => setupMessages.push(message),
+      synchronizer: {
+        sync(_source, cachePath) {
+          mkdirSync(join(cachePath, 'profiles', 'engineer'), { recursive: true });
+          writeFileSync(join(cachePath, 'profiles', 'engineer', 'profile.yml'), 'id: engineer\ncontrols: {}\n');
+          return 'updated';
+        },
+      },
+      selectDefaultProfile() {
+        return Promise.resolve('engineer');
+      },
     }).register(setupProgram);
     await setupProgram.parseAsync(['node', 'bridl', 'setup']);
-    expect(setupMessages[0]).toContain('Created user settings');
+    expect(setupMessages).toContain('Welcome to Bridl. Bridl is the easiest way to run Pi.');
+    expect(setupMessages).toContainEqual(expect.stringContaining('Created user settings'));
   });
 });

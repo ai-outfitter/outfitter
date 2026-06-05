@@ -52,7 +52,7 @@ afterEach(() => {
 describe('setup sources', () => {
   // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-004.1).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
-  it('fetches setup source repositories with the default git synchronizer', () => {
+  it('fetches setup source repositories with the default git synchronizer', async () => {
     const root = createTemporaryRoot();
     const homeDirectory = join(root, 'home');
     const projectDirectory = join(root, 'project');
@@ -68,15 +68,25 @@ describe('setup sources', () => {
     );
     commitAll(repositoryPath, 'setup');
 
-    const firstResult = executeSetupCommand({ homeDirectory, projectDirectory, setupSourceUri: repositoryPath });
-    const secondResult = executeSetupCommand({ homeDirectory, projectDirectory, setupSourceUri: repositoryPath });
+    const firstResult = await executeSetupCommand({ homeDirectory, projectDirectory, setupSourceUri: repositoryPath });
+    const secondResult = await executeSetupCommand({ homeDirectory, projectDirectory, setupSourceUri: repositoryPath });
     const emptySourceHomeDirectory = join(root, 'empty-source-home');
     const emptyRepositoryPath = createGitProfileRepository(root, 'empty-setup-source');
-    const emptySourceResult = executeSetupCommand({
-      homeDirectory: emptySourceHomeDirectory,
-      projectDirectory,
-      setupSourceUri: emptyRepositoryPath,
-    });
+    const emptySourceResult = await executeSetupCommand(
+      {
+        homeDirectory: emptySourceHomeDirectory,
+        projectDirectory,
+        setupSourceUri: emptyRepositoryPath,
+      },
+      {
+        synchronizer: {
+          sync(_source, cachePath) {
+            writeCachedProfile(join(cachePath, 'profiles'), 'engineer');
+            return 'updated';
+          },
+        },
+      },
+    );
     const nestedHomeDirectory = join(root, 'nested-home');
     const nestedRepositoryPath = createGitProfileRepository(root, 'nested-setup-source');
     mkdirSync(join(nestedRepositoryPath, '.bridl', 'profiles', 'default'), { recursive: true });
@@ -90,7 +100,7 @@ describe('setup sources', () => {
       join(nestedRepositoryPath, '.bridl', 'profiles', 'default', 'linked.yml'),
     );
     commitAll(nestedRepositoryPath, 'nested-setup');
-    const nestedSourceResult = executeSetupCommand({
+    const nestedSourceResult = await executeSetupCommand({
       homeDirectory: nestedHomeDirectory,
       projectDirectory,
       setupSourceUri: nestedRepositoryPath,
@@ -104,26 +114,29 @@ describe('setup sources', () => {
     expect(firstResult.createdDefaultProfile).toBe(false);
     expect(secondResult.createdSettings).toBe(false);
     expect(emptySourceResult.defaultProfilePath).toBe(
-      join(emptySourceHomeDirectory, '.bridl', 'profiles', 'default', 'profile.yml'),
+      join(emptySourceHomeDirectory, '.bridl', 'profiles', 'engineer', 'profile.yml'),
     );
     expect(nestedSourceResult.copiedStarterProfileFiles).toBe(1);
+    expect(nestedSourceResult.defaultProfilePath).toBe(
+      join(nestedHomeDirectory, '.bridl', 'profiles', 'engineer', 'profile.yml'),
+    );
     expect(readFileSync(join(nestedHomeDirectory, '.bridl', 'settings.yml'), 'utf8')).toContain(
-      'default_profile: default',
+      'default_profile: engineer',
     );
     expect(existsSync(join(nestedHomeDirectory, '.bridl', 'profiles', 'default', 'linked.yml'))).toBe(false);
-    expect(() =>
+    await expect(
       executeSetupCommand({
         homeDirectory: join(root, 'missing-source-home'),
         projectDirectory,
         setupSourceUri: join(root, 'missing-source'),
       }),
-    ).toThrow('does not exist');
-    expect(() =>
+    ).rejects.toThrow('does not exist');
+    await expect(
       executeSetupCommand({
         homeDirectory: invalidHomeDirectory,
         projectDirectory,
         setupSourceUri: invalidRepositoryPath,
       }),
-    ).toThrow('Cannot setup from invalid starter settings');
+    ).rejects.toThrow('Cannot setup from invalid starter settings');
   });
 });

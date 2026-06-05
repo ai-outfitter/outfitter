@@ -51,7 +51,7 @@ afterEach(() => {
 });
 
 describe('run command', () => {
-  // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-005.1, BRIDL-REQ-005.2, BRIDL-REQ-005.3, BRIDL-REQ-005.5).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-005.1, BRIDL-REQ-005.2, BRIDL-REQ-005.3, BRIDL-REQ-005.4, BRIDL-REQ-005.5).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('resolves the default profile, writes and refreshes a temp tack, warns, and passes through args', async () => {
     const root = createTemporaryRoot();
@@ -167,6 +167,13 @@ describe('run command', () => {
       { homeDirectory, projectDirectory },
       {
         writeLine: (message) => messages.push(message),
+        synchronizer: {
+          sync(_source, cachePath) {
+            mkdirSync(join(cachePath, 'profiles', 'engineer'), { recursive: true });
+            writeFileSync(join(cachePath, 'profiles', 'engineer', 'profile.yml'), 'id: engineer\ncontrols: {}\n');
+            return 'updated';
+          },
+        },
         launcher: {
           launch() {
             return Promise.resolve(0);
@@ -177,18 +184,19 @@ describe('run command', () => {
 
     expect(messages).toEqual([
       '`bridl setup` has not been run yet - running now',
-      '→ resolving profile default',
-      `✓ profile layer default  ${join(homeDirectory, '.bridl', 'profiles', 'default')}`,
+      '→ resolving profile engineer',
+      `✓ profile layer engineer  ${join(homeDirectory, '.bridl', 'profiles', 'engineer')}`,
+      '✓ profile layer engineer  github:Unsupervisedcom/applepi-default-profiles@main/profiles',
       '✓ merged controls',
       `✓ prepared tack  ${result.tackDirectory}`,
       '↳ launching pi …',
     ]);
-    expect(result.profileId).toBe('default');
+    expect(result.profileId).toBe('engineer');
     expect(existsSync(join(homeDirectory, '.bridl', 'settings.yml'))).toBe(true);
-    expect(existsSync(join(homeDirectory, '.bridl', 'profiles', 'default', 'profile.yml'))).toBe(true);
+    expect(existsSync(join(homeDirectory, '.bridl', 'profiles', 'engineer', 'profile.yml'))).toBe(true);
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-005.1, BRIDL-REQ-006.1).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-002.3, BRIDL-REQ-002.4, BRIDL-REQ-003.1, BRIDL-REQ-006.1).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('reports invalid settings, invalid profile sources, missing profiles, URI caches, and child exit codes', async () => {
     const root = createTemporaryRoot();
@@ -277,8 +285,6 @@ describe('run command', () => {
     expect(spawnedResult.exitCode).toBe(0);
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-005.1).
-  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('maps child process exits and signals to command exit codes', () => {
     expect(resolveChildExitCode(7, null)).toBe(7);
     expect(resolveChildExitCode(null, 'SIGINT')).toBe(130);

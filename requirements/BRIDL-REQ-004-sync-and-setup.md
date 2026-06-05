@@ -15,12 +15,17 @@ Bridl provides setup and maintenance commands that create initial configuration,
 5. The `setup` command MUST run sync behavior for URI-based profile sources.
 6. The `setup` command SHOULD avoid overwriting existing user files unless a future explicit force option authorizes replacement.
 7. When provided a setup source URI, the `setup` command MUST use that source repository's Bridl `settings.yml` and profiles as the initial user setup starting point.
+8. The interactive `setup` command MUST require interactive TTY streams on both stdin and stdout before prompting.
+9. The interactive `setup` command MUST synchronize remote profile sources before presenting setup profile choices.
+10. The interactive `setup` command MUST present discovered profile IDs as default-profile choices and preserve available display labels in the prompt choices.
+11. The interactive `setup` command MUST validate the selected default profile ID before writing it to `settings.yml`.
+12. After the interactive `setup` command writes the selected default profile, any newly-created fallback default profile file MUST correspond to the final selected default profile.
 
 ### BRIDL-REQ-004.2: Sync Command
 
 1. Bridl MUST provide a `sync` command.
 2. The `sync` command MUST read and validate settings before synchronizing sources.
-3. The `sync` command MUST fetch or update URI-based profile sources.
+3. The `sync` command MUST fetch or update remote settings sources and URI-based profile sources.
 4. The `sync` command MUST store plain URI-based profile sources without `ref` or repository subpaths under `~/.bridl/cache/profiles/<encoded-uri>/`, and MUST store URI or GitHub sources with `ref` or repository subpaths under `~/.bridl/cache/repos/<encoded-uri-and-ref>/`.
 5. The encoded URI cache path MUST support non-GitHub URIs.
 6. The `sync` command MUST validate profiles loaded from synchronized sources.
@@ -39,6 +44,7 @@ Bridl provides setup and maintenance commands that create initial configuration,
 
 ### BRIDL-REQ-004.4: Command Object Implementation
 
-1. The `setup`, `sync`, `create_profile`, and `create-profile` command entry points MUST execute the same command object rather than duplicate implementation logic.
+1. The `setup`, `sync`, and profile-creation command entry points MUST execute command objects rather than duplicate implementation logic in parser callbacks.
 2. Command objects MUST accept typed input objects rather than reading directly from `process.argv`.
 3. Command objects SHOULD receive filesystem, settings, profile, and process dependencies through constructors or equivalent dependency injection.
+4. The `create_profile` command and `create-profile` alias MUST execute the same profile-creation command object.
