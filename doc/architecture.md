@@ -670,9 +670,12 @@ Responsibilities:
 - create `~/.bridl/settings.yml` when missing;
 - accept an optional setup source URI, for example `bridl setup https://github.com/example/bridl-config`, and clone/update it under `~/.bridl/cache/repos/<encoded-uri-and-ref>/`;
 - when a setup source is provided, use its root `settings.yml` or `.bridl/settings.yml` and `profiles/` or `.bridl/profiles/` as the initial non-overwriting user setup starting point;
+- require an interactive TTY on both stdin and stdout before running setup prompts;
 - create a default profile when missing;
 - validate all discovered settings files and any starter settings file;
-- run `bridl sync` behavior for URI profile sources;
+- run `bridl sync` behavior for URI profile sources before profile selection;
+- show a setup wizard with synced profile choices, preserve display labels where available, validate the selected profile ID, and write the selected default profile to user settings;
+- create any missing fallback default profile file for the final selected default profile;
 - report actionable next steps.
 
 ### `bridl sync`

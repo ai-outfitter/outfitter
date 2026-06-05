@@ -235,6 +235,8 @@ describe('setup command', () => {
     expect(existsSync(join(invalidProjectHomeDirectory, '.bridl', 'settings.yml'))).toBe(false);
   });
 
+  // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-002.4, BRIDL-REQ-003.2, BRIDL-REQ-004.1).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('requires an interactive terminal and lets the setup wizard choose the default profile', async () => {
     const root = createTemporaryRoot();
     const homeDirectory = join(root, 'home');
@@ -262,6 +264,37 @@ describe('setup command', () => {
       ),
     ).rejects.toThrow('requires an interactive TTY');
 
+    await expect(
+      executeSetupCommand(
+        { homeDirectory: join(root, 'unsafe-home'), projectDirectory },
+        {
+          interactive: true,
+          input: { isTTY: true } as NodeJS.ReadableStream & { isTTY: true },
+          output: { isTTY: true } as NodeJS.WritableStream & { isTTY: true },
+          writeLine: () => undefined,
+          synchronizer: defaultProfileSynchronizer,
+          selectDefaultProfile() {
+            return Promise.resolve('bad\nprofile');
+          },
+        },
+      ),
+    ).rejects.toThrow('filesystem-safe');
+    await expect(
+      executeSetupCommand(
+        { homeDirectory: join(root, 'unlisted-home'), projectDirectory },
+        {
+          interactive: true,
+          input: { isTTY: true } as NodeJS.ReadableStream & { isTTY: true },
+          output: { isTTY: true } as NodeJS.WritableStream & { isTTY: true },
+          writeLine: () => undefined,
+          synchronizer: defaultProfileSynchronizer,
+          selectDefaultProfile() {
+            return Promise.resolve('unlisted');
+          },
+        },
+      ),
+    ).rejects.toThrow('not one of the available setup profiles');
+
     const result = await executeSetupCommand(
       { homeDirectory, projectDirectory },
       {
@@ -278,6 +311,8 @@ describe('setup command', () => {
       },
     );
 
+    expect(result.defaultProfilePath).toBe(join(homeDirectory, '.bridl', 'profiles', 'data_analyst', 'profile.yml'));
+    expect(readFileSync(result.defaultProfilePath, 'utf8')).toBe('id: data_analyst\nlabel: Default\ncontrols: {}\n');
     expect(result.messages).toContain("Selected default profile 'data_analyst'.");
     expect(messages).toEqual([
       'Welcome to Bridl. Bridl is the easiest way to run Pi.',
@@ -288,12 +323,15 @@ describe('setup command', () => {
     );
   });
 
+  // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-004.1).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('loads wizard choices from legacy URI and repository subpath sources', async () => {
     const root = createTemporaryRoot();
     const homeDirectory = join(root, 'home');
     const projectDirectory = join(root, 'project');
     const legacyUri = 'https://example.test/legacy-profiles.git';
     const repositoryUri = 'https://example.test/repository-profiles.git';
+    const duplicateUri = 'https://example.test/duplicate-profiles.git';
     writeSettings(
       homeDirectory,
       [
@@ -301,6 +339,9 @@ describe('setup command', () => {
         'profile_sources:',
         `  - uri: ${legacyUri}`,
         `  - uri: ${repositoryUri}`,
+        '    ref: main',
+        '    path: profiles',
+        `  - uri: ${duplicateUri}`,
         '    ref: main',
         '    path: profiles',
         '',
@@ -318,7 +359,15 @@ describe('setup command', () => {
             if (source.uri === legacyUri) {
               expect(cachePath).toBe(createProfileSourceCachePath(homeDirectory, legacyUri));
               writeCachedProfile(cachePath, 'legacy');
+            } else if (source.uri === repositoryUri) {
+              expect(cachePath).toBe(createRemoteRepositoryCachePath(homeDirectory, source));
+              writeCachedProfile(join(cachePath, 'profiles'), 'repository');
+              writeFileSync(
+                join(cachePath, 'profiles', 'repository', 'profile.yml'),
+                'id: repository\nlabel: Repository\ncontrols: {}\n',
+              );
             } else {
+              expect(source.uri).toBe(duplicateUri);
               expect(cachePath).toBe(createRemoteRepositoryCachePath(homeDirectory, source));
               writeCachedProfile(join(cachePath, 'profiles'), 'repository');
             }
@@ -328,6 +377,7 @@ describe('setup command', () => {
         },
         selectDefaultProfile(profiles) {
           expect(profiles.map((profile) => profile.id)).toEqual(['legacy', 'repository']);
+          expect(profiles.find((profile) => profile.id === 'repository')?.label).toBe('Repository');
           return Promise.resolve('repository');
         },
       },

@@ -15,6 +15,11 @@ Bridl provides setup and maintenance commands that create initial configuration,
 5. The `setup` command MUST run sync behavior for URI-based profile sources.
 6. The `setup` command SHOULD avoid overwriting existing user files unless a future explicit force option authorizes replacement.
 7. When provided a setup source URI, the `setup` command MUST use that source repository's Bridl `settings.yml` and profiles as the initial user setup starting point.
+8. The interactive `setup` command MUST require interactive TTY streams on both stdin and stdout before prompting.
+9. The interactive `setup` command MUST synchronize remote profile sources before presenting setup profile choices.
+10. The interactive `setup` command MUST present discovered profile IDs as default-profile choices and preserve available display labels in the prompt choices.
+11. The interactive `setup` command MUST validate the selected default profile ID before writing it to `settings.yml`.
+12. After the interactive `setup` command writes the selected default profile, any newly-created fallback default profile file MUST correspond to the final selected default profile.
 
 ### BRIDL-REQ-004.2: Sync Command
 

@@ -51,7 +51,7 @@ afterEach(() => {
 });
 
 describe('run command', () => {
-  // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-005.1, BRIDL-REQ-005.2, BRIDL-REQ-005.3, BRIDL-REQ-005.5).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-005.1, BRIDL-REQ-005.2, BRIDL-REQ-005.3, BRIDL-REQ-005.4, BRIDL-REQ-005.5).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('resolves the default profile, writes and refreshes a temp tack, warns, and passes through args', async () => {
     const root = createTemporaryRoot();
@@ -196,7 +196,7 @@ describe('run command', () => {
     expect(existsSync(join(homeDirectory, '.bridl', 'profiles', 'engineer', 'profile.yml'))).toBe(true);
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-005.1, BRIDL-REQ-006.1).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-002.3, BRIDL-REQ-002.4, BRIDL-REQ-003.1, BRIDL-REQ-006.1).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('reports invalid settings, invalid profile sources, missing profiles, URI caches, and child exit codes', async () => {
     const root = createTemporaryRoot();
@@ -285,8 +285,6 @@ describe('run command', () => {
     expect(spawnedResult.exitCode).toBe(0);
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-005.1).
-  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('maps child process exits and signals to command exit codes', () => {
     expect(resolveChildExitCode(7, null)).toBe(7);
     expect(resolveChildExitCode(null, 'SIGINT')).toBe(130);

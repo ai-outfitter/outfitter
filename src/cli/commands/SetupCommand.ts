@@ -94,8 +94,6 @@ export const executeSetupCommand = async (
     starterLayout?.profilesPath,
     join(input.homeDirectory, '.bridl', 'profiles'),
   );
-  const defaultProfilePath = join(input.homeDirectory, '.bridl', 'profiles', defaultProfileId, 'profile.yml');
-  const createdDefaultProfile = createDefaultProfileIfMissing(defaultProfilePath, defaultProfileId);
   const syncResult = executeSyncCommand(input, dependencies);
   const selectedDefaultProfileId = await selectDefaultProfileIfInteractive(
     input,
@@ -103,6 +101,8 @@ export const executeSetupCommand = async (
     defaultProfileId,
     dependencies,
   );
+  const defaultProfilePath = join(input.homeDirectory, '.bridl', 'profiles', selectedDefaultProfileId, 'profile.yml');
+  const createdDefaultProfile = createDefaultProfileIfMissing(defaultProfilePath, selectedDefaultProfileId);
 
   return {
     settingsPath,
@@ -424,8 +424,17 @@ const selectDefaultProfileIfInteractive = async (
   writer('Welcome to Bridl. Bridl is the easiest way to run Pi.');
   writer('Bridl manages full pi configurations for you, so you can use different profiles in different situations.');
   const selectedProfile = await selectSetupProfile(profiles, currentDefault, dependencies);
+  assertValidSelectedDefaultProfile(selectedProfile, profiles);
   updateSettingsDefaultProfile(settingsPath, selectedProfile);
   return selectedProfile;
+};
+
+const assertValidSelectedDefaultProfile = (selectedProfile: string, profiles: readonly SetupProfileChoice[]): void => {
+  assertValidDefaultProfileId(selectedProfile);
+
+  if (profiles.length > 0 && profiles.every((profile) => profile.id !== selectedProfile)) {
+    throw new Error(`Selected default profile '${selectedProfile}' was not one of the available setup profiles.`);
+  }
 };
 
 const discoverSetupProfileChoices = (input: SetupCommandInput): readonly SetupProfileChoice[] => {
@@ -437,7 +446,11 @@ const discoverSetupProfileChoices = (input: SetupCommandInput): readonly SetupPr
     const loadedProfiles = loadLocalProfileSource({ path: materializedPath, only: source.only, except: source.except });
 
     for (const profile of loadedProfiles.profiles) {
-      choices.set(profile.profile.id, { id: profile.profile.id, label: profile.profile.label });
+      const existingChoice = choices.get(profile.profile.id);
+      choices.set(profile.profile.id, {
+        id: profile.profile.id,
+        label: profile.profile.label ?? existingChoice?.label,
+      });
     }
   }
 
