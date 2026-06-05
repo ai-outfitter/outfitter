@@ -59,7 +59,7 @@ export interface SetupProfileChoice {
   readonly label?: string;
 }
 
-const defaultProfileSourceRepository = 'Unsupervisedcom/applepi-default-profiles';
+const defaultProfileSourceRepository = 'applepi-ai/default-profiles';
 
 interface StarterLayout {
   readonly cachePath: string;

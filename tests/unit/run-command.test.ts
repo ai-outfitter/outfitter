@@ -186,7 +186,7 @@ describe('run command', () => {
       '`applepi setup` has not been run yet - running now',
       '→ resolving profile engineer',
       `✓ profile layer engineer  ${join(homeDirectory, '.applepi', 'profiles', 'engineer')}`,
-      '✓ profile layer engineer  github:Unsupervisedcom/applepi-default-profiles@main/profiles',
+      '✓ profile layer engineer  github:applepi-ai/default-profiles@main/profiles',
       '✓ merged controls',
       `✓ prepared composite profile  ${result.compositeProfileDirectory}`,
       '↳ launching pi …',

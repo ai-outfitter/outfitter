@@ -65,7 +65,7 @@ describe('setup command', () => {
         'default_profile: engineer',
         'profile_sources:',
         '  - path: ./profiles',
-        '  - github: Unsupervisedcom/applepi-default-profiles',
+        '  - github: applepi-ai/default-profiles',
         '    ref: main',
         '    path: profiles',
         '',
