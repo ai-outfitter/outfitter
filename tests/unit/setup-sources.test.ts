@@ -117,6 +117,9 @@ describe('setup sources', () => {
       join(emptySourceHomeDirectory, '.bridl', 'profiles', 'engineer', 'profile.yml'),
     );
     expect(nestedSourceResult.copiedStarterProfileFiles).toBe(1);
+    expect(nestedSourceResult.defaultProfilePath).toBe(
+      join(nestedHomeDirectory, '.bridl', 'profiles', 'engineer', 'profile.yml'),
+    );
     expect(readFileSync(join(nestedHomeDirectory, '.bridl', 'settings.yml'), 'utf8')).toContain(
       'default_profile: engineer',
     );

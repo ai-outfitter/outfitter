@@ -281,7 +281,7 @@ const readStarterDefaultProfileId = (settingsPath?: string): string => {
   }
 
   const loaded = loadSettingsFiles(createSettingsLoadPlan([{ scope: 'user', path: settingsPath }]));
-  return loaded.files[0]?.settings.defaultProfile ?? 'default';
+  return loaded.files[0]?.settings.defaultProfile ?? 'engineer';
 };
 
 type LoadedSetupSettingsFile = {
