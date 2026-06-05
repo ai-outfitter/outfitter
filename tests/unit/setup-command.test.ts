@@ -8,6 +8,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import { executeSetupCommand, updateSettingsDefaultProfile } from '../../src/cli/commands/SetupCommand.js';
 import { createProfileSourceCachePath, createRemoteRepositoryCachePath } from '../../src/profiles/ProfileCache.js';
+import { allowTestConsoleOutput } from '../test-console.js';
 
 const temporaryRoots: string[] = [];
 
@@ -348,6 +349,10 @@ describe('setup command', () => {
       ].join('\n'),
     );
 
+    allowTestConsoleOutput(
+      ({ method, text }) =>
+        method === 'log' && (text.startsWith('Welcome to ApplePi') || text.startsWith('ApplePi manages')),
+    );
     const result = await executeSetupCommand(
       { homeDirectory, projectDirectory },
       {

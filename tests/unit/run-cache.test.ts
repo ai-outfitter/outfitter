@@ -44,7 +44,7 @@ describe('run command cache persistence', () => {
 
     const result = await executeRunCommand(
       { homeDirectory, projectDirectory },
-      { launcher: { launch: () => Promise.resolve(0) } },
+      { launcher: { launch: () => Promise.resolve(0) }, writeLine: () => undefined },
     );
 
     expect(readlinkSync(join(result.compositeProfileDirectory, 'utilities'))).toBe(
@@ -70,7 +70,7 @@ describe('run command cache persistence', () => {
 
     const result = await executeRunCommand(
       { homeDirectory, projectDirectory },
-      { launcher: { launch: () => Promise.resolve(0) } },
+      { launcher: { launch: () => Promise.resolve(0) }, writeLine: () => undefined },
     );
 
     expect(readlinkSync(join(result.compositeProfileDirectory, 'utilities'))).toBe(join(cacheDirectory, 'utilities'));

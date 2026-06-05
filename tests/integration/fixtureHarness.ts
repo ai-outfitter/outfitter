@@ -67,6 +67,7 @@ export const runFixture = async (
     {
       launcher: options.launcher,
       writeError: (message) => warnings.push(message),
+      writeLine: () => undefined,
     },
   );
 };
