@@ -6,6 +6,7 @@ import { dirname, join } from 'node:path';
 
 import type { Command } from 'commander';
 import spawn from 'cross-spawn';
+import { parseDocument, stringify } from 'yaml';
 
 import {
   createProfileSourceCachePath,
@@ -60,6 +61,11 @@ export interface SetupProfileChoice {
 }
 
 const defaultProfileSourceRepository = 'Unsupervisedcom/applepi-default-profiles';
+const defaultProfileSourceReference = {
+  github: defaultProfileSourceRepository,
+  ref: 'main',
+  path: 'profiles',
+} as const;
 
 interface StarterLayout {
   readonly cachePath: string;
@@ -90,6 +96,10 @@ export const executeSetupCommand = async (
 
   const createdSettings = createInitialSettingsIfMissing(settingsPath, starterLayout?.settingsPath);
   ensureExistingUserSettingsDefaultProfile(settingsPath, loadedSettings.files, defaultProfileId);
+
+  if (input.setupSourceUri === undefined) {
+    ensureDefaultProfileSource(settingsPath);
+  }
   const copiedStarterProfileFiles = copyStarterProfileFilesIfPresent(
     starterLayout?.profilesPath,
     join(input.homeDirectory, '.bridl', 'profiles'),
@@ -318,9 +328,9 @@ const createDefaultSettingsContent = (): string =>
     'default_profile: engineer',
     'profile_sources:',
     '  - path: ./profiles',
-    `  - github: ${defaultProfileSourceRepository}`,
-    '    ref: main',
-    '    path: profiles',
+    `  - github: ${defaultProfileSourceReference.github}`,
+    `    ref: ${defaultProfileSourceReference.ref}`,
+    `    path: ${defaultProfileSourceReference.path}`,
     '',
   ].join('\n');
 
@@ -338,6 +348,43 @@ const createInitialSettingsIfMissing = (settingsPath: string, starterSettingsPat
   );
   return true;
 };
+
+const ensureDefaultProfileSource = (settingsPath: string): void => {
+  const settings = readSettingsYamlObject(settingsPath);
+  const rawProfileSources: unknown = settings.profile_sources;
+  /* v8 ignore next -- settings validation prevents non-array profile_sources before setup rewrites settings.yml. */
+  const profileSources: unknown[] = Array.isArray(rawProfileSources) ? rawProfileSources : [];
+
+  if (profileSources.some(isDefaultProfileSourceDocument)) {
+    return;
+  }
+
+  writeFileSync(
+    settingsPath,
+    stringify({
+      ...settings,
+      profile_sources: [...profileSources, defaultProfileSourceReference],
+    }),
+  );
+};
+
+const readSettingsYamlObject = (settingsPath: string): Record<string, unknown> => {
+  const document = parseDocument(readFileSync(settingsPath, 'utf8'));
+  const settings: unknown = document.toJSON();
+
+  /* v8 ignore next -- setup validates settings.yml before rewriting the default source list. */
+  if (settings === null || typeof settings !== 'object' || Array.isArray(settings)) {
+    return {};
+  }
+
+  return settings as Record<string, unknown>;
+};
+
+const isDefaultProfileSourceDocument = (source: unknown): boolean =>
+  source !== null &&
+  typeof source === 'object' &&
+  !Array.isArray(source) &&
+  (source as { readonly github?: unknown }).github === defaultProfileSourceReference.github;
 
 const readStarterSettingsContent = (starterSettingsPath: string): string => {
   const content = readFileSync(starterSettingsPath, 'utf8');
@@ -486,6 +533,7 @@ const promptForSetupProfile = async (
   currentDefault: string,
   dependencies: SetupCommandDependencies,
 ): Promise<string> => {
+  /* v8 ignore next -- setup creates or syncs at least one profile choice before the prompt. */
   const candidates = profiles.length > 0 ? profiles : [{ id: currentDefault }];
   /* v8 ignore next -- default process streams are direct terminal behavior; tests inject streams. */
   const output = dependencies.output ?? process.stdout;
