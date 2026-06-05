@@ -135,10 +135,6 @@ doc_consistency:
       - "doc/file_structure.md"
       - "doc/state_writeback_strategy.md"
       - "doc/controllable-elements.md"
-      - "doc_site/app/**/*.mdx"
-      - "doc_site/app/layout.tsx"
-      - "doc_site/app/_meta.js"
-      - "src/agents/pi/PiAdapter.ts"
   review:
     strategy: all_changed_files
     additional_context:
@@ -162,9 +158,7 @@ doc_consistency:
       - doc_site/app/**/*.mdx
       - doc_site/app/layout.tsx
       - doc_site/app/_meta.js
-
-      Implementation file to consult when requirements affect Pi state path behavior:
-      - src/agents/pi/PiAdapter.ts
+      - README.md
 
       Check that:
       1. doc/file_structure.md stays limited to repository file structure, not runtime instance file conventions.
@@ -185,21 +179,14 @@ doc_site_product_consistency:
   description: "Verify public documentation site claims stay aligned with ApplePi architecture and controllable element support."
   match:
     include:
-      - "doc_site/app/**/*.mdx"
-      - "doc_site/app/layout.tsx"
-      - "doc/architecture.md"
-      - "doc/state_writeback_strategy.md"
-      - "doc/controllable-elements.md"
+      - "doc/*"
   review:
     strategy: matches_together
     additional_context:
       unchanged_matching_files: true
     instructions: |
       Review public documentation site MDX pages against ApplePi's architecture and
-      controllable element documentation. This rule provides judgment-based
-      review coverage for public claims related to APPLEPI-REQ-005.6 composite profile state
-      persistence, APPLEPI-REQ-006.2 adapter support boundaries, and
-      APPLEPI-REQ-007 cross-agent controllable-element support documentation.
+      controllable element documentation. 
 
       Check that:
       1. Public docs do not overstate implemented adapter support, especially for
@@ -215,36 +202,6 @@ doc_site_product_consistency:
       Output Format:
       - PASS: Public docs site claims are consistent with architecture and support docs.
       - FAIL: Issues found. List each inaccurate or overstated claim with a line reference.
-
-update_readme:
-  description: "Ensure README.md and recommendation.md stay current as the TypeScript project skeleton and profile-wrapper design evolve."
-  match:
-    include:
-      - "README.md"
-      - "recommendation.md"
-      - "package.json"
-      - "tsconfig.json"
-      - "src/**/*.ts"
-      - "src/schemas/**/*.json"
-      - "bin/**/*.ts"
-  review:
-    strategy: matches_together
-    instructions: |
-      When TypeScript project structure or source files change, check whether the
-      following documentation files need updating:
-      - README.md
-      - recommendation.md
-
-      Read each documentation file and compare its content against the changed
-      source files. Flag any sections that are now outdated or inaccurate.
-      If a documentation file itself was changed, verify the updates are correct
-      and consistent with the source files.
-
-      Output Format:
-      - PASS: README.md and recommendation.md are current with the changed source files.
-      - FAIL: Issues found. List each outdated or inaccurate section with a file and line reference.
-    additional_context:
-      unchanged_matching_files: true
 
 typescript_code_review:
   description: "Review TypeScript files against project conventions and best practices."
@@ -283,32 +240,3 @@ typescript_code_review:
       Output Format:
       - PASS: The TypeScript file follows project conventions and has no actionable issues.
       - FAIL: Issues found. List each issue with a file, line reference, severity, and concise description.
-
-suggest_new_reviews:
-  description: "Analyze all changes and suggest new review rules that would catch issues going forward."
-  match:
-    include:
-      - "**/*"
-    exclude:
-      - ".github/**"
-  review:
-    strategy: matches_together
-    instructions: |
-      Analyze the changeset to determine whether any new DeepWork review rules
-      should be added.
-
-      1. Call get_configured_reviews to see all currently configured review rules.
-      2. Read README_REVIEWS.md if present for context on review capabilities.
-      3. For each change, consider:
-         - Did this change introduce a type of issue a review rule could catch?
-         - Is there a pattern likely to recur?
-         - Would an existing rule benefit from a small scope expansion?
-      4. Be extremely conservative. Only suggest rules that are:
-         - Extremely narrow (targets 1 specific file or small bounded set)
-         - Slight additions to existing rules (adding a glob to an include list)
-         - Catches an issue likely to recur and worth ongoing cost
-      5. If no rules are warranted, say so. An empty suggestion list is valid.
-
-      Output Format:
-      - PASS: No new review rules are warranted.
-      - FAIL: Suggestions found. List each proposed rule or scope expansion with the target files, issue pattern, and why it is worth the ongoing review cost.
