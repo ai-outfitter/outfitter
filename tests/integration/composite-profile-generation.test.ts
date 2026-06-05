@@ -380,6 +380,7 @@ describe('integration fixture composite profile generation', () => {
                 'sessions',
                 'npm',
                 'git',
+                'tmp',
                 'utilities',
                 'bin',
               ].map((relativePath) => [
@@ -401,6 +402,11 @@ describe('integration fixture composite profile generation', () => {
           writeFileSync(join(compositeProfileRoot, 'sessions', 'session.json'), '{"id":"fixture-session"}\n');
           writeFileSync(join(compositeProfileRoot, 'npm', 'package.json'), '{"name":"fixture-package"}\n');
           writeFileSync(join(compositeProfileRoot, 'git', 'checkout.json'), '{"repo":"fixture-repo"}\n');
+          mkdirSync(join(compositeProfileRoot, 'tmp', 'extensions'), { recursive: true });
+          writeFileSync(
+            join(compositeProfileRoot, 'tmp', 'extensions', 'checkout.json'),
+            '{"repo":"fixture-extension"}\n',
+          );
           writeFileSync(join(compositeProfileRoot, 'utilities', 'tool.txt'), 'utility cache\n');
           writeFileSync(join(compositeProfileRoot, 'bin', 'pi-helper'), 'helper cache\n');
           writeFileSync(join(compositeProfileRoot, 'applepi', 'profile.json'), '{"mutated":true}\n');
@@ -435,6 +441,9 @@ describe('integration fixture composite profile generation', () => {
     );
     expect(readFileSync(join(fixture.home, '.pi', 'agent', 'git', 'checkout.json'), 'utf8')).toBe(
       '{"repo":"fixture-repo"}\n',
+    );
+    expect(readFileSync(join(fixture.home, '.pi', 'agent', 'tmp', 'extensions', 'checkout.json'), 'utf8')).toBe(
+      '{"repo":"fixture-extension"}\n',
     );
     expect(readFileSync(join(fixture.home, '.applepi', 'cache', 'utilities', 'tool.txt'), 'utf8')).toBe(
       'utility cache\n',

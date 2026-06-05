@@ -68,6 +68,7 @@ ApplePi default profile
 
 Native CLI state is not represented as an extra profile layer.
 For `symlink` paths without a profile-provided source, the selected adapter resolves a native fallback location directly, such as `~/.pi/agent/...` for most Pi state paths, `~/.claude/...` for most Claude Code state paths, or `<cache_directory>/utilities` for Pi `utilities/` and `bin/`.
+This native fallback is not a base profile: it does not participate in profile inheritance or merge precedence, and it cannot contribute controls or profile YAML.
 Claude Code `projects/` is additionally controlled by `controls.session_directory` or `controls.claude.session_directory` when set.
 
 ## Path-keyed adapter declarations
@@ -111,6 +112,10 @@ state_paths:
   git/:
     default_strategy: symlink
     allowed_strategies: [symlink, discard, warn, error]
+
+  tmp/:
+    default_strategy: symlink
+    allowed_strategies: [symlink, discard]
 
   utilities/:
     default_strategy: symlink

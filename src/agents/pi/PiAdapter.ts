@@ -33,6 +33,9 @@ const piStatePathDeclarations = {
   // Pi clones git-sourced packages here for user-scoped `pi install git:...` entries.
   // Persisting it prevents every ApplePi run from re-cloning or using stale temporary checkouts.
   'git/': { defaultStrategy: 'symlink', allowedStrategies: ['symlink', 'discard', 'warn', 'error'] },
+  // Pi expands git-sourced extensions and other temporary runtime artifacts here.
+  // Persisting it avoids noisy unknown-write diagnostics and lets pi reuse the native tmp tree.
+  'tmp/': { defaultStrategy: 'symlink', allowedStrategies: ['symlink', 'discard'] },
   'utilities/': { defaultStrategy: 'symlink', allowedStrategies: ['symlink', 'discard', 'warn', 'error'] },
   'bin/': { defaultStrategy: 'symlink', allowedStrategies: ['symlink', 'discard', 'warn', 'error'] },
   unknown: { defaultStrategy: 'warn', allowedStrategies: ['discard', 'warn', 'error', 'prompt'] },
