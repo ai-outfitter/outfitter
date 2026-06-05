@@ -105,4 +105,10 @@ Pi is ApplePi's day-one adapter. Most symlinked pi state paths, including `tmp/`
 
 Pi `utilities/` and `bin/` are special cache-backed paths. Both resolve to `<cache_directory>/utilities` so helper binaries such as `fd` and `rg` are reused across temporary composite profiles without becoming profile-editable state.
 
+## Claude Code defaults and projects
+
+Claude Code is also supported through an adapter-declared state policy. Most symlinked Claude paths resolve to profile files under `cli_specific/claude/` when present, or to the native `~/.claude` directory as a fallback.
+
+Claude `projects/` is special because it stores session history. `controls.claude.session_directory` wins over generic `controls.session_directory`, and the selected directory becomes the `projects/` symlink target. If neither control is present, `projects/` falls back to `~/.claude/projects`.
+
 See `doc/state_writeback_strategy.md` in the repository for the complete path policy.

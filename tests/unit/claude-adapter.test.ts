@@ -156,7 +156,7 @@ describe('Claude Code adapter support', () => {
     }
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-006.5).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-005.6, APPLEPI-REQ-006.5).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('declares Claude Code state paths and validates state persistence overrides', () => {
     const root = createTemporaryRoot();
@@ -220,6 +220,8 @@ describe('Claude Code adapter support', () => {
     ).toThrow("state_persistence path 'missing.json' is not declared by the claude adapter");
   });
 
+  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-006.2).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('selects supported adapters from the registry and rejects unknown agents', () => {
     expect(isSupportedAgentId('pi')).toBe(true);
     expect(isSupportedAgentId('claude')).toBe(true);

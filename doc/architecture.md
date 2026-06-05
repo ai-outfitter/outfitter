@@ -106,9 +106,10 @@ Highest to lowest:
 1. Project-local: `<project>/.applepi/local/settings.yml`
 2. Project: `<project>/.applepi/settings.yml`
 3. User: `~/.applepi/settings.yml`
-4. Built-in defaults
+4. Cached remote settings referenced by local settings
+5. Built-in defaults
 
-Future sources can be added behind the same `SettingsLoader` abstraction.
+Additional sources can be added behind the same `SettingsLoader` abstraction.
 
 ### Required User Default Profile
 
@@ -615,7 +616,18 @@ interface AgentAdapter {
   readonly id: string;
   readonly supportedControls: readonly string[];
   readonly statePaths?: Readonly<Record<string, StatePathDeclaration>>;
-  createCompositeProfile(profile: Profile, input: AgentCompositeProfileInput): AgentCompositeProfilePlan;
+  createCompositeProfile(
+    profile: Profile,
+    input: {
+      readonly rootDirectory: string;
+      readonly profilePaths: readonly string[];
+      readonly profileFolders?: readonly string[];
+      readonly homeDirectory?: string;
+      readonly cacheDirectory?: string;
+      readonly settings?: Settings;
+      readonly projectDirectory?: string;
+    },
+  ): AgentCompositeProfilePlan;
   createLaunchPlan(
     compositeProfile: CompositeProfile,
     profile?: Profile,
