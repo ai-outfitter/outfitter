@@ -1,6 +1,8 @@
 // Provides deterministic profile precedence, inheritance resolution, and merging.
-import { defu } from 'defu';
-
+import type { ArrayMergePolicy } from '../merge/ArrayMergePolicy.js';
+import type { MergePath } from '../merge/SettingsValueMerger.js';
+import { mergeObjectsWithPolicy } from '../merge/SettingsValueMerger.js';
+import { normalizeExtensionResourceIdentity, normalizeLaunchResourceIdentity } from '../agents/ResourceIdentity.js';
 import type { Profile } from './Profile.js';
 import type { LoadedProfile } from './ProfileLoader.js';
 
@@ -28,9 +30,42 @@ export const mergeProfileStack = (profileStack: NonEmptyProfileStack): Profile =
   const [baseProfile, ...higherPrecedenceProfiles] = profileStack;
 
   return higherPrecedenceProfiles.reduce<Profile>(
-    (mergedProfile, profile) => defu({}, profile, mergedProfile),
+    (mergedProfile, profile) =>
+      mergeObjectsWithPolicy(mergedProfile, profile, { arrayPolicyForPath: profileArrayPolicy }),
     baseProfile,
   );
+};
+
+const profileArrayPolicy = (path: MergePath): ArrayMergePolicy | undefined => {
+  const pathKey = path.join('.');
+
+  if (pathKey === 'inherits') {
+    return 'replace';
+  }
+
+  if (['controls.args', 'controls.pi.args', 'controls.claude.args'].includes(pathKey)) {
+    return 'prepend';
+  }
+
+  if (['controls.extensions', 'controls.pi.extensions', 'controls.claude.extensions'].includes(pathKey)) {
+    return {
+      mode: 'uniqueBy',
+      order: 'prepend',
+      winner: 'first',
+      key: (source: unknown) => normalizeExtensionResourceIdentity(String(source)),
+    };
+  }
+
+  if (['controls.skills', 'controls.pi.skills', 'controls.claude.skills'].includes(pathKey)) {
+    return {
+      mode: 'uniqueBy',
+      order: 'prepend',
+      winner: 'first',
+      key: (source: unknown) => normalizeLaunchResourceIdentity(String(source)),
+    };
+  }
+
+  return undefined;
 };
 
 export const resolveProfile = (input: ProfileResolutionInput): ProfileResolutionResult => {
