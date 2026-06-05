@@ -111,6 +111,7 @@ describe('state persistence', () => {
       { homeDirectory, projectDirectory },
       {
         writeError: (message) => warnings.push(message),
+        writeLine: () => undefined,
         launcher: {
           launch(plan) {
             const compositeProfilePiDirectory = plan.env.PI_CODING_AGENT_DIR;
@@ -345,6 +346,8 @@ describe('state persistence', () => {
     const result = await executeRunCommand(
       { homeDirectory, projectDirectory },
       {
+        writeError: () => undefined,
+        writeLine: () => undefined,
         launcher: {
           launch(plan) {
             rmSync(join(plan.env.PI_CODING_AGENT_DIR, 'settings.json'));
@@ -407,6 +410,8 @@ describe('state persistence', () => {
     const result = await executeRunCommand(
       { homeDirectory, projectDirectory },
       {
+        writeError: () => undefined,
+        writeLine: () => undefined,
         adapter: {
           id: 'mock-agent',
           supportedControls: [],
@@ -458,6 +463,7 @@ describe('state persistence', () => {
       executeRunCommand(
         { homeDirectory, projectDirectory },
         {
+          writeLine: () => undefined,
           launcher: {
             launch(plan) {
               writeFileSync(join(plan.env.PI_CODING_AGENT_DIR, 'settings.json'), 'changed\n');

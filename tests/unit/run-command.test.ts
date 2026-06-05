@@ -7,6 +7,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import { executeRunCommand, resolveChildExitCode } from '../../src/cli/commands/RunCommand.js';
 import { createCompositeProfile } from '../../src/compositeProfile/CompositeProfile.js';
+import { allowTestConsoleOutput } from '../test-console.js';
 
 const temporaryRoots: string[] = [];
 
@@ -43,6 +44,13 @@ const waitForFileMatching = async (path: string, predicate: (content: string) =>
     await new Promise((resolve) => setTimeout(resolve, 25));
   }
 };
+
+const isRunCommandSummaryMessage = (text: string): boolean =>
+  text.startsWith('→ resolving profile ') ||
+  text.startsWith('✓ profile layer ') ||
+  text.startsWith('✓ merged controls') ||
+  text.startsWith('✓ prepared composite profile ') ||
+  text.startsWith('↳ launching ');
 
 afterEach(() => {
   for (const root of temporaryRoots.splice(0)) {
@@ -94,6 +102,7 @@ describe('run command', () => {
       },
       {
         writeError: (message) => warnings.push(message),
+        writeLine: () => undefined,
         launcher: {
           launch(plan) {
             launches.push(plan);
@@ -151,6 +160,8 @@ describe('run command', () => {
             return Promise.resolve(0);
           },
         },
+        writeError: () => undefined,
+        writeLine: () => undefined,
       },
     );
   });
@@ -233,6 +244,7 @@ describe('run command', () => {
       'cached',
       'id: cached\ncontrols: {}\n',
     );
+    allowTestConsoleOutput(({ method, text }) => method === 'log' && isRunCommandSummaryMessage(text));
     const result = await executeRunCommand(
       { homeDirectory: uriHome, projectDirectory, profileId: 'cached' },
       {
@@ -267,6 +279,7 @@ describe('run command', () => {
     const spawnedResult = await executeRunCommand(
       { homeDirectory: spawnedHome, projectDirectory },
       {
+        writeLine: () => undefined,
         adapter: {
           id: 'node',
           supportedControls: [],

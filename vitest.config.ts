@@ -17,5 +17,6 @@ const coverage = {
 export default defineConfig({
   test: {
     coverage,
+    setupFiles: ['tests/setup.ts'],
   },
 });

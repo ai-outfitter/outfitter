@@ -87,6 +87,8 @@ ApplePi is organized around clear TypeScript source boundaries, requirement docu
 │   │   ├── integration/               # fixture-backed integration scenarios, catalog, and local .deepreview
 │   │   └── scenarios/                 # compact profile-resolution scenarios and expected outputs
 │   ├── integration/                   # fixture-backed integration tests and harness helpers
+│   ├── setup.ts                       # Vitest global setup for quiet test-output guards
+│   ├── test-console.ts                # shared console-output guard helpers for tests
 │   └── unit/                          # unit tests grouped by functionality under test
 ├── package-lock.json                  # locked npm dependency graph
 └── package.json                       # npm package metadata and scripts

@@ -35,6 +35,7 @@ const runScript = (root: string, version?: string, env: NodeJS.ProcessEnv = {}):
   execFileSync(process.execPath, [scriptPath, ...(version === undefined ? [] : [version]), `--root=${root}`], {
     encoding: 'utf8',
     env: { ...process.env, APPLEPI_RELEASE_VERSION: undefined, GITHUB_REF_NAME: undefined, ...env },
+    stdio: ['ignore', 'pipe', 'pipe'],
   });
 
 afterEach(() => {

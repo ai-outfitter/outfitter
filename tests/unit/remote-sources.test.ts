@@ -178,7 +178,7 @@ describe('remote source settings', () => {
 
     const result = await executeRunCommand(
       { homeDirectory, projectDirectory },
-      { launcher: { launch: () => Promise.resolve(0) } },
+      { launcher: { launch: () => Promise.resolve(0) }, writeLine: () => undefined },
     );
 
     expect(result.profileId).toBe('remote');
@@ -194,7 +194,7 @@ describe('remote source settings', () => {
     );
     const rootProfileResult = await executeRunCommand(
       { homeDirectory: rootProfileHomeDirectory, projectDirectory },
-      { launcher: { launch: () => Promise.resolve(0) } },
+      { launcher: { launch: () => Promise.resolve(0) }, writeLine: () => undefined },
     );
     expect(rootProfileResult.profileId).toBe('remote');
 
@@ -206,7 +206,7 @@ describe('remote source settings', () => {
     await expect(
       executeRunCommand(
         { homeDirectory: escapedProfileHomeDirectory, projectDirectory },
-        { launcher: { launch: () => Promise.resolve(0) } },
+        { launcher: { launch: () => Promise.resolve(0) }, writeLine: () => undefined },
       ),
     ).rejects.toThrow('must stay inside the repository');
 
