@@ -12,7 +12,7 @@ import { createPiAdapter } from '../../src/agents/pi/PiAdapter.js';
 import { createPiCompositeProfilePaths } from '../../src/agents/pi/PiCompositeProfileWriter.js';
 import { createApplePiProgram, createDefaultCommands } from '../../src/cli/ApplePiCli.js';
 import { describeCommandObject } from '../../src/cli/commands/CommandObject.js';
-import { createCreateProfileCommand } from '../../src/cli/commands/CreateProfileCommand.js';
+import { createProfileCommands } from '../../src/cli/commands/profile/Command.js';
 import { createRunCommand } from '../../src/cli/commands/RunCommand.js';
 import { createSetupCommand } from '../../src/cli/commands/SetupCommand.js';
 import { createSyncCommand } from '../../src/cli/commands/SyncCommand.js';
@@ -48,9 +48,16 @@ describe('source layout scaffolding', () => {
     const commands = createDefaultCommands();
     const program = createApplePiProgram(commands);
 
-    expect(commands.map((command) => command.name)).toEqual(['run', 'setup', 'sync', 'create_profile']);
-    expect(program.commands.map((command) => command.name())).toEqual(['run', 'setup', 'sync', 'create_profile']);
-    expect(program.commands.at(3)?.aliases()).toEqual(['create-profile']);
+    expect(commands.map((command) => command.name)).toEqual([
+      'run',
+      'setup',
+      'sync',
+      'profile',
+      'profile list',
+      'profile create',
+    ]);
+    expect(program.commands.map((command) => command.name())).toEqual(['run', 'setup', 'sync', 'profile']);
+    expect(program.commands.at(3)?.commands.map((command) => command.name())).toEqual(['list', 'create']);
     expect(describeCommandObject(createRunCommand())).toEqual({
       name: 'run',
       description: 'Assemble a profile compositeProfile and launch the selected agent CLI.',
@@ -59,9 +66,12 @@ describe('source layout scaffolding', () => {
     const standaloneProgram = new Command();
     createSetupCommand().register(standaloneProgram);
     createSyncCommand().register(standaloneProgram);
-    createCreateProfileCommand().register(standaloneProgram);
+    for (const command of createProfileCommands()) {
+      command.register(standaloneProgram);
+    }
 
-    expect(standaloneProgram.commands.map((command) => command.name())).toEqual(['setup', 'sync', 'create_profile']);
+    expect(standaloneProgram.commands.map((command) => command.name())).toEqual(['setup', 'sync', 'profile']);
+    expect(standaloneProgram.commands.at(2)?.commands.map((command) => command.name())).toEqual(['list', 'create']);
   });
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-002.5).

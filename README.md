@@ -35,7 +35,8 @@ applepi run -p support -- --cwd ~/work/customer-issue
 applepi sync
 applepi setup
 applepi setup https://github.com/my_account/applepi_config
-applepi create_profile regulated --scope user
+applepi profile list
+applepi profile create regulated --scope user
 ```
 
 Under the hood, `applepi` translates a selected profile into the selected agent launch environment.
@@ -188,7 +189,7 @@ See [`recommendation.md`](./recommendation.md) for current notes on pi startup b
 
 This repository is under phased implementation.
 
-A minimal executable CLI exists, with initial settings/profile schemas, local and URI-backed profile loading, profile resolution internals, first-pass `setup`, `sync`, and `create_profile` / `create-profile` commands, and a first-pass `run` command for assembling a temporary composite profile and launching pi or Claude Code.
+A minimal executable CLI exists, with initial settings/profile schemas, local and URI-backed profile loading, profile resolution internals, first-pass `setup`, `sync`, `profile list`, and `profile create` commands, and a first-pass `run` command for assembling a temporary composite profile and launching pi or Claude Code.
 Stable end-to-end pi launch behavior and user-facing examples will be hardened in a later phase.
 The initial dependency and architecture decisions are documented in `package.json`, `doc/architecture.md`, and `requirements/`.
 

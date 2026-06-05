@@ -1,12 +1,14 @@
-// Provides the command object for creating a ApplePi profile folder.
+// Provides the profile create subcommand and profile skeleton creation behavior.
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 
-import type { Command } from 'commander';
+import { Command } from 'commander';
 
-import { isValidProfileId } from '../../profiles/ProfileLoader.js';
-import type { CommandObject } from './CommandObject.js';
+import { isValidProfileId } from '../../../profiles/ProfileLoader.js';
+import type { CommandObject } from '../CommandObject.js';
+import type { ProfileCommandDependencies } from './Shared.js';
+import { getOrCreateProfileCommander } from './Shared.js';
 
 export type CreateProfileScope = 'user' | 'project' | 'project-local';
 
@@ -31,11 +33,37 @@ interface CreateProfileOptions {
   readonly path?: string;
 }
 
-export interface CreateProfileCommandDependencies {
-  readonly homeDirectory?: string;
-  readonly projectDirectory?: string;
-  readonly writeLine?: (message: string) => void;
-}
+export const createProfileCreateCommand = (dependencies: ProfileCommandDependencies): CommandObject => {
+  const command: CommandObject = {
+    name: 'profile create',
+    description: 'Create a new ApplePi profile skeleton.',
+    register(program: Command): void {
+      getOrCreateProfileCommander(program).addCommand(createProfileCreateCommander(dependencies));
+    },
+  };
+
+  return command;
+};
+
+const createProfileCreateCommander = (dependencies: ProfileCommandDependencies): Command =>
+  new Command('create')
+    .description('Create a new ApplePi profile skeleton.')
+    .argument('<name>', 'filesystem-safe profile name')
+    .option('--scope <scope>', 'destination scope: user, project, or project-local')
+    .option('--path <path>', 'destination profile source directory')
+    .action((name: string, options: CreateProfileOptions) => {
+      const result = executeCreateProfileCommand({
+        name,
+        scope: readCreateProfileScope(options.scope),
+        path: options.path,
+        /* v8 ignore next -- default process home is exercised by the direct CLI entrypoint, not unit tests. */
+        homeDirectory: dependencies.homeDirectory ?? homedir(),
+        /* v8 ignore next -- default process cwd is exercised by the direct CLI entrypoint, not unit tests. */
+        projectDirectory: dependencies.projectDirectory ?? process.cwd(),
+      });
+
+      emitMessages(result.messages, dependencies.writeLine);
+    });
 
 export const executeCreateProfileCommand = (input: CreateProfileInput): CreateProfileResult => {
   assertValidCreateProfileInput(input);
@@ -83,38 +111,11 @@ export const executeCreateProfileCommand = (input: CreateProfileInput): CreatePr
   };
 };
 
-export const createCreateProfileCommand = (dependencies: CreateProfileCommandDependencies = {}): CommandObject => {
-  const command: CommandObject = {
-    name: 'create_profile',
-    description: 'Create a new ApplePi profile skeleton.',
-    register(program: Command): void {
-      program
-        .command(command.name)
-        .alias('create-profile')
-        .description(command.description)
-        .argument('<name>', 'filesystem-safe profile name')
-        .option('--scope <scope>', 'destination scope: user, project, or project-local')
-        .option('--path <path>', 'destination profile source directory')
-        .action((name: string, options: CreateProfileOptions) => {
-          const result = executeCreateProfileCommand({
-            name,
-            scope: readCreateProfileScope(options.scope),
-            path: options.path,
-            /* v8 ignore next -- default process home is exercised by the direct CLI entrypoint, not unit tests. */
-            homeDirectory: dependencies.homeDirectory ?? homedir(),
-            /* v8 ignore next -- default process cwd is exercised by the direct CLI entrypoint, not unit tests. */
-            projectDirectory: dependencies.projectDirectory ?? process.cwd(),
-          });
-
-          for (const message of result.messages) {
-            /* v8 ignore next -- console fallback is direct CLI behavior; tests inject a writer. */
-            (dependencies.writeLine ?? console.log)(message);
-          }
-        });
-    },
-  };
-
-  return command;
+const emitMessages = (messages: readonly string[], writeLine: ((message: string) => void) | undefined): void => {
+  for (const message of messages) {
+    /* v8 ignore next -- console fallback is direct CLI behavior; tests inject a writer. */
+    (writeLine ?? console.log)(message);
+  }
 };
 
 const assertValidCreateProfileInput = (input: CreateProfileInput): void => {

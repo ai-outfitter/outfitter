@@ -52,7 +52,7 @@ Use a temporary `HOME` so setup and profile files do not affect your real user c
 ```sh
 export APPLEPI_TEST_HOME="$(mktemp -d)"
 HOME="$APPLEPI_TEST_HOME" applepi setup
-HOME="$APPLEPI_TEST_HOME" applepi create-profile smoke
+HOME="$APPLEPI_TEST_HOME" applepi profile create smoke
 ```
 
 You can inspect the generated user config at:

@@ -2,7 +2,7 @@
 import { Command } from 'commander';
 
 import type { CommandObject } from './commands/CommandObject.js';
-import { createCreateProfileCommand } from './commands/CreateProfileCommand.js';
+import { createProfileCommands } from './commands/profile/Command.js';
 import { createRunCommand } from './commands/RunCommand.js';
 import { createSetupCommand } from './commands/SetupCommand.js';
 import { createSyncCommand } from './commands/SyncCommand.js';
@@ -11,7 +11,7 @@ export const createDefaultCommands = (): CommandObject[] => [
   createRunCommand(),
   createSetupCommand(),
   createSyncCommand(),
-  createCreateProfileCommand(),
+  ...createProfileCommands(),
 ];
 
 export const createApplePiProgram = (commands: readonly CommandObject[] = createDefaultCommands()): Command => {

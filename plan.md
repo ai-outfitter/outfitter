@@ -35,7 +35,7 @@ Implemented in `phase-4-setup-sync`.
 - [x] Implement URI source cache path encoding.
 - [x] Implement `sync` for URI-based profile sources.
 - [x] Validate synced profiles and produce clear command output.
-- [x] Implement `create_profile` and the `create-profile` alias against the same command object.
+- [x] Implement profile management commands under `profile list` and `profile create`.
 
 ## Phase 5: Composite profile assembly core — Done
 
@@ -72,6 +72,6 @@ Implemented in `phase-4-setup-sync`.
 - Schema authoring helper: TypeBox where it improves TypeScript/schema alignment.
 - Child process launcher: `cross-spawn`.
 - Profile IDs: filesystem-safe slugs with optional separate display labels.
-- Profile creation command: support both `create_profile` and `create-profile`.
+- Profile management command: support `profile list` and `profile create`.
 - URI profile source lockfiles: deferred beyond v1.
 - Adapter scope: pi supported day one and remains the default; Claude Code is supported as an additional adapter.

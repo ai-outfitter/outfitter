@@ -44,7 +44,11 @@ ApplePi is organized around clear TypeScript source boundaries, requirement docu
 │   │       ├── RunCommand.ts
 │   │       ├── SetupCommand.ts
 │   │       ├── SyncCommand.ts
-│   │       └── CreateProfileCommand.ts
+│   │       └── profile/               # profile command namespace and subcommands
+│   │           ├── Command.ts
+│   │           ├── CreateCommand.ts
+│   │           ├── ListCommand.ts
+│   │           └── Shared.ts
 │   ├── settings/                      # settings loading and merging
 │   │   ├── Settings.ts
 │   │   ├── SettingsLoader.ts

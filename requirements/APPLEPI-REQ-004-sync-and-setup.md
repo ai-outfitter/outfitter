@@ -35,16 +35,22 @@ ApplePi provides setup and maintenance commands that create initial configuratio
 
 ### APPLEPI-REQ-004.3: Create Profile Command
 
-1. ApplePi MUST provide a `create_profile` command.
-2. The `create_profile` command MUST require a destination scope or destination path.
-3. The `create_profile` command MUST require a profile name.
-4. The `create_profile` command MUST create a placeholder profile folder with a valid `profile.yml` file.
-5. The `create_profile` command SHOULD create conventional subfolders for common profile resources.
-6. The command MUST also provide a `create-profile` alias for users who expect kebab-case CLI command names.
+1. ApplePi MUST provide a `profile create` command.
+2. The `profile create` command MUST require a destination scope or destination path.
+3. The `profile create` command MUST require a profile name.
+4. The `profile create` command MUST create a placeholder profile folder with a valid `profile.yml` file.
+5. The `profile create` command SHOULD create conventional subfolders for common profile resources.
 
 ### APPLEPI-REQ-004.4: Command Object Implementation
 
-1. The `setup`, `sync`, and profile-creation command entry points MUST execute command objects rather than duplicate implementation logic in parser callbacks.
+1. All CLI command entry points MUST execute command objects rather than duplicate implementation logic in parser callbacks.
 2. Command objects MUST accept typed input objects rather than reading directly from `process.argv`.
 3. Command objects SHOULD receive filesystem, settings, profile, and process dependencies through constructors or equivalent dependency injection.
-4. The `create_profile` command and `create-profile` alias MUST execute the same profile-creation command object.
+4. The `profile create` parser entry point MUST execute the profile-creation command object.
+
+### APPLEPI-REQ-004.5: List Profiles Command
+
+1. ApplePi MUST provide a `profile list` command.
+2. The `profile list` command MUST read and validate settings before listing profiles.
+3. The `profile list` command MUST list unique profile IDs from configured local and cached remote profile sources.
+4. When multiple configured sources define the same profile ID, the listed profile metadata MUST come from the highest-precedence loaded definition.
