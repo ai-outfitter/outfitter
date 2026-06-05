@@ -109,13 +109,16 @@ const isMcpServerDefinitionPath = (path: readonly string[]): boolean => path.len
 
 const piMcpArrayItemIdentity = (item: MergeableValue): string => {
   if (isJsonObject(item)) {
-    return stringifyPiMcpIdentityValue(item.identity ?? item.name ?? item.id ?? stableJsonStringify(item));
+    const explicitIdentity = item.identity ?? item.name ?? item.id;
+    return explicitIdentity === undefined
+      ? `anonymous:${stableJsonStringify(item)}`
+      : `explicit:${stringifyExplicitIdentity(explicitIdentity)}`;
   }
 
-  return stringifyPiMcpIdentityValue(item);
+  return `anonymous:${stableJsonStringify(item)}`;
 };
 
-const stringifyPiMcpIdentityValue = (value: MergeableValue): string => {
+const stringifyExplicitIdentity = (value: MergeableValue): string => {
   if (typeof value === 'string') {
     return value;
   }
@@ -132,9 +135,9 @@ const sortJsonObjectKeys = (value: MergeableValue): MergeableValue => {
 
   if (isJsonObject(value)) {
     return Object.fromEntries(
-      Object.entries(value)
-        .sort(([leftKey], [rightKey]) => leftKey.localeCompare(rightKey))
-        .map(([key, memberValue]) => [key, sortJsonObjectKeys(memberValue as MergeableValue)]),
+      Object.keys(value)
+        .sort()
+        .map((key) => [key, sortJsonObjectKeys(value[key] as MergeableValue)]),
     );
   }
 
