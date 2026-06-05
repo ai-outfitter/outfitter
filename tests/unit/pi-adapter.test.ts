@@ -164,8 +164,12 @@ describe('pi adapter', () => {
       theme: 'dark',
     });
     expect(
-      compositeProfilePlan.compositeProfile.statePaths.some((statePath) => statePath.relativePath === 'settings.json'),
-    ).toBe(false);
+      compositeProfilePlan.compositeProfile.statePaths.find((statePath) => statePath.relativePath === 'settings.json'),
+    ).toEqual({
+      relativePath: 'settings.json',
+      strategy: 'discard',
+      directory: false,
+    });
   });
 
   it('keeps native pi settings state when settings do not need reconciliation or cannot be parsed', () => {

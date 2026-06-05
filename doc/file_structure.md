@@ -73,10 +73,10 @@ ApplePi is organized around clear TypeScript source boundaries, requirement docu
 │   │   ├── pi/                        # pi-specific adapter implementation
 │   │   │   ├── PiAdapter.ts
 │   │   │   ├── PiSettingsMergePolicy.ts
-│   │   │   └── PiComposite profileWriter.ts
+│   │   │   └── PiCompositeProfileWriter.ts
 │   │   └── claude/                    # Claude Code-specific adapter implementation
 │   │       ├── ClaudeAdapter.ts
-│   │       └── ClaudeComposite profileWriter.ts
+│   │       └── ClaudeCompositeProfileWriter.ts
 │   ├── schemas/                       # JSON Schema artifacts for persisted formats
 │   │   ├── settings.schema.json
 │   │   ├── profile.schema.json

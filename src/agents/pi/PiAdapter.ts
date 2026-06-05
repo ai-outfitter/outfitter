@@ -62,9 +62,7 @@ export const createPiAdapter = (): AgentAdapter => ({
         }),
         ...(transformedSettingsFile === undefined ? [] : [transformedSettingsFile]),
       ],
-      transformedSettingsFile === undefined
-        ? statePaths
-        : statePaths.filter((statePath) => statePath.relativePath !== 'settings.json'),
+      transformedSettingsFile === undefined ? statePaths : markPiSettingsStatePathDiscarded(statePaths),
     );
 
     return {
@@ -98,6 +96,15 @@ export const createPiAdapter = (): AgentAdapter => ({
 type PiSettingsDocument = Readonly<Record<string, unknown>> & {
   readonly packages?: unknown;
 };
+
+const markPiSettingsStatePathDiscarded = (
+  statePaths: readonly CompositeProfileStatePath[],
+): readonly CompositeProfileStatePath[] =>
+  statePaths.map((statePath) =>
+    statePath.relativePath === 'settings.json'
+      ? { relativePath: statePath.relativePath, strategy: 'discard', directory: statePath.directory }
+      : statePath,
+  );
 
 const createPiSettingsTransformFile = (
   profile: Profile,
