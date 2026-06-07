@@ -1,4 +1,4 @@
-// Loads local profile folders and parses profile.yml documents.
+// Loads profile sources from local folders or remote caches and parses profile.yml documents.
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -216,18 +216,7 @@ const readControls = (value: unknown): ProfileControls => {
   }
 
   return omitUndefined({
-    ...controls,
-    model: readOptionalString(controls.model),
-    provider: readOptionalString(controls.provider),
-    thinking: readOptionalString(controls.thinking),
-    environment: readEnvironment(controls.environment),
-    args: readOptionalStringArray(controls.args),
-    sessionDirectory: readOptionalString(controls.session_directory),
-    extensions: readOptionalStringArray(controls.extensions),
-    skills: readOptionalStringArray(controls.skills),
-    promptTemplate: readOptionalString(controls.prompt_template),
-    systemPrompt: readOptionalString(controls.system_prompt),
-    appendSystemPrompt: readOptionalString(controls.append_system_prompt),
+    ...readBaseProfileControls(controls),
     pi: readAgentSpecificControls(controls.pi),
     claude: readAgentSpecificControls(controls.claude),
   });
@@ -236,11 +225,11 @@ const readControls = (value: unknown): ProfileControls => {
 const readAgentSpecificControls = (value: unknown): AgentSpecificProfileControls | undefined => {
   const controls = readObject(value);
 
-  if (controls === undefined) {
-    return undefined;
-  }
+  return controls === undefined ? undefined : readBaseProfileControls(controls);
+};
 
-  return omitUndefined({
+const readBaseProfileControls = (controls: Readonly<Record<string, unknown>>): AgentSpecificProfileControls =>
+  omitUndefined({
     ...controls,
     model: readOptionalString(controls.model),
     provider: readOptionalString(controls.provider),
@@ -254,7 +243,6 @@ const readAgentSpecificControls = (value: unknown): AgentSpecificProfileControls
     systemPrompt: readOptionalString(controls.system_prompt),
     appendSystemPrompt: readOptionalString(controls.append_system_prompt),
   });
-};
 
 const omitUndefined = <T extends Readonly<Record<string, unknown>>>(record: T): T =>
   Object.fromEntries(Object.entries(record).filter((entry) => entry[1] !== undefined)) as T;

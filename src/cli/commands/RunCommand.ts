@@ -85,9 +85,10 @@ export const executeRunCommand = async (
   emitWarnings(warnings, dependencies.writeError);
 
   writeCompositeProfile(compositeProfilePlan.compositeProfile);
+  let statePaths = compositeProfilePlan.compositeProfile.statePaths;
   let stateBaseline = createCompositeProfileStateBaseline(
     compositeProfilePlan.compositeProfile.rootDirectory,
-    compositeProfilePlan.compositeProfile.statePaths,
+    statePaths,
   );
   const launchPlan = adapter.createLaunchPlan(
     compositeProfilePlan.compositeProfile,
@@ -106,6 +107,7 @@ export const executeRunCommand = async (
       createAdapterCompositeProfilePlan(adapter, loadResolvedProfile(input), compositeProfileRootDirectory)
         .compositeProfile,
     onCompositeProfileWritten: (compositeProfile) => {
+      statePaths = compositeProfile.statePaths;
       stateBaseline = updateCompositeProfileStateBaselinePaths(
         compositeProfile.rootDirectory,
         stateBaseline,
@@ -124,7 +126,7 @@ export const executeRunCommand = async (
     const stateWriteWarnings = handleCompositeProfileStateWrites(
       adapter.id,
       compositeProfilePlan.compositeProfile.rootDirectory,
-      compositeProfilePlan.compositeProfile.statePaths,
+      statePaths,
       stateBaseline,
     );
 
