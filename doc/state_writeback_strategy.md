@@ -303,12 +303,12 @@ Persistence happens because the CLI writes through the symlink to an intentional
 
 ### `discard`
 
-Writes are allowed in the composite profile and are thrown away when the composite profile is deleted.
+Writes are allowed in the composite profile but are not copied back to durable profile or native state.
 ApplePi does not emit diagnostics for changed `discard` paths.
 
 ### `warn`
 
-Writes are allowed, discarded, and reported after the child exits.
+Writes are allowed, left non-durable, and reported after the child exits.
 `--strict` makes these warnings fatal.
 
 ### `error`

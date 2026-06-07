@@ -3,14 +3,8 @@ import { homedir } from 'node:os';
 
 import { Command } from 'commander';
 
-import {
-  createProfileSourceCachePath,
-  createRemoteRepositoryCachePath,
-  resolveRemoteRepositorySubpath,
-} from '../../../profiles/ProfileCache.js';
-import { loadLocalProfileSource } from '../../../profiles/ProfileLoader.js';
+import { loadMaterializedProfileSources } from '../../../profiles/ProfileLoader.js';
 import type { LoadedProfile } from '../../../profiles/ProfileLoader.js';
-import type { ProfileSourceReference } from '../../../profiles/ProfileSource.js';
 import { loadSettingsWithCachedRemoteSettings } from '../../../settings/SettingsLoader.js';
 import type { CommandObject } from '../CommandObject.js';
 import type { ProfileCommandDependencies } from './Shared.js';
@@ -65,7 +59,10 @@ export const executeListProfilesCommand = (input: ListProfilesInput): ListProfil
     );
   }
 
-  const profileLoadResult = loadProfileSources(input.homeDirectory, loadedSettings.settings.profileSources!);
+  const profileLoadResult = loadMaterializedProfileSources(
+    input.homeDirectory,
+    loadedSettings.settings.profileSources!,
+  );
 
   if (profileLoadResult.issues.length > 0) {
     throw new Error(
@@ -86,42 +83,6 @@ const emitMessages = (messages: readonly string[], writeLine: ((message: string)
     /* v8 ignore next -- console fallback is direct CLI behavior; tests inject a writer. */
     (writeLine ?? console.log)(message);
   }
-};
-
-const loadProfileSources = (
-  homeDirectory: string,
-  sources: readonly ProfileSourceReference[],
-): {
-  readonly profiles: readonly LoadedProfile[];
-  readonly issues: readonly { readonly path: string; readonly message: string }[];
-} => {
-  const profiles: LoadedProfile[] = [];
-  const issues: { readonly path: string; readonly message: string }[] = [];
-
-  for (const source of sources) {
-    const materializedSource = materializeSource(homeDirectory, source);
-    const result = loadLocalProfileSource(materializedSource);
-    profiles.push(...result.profiles.map((profile) => ({ ...profile, source })));
-    issues.push(...result.issues);
-  }
-
-  return { profiles, issues };
-};
-
-const materializeSource = (homeDirectory: string, source: ProfileSourceReference): ProfileSourceReference => {
-  if (source.uri === undefined && source.github === undefined) {
-    return source;
-  }
-
-  if (source.uri !== undefined && source.ref === undefined && source.path === undefined) {
-    return { path: createProfileSourceCachePath(homeDirectory, source.uri), only: source.only, except: source.except };
-  }
-
-  return {
-    path: resolveRemoteRepositorySubpath(createRemoteRepositoryCachePath(homeDirectory, source), source.path),
-    only: source.only,
-    except: source.except,
-  };
 };
 
 const listHighestPrecedenceProfiles = (loadedProfiles: readonly LoadedProfile[]): readonly ListedProfile[] => {

@@ -17,17 +17,17 @@ ApplePi makes those writes explicit with `state_persistence` rules. Each selecte
 4. Adapter-generated reconciliation files may replace a declared path for one launch. For example, Pi can receive a transformed `settings.json` that removes native packages already supplied by profile-controlled extensions; writes to that runtime file are discarded.
 5. The agent runs inside the composite profile and reads/writes those paths normally.
 6. After the agent exits, ApplePi checks non-durable and unknown writes.
-7. Temporary composite profile contents are deleted; durable symlink targets remain.
+7. Temporary composite profile contents are not written back to durable state; durable symlink targets keep their writes.
 
 ## Strategies
 
-| Strategy  | Behavior                                                                             |
-| --------- | ------------------------------------------------------------------------------------ |
-| `symlink` | Persist writes by pointing the composite profile path at a durable destination.      |
-| `discard` | Allow writes for this run and throw them away when the composite profile is deleted. |
-| `warn`    | Allow and discard writes, then report them after the agent exits.                    |
-| `error`   | Allow writes during the run, then fail if the path changed.                          |
-| `prompt`  | Reserved for future interactive handling; currently treated like `warn`.             |
+| Strategy  | Behavior                                                                        |
+| --------- | ------------------------------------------------------------------------------- |
+| `symlink` | Persist writes by pointing the composite profile path at a durable destination. |
+| `discard` | Allow writes for this run without copying them back to durable state.           |
+| `warn`    | Allow and discard writes, then report them after the agent exits.               |
+| `error`   | Allow writes during the run, then fail if the path changed.                     |
+| `prompt`  | Reserved for future interactive handling; currently treated like `warn`.        |
 
 Unknown writes outside adapter-declared paths are never silently persisted. They are governed by the adapter's `unknown` policy.
 

@@ -5,6 +5,7 @@ import { join } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
+import type { AgentAdapter } from '../../src/agents/AgentAdapter.js';
 import { createApplePiProgram } from '../../src/cli/ApplePiCli.js';
 import { createRunCommand, executeRunCommand, resolveChildExitCode } from '../../src/cli/commands/RunCommand.js';
 import { createCompositeProfile } from '../../src/compositeProfile/CompositeProfile.js';
@@ -71,7 +72,7 @@ afterEach(() => {
 describe('run command', () => {
   // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-005.1, APPLEPI-REQ-005.2, APPLEPI-REQ-005.3, APPLEPI-REQ-005.4, APPLEPI-REQ-005.5).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
-  it('resolves the default profile, writes and refreshes a temp compositeProfile, warns, and passes through args', async () => {
+  it('resolves the default profile, writes and refreshes a temp composite profile, warns, and passes through args', async () => {
     const root = createTemporaryRoot();
     const homeDirectory = join(root, 'home');
     const projectDirectory = join(root, 'project');
@@ -176,6 +177,80 @@ describe('run command', () => {
     );
   });
 
+  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-005.1, APPLEPI-REQ-005.5).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('parses run command profile, strict, and pass-through options through Commander', async () => {
+    const root = createTemporaryRoot();
+    const homeDirectory = join(root, 'home');
+    const projectDirectory = join(root, 'project');
+    const profilesDirectory = join(homeDirectory, '.applepi', 'profiles');
+    const selectedProfiles: string[] = [];
+    const launchedArgs: string[][] = [];
+    writeSettings(homeDirectory, 'default_profile: default\nprofile_sources:\n  - path: ./profiles\n');
+    writeProfile(profilesDirectory, 'default', 'id: default\ncontrols: {}\n');
+    writeProfile(profilesDirectory, 'selected', 'id: selected\ncontrols: {}\n');
+
+    const adapter: AgentAdapter = {
+      id: 'test-agent',
+      supportedControls: [],
+      createCompositeProfile(profile, compositeProfileInput) {
+        selectedProfiles.push(profile.id);
+        return { compositeProfile: createCompositeProfile(compositeProfileInput.rootDirectory, []), warnings: [] };
+      },
+      createLaunchPlan(_compositeProfile, _profile, passThroughArgs = []) {
+        return { command: 'test-agent', args: [...passThroughArgs], env: {} };
+      },
+      getUnsupportedControls() {
+        return [];
+      },
+    };
+    const program = createApplePiProgram([
+      createRunCommand({
+        homeDirectory,
+        projectDirectory,
+        adapter,
+        writeLine: () => undefined,
+        launcher: {
+          launch(plan) {
+            launchedArgs.push([...plan.args]);
+            return Promise.resolve(0);
+          },
+        },
+      }),
+    ]);
+
+    await program.parseAsync(['node', 'applepi', 'run', '-p', 'selected', '--strict', '--', '--debug', 'prompt text']);
+
+    expect(selectedProfiles).toEqual(['selected']);
+    expect(launchedArgs).toEqual([['--debug', 'prompt text']]);
+
+    const strictProgram = createApplePiProgram([
+      createRunCommand({
+        homeDirectory,
+        projectDirectory,
+        adapter: {
+          ...adapter,
+          createCompositeProfile(_profile, compositeProfileInput) {
+            return {
+              compositeProfile: createCompositeProfile(compositeProfileInput.rootDirectory, []),
+              warnings: ['parser strict warning'],
+            };
+          },
+        },
+        writeLine: () => undefined,
+        launcher: {
+          launch() {
+            return Promise.resolve(0);
+          },
+        },
+      }),
+    ]);
+
+    await expect(
+      strictProgram.parseAsync(['node', 'applepi', 'run', '--profile', 'selected', '--strict']),
+    ).rejects.toThrow('Strict failed for test-agent: parser strict warning');
+  });
+
   // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-005.1).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('runs setup automatically before the default run when user setup has not run', async () => {
@@ -264,6 +339,50 @@ describe('run command', () => {
       'ApplePi manages full pi configurations for you, so you can use different profiles in different situations.',
     );
     expect(messages).toContain('→ resolving profile analyst');
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-005.1).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('uses noninteractive automatic setup when the default CLI command has no TTY', async () => {
+    const root = createTemporaryRoot();
+    const homeDirectory = join(root, 'home');
+    const projectDirectory = join(root, 'project');
+    const messages: string[] = [];
+    let launchCount = 0;
+    const program = createApplePiProgram([
+      createRunCommand({
+        homeDirectory,
+        projectDirectory,
+        input: { isTTY: false } as NodeJS.ReadableStream & { isTTY: false },
+        output: { isTTY: false } as NodeJS.WritableStream & { isTTY: false },
+        writeLine: (message) => messages.push(stripAnsiCodes(message)),
+        synchronizer: {
+          sync(_source, cachePath) {
+            mkdirSync(join(cachePath, 'profiles', 'engineer'), { recursive: true });
+            writeFileSync(join(cachePath, 'profiles', 'engineer', 'profile.yml'), 'id: engineer\ncontrols: {}\n');
+            return 'updated';
+          },
+        },
+        selectDefaultProfile() {
+          throw new Error('noninteractive setup must not prompt for a default profile');
+        },
+        launcher: {
+          launch() {
+            launchCount += 1;
+            return Promise.resolve(0);
+          },
+        },
+      }),
+    ]);
+
+    await program.parseAsync(['node', 'applepi']);
+
+    expect(launchCount).toBe(1);
+    expect(readFileSync(join(homeDirectory, '.applepi', 'settings.yml'), 'utf8')).toContain(
+      'default_profile: engineer',
+    );
+    expect(messages).not.toContain('Welcome to ApplePi. ApplePi is the easiest way to run Pi.');
+    expect(messages).toContain('→ resolving profile engineer');
   });
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-002.3, APPLEPI-REQ-002.4, APPLEPI-REQ-003.1, APPLEPI-REQ-006.1).

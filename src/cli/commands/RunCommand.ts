@@ -10,16 +10,10 @@ import spawn from 'cross-spawn';
 
 import type { AgentAdapter, AgentLaunchPlan } from '../../agents/AgentAdapter.js';
 import { createAgentAdapter, defaultAgentId as registryDefaultAgentId } from '../../agents/AgentRegistry.js';
-import {
-  createProfileSourceCachePath,
-  createRemoteRepositoryCachePath,
-  redactProfileSourceUriCredentials,
-  resolveRemoteRepositorySubpath,
-} from '../../profiles/ProfileCache.js';
-import { loadLocalProfileSource } from '../../profiles/ProfileLoader.js';
+import { redactProfileSourceUriCredentials } from '../../profiles/ProfileCache.js';
+import { loadMaterializedProfileSources } from '../../profiles/ProfileLoader.js';
 import type { LoadedProfile } from '../../profiles/ProfileLoader.js';
 import type { Profile } from '../../profiles/Profile.js';
-import type { ProfileSourceReference } from '../../profiles/ProfileSource.js';
 import { resolveProfile } from '../../profiles/ProfileMerger.js';
 import type { Settings } from '../../settings/Settings.js';
 import { loadSettingsWithCachedRemoteSettings } from '../../settings/SettingsLoader.js';
@@ -154,7 +148,7 @@ export const executeRunCommand = async (
 export const createRunCommand = (dependencies: RunCommandDependencies = {}): CommandObject => {
   const command: CommandObject = {
     name: 'run',
-    description: 'Assemble a profile compositeProfile and launch the selected agent CLI.',
+    description: 'Assemble a composite profile and launch the selected agent CLI.',
     register(program: Command): void {
       const action = async (
         args: readonly string[],
@@ -169,7 +163,7 @@ export const createRunCommand = (dependencies: RunCommandDependencies = {}): Com
             strict: options.strict,
             passThroughArgs: args,
           },
-          { ...dependencies, interactive: true },
+          { ...dependencies, interactive: selectAutoSetupInteractiveMode(dependencies) },
         );
 
         if (result.exitCode !== 0) {
@@ -185,6 +179,19 @@ export const createRunCommand = (dependencies: RunCommandDependencies = {}): Com
   };
 
   return command;
+};
+
+const selectAutoSetupInteractiveMode = (dependencies: RunCommandDependencies): boolean | undefined => {
+  if (dependencies.interactive !== undefined) {
+    return dependencies.interactive;
+  }
+
+  /* v8 ignore next -- default process streams are direct terminal behavior; tests inject streams. */
+  const input = dependencies.input ?? process.stdin;
+  /* v8 ignore next -- default process streams are direct terminal behavior; tests inject streams. */
+  const output = dependencies.output ?? process.stdout;
+
+  return input.isTTY === true && output.isTTY === true ? true : undefined;
 };
 
 const configureRunCommander = (
@@ -360,7 +367,7 @@ const loadResolvedProfile = (input: RunCommandInput): ResolvedRunProfile => {
     throw new Error(`Cannot run with invalid settings: ${loadedSettings.issues.map(formatSettingsIssue).join('; ')}`);
   }
 
-  const loadedProfiles = loadProfileSources(input.homeDirectory, loadedSettings.settings.profileSources!);
+  const loadedProfiles = loadMaterializedProfileSources(input.homeDirectory, loadedSettings.settings.profileSources!);
 
   if (loadedProfiles.issues.length > 0) {
     throw new Error(`Cannot run with invalid profiles: ${loadedProfiles.issues.map(formatProfileIssue).join('; ')}`);
@@ -424,42 +431,6 @@ const findContributingLoadedProfiles = (
   loadedProfiles: readonly LoadedProfile[],
 ): readonly LoadedProfile[] =>
   profileStack.flatMap((profile) => loadedProfiles.filter((loadedProfile) => loadedProfile.profile.id === profile.id));
-
-const loadProfileSources = (
-  homeDirectory: string,
-  sources: readonly ProfileSourceReference[],
-): {
-  readonly profiles: readonly LoadedProfile[];
-  readonly issues: readonly { readonly path: string; readonly message: string }[];
-} => {
-  const profiles: LoadedProfile[] = [];
-  const issues: { readonly path: string; readonly message: string }[] = [];
-
-  for (const source of sources) {
-    const materializedSource = materializeSource(homeDirectory, source);
-    const result = loadLocalProfileSource(materializedSource);
-    profiles.push(...result.profiles.map((profile) => ({ ...profile, source })));
-    issues.push(...result.issues);
-  }
-
-  return { profiles, issues };
-};
-
-const materializeSource = (homeDirectory: string, source: ProfileSourceReference): ProfileSourceReference => {
-  if (source.uri === undefined && source.github === undefined) {
-    return source;
-  }
-
-  if (source.uri !== undefined && source.ref === undefined && source.path === undefined) {
-    return { path: createProfileSourceCachePath(homeDirectory, source.uri), only: source.only, except: source.except };
-  }
-
-  return {
-    path: resolveRemoteRepositorySubpath(createRemoteRepositoryCachePath(homeDirectory, source), source.path),
-    only: source.only,
-    except: source.except,
-  };
-};
 
 /* v8 ignore start -- the real child-process launcher is direct runtime behavior; tests inject a launcher. */
 const createSpawnLauncher = (): AgentProcessLauncher => ({

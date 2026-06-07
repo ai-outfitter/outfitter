@@ -43,7 +43,7 @@ Under the hood, `applepi` translates a selected profile into the selected agent 
 Pi runs use `PI_CODING_AGENT_DIR`; Claude Code runs use `CLAUDE_CONFIG_DIR`; both receive supported CLI flags, prompts, model settings, and environment variables.
 Select the adapter with `applepi run --agent <pi|claude>`, or set `default_agent` in `settings.yml`.
 If neither is set, ApplePi defaults to pi for backward compatibility.
-If `applepi` is run before `applepi setup`, it starts the interactive setup wizard, creates the initial settings and default profile, then launches with the selected profile.
+If `applepi` is run in an interactive terminal before `applepi setup`, it starts the setup wizard, creates the initial settings and default profile, then launches with the selected profile. Noninteractive first-run invocations use the default noninteractive setup path instead of prompting.
 
 `settings.yml` can point at local profiles, full Git URIs, or GitHub shorthand sources with optional refs and repository subpaths:
 

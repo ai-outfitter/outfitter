@@ -6,6 +6,11 @@ import type { ValidationIssue } from '../validation/SchemaValidator.js';
 import { validateSchema } from '../validation/SchemaValidator.js';
 import { parseYamlDocument } from '../validation/YamlDocument.js';
 import type { AgentSpecificProfileControls, Profile, ProfileControls, StatePersistenceOverrides } from './Profile.js';
+import {
+  createProfileSourceCachePath,
+  createRemoteRepositoryCachePath,
+  resolveRemoteRepositorySubpath,
+} from './ProfileCache.js';
 import type { ProfileSourceReference } from './ProfileSource.js';
 
 const profileIdPattern = /^[a-z0-9][a-z0-9._-]*[a-z0-9]$|^[a-z0-9]$/u;
@@ -98,6 +103,42 @@ export const loadLocalProfileSource = (source: ProfileSourceReference): ProfileL
   }
 
   return { profiles, issues };
+};
+
+export const loadMaterializedProfileSources = (
+  homeDirectory: string,
+  sources: readonly ProfileSourceReference[],
+): ProfileLoadResult => {
+  const profiles: LoadedProfile[] = [];
+  const issues: ProfileLoadIssue[] = [];
+
+  for (const source of sources) {
+    const materializedSource = materializeProfileSource(homeDirectory, source);
+    const result = loadLocalProfileSource(materializedSource);
+    profiles.push(...result.profiles.map((profile) => ({ ...profile, source })));
+    issues.push(...result.issues);
+  }
+
+  return { profiles, issues };
+};
+
+export const materializeProfileSource = (
+  homeDirectory: string,
+  source: ProfileSourceReference,
+): ProfileSourceReference => {
+  if (source.uri === undefined && source.github === undefined) {
+    return source;
+  }
+
+  if (source.uri !== undefined && source.ref === undefined && source.path === undefined) {
+    return { path: createProfileSourceCachePath(homeDirectory, source.uri), only: source.only, except: source.except };
+  }
+
+  return {
+    path: resolveRemoteRepositorySubpath(createRemoteRepositoryCachePath(homeDirectory, source), source.path),
+    only: source.only,
+    except: source.except,
+  };
 };
 
 const addProfileFromFolder = (
