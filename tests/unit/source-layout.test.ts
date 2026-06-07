@@ -90,6 +90,8 @@ describe('source layout scaffolding', () => {
     expect(validate({ only: ['engineering'] })).toBe(false);
   });
 
+  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-002.1, APPLEPI-REQ-002.2, APPLEPI-REQ-002.5, APPLEPI-REQ-002.6).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('defines settings and profile source scaffolding boundaries', () => {
     const localSource = createLocalProfileSource('./profiles');
     const uriSource = createUriProfileSource('git+https://example.test/profiles.git');
@@ -170,7 +172,9 @@ describe('source layout scaffolding', () => {
     expect(claudePaths.configDirectory).toBe(compositeProfileRoot);
   });
 
-  it('defines compositeProfile, schema, and validation scaffolding boundaries', () => {
+  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-001.3, APPLEPI-REQ-002.3, APPLEPI-REQ-003.1, APPLEPI-REQ-005.2, APPLEPI-REQ-005.3, APPLEPI-REQ-005.4).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('defines composite profile, schema, and validation scaffolding boundaries', () => {
     const compositeProfileFile = createCompositeProfileFile('SYSTEM.md', 'hello');
     const compositeProfile = createCompositeProfile('applepi-compositeProfile-root', [compositeProfileFile]);
     const assembledCompositeProfile = assembleCompositeProfile({
