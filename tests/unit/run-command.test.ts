@@ -5,7 +5,8 @@ import { join } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { executeRunCommand, resolveChildExitCode } from '../../src/cli/commands/RunCommand.js';
+import { createApplePiProgram } from '../../src/cli/ApplePiCli.js';
+import { createRunCommand, executeRunCommand, resolveChildExitCode } from '../../src/cli/commands/RunCommand.js';
 import { createCompositeProfile } from '../../src/compositeProfile/CompositeProfile.js';
 import { allowTestConsoleOutput } from '../test-console.js';
 
@@ -214,6 +215,55 @@ describe('run command', () => {
     expect(result.profileId).toBe('engineer');
     expect(existsSync(join(homeDirectory, '.applepi', 'settings.yml'))).toBe(true);
     expect(existsSync(join(homeDirectory, '.applepi', 'profiles', 'engineer', 'profile.yml'))).toBe(true);
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-004.1, APPLEPI-REQ-005.1).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('runs the automatic setup wizard interactively from the default CLI command', async () => {
+    const root = createTemporaryRoot();
+    const homeDirectory = join(root, 'home');
+    const projectDirectory = join(root, 'project');
+    const messages: string[] = [];
+    const selectedProfiles: string[] = [];
+    const program = createApplePiProgram([
+      createRunCommand({
+        homeDirectory,
+        projectDirectory,
+        input: { isTTY: true } as NodeJS.ReadableStream & { isTTY: true },
+        output: { isTTY: true } as NodeJS.WritableStream & { isTTY: true },
+        writeLine: (message) => messages.push(stripAnsiCodes(message)),
+        synchronizer: {
+          sync(_source, cachePath) {
+            mkdirSync(join(cachePath, 'profiles', 'analyst'), { recursive: true });
+            mkdirSync(join(cachePath, 'profiles', 'engineer'), { recursive: true });
+            writeFileSync(join(cachePath, 'profiles', 'analyst', 'profile.yml'), 'id: analyst\ncontrols: {}\n');
+            writeFileSync(join(cachePath, 'profiles', 'engineer', 'profile.yml'), 'id: engineer\ncontrols: {}\n');
+            return 'updated';
+          },
+        },
+        selectDefaultProfile(profiles, currentDefault) {
+          expect(currentDefault).toBe('engineer');
+          expect(profiles.map((profile) => profile.id)).toEqual(['analyst', 'engineer']);
+          selectedProfiles.push('analyst');
+          return Promise.resolve('analyst');
+        },
+        launcher: {
+          launch() {
+            return Promise.resolve(0);
+          },
+        },
+      }),
+    ]);
+
+    await program.parseAsync(['node', 'applepi']);
+
+    expect(selectedProfiles).toEqual(['analyst']);
+    expect(readFileSync(join(homeDirectory, '.applepi', 'settings.yml'), 'utf8')).toContain('default_profile: analyst');
+    expect(messages).toContain('Welcome to ApplePi. ApplePi is the easiest way to run Pi.');
+    expect(messages).toContain(
+      'ApplePi manages full pi configurations for you, so you can use different profiles in different situations.',
+    );
+    expect(messages).toContain('→ resolving profile analyst');
   });
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-002.3, APPLEPI-REQ-002.4, APPLEPI-REQ-003.1, APPLEPI-REQ-006.1).

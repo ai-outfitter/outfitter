@@ -169,7 +169,7 @@ export const createRunCommand = (dependencies: RunCommandDependencies = {}): Com
             strict: options.strict,
             passThroughArgs: args,
           },
-          dependencies,
+          { ...dependencies, interactive: true },
         );
 
         if (result.exitCode !== 0) {

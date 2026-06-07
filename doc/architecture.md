@@ -682,6 +682,7 @@ Requirements:
 - `-p` / `--profile` selects a profile.
 - `--agent <pi|claude>` selects the agent adapter; if omitted, `default_agent` from settings is used, then `pi`.
 - Without a selected profile, the unified settings default profile is used.
+- If user setup has not created `~/.applepi/settings.yml`, the default CLI command runs the interactive setup wizard before resolving the profile.
 - Unknown args are passed through to the inner agent CLI unaltered.
 - `--strict` makes unsupported profile controls or composite profile assembly warnings fatal.
 - The child agent CLI runs with the generated composite profile, env, and argv.
