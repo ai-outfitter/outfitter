@@ -42,7 +42,7 @@ const readJson = <T>(relativePath: string): T =>
   JSON.parse(readFileSync(new URL(relativePath, import.meta.url), 'utf8')) as T;
 
 describe('source layout scaffolding', () => {
-  // THIS TEST VALIDATES COMMAND-AVAILABILITY CLAUSES IN HARD REQUIREMENTS (APPLEPI-REQ-004.1, APPLEPI-REQ-004.2, APPLEPI-REQ-004.3, APPLEPI-REQ-005.1).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-004.1, APPLEPI-REQ-004.2, APPLEPI-REQ-004.3, APPLEPI-REQ-005.1).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('exposes focused command objects for the initial CLI commands', () => {
     const commands = createDefaultCommands();
@@ -172,7 +172,7 @@ describe('source layout scaffolding', () => {
     expect(claudePaths.configDirectory).toBe(compositeProfileRoot);
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-001.3, APPLEPI-REQ-002.3, APPLEPI-REQ-003.1, APPLEPI-REQ-005.2, APPLEPI-REQ-005.3, APPLEPI-REQ-005.4).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-001.4, APPLEPI-REQ-002.3, APPLEPI-REQ-003.1, APPLEPI-REQ-005.2, APPLEPI-REQ-005.3, APPLEPI-REQ-005.4).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('defines composite profile, schema, and validation scaffolding boundaries', () => {
     const compositeProfileFile = createCompositeProfileFile('SYSTEM.md', 'hello');

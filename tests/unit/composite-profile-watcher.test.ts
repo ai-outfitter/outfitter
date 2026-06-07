@@ -44,6 +44,8 @@ const waitForWarningContaining = async (warnings: readonly string[], content: st
 
     await new Promise((resolve) => setTimeout(resolve, 25));
   }
+
+  throw new Error(`Timed out waiting for warning containing '${content}'. Warnings: ${warnings.join('; ')}`);
 };
 
 afterEach(() => {
