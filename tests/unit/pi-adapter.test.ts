@@ -134,6 +134,30 @@ describe('pi adapter', () => {
     }
   });
 
+  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-006.3).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('makes native pi models config available inside the composite profile', () => {
+    const { homeDirectory } = createPiSettingsTestHome();
+    const adapter = createPiAdapter();
+    const compositeProfilePlan = adapter.createCompositeProfile(
+      { id: 'engineering', inherits: [], controls: {} },
+      {
+        rootDirectory: '/tmp/applepi-engineering-pi-models',
+        profilePaths: ['/profiles/engineering/profile.yml'],
+        homeDirectory,
+      },
+    );
+
+    expect(
+      compositeProfilePlan.compositeProfile.statePaths.find((statePath) => statePath.relativePath === 'models.json'),
+    ).toEqual({
+      relativePath: 'models.json',
+      strategy: 'symlink',
+      directory: false,
+      sourcePath: join(homeDirectory, '.pi', 'agent', 'models.json'),
+    });
+  });
+
   // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-006.6).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('transforms pi settings packages when profile extensions would duplicate native packages', () => {
