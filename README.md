@@ -6,13 +6,24 @@ The goal is manageable agent CLI configuration: organizations should be able to 
 
 ## Install
 
-### One-click setup with Claude Code
+### Agent-assisted setup
 
-If you have [Claude Code](https://docs.anthropic.com/en/docs/claude-code) installed, click this deep link to open a session pre-filled with a prompt that performs the full setup:
+Using a CLI coding agent (Claude Code, pi, etc.)? Copy this prompt and paste it into your agent:
 
-[Set up applepi with Claude Code](claude-cli://open?q=Install%20applepi%20globally%3A%20clone%20https%3A%2F%2Fgithub.com%2Fapplepi-ai%2Fapplepi%20into%20a%20sensible%20location%20(e.g.%20~%2Frepos)%20unless%20I%20already%20have%20a%20checkout%2C%20run%20npm%20install%2C%20then%20npm%20run%20dev_install%20to%20build%20and%20npm-link%20the%20global%20applepi%20command.%20Verify%20applepi%20is%20on%20PATH.%20Then%20check%20whether%20the%20pi%20coding%20agent%20%28https%3A%2F%2Fgithub.com%2Fearendil-works%2Fpi-coding-agent%29%20is%20installed%3B%20if%20not%2C%20install%20it%20per%20its%20README.%20Report%20what%20was%20installed%20and%20any%20PATH%20changes%20I%20need.)
+<details>
+<summary>Setup prompt</summary>
 
-Review the pre-filled prompt and press Enter to run it. (Note: GitHub's Markdown rendering strips `claude-cli://` links, so this link works in editors and other renderers but not on github.com.)
+```text
+Install applepi globally: clone https://github.com/applepi-ai/applepi into a
+sensible location (e.g. ~/repos) unless I already have a checkout, run
+npm install, then npm run dev_install to build and npm-link the global
+applepi command. Verify applepi is on PATH. Then check whether the pi coding
+agent (https://github.com/earendil-works/pi-coding-agent) is installed; if
+not, install it per its README. Report what was installed and any PATH
+changes I need.
+```
+
+</details>
 
 ### Manual install
 
