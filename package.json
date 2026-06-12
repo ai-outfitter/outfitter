@@ -1,5 +1,5 @@
 {
-  "name": "applepi",
+  "name": "@applepi-ai/applepi",
   "version": "0.1.0",
   "description": "Profile-oriented wrapper for launching pi, Claude Code, and future agent CLIs with reproducible configuration.",
   "type": "module",
@@ -66,5 +66,8 @@
     "pi",
     "profiles"
   ],
-  "license": "BUSL-1.1"
+  "license": "BUSL-1.1",
+  "publishConfig": {
+    "access": "public"
+  }
 }
