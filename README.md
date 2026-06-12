@@ -1,5 +1,3 @@
-_pre-launch | internal tool preview._
-
 # applepi
 
 `applepi` is intended to be a management wrapper for launching [`pi`](https://github.com/earendil-works/pi-coding-agent) and Claude Code with configurable, reusable profiles.
@@ -32,8 +30,6 @@ Use `npx` when you want to test ApplePi without adding a global command:
 
 ```bash
 npx --yes @applepi-ai/applepi@latest --help
-npx --yes @applepi-ai/applepi@latest setup
-npx --yes @applepi-ai/applepi@latest run
 ```
 
 For source development, see [`CONTRIBUTING.md`](./CONTRIBUTING.md).
