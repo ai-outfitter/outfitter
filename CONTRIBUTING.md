@@ -1,6 +1,6 @@
 # Contributor Guide
 
-This guide describes how to install and test ApplePi locally from a checkout.
+This guide describes how to install and test ApplePi locally from a source checkout. For normal usage, install ApplePi from npm with `npm install -g @applepi-ai/applepi`.
 
 ## Prerequisites
 

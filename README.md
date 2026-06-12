@@ -15,40 +15,7 @@ If you haven't tried [Pi](https://pi.dev) yet — we think it's a great coding h
 
 ## Install
 
-### Agent-assisted setup
-
-Using a CLI coding agent (Claude Code, pi, etc.)? Copy this prompt and paste it into your agent:
-
-<details>
-<summary>Setup prompt</summary>
-
-```text
-Install applepi from npm. Prefer a global install with
-`npm install -g @applepi-ai/applepi`; if I only want a one-off run, use
-`npx --yes @applepi-ai/applepi@latest --help` first. Verify the `applepi`
-command is on PATH after a global install. Then check whether the pi coding
-agent (https://github.com/earendil-works/pi-coding-agent) is installed; if
-not, install it per its README. Report what was installed and any PATH
-changes I need. If global npm registry installation is unavailable, clone
-https://github.com/applepi-ai/applepi into a sensible location (e.g. ~/repos),
-run npm install, then npm run dev_install.
-```
-
-</details>
-
-### Try without installing
-
-Use `npx` when you want to test ApplePi without adding a global command:
-
-```bash
-npx --yes @applepi-ai/applepi@latest --help
-npx --yes @applepi-ai/applepi@latest setup
-npx --yes @applepi-ai/applepi@latest run
-```
-
-### Install globally from npm
-
-Install ApplePi globally when you want the `applepi` command on your PATH:
+Install ApplePi globally from npm so the `applepi` command is available on your PATH:
 
 ```bash
 npm install -g @applepi-ai/applepi
@@ -61,18 +28,15 @@ Upgrade with:
 npm update -g @applepi-ai/applepi
 ```
 
-### Source development install
-
-For source development, clone the repository and link the local checkout:
+Use `npx` when you want to test ApplePi without adding a global command:
 
 ```bash
-git clone https://github.com/applepi-ai/applepi
-cd applepi
-npm install
-npm run dev_install
+npx --yes @applepi-ai/applepi@latest --help
+npx --yes @applepi-ai/applepi@latest setup
+npx --yes @applepi-ai/applepi@latest run
 ```
 
-`npm run dev_install` builds the CLI and links it globally via `npm link`, so `applepi` is on your PATH and rebuilds in this checkout take effect immediately.
+For source development, see [`CONTRIBUTING.md`](./CONTRIBUTING.md).
 
 ApplePi launches agent CLIs but does not install them. Install the agents you plan to use separately:
 

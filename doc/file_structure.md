@@ -36,7 +36,7 @@ ApplePi is organized around clear TypeScript source boundaries, requirement docu
 ├── .prettierrc.json                   # Prettier formatting configuration
 ├── .snapperrc.toml                    # Snapper Markdown formatting configuration
 ├── plan.md                            # implementation plan
-├── contributor.md                     # local install and contributor workflow guide
+├── CONTRIBUTING.md                    # local install and contributor workflow guide
 ├── src/                               # production TypeScript source
 │   ├── cli.ts                         # executable CLI entry point
 │   ├── cli/                           # CLI parser construction and command registration
