@@ -1,5 +1,3 @@
-_pre-launch | internal tool preview._
-
 # applepi
 
 `applepi` is intended to be a management wrapper for launching [`pi`](https://github.com/earendil-works/pi-coding-agent) and Claude Code with configurable, reusable profiles.
@@ -15,43 +13,26 @@ If you haven't tried [Pi](https://pi.dev) yet — we think it's a great coding h
 
 ## Install
 
-### Agent-assisted setup
-
-Using a CLI coding agent (Claude Code, pi, etc.)? Copy this prompt and paste it into your agent:
-
-<details>
-<summary>Setup prompt</summary>
-
-```text
-Install applepi globally from npm with `npm install -g @applepi-ai/applepi`.
-Verify the `applepi` command is on PATH. Then check whether the pi coding
-agent (https://github.com/earendil-works/pi-coding-agent) is installed; if
-not, install it per its README. Report what was installed and any PATH
-changes I need. If global npm registry installation is unavailable, clone
-https://github.com/applepi-ai/applepi into a sensible location (e.g. ~/repos),
-run npm install, then npm run dev_install.
-```
-
-</details>
-
-### Manual install
-
-Install ApplePi from npm:
+Install ApplePi globally from npm so the `applepi` command is available on your PATH:
 
 ```bash
 npm install -g @applepi-ai/applepi
+applepi --help
 ```
 
-For source development, clone the repository and link the local checkout:
+Upgrade with:
 
 ```bash
-git clone https://github.com/applepi-ai/applepi
-cd applepi
-npm install
-npm run dev_install
+npm update -g @applepi-ai/applepi
 ```
 
-`npm run dev_install` builds the CLI and links it globally via `npm link`, so `applepi` is on your PATH and rebuilds in this checkout take effect immediately.
+Use `npx` when you want to test ApplePi without adding a global command:
+
+```bash
+npx --yes @applepi-ai/applepi@latest --help
+```
+
+For source development, see [`CONTRIBUTING.md`](./CONTRIBUTING.md).
 
 ApplePi launches agent CLIs but does not install them. Install the agents you plan to use separately:
 
