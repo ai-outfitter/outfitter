@@ -4,11 +4,13 @@ _pre-launch | internal tool preview._
 
 `applepi` is intended to be a management wrapper for launching [`pi`](https://github.com/earendil-works/pi-coding-agent) and Claude Code with configurable, reusable profiles.
 
-The goal is manageable agent CLI configuration: 
+The goal is manageable agent CLI configuration:
+
 - Organizations can define standard pi or claude loadouts, share them, and launch agent CLIs consistently across different environments.
 - Individuals can swap between configurations of their coding agent, share those, and easily migrate to new machines.
 
 If you haven't tried [Pi](https://pi.dev) yet — we think it's a great coding harness & ApplePi is an easy way to try it.
+
 - Install and run `applepi` to load pi with our standard configuration for engineers.
 
 ## Install
@@ -21,20 +23,26 @@ Using a CLI coding agent (Claude Code, pi, etc.)? Copy this prompt and paste it 
 <summary>Setup prompt</summary>
 
 ```text
-Install applepi globally: clone https://github.com/applepi-ai/applepi into a
-sensible location (e.g. ~/repos) unless I already have a checkout, run
-npm install, then npm run dev_install to build and npm-link the global
-applepi command. Verify applepi is on PATH. Then check whether the pi coding
+Install applepi globally from npm with `npm install -g @applepi-ai/applepi`.
+Verify the `applepi` command is on PATH. Then check whether the pi coding
 agent (https://github.com/earendil-works/pi-coding-agent) is installed; if
 not, install it per its README. Report what was installed and any PATH
-changes I need.
+changes I need. If global npm registry installation is unavailable, clone
+https://github.com/applepi-ai/applepi into a sensible location (e.g. ~/repos),
+run npm install, then npm run dev_install.
 ```
 
 </details>
 
 ### Manual install
 
-ApplePi is not yet published to npm, so install it from source:
+Install ApplePi from npm:
+
+```bash
+npm install -g @applepi-ai/applepi
+```
+
+For source development, clone the repository and link the local checkout:
 
 ```bash
 git clone https://github.com/applepi-ai/applepi
