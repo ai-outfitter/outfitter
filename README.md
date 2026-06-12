@@ -23,8 +23,10 @@ Using a CLI coding agent (Claude Code, pi, etc.)? Copy this prompt and paste it 
 <summary>Setup prompt</summary>
 
 ```text
-Install applepi globally from npm with `npm install -g @applepi-ai/applepi`.
-Verify the `applepi` command is on PATH. Then check whether the pi coding
+Install applepi from npm. Prefer a global install with
+`npm install -g @applepi-ai/applepi`; if I only want a one-off run, use
+`npx --yes @applepi-ai/applepi@latest --help` first. Verify the `applepi`
+command is on PATH after a global install. Then check whether the pi coding
 agent (https://github.com/earendil-works/pi-coding-agent) is installed; if
 not, install it per its README. Report what was installed and any PATH
 changes I need. If global npm registry installation is unavailable, clone
@@ -34,13 +36,32 @@ run npm install, then npm run dev_install.
 
 </details>
 
-### Manual install
+### Try without installing
 
-Install ApplePi from npm:
+Use `npx` when you want to test ApplePi without adding a global command:
+
+```bash
+npx --yes @applepi-ai/applepi@latest --help
+npx --yes @applepi-ai/applepi@latest setup
+npx --yes @applepi-ai/applepi@latest run
+```
+
+### Install globally from npm
+
+Install ApplePi globally when you want the `applepi` command on your PATH:
 
 ```bash
 npm install -g @applepi-ai/applepi
+applepi --help
 ```
+
+Upgrade with:
+
+```bash
+npm update -g @applepi-ai/applepi
+```
+
+### Source development install
 
 For source development, clone the repository and link the local checkout:
 
