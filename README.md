@@ -244,13 +244,17 @@ controls:
     - --some-arg
   session_directory: ./sessions
 
-  # Profile-owned extensions, skills, and prompt resources.
+  # Profile-owned extensions and skills add runtime capabilities and task instructions.
   extensions:
     - npm:pi-subagents
   skills:
     - ./skills/debugging
-  prompt_template: ./prompts/template.md
-  system_prompt: ./prompts/system.md
+
+  # Use prompt_template for a reusable task workflow, such as code review or implementation planning.
+  prompt_template: ./prompts/implementation-plan.md
+
+  # Use system_prompt for the agent's core behavior; append_system_prompt adds standing rules on top.
+  system_prompt: ./prompts/engineering-agent.md
   append_system_prompt: ./prompts/company-policy.md
 
   # Environment variables injected into the agent process.
@@ -270,8 +274,8 @@ controls:
       - git:github.com/applepi-ai/deepwork
     skills:
       - ./skills/pi-debugging
-    prompt_template: ./prompts/pi-template.md
-    system_prompt: ./prompts/pi-system.md
+    prompt_template: ./prompts/pi-code-review.md
+    system_prompt: ./prompts/pi-engineering-agent.md
     append_system_prompt: Pi-specific instructions
     environment:
       PI_TEAM_MODE: engineering
@@ -288,8 +292,8 @@ controls:
       - ./extensions/claude-bootstrap
     skills:
       - ./skills/claude-debugging
-    prompt_template: ./prompts/claude-template.md
-    system_prompt: ./prompts/claude-system.md
+    prompt_template: ./prompts/claude-code-review.md
+    system_prompt: ./prompts/claude-engineering-agent.md
     append_system_prompt: Claude-specific instructions
     environment:
       CLAUDE_TEAM_MODE: engineering
