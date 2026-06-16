@@ -204,9 +204,9 @@ describe('run command', () => {
 
     expect(messages).toEqual([
       '`applepi setup` has not been run yet - running now',
+      'Pi does not appear to be logged in yet. After Pi starts, run `/login` and choose a subscription such as Codex or provide an API key from another model provider.',
       '→ resolving profile engineer',
       `✓ profile layer engineer  ${join(homeDirectory, '.applepi', 'profiles', 'engineer')}`,
-      '✓ profile layer engineer  github:applepi-ai/default-profiles@main/profiles',
       '✓ merged controls',
       `✓ prepared composite profile  ${result.compositeProfileDirectory}`,
       '↳ launching pi …',
@@ -214,6 +214,197 @@ describe('run command', () => {
     expect(result.profileId).toBe('engineer');
     expect(existsSync(join(homeDirectory, '.applepi', 'settings.yml'))).toBe(true);
     expect(existsSync(join(homeDirectory, '.applepi', 'profiles', 'engineer', 'profile.yml'))).toBe(true);
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-010.4).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('notifies pi users to run login when no native login state is configured', async () => {
+    const root = createTemporaryRoot();
+    const homeDirectory = join(root, 'home');
+    const projectDirectory = join(root, 'project');
+    const messages: string[] = [];
+    writeSettings(homeDirectory, 'default_profile: engineer\nprofile_sources:\n  - path: ./profiles\n');
+    writeProfile(join(homeDirectory, '.applepi', 'profiles'), 'engineer', 'id: engineer\ncontrols: {}\n');
+
+    await executeRunCommand(
+      { homeDirectory, projectDirectory },
+      {
+        writeLine: (message) => messages.push(message),
+        launcher: {
+          launch() {
+            return Promise.resolve(0);
+          },
+        },
+      },
+    );
+
+    expect(messages).toContain(
+      'Pi does not appear to be logged in yet. After Pi starts, run `/login` and choose a subscription such as Codex or provide an API key from another model provider.',
+    );
+    expect(messages.join('\n')).not.toContain('sk-');
+
+    messages.length = 0;
+    mkdirSync(join(homeDirectory, '.pi', 'agent'), { recursive: true });
+    writeFileSync(join(homeDirectory, '.pi', 'agent', 'models.json'), 'not-json\n');
+    await executeRunCommand(
+      { homeDirectory, projectDirectory },
+      {
+        writeLine: (message) => messages.push(message),
+        launcher: {
+          launch() {
+            return Promise.resolve(0);
+          },
+        },
+      },
+    );
+    expect(messages).toContain(
+      'Pi does not appear to be logged in yet. After Pi starts, run `/login` and choose a subscription such as Codex or provide an API key from another model provider.',
+    );
+
+    messages.length = 0;
+    writeFileSync(join(homeDirectory, '.pi', 'agent', 'models.json'), 'null\n');
+    await executeRunCommand(
+      { homeDirectory, projectDirectory },
+      {
+        writeLine: (message) => messages.push(message),
+        launcher: {
+          launch() {
+            return Promise.resolve(0);
+          },
+        },
+      },
+    );
+    expect(messages).toContain(
+      'Pi does not appear to be logged in yet. After Pi starts, run `/login` and choose a subscription such as Codex or provide an API key from another model provider.',
+    );
+
+    messages.length = 0;
+    writeFileSync(join(homeDirectory, '.pi', 'agent', 'auth.json'), 'not-json\n');
+    await executeRunCommand(
+      { homeDirectory, projectDirectory },
+      {
+        writeLine: (message) => messages.push(message),
+        launcher: {
+          launch() {
+            return Promise.resolve(0);
+          },
+        },
+      },
+    );
+    expect(messages).toContain(
+      'Pi does not appear to be logged in yet. After Pi starts, run `/login` and choose a subscription such as Codex or provide an API key from another model provider.',
+    );
+
+    messages.length = 0;
+    writeFileSync(join(homeDirectory, '.pi', 'agent', 'auth.json'), '{"openai":{"type":"oauth"}}\n');
+    await executeRunCommand(
+      { homeDirectory, projectDirectory },
+      {
+        writeLine: (message) => messages.push(message),
+        launcher: {
+          launch() {
+            return Promise.resolve(0);
+          },
+        },
+      },
+    );
+    expect(messages).not.toContain(
+      'Pi does not appear to be logged in yet. After Pi starts, run `/login` and choose a subscription such as Codex or provide an API key from another model provider.',
+    );
+
+    rmSync(join(homeDirectory, '.pi', 'agent', 'auth.json'), { force: true });
+    messages.length = 0;
+    writeFileSync(join(homeDirectory, '.pi', 'agent', 'models.json'), '{"models":["codex"]}\n');
+    await executeRunCommand(
+      { homeDirectory, projectDirectory },
+      {
+        writeLine: (message) => messages.push(message),
+        launcher: {
+          launch() {
+            return Promise.resolve(0);
+          },
+        },
+      },
+    );
+
+    expect(messages).not.toContain(
+      'Pi does not appear to be logged in yet. After Pi starts, run `/login` and choose a subscription such as Codex or provide an API key from another model provider.',
+    );
+
+    messages.length = 0;
+    writeFileSync(join(homeDirectory, '.pi', 'agent', 'models.json'), '{"codex":{}}\n');
+    await executeRunCommand(
+      { homeDirectory, projectDirectory },
+      {
+        writeLine: (message) => messages.push(message),
+        launcher: {
+          launch() {
+            return Promise.resolve(0);
+          },
+        },
+      },
+    );
+
+    expect(messages).not.toContain(
+      'Pi does not appear to be logged in yet. After Pi starts, run `/login` and choose a subscription such as Codex or provide an API key from another model provider.',
+    );
+  });
+
+  it('honors explicit non-interactive first-run setup selection', async () => {
+    const root = createTemporaryRoot();
+    const homeDirectory = join(root, 'home');
+    const projectDirectory = join(root, 'project');
+
+    const result = await executeRunCommand(
+      { homeDirectory, projectDirectory },
+      {
+        interactive: false,
+        writeLine: () => undefined,
+        synchronizer: {
+          sync(_source, cachePath) {
+            mkdirSync(join(cachePath, 'profiles', 'engineer'), { recursive: true });
+            writeFileSync(join(cachePath, 'profiles', 'engineer', 'profile.yml'), 'id: engineer\ncontrols: {}\n');
+            return 'updated';
+          },
+        },
+        launcher: {
+          launch() {
+            return Promise.resolve(0);
+          },
+        },
+      },
+    );
+
+    expect(result.profileId).toBe('engineer');
+  });
+
+  it('falls back to non-interactive first-run setup when stdout is not a TTY', async () => {
+    const root = createTemporaryRoot();
+    const homeDirectory = join(root, 'home');
+    const projectDirectory = join(root, 'project');
+
+    const result = await executeRunCommand(
+      { homeDirectory, projectDirectory },
+      {
+        input: { isTTY: true } as NodeJS.ReadableStream & { isTTY: true },
+        output: { isTTY: false } as NodeJS.WritableStream & { isTTY: false },
+        writeLine: () => undefined,
+        synchronizer: {
+          sync(_source, cachePath) {
+            mkdirSync(join(cachePath, 'profiles', 'engineer'), { recursive: true });
+            writeFileSync(join(cachePath, 'profiles', 'engineer', 'profile.yml'), 'id: engineer\ncontrols: {}\n');
+            return 'updated';
+          },
+        },
+        launcher: {
+          launch() {
+            return Promise.resolve(0);
+          },
+        },
+      },
+    );
+
+    expect(result.profileId).toBe('engineer');
   });
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-002.3, APPLEPI-REQ-002.4, APPLEPI-REQ-003.1, APPLEPI-REQ-006.1).
@@ -253,7 +444,11 @@ describe('run command', () => {
       'cached',
       'id: cached\ncontrols: {}\n',
     );
-    allowTestConsoleOutput(({ method, text }) => method === 'log' && isRunCommandSummaryMessage(text));
+    allowTestConsoleOutput(
+      ({ method, text }) =>
+        method === 'log' &&
+        (isRunCommandSummaryMessage(text) || text.startsWith('Pi does not appear to be logged in yet.')),
+    );
     const result = await executeRunCommand(
       { homeDirectory: uriHome, projectDirectory, profileId: 'cached' },
       {

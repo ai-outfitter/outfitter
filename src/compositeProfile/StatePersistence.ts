@@ -127,11 +127,13 @@ export const ensureStateSourcePath = (sourcePath: string, directory: boolean): s
       mkdirSync(sourcePath, { recursive: true });
     } else {
       mkdirSync(dirname(sourcePath), { recursive: true });
-      writeFileSync(sourcePath, '');
+      writeFileSync(sourcePath, createInitialStateSourceFileContent(sourcePath));
     }
 
     return sourcePath;
   }
+
+  initializeEmptyJsonStateSourceFile(sourcePath, directory, sourceType);
 
   if (directory && sourceType !== 'directory') {
     throw new Error(`State source path '${sourcePath}' must be a directory.`);
@@ -143,6 +145,37 @@ export const ensureStateSourcePath = (sourcePath: string, directory: boolean): s
 
   return sourcePath;
 };
+
+const initializeEmptyJsonStateSourceFile = (
+  sourcePath: string,
+  directory: boolean,
+  sourceType: 'file' | 'directory',
+): void => {
+  const defaultFileContent = getJsonStateFileDefault(sourcePath);
+
+  if (!directory && sourceType === 'file' && defaultFileContent !== undefined && isEmptyTextFile(sourcePath)) {
+    writeFileSync(sourcePath, defaultFileContent);
+  }
+};
+
+const createInitialStateSourceFileContent = (sourcePath: string): string => getJsonStateFileDefault(sourcePath) ?? '';
+
+const isEmptyTextFile = (sourcePath: string): boolean => readFileSync(sourcePath, 'utf8').trim() === '';
+
+const getJsonStateFileDefault = (sourcePath: string): string | undefined => {
+  if (isStateSourceFileName(sourcePath, 'mcp.json')) {
+    return '{}\n';
+  }
+
+  if (isStateSourceFileName(sourcePath, 'models.json')) {
+    return '{"providers":{}}\n';
+  }
+
+  return undefined;
+};
+
+const isStateSourceFileName = (sourcePath: string, fileName: string): boolean =>
+  sourcePath.endsWith(`${sep}${fileName}`) || sourcePath === fileName;
 
 const getExistingSourceType = (sourcePath: string): 'file' | 'directory' | undefined => {
   try {

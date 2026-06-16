@@ -23,8 +23,11 @@ import {
   loadSettingsWithCachedRemoteSettings,
 } from '../../settings/SettingsLoader.js';
 import type { CommandObject } from './CommandObject.js';
+import { persistFirstRunWelcomeProfile, type PersistedFirstRunWelcomeProfile } from './FirstRunWelcomeProfile.js';
 import type { SyncCommandDependencies, SyncCommandResult } from './SyncCommand.js';
 import { executeSyncCommand } from './SyncCommand.js';
+import { executeWelcomeCommand } from './WelcomeCommand.js';
+import type { WelcomeCommandDependencies, WelcomeCommandResult } from './WelcomeCommand.js';
 
 export interface SetupCommandInput {
   readonly homeDirectory: string;
@@ -39,6 +42,7 @@ export interface SetupCommandResult {
   readonly copiedStarterProfileFiles: number;
   readonly createdDefaultProfile: boolean;
   readonly syncResult: SyncCommandResult;
+  readonly welcomeResult?: WelcomeCommandResult;
   readonly messages: readonly string[];
 }
 
@@ -46,20 +50,28 @@ export interface SetupSourceSynchronizer {
   sync(uri: string, cachePath: string): void;
 }
 
-export type SetupCommandDependencies = SyncCommandDependencies & {
-  readonly setupSourceSynchronizer?: SetupSourceSynchronizer;
-  readonly input?: { readonly isTTY?: boolean } & NodeJS.ReadableStream;
-  readonly output?: { readonly isTTY?: boolean } & NodeJS.WritableStream;
-  readonly interactive?: boolean;
-  readonly selectDefaultProfile?: (profiles: readonly SetupProfileChoice[], currentDefault: string) => Promise<string>;
-};
+export type SetupCommandDependencies = SyncCommandDependencies &
+  WelcomeCommandDependencies & {
+    readonly setupSourceSynchronizer?: SetupSourceSynchronizer;
+    readonly selectDefaultProfile?: (
+      profiles: readonly SetupProfileChoice[],
+      currentDefault: string,
+    ) => Promise<string>;
+    readonly runWelcome?: (
+      input: SetupCommandInput,
+      dependencies: SetupCommandDependencies,
+    ) => Promise<WelcomeCommandResult | undefined>;
+  };
 
 export interface SetupProfileChoice {
   readonly id: string;
   readonly label?: string;
 }
 
-const defaultProfileSourceRepository = 'applepi-ai/default-profiles';
+const builtInSetupProfileChoices: readonly SetupProfileChoice[] = [
+  { id: 'engineer', label: 'Engineer' },
+  { id: 'data_analyst', label: 'Data Analyst' },
+];
 
 interface StarterLayout {
   readonly cachePath: string;
@@ -95,34 +107,52 @@ export const executeSetupCommand = async (
     join(input.homeDirectory, '.applepi', 'profiles'),
   );
   const syncResult = executeSyncCommand(input, dependencies);
-  const selectedDefaultProfileId = await selectDefaultProfileIfInteractive(
-    input,
-    settingsPath,
-    defaultProfileId,
-    dependencies,
-  );
-  const defaultProfilePath = join(input.homeDirectory, '.applepi', 'profiles', selectedDefaultProfileId, 'profile.yml');
-  const createdDefaultProfile = createDefaultProfileIfMissing(defaultProfilePath, selectedDefaultProfileId);
+  const selectedDefaultProfileId = shouldSkipInitialDefaultProfilePrompt(initialSettingsMissing, dependencies)
+    ? defaultProfileId
+    : await selectDefaultProfileIfInteractive(input, settingsPath, defaultProfileId, dependencies);
+  const welcomeResult = await runWelcomeAfterInteractiveSetup(input, dependencies);
+  const welcomeProfile = persistFirstRunWelcomeProfile(input.homeDirectory, settingsPath, welcomeResult);
+  const finalDefaultProfile = prepareFinalDefaultProfile(input.homeDirectory, selectedDefaultProfileId, welcomeProfile);
 
   return {
     settingsPath,
-    defaultProfilePath,
+    defaultProfilePath: finalDefaultProfile.path,
     createdSettings,
     copiedStarterProfileFiles,
-    createdDefaultProfile,
+    createdDefaultProfile: finalDefaultProfile.created,
     syncResult,
+    welcomeResult,
     messages: buildSetupMessages({
       input,
       starterLayout,
       settingsPath,
       createdSettings,
       copiedStarterProfileFiles,
-      defaultProfileId: selectedDefaultProfileId,
-      defaultProfilePath,
-      createdDefaultProfile,
+      defaultProfileId: finalDefaultProfile.id,
+      defaultProfilePath: finalDefaultProfile.path,
+      createdDefaultProfile: finalDefaultProfile.created,
       syncResult,
     }),
   };
+};
+
+interface FinalDefaultProfile {
+  readonly id: string;
+  readonly path: string;
+  readonly created: boolean;
+}
+
+const prepareFinalDefaultProfile = (
+  homeDirectory: string,
+  selectedDefaultProfileId: string,
+  welcomeProfile: PersistedFirstRunWelcomeProfile | undefined,
+): FinalDefaultProfile => {
+  const finalDefaultProfileId = welcomeProfile?.profileId ?? selectedDefaultProfileId;
+  const finalDefaultProfilePath = join(homeDirectory, '.applepi', 'profiles', finalDefaultProfileId, 'profile.yml');
+  const createdDefaultProfile =
+    welcomeProfile?.createdProfile ?? createDefaultProfileIfMissing(finalDefaultProfilePath, finalDefaultProfileId);
+
+  return { id: finalDefaultProfileId, path: finalDefaultProfilePath, created: createdDefaultProfile };
 };
 
 interface SetupMessageInput {
@@ -314,15 +344,7 @@ const assertValidDefaultProfileId = (profileId: string): void => {
 };
 
 const createDefaultSettingsContent = (): string =>
-  [
-    'default_profile: engineer',
-    'profile_sources:',
-    '  - path: ./profiles',
-    `  - github: ${defaultProfileSourceRepository}`,
-    '    ref: main',
-    '    path: profiles',
-    '',
-  ].join('\n');
+  ['default_profile: engineer', 'profile_sources:', '  - path: ./profiles', ''].join('\n');
 
 const createInitialSettingsIfMissing = (settingsPath: string, starterSettingsPath?: string): boolean => {
   if (existsSync(settingsPath)) {
@@ -394,6 +416,21 @@ const createDefaultProfileIfMissing = (profilePath: string, profileId: string): 
   return true;
 };
 
+const runWelcomeAfterInteractiveSetup = async (
+  input: SetupCommandInput,
+  dependencies: SetupCommandDependencies,
+): Promise<WelcomeCommandResult | undefined> => {
+  if (dependencies.interactive !== true) {
+    return undefined;
+  }
+
+  if (dependencies.runWelcome !== undefined) {
+    return dependencies.runWelcome(input, dependencies);
+  }
+
+  return executeWelcomeCommand(input, dependencies);
+};
+
 const requireInteractiveTerminalIfNeeded = (dependencies: SetupCommandDependencies): void => {
   if (dependencies.interactive !== true) {
     return;
@@ -409,6 +446,11 @@ const requireInteractiveTerminalIfNeeded = (dependencies: SetupCommandDependenci
   }
 };
 
+const shouldSkipInitialDefaultProfilePrompt = (
+  initialSettingsMissing: boolean,
+  dependencies: SetupCommandDependencies,
+): boolean => initialSettingsMissing && dependencies.interactive === true;
+
 const selectDefaultProfileIfInteractive = async (
   input: SetupCommandInput,
   settingsPath: string,
@@ -419,7 +461,11 @@ const selectDefaultProfileIfInteractive = async (
     return currentDefault;
   }
 
-  const profiles = discoverSetupProfileChoices(input);
+  const discoveredProfiles = discoverSetupProfileChoices(input);
+  const profiles =
+    discoveredProfiles.length > 0 || builtInSetupProfileChoices.every((profile) => profile.id !== currentDefault)
+      ? discoveredProfiles
+      : builtInSetupProfileChoices;
   const writer = dependencies.writeLine ?? console.log;
   writer('Welcome to ApplePi. ApplePi is the easiest way to run Pi.');
   writer('ApplePi manages full pi configurations for you, so you can use different profiles in different situations.');

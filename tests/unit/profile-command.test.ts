@@ -178,9 +178,12 @@ describe('profile command', () => {
       selectDefaultProfile() {
         return Promise.resolve('engineer');
       },
+      selectWelcomePlan() {
+        return Promise.resolve({ answerQuestions: false });
+      },
     }).register(setupProgram);
     await setupProgram.parseAsync(['node', 'applepi', 'setup']);
-    expect(setupMessages).toContain('Welcome to ApplePi. ApplePi is the easiest way to run Pi.');
+    expect(setupMessages).not.toContain('Welcome to ApplePi. ApplePi is the easiest way to run Pi.');
     expect(setupMessages).toContainEqual(expect.stringContaining('Created user settings'));
   });
 

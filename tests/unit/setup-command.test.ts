@@ -62,19 +62,11 @@ describe('setup command', () => {
     expect(firstResult.createdSettings).toBe(true);
     expect(firstResult.createdDefaultProfile).toBe(true);
     expect(readFileSync(settingsPath, 'utf8')).toBe(
-      [
-        'default_profile: engineer',
-        'profile_sources:',
-        '  - path: ./profiles',
-        '  - github: applepi-ai/default-profiles',
-        '    ref: main',
-        '    path: profiles',
-        '',
-      ].join('\n'),
+      ['default_profile: engineer', 'profile_sources:', '  - path: ./profiles', ''].join('\n'),
     );
     expect(readFileSync(defaultProfilePath, 'utf8')).toBe('id: engineer\nlabel: Default\ncontrols: {}\n');
     expect(firstResult.messages).toContain("Selected default profile 'engineer'.");
-    expect(firstResult.syncResult.sources[0]?.message).toBe('2 profiles validated.');
+    expect(firstResult.syncResult.sources).toEqual([]);
 
     writeFileSync(defaultProfilePath, 'id: default\nlabel: Custom\n');
     const secondResult = await executeSetupCommand(
@@ -265,9 +257,11 @@ describe('setup command', () => {
       ),
     ).rejects.toThrow('requires an interactive TTY');
 
+    const unsafeHomeDirectory = join(root, 'unsafe-home');
+    writeSettings(unsafeHomeDirectory, 'default_profile: engineer\nprofile_sources:\n  - path: ./profiles\n');
     await expect(
       executeSetupCommand(
-        { homeDirectory: join(root, 'unsafe-home'), projectDirectory },
+        { homeDirectory: unsafeHomeDirectory, projectDirectory },
         {
           interactive: true,
           input: { isTTY: true } as NodeJS.ReadableStream & { isTTY: true },
@@ -280,9 +274,11 @@ describe('setup command', () => {
         },
       ),
     ).rejects.toThrow('filesystem-safe');
+    const unlistedHomeDirectory = join(root, 'unlisted-home');
+    writeSettings(unlistedHomeDirectory, 'default_profile: engineer\nprofile_sources:\n  - path: ./profiles\n');
     await expect(
       executeSetupCommand(
-        { homeDirectory: join(root, 'unlisted-home'), projectDirectory },
+        { homeDirectory: unlistedHomeDirectory, projectDirectory },
         {
           interactive: true,
           input: { isTTY: true } as NodeJS.ReadableStream & { isTTY: true },
@@ -296,6 +292,7 @@ describe('setup command', () => {
       ),
     ).rejects.toThrow('not one of the available setup profiles');
 
+    writeSettings(homeDirectory, 'default_profile: engineer\nprofile_sources:\n  - path: ./profiles\n');
     const result = await executeSetupCommand(
       { homeDirectory, projectDirectory },
       {
@@ -306,8 +303,11 @@ describe('setup command', () => {
         synchronizer: defaultProfileSynchronizer,
         selectDefaultProfile(profiles, currentDefault) {
           expect(currentDefault).toBe('engineer');
-          expect(profiles.map((profile) => profile.id)).toEqual(['data_analyst', 'engineer']);
+          expect(profiles.map((profile) => profile.id)).toEqual(['engineer', 'data_analyst']);
           return Promise.resolve('data_analyst');
+        },
+        selectWelcomePlan() {
+          return Promise.resolve({ answerQuestions: false });
         },
       },
     );
@@ -324,6 +324,85 @@ describe('setup command', () => {
     );
   });
 
+  it('uses an injected welcome runner after interactive setup completes', async () => {
+    const root = createTemporaryRoot();
+    const homeDirectory = join(root, 'home');
+    const projectDirectory = join(root, 'project');
+
+    const result = await executeSetupCommand(
+      { homeDirectory, projectDirectory },
+      {
+        interactive: true,
+        input: { isTTY: true } as NodeJS.ReadableStream & { isTTY: true },
+        output: { isTTY: true } as NodeJS.WritableStream & { isTTY: true },
+        writeLine: () => undefined,
+        synchronizer: defaultProfileSynchronizer,
+        selectDefaultProfile() {
+          return Promise.resolve('engineer');
+        },
+        runWelcome(input) {
+          expect(input.projectDirectory).toBe(projectDirectory);
+          return Promise.resolve({
+            answered: false,
+            warnings: [],
+            messages: ['custom welcome runner'],
+          });
+        },
+      },
+    );
+
+    expect(result.welcomeResult?.messages).toEqual(['custom welcome runner']);
+  });
+
+  it('runs welcome onboarding after interactive setup completes', async () => {
+    const root = createTemporaryRoot();
+    const homeDirectory = join(root, 'home');
+    const projectDirectory = join(root, 'project');
+
+    const result = await executeSetupCommand(
+      { homeDirectory, projectDirectory },
+      {
+        interactive: true,
+        input: { isTTY: true } as NodeJS.ReadableStream & { isTTY: true },
+        output: { isTTY: true } as NodeJS.WritableStream & { isTTY: true },
+        writeLine: () => undefined,
+        synchronizer: defaultProfileSynchronizer,
+        selectDefaultProfile() {
+          return Promise.resolve('engineer');
+        },
+        selectWelcomePlan() {
+          return Promise.resolve({
+            answerQuestions: true,
+            selectedRoleId: 'engineer',
+            loadoutItemIds: ['deepwork'],
+          });
+        },
+      },
+    );
+
+    expect(result.welcomeResult).toEqual({
+      answered: true,
+      selectedRole: { id: 'engineer', label: 'Engineer' },
+      selectedLoadout: {
+        id: 'recommended-pi',
+        label: 'Recommended Pi productivity loadout',
+        selectedItems: [
+          {
+            id: 'deepwork',
+            label: 'DeepWork',
+            kind: 'extension',
+            source: 'git:github.com/applepi-ai/deepwork',
+          },
+        ],
+      },
+      warnings: [],
+      messages: [
+        'Selected ApplePi role: engineer (Engineer).',
+        'Selected Recommended Pi productivity loadout: git:github.com/applepi-ai/deepwork.',
+      ],
+    });
+  });
+
   // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-004.1).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('loads wizard choices from legacy URI and repository subpath sources', async () => {
@@ -333,6 +412,7 @@ describe('setup command', () => {
     const legacyUri = 'https://example.test/legacy-profiles.git';
     const repositoryUri = 'https://example.test/repository-profiles.git';
     const duplicateUri = 'https://example.test/duplicate-profiles.git';
+    const githubSource = 'example/github-profiles';
     writeSettings(
       homeDirectory,
       [
@@ -343,6 +423,9 @@ describe('setup command', () => {
         '    ref: main',
         '    path: profiles',
         `  - uri: ${duplicateUri}`,
+        '    ref: main',
+        '    path: profiles',
+        `  - github: ${githubSource}`,
         '    ref: main',
         '    path: profiles',
         '',
@@ -371,19 +454,25 @@ describe('setup command', () => {
                 join(cachePath, 'profiles', 'repository', 'profile.yml'),
                 'id: repository\nlabel: Repository\ncontrols: {}\n',
               );
-            } else {
-              expect(source.uri).toBe(duplicateUri);
+            } else if (source.uri === duplicateUri) {
               expect(cachePath).toBe(createRemoteRepositoryCachePath(homeDirectory, source));
               writeCachedProfile(join(cachePath, 'profiles'), 'repository');
+            } else {
+              expect(source.github).toBe(githubSource);
+              expect(cachePath).toBe(createRemoteRepositoryCachePath(homeDirectory, source));
+              writeCachedProfile(join(cachePath, 'profiles'), 'github');
             }
 
             return 'updated';
           },
         },
         selectDefaultProfile(profiles) {
-          expect(profiles.map((profile) => profile.id)).toEqual(['legacy', 'repository']);
+          expect(profiles.map((profile) => profile.id)).toEqual(['github', 'legacy', 'repository']);
           expect(profiles.find((profile) => profile.id === 'repository')?.label).toBe('Repository');
           return Promise.resolve('repository');
+        },
+        selectWelcomePlan() {
+          return Promise.resolve({ answerQuestions: false });
         },
       },
     );
@@ -416,7 +505,7 @@ describe('setup command', () => {
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-004.1).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
-  it('uses the readline setup prompt when no selector dependency is injected', async () => {
+  it('uses the readline setup prompt when no default-profile selector dependency is injected', async () => {
     const root = createTemporaryRoot();
     const homeDirectory = join(root, 'home');
     const projectDirectory = join(root, 'project');
@@ -433,6 +522,9 @@ describe('setup command', () => {
         input,
         output,
         writeLine: (message) => messages.push(message),
+        selectWelcomePlan() {
+          return Promise.resolve({ answerQuestions: false });
+        },
       },
     );
 

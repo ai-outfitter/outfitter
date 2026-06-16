@@ -43,9 +43,12 @@ ApplePi is organized around clear TypeScript source boundaries, requirement docu
 │   │   ├── ApplePiCli.ts
 │   │   └── commands/                  # command objects for non-trivial CLI behavior
 │   │       ├── CommandObject.ts
+│   │       ├── FirstRunWelcomeProfile.ts
+│   │       ├── PiLoginLaunch.ts
 │   │       ├── RunCommand.ts
 │   │       ├── SetupCommand.ts
 │   │       ├── SyncCommand.ts
+│   │       ├── WelcomeCommand.ts
 │   │       └── profile/               # profile command namespace and subcommands
 │   │           ├── Command.ts
 │   │           ├── CreateCommand.ts
@@ -104,7 +107,7 @@ ApplePi is organized around clear TypeScript source boundaries, requirement docu
 │   ├── integration/                   # fixture-backed integration tests and harness helpers
 │   ├── setup.ts                       # Vitest global setup for quiet test-output guards
 │   ├── test-console.ts                # shared console-output guard helpers for tests
-│   └── unit/                          # unit tests grouped by functionality under test
+│   └── unit/                          # unit tests grouped by functionality under test, including welcome and first-run tests
 ├── package-lock.json                  # locked npm dependency graph
 └── package.json                       # npm package metadata and scripts
 ```

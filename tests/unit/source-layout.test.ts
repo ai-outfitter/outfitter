@@ -16,6 +16,7 @@ import { createProfileCommands } from '../../src/cli/commands/profile/Command.js
 import { createRunCommand } from '../../src/cli/commands/RunCommand.js';
 import { createSetupCommand } from '../../src/cli/commands/SetupCommand.js';
 import { createSyncCommand } from '../../src/cli/commands/SyncCommand.js';
+import { createWelcomeCommand } from '../../src/cli/commands/WelcomeCommand.js';
 import { createEmptyProfile } from '../../src/profiles/Profile.js';
 import { createProfileLoadPlan } from '../../src/profiles/ProfileLoader.js';
 import { mergeProfileStack } from '../../src/profiles/ProfileMerger.js';
@@ -52,12 +53,13 @@ describe('source layout scaffolding', () => {
       'run',
       'setup',
       'sync',
+      'welcome',
       'profile',
       'profile list',
       'profile create',
     ]);
-    expect(program.commands.map((command) => command.name())).toEqual(['run', 'setup', 'sync', 'profile']);
-    expect(program.commands.at(3)?.commands.map((command) => command.name())).toEqual(['list', 'create']);
+    expect(program.commands.map((command) => command.name())).toEqual(['run', 'setup', 'sync', 'welcome', 'profile']);
+    expect(program.commands.at(4)?.commands.map((command) => command.name())).toEqual(['list', 'create']);
     expect(describeCommandObject(createRunCommand())).toEqual({
       name: 'run',
       description: 'Assemble a profile compositeProfile and launch the selected agent CLI.',
@@ -66,12 +68,18 @@ describe('source layout scaffolding', () => {
     const standaloneProgram = new Command();
     createSetupCommand().register(standaloneProgram);
     createSyncCommand().register(standaloneProgram);
+    createWelcomeCommand().register(standaloneProgram);
     for (const command of createProfileCommands()) {
       command.register(standaloneProgram);
     }
 
-    expect(standaloneProgram.commands.map((command) => command.name())).toEqual(['setup', 'sync', 'profile']);
-    expect(standaloneProgram.commands.at(2)?.commands.map((command) => command.name())).toEqual(['list', 'create']);
+    expect(standaloneProgram.commands.map((command) => command.name())).toEqual([
+      'setup',
+      'sync',
+      'welcome',
+      'profile',
+    ]);
+    expect(standaloneProgram.commands.at(3)?.commands.map((command) => command.name())).toEqual(['list', 'create']);
   });
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-002.5).

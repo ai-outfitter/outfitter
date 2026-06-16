@@ -34,7 +34,8 @@ npx --yes @applepi-ai/applepi@latest --help
 
 For source development, see [`CONTRIBUTING.md`](./CONTRIBUTING.md).
 
-ApplePi launches agent CLIs but does not install them. Install the agents you plan to use separately:
+ApplePi launches agent CLIs but does not install them.
+Install the agents you plan to use separately:
 
 - [pi](https://github.com/earendil-works/pi-coding-agent) — follow its installation instructions; the `pi` command must be on your PATH.
 - [Claude Code](https://docs.anthropic.com/en/docs/claude-code) — only needed if you launch with `--agent claude`.
@@ -70,6 +71,7 @@ applepi run -p support -- --cwd ~/work/customer-issue
 applepi sync
 applepi setup
 applepi setup https://github.com/my_account/applepi_config
+applepi welcome
 applepi profile list
 applepi profile create regulated --scope user
 ```
@@ -79,6 +81,14 @@ Pi runs use `PI_CODING_AGENT_DIR`; Claude Code runs use `CLAUDE_CONFIG_DIR`; bot
 Select the adapter with `applepi run --agent <pi|claude>`, or set `default_agent` in `settings.yml`.
 If neither is set, ApplePi defaults to pi for backward compatibility.
 If `applepi` is run before `applepi setup`, it creates the initial settings and default profile automatically before launching.
+When that first-run setup has an interactive terminal, ApplePi continues into the same welcome onboarding used by `applepi welcome`.
+
+`applepi welcome` explains ApplePi and Pi, asks you to choose an initial built-in role, and recommends a Pi productivity loadout.
+The current built-in role choices are `engineer` and `data_analyst`; ApplePi creates the selected local profile on the fly.
+The recommended loadout includes `ulta-tasklist`, `deepwork`, `pi-subagents`, and `pi-mcp-adapter`; you can accept it, choose individual items, or skip loadout installation.
+If you skip loadout installation, the generated profile has no extensions or skills.
+If Pi does not appear to be logged in after welcome onboarding, ApplePi opens Pi with `/login` automatically; outside welcome onboarding it prints a `/login` reminder instead.
+ApplePi never collects or persists provider API keys itself.
 
 `settings.yml` can point at local profiles, full Git URIs, or GitHub shorthand sources with optional refs and repository subpaths:
 
@@ -132,7 +142,9 @@ When a repository is provided, it clones or updates the repository in ApplePi's 
 - if starter profiles exist, ApplePi copies missing profile files into `~/.applepi/profiles/`;
 - existing user settings and profile files are otherwise left unchanged;
 - after setup, ApplePi runs the same sync behavior used by `applepi sync`;
-- ApplePi then shows a short setup wizard that lists synced profiles and writes the selected default profile to user settings.
+- on initial interactive first-run setup, ApplePi skips the older default-profile prompt and lets welcome onboarding choose the generated local default profile;
+- outside that initial welcome handoff, ApplePi shows a short setup wizard that lists synced profiles and writes the selected default profile to user settings;
+- interactive setup continues into welcome onboarding to record role and loadout choices.
 
 A setup repository can use either root-level ApplePi files:
 
@@ -212,7 +224,8 @@ The exact stable schema is governed by the requirements in `requirements/` and t
 The current recommendation is to build `applepi` around pi's existing native configuration mechanisms:
 
 1. Use a temporary composite profile directory as `PI_CODING_AGENT_DIR` for each run.
-2. Persist intentional pi state through adapter-declared symlinks to profile, native pi, or ApplePi cache files. Native pi fallback is only a durable target for declared state symlinks; it is not an inherited base profile layer.
+2. Persist intentional pi state through adapter-declared symlinks to profile, native pi, or ApplePi cache files.
+   Native pi fallback is only a durable target for declared state symlinks; it is not an inherited base profile layer.
 3. Layer profile-controlled environment variables and pi CLI flags on top.
 4. Use explicit `--extension` / `-e` injection for bootstrap behavior that needs to run inside pi.
 5. Decide per profile whether project-local `.pi` overrides are allowed.

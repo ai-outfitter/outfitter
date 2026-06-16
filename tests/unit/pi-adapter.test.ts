@@ -1,11 +1,12 @@
 // Tests pi adapter launch translation and composite file behavior.
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { createPiAdapter } from '../../src/agents/pi/PiAdapter.js';
+import { writeCompositeProfile } from '../../src/compositeProfile/CompositeProfileAssembler.js';
 import { parseProfileYaml } from '../../src/profiles/ProfileLoader.js';
 
 const temporaryPiAdapterTestRoots: string[] = [];
@@ -156,6 +157,35 @@ describe('pi adapter', () => {
       directory: false,
       sourcePath: join(homeDirectory, '.pi', 'agent', 'models.json'),
     });
+  });
+
+  it('initializes missing native mcp and models configs as valid empty JSON documents', () => {
+    const { homeDirectory } = createPiSettingsTestHome();
+    const adapter = createPiAdapter();
+
+    const compositeProfilePlan = adapter.createCompositeProfile(
+      { id: 'engineering', inherits: [], controls: {} },
+      {
+        rootDirectory: '/tmp/applepi-engineering-pi-mcp',
+        profilePaths: ['/profiles/engineering/profile.yml'],
+        homeDirectory,
+      },
+    );
+
+    expect(
+      compositeProfilePlan.compositeProfile.statePaths.find((statePath) => statePath.relativePath === 'mcp.json'),
+    ).toMatchObject({ sourcePath: join(homeDirectory, '.pi', 'agent', 'mcp.json') });
+
+    writeCompositeProfile(compositeProfilePlan.compositeProfile);
+
+    expect(readFileSync(join(homeDirectory, '.pi', 'agent', 'mcp.json'), 'utf8')).toBe('{}\n');
+    expect(readFileSync(join(homeDirectory, '.pi', 'agent', 'models.json'), 'utf8')).toBe('{"providers":{}}\n');
+
+    writeFileSync(join(homeDirectory, '.pi', 'agent', 'mcp.json'), '');
+    writeFileSync(join(homeDirectory, '.pi', 'agent', 'models.json'), '');
+    writeCompositeProfile(compositeProfilePlan.compositeProfile);
+    expect(readFileSync(join(homeDirectory, '.pi', 'agent', 'mcp.json'), 'utf8')).toBe('{}\n');
+    expect(readFileSync(join(homeDirectory, '.pi', 'agent', 'models.json'), 'utf8')).toBe('{"providers":{}}\n');
   });
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-006.6).

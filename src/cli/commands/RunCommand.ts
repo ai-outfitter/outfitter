@@ -40,8 +40,9 @@ import type {
 } from '../../compositeProfile/StatePersistence.js';
 import { watchCompositeProfileInputs } from '../../compositeProfile/CompositeProfileWatcher.js';
 import type { CommandObject } from './CommandObject.js';
+import { preparePiLoginLaunchPlan } from './PiLoginLaunch.js';
 import { executeSetupCommand } from './SetupCommand.js';
-import type { SetupCommandDependencies } from './SetupCommand.js';
+import type { SetupCommandDependencies, SetupCommandResult } from './SetupCommand.js';
 
 export interface RunCommandInput {
   readonly homeDirectory: string;
@@ -75,7 +76,7 @@ export const executeRunCommand = async (
   input: RunCommandInput,
   dependencies: RunCommandDependencies = {},
 ): Promise<RunCommandResult> => {
-  await runSetupIfNeeded(input, dependencies);
+  const setupResult = await runSetupIfNeeded(input, dependencies);
   const resolvedProfile = loadResolvedProfile(input);
   const adapter =
     dependencies.adapter ?? createAgentAdapter(selectRunAgentId(input.agentId, resolvedProfile.settings.defaultAgent));
@@ -89,17 +90,22 @@ export const executeRunCommand = async (
 
   failStrictOnWarnings(adapter.id, warnings, input.strict);
   emitWarnings(warnings, dependencies.writeError);
-
   writeCompositeProfile(compositeProfilePlan.compositeProfile);
   let stateBaseline = createCompositeProfileStateBaseline(
     compositeProfilePlan.compositeProfile.rootDirectory,
     compositeProfilePlan.compositeProfile.statePaths,
   );
-  const launchPlan = adapter.createLaunchPlan(
-    compositeProfilePlan.compositeProfile,
-    resolvedProfile.profile,
-    input.passThroughArgs ?? [],
-  );
+  const launchPlan = preparePiLoginLaunchPlan({
+    adapterId: adapter.id,
+    homeDirectory: input.homeDirectory,
+    launchPlan: adapter.createLaunchPlan(
+      compositeProfilePlan.compositeProfile,
+      resolvedProfile.profile,
+      input.passThroughArgs ?? [],
+    ),
+    setupResult,
+    writeLine: dependencies.writeLine,
+  });
   emitLaunchSummary(
     resolvedProfile,
     adapter.id,
@@ -341,16 +347,32 @@ const formatCompositeProfileStateWriteIssue = (adapterId: string, issue: Composi
   return `${adapterId} wrote '${issue.relativePath}' with state_persistence '${issue.strategy}' and it was not persisted.`;
 };
 
-const runSetupIfNeeded = async (input: RunCommandInput, dependencies: RunCommandDependencies): Promise<void> => {
+const runSetupIfNeeded = async (
+  input: RunCommandInput,
+  dependencies: RunCommandDependencies,
+): Promise<SetupCommandResult | undefined> => {
   const settingsPath = join(input.homeDirectory, '.applepi', 'settings.yml');
 
   if (existsSync(settingsPath)) {
-    return;
+    return undefined;
   }
 
   /* v8 ignore next -- console fallback is direct CLI behavior; tests inject a writer. */
   (dependencies.writeLine ?? console.log)('`applepi setup` has not been run yet - running now');
-  await executeSetupCommand(input, dependencies);
+  return executeSetupCommand(input, { ...dependencies, interactive: shouldRunFirstSetupInteractively(dependencies) });
+};
+
+const shouldRunFirstSetupInteractively = (dependencies: RunCommandDependencies): boolean => {
+  if (dependencies.interactive !== undefined) {
+    return dependencies.interactive;
+  }
+
+  /* v8 ignore next -- default process streams are direct terminal behavior; tests inject streams. */
+  const inputIsTty = (dependencies.input ?? process.stdin).isTTY === true;
+  /* v8 ignore next -- default process streams are direct terminal behavior; tests inject streams. */
+  const outputIsTty = (dependencies.output ?? process.stdout).isTTY === true;
+
+  return inputIsTty && outputIsTty;
 };
 
 const loadResolvedProfile = (input: RunCommandInput): ResolvedRunProfile => {

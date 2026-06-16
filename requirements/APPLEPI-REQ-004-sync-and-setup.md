@@ -16,10 +16,11 @@ ApplePi provides setup and maintenance commands that create initial configuratio
 6. The `setup` command SHOULD avoid overwriting existing user files unless a future explicit force option authorizes replacement.
 7. When provided a setup source URI, the `setup` command MUST use that source repository's ApplePi `settings.yml` and profiles as the initial user setup starting point.
 8. The interactive `setup` command MUST require interactive TTY streams on both stdin and stdout before prompting.
-9. The interactive `setup` command MUST synchronize remote profile sources before presenting setup profile choices.
-10. The interactive `setup` command MUST present discovered profile IDs as default-profile choices and preserve available display labels in the prompt choices.
-11. The interactive `setup` command MUST validate the selected default profile ID before writing it to `settings.yml`.
-12. After the interactive `setup` command writes the selected default profile, any newly-created fallback default profile file MUST correspond to the final selected default profile.
+9. The interactive `setup` command MUST synchronize remote profile sources before any setup profile choice prompt.
+10. Initial interactive first-run setup MUST NOT ask a separate default-profile choice before welcome onboarding; the welcome role selection determines the generated local default profile.
+11. When the interactive `setup` command presents setup profile choices outside the initial welcome handoff, it MUST present discovered profile IDs as default-profile choices and preserve available display labels in the prompt choices.
+12. When the interactive `setup` command presents setup profile choices outside the initial welcome handoff, it MUST validate the selected default profile ID before writing it to `settings.yml`.
+13. After the interactive `setup` command writes a selected default profile, any newly-created fallback default profile file MUST correspond to the final selected default profile.
 
 ### APPLEPI-REQ-004.2: Sync Command
 

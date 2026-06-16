@@ -550,7 +550,8 @@ $TMPDIR/applepi-<profile-id>-<agent-id>-<random>/
 
 The pi adapter uses this state model for native pi state and for pi-managed utilities: most declared pi state paths, including `tmp/`, symlink to `~/.pi/agent/<path>` by default, while composite profile `utilities/` and `bin/` both symlink to `<cache_directory>/utilities` by default, so temporary composite profile cleanup does not force pi to redownload helper binaries such as `fd` and `rg`.
 
-When profile-controlled Pi extensions would duplicate native Pi `settings.json` package entries, ApplePi generates a reconciled runtime `settings.json` inside the composite profile for that launch. The generated file preserves unrelated settings and package entries, removes duplicate native package entries by normalized resource identity, and keeps the declared `settings.json` state path non-durable with `discard` write handling so runtime edits are not reported as unknown state.
+When profile-controlled Pi extensions would duplicate native Pi `settings.json` package entries, ApplePi generates a reconciled runtime `settings.json` inside the composite profile for that launch.
+The generated file preserves unrelated settings and package entries, removes duplicate native package entries by normalized resource identity, and keeps the declared `settings.json` state path non-durable with `discard` write handling so runtime edits are not reported as unknown state.
 
 During `applepi run`, the ApplePi process remains alive while the child agent CLI runs.
 It owns the composite profile lifecycle.
@@ -655,7 +656,8 @@ ApplePi should prefer native pi mechanisms:
 - generated Pi settings reconciliation in the composite profile where flags/env are not the right mechanism.
 
 If generic ApplePi controls conflict with pi naming or behavior, prefer pi’s terminology and conventions.
-Because ApplePi chooses `PI_CODING_AGENT_DIR` and other startup-sensitive configuration before launching pi, a requested pi control that would require changing startup discovery after pi has already begun cannot be applied by an extension or late runtime hook. The pi adapter reports such unsupported or startup-order-impossible controls through normal adapter warnings, and `--strict` makes those warnings fatal.
+Because ApplePi chooses `PI_CODING_AGENT_DIR` and other startup-sensitive configuration before launching pi, a requested pi control that would require changing startup discovery after pi has already begun cannot be applied by an extension or late runtime hook.
+The pi adapter reports such unsupported or startup-order-impossible controls through normal adapter warnings, and `--strict` makes those warnings fatal.
 
 Claude Code is also supported through the `claude` adapter.
 ApplePi launches `claude` with `CLAUDE_CONFIG_DIR` pointing at the composite profile root, maps supported controls to native flags (`--model`, `--effort`, `--system-prompt`, `--append-system-prompt`, and repeated `--plugin-dir`), and preserves Claude Code state paths such as `settings.json`, `agents/`, `skills/`, `commands/`, `plugins/`, `projects/`, and `debug/` through adapter-declared state persistence.
@@ -697,9 +699,28 @@ Responsibilities:
 - create a default profile when missing;
 - validate all discovered settings files and any starter settings file;
 - run `applepi sync` behavior for URI profile sources before profile selection;
-- show a setup wizard with synced profile choices, preserve display labels where available, validate the selected profile ID, and write the selected default profile to user settings;
+- on initial interactive first-run setup, skip the older setup default-profile prompt and let welcome onboarding choose the generated local default profile;
+- outside that initial welcome handoff, show a setup wizard with synced profile choices, preserve display labels where available, validate the selected profile ID, and write the selected default profile to user settings;
 - create any missing fallback default profile file for the final selected default profile;
+- run welcome onboarding after interactive setup completes;
 - report actionable next steps.
+
+### `applepi welcome`
+
+Responsibilities:
+
+- require an interactive TTY on both stdin and stdout before running welcome prompts;
+- show welcome text that explains ApplePi and Pi before asking onboarding questions;
+- ask whether the user wants to answer setup questions now;
+- ask the user to choose an initial built-in standard role, currently including `engineer` and `data_analyst`;
+- recommend a named Pi productivity loadout containing `git:github.com/applepi-ai/ulta-tasklist`, `git:github.com/applepi-ai/deepwork`, `npm:pi-subagents`, and `npm:pi-mcp-adapter`;
+- allow the user to accept the loadout, choose individual loadout items, or skip loadout installation;
+- create the selected local role profile on the fly, appending only the selected loadout resources and leaving extensions/skills empty when the user selects none;
+- return typed onboarding choices so later work can persist richer profile/loadout metadata behind a schema-validated YAML format if needed.
+
+Before launching Pi after welcome onboarding, `applepi run` checks whether native Pi appears to have login state in `auth.json` or `models.json`.
+If no login state is detected, ApplePi starts Pi with `/login` automatically; outside the welcome flow it prints an informational `/login` notice instead.
+Credential collection stays inside Pi so provider API keys are not collected or persisted by ApplePi.
 
 ### `applepi sync`
 
