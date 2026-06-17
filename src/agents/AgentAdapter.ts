@@ -10,6 +10,10 @@ export interface AgentLaunchPlan {
   readonly env: Readonly<Record<string, string>>;
 }
 
+export interface AgentLaunchContext {
+  readonly profileFolders?: readonly string[];
+}
+
 export interface AgentCompositeProfilePlan {
   readonly compositeProfile: CompositeProfile;
   readonly warnings: readonly string[];
@@ -35,6 +39,7 @@ export interface AgentAdapter {
     compositeProfile: CompositeProfile,
     profile?: Profile,
     passThroughArgs?: readonly string[],
+    context?: AgentLaunchContext,
   ): AgentLaunchPlan;
   getUnsupportedControls(profile: Profile): readonly string[];
 }

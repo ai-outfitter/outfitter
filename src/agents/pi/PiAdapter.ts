@@ -1,8 +1,8 @@
 // Provides the pi adapter for composite profile generation and native pi launch plans.
-import { existsSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
+import { delimiter, join } from 'node:path';
 
-import type { AgentAdapter, AgentLaunchPlan, AgentCompositeProfilePlan } from '../AgentAdapter.js';
+import type { AgentAdapter, AgentLaunchPlan, AgentCompositeProfilePlan, AgentLaunchContext } from '../AgentAdapter.js';
 import {
   flagValue,
   genericControlNames,
@@ -19,9 +19,11 @@ import { createCompositeProfileFile } from '../../compositeProfile/CompositeProf
 import type { StatePathDeclaration, CompositeProfileStatePath } from '../../compositeProfile/StatePersistence.js';
 import { createPiMcpConfigFile } from './PiMcpConfig.js';
 
-const piControlNames = new Set(
-  [...genericControlNames].filter((controlName) => controlName !== 'pi' && controlName !== 'claude'),
-);
+const piControlNames = new Set([
+  ...[...genericControlNames].filter((controlName) => controlName !== 'pi' && controlName !== 'claude'),
+  'allowExternalDeepWorkJobs',
+  'allow_external_deepwork_jobs',
+]);
 
 const piStatePathDeclarations = {
   'auth.json': { defaultStrategy: 'symlink', allowedStrategies: ['symlink', 'error', 'prompt'] },
@@ -79,14 +81,17 @@ export const createPiAdapter = (): AgentAdapter => ({
     compositeProfile: CompositeProfile,
     profile?: Profile,
     passThroughArgs: readonly string[] = [],
+    context: AgentLaunchContext = {},
   ): AgentLaunchPlan {
     const controls = mergePiControls(profile?.controls ?? {});
+    const deepWorkJobsFolders = createDeepWorkAdditionalJobsFolders(controls, context.profileFolders ?? []);
 
     return {
       command: 'pi',
       args: [...createPiArgs(controls), ...passThroughArgs],
       env: {
         ...controls.environment,
+        ...(deepWorkJobsFolders === undefined ? {} : { DEEPWORK_ADDITIONAL_JOBS_FOLDERS: deepWorkJobsFolders }),
         PI_CODING_AGENT_DIR: compositeProfile.rootDirectory,
       },
     };
@@ -234,6 +239,56 @@ const resolvePiStateSourcePath = (
     normalizedRelativePath,
   );
 };
+
+const deepWorkAdditionalJobsFoldersEnv = 'DEEPWORK_ADDITIONAL_JOBS_FOLDERS';
+
+const createDeepWorkAdditionalJobsFolders = (
+  controls: PiProfileControls,
+  profileFolders: readonly string[],
+): string | undefined => {
+  const profileJobFolders = [
+    ...new Set(profileFolders.map(deepWorkJobsFolderForProfile).filter(isExistingDeepWorkJobsFolder)),
+  ];
+
+  if (profileJobFolders.length === 0) {
+    return undefined;
+  }
+
+  const existingValue = allowExternalDeepWorkJobs(controls)
+    ? (controls.environment?.[deepWorkAdditionalJobsFoldersEnv] ?? process.env[deepWorkAdditionalJobsFoldersEnv])
+    : undefined;
+  return [...splitPathList(existingValue), ...profileJobFolders].join(delimiter);
+};
+
+const allowExternalDeepWorkJobs = (controls: PiProfileControls): boolean =>
+  controls.allowExternalDeepWorkJobs === true || controls.allow_external_deepwork_jobs === true;
+
+const deepWorkJobsFolderForProfile = (profileFolder: string): string =>
+  join(profileFolder, 'cli_specific', 'pi', 'deepwork', 'jobs');
+
+const isExistingDeepWorkJobsFolder = (folderPath: string): boolean => {
+  try {
+    return readdirSync(folderPath, { withFileTypes: true }).some(isDeepWorkJobEntry(folderPath));
+  } catch {
+    return false;
+  }
+};
+
+const isDeepWorkJobEntry =
+  (folderPath: string) =>
+  (entry: { readonly name: string; isDirectory(): boolean }): boolean =>
+    entry.isDirectory() && isFile(join(folderPath, entry.name, 'job.yml'));
+
+const isFile = (path: string): boolean => {
+  try {
+    return statSync(path).isFile();
+  } catch {
+    return false;
+  }
+};
+
+const splitPathList = (value: string | undefined): readonly string[] =>
+  value === undefined || value === '' ? [] : value.split(delimiter).filter((entry) => entry !== '');
 
 const mergePiControls = (controls: ProfileControls): PiProfileControls =>
   mergeAgentSpecificControls<PiProfileControls>(controls, 'pi');

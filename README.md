@@ -219,6 +219,9 @@ controls:
 
 The exact stable schema is governed by the requirements in `requirements/` and the JSON Schema files in `src/schemas/`, which are still expected to evolve with implementation.
 
+Pi profiles can also ship DeepWork jobs for that profile under `cli_specific/pi/deepwork/jobs/`.
+When ApplePi launches Pi, it adds contributing profile job folders to `DEEPWORK_ADDITIONAL_JOBS_FOLDERS` so the DeepWork frontend can discover profile-owned workflows without copying them into a project `.deepwork/jobs/` directory. By default, profiles with bundled jobs receive only their profile-bundled jobs; set `controls.pi.allow_external_deepwork_jobs: true` to also include inherited `DEEPWORK_ADDITIONAL_JOBS_FOLDERS` entries.
+
 ## Design direction
 
 The current recommendation is to build `applepi` around pi's existing native configuration mechanisms:

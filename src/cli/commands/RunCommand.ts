@@ -102,6 +102,7 @@ export const executeRunCommand = async (
       compositeProfilePlan.compositeProfile,
       resolvedProfile.profile,
       input.passThroughArgs ?? [],
+      { profileFolders: resolvedProfile.profileFolders },
     ),
     setupResult,
     writeLine: dependencies.writeLine,
