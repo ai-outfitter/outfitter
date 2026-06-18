@@ -160,7 +160,8 @@ const failOnInitialDefaultProfileSyncFailure = (
   }
 
   throw new Error(
-    `Cannot complete first-run setup because the default profiles source failed to sync: ${failedDefaultProfilesSource.message}`,
+    `Cannot complete first-run setup because the default profiles source failed to sync: ${failedDefaultProfilesSource.message}. ` +
+      'Fix the network/git issue and rerun `applepi setup`, or run `applepi sync` once the source is reachable.',
   );
 };
 
