@@ -35,6 +35,13 @@ const writeDeepWorkJob = (profileDirectory: string, jobName: string): string => 
   return jobsFolder;
 };
 
+const writePiSkill = (profileDirectory: string, skillName: string): string => {
+  const skillFolder = join(profileDirectory, 'cli_specific', 'pi', 'skills', skillName);
+  mkdirSync(skillFolder, { recursive: true });
+  writeFileSync(join(skillFolder, 'SKILL.md'), `---\nname: ${skillName}\ndescription: ${skillName}\n---\n`);
+  return skillFolder;
+};
+
 afterEach(() => {
   for (const root of temporaryRoots.splice(0)) {
     rmSync(root, { recursive: true, force: true });
@@ -83,6 +90,39 @@ describe('run command DeepWork job exposure', () => {
       [baseJobsFolder, selectedJobsFolder].join(delimiter),
     );
     expect(result.launchPlan.env.DEEPWORK_ADDITIONAL_JOBS_FOLDERS).not.toContain(unrelatedJobsFolder);
+  });
+
+  it('exposes selected profile-bundled Pi skills when launching pi', async () => {
+    const root = createTemporaryRoot();
+    const homeDirectory = join(root, 'home');
+    const projectDirectory = join(root, 'project');
+    const profilesDirectory = join(homeDirectory, '.applepi', 'profiles');
+    const selectedProfileDirectory = writeProfile(
+      profilesDirectory,
+      'data_analyst',
+      'id: data_analyst\ncontrols: {}\n',
+    );
+    const unrelatedProfileDirectory = writeProfile(profilesDirectory, 'engineer', 'id: engineer\ncontrols: {}\n');
+    writeSettings(homeDirectory, 'default_profile: data_analyst\nprofile_sources:\n  - path: ./profiles\n');
+
+    const demosSkillFolder = writePiSkill(selectedProfileDirectory, 'demos');
+    const unrelatedSkillFolder = writePiSkill(unrelatedProfileDirectory, 'shipit');
+
+    const result = await executeRunCommand(
+      { homeDirectory, projectDirectory },
+      {
+        launcher: {
+          launch() {
+            return Promise.resolve(0);
+          },
+        },
+        writeLine: () => undefined,
+      },
+    );
+
+    expect(result.launchPlan.args).toContain('--skill');
+    expect(result.launchPlan.args).toContain(demosSkillFolder);
+    expect(result.launchPlan.args).not.toContain(unrelatedSkillFolder);
   });
 
   it('resolves an analysis alias to data analyst bundled jobs', async () => {

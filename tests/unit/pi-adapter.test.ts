@@ -402,6 +402,30 @@ describe('pi adapter', () => {
     });
   });
 
+  it('adds profile-bundled Pi skills to the launch args', () => {
+    const root = createTemporaryPiAdapterTestRoot('applepi-pi-profile-skills-');
+    const profileFolder = join(root, 'profiles', 'data_analyst');
+    const skillFolder = join(profileFolder, 'cli_specific', 'pi', 'skills', 'demos');
+    const incompleteSkillFolder = join(profileFolder, 'cli_specific', 'pi', 'skills', 'draft');
+    mkdirSync(skillFolder, { recursive: true });
+    mkdirSync(incompleteSkillFolder, { recursive: true });
+    writeFileSync(join(skillFolder, 'SKILL.md'), '---\nname: demos\ndescription: Demo runner\n---\n');
+
+    const adapter = createPiAdapter();
+    const compositeProfilePlan = adapter.createCompositeProfile(
+      { id: 'data_analyst', inherits: [], controls: {} },
+      { rootDirectory: join(root, 'composite'), profilePaths: [], profileFolders: [profileFolder] },
+    );
+    const launchPlan = adapter.createLaunchPlan(
+      compositeProfilePlan.compositeProfile,
+      { id: 'data_analyst', inherits: [], controls: { pi: { skills: ['user-skill'] } } },
+      [],
+      { profileFolders: [profileFolder] },
+    );
+
+    expect(launchPlan.args).toEqual(['--skill', 'user-skill', '--skill', skillFolder]);
+  });
+
   it('rejects pi .mcp.json profile fragments that are invalid or not JSON objects', () => {
     const root = createTemporaryPiAdapterTestRoot('applepi-pi-mcp-invalid-test-');
     const nonObjectProfileFolder = join(root, 'non-object-profile');

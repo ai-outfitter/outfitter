@@ -45,6 +45,11 @@ const writeDefaultProfile = (
     join(profileDirectory, 'cli_specific', 'pi', 'deepwork', 'jobs', profileId, 'job.yml'),
     `name: ${profileId}\nworkflows: {}\n`,
   );
+  mkdirSync(join(profileDirectory, 'cli_specific', 'pi', 'skills', 'demos'), { recursive: true });
+  writeFileSync(
+    join(profileDirectory, 'cli_specific', 'pi', 'skills', 'demos', 'SKILL.md'),
+    '---\nname: demos\ndescription: Demo runner\n---\n',
+  );
 };
 
 const defaultProfileSynchronizer = {
@@ -342,6 +347,21 @@ describe('first-run welcome profile', () => {
           'jobs',
           'data_analyst',
           'job.yml',
+        ),
+      ),
+    ).toBe(true);
+    expect(
+      existsSync(
+        join(
+          homeDirectory,
+          '.applepi',
+          'profiles',
+          'data_analyst',
+          'cli_specific',
+          'pi',
+          'skills',
+          'demos',
+          'SKILL.md',
         ),
       ),
     ).toBe(true);

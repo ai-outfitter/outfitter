@@ -84,11 +84,13 @@ export const createPiAdapter = (): AgentAdapter => ({
     context: AgentLaunchContext = {},
   ): AgentLaunchPlan {
     const controls = mergePiControls(profile?.controls ?? {});
-    const deepWorkJobsFolders = createDeepWorkAdditionalJobsFolders(controls, context.profileFolders ?? []);
+    const profileFolders = context.profileFolders ?? [];
+    const deepWorkJobsFolders = createDeepWorkAdditionalJobsFolders(controls, profileFolders);
+    const skillSources = createPiSkillSources(controls, profileFolders);
 
     return {
       command: 'pi',
-      args: [...createPiArgs(controls), ...passThroughArgs],
+      args: [...createPiArgs({ ...controls, skills: skillSources }), ...passThroughArgs],
       env: {
         ...controls.environment,
         ...(deepWorkJobsFolders === undefined ? {} : { DEEPWORK_ADDITIONAL_JOBS_FOLDERS: deepWorkJobsFolders }),
@@ -241,6 +243,28 @@ const resolvePiStateSourcePath = (
 };
 
 const deepWorkAdditionalJobsFoldersEnv = 'DEEPWORK_ADDITIONAL_JOBS_FOLDERS';
+
+const createPiSkillSources = (controls: PiProfileControls, profileFolders: readonly string[]): readonly string[] => [
+  ...new Set([...(controls.skills ?? []), ...profileFolders.flatMap(piSkillSourcesForProfile)]),
+];
+
+const piSkillSourcesForProfile = (profileFolder: string): readonly string[] => {
+  const skillsFolder = join(profileFolder, 'cli_specific', 'pi', 'skills');
+
+  try {
+    return readdirSync(skillsFolder, { withFileTypes: true })
+      .filter(isPiSkillEntry(skillsFolder))
+      .map((entry) => join(skillsFolder, entry.name))
+      .sort();
+  } catch {
+    return [];
+  }
+};
+
+const isPiSkillEntry =
+  (folderPath: string) =>
+  (entry: { readonly name: string; isDirectory(): boolean }): boolean =>
+    entry.isDirectory() && isFile(join(folderPath, entry.name, 'SKILL.md'));
 
 const createDeepWorkAdditionalJobsFolders = (
   controls: PiProfileControls,
