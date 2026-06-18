@@ -1,3 +1,4 @@
+/* eslint-disable max-lines */
 // Tests setup command behavior.
 import { PassThrough } from 'node:stream';
 import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
@@ -62,11 +63,21 @@ describe('setup command', () => {
     expect(firstResult.createdSettings).toBe(true);
     expect(firstResult.createdDefaultProfile).toBe(true);
     expect(readFileSync(settingsPath, 'utf8')).toBe(
-      ['default_profile: engineer', 'profile_sources:', '  - path: ./profiles', ''].join('\n'),
+      [
+        'default_profile: engineer',
+        'profile_sources:',
+        '  - github: applepi-ai/default-profiles',
+        '    path: profiles',
+        '  - path: ./profiles',
+        '',
+      ].join('\n'),
     );
     expect(readFileSync(defaultProfilePath, 'utf8')).toBe('id: engineer\nlabel: Default\ncontrols: {}\n');
     expect(firstResult.messages).toContain("Selected default profile 'engineer'.");
-    expect(firstResult.syncResult.sources).toEqual([]);
+    expect(firstResult.syncResult.sources).toHaveLength(1);
+    expect(firstResult.syncResult.sources[0]?.uri).toBe(
+      'git+https://github.com/applepi-ai/default-profiles.git:profiles',
+    );
 
     writeFileSync(defaultProfilePath, 'id: default\nlabel: Custom\n');
     const secondResult = await executeSetupCommand(

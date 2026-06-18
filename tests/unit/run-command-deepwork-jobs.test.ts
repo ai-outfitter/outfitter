@@ -84,4 +84,39 @@ describe('run command DeepWork job exposure', () => {
     );
     expect(result.launchPlan.env.DEEPWORK_ADDITIONAL_JOBS_FOLDERS).not.toContain(unrelatedJobsFolder);
   });
+
+  it('resolves an analysis alias to data analyst bundled jobs', async () => {
+    const root = createTemporaryRoot();
+    const homeDirectory = join(root, 'home');
+    const projectDirectory = join(root, 'project');
+    const profilesDirectory = join(homeDirectory, '.applepi', 'profiles');
+    const dataAnalystProfileDirectory = writeProfile(
+      profilesDirectory,
+      'data_analyst',
+      'id: data_analyst\nlabel: Data Analyst\ncontrols: {}\n',
+    );
+    writeProfile(
+      profilesDirectory,
+      'analysis',
+      ['id: analysis', 'label: Analysis', 'inherits:', '  - data_analyst', 'controls: {}', ''].join('\n'),
+    );
+    writeSettings(homeDirectory, 'default_profile: data_analyst\nprofile_sources:\n  - path: ./profiles\n');
+
+    const jobsFolder = writeDeepWorkJob(dataAnalystProfileDirectory, 'finder_analysis');
+
+    const result = await executeRunCommand(
+      { homeDirectory, projectDirectory, profileId: 'analysis' },
+      {
+        launcher: {
+          launch() {
+            return Promise.resolve(0);
+          },
+        },
+        writeLine: () => undefined,
+      },
+    );
+
+    expect(result.profileId).toBe('analysis');
+    expect(result.launchPlan.env.DEEPWORK_ADDITIONAL_JOBS_FOLDERS).toBe(jobsFolder);
+  });
 });

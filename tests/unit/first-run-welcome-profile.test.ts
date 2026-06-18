@@ -1,5 +1,5 @@
 // Tests first-run welcome choices affecting the launched profile.
-import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -14,6 +14,51 @@ const createTemporaryRoot = (): string => {
   const root = mkdtempSync(join(tmpdir(), 'applepi-first-run-welcome-'));
   temporaryRoots.push(root);
   return root;
+};
+
+const writeDefaultProfile = (
+  profilesDirectory: string,
+  profileId: string,
+  extensions: readonly string[] = [],
+): void => {
+  const profileDirectory = join(profilesDirectory, profileId);
+  mkdirSync(profileDirectory, { recursive: true });
+  const extensionLines =
+    extensions.length === 0
+      ? ['    extensions: []']
+      : ['    extensions:', ...extensions.map((extension) => `      - ${extension}`)];
+  writeFileSync(
+    join(profileDirectory, 'profile.yml'),
+    [
+      `id: ${profileId}`,
+      `label: ${profileId}`,
+      'controls:',
+      '  pi:',
+      ...extensionLines,
+      '  append_system_prompt: |',
+      `    Default ${profileId} prompt.`,
+      '',
+    ].join('\n'),
+  );
+  mkdirSync(join(profileDirectory, 'cli_specific', 'pi', 'deepwork', 'jobs', profileId), { recursive: true });
+  writeFileSync(
+    join(profileDirectory, 'cli_specific', 'pi', 'deepwork', 'jobs', profileId, 'job.yml'),
+    `name: ${profileId}\nworkflows: {}\n`,
+  );
+};
+
+const defaultProfileSynchronizer = {
+  sync(_source: unknown, cachePath: string) {
+    const profilesDirectory = join(cachePath, 'profiles');
+    writeDefaultProfile(profilesDirectory, 'engineer', ['git:github.com/applepi-ai/deepwork']);
+    writeDefaultProfile(profilesDirectory, 'data_analyst', [
+      'git:github.com/nhorton/pi-pr-alerts',
+      'git:github.com/applepi-ai/deepwork',
+      'npm:pi-subagents',
+    ]);
+    writeDefaultProfile(profilesDirectory, 'analysis');
+    return 'updated' as const;
+  },
 };
 
 afterEach(() => {
@@ -35,6 +80,7 @@ describe('first-run welcome profile', () => {
         interactive: true,
         input: { isTTY: true } as NodeJS.ReadableStream & { isTTY: true },
         output: { isTTY: true } as NodeJS.WritableStream & { isTTY: true },
+        synchronizer: defaultProfileSynchronizer,
         writeLine: () => undefined,
         selectDefaultProfile() {
           throw new Error('first-run setup should let welcome choose the profile');
@@ -72,6 +118,7 @@ describe('first-run welcome profile', () => {
         interactive: true,
         input: { isTTY: true } as NodeJS.ReadableStream & { isTTY: true },
         output: { isTTY: true } as NodeJS.WritableStream & { isTTY: true },
+        synchronizer: defaultProfileSynchronizer,
         writeLine: () => undefined,
         selectDefaultProfile() {
           return Promise.resolve('engineer');
@@ -89,8 +136,8 @@ describe('first-run welcome profile', () => {
 
     expect(result.profileId).toBe('engineer');
     expect(result.launchPlan.args).toContain('--append-system-prompt');
-    expect(readFileSync(join(homeDirectory, '.applepi', 'profiles', 'engineer', 'profile.yml'), 'utf8')).not.toContain(
-      'extensions:',
+    expect(readFileSync(join(homeDirectory, '.applepi', 'profiles', 'engineer', 'profile.yml'), 'utf8')).toContain(
+      'extensions: []',
     );
   });
 
@@ -108,6 +155,7 @@ describe('first-run welcome profile', () => {
         interactive: true,
         input: { isTTY: true } as NodeJS.ReadableStream & { isTTY: true },
         output: { isTTY: true } as NodeJS.WritableStream & { isTTY: true },
+        synchronizer: defaultProfileSynchronizer,
         writeLine: (message) => messages.push(message),
         selectDefaultProfile() {
           return Promise.resolve('engineer');
@@ -145,6 +193,7 @@ describe('first-run welcome profile', () => {
         interactive: true,
         input: { isTTY: true } as NodeJS.ReadableStream & { isTTY: true },
         output: { isTTY: true } as NodeJS.WritableStream & { isTTY: true },
+        synchronizer: defaultProfileSynchronizer,
         writeLine: (message) => messages.push(message),
         selectDefaultProfile() {
           return Promise.resolve('engineer');
@@ -160,7 +209,8 @@ describe('first-run welcome profile', () => {
       },
     );
 
-    expect(result.launchPlan.args).toEqual(['--print', 'hello']);
+    expect(result.launchPlan.args).toContain('--print');
+    expect(result.launchPlan.args.slice(-2)).toEqual(['--print', 'hello']);
     expect(messages).toContain(
       'Pi does not appear to be logged in yet. After Pi starts, run `/login` and choose a subscription such as Codex or provide an API key from another model provider.',
     );
@@ -243,6 +293,7 @@ describe('first-run welcome profile', () => {
         interactive: true,
         input: { isTTY: true } as NodeJS.ReadableStream & { isTTY: true },
         output: { isTTY: true } as NodeJS.WritableStream & { isTTY: true },
+        synchronizer: defaultProfileSynchronizer,
         writeLine: () => undefined,
         selectDefaultProfile() {
           return Promise.resolve('data_analyst');
@@ -266,8 +317,33 @@ describe('first-run welcome profile', () => {
     expect(result.launchPlan.args).toContain('git:github.com/applepi-ai/deepwork');
     expect(result.launchPlan.args).toContain('npm:pi-mcp-adapter');
     expect(result.launchPlan.args).not.toContain('git:github.com/nhorton/pi-pr-alerts');
-    expect(readFileSync(join(homeDirectory, '.applepi', 'settings.yml'), 'utf8')).toContain(
-      'default_profile: data_analyst',
+    const settings = readFileSync(join(homeDirectory, '.applepi', 'settings.yml'), 'utf8');
+    const copiedProfile = readFileSync(
+      join(homeDirectory, '.applepi', 'profiles', 'data_analyst', 'profile.yml'),
+      'utf8',
     );
+
+    expect(settings).toContain('default_profile: data_analyst');
+    expect(settings).toContain('except:');
+    expect(settings).toContain('- data_analyst');
+    expect(copiedProfile).toContain('git:github.com/applepi-ai/deepwork');
+    expect(copiedProfile).toContain('npm:pi-mcp-adapter');
+    expect(copiedProfile).not.toContain('git:github.com/nhorton/pi-pr-alerts');
+    expect(
+      existsSync(
+        join(
+          homeDirectory,
+          '.applepi',
+          'profiles',
+          'data_analyst',
+          'cli_specific',
+          'pi',
+          'deepwork',
+          'jobs',
+          'data_analyst',
+          'job.yml',
+        ),
+      ),
+    ).toBe(true);
   });
 });

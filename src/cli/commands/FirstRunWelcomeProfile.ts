@@ -1,34 +1,57 @@
 // Persists first-run welcome choices as a local profile used before launching Pi.
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { cpSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+
+import { parse, stringify } from 'yaml';
 
 import type { WelcomeCommandResult } from './WelcomeCommand.js';
 
 export interface PersistedFirstRunWelcomeProfile {
   readonly profileId: string;
   readonly createdProfile: boolean;
+  readonly messages?: readonly string[];
+}
+
+export interface FirstRunWelcomeProfileOptions {
+  readonly sourceProfileDirectory?: string;
 }
 
 export const persistFirstRunWelcomeProfile = (
   homeDirectory: string,
   settingsPath: string,
   welcomeResult: WelcomeCommandResult | undefined,
+  options: FirstRunWelcomeProfileOptions = {},
 ): PersistedFirstRunWelcomeProfile | undefined => {
   if (welcomeResult === undefined || !welcomeResult.answered || welcomeResult.selectedRole === undefined) {
     return undefined;
   }
 
   const welcomeProfile = createFirstRunWelcomeProfile(welcomeResult, welcomeResult.selectedRole);
-  const profilePath = join(homeDirectory, '.applepi', 'profiles', welcomeProfile.id, 'profile.yml');
+  const profileDirectory = join(homeDirectory, '.applepi', 'profiles', welcomeProfile.id);
+  const profilePath = join(profileDirectory, 'profile.yml');
   const createdProfile = !existsSync(profilePath);
+  const messages: string[] = [];
 
   if (createdProfile) {
-    mkdirSync(join(homeDirectory, '.applepi', 'profiles', welcomeProfile.id), { recursive: true });
-    writeFileSync(profilePath, welcomeProfile.content);
+    if (options.sourceProfileDirectory !== undefined && existsSync(options.sourceProfileDirectory)) {
+      cpSync(options.sourceProfileDirectory, profileDirectory, { recursive: true, force: false });
+      updateCopiedProfile(profilePath, welcomeProfile.extensions);
+      excludeDefaultProfileSource(settingsPath, welcomeProfile.id);
+      messages.push(
+        `Copied the ${welcomeProfile.label} profile locally so your extension choices can be edited at ${profilePath}.`,
+      );
+    } else {
+      mkdirSync(profileDirectory, { recursive: true });
+      writeFileSync(profilePath, welcomeProfile.content);
+    }
   }
 
   updateSettingsDefaultProfile(settingsPath, welcomeProfile.id);
-  return { profileId: welcomeProfile.id, createdProfile };
+  return {
+    profileId: welcomeProfile.id,
+    createdProfile,
+    ...(messages.length === 0 ? {} : { messages }),
+  };
 };
 
 const createFirstRunWelcomeProfile = (
@@ -36,7 +59,9 @@ const createFirstRunWelcomeProfile = (
   selectedRole: NonNullable<WelcomeCommandResult['selectedRole']>,
 ): {
   readonly id: string;
+  readonly label: string;
   readonly content: string;
+  readonly extensions: readonly string[];
 } => {
   const profileId = selectedRole.id;
   const extensions = welcomeResult.selectedLoadout?.selectedItems.map((item) => item.source) ?? [];
@@ -44,7 +69,9 @@ const createFirstRunWelcomeProfile = (
 
   return {
     id: profileId,
+    label: selectedRole.label,
     content: createFirstRunWelcomeProfileContent(profileId, selectedRole.label, rolePrompt, extensions),
+    extensions,
   };
 };
 
@@ -69,6 +96,43 @@ const createFirstRunWelcomeProfileContent = (
 
   lines.push('  append_system_prompt: |', ...rolePrompt.split('\n').map((line) => `    ${line}`), '');
   return lines.join('\n');
+};
+
+const updateCopiedProfile = (profilePath: string, extensions: readonly string[]): void => {
+  const document = parse(readFileSync(profilePath, 'utf8')) as Record<string, unknown> | null;
+  const profile = document ?? {};
+  const controls = readRecord(profile.controls);
+  const piControls = readRecord(controls.pi);
+
+  piControls.extensions = [...extensions];
+  controls.pi = piControls;
+  profile.controls = controls;
+
+  mkdirSync(dirname(profilePath), { recursive: true });
+  writeFileSync(profilePath, stringify(profile));
+};
+
+const readRecord = (value: unknown): Record<string, unknown> =>
+  value !== null && typeof value === 'object' && !Array.isArray(value) ? { ...(value as Record<string, unknown>) } : {};
+
+const excludeDefaultProfileSource = (settingsPath: string, profileId: string): void => {
+  const document = readRecord(parse(readFileSync(settingsPath, 'utf8')) as unknown);
+  const rawProfileSources = document.profile_sources;
+  const profileSources: readonly unknown[] = Array.isArray(rawProfileSources) ? rawProfileSources : [];
+  const nextProfileSources = profileSources.map((source): unknown => {
+    const record = readRecord(source);
+
+    if (record.github !== 'applepi-ai/default-profiles' || record.path !== 'profiles') {
+      return source;
+    }
+
+    const except = Array.isArray(record.except)
+      ? record.except.filter((item): item is string => typeof item === 'string')
+      : [];
+    return { ...record, except: [...new Set([...except, profileId])] };
+  });
+
+  writeFileSync(settingsPath, stringify({ ...document, profile_sources: nextProfileSources }));
 };
 
 const updateSettingsDefaultProfile = (settingsPath: string, profileId: string): void => {

@@ -1,3 +1,4 @@
+/* eslint-disable max-lines, complexity */
 // Provides the command object for first-run ApplePi setup.
 import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { createInterface } from 'node:readline/promises';
@@ -111,7 +112,7 @@ export const executeSetupCommand = async (
     ? defaultProfileId
     : await selectDefaultProfileIfInteractive(input, settingsPath, defaultProfileId, dependencies);
   const welcomeResult = await runWelcomeAfterInteractiveSetup(input, dependencies);
-  const welcomeProfile = persistFirstRunWelcomeProfile(input.homeDirectory, settingsPath, welcomeResult);
+  const welcomeProfile = persistWelcomeProfileForSetup(input, settingsPath, welcomeResult);
   const finalDefaultProfile = prepareFinalDefaultProfile(input.homeDirectory, selectedDefaultProfileId, welcomeProfile);
 
   return {
@@ -132,6 +133,7 @@ export const executeSetupCommand = async (
       defaultProfilePath: finalDefaultProfile.path,
       createdDefaultProfile: finalDefaultProfile.created,
       syncResult,
+      welcomeProfileMessages: welcomeProfile?.messages ?? [],
     }),
   };
 };
@@ -165,6 +167,7 @@ interface SetupMessageInput {
   readonly defaultProfilePath: string;
   readonly createdDefaultProfile: boolean;
   readonly syncResult: SyncCommandResult;
+  readonly welcomeProfileMessages: readonly string[];
 }
 
 const buildSetupMessages = (input: SetupMessageInput): readonly string[] => {
@@ -197,6 +200,7 @@ const buildSetupMessages = (input: SetupMessageInput): readonly string[] => {
       ? `Created default user profile at ${input.defaultProfilePath}.`
       : `Default user profile at ${input.defaultProfilePath} already exists; left unchanged.`,
     `Selected default profile '${input.defaultProfileId}'.`,
+    ...input.welcomeProfileMessages,
     ...input.syncResult.messages,
   );
 
@@ -344,7 +348,14 @@ const assertValidDefaultProfileId = (profileId: string): void => {
 };
 
 const createDefaultSettingsContent = (): string =>
-  ['default_profile: engineer', 'profile_sources:', '  - path: ./profiles', ''].join('\n');
+  [
+    'default_profile: engineer',
+    'profile_sources:',
+    '  - github: applepi-ai/default-profiles',
+    '    path: profiles',
+    '  - path: ./profiles',
+    '',
+  ].join('\n');
 
 const createInitialSettingsIfMissing = (settingsPath: string, starterSettingsPath?: string): boolean => {
   if (existsSync(settingsPath)) {
@@ -414,6 +425,42 @@ const createDefaultProfileIfMissing = (profilePath: string, profileId: string): 
   mkdirSync(dirname(profilePath), { recursive: true });
   writeFileSync(profilePath, `id: ${profileId}\nlabel: Default\ncontrols: {}\n`);
   return true;
+};
+
+const persistWelcomeProfileForSetup = (
+  input: SetupCommandInput,
+  settingsPath: string,
+  welcomeResult: WelcomeCommandResult | undefined,
+): PersistedFirstRunWelcomeProfile | undefined =>
+  persistFirstRunWelcomeProfile(input.homeDirectory, settingsPath, welcomeResult, {
+    sourceProfileDirectory: findWelcomeSourceProfileDirectory(input, welcomeResult?.selectedRole?.id),
+  });
+
+const findWelcomeSourceProfileDirectory = (
+  input: SetupCommandInput,
+  profileId: string | undefined,
+): string | undefined => {
+  if (profileId === undefined) {
+    return undefined;
+  }
+
+  const loadedSettings = loadSettingsWithCachedRemoteSettings(input);
+
+  if (loadedSettings.issues.length > 0) {
+    return undefined;
+  }
+
+  for (const source of loadedSettings.settings.profileSources!) {
+    const materializedPath = materializeSetupProfileSource(input.homeDirectory, source);
+    const loadedProfiles = loadLocalProfileSource({ path: materializedPath, only: source.only, except: source.except });
+    const loadedProfile = loadedProfiles.profiles.find((profile) => profile.profile.id === profileId);
+
+    if (loadedProfile !== undefined) {
+      return loadedProfile.folderPath;
+    }
+  }
+
+  return undefined;
 };
 
 const runWelcomeAfterInteractiveSetup = async (

@@ -202,15 +202,18 @@ describe('run command', () => {
       },
     );
 
-    expect(messages).toEqual([
-      '`applepi setup` has not been run yet - running now',
-      'Pi does not appear to be logged in yet. After Pi starts, run `/login` and choose a subscription such as Codex or provide an API key from another model provider.',
-      '→ resolving profile engineer',
-      `✓ profile layer engineer  ${join(homeDirectory, '.applepi', 'profiles', 'engineer')}`,
-      '✓ merged controls',
-      `✓ prepared composite profile  ${result.compositeProfileDirectory}`,
-      '↳ launching pi …',
-    ]);
+    expect(messages).toEqual(
+      expect.arrayContaining([
+        '`applepi setup` has not been run yet - running now',
+        'Pi does not appear to be logged in yet. After Pi starts, run `/login` and choose a subscription such as Codex or provide an API key from another model provider.',
+        '→ resolving profile engineer',
+        `✓ profile layer engineer  ${join(homeDirectory, '.applepi', 'profiles', 'engineer')}`,
+        '✓ merged controls',
+        `✓ prepared composite profile  ${result.compositeProfileDirectory}`,
+        '↳ launching pi …',
+      ]),
+    );
+    expect(messages.some((message) => message.includes('github:applepi-ai/default-profiles/profiles'))).toBe(true);
     expect(result.profileId).toBe('engineer');
     expect(existsSync(join(homeDirectory, '.applepi', 'settings.yml'))).toBe(true);
     expect(existsSync(join(homeDirectory, '.applepi', 'profiles', 'engineer', 'profile.yml'))).toBe(true);
