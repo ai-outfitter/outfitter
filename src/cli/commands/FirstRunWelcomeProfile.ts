@@ -99,8 +99,7 @@ const createFirstRunWelcomeProfileContent = (
 };
 
 const updateCopiedProfile = (profilePath: string, extensions: readonly string[]): void => {
-  const document = parse(readFileSync(profilePath, 'utf8')) as Record<string, unknown> | null;
-  const profile = document ?? {};
+  const profile = readRecord(parse(readFileSync(profilePath, 'utf8')) as unknown);
   const controls = readRecord(profile.controls);
   const piControls = readRecord(controls.pi);
 

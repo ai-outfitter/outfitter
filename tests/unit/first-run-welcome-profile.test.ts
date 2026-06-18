@@ -350,6 +350,44 @@ describe('first-run welcome profile', () => {
     expect(readFileSync(settingsPath, 'utf8')).toContain('default_profile: data_analyst');
   });
 
+  it('handles malformed scalar source profiles when copying welcome choices', () => {
+    const root = createTemporaryRoot();
+    const homeDirectory = join(root, 'home');
+    const settingsPath = join(homeDirectory, '.applepi', 'settings.yml');
+    const sourceProfileDirectory = join(root, 'default-profiles', 'data_analyst');
+    mkdirSync(join(homeDirectory, '.applepi'), { recursive: true });
+    mkdirSync(sourceProfileDirectory, { recursive: true });
+    writeFileSync(
+      settingsPath,
+      'default_profile: engineer\nprofile_sources:\n  - github: applepi-ai/default-profiles\n    path: profiles\n',
+    );
+    writeFileSync(join(sourceProfileDirectory, 'profile.yml'), 'scalar-profile\n');
+
+    persistFirstRunWelcomeProfile(
+      homeDirectory,
+      settingsPath,
+      {
+        answered: true,
+        selectedRole: { id: 'data_analyst', label: 'Data Analyst' },
+        selectedLoadout: {
+          id: 'recommended',
+          label: 'Recommended',
+          selectedItems: [{ id: 'deepwork', label: 'DeepWork', kind: 'extension', source: 'git:x' }],
+        },
+        warnings: [],
+        messages: [],
+      },
+      { sourceProfileDirectory },
+    );
+
+    const copiedProfile = readFileSync(
+      join(homeDirectory, '.applepi', 'profiles', 'data_analyst', 'profile.yml'),
+      'utf8',
+    );
+    expect(copiedProfile).toContain('controls:');
+    expect(copiedProfile).toContain('git:x');
+  });
+
   it('adds copied profile exclusions to the default profile source', () => {
     const root = createTemporaryRoot();
     const homeDirectory = join(root, 'home');
