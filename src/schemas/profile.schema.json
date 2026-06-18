@@ -70,6 +70,7 @@
             "prompt_template": { "type": "string" },
             "system_prompt": { "type": "string" },
             "append_system_prompt": { "type": "string" },
+            "allow_external_deepwork_jobs": { "type": "boolean" },
             "environment": {
               "type": "object",
               "additionalProperties": { "type": "string" }

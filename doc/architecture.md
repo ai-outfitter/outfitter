@@ -398,6 +398,7 @@ Rules:
 - `inherits` is an ordered array of profile names.
 - `cli_specific/<cli-name>/` contains files copied or translated directly into the generated composite profile for that CLI.
 - Pi profiles may provide `cli_specific/pi/.mcp.json`; ApplePi merges contributing profile fragments into the composite profile with unique array entries by identity and last writer wins for duplicate identities.
+- Pi profiles may provide DeepWork jobs under `cli_specific/pi/deepwork/jobs/`; ApplePi appends contributing job folders to `DEEPWORK_ADDITIONAL_JOBS_FOLDERS` when launching Pi so DeepWork can discover those profile-owned workflows. Profile-bundled jobs are isolated by default: inherited `DEEPWORK_ADDITIONAL_JOBS_FOLDERS` entries are included only when the profile sets `controls.pi.allow_external_deepwork_jobs: true`.
 - CLI-specific configuration wins over generic controls when both apply to the same generated artifact.
 
 ### Profile Directory Examples
