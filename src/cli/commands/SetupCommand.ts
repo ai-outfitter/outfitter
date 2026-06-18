@@ -1,4 +1,4 @@
-/* eslint-disable max-lines, complexity */
+/* eslint-disable max-lines */
 // Provides the command object for first-run ApplePi setup.
 import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { createInterface } from 'node:readline/promises';
@@ -80,6 +80,7 @@ interface StarterLayout {
   readonly profilesPath?: string;
 }
 
+/* eslint-disable complexity -- setup orchestration coordinates settings, sync, prompts, and welcome persistence. */
 export const executeSetupCommand = async (
   input: SetupCommandInput,
   dependencies: SetupCommandDependencies = {},
@@ -108,6 +109,7 @@ export const executeSetupCommand = async (
     join(input.homeDirectory, '.applepi', 'profiles'),
   );
   const syncResult = executeSyncCommand(input, dependencies);
+  failOnInitialDefaultProfileSyncFailure(initialSettingsMissing, syncResult);
   const selectedDefaultProfileId = shouldSkipInitialDefaultProfilePrompt(initialSettingsMissing, dependencies)
     ? defaultProfileId
     : await selectDefaultProfileIfInteractive(input, settingsPath, defaultProfileId, dependencies);
@@ -136,6 +138,30 @@ export const executeSetupCommand = async (
       welcomeProfileMessages: welcomeProfile?.messages ?? [],
     }),
   };
+};
+/* eslint-enable complexity */
+
+const defaultProfilesSourceUri = 'git+https://github.com/applepi-ai/default-profiles.git:profiles';
+
+const failOnInitialDefaultProfileSyncFailure = (
+  initialSettingsMissing: boolean,
+  syncResult: SyncCommandResult,
+): void => {
+  if (!initialSettingsMissing) {
+    return;
+  }
+
+  const failedDefaultProfilesSource = syncResult.sources.find(
+    (source) => source.uri === defaultProfilesSourceUri && source.status === 'failed',
+  );
+
+  if (failedDefaultProfilesSource === undefined) {
+    return;
+  }
+
+  throw new Error(
+    `Cannot complete first-run setup because the default profiles source failed to sync: ${failedDefaultProfilesSource.message}`,
+  );
 };
 
 interface FinalDefaultProfile {

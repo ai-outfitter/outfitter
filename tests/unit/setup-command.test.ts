@@ -90,6 +90,25 @@ describe('setup command', () => {
     expect(readFileSync(defaultProfilePath, 'utf8')).toBe('id: default\nlabel: Custom\n');
   });
 
+  it('fails first-run setup when the default profile source cannot sync', async () => {
+    const root = createTemporaryRoot();
+    const homeDirectory = join(root, 'home');
+    const projectDirectory = join(root, 'project');
+
+    await expect(
+      executeSetupCommand(
+        { homeDirectory, projectDirectory },
+        {
+          synchronizer: {
+            sync() {
+              return 'failed';
+            },
+          },
+        },
+      ),
+    ).rejects.toThrow('Cannot complete first-run setup because the default profiles source failed to sync');
+  });
+
   // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-004.1).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('uses a setup source repository as the initial user settings and profiles without overwriting files', async () => {
