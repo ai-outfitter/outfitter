@@ -446,6 +446,7 @@ const findWelcomeSourceProfileDirectory = (
 
   const loadedSettings = loadSettingsWithCachedRemoteSettings(input);
 
+  /* v8 ignore next -- setup already rejected invalid settings; this fallback handles cache mutation during welcome. */
   if (loadedSettings.issues.length > 0) {
     return undefined;
   }

@@ -66,6 +66,13 @@ const defaultProfileSynchronizer = {
   },
 };
 
+const engineerOnlySynchronizer = {
+  sync(_source: unknown, cachePath: string) {
+    writeDefaultProfile(join(cachePath, 'profiles'), 'engineer', ['git:github.com/applepi-ai/deepwork']);
+    return 'updated' as const;
+  },
+};
+
 afterEach(() => {
   for (const root of temporaryRoots.splice(0)) {
     rmSync(root, { recursive: true, force: true });
@@ -266,6 +273,125 @@ describe('first-run welcome profile', () => {
     expect(persisted).toEqual({ profileId: 'engineer', createdProfile: false });
     expect(readFileSync(profilePath, 'utf8')).toBe('id: engineer\nlabel: Custom Engineer\ncontrols: {}\n');
     expect(readFileSync(settingsPath, 'utf8')).toContain('default_profile: engineer');
+  });
+
+  it('falls back to a generated welcome profile when the selected role is not cached', async () => {
+    const root = createTemporaryRoot();
+    const homeDirectory = join(root, 'home');
+    const projectDirectory = join(root, 'project');
+
+    await executeRunCommand(
+      { homeDirectory, projectDirectory },
+      {
+        interactive: true,
+        input: { isTTY: true } as NodeJS.ReadableStream & { isTTY: true },
+        output: { isTTY: true } as NodeJS.WritableStream & { isTTY: true },
+        synchronizer: engineerOnlySynchronizer,
+        writeLine: () => undefined,
+        selectDefaultProfile() {
+          return Promise.resolve('engineer');
+        },
+        selectWelcomePlan() {
+          return Promise.resolve({
+            answerQuestions: true,
+            selectedRoleId: 'data_analyst',
+            loadoutItemIds: ['deepwork'],
+          });
+        },
+        launcher: {
+          launch() {
+            return Promise.resolve(0);
+          },
+        },
+      },
+    );
+
+    const profileDirectory = join(homeDirectory, '.applepi', 'profiles', 'data_analyst');
+    expect(readFileSync(join(profileDirectory, 'profile.yml'), 'utf8')).toContain('git:github.com/applepi-ai/deepwork');
+    expect(existsSync(join(profileDirectory, 'cli_specific'))).toBe(false);
+  });
+
+  it('copies source profiles even when the profile and settings YAML are empty', () => {
+    const root = createTemporaryRoot();
+    const homeDirectory = join(root, 'home');
+    const settingsPath = join(homeDirectory, '.applepi', 'settings.yml');
+    const sourceProfileDirectory = join(root, 'default-profiles', 'data_analyst');
+    mkdirSync(join(homeDirectory, '.applepi'), { recursive: true });
+    mkdirSync(sourceProfileDirectory, { recursive: true });
+    writeFileSync(settingsPath, '');
+    writeFileSync(join(sourceProfileDirectory, 'profile.yml'), '');
+
+    const persisted = persistFirstRunWelcomeProfile(
+      homeDirectory,
+      settingsPath,
+      {
+        answered: true,
+        selectedRole: { id: 'data_analyst', label: 'Data Analyst' },
+        warnings: [],
+        messages: [],
+      },
+      { sourceProfileDirectory },
+    );
+
+    expect(persisted).toEqual({
+      profileId: 'data_analyst',
+      createdProfile: true,
+      messages: [
+        `Copied the Data Analyst profile locally so your extension choices can be edited at ${join(
+          homeDirectory,
+          '.applepi',
+          'profiles',
+          'data_analyst',
+          'profile.yml',
+        )}.`,
+      ],
+    });
+    expect(readFileSync(settingsPath, 'utf8')).toContain('profile_sources: []');
+    expect(readFileSync(settingsPath, 'utf8')).toContain('default_profile: data_analyst');
+  });
+
+  it('adds copied profile exclusions to the default profile source', () => {
+    const root = createTemporaryRoot();
+    const homeDirectory = join(root, 'home');
+    const settingsPath = join(homeDirectory, '.applepi', 'settings.yml');
+    const sourceProfileDirectory = join(root, 'default-profiles', 'data_analyst');
+    mkdirSync(join(homeDirectory, '.applepi'), { recursive: true });
+    mkdirSync(sourceProfileDirectory, { recursive: true });
+    writeFileSync(
+      settingsPath,
+      [
+        'default_profile: engineer',
+        'profile_sources:',
+        '  - github: applepi-ai/default-profiles',
+        '    path: profiles',
+        '    except:',
+        '      - engineer',
+        '      - 7',
+        '  - path: ./profiles',
+        '  - literal-source',
+        '',
+      ].join('\n'),
+    );
+    writeFileSync(join(sourceProfileDirectory, 'profile.yml'), 'id: data_analyst\ncontrols: {}\n');
+
+    persistFirstRunWelcomeProfile(
+      homeDirectory,
+      settingsPath,
+      {
+        answered: true,
+        selectedRole: { id: 'data_analyst', label: 'Data Analyst' },
+        warnings: [],
+        messages: [],
+      },
+      { sourceProfileDirectory },
+    );
+
+    const settings = readFileSync(settingsPath, 'utf8');
+    expect(settings).toContain('except:');
+    expect(settings).toContain('- engineer');
+    expect(settings).toContain('- data_analyst');
+    expect(settings).not.toContain('- 7');
+    expect(settings).toContain('literal-source');
   });
 
   it('adds a default profile setting when persisting welcome into sparse settings', () => {
