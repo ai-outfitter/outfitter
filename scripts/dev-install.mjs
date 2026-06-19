@@ -28,7 +28,7 @@ run('npm', ['run', 'build']);
 run('npm', ['link']);
 
 const globalRoot = run('npm', ['root', '-g'], { capture: true }).trim();
-const linkedPackagePath = join(globalRoot, 'outfitter');
+const linkedPackagePath = join(globalRoot, '@ai-outfitter', 'outfitter');
 
 if (!existsSync(linkedPackagePath)) {
   throw new Error(`Expected npm link to create ${linkedPackagePath}.`);
