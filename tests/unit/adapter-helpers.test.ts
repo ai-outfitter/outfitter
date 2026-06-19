@@ -20,7 +20,7 @@ import {
 import type { Profile, ProfileControls } from '../../src/profiles/Profile.js';
 import type { StatePathDeclaration } from '../../src/compositeProfile/StatePersistence.js';
 
-const createTemporaryRoot = (): string => mkdtempSync(join(tmpdir(), 'applepi-adapter-helpers-'));
+const createTemporaryRoot = (): string => mkdtempSync(join(tmpdir(), 'outfitter-adapter-helpers-'));
 
 describe('adapter helper modules', () => {
   it('merges agent-specific controls and constructs argv fragments', () => {

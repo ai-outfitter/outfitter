@@ -65,10 +65,10 @@
     }
   },
   "stateTargets": {
-    "settings.json": "<project>/.applepi/profiles/stateful-review/cli_specific/claude/settings.json",
-    "agents": "<project>/.applepi/profiles/stateful-review/cli_specific/claude/agents",
-    "commands": "<project>/.applepi/profiles/stateful-review/cli_specific/claude/commands",
-    "skills": "<project>/.applepi/profiles/stateful-review/cli_specific/claude/skills",
-    "plugins": "<project>/.applepi/profiles/stateful-review/cli_specific/claude/plugins"
+    "settings.json": "<project>/.outfitter/profiles/stateful-review/cli_specific/claude/settings.json",
+    "agents": "<project>/.outfitter/profiles/stateful-review/cli_specific/claude/agents",
+    "commands": "<project>/.outfitter/profiles/stateful-review/cli_specific/claude/commands",
+    "skills": "<project>/.outfitter/profiles/stateful-review/cli_specific/claude/skills",
+    "plugins": "<project>/.outfitter/profiles/stateful-review/cli_specific/claude/plugins"
   }
 }

@@ -10,14 +10,14 @@ import { executeRunCommand } from '../../src/cli/commands/RunCommand.js';
 const temporaryRoots: string[] = [];
 
 const createTemporaryRoot = (): string => {
-  const root = mkdtempSync(join(tmpdir(), 'applepi-run-cache-'));
+  const root = mkdtempSync(join(tmpdir(), 'outfitter-run-cache-'));
   temporaryRoots.push(root);
   return root;
 };
 
 const writeSettings = (homeDirectory: string, content: string): void => {
-  mkdirSync(join(homeDirectory, '.applepi'), { recursive: true });
-  writeFileSync(join(homeDirectory, '.applepi', 'settings.yml'), content);
+  mkdirSync(join(homeDirectory, '.outfitter'), { recursive: true });
+  writeFileSync(join(homeDirectory, '.outfitter', 'settings.yml'), content);
 };
 
 const writeProfile = (profilesRoot: string, id: string, content: string): void => {
@@ -33,14 +33,14 @@ afterEach(() => {
 });
 
 describe('run command cache persistence', () => {
-  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-002.7).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-002.7).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('uses the default cache directory for pi utilities state paths during run command execution', async () => {
     const root = createTemporaryRoot();
     const homeDirectory = join(root, 'home');
     const projectDirectory = join(root, 'project');
     writeSettings(homeDirectory, 'default_profile: default\nprofile_sources:\n  - path: ./profiles\n');
-    writeProfile(join(homeDirectory, '.applepi', 'profiles'), 'default', 'id: default\ncontrols: {}\n');
+    writeProfile(join(homeDirectory, '.outfitter', 'profiles'), 'default', 'id: default\ncontrols: {}\n');
 
     const result = await executeRunCommand(
       { homeDirectory, projectDirectory },
@@ -48,25 +48,25 @@ describe('run command cache persistence', () => {
     );
 
     expect(readlinkSync(join(result.compositeProfileDirectory, 'utilities'))).toBe(
-      join(homeDirectory, '.applepi', 'cache', 'utilities'),
+      join(homeDirectory, '.outfitter', 'cache', 'utilities'),
     );
     expect(readlinkSync(join(result.compositeProfileDirectory, 'bin'))).toBe(
-      join(homeDirectory, '.applepi', 'cache', 'utilities'),
+      join(homeDirectory, '.outfitter', 'cache', 'utilities'),
     );
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-002.7).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-002.7).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('uses configured cache directories for pi utilities state paths during run command execution', async () => {
     const root = createTemporaryRoot();
     const homeDirectory = join(root, 'home');
     const projectDirectory = join(root, 'project');
-    const cacheDirectory = join(homeDirectory, '.applepi', 'custom-cache');
+    const cacheDirectory = join(homeDirectory, '.outfitter', 'custom-cache');
     writeSettings(
       homeDirectory,
       'default_profile: default\ncache_directory: ./custom-cache\nprofile_sources:\n  - path: ./profiles\n',
     );
-    writeProfile(join(homeDirectory, '.applepi', 'profiles'), 'default', 'id: default\ncontrols: {}\n');
+    writeProfile(join(homeDirectory, '.outfitter', 'profiles'), 'default', 'id: default\ncontrols: {}\n');
 
     const result = await executeRunCommand(
       { homeDirectory, projectDirectory },

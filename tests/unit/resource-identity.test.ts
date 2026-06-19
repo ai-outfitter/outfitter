@@ -16,17 +16,17 @@ describe('resource identity normalization', () => {
   });
 
   it('deduplicates git extensions by repository while ignoring refs and URL spelling', () => {
-    expect(normalizeExtensionResourceIdentity('git:github.com/applepi-ai/deepwork#main')).toBe(
-      'git:https://github.com/applepi-ai/deepwork.git',
+    expect(normalizeExtensionResourceIdentity('git:github.com/ai-outfitter/deepwork#main')).toBe(
+      'git:https://github.com/ai-outfitter/deepwork.git',
     );
-    expect(normalizeExtensionResourceIdentity('git+https://github.com/applepi-ai/deepwork.git#v1')).toBe(
-      'git:https://github.com/applepi-ai/deepwork.git',
+    expect(normalizeExtensionResourceIdentity('git+https://github.com/ai-outfitter/deepwork.git#v1')).toBe(
+      'git:https://github.com/ai-outfitter/deepwork.git',
     );
-    expect(normalizeExtensionResourceIdentity('github:applepi-ai/deepwork#main')).toBe(
-      'git:https://github.com/applepi-ai/deepwork.git',
+    expect(normalizeExtensionResourceIdentity('github:ai-outfitter/deepwork#main')).toBe(
+      'git:https://github.com/ai-outfitter/deepwork.git',
     );
-    expect(normalizeExtensionResourceIdentity('https://github.com/applepi-ai/deepwork')).toBe(
-      'git:https://github.com/applepi-ai/deepwork.git',
+    expect(normalizeExtensionResourceIdentity('https://github.com/ai-outfitter/deepwork')).toBe(
+      'git:https://github.com/ai-outfitter/deepwork.git',
     );
     expect(normalizeExtensionResourceIdentity('git:not a url#main')).toBe('git:not a url.git');
   });

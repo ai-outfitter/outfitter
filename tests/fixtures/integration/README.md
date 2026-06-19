@@ -1,6 +1,6 @@
 # Integration Fixtures
 
-Integration fixtures are complete synthetic ApplePi filesystem trees.
+Integration fixtures are complete synthetic Outfitter filesystem trees.
 Tests copy a fixture to a temporary directory before running so the fixture source remains immutable.
 
 ## Required fixture shape
@@ -31,8 +31,8 @@ A fixture MAY also include:
 ## Authoring rules
 
 - The fixture root `README.md` explains the user/project setup, selected profile or profiles, expected state ownership, and mutation/write-back behavior under test.
-- `home/` is the synthetic user home directory passed to ApplePi.
-- `project/` is the synthetic project directory passed to ApplePi.
+- `home/` is the synthetic user home directory passed to Outfitter.
+- `project/` is the synthetic project directory passed to Outfitter.
 - Test code owns active mutation behavior.
   Fixture files provide static inputs and optional expected outputs.
 - Adapter-specific expected outputs should be nested by adapter, for example `expected/pi/` or `expected/claude/`.

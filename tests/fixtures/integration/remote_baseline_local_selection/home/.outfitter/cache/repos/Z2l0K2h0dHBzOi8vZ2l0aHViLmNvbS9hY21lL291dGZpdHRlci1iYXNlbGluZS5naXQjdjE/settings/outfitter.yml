@@ -1,0 +1,10 @@
+default_agent: pi
+cache_directory: ./cache-from-remote-settings
+profile_sources:
+  - github: acme/outfitter-baseline
+    ref: v1
+    path: profiles
+custom_settings:
+  origin:
+    remote: REMOTE_SETTINGS
+    shared: REMOTE_SETTINGS

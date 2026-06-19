@@ -1,4 +1,4 @@
-// Adds first-run Pi login startup behavior without handling credentials in ApplePi.
+// Adds first-run Pi login startup behavior without handling credentials in Outfitter.
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
@@ -17,7 +17,7 @@ const manualLoginMessage =
   'Pi does not appear to be logged in yet. After Pi starts, run `/login` and choose a subscription such as Codex or provide an API key from another model provider.';
 
 const automaticLoginMessage =
-  'Pi does not appear to be logged in yet. ApplePi will open `/login` automatically after Pi starts.';
+  'Pi does not appear to be logged in yet. Outfitter will open `/login` automatically after Pi starts.';
 
 const nonInteractivePiLaunchFlags = new Set(['--print', '-p', '--mode', '--export', '--list-models']);
 
@@ -36,17 +36,17 @@ export const preparePiLoginLaunchPlan = (input: PiLoginLaunchPlanInput): AgentLa
 };
 
 const addPiLoginPrefillExtension = (launchPlan: AgentLaunchPlan): AgentLaunchPlan => {
-  const extensionPath = join(launchPlan.env.PI_CODING_AGENT_DIR, 'applepi', 'prefill-login-extension.js');
+  const extensionPath = join(launchPlan.env.PI_CODING_AGENT_DIR, 'outfitter', 'prefill-login-extension.js');
   mkdirSync(dirname(extensionPath), { recursive: true });
   writeFileSync(extensionPath, piLoginPrefillExtensionContent);
 
   return { ...launchPlan, args: ['--extension', extensionPath, ...launchPlan.args] };
 };
 
-const piLoginPrefillExtensionContent = `export default function applePiLoginPrefill(pi) {
+const piLoginPrefillExtensionContent = `export default function outfitterLoginPrefill(pi) {
   pi.on("session_start", async (_event, ctx) => {
     ctx.ui.setEditorText("/login");
-    ctx.ui.notify("ApplePi is opening /login so you can choose a provider.", "info");
+    ctx.ui.notify("Outfitter is opening /login so you can choose a provider.", "info");
     await ctx.ui.custom((tui, _theme, _keybindings, done) => {
       setTimeout(() => {
         tui.focusedComponent?.handleInput?.("\\r");

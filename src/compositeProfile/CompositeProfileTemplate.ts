@@ -1,4 +1,4 @@
-// Renders ApplePi-time templates in generated compositeProfile files.
+// Renders Outfitter-time templates in generated compositeProfile files.
 import { Liquid } from 'liquidjs';
 
 import type { Profile } from '../profiles/Profile.js';
@@ -19,7 +19,7 @@ export interface CompositeProfileTemplateRenderInput extends CompositeProfileTem
   readonly settingsPaths: readonly string[];
 }
 
-const applepiTemplateEngine = new Liquid({
+const outfitterTemplateEngine = new Liquid({
   outputDelimiterLeft: '[[=',
   outputDelimiterRight: ']]',
   tagDelimiterLeft: '[[%',
@@ -35,7 +35,7 @@ const applepiTemplateEngine = new Liquid({
 export const createCompositeProfileTemplateContext = (
   input: CompositeProfileTemplateContextInput,
 ): Readonly<Record<string, unknown>> => ({
-  applepi: {
+  outfitter: {
     custom_settings: input.settings.customSettings ?? {},
     settings: createTemplateSettings(input.settings),
     profile: input.profile,
@@ -61,7 +61,7 @@ const renderCompositeProfileFile = (
   context: Readonly<Record<string, unknown>>,
   settingsPaths: readonly string[],
 ): CompositeProfileFile => {
-  if (!containsApplePiTemplate(file.content)) {
+  if (!containsOutfitterTemplate(file.content)) {
     return file;
   }
 
@@ -73,7 +73,7 @@ const renderCompositeProfileFile = (
     };
   } catch (error) {
     throw new Error(
-      `Cannot render ApplePi template in compositeProfile file '${file.relativePath}': ${formatTemplateError(error)}`,
+      `Cannot render Outfitter template in compositeProfile file '${file.relativePath}': ${formatTemplateError(error)}`,
       {
         cause: error,
       },
@@ -82,7 +82,7 @@ const renderCompositeProfileFile = (
 };
 
 const renderTemplateContent = (content: string, context: Readonly<Record<string, unknown>>): string => {
-  const renderedContent: unknown = applepiTemplateEngine.parseAndRenderSync(content, context);
+  const renderedContent: unknown = outfitterTemplateEngine.parseAndRenderSync(content, context);
 
   /* v8 ignore next -- LiquidJS renders string content to strings; this guards future API regressions. */
   if (typeof renderedContent !== 'string') {
@@ -92,7 +92,7 @@ const renderTemplateContent = (content: string, context: Readonly<Record<string,
   return renderedContent;
 };
 
-const containsApplePiTemplate = (content: string): boolean => content.includes('[[=') || content.includes('[[%');
+const containsOutfitterTemplate = (content: string): boolean => content.includes('[[=') || content.includes('[[%');
 
 const createTemplateSettings = (settings: Settings): Readonly<Record<string, unknown>> => ({
   default_profile: settings.defaultProfile,

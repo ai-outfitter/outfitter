@@ -1,40 +1,40 @@
-# applepi
+# outfitter
 
-`applepi` is intended to be a management wrapper for launching [`pi`](https://github.com/earendil-works/pi-coding-agent) and Claude Code with configurable, reusable profiles.
+`outfitter` is intended to be a management wrapper for launching [`pi`](https://github.com/earendil-works/pi-coding-agent) and Claude Code with configurable, reusable profiles.
 
 The goal is manageable agent CLI configuration:
 
 - Organizations can define standard pi or claude loadouts, share them, and launch agent CLIs consistently across different environments.
 - Individuals can swap between configurations of their coding agent, share those, and easily migrate to new machines.
 
-If you haven't tried [Pi](https://pi.dev) yet — we think it's a great coding harness & ApplePi is an easy way to try it.
+If you haven't tried [Pi](https://pi.dev) yet — we think it's a great coding harness & Outfitter is an easy way to try it.
 
-- Install and run `applepi` to load pi with our standard configuration for engineers.
+- Install and run `outfitter` to load pi with our standard configuration for engineers.
 
 ## Install
 
-Install ApplePi globally from npm so the `applepi` command is available on your PATH:
+Install Outfitter globally from npm so the `outfitter` command is available on your PATH:
 
 ```bash
-npm install -g @applepi-ai/applepi
-applepi --help
+npm install -g @ai-outfitter/outfitter
+outfitter --help
 ```
 
 Upgrade with:
 
 ```bash
-npm update -g @applepi-ai/applepi
+npm update -g @ai-outfitter/outfitter
 ```
 
-Use `npx` when you want to test ApplePi without adding a global command:
+Use `npx` when you want to test Outfitter without adding a global command:
 
 ```bash
-npx --yes @applepi-ai/applepi@latest --help
+npx --yes @ai-outfitter/outfitter@latest --help
 ```
 
 For source development, see [`CONTRIBUTING.md`](./CONTRIBUTING.md).
 
-ApplePi launches agent CLIs but does not install them.
+Outfitter launches agent CLIs but does not install them.
 Install the agents you plan to use separately:
 
 - [pi](https://github.com/earendil-works/pi-coding-agent) — follow its installation instructions; the `pi` command must be on your PATH.
@@ -45,7 +45,7 @@ Install the agents you plan to use separately:
 Pi is highly configurable through settings directories, extensions, skills, prompts, themes, model settings, environment variables, and CLI flags.
 That flexibility is powerful, but businesses often need a higher-level control plane for repeatable deployments.
 
-`applepi` should make it easy to answer questions like:
+`outfitter` should make it easy to answer questions like:
 
 - Which pi configuration should this employee or team use?
 - Which extensions, skills, prompts, models, and providers are approved?
@@ -65,52 +65,52 @@ Example profile concepts:
 A launch flow is intended to look like:
 
 ```bash
-applepi
-applepi run --profile engineering-default
-applepi run -p support -- --cwd ~/work/customer-issue
-applepi sync
-applepi setup
-applepi setup https://github.com/my_account/applepi_config
-applepi welcome
-applepi profile list
-applepi profile create regulated --scope user
+outfitter
+outfitter run --profile engineering-default
+outfitter run -p support -- --cwd ~/work/customer-issue
+outfitter sync
+outfitter setup
+outfitter setup https://github.com/my_account/outfitter_config
+outfitter welcome
+outfitter profile list
+outfitter profile create regulated --scope user
 ```
 
-Under the hood, `applepi` translates a selected profile into the selected agent launch environment.
+Under the hood, `outfitter` translates a selected profile into the selected agent launch environment.
 Pi runs use `PI_CODING_AGENT_DIR`; Claude Code runs use `CLAUDE_CONFIG_DIR`; both receive supported CLI flags, prompts, model settings, and environment variables.
-Select the adapter with `applepi run --agent <pi|claude>`, or set `default_agent` in `settings.yml`.
-If neither is set, ApplePi defaults to pi for backward compatibility.
-If `applepi` is run before `applepi setup`, it creates the initial settings and default profile automatically before launching.
-When that first-run setup has an interactive terminal, ApplePi continues into the same welcome onboarding used by `applepi welcome`.
+Select the adapter with `outfitter run --agent <pi|claude>`, or set `default_agent` in `settings.yml`.
+If neither is set, Outfitter defaults to pi for backward compatibility.
+If `outfitter` is run before `outfitter setup`, it creates the initial settings and default profile automatically before launching.
+When that first-run setup has an interactive terminal, Outfitter continues into the same welcome onboarding used by `outfitter welcome`.
 
-`applepi welcome` explains ApplePi and Pi, asks you to choose an initial built-in role, and recommends a Pi productivity loadout.
-The current built-in role choices are `engineer` and `data_analyst`; ApplePi creates the selected local profile on the fly.
+`outfitter welcome` explains Outfitter and Pi, asks you to choose an initial built-in role, and recommends a Pi productivity loadout.
+The current built-in role choices are `engineer` and `data_analyst`; Outfitter creates the selected local profile on the fly.
 The recommended loadout includes `ulta-tasklist`, `deepwork`, `pi-subagents`, and `pi-mcp-adapter`; you can accept it, choose individual items, or skip loadout installation.
 If you skip loadout installation, the generated profile has no extensions or skills.
-If Pi does not appear to be logged in after welcome onboarding, ApplePi opens Pi with `/login` automatically; outside welcome onboarding it prints a `/login` reminder instead.
-ApplePi never collects or persists provider API keys itself.
+If Pi does not appear to be logged in after welcome onboarding, Outfitter opens Pi with `/login` automatically; outside welcome onboarding it prints a `/login` reminder instead.
+Outfitter never collects or persists provider API keys itself.
 
 `settings.yml` can point at local profiles, full Git URIs, or GitHub shorthand sources with optional refs and repository subpaths:
 
 ```yaml
 remote_settings:
-  - github: my_account/applepi_config
+  - github: my_account/outfitter_config
     ref: main
     path: settings.yml
 
 profile_sources:
-  - github: my_account/applepi_config
+  - github: my_account/outfitter_config
     ref: main
     path: profiles
 ```
 
-Run `applepi sync` to fetch/update remote settings and profiles before using them.
+Run `outfitter sync` to fetch/update remote settings and profiles before using them.
 
-By default, ApplePi keeps reusable runtime cache files under `~/.applepi/cache`.
+By default, Outfitter keeps reusable runtime cache files under `~/.outfitter/cache`.
 Set `cache_directory` in `settings.yml` to choose a different cache root; relative values resolve from the settings file that declares them.
 The pi adapter symlinks composite profile `utilities/` and `bin/` paths into this cache so pi-managed utilities such as `fd` and `rg` survive across temporary composite profile directories.
 
-Settings can also define arbitrary nested `custom_settings` values for ApplePi-time composite profile templating:
+Settings can also define arbitrary nested `custom_settings` values for Outfitter-time composite profile templating:
 
 ```yaml
 custom_settings:
@@ -118,38 +118,38 @@ custom_settings:
     lint: npm run lint
 ```
 
-Generated composite profile files can reference them with ApplePi's LiquidJS-based custom delimiters:
+Generated composite profile files can reference them with Outfitter's LiquidJS-based custom delimiters:
 
 ```yaml
-command: '[[= applepi.custom_settings.build_commands.lint ]]'
+command: '[[= outfitter.custom_settings.build_commands.lint ]]'
 ```
 
-Control tags use `[[% ... %]]`, for example `[[% for item in applepi.custom_settings.items %]]`.
-ApplePi intentionally does not use common `{{ ... }}` delimiters, and plain shell expressions like `[[ -f package.json ]]` are left alone.
+Control tags use `[[% ... %]]`, for example `[[% for item in outfitter.custom_settings.items %]]`.
+Outfitter intentionally does not use common `{{ ... }}` delimiters, and plain shell expressions like `[[ -f package.json ]]` are left alone.
 
 ## Setup from a settings repository
 
 You can bootstrap a machine from a Git repository:
 
 ```bash
-applepi setup https://github.com/my_account/applepi_config
+outfitter setup https://github.com/my_account/outfitter_config
 ```
 
-`applepi setup` requires an interactive terminal on both stdin and stdout.
-When a repository is provided, it clones or updates the repository in ApplePi's shared repository cache, then uses it as a non-overwriting starting point:
+`outfitter setup` requires an interactive terminal on both stdin and stdout.
+When a repository is provided, it clones or updates the repository in Outfitter's shared repository cache, then uses it as a non-overwriting starting point:
 
-- if `~/.applepi/settings.yml` does not exist, ApplePi copies the starter `settings.yml`;
-- if starter profiles exist, ApplePi copies missing profile files into `~/.applepi/profiles/`;
+- if `~/.outfitter/settings.yml` does not exist, Outfitter copies the starter `settings.yml`;
+- if starter profiles exist, Outfitter copies missing profile files into `~/.outfitter/profiles/`;
 - existing user settings and profile files are otherwise left unchanged;
-- after setup, ApplePi runs the same sync behavior used by `applepi sync`;
-- on initial interactive first-run setup, ApplePi skips the older default-profile prompt and lets welcome onboarding choose the generated local default profile;
-- outside that initial welcome handoff, ApplePi shows a short setup wizard that lists synced profiles and writes the selected default profile to user settings;
+- after setup, Outfitter runs the same sync behavior used by `outfitter sync`;
+- on initial interactive first-run setup, Outfitter skips the older default-profile prompt and lets welcome onboarding choose the generated local default profile;
+- outside that initial welcome handoff, Outfitter shows a short setup wizard that lists synced profiles and writes the selected default profile to user settings;
 - interactive setup continues into welcome onboarding to record role and loadout choices.
 
-A setup repository can use either root-level ApplePi files:
+A setup repository can use either root-level Outfitter files:
 
 ```text
-applepi_config/
+outfitter_config/
   settings.yml
   profiles/
     engineering-default/
@@ -158,11 +158,11 @@ applepi_config/
       profile.yml
 ```
 
-or a `.applepi/` layout:
+or a `.outfitter/` layout:
 
 ```text
-applepi_config/
-  .applepi/
+outfitter_config/
+  .outfitter/
     settings.yml
     profiles/
       engineering-default/
@@ -180,16 +180,16 @@ profile_sources:
   - path: ./profiles
 
   # Optional: keep loading future updates from this same repo.
-  - github: my_account/applepi_config
+  - github: my_account/outfitter_config
     ref: main
     path: profiles
 ```
 
-If you want ongoing centralized settings, use a small local `~/.applepi/settings.yml` that points at remote settings:
+If you want ongoing centralized settings, use a small local `~/.outfitter/settings.yml` that points at remote settings:
 
 ```yaml
 remote_settings:
-  - github: my_account/applepi_config
+  - github: my_account/outfitter_config
     ref: main
     path: settings.yml
 ```
@@ -197,7 +197,7 @@ remote_settings:
 Then run:
 
 ```bash
-applepi sync
+outfitter sync
 ```
 
 ## Profile model sketch
@@ -220,14 +220,15 @@ controls:
 The exact stable schema is governed by the requirements in `requirements/` and the JSON Schema files in `src/schemas/`, which are still expected to evolve with implementation.
 
 Pi profiles can also ship DeepWork jobs for that profile under `cli_specific/pi/deepwork/jobs/`.
-When ApplePi launches Pi, it adds contributing profile job folders to `DEEPWORK_ADDITIONAL_JOBS_FOLDERS` so the DeepWork frontend can discover profile-owned workflows without copying them into a project `.deepwork/jobs/` directory. By default, profiles with bundled jobs receive only their profile-bundled jobs; set `controls.pi.allow_external_deepwork_jobs: true` to also include inherited `DEEPWORK_ADDITIONAL_JOBS_FOLDERS` entries.
+When Outfitter launches Pi, it adds contributing profile job folders to `DEEPWORK_ADDITIONAL_JOBS_FOLDERS` so the DeepWork frontend can discover profile-owned workflows without copying them into a project `.deepwork/jobs/` directory.
+By default, profiles with bundled jobs receive only their profile-bundled jobs; set `controls.pi.allow_external_deepwork_jobs: true` to also include inherited `DEEPWORK_ADDITIONAL_JOBS_FOLDERS` entries.
 
 ## Design direction
 
-The current recommendation is to build `applepi` around pi's existing native configuration mechanisms:
+The current recommendation is to build `outfitter` around pi's existing native configuration mechanisms:
 
 1. Use a temporary composite profile directory as `PI_CODING_AGENT_DIR` for each run.
-2. Persist intentional pi state through adapter-declared symlinks to profile, native pi, or ApplePi cache files.
+2. Persist intentional pi state through adapter-declared symlinks to profile, native pi, or Outfitter cache files.
    Native pi fallback is only a durable target for declared state symlinks; it is not an inherited base profile layer.
 3. Layer profile-controlled environment variables and pi CLI flags on top.
 4. Use explicit `--extension` / `-e` injection for bootstrap behavior that needs to run inside pi.
@@ -248,7 +249,7 @@ The initial dependency and architecture decisions are documented in `package.jso
 
 - Define a stable profile schema.
 - Decide where organization-managed profiles are discovered from.
-- Harden stable `applepi run --profile <profile>` behavior.
+- Harden stable `outfitter run --profile <profile>` behavior.
 - Add validation and inspection commands.
 - Expand user-facing documentation for resolved profile inheritance and composition.
 - Add locking / policy controls for business-managed environments.

@@ -375,6 +375,6 @@ const normalizeStateRelativePath = (relativePath: string): string =>
   relativePath.endsWith('/') ? relativePath.slice(0, -1) : relativePath;
 
 const isUserWritePath = (relativePath: string): boolean =>
-  relativePath !== 'applepi' && !relativePath.startsWith(`applepi${posixSeparator}`);
+  relativePath !== 'outfitter' && !relativePath.startsWith(`outfitter${posixSeparator}`);
 
 const isNodeError = (error: unknown): error is NodeJS.ErrnoException => error instanceof Error && 'code' in error;

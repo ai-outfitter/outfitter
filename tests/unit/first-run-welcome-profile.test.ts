@@ -11,7 +11,7 @@ import { executeRunCommand } from '../../src/cli/commands/RunCommand.js';
 const temporaryRoots: string[] = [];
 
 const createTemporaryRoot = (): string => {
-  const root = mkdtempSync(join(tmpdir(), 'applepi-first-run-welcome-'));
+  const root = mkdtempSync(join(tmpdir(), 'outfitter-first-run-welcome-'));
   temporaryRoots.push(root);
   return root;
 };
@@ -55,10 +55,10 @@ const writeDefaultProfile = (
 const defaultProfileSynchronizer = {
   sync(_source: unknown, cachePath: string) {
     const profilesDirectory = join(cachePath, 'profiles');
-    writeDefaultProfile(profilesDirectory, 'engineer', ['git:github.com/applepi-ai/deepwork']);
+    writeDefaultProfile(profilesDirectory, 'engineer', ['git:github.com/ai-outfitter/deepwork']);
     writeDefaultProfile(profilesDirectory, 'data_analyst', [
       'git:github.com/nhorton/pi-pr-alerts',
-      'git:github.com/applepi-ai/deepwork',
+      'git:github.com/ai-outfitter/deepwork',
       'npm:pi-subagents',
     ]);
     writeDefaultProfile(profilesDirectory, 'analysis');
@@ -68,7 +68,7 @@ const defaultProfileSynchronizer = {
 
 const engineerOnlySynchronizer = {
   sync(_source: unknown, cachePath: string) {
-    writeDefaultProfile(join(cachePath, 'profiles'), 'engineer', ['git:github.com/applepi-ai/deepwork']);
+    writeDefaultProfile(join(cachePath, 'profiles'), 'engineer', ['git:github.com/ai-outfitter/deepwork']);
     return 'updated' as const;
   },
 };
@@ -111,10 +111,10 @@ describe('first-run welcome profile', () => {
 
     expect(result.profileId).toBe('engineer');
     expect(launches).toHaveLength(1);
-    expect(readFileSync(join(homeDirectory, '.applepi', 'settings.yml'), 'utf8')).toContain(
+    expect(readFileSync(join(homeDirectory, '.outfitter', 'settings.yml'), 'utf8')).toContain(
       'default_profile: engineer',
     );
-    expect(readFileSync(join(homeDirectory, '.applepi', 'profiles', 'engineer', 'profile.yml'), 'utf8')).toBe(
+    expect(readFileSync(join(homeDirectory, '.outfitter', 'profiles', 'engineer', 'profile.yml'), 'utf8')).toBe(
       'id: engineer\nlabel: Default\ncontrols: {}\n',
     );
   });
@@ -148,12 +148,12 @@ describe('first-run welcome profile', () => {
 
     expect(result.profileId).toBe('engineer');
     expect(result.launchPlan.args).toContain('--append-system-prompt');
-    expect(readFileSync(join(homeDirectory, '.applepi', 'profiles', 'engineer', 'profile.yml'), 'utf8')).toContain(
+    expect(readFileSync(join(homeDirectory, '.outfitter', 'profiles', 'engineer', 'profile.yml'), 'utf8')).toContain(
       'extensions: []',
     );
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-010.4).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-010.4).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('opens pi login automatically on the first launch after welcome when pi is not logged in', async () => {
     const root = createTemporaryRoot();
@@ -188,7 +188,7 @@ describe('first-run welcome profile', () => {
     expect(loginExtensionContent).toContain('setEditorText("/login")');
     expect(loginExtensionContent).toContain('handleInput?.("\\r")');
     expect(messages).toContain(
-      'Pi does not appear to be logged in yet. ApplePi will open `/login` automatically after Pi starts.',
+      'Pi does not appear to be logged in yet. Outfitter will open `/login` automatically after Pi starts.',
     );
     expect(messages.join('\n')).not.toContain('sk-');
   });
@@ -231,8 +231,8 @@ describe('first-run welcome profile', () => {
   it('persists a role-only welcome result without loadout data', () => {
     const root = createTemporaryRoot();
     const homeDirectory = join(root, 'home');
-    const settingsPath = join(homeDirectory, '.applepi', 'settings.yml');
-    mkdirSync(join(homeDirectory, '.applepi'), { recursive: true });
+    const settingsPath = join(homeDirectory, '.outfitter', 'settings.yml');
+    mkdirSync(join(homeDirectory, '.outfitter'), { recursive: true });
     writeFileSync(settingsPath, 'default_profile: engineer\nprofile_sources:\n  - path: ./profiles\n');
 
     const persisted = persistFirstRunWelcomeProfile(homeDirectory, settingsPath, {
@@ -242,7 +242,7 @@ describe('first-run welcome profile', () => {
       messages: [],
     });
 
-    const profile = readFileSync(join(homeDirectory, '.applepi', 'profiles', 'engineer', 'profile.yml'), 'utf8');
+    const profile = readFileSync(join(homeDirectory, '.outfitter', 'profiles', 'engineer', 'profile.yml'), 'utf8');
     expect(persisted).toEqual({ profileId: 'engineer', createdProfile: true });
     expect(profile).toContain('append_system_prompt: |');
     expect(profile).not.toContain('extensions:');
@@ -252,9 +252,9 @@ describe('first-run welcome profile', () => {
   it('does not overwrite an existing role profile when persisting welcome', () => {
     const root = createTemporaryRoot();
     const homeDirectory = join(root, 'home');
-    const settingsPath = join(homeDirectory, '.applepi', 'settings.yml');
-    const profilePath = join(homeDirectory, '.applepi', 'profiles', 'engineer', 'profile.yml');
-    mkdirSync(join(homeDirectory, '.applepi', 'profiles', 'engineer'), { recursive: true });
+    const settingsPath = join(homeDirectory, '.outfitter', 'settings.yml');
+    const profilePath = join(homeDirectory, '.outfitter', 'profiles', 'engineer', 'profile.yml');
+    mkdirSync(join(homeDirectory, '.outfitter', 'profiles', 'engineer'), { recursive: true });
     writeFileSync(settingsPath, 'default_profile: data_analyst\nprofile_sources:\n  - path: ./profiles\n');
     writeFileSync(profilePath, 'id: engineer\nlabel: Custom Engineer\ncontrols: {}\n');
 
@@ -306,17 +306,19 @@ describe('first-run welcome profile', () => {
       },
     );
 
-    const profileDirectory = join(homeDirectory, '.applepi', 'profiles', 'data_analyst');
-    expect(readFileSync(join(profileDirectory, 'profile.yml'), 'utf8')).toContain('git:github.com/applepi-ai/deepwork');
+    const profileDirectory = join(homeDirectory, '.outfitter', 'profiles', 'data_analyst');
+    expect(readFileSync(join(profileDirectory, 'profile.yml'), 'utf8')).toContain(
+      'git:github.com/ai-outfitter/deepwork',
+    );
     expect(existsSync(join(profileDirectory, 'cli_specific'))).toBe(false);
   });
 
   it('copies source profiles even when the profile and settings YAML are empty', () => {
     const root = createTemporaryRoot();
     const homeDirectory = join(root, 'home');
-    const settingsPath = join(homeDirectory, '.applepi', 'settings.yml');
+    const settingsPath = join(homeDirectory, '.outfitter', 'settings.yml');
     const sourceProfileDirectory = join(root, 'default-profiles', 'data_analyst');
-    mkdirSync(join(homeDirectory, '.applepi'), { recursive: true });
+    mkdirSync(join(homeDirectory, '.outfitter'), { recursive: true });
     mkdirSync(sourceProfileDirectory, { recursive: true });
     writeFileSync(settingsPath, '');
     writeFileSync(join(sourceProfileDirectory, 'profile.yml'), '');
@@ -339,7 +341,7 @@ describe('first-run welcome profile', () => {
       messages: [
         `Copied the Data Analyst profile locally so your extension choices can be edited at ${join(
           homeDirectory,
-          '.applepi',
+          '.outfitter',
           'profiles',
           'data_analyst',
           'profile.yml',
@@ -353,13 +355,13 @@ describe('first-run welcome profile', () => {
   it('handles malformed scalar source profiles when copying welcome choices', () => {
     const root = createTemporaryRoot();
     const homeDirectory = join(root, 'home');
-    const settingsPath = join(homeDirectory, '.applepi', 'settings.yml');
+    const settingsPath = join(homeDirectory, '.outfitter', 'settings.yml');
     const sourceProfileDirectory = join(root, 'default-profiles', 'data_analyst');
-    mkdirSync(join(homeDirectory, '.applepi'), { recursive: true });
+    mkdirSync(join(homeDirectory, '.outfitter'), { recursive: true });
     mkdirSync(sourceProfileDirectory, { recursive: true });
     writeFileSync(
       settingsPath,
-      'default_profile: engineer\nprofile_sources:\n  - github: applepi-ai/default-profiles\n    path: profiles\n',
+      'default_profile: engineer\nprofile_sources:\n  - github: ai-outfitter/default-profiles\n    path: profiles\n',
     );
     writeFileSync(join(sourceProfileDirectory, 'profile.yml'), 'scalar-profile\n');
 
@@ -381,7 +383,7 @@ describe('first-run welcome profile', () => {
     );
 
     const copiedProfile = readFileSync(
-      join(homeDirectory, '.applepi', 'profiles', 'data_analyst', 'profile.yml'),
+      join(homeDirectory, '.outfitter', 'profiles', 'data_analyst', 'profile.yml'),
       'utf8',
     );
     expect(copiedProfile).toContain('controls:');
@@ -391,16 +393,16 @@ describe('first-run welcome profile', () => {
   it('adds copied profile exclusions to the default profile source', () => {
     const root = createTemporaryRoot();
     const homeDirectory = join(root, 'home');
-    const settingsPath = join(homeDirectory, '.applepi', 'settings.yml');
+    const settingsPath = join(homeDirectory, '.outfitter', 'settings.yml');
     const sourceProfileDirectory = join(root, 'default-profiles', 'data_analyst');
-    mkdirSync(join(homeDirectory, '.applepi'), { recursive: true });
+    mkdirSync(join(homeDirectory, '.outfitter'), { recursive: true });
     mkdirSync(sourceProfileDirectory, { recursive: true });
     writeFileSync(
       settingsPath,
       [
         'default_profile: engineer',
         'profile_sources:',
-        '  - github: applepi-ai/default-profiles',
+        '  - github: ai-outfitter/default-profiles',
         '    path: profiles',
         '    except:',
         '      - engineer',
@@ -435,8 +437,8 @@ describe('first-run welcome profile', () => {
   it('adds a default profile setting when persisting welcome into sparse settings', () => {
     const root = createTemporaryRoot();
     const homeDirectory = join(root, 'home');
-    const settingsPath = join(homeDirectory, '.applepi', 'settings.yml');
-    mkdirSync(join(homeDirectory, '.applepi'), { recursive: true });
+    const settingsPath = join(homeDirectory, '.outfitter', 'settings.yml');
+    mkdirSync(join(homeDirectory, '.outfitter'), { recursive: true });
     writeFileSync(settingsPath, 'profile_sources:\n  - path: ./profiles\n');
 
     persistFirstRunWelcomeProfile(homeDirectory, settingsPath, {
@@ -449,7 +451,7 @@ describe('first-run welcome profile', () => {
     expect(readFileSync(settingsPath, 'utf8')).toContain('default_profile: data_analyst');
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-010.3).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-010.3).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('persists first-run welcome loadout selection before launching pi', async () => {
     const root = createTemporaryRoot();
@@ -483,26 +485,26 @@ describe('first-run welcome profile', () => {
     );
 
     expect(result.profileId).toBe('data_analyst');
-    expect(result.launchPlan.args).toContain('git:github.com/applepi-ai/deepwork');
+    expect(result.launchPlan.args).toContain('git:github.com/ai-outfitter/deepwork');
     expect(result.launchPlan.args).toContain('npm:pi-mcp-adapter');
     expect(result.launchPlan.args).not.toContain('git:github.com/nhorton/pi-pr-alerts');
-    const settings = readFileSync(join(homeDirectory, '.applepi', 'settings.yml'), 'utf8');
+    const settings = readFileSync(join(homeDirectory, '.outfitter', 'settings.yml'), 'utf8');
     const copiedProfile = readFileSync(
-      join(homeDirectory, '.applepi', 'profiles', 'data_analyst', 'profile.yml'),
+      join(homeDirectory, '.outfitter', 'profiles', 'data_analyst', 'profile.yml'),
       'utf8',
     );
 
     expect(settings).toContain('default_profile: data_analyst');
     expect(settings).toContain('except:');
     expect(settings).toContain('- data_analyst');
-    expect(copiedProfile).toContain('git:github.com/applepi-ai/deepwork');
+    expect(copiedProfile).toContain('git:github.com/ai-outfitter/deepwork');
     expect(copiedProfile).toContain('npm:pi-mcp-adapter');
     expect(copiedProfile).not.toContain('git:github.com/nhorton/pi-pr-alerts');
     expect(
       existsSync(
         join(
           homeDirectory,
-          '.applepi',
+          '.outfitter',
           'profiles',
           'data_analyst',
           'cli_specific',
@@ -518,7 +520,7 @@ describe('first-run welcome profile', () => {
       existsSync(
         join(
           homeDirectory,
-          '.applepi',
+          '.outfitter',
           'profiles',
           'data_analyst',
           'cli_specific',

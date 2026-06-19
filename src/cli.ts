@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 
-// Defines the initial ApplePi executable entrypoint.
+// Defines the initial Outfitter executable entrypoint.
 import { realpathSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
-import { createApplePiProgram } from './cli/ApplePiCli.js';
+import { createOutfitterProgram } from './cli/OutfitterCli.js';
 
-export const createProgram = createApplePiProgram;
+export const createProgram = createOutfitterProgram;
 
 export const isDirectCliExecution = (moduleUrl: string, argvPath: string | undefined): boolean => {
   if (argvPath === undefined) {

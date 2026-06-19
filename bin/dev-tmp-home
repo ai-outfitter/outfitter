@@ -3,13 +3,13 @@ set -Eeuo pipefail
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd -- "$SCRIPT_DIR/.." && pwd)"
-SOURCE_HOME="${APPLEPI_DEV_SOURCE_HOME:-${HOME:-}}"
-PROFILE_ID="${APPLEPI_DEV_PROFILE:-data_analyst}"
-PROJECT_DIR="${APPLEPI_DEV_PROJECT_DIR:-$(pwd)}"
-DEV_HOME="${APPLEPI_DEV_HOME:-}"
-PROFILES_INPUT="${APPLEPI_DEFAULT_PROFILES_DIR:-}"
+SOURCE_HOME="${OUTFITTER_DEV_SOURCE_HOME:-${HOME:-}}"
+PROFILE_ID="${OUTFITTER_DEV_PROFILE:-data_analyst}"
+PROJECT_DIR="${OUTFITTER_DEV_PROJECT_DIR:-$(pwd)}"
+DEV_HOME="${OUTFITTER_DEV_HOME:-}"
+PROFILES_INPUT="${OUTFITTER_DEFAULT_PROFILES_DIR:-}"
 COPY_PI_AUTH=1
-KEEP_HOME="${APPLEPI_DEV_KEEP_HOME:-0}"
+KEEP_HOME="${OUTFITTER_DEV_KEEP_HOME:-0}"
 RUN_BUILD=1
 DRY_RUN=0
 
@@ -22,14 +22,14 @@ usage() {
   cat <<'USAGE'
 Usage: bin/dev-tmp-home [options] [-- <pi args>]
 
-Start this ApplePi checkout with an isolated temporary HOME, local default
+Start this Outfitter checkout with an isolated temporary HOME, local default
 profiles, and the data_analyst/openai-codex/gpt-5.5 configuration.
 
 Options:
   --home <dir>          Use an explicit dev HOME instead of mktemp.
   --profiles <dir>      Default-profiles repo root or profiles directory.
   --profile <id>        Profile to launch. Default: data_analyst.
-  --project-dir <dir>   Project directory for ApplePi/Pi. Default: current dir.
+  --project-dir <dir>   Project directory for Outfitter/Pi. Default: current dir.
   --source-home <dir>   Home to copy existing Pi auth from. Default: current HOME.
   --no-copy-pi-auth     Do not copy .pi/agent/auth.json into the dev HOME.
   --keep                Keep the generated dev HOME after exit.
@@ -38,8 +38,8 @@ Options:
   -h, --help            Show this help.
 
 Environment overrides:
-  APPLEPI_DEV_HOME, APPLEPI_DEFAULT_PROFILES_DIR, APPLEPI_DEV_PROFILE,
-  APPLEPI_DEV_PROJECT_DIR, APPLEPI_DEV_SOURCE_HOME, APPLEPI_DEV_KEEP_HOME
+  OUTFITTER_DEV_HOME, OUTFITTER_DEFAULT_PROFILES_DIR, OUTFITTER_DEV_PROFILE,
+  OUTFITTER_DEV_PROJECT_DIR, OUTFITTER_DEV_SOURCE_HOME, OUTFITTER_DEV_KEEP_HOME
 USAGE
 }
 
@@ -129,11 +129,11 @@ find_profiles_dir() {
   fi
 
   candidates+=(
-    "$REPO_ROOT/.applepi/profiles"
-    "$REPO_ROOT/../../applepi-default-profiles/self-contained-data-analyst-jobs/profiles"
-    "$REPO_ROOT/../../../applepi-default-profiles/profiles"
+    "$REPO_ROOT/.outfitter/profiles"
+    "$REPO_ROOT/../../outfitter-default-profiles/self-contained-data-analyst-jobs/profiles"
+    "$REPO_ROOT/../../../outfitter-default-profiles/profiles"
     "$REPO_ROOT/../default-profiles/profiles"
-    "$REPO_ROOT/../applepi-default-profiles/profiles"
+    "$REPO_ROOT/../outfitter-default-profiles/profiles"
   )
 
   local candidate
@@ -163,7 +163,7 @@ SOURCE_HOME="$(abs_dir "$SOURCE_HOME")"
 PROJECT_DIR="$(abs_dir "$PROJECT_DIR")"
 
 if [[ -z "$DEV_HOME" ]]; then
-  DEV_HOME="$(mktemp -d -t applepi-dev-home.XXXXXX)"
+  DEV_HOME="$(mktemp -d -t outfitter-dev-home.XXXXXX)"
 else
   DEV_HOME="$(abs_dir "$DEV_HOME")"
 fi
@@ -178,12 +178,12 @@ cleanup() {
 }
 trap cleanup EXIT
 
-PROFILES_DIR="$(find_profiles_dir)" || die "could not find default profiles. Pass --profiles /path/to/default-profiles or set APPLEPI_DEFAULT_PROFILES_DIR."
+PROFILES_DIR="$(find_profiles_dir)" || die "could not find default profiles. Pass --profiles /path/to/default-profiles or set OUTFITTER_DEFAULT_PROFILES_DIR."
 
-mkdir -p "$DEV_HOME/.applepi" "$DEV_HOME/.pi/agent"
-rm -rf -- "$DEV_HOME/.applepi/profiles"
-ln -s "$PROFILES_DIR" "$DEV_HOME/.applepi/profiles"
-cat > "$DEV_HOME/.applepi/settings.yml" <<YAML
+mkdir -p "$DEV_HOME/.outfitter" "$DEV_HOME/.pi/agent"
+rm -rf -- "$DEV_HOME/.outfitter/profiles"
+ln -s "$PROFILES_DIR" "$DEV_HOME/.outfitter/profiles"
+cat > "$DEV_HOME/.outfitter/settings.yml" <<YAML
 default_profile: $PROFILE_ID
 profile_sources:
   - path: ./profiles
@@ -218,7 +218,7 @@ fi
 
 LAUNCH_CMD=(node "$REPO_ROOT/dist/cli.js" run --profile "$PROFILE_ID" -- "$@")
 
-echo "ApplePi dev HOME: $DEV_HOME"
+echo "Outfitter dev HOME: $DEV_HOME"
 echo "Default profiles:  $PROFILES_DIR"
 echo "Project dir:       $PROJECT_DIR"
 echo "Profile:           $PROFILE_ID (openai-codex / gpt-5.5)"

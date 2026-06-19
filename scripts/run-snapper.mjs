@@ -81,7 +81,7 @@ async function download(url, destination) {
 function request(url, redirects = 0) {
   return new Promise((resolveStream, reject) => {
     https
-      .get(url, { headers: { 'User-Agent': 'applepi-snapper-runner' } }, (response) => {
+      .get(url, { headers: { 'User-Agent': 'outfitter-snapper-runner' } }, (response) => {
         if ([301, 302, 303, 307, 308].includes(response.statusCode ?? 0)) {
           if (redirects > 5 || !response.headers.location) {
             reject(new Error(`Too many redirects while downloading ${url}`));

@@ -18,7 +18,7 @@ import { createLocalProfileSource, createUriProfileSource } from '../../src/prof
 const temporaryRoots: string[] = [];
 
 const createProfileSourceRoot = (): string => {
-  const root = mkdtempSync(join(tmpdir(), 'applepi-profile-source-'));
+  const root = mkdtempSync(join(tmpdir(), 'outfitter-profile-source-'));
   temporaryRoots.push(root);
   return root;
 };
@@ -36,7 +36,7 @@ afterEach(() => {
 });
 
 describe('profile loading', () => {
-  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-002.5).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-002.5).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('applies profile source only and except filters to local profile loading', () => {
     const root = createProfileSourceRoot();
@@ -52,7 +52,7 @@ describe('profile loading', () => {
     expect(isProfileIncludedBySource('research', createLocalProfileSource(root))).toBe(true);
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-003.1).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-003.1).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('parses profile.yml files from profile folders with fallback folder identity', () => {
     const root = createProfileSourceRoot();
@@ -77,7 +77,7 @@ describe('profile loading', () => {
     });
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-003.2).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-003.2).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('rejects profile IDs that are not safe for CLI references', () => {
     expect(isValidProfileId('engineering.default')).toBe(true);
@@ -92,7 +92,7 @@ describe('profile loading', () => {
     expect('message' in invalidIdResult && invalidIdResult.message).toContain('must match pattern');
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-003.1).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-003.1).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('reports profile.yml schema validation diagnostics with field pointers', () => {
     const root = createProfileSourceRoot();
@@ -112,7 +112,7 @@ describe('profile loading', () => {
   });
 
   it('reports non-local, missing, and malformed profile sources as load issues', () => {
-    const missingRoot = join(tmpdir(), 'applepi-missing-profile-source');
+    const missingRoot = join(tmpdir(), 'outfitter-missing-profile-source');
     const root = createProfileSourceRoot();
     writeProfile(root, 'broken', ': invalid: yaml:');
 

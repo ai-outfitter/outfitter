@@ -1,4 +1,4 @@
-// Tests for the initial ApplePi CLI shell and package foundation.
+// Tests for the initial Outfitter CLI shell and package foundation.
 import { mkdtempSync, readFileSync, rmSync, symlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -36,7 +36,7 @@ const eslintConfigSource = readFileSync(new URL('../eslint.config.js', import.me
 const vitestConfigSource = readFileSync(new URL('../vitest.config.ts', import.meta.url), 'utf8');
 
 describe('project foundation', () => {
-  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-001.1).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-001.1).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('declares the runtime, package manager, and TypeScript build baseline', () => {
     expect(packageJson.engines.node).toBe('>=22.19.0');
@@ -52,7 +52,7 @@ describe('project foundation', () => {
     expect(buildTsconfig.include).toEqual(['src/**/*.ts']);
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-001.2).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-001.2).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('configures Vitest and V8 coverage enforcement', () => {
     expect(packageJson.scripts.test).toBe('vitest --run');
@@ -68,7 +68,7 @@ describe('project foundation', () => {
     expect(vitestConfigSource).toContain('lines: 100');
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-001.3).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-001.3).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('configures ESLint with TypeScript support and complexity enforcement', () => {
     expect(packageJson.scripts.lint).toBe('eslint .');
@@ -78,7 +78,7 @@ describe('project foundation', () => {
     expect(eslintConfigSource).toContain("complexity: ['error', 10]");
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-001.5).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-001.5).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('declares the initial dependency set and Commander-based CLI shell', () => {
     const requiredDependencies = [
@@ -100,16 +100,16 @@ describe('project foundation', () => {
 
     const program = createProgram();
 
-    expect(program.name()).toBe('applepi');
+    expect(program.name()).toBe('outfitter');
     expect(program.description()).toContain('Profile-oriented wrapper');
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-001.5).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-001.5).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('recognizes direct CLI execution through npm global symlinks', () => {
-    const temporaryDirectory = mkdtempSync(join(tmpdir(), 'applepi-cli-symlink-'));
+    const temporaryDirectory = mkdtempSync(join(tmpdir(), 'outfitter-cli-symlink-'));
     const cliPath = fileURLToPath(new URL('../src/cli.ts', import.meta.url));
-    const symlinkPath = join(temporaryDirectory, 'applepi');
+    const symlinkPath = join(temporaryDirectory, 'outfitter');
     try {
       symlinkSync(cliPath, symlinkPath);
 

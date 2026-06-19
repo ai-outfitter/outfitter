@@ -200,7 +200,7 @@ const configureRunCommander = (
 ): void => {
   command
     .argument('[args...]')
-    .option('-p, --profile <profile>', 'ApplePi profile id to run')
+    .option('-p, --profile <profile>', 'Outfitter profile id to run')
     .option('--agent <agent>', 'agent adapter to launch: pi or claude')
     .option('--strict', 'Fail instead of warning when controls cannot be translated')
     .allowUnknownOption(true)
@@ -352,14 +352,14 @@ const runSetupIfNeeded = async (
   input: RunCommandInput,
   dependencies: RunCommandDependencies,
 ): Promise<SetupCommandResult | undefined> => {
-  const settingsPath = join(input.homeDirectory, '.applepi', 'settings.yml');
+  const settingsPath = join(input.homeDirectory, '.outfitter', 'settings.yml');
 
   if (existsSync(settingsPath)) {
     return undefined;
   }
 
   /* v8 ignore next -- console fallback is direct CLI behavior; tests inject a writer. */
-  (dependencies.writeLine ?? console.log)('`applepi setup` has not been run yet - running now');
+  (dependencies.writeLine ?? console.log)('`outfitter setup` has not been run yet - running now');
   return executeSetupCommand(input, { ...dependencies, interactive: shouldRunFirstSetupInteractively(dependencies) });
 };
 
@@ -406,7 +406,7 @@ const loadResolvedProfile = (input: RunCommandInput): ResolvedRunProfile => {
     profilePaths: findContributingProfilePaths(resolution.profileStack, loadedProfiles.profiles),
     profileFolders: findContributingProfileFolders(resolution.profileStack, loadedProfiles.profiles),
     homeDirectory: input.homeDirectory,
-    cacheDirectory: loadedSettings.settings.cacheDirectory ?? join(input.homeDirectory, '.applepi', 'cache'),
+    cacheDirectory: loadedSettings.settings.cacheDirectory ?? join(input.homeDirectory, '.outfitter', 'cache'),
     projectDirectory: input.projectDirectory,
     settings: loadedSettings.settings,
     settingsPaths: loadedSettings.files.map((file) => file.location.path),
@@ -426,7 +426,7 @@ const selectRunProfileId = (selectedProfileId: string | undefined, defaultProfil
   }
 
   throw new Error(
-    'Cannot run without a selected profile or default_profile in settings.yml; pass --profile or run `applepi setup`.',
+    'Cannot run without a selected profile or default_profile in settings.yml; pass --profile or run `outfitter setup`.',
   );
 };
 

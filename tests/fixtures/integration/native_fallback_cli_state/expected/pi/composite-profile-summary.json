@@ -33,7 +33,7 @@
     "npm": "<home>/.pi/agent/npm",
     "git": "<home>/.pi/agent/git",
     "tmp": "<home>/.pi/agent/tmp",
-    "utilities": "<home>/.applepi/cache/utilities",
-    "bin": "<home>/.applepi/cache/utilities"
+    "utilities": "<home>/.outfitter/cache/utilities",
+    "bin": "<home>/.outfitter/cache/utilities"
   }
 }

@@ -1,21 +1,21 @@
 # State Writeback Strategy
 
-This document describes ApplePi's current model for handling writes that agent CLIs make inside a composite profile.
+This document describes Outfitter's current model for handling writes that agent CLIs make inside a composite profile.
 
 A composite profile is temporary, but agent CLIs sometimes perform intentionally durable writes, such as logging in, installing plugins, changing settings, or updating MCP configuration.
-ApplePi makes those paths explicit: adapter-declared writable paths are materialized with a resolved `state_persistence` strategy before the child CLI starts, and non-persistent or unknown writes are diagnosed after the child exits.
+Outfitter makes those paths explicit: adapter-declared writable paths are materialized with a resolved `state_persistence` strategy before the child CLI starts, and non-persistent or unknown writes are diagnosed after the child exits.
 
 ## Functional model
 
-ApplePi separates three kinds of files that may exist in a composite profile:
+Outfitter separates three kinds of files that may exist in a composite profile:
 
-1. **Generated runtime files**: files ApplePi assembles from settings, profiles, templates, and adapter rules.
-   ApplePi may regenerate these while the child agent is running when their source inputs change.
+1. **Generated runtime files**: files Outfitter assembles from settings, profiles, templates, and adapter rules.
+   Outfitter may regenerate these while the child agent is running when their source inputs change.
 2. **Declared state paths**: adapter-known files or directories the agent CLI may update intentionally, such as auth, settings, MCP config, plugins, caches, and sessions.
 3. **Unknown writes**: files or directories the agent creates outside the adapter-declared state paths.
 
 Only declared state paths can be made durable automatically.
-Unknown writes are never silently persisted because ApplePi does not know their intended owner, merge rules, or durable destination.
+Unknown writes are never silently persisted because Outfitter does not know their intended owner, merge rules, or durable destination.
 Generated runtime files and declared state paths are deliberately handled separately so live profile/template updates do not erase or re-baseline agent state changes made during the same run.
 
 The user-facing state update lifecycle is:
@@ -23,22 +23,23 @@ The user-facing state update lifecycle is:
 1. **Choose a profile**.
    Profile resolution determines the effective `state_persistence` map using normal profile precedence.
 2. **Resolve adapter defaults**.
-   For each path the selected adapter declares, ApplePi uses the profile override when present and otherwise uses the adapter default.
+   For each path the selected adapter declares, Outfitter uses the profile override when present and otherwise uses the adapter default.
 3. **Prepare the composite profile**.
    Durable paths are connected to a profile-managed or native CLI location; non-durable paths are created as normal temporary composite profile paths.
 4. **Run the agent**.
    The agent CLI reads and writes the composite profile as if it were its normal configuration directory.
 5. **Classify changes after exit**.
-   ApplePi checks non-durable declared paths and unknown paths and reports or fails according to their strategies.
+   Outfitter checks non-durable declared paths and unknown paths and reports or fails according to their strategies.
 6. **Clean up temporary state**.
    Temporary composite profile contents are discarded; durable symlink targets remain in their profile or native CLI location.
 
 ## Current behavior
 
 - Composite profiles remain temporary and reproducible by default.
-- ApplePi does not do generic post-run copy-back or JSON/YAML merge-back.
+- Outfitter does not do generic post-run copy-back or JSON/YAML merge-back.
 - Persistent state is represented by symlinking a composite profile path to a profile file/directory or to the native CLI fallback path.
-- Adapters may generate a concrete runtime file for a declared state path when they need deterministic launch-time reconciliation. For example, the Pi adapter can generate a transformed `settings.json` that removes native `packages` entries already supplied by profile-controlled extensions, and then mark that declared path as `discard` for write detection during the run.
+- Adapters may generate a concrete runtime file for a declared state path when they need deterministic launch-time reconciliation.
+  For example, the Pi adapter can generate a transformed `settings.json` that removes native `packages` entries already supplied by profile-controlled extensions, and then mark that declared path as `discard` for write detection during the run.
 - Every adapter-declared state path has a resolved strategy before launch: profile overrides win, otherwise the adapter `default_strategy` is used, except for adapter-generated reconciliation files that are intentionally treated as discarded runtime files.
 - Invalid or disallowed profile-requested `state_persistence` strategies fail before launch; adapter-internal reconciliation may still choose a one-run handling strategy for a generated runtime file.
 - Non-persistent `warn` and `error` strategies are checked after the child CLI exits.
@@ -48,9 +49,9 @@ The user-facing state update lifecycle is:
 
 ## Non-goals
 
-- ApplePi does not implement generic copy-back from the composite profile to profiles.
-- ApplePi does not implement generic structured merge-back.
-- ApplePi does not silently persist unknown writes.
+- Outfitter does not implement generic copy-back from the composite profile to profiles.
+- Outfitter does not implement generic structured merge-back.
+- Outfitter does not silently persist unknown writes.
 
 ## Profile stack and native fallback
 
@@ -64,7 +65,7 @@ user profile
 URI/cache profiles
 explicit inheritance
 implicit user default profile
-ApplePi default profile
+Outfitter default profile
 ```
 
 Native CLI state is not represented as an extra profile layer.
@@ -91,7 +92,7 @@ state_paths:
     allowed_strategies: [symlink, warn, error, prompt]
     note: >-
       When profile-controlled Pi extensions duplicate native settings packages,
-      ApplePi may generate a transformed runtime settings.json and treat this
+      Outfitter may generate a transformed runtime settings.json and treat this
       declared path as discard for that launch. That discard handling is
       adapter-internal; users still cannot request settings.json: discard
       because discard is not listed in allowed_strategies.
@@ -194,16 +195,16 @@ profiles/
         plugins/
 ```
 
-Except for special adapter paths described below, when a selected strategy is `symlink`, ApplePi searches the resolved profile folders from highest to lowest precedence for `cli_specific/<adapter>/<state-path>`.
-If a profile contains the file or directory, ApplePi symlinks the composite profile path to that source.
+Except for special adapter paths described below, when a selected strategy is `symlink`, Outfitter searches the resolved profile folders from highest to lowest precedence for `cli_specific/<adapter>/<state-path>`.
+If a profile contains the file or directory, Outfitter symlinks the composite profile path to that source.
 
-For most Pi paths, if no profile source exists, ApplePi falls back to the corresponding native Pi agent path under `~/.pi/agent`.
+For most Pi paths, if no profile source exists, Outfitter falls back to the corresponding native Pi agent path under `~/.pi/agent`.
 Missing native fallback files/directories are created so the composite profile symlink has a durable destination.
 
 Pi `utilities/` and `bin/` are special cache-backed paths: both resolve to `<cache_directory>/utilities` instead of profile or native Pi state.
 This keeps pi-managed helper binaries reusable across temporary composite profiles without treating them as user-editable profile files.
 
-For most Claude Code paths, if no profile source exists, ApplePi falls back to the corresponding native Claude Code path under `~/.claude`.
+For most Claude Code paths, if no profile source exists, Outfitter falls back to the corresponding native Claude Code path under `~/.claude`.
 Claude Code `projects/` is special: `controls.claude.session_directory` overrides generic `controls.session_directory`, and the selected session directory becomes the `projects/` symlink source.
 If neither session-directory control is present, `projects/` falls back to `~/.claude/projects`.
 
@@ -225,7 +226,7 @@ The values are concrete strategy names.
 `state_persistence` only needs overrides; omitted paths use the adapter declaration's `default_strategy`.
 
 `state_persistence` is validated by the profile JSON Schema at read boundaries.
-ApplePi also validates the resolved strategy against the adapter declaration before launch.
+Outfitter also validates the resolved strategy against the adapter declaration before launch.
 
 Functional examples:
 
@@ -256,7 +257,7 @@ state_persistence:
 
 ## Composite profile materialization
 
-Before launch, ApplePi processes each adapter-declared state path:
+Before launch, Outfitter processes each adapter-declared state path:
 
 1. Resolve the path's strategy from profile `state_persistence` overrides, then the adapter `default_strategy`.
 2. Validate that the strategy is allowed for that path.
@@ -264,9 +265,9 @@ Before launch, ApplePi processes each adapter-declared state path:
 4. Materialize the composite profile path.
 5. Record a baseline fingerprint for non-persistent and unknown write detection.
 
-For `symlink`, ApplePi creates a symlink from the composite profile path to the resolved profile or native CLI source.
+For `symlink`, Outfitter creates a symlink from the composite profile path to the resolved profile or native CLI source.
 
-For `discard`, `warn`, `error`, and `prompt`, ApplePi creates normal temporary composite profile paths where needed and observes whether they changed.
+For `discard`, `warn`, `error`, and `prompt`, Outfitter creates normal temporary composite profile paths where needed and observes whether they changed.
 
 ## Unknown writes
 
@@ -298,13 +299,13 @@ Use `prompt` only as a forward-compatible declaration for future interactive han
 
 ### `symlink`
 
-ApplePi resolves the state path through the profile hierarchy, then the native CLI fallback, and symlinks that source into the composite profile.
+Outfitter resolves the state path through the profile hierarchy, then the native CLI fallback, and symlinks that source into the composite profile.
 Persistence happens because the CLI writes through the symlink to an intentional file or directory.
 
 ### `discard`
 
 Writes are allowed in the composite profile and are thrown away when the composite profile is deleted.
-ApplePi does not emit diagnostics for changed `discard` paths.
+Outfitter does not emit diagnostics for changed `discard` paths.
 
 ### `warn`
 
@@ -313,7 +314,7 @@ Writes are allowed, discarded, and reported after the child exits.
 
 ### `error`
 
-Writes are allowed during the child process but cause ApplePi to fail after the child exits if the path changed.
+Writes are allowed during the child process but cause Outfitter to fail after the child exits if the path changed.
 This is useful for CI and strict reproducibility.
 
 ### `prompt`

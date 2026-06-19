@@ -25,7 +25,10 @@ describe('adapter-specific integration fixture composite profile generation', ()
     const fixture = copyFixtureToTemp('adapter_specific_overrides');
     const warnings: string[] = [];
     let compositeProfileSummary: unknown;
-    const originalSourceProfileYaml = readFixtureText(fixture, 'project/.applepi/profiles/adapter-review/profile.yml');
+    const originalSourceProfileYaml = readFixtureText(
+      fixture,
+      'project/.outfitter/profiles/adapter-review/profile.yml',
+    );
 
     const result = await runFixture(fixture, {
       profileId: 'adapter-review',
@@ -50,7 +53,7 @@ describe('adapter-specific integration fixture composite profile generation', ()
             ...(summarizePiCompositeProfile(fixture, compositeProfileRoot) as Record<string, unknown>),
           };
 
-          writeFileSync(join(compositeProfileRoot, 'applepi', 'profile.json'), '{"mutated":true}\n');
+          writeFileSync(join(compositeProfileRoot, 'outfitter', 'profile.json'), '{"mutated":true}\n');
           writeFileSync(join(compositeProfileRoot, 'settings.json'), '{"adapter":"pi","status":"updated"}\n');
           writeFileSync(join(compositeProfileRoot, 'unexpected-pi.txt'), 'unknown pi write\n');
 
@@ -66,17 +69,17 @@ describe('adapter-specific integration fixture composite profile generation', ()
     expect(warnings).toEqual(result.warnings);
     expect(
       readFileSync(
-        join(fixture.project, '.applepi', 'profiles', 'adapter-review', 'cli_specific', 'pi', 'settings.json'),
+        join(fixture.project, '.outfitter', 'profiles', 'adapter-review', 'cli_specific', 'pi', 'settings.json'),
         'utf8',
       ),
     ).toBe('{"adapter":"pi","status":"updated"}\n');
     expect(
       readFileSync(
-        join(fixture.project, '.applepi', 'profiles', 'adapter-review', 'cli_specific', 'claude', 'settings.json'),
+        join(fixture.project, '.outfitter', 'profiles', 'adapter-review', 'cli_specific', 'claude', 'settings.json'),
         'utf8',
       ),
     ).toBe('{ "adapter": "claude", "status": "seeded" }\n');
-    expect(readFixtureText(fixture, 'project/.applepi/profiles/adapter-review/profile.yml')).toBe(
+    expect(readFixtureText(fixture, 'project/.outfitter/profiles/adapter-review/profile.yml')).toBe(
       originalSourceProfileYaml,
     );
   });
@@ -85,7 +88,10 @@ describe('adapter-specific integration fixture composite profile generation', ()
     const fixture = copyFixtureToTemp('adapter_specific_overrides');
     const warnings: string[] = [];
     let compositeProfileSummary: unknown;
-    const originalSourceProfileYaml = readFixtureText(fixture, 'project/.applepi/profiles/adapter-review/profile.yml');
+    const originalSourceProfileYaml = readFixtureText(
+      fixture,
+      'project/.outfitter/profiles/adapter-review/profile.yml',
+    );
 
     const result = await runFixture(fixture, {
       profileId: 'adapter-review',
@@ -110,7 +116,7 @@ describe('adapter-specific integration fixture composite profile generation', ()
             ...(summarizeClaudeCompositeProfile(fixture, compositeProfileRoot) as Record<string, unknown>),
           };
 
-          writeFileSync(join(compositeProfileRoot, 'applepi', 'profile.json'), '{"mutated":true}\n');
+          writeFileSync(join(compositeProfileRoot, 'outfitter', 'profile.json'), '{"mutated":true}\n');
           writeFileSync(join(compositeProfileRoot, 'settings.json'), '{"adapter":"claude","status":"updated"}\n');
           writeFileSync(join(compositeProfileRoot, 'unexpected-claude.txt'), 'unknown claude write\n');
 
@@ -126,17 +132,17 @@ describe('adapter-specific integration fixture composite profile generation', ()
     expect(warnings).toEqual(result.warnings);
     expect(
       readFileSync(
-        join(fixture.project, '.applepi', 'profiles', 'adapter-review', 'cli_specific', 'claude', 'settings.json'),
+        join(fixture.project, '.outfitter', 'profiles', 'adapter-review', 'cli_specific', 'claude', 'settings.json'),
         'utf8',
       ),
     ).toBe('{"adapter":"claude","status":"updated"}\n');
     expect(
       readFileSync(
-        join(fixture.project, '.applepi', 'profiles', 'adapter-review', 'cli_specific', 'pi', 'settings.json'),
+        join(fixture.project, '.outfitter', 'profiles', 'adapter-review', 'cli_specific', 'pi', 'settings.json'),
         'utf8',
       ),
     ).toBe('{ "adapter": "pi", "status": "seeded" }\n');
-    expect(readFixtureText(fixture, 'project/.applepi/profiles/adapter-review/profile.yml')).toBe(
+    expect(readFixtureText(fixture, 'project/.outfitter/profiles/adapter-review/profile.yml')).toBe(
       originalSourceProfileYaml,
     );
   });

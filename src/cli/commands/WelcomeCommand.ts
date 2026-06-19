@@ -1,4 +1,4 @@
-// Provides the command object for first-run ApplePi welcome onboarding.
+// Provides the command object for first-run Outfitter welcome onboarding.
 import { createInterface } from 'node:readline/promises';
 import { homedir } from 'node:os';
 
@@ -70,8 +70,8 @@ const welcomeIntroLines = [
   String.raw`/_/   \_\ .__/| .__/|_|\___| |_|   |_|`,
   String.raw`        |_|   |_|`,
   '',
-  'Welcome to ApplePi.',
-  'Pi is a heavily customizable coding harness. The next few questions will configure ApplePi to best suit your workflow.',
+  'Welcome to Outfitter.',
+  'Pi is a heavily customizable coding harness. The next few questions will configure Outfitter to best suit your workflow.',
 ] as const;
 
 const defaultProfileRoleChoices: readonly WelcomeRoleChoice[] = [
@@ -89,13 +89,13 @@ const recommendedPiLoadout: WelcomeLoadout = {
       id: 'ulta-tasklist',
       label: 'Ulta Tasklist',
       kind: 'extension',
-      source: 'git:github.com/applepi-ai/ulta-tasklist',
+      source: 'git:github.com/ai-outfitter/ulta-tasklist',
     },
     {
       id: 'deepwork',
       label: 'DeepWork',
       kind: 'extension',
-      source: 'git:github.com/applepi-ai/deepwork',
+      source: 'git:github.com/ai-outfitter/deepwork',
     },
     {
       id: 'pi-subagents',
@@ -123,7 +123,7 @@ export const executeWelcomeCommand = async (
     return {
       answered: false,
       warnings: [],
-      messages: ['Skipped ApplePi welcome questions. Run `applepi welcome` any time to revisit them.'],
+      messages: ['Skipped Outfitter welcome questions. Run `outfitter welcome` any time to revisit them.'],
     };
   }
 
@@ -143,7 +143,7 @@ export const executeWelcomeCommand = async (
 export const createWelcomeCommand = (dependencies: WelcomeCommandDependencies = {}): CommandObject => {
   const command: CommandObject = {
     name: 'welcome',
-    description: 'Run ApplePi welcome onboarding prompts.',
+    description: 'Run Outfitter welcome onboarding prompts.',
     register(program: Command): void {
       program
         .command(command.name)
@@ -226,7 +226,7 @@ const promptForRole = async (
   readline: { question(query: string): Promise<string> },
   output: NodeJS.WritableStream,
 ): Promise<string> => {
-  output.write('\nChoose your initial ApplePi role/profile:\n');
+  output.write('\nChoose your initial Outfitter role/profile:\n');
   defaultProfileRoleChoices.forEach((role, index) => output.write(`${index + 1}. ${role.id} - ${role.label}\n`));
 
   return defaultProfileRoleChoices[await promptForSelectionIndex(readline, 'Role [1]: ', 0)]?.id ?? fallbackRoleId;
@@ -332,7 +332,7 @@ const buildWelcomeMessages = (
       : `Selected ${selectedLoadout.label}: ${selectedLoadout.selectedItems.map((item) => item.source).join(', ')}.`;
 
   return [
-    `Selected ApplePi role: ${selectedRole.id} (${selectedRole.label}).`,
+    `Selected Outfitter role: ${selectedRole.id} (${selectedRole.label}).`,
     loadoutMessage,
     ...warnings.map((warning) => `Warning: ${warning}`),
   ];
@@ -349,6 +349,6 @@ const requireInteractiveTerminalIfNeeded = (dependencies: WelcomeCommandDependen
   const outputIsTty = (dependencies.output ?? process.stdout).isTTY === true;
 
   if (!inputIsTty || !outputIsTty) {
-    throw new Error('`applepi welcome` requires an interactive TTY on both stdin and stdout.');
+    throw new Error('`outfitter welcome` requires an interactive TTY on both stdin and stdout.');
   }
 };

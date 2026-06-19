@@ -20,20 +20,20 @@ afterEach(() => {
 });
 
 describe('heavily overridden integration fixture composite profile generation', () => {
-  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-003.3, APPLEPI-REQ-003.4, APPLEPI-REQ-005.3, APPLEPI-REQ-005.6).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-003.3, OFTR-003.4, OFTR-005.3, OFTR-005.6).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('merges a heavily overridden engineering profile and writes back only highest-precedence owned state', async () => {
     const fixture = copyFixtureToTemp('heavily_overridden_engineering');
     const warnings: string[] = [];
     let compositeProfileSummary: unknown;
     const sourceProfilePaths = [
-      'home/.applepi/cache/repos/Z2l0K2h0dHBzOi8vZ2l0aHViLmNvbS9hY21lL2VuZ2luZWVyaW5nLXByb2ZpbGVzLmdpdCNtYWlu/profiles/engineering/profile.yml',
-      'home/.applepi/profiles/default/profile.yml',
-      'home/.applepi/profiles/engineering/profile.yml',
-      'project/.applepi/local/profiles/engineering/profile.yml',
-      'project/.applepi/profiles/engineering/profile.yml',
-      'project/.applepi/team-profiles/engineering/profile.yml',
-      'project/.applepi/team-profiles/team-baseline/profile.yml',
+      'home/.outfitter/cache/repos/Z2l0K2h0dHBzOi8vZ2l0aHViLmNvbS9hY21lL2VuZ2luZWVyaW5nLXByb2ZpbGVzLmdpdCNtYWlu/profiles/engineering/profile.yml',
+      'home/.outfitter/profiles/default/profile.yml',
+      'home/.outfitter/profiles/engineering/profile.yml',
+      'project/.outfitter/local/profiles/engineering/profile.yml',
+      'project/.outfitter/profiles/engineering/profile.yml',
+      'project/.outfitter/team-profiles/engineering/profile.yml',
+      'project/.outfitter/team-profiles/team-baseline/profile.yml',
     ] as const;
     const originalSourceProfiles = new Map(
       sourceProfilePaths.map((profilePath) => [profilePath, readFixtureText(fixture, profilePath)]),
@@ -69,7 +69,7 @@ describe('heavily overridden integration fixture composite profile generation', 
             ...(summarizePiCompositeProfile(fixture, compositeProfileRoot) as Record<string, unknown>),
           };
 
-          writeFileSync(join(compositeProfileRoot, 'applepi', 'profile.json'), '{"mutated":true}\n');
+          writeFileSync(join(compositeProfileRoot, 'outfitter', 'profile.json'), '{"mutated":true}\n');
           writeFileSync(join(compositeProfileRoot, 'settings.json'), '{"owner":"project-local","version":2}\n');
           writeFileSync(join(compositeProfileRoot, 'unexpected-local.txt'), 'unknown write\n');
 
@@ -85,7 +85,7 @@ describe('heavily overridden integration fixture composite profile generation', 
     expect(warnings).toEqual(result.warnings);
     expect(
       readFileSync(
-        join(fixture.project, '.applepi', 'local', 'profiles', 'engineering', 'cli_specific', 'pi', 'settings.json'),
+        join(fixture.project, '.outfitter', 'local', 'profiles', 'engineering', 'cli_specific', 'pi', 'settings.json'),
         'utf8',
       ),
     ).toBe('{"owner":"project-local","version":2}\n');

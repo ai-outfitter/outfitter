@@ -1,0 +1,12 @@
+default_profile: local-selection
+profile_sources:
+  - github: acme/outfitter-baseline
+    ref: v1
+    path: profiles
+  - path: ../../../home/.outfitter/profiles
+  - path: ../profiles
+  - path: ./profiles
+custom_settings:
+  origin:
+    project_local: LOCAL_SETTINGS
+    shared: LOCAL_SETTINGS

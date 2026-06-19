@@ -1,0 +1,8 @@
+profile_sources:
+  - github: acme/engineering-profiles
+    ref: main
+    path: profiles
+    only: [engineering]
+  - path: ./team-profiles
+  - path: ../../home/.outfitter/profiles
+  - path: ./profiles

@@ -104,10 +104,10 @@
     }
   },
   "stateTargets": {
-    "auth.json": "<project>/.applepi/profiles/stateful-review/cli_specific/pi/auth.json",
-    "settings.json": "<project>/.applepi/profiles/stateful-review/cli_specific/pi/settings.json",
-    "mcp.json": "<project>/.applepi/profiles/stateful-review/cli_specific/pi/mcp.json",
-    "plugins": "<project>/.applepi/profiles/stateful-review/cli_specific/pi/plugins",
-    "utilities": "<home>/.applepi/cache/utilities"
+    "auth.json": "<project>/.outfitter/profiles/stateful-review/cli_specific/pi/auth.json",
+    "settings.json": "<project>/.outfitter/profiles/stateful-review/cli_specific/pi/settings.json",
+    "mcp.json": "<project>/.outfitter/profiles/stateful-review/cli_specific/pi/mcp.json",
+    "plugins": "<project>/.outfitter/profiles/stateful-review/cli_specific/pi/plugins",
+    "utilities": "<home>/.outfitter/cache/utilities"
   }
 }

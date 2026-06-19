@@ -89,7 +89,7 @@
   },
   "stateTargets": {
     "auth.json": "<home>/.pi/agent/auth.json",
-    "settings.json": "<project>/.applepi/profiles/adapter-review/cli_specific/pi/settings.json",
-    "utilities": "<home>/.applepi/cache/utilities"
+    "settings.json": "<project>/.outfitter/profiles/adapter-review/cli_specific/pi/settings.json",
+    "utilities": "<home>/.outfitter/cache/utilities"
   }
 }

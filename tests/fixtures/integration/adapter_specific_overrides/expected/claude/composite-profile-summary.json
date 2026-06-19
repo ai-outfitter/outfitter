@@ -80,7 +80,7 @@
     }
   },
   "stateTargets": {
-    "settings.json": "<project>/.applepi/profiles/adapter-review/cli_specific/claude/settings.json",
+    "settings.json": "<project>/.outfitter/profiles/adapter-review/cli_specific/claude/settings.json",
     "agents": "<home>/.claude/agents",
     "projects": "<home>/.claude/projects"
   }

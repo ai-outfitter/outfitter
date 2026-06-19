@@ -8,5 +8,5 @@ export interface ClaudeCompositeProfilePaths {
 
 export const createClaudeCompositeProfilePaths = (configDirectory: string): ClaudeCompositeProfilePaths => ({
   configDirectory,
-  profileMetadataPath: join(configDirectory, 'applepi', 'profile.json'),
+  profileMetadataPath: join(configDirectory, 'outfitter', 'profile.json'),
 });

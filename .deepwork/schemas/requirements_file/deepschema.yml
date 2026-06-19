@@ -5,21 +5,21 @@ instructions: |
   Prefer TypeScript tests for deterministic behavior, DeepSchemas for file-level
   semantic contracts, and DeepReview rules for broad judgment-based policies.
 
-  ApplePi requirement files use the filename style `APPLEPI-REQ-NNN-<topic>.md`,
+  Outfitter requirement files use the filename style `OFTR-NNN-<topic>.md`,
   where NNN is a three-digit zero-padded number and `<topic>` is a lowercase
-  kebab-case slug. Section headings use `### APPLEPI-REQ-NNN.M: Title`.
+  kebab-case slug. Section headings use `### OFTR-NNN.M: Title`.
 
 matchers:
-  - "requirements/APPLEPI-REQ-*.md"
+  - "requirements/OFTR-*.md"
 
 requirements:
   filename-style: >
     Requirement filenames MUST match the regex
-    `^APPLEPI-REQ-[0-9]{3}-[a-z0-9]+(-[a-z0-9]+)*\.md$` so filenames are stable,
+    `^OFTR-[0-9]{3}-[a-z0-9]+(-[a-z0-9]+)*\.md$` so filenames are stable,
     sortable, and consistent with section IDs.
   top-level-heading-style: >
     Each requirement file MUST begin with a top-level heading matching
-    `# APPLEPI-REQ-NNN: Title`, where NNN matches the filename number.
+    `# OFTR-NNN: Title`, where NNN matches the filename number.
   required-overview-section: >
     Each requirement file MUST include a `## Overview` section before its
     requirements list.
@@ -30,8 +30,8 @@ requirements:
     Each numbered requirement statement MUST use at least one RFC 2119 keyword
     such as MUST, MUST NOT, SHOULD, SHOULD NOT, MAY, REQUIRED, RECOMMENDED, or OPTIONAL.
   stable-section-ids: >
-    Each requirement section heading MUST follow `### APPLEPI-REQ-NNN.M: Title`,
-    where `APPLEPI-REQ-NNN` matches the requirement file name prefix.
+    Each requirement section heading MUST follow `### OFTR-NNN.M: Title`,
+    where `OFTR-NNN` matches the requirement file name prefix.
   sequential-section-numbering: >
     Requirement section numbers within a file MUST be sequential without gaps,
     starting at `.1`.
@@ -50,12 +50,12 @@ requirements:
     referenced by tests, DeepSchemas, DeepReview rules, or implementation notes.
 
 verification_bash_command:
-  - "base=$(basename \"$1\"); if ! printf '%s\\n' \"$base\" | grep -Eq '^APPLEPI-REQ-[0-9]{3}-[a-z0-9]+(-[a-z0-9]+)*\\.md$'; then echo \"FAIL: requirement filename does not match APPLEPI style: $base\"; exit 1; fi"
-  - "base=$(basename \"$1\" .md); prefix=$(printf '%s\\n' \"$base\" | grep -Eo '^APPLEPI-REQ-[0-9]{3}'); first=$(head -n 1 \"$1\"); if [ \"$first\" != \"# $prefix: ${first#*: }\" ] || ! printf '%s\\n' \"$first\" | grep -Eq '^# APPLEPI-REQ-[0-9]{3}: .+'; then echo \"FAIL: top-level heading does not match APPLEPI requirement style: $first\"; exit 1; fi"
+  - "base=$(basename \"$1\"); if ! printf '%s\\n' \"$base\" | grep -Eq '^OFTR-[0-9]{3}-[a-z0-9]+(-[a-z0-9]+)*\\.md$'; then echo \"FAIL: requirement filename does not match OFTR style: $base\"; exit 1; fi"
+  - "base=$(basename \"$1\" .md); prefix=$(printf '%s\\n' \"$base\" | grep -Eo '^OFTR-[0-9]{3}'); first=$(head -n 1 \"$1\"); if [ \"$first\" != \"# $prefix: ${first#*: }\" ] || ! printf '%s\\n' \"$first\" | grep -Eq '^# OFTR-[0-9]{3}: .+'; then echo \"FAIL: top-level heading does not match OFTR requirement style: $first\"; exit 1; fi"
   - "grep -nE '^[0-9]+\\.' \"$1\" | grep -vE 'MUST|MUST NOT|SHALL|SHALL NOT|SHOULD|SHOULD NOT|MAY|REQUIRED|RECOMMENDED|OPTIONAL|REQUIREMENT REMOVED' | { if read -r line; then echo \"FAIL: Requirement without RFC 2119 keyword: $line\"; exit 1; fi; }"
-  - "awk '/^## Overview$/ { overview=NR } /^## Requirements$/ { requirements=NR } /^### APPLEPI-REQ-[0-9]{3}\\.[0-9]+: / { if (!first_req) first_req=NR } END { if (!overview) { print \"FAIL: missing ## Overview section\"; exit 1 } if (!requirements) { print \"FAIL: missing ## Requirements section\"; exit 1 } if (requirements <= overview) { print \"FAIL: ## Requirements must appear after ## Overview\"; exit 1 } if (first_req && first_req <= requirements) { print \"FAIL: requirement sections must appear after ## Requirements\"; exit 1 } }' \"$1\""
-  - "base=$(basename \"$1\" .md); prefix=$(printf '%s\\n' \"$base\" | grep -Eo '^APPLEPI-REQ-[0-9]{3}'); grep -nE '^### APPLEPI-REQ-[0-9]{3}\\.[0-9]+: ' \"$1\" | grep -v \"### $prefix.\" | { if read -r line; then echo \"FAIL: section ID prefix does not match filename: $line\"; exit 1; fi; }"
-  - "base=$(basename \"$1\" .md); prefix=$(printf '%s\\n' \"$base\" | grep -Eo '^APPLEPI-REQ-[0-9]{3}'); awk -v prefix=\"$prefix\" '/^### APPLEPI-REQ-[0-9]{3}\\.[0-9]+: / { split($2, parts, /\\./); n=parts[2]+0; expected++; if (n != expected) { printf \"FAIL: requirement section numbering gap at line %d: expected %s.%d, got %s\\n\", NR, prefix, expected, $2; exit 1 } } END { if (expected == 0) { print \"FAIL: no requirement sections found\"; exit 1 } }' \"$1\""
+  - "awk '/^## Overview$/ { overview=NR } /^## Requirements$/ { requirements=NR } /^### OFTR-[0-9]{3}\\.[0-9]+: / { if (!first_req) first_req=NR } END { if (!overview) { print \"FAIL: missing ## Overview section\"; exit 1 } if (!requirements) { print \"FAIL: missing ## Requirements section\"; exit 1 } if (requirements <= overview) { print \"FAIL: ## Requirements must appear after ## Overview\"; exit 1 } if (first_req && first_req <= requirements) { print \"FAIL: requirement sections must appear after ## Requirements\"; exit 1 } }' \"$1\""
+  - "base=$(basename \"$1\" .md); prefix=$(printf '%s\\n' \"$base\" | grep -Eo '^OFTR-[0-9]{3}'); grep -nE '^### OFTR-[0-9]{3}\\.[0-9]+: ' \"$1\" | grep -v \"### $prefix.\" | { if read -r line; then echo \"FAIL: section ID prefix does not match filename: $line\"; exit 1; fi; }"
+  - "base=$(basename \"$1\" .md); prefix=$(printf '%s\\n' \"$base\" | grep -Eo '^OFTR-[0-9]{3}'); awk -v prefix=\"$prefix\" '/^### OFTR-[0-9]{3}\\.[0-9]+: / { split($2, parts, /\\./); n=parts[2]+0; expected++; if (n != expected) { printf \"FAIL: requirement section numbering gap at line %d: expected %s.%d, got %s\\n\", NR, prefix, expected, $2; exit 1 } } END { if (expected == 0) { print \"FAIL: no requirement sections found\"; exit 1 } }' \"$1\""
 
 references:
   - path: "../../../doc/specs/validating_requirements_with_rules.md"

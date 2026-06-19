@@ -11,7 +11,7 @@ import { executeSetupCommand } from '../../src/cli/commands/SetupCommand.js';
 const temporaryRoots: string[] = [];
 
 const createTemporaryRoot = (): string => {
-  const root = mkdtempSync(join(tmpdir(), 'applepi-setup-sources-'));
+  const root = mkdtempSync(join(tmpdir(), 'outfitter-setup-sources-'));
   temporaryRoots.push(root);
   return root;
 };
@@ -29,7 +29,7 @@ const createGitProfileRepository = (root: string, repositoryName: string): strin
   execFileSync('git', ['add', '.'], { cwd: repositoryPath, stdio: 'pipe' });
   execFileSync(
     'git',
-    ['-c', 'user.name=ApplePi Test', '-c', 'user.email=applepi@example.test', 'commit', '-m', 'profiles'],
+    ['-c', 'user.name=Outfitter Test', '-c', 'user.email=outfitter@example.test', 'commit', '-m', 'profiles'],
     { cwd: repositoryPath, stdio: 'pipe' },
   );
   return repositoryPath;
@@ -39,7 +39,7 @@ const commitAll = (repositoryPath: string, message: string): void => {
   execFileSync('git', ['add', '.'], { cwd: repositoryPath, stdio: 'pipe' });
   execFileSync(
     'git',
-    ['-c', 'user.name=ApplePi Test', '-c', 'user.email=applepi@example.test', 'commit', '-m', message],
+    ['-c', 'user.name=Outfitter Test', '-c', 'user.email=outfitter@example.test', 'commit', '-m', message],
     {
       cwd: repositoryPath,
       stdio: 'pipe',
@@ -54,7 +54,7 @@ afterEach(() => {
 });
 
 describe('setup sources', () => {
-  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-004.1).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-004.1).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('fetches setup source repositories with the default git synchronizer', async () => {
     const root = createTemporaryRoot();
@@ -93,15 +93,15 @@ describe('setup sources', () => {
     );
     const nestedHomeDirectory = join(root, 'nested-home');
     const nestedRepositoryPath = createGitProfileRepository(root, 'nested-setup-source');
-    mkdirSync(join(nestedRepositoryPath, '.applepi', 'profiles', 'default'), { recursive: true });
-    writeFileSync(join(nestedRepositoryPath, '.applepi', 'settings.yml'), 'profile_sources:\n  - path: ./profiles\n');
+    mkdirSync(join(nestedRepositoryPath, '.outfitter', 'profiles', 'default'), { recursive: true });
+    writeFileSync(join(nestedRepositoryPath, '.outfitter', 'settings.yml'), 'profile_sources:\n  - path: ./profiles\n');
     writeFileSync(
-      join(nestedRepositoryPath, '.applepi', 'profiles', 'default', 'profile.yml'),
+      join(nestedRepositoryPath, '.outfitter', 'profiles', 'default', 'profile.yml'),
       'id: default\ncontrols: {}\n',
     );
     symlinkSync(
       join(root, 'outside-profile.yml'),
-      join(nestedRepositoryPath, '.applepi', 'profiles', 'default', 'linked.yml'),
+      join(nestedRepositoryPath, '.outfitter', 'profiles', 'default', 'linked.yml'),
     );
     commitAll(nestedRepositoryPath, 'nested-setup');
     const nestedSourceResult = await executeSetupCommand({
@@ -118,16 +118,16 @@ describe('setup sources', () => {
     expect(firstResult.createdDefaultProfile).toBe(false);
     expect(secondResult.createdSettings).toBe(false);
     expect(emptySourceResult.defaultProfilePath).toBe(
-      join(emptySourceHomeDirectory, '.applepi', 'profiles', 'engineer', 'profile.yml'),
+      join(emptySourceHomeDirectory, '.outfitter', 'profiles', 'engineer', 'profile.yml'),
     );
     expect(nestedSourceResult.copiedStarterProfileFiles).toBe(1);
     expect(nestedSourceResult.defaultProfilePath).toBe(
-      join(nestedHomeDirectory, '.applepi', 'profiles', 'engineer', 'profile.yml'),
+      join(nestedHomeDirectory, '.outfitter', 'profiles', 'engineer', 'profile.yml'),
     );
-    expect(readFileSync(join(nestedHomeDirectory, '.applepi', 'settings.yml'), 'utf8')).toContain(
+    expect(readFileSync(join(nestedHomeDirectory, '.outfitter', 'settings.yml'), 'utf8')).toContain(
       'default_profile: engineer',
     );
-    expect(existsSync(join(nestedHomeDirectory, '.applepi', 'profiles', 'default', 'linked.yml'))).toBe(false);
+    expect(existsSync(join(nestedHomeDirectory, '.outfitter', 'profiles', 'default', 'linked.yml'))).toBe(false);
     await expect(
       executeSetupCommand({
         homeDirectory: join(root, 'missing-source-home'),

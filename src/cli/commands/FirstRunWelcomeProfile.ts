@@ -27,7 +27,7 @@ export const persistFirstRunWelcomeProfile = (
   }
 
   const welcomeProfile = createFirstRunWelcomeProfile(welcomeResult, welcomeResult.selectedRole);
-  const profileDirectory = join(homeDirectory, '.applepi', 'profiles', welcomeProfile.id);
+  const profileDirectory = join(homeDirectory, '.outfitter', 'profiles', welcomeProfile.id);
   const profilePath = join(profileDirectory, 'profile.yml');
   const createdProfile = !existsSync(profilePath);
   const messages: string[] = [];
@@ -121,7 +121,7 @@ const excludeDefaultProfileSource = (settingsPath: string, profileId: string): v
   const nextProfileSources = profileSources.map((source): unknown => {
     const record = readRecord(source);
 
-    if (record.github !== 'applepi-ai/default-profiles' || record.path !== 'profiles') {
+    if (record.github !== 'ai-outfitter/default-profiles' || record.path !== 'profiles') {
       return source;
     }
 

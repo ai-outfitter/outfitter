@@ -18,7 +18,7 @@ PI_CODING_AGENT_DIR=/path/to/profile-dir pi ...
 
 In native pi, that directory can contain profile-scoped global state such as settings, auth, models, extensions, skills, prompts, themes, and sessions.
 
-ApplePi currently declares and materializes a narrower day-one state set for pi:
+Outfitter currently declares and materializes a narrower day-one state set for pi:
 
 - `auth.json`
 - `settings.json`
@@ -33,12 +33,12 @@ ApplePi currently declares and materializes a narrower day-one state set for pi:
 - `bin/`
 
 Native pi can be isolated by pointing `PI_CODING_AGENT_DIR` at a different directory.
-ApplePi's implemented model uses that same boundary with a temporary composite profile directory for each run, then symlinks adapter-declared durable state paths back to profile files or native pi files such as `~/.pi/agent/auth.json`.
+Outfitter's implemented model uses that same boundary with a temporary composite profile directory for each run, then symlinks adapter-declared durable state paths back to profile files or native pi files such as `~/.pi/agent/auth.json`.
 
 Conceptually:
 
 ```text
-/tmp/applepi-default-pi-.../      # temporary composite profile used as PI_CODING_AGENT_DIR
+/tmp/outfitter-default-pi-.../      # temporary composite profile used as PI_CODING_AGENT_DIR
 profiles/default/cli_specific/pi/settings.json
 ~/.pi/agent/auth.json           # native fallback for login state
 ```
@@ -46,12 +46,12 @@ profiles/default/cli_specific/pi/settings.json
 Launch shape:
 
 ```bash
-PI_CODING_AGENT_DIR=/tmp/applepi-default-pi-... pi
+PI_CODING_AGENT_DIR=/tmp/outfitter-default-pi-... pi
 ```
 
 This keeps the runtime composite profile disposable while preserving intentional credentials, settings, MCP configuration, plugins, caches, sessions, pi package stores, and pi-managed utilities through declared state paths.
-ApplePi maps native pi package directories such as `npm/` and `git/` back to `~/.pi/agent/` so user-scoped `pi install` packages survive across runs.
-ApplePi maps both composite profile `utilities/` and composite profile `bin/` to `<cache_directory>/utilities` by default so helper binaries such as `fd` and `rg` are reused across runs even though each composite profile directory is temporary.
+Outfitter maps native pi package directories such as `npm/` and `git/` back to `~/.pi/agent/` so user-scoped `pi install` packages survive across runs.
+Outfitter maps both composite profile `utilities/` and composite profile `bin/` to `<cache_directory>/utilities` by default so helper binaries such as `fd` and `rg` are reused across runs even though each composite profile directory is temporary.
 
 ### Other native launch controls
 
@@ -103,7 +103,7 @@ Pi also reads project-local configuration from:
 ```
 
 Project settings override global settings.
-ApplePi profiles control project-level behavior with one of these policies:
+Outfitter profiles control project-level behavior with one of these policies:
 
 1. Global profile only via `PI_CODING_AGENT_DIR`.
 2. Global profile plus current project's `.pi` overrides.
@@ -190,10 +190,10 @@ controls:
     - /path/to/team-extension
   system_prompt: /path/to/system.md
   append_system_prompt: /path/to/rules.md
-  session_directory: ~/.applepi/work/sessions
+  session_directory: ~/.outfitter/work/sessions
 ```
 
-ApplePi persists this style of profile data as YAML, validates it with JSON Schema when read, and translates the resolved profile into a generated composite profile directory that becomes pi's `PI_CODING_AGENT_DIR`.
+Outfitter persists this style of profile data as YAML, validates it with JSON Schema when read, and translates the resolved profile into a generated composite profile directory that becomes pi's `PI_CODING_AGENT_DIR`.
 
 The wrapper would translate that into:
 
@@ -209,7 +209,7 @@ The wrapper would translate that into:
 Use this priority model:
 
 1. Wrapper profile env vars and CLI args.
-2. Temporary composite profile `PI_CODING_AGENT_DIR` assembled from the resolved ApplePi profile.
+2. Temporary composite profile `PI_CODING_AGENT_DIR` assembled from the resolved Outfitter profile.
 3. Adapter-declared state paths symlinked to profile or native pi sources.
 4. Optional injected bootstrap extension.
 5. Pi's normal project `.pi` overrides.
@@ -227,7 +227,7 @@ Use this priority model:
 
 ## Conclusion
 
-Pi already has a native profile mechanism through `PI_CODING_AGENT_DIR`; ApplePi uses a temporary composite profile at that boundary and makes durable writes explicit through declared state paths.
+Pi already has a native profile mechanism through `PI_CODING_AGENT_DIR`; Outfitter uses a temporary composite profile at that boundary and makes durable writes explicit through declared state paths.
 
 For early in-process injection, use `-e bootstrap-extension`.
 It loads early enough to register providers/tools/flags and affect model availability and per-turn prompts, but not early enough to change config directory selection or initial settings discovery.

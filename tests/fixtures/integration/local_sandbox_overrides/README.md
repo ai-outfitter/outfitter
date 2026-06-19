@@ -4,13 +4,13 @@ This fixture models a developer who keeps stable repository profiles checked in,
 
 ## Setup
 
-- `home/.applepi/settings.yml` defines normal user defaults and a personal profile source.
-- `project/.applepi/settings.yml` is the checked-in project configuration.
+- `home/.outfitter/settings.yml` defines normal user defaults and a personal profile source.
+- `project/.outfitter/settings.yml` is the checked-in project configuration.
   It selects `repo-review` and exposes the checked-in project profiles.
-- `project/.applepi/profiles/typescript-base/profile.yml` and `project/.applepi/profiles/repo-review/profile.yml` are stable repository profiles.
-- `project/.applepi/local/settings.yml` is a local override.
+- `project/.outfitter/profiles/typescript-base/profile.yml` and `project/.outfitter/profiles/repo-review/profile.yml` are stable repository profiles.
+- `project/.outfitter/local/settings.yml` is a local override.
   It selects `local-sandbox` and explicitly lists user, checked-in project, and local profile sources so the local profile can inherit the repository profile stack.
-- `project/.applepi/local/profiles/local-sandbox/profile.yml` adds experimental sandbox controls and state-persistence overrides.
+- `project/.outfitter/local/profiles/local-sandbox/profile.yml` adds experimental sandbox controls and state-persistence overrides.
 
 ## Expected behavior
 

@@ -1,4 +1,4 @@
-// Discovers, parses, validates, and converts ApplePi settings.yml files.
+// Discovers, parses, validates, and converts Outfitter settings.yml files.
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, isAbsolute, join, resolve } from 'node:path';
 
@@ -73,9 +73,9 @@ export const createSettingsLoadPlan = (locations: readonly SettingsLocation[]): 
 
 export const discoverSettingsLoadPlan = (input: SettingsDiscoveryInput): SettingsLoadPlan =>
   createSettingsLoadPlan([
-    { scope: 'user', path: join(input.homeDirectory, '.applepi', 'settings.yml') },
-    { scope: 'project', path: join(input.projectDirectory, '.applepi', 'settings.yml') },
-    { scope: 'project-local', path: join(input.projectDirectory, '.applepi', 'local', 'settings.yml') },
+    { scope: 'user', path: join(input.homeDirectory, '.outfitter', 'settings.yml') },
+    { scope: 'project', path: join(input.projectDirectory, '.outfitter', 'settings.yml') },
+    { scope: 'project-local', path: join(input.projectDirectory, '.outfitter', 'local', 'settings.yml') },
   ]);
 
 export const discoverRemoteSettingsLoadPlan = (

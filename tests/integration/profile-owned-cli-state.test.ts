@@ -19,7 +19,7 @@ afterEach(() => {
 });
 
 describe('profile-owned CLI state integration fixture composite profile generation', () => {
-  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-005.3, APPLEPI-REQ-005.6, APPLEPI-REQ-006.3).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-005.3, OFTR-005.6, OFTR-006.3).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('uses pi state owned by the selected profile and writes through declared symlinks', async () => {
     const fixture = copyFixtureToTemp('profile_owned_cli_state');
@@ -47,7 +47,7 @@ describe('profile-owned CLI state integration fixture composite profile generati
               SHARED_LAYER: plan.env.SHARED_LAYER,
             },
             generatedProfile: JSON.parse(
-              readFileSync(join(compositeProfileRoot, 'applepi', 'profile.json'), 'utf8'),
+              readFileSync(join(compositeProfileRoot, 'outfitter', 'profile.json'), 'utf8'),
             ) as unknown,
             mcpConfig: JSON.parse(readFileSync(join(compositeProfileRoot, '.mcp.json'), 'utf8')) as unknown,
             stateTargets: {
@@ -93,21 +93,21 @@ describe('profile-owned CLI state integration fixture composite profile generati
     expect(result.agentId).toBe('pi');
     expect(result.warnings).toEqual(readExpectedJson(fixture, 'pi/warnings.json'));
     expect(warnings).toEqual(result.warnings);
-    expect(readFixtureText(fixture, 'project/.applepi/profiles/stateful-review/cli_specific/pi/auth.json')).toBe(
+    expect(readFixtureText(fixture, 'project/.outfitter/profiles/stateful-review/cli_specific/pi/auth.json')).toBe(
       '{"token":"updated-pi-token"}\n',
     );
-    expect(readFixtureText(fixture, 'project/.applepi/profiles/stateful-review/cli_specific/pi/settings.json')).toBe(
+    expect(readFixtureText(fixture, 'project/.outfitter/profiles/stateful-review/cli_specific/pi/settings.json')).toBe(
       '{"profile":"updated-pi-settings"}\n',
     );
     expect(
-      readFixtureText(fixture, 'project/.applepi/profiles/stateful-review/cli_specific/pi/plugins/repo-plugin.json'),
+      readFixtureText(fixture, 'project/.outfitter/profiles/stateful-review/cli_specific/pi/plugins/repo-plugin.json'),
     ).toBe('{"name":"updated-pi-plugin"}\n');
     expect(
-      readFixtureText(fixture, 'project/.applepi/profiles/stateful-review/cli_specific/claude/settings.json'),
+      readFixtureText(fixture, 'project/.outfitter/profiles/stateful-review/cli_specific/claude/settings.json'),
     ).toBe('{ "profile": "claude-settings", "permissions": "review" }\n');
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-005.3, APPLEPI-REQ-005.6).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-005.3, OFTR-005.6).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('uses claude state owned by the selected profile without touching pi state', async () => {
     const fixture = copyFixtureToTemp('profile_owned_cli_state');
@@ -135,7 +135,7 @@ describe('profile-owned CLI state integration fixture composite profile generati
               SHARED_LAYER: plan.env.SHARED_LAYER,
             },
             generatedProfile: JSON.parse(
-              readFileSync(join(compositeProfileRoot, 'applepi', 'profile.json'), 'utf8'),
+              readFileSync(join(compositeProfileRoot, 'outfitter', 'profile.json'), 'utf8'),
             ) as unknown,
             stateTargets: {
               'settings.json': tokenizeFixturePath(
@@ -180,12 +180,12 @@ describe('profile-owned CLI state integration fixture composite profile generati
     expect(result.warnings).toEqual(readExpectedJson(fixture, 'claude/warnings.json'));
     expect(warnings).toEqual(result.warnings);
     expect(
-      readFixtureText(fixture, 'project/.applepi/profiles/stateful-review/cli_specific/claude/settings.json'),
+      readFixtureText(fixture, 'project/.outfitter/profiles/stateful-review/cli_specific/claude/settings.json'),
     ).toBe('{"profile":"updated-claude-settings"}\n');
     expect(
-      readFixtureText(fixture, 'project/.applepi/profiles/stateful-review/cli_specific/claude/agents/reviewer.md'),
+      readFixtureText(fixture, 'project/.outfitter/profiles/stateful-review/cli_specific/claude/agents/reviewer.md'),
     ).toBe('# Updated Reviewer Agent\n');
-    expect(readFixtureText(fixture, 'project/.applepi/profiles/stateful-review/cli_specific/pi/settings.json')).toBe(
+    expect(readFixtureText(fixture, 'project/.outfitter/profiles/stateful-review/cli_specific/pi/settings.json')).toBe(
       '{ "profile": "pi-settings", "theme": "stateful" }\n',
     );
   });

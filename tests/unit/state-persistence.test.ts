@@ -32,14 +32,14 @@ import {
 const temporaryRoots: string[] = [];
 
 const createTemporaryRoot = (): string => {
-  const root = mkdtempSync(join(tmpdir(), 'applepi-state-'));
+  const root = mkdtempSync(join(tmpdir(), 'outfitter-state-'));
   temporaryRoots.push(root);
   return root;
 };
 
 const writeSettings = (homeDirectory: string, content: string): void => {
-  mkdirSync(join(homeDirectory, '.applepi'), { recursive: true });
-  writeFileSync(join(homeDirectory, '.applepi', 'settings.yml'), content);
+  mkdirSync(join(homeDirectory, '.outfitter'), { recursive: true });
+  writeFileSync(join(homeDirectory, '.outfitter', 'settings.yml'), content);
 };
 
 const writeProfile = (root: string, id: string, content: string): string => {
@@ -57,7 +57,7 @@ afterEach(() => {
 });
 
 describe('state persistence', () => {
-  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-005.6).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-005.6).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('parses state persistence overrides from profile YAML', () => {
     const profile = parseProfileYaml(
@@ -78,13 +78,13 @@ describe('state persistence', () => {
     });
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-005.6).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-005.6).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('materializes pi state paths as symlinks and reports non-persistent writes', async () => {
     const root = createTemporaryRoot();
     const homeDirectory = join(root, 'home');
     const projectDirectory = join(root, 'project');
-    const profilesDirectory = join(homeDirectory, '.applepi', 'profiles');
+    const profilesDirectory = join(homeDirectory, '.outfitter', 'profiles');
     const settingsPath = join(profilesDirectory, 'default', 'cli_specific', 'pi', 'settings.json');
     const nativeAuthPath = join(homeDirectory, '.pi', 'agent', 'auth.json');
     writeSettings(homeDirectory, 'default_profile: default\nprofile_sources:\n  - path: ./profiles\n');
@@ -137,7 +137,7 @@ describe('state persistence', () => {
     expect(warnings).toEqual(result.warnings);
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-005.6).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-005.6).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('assembles pi fallback state source paths without mutating native state directories', () => {
     const root = createTemporaryRoot();
@@ -162,7 +162,7 @@ describe('state persistence', () => {
     expect(existsSync(join(homeDirectory, '.pi', 'agent', 'settings.json'))).toBe(true);
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-005.6).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-005.6).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('persists pi package install and temporary runtime directories across composite profiles', () => {
     const root = createTemporaryRoot();
@@ -194,7 +194,7 @@ describe('state persistence', () => {
     expect(readlinkSync(join(compositeProfile.rootDirectory, 'tmp'))).toBe(join(homeDirectory, '.pi', 'agent', 'tmp'));
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-005.6).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-005.6).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('detects changed temporary state paths and protects compositeProfile path boundaries', () => {
     const root = createTemporaryRoot();
@@ -223,8 +223,8 @@ describe('state persistence', () => {
     writeFileSync(join(root, 'cache', 'entry.txt'), 'changed\n');
     writeFileSync(join(root, 'logs', 'cache', 'entry.txt'), 'changed\n');
     writeFileSync(join(root, 'notes.txt'), 'changed\n');
-    mkdirSync(join(root, 'applepi'), { recursive: true });
-    writeFileSync(join(root, 'applepi', 'profile.json'), '{}\n');
+    mkdirSync(join(root, 'outfitter'), { recursive: true });
+    writeFileSync(join(root, 'outfitter', 'profile.json'), '{}\n');
 
     expect(
       detectCompositeProfileStateWrites(
@@ -280,7 +280,7 @@ describe('state persistence', () => {
     expect(createCompositeProfileStateBaseline(join(root, 'missing')).fingerprints.size).toBe(0);
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-005.6).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-005.6).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('does not create native fallback state paths while planning a pi compositeProfile', () => {
     const root = createTemporaryRoot();
@@ -302,7 +302,7 @@ describe('state persistence', () => {
     expect(existsSync(join(homeDirectory, '.pi'))).toBe(false);
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-005.6).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-005.6).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('resolves state sources using profile stack order rather than loaded folder order', () => {
     const root = createTemporaryRoot();
@@ -334,14 +334,14 @@ describe('state persistence', () => {
     ).toBe(explicitSettings);
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-005.6).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-005.6).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('reports when an agent replaces a symlinked state path instead of writing through it', async () => {
     const root = createTemporaryRoot();
     const homeDirectory = join(root, 'home');
     const projectDirectory = join(root, 'project');
     writeSettings(homeDirectory, 'default_profile: default\nprofile_sources:\n  - path: ./profiles\n');
-    writeProfile(join(homeDirectory, '.applepi', 'profiles'), 'default', 'id: default\ncontrols: {}\n');
+    writeProfile(join(homeDirectory, '.outfitter', 'profiles'), 'default', 'id: default\ncontrols: {}\n');
 
     const result = await executeRunCommand(
       { homeDirectory, projectDirectory },
@@ -363,7 +363,7 @@ describe('state persistence', () => {
     );
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-005.6).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-005.6).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('can rewrite generated files without rematerializing state paths during live updates', () => {
     const root = createTemporaryRoot();
@@ -377,7 +377,7 @@ describe('state persistence', () => {
     };
     const initialCompositeProfile = createCompositeProfile(
       compositeProfileRoot,
-      [createCompositeProfileFile({ relativePath: 'applepi/profile.json', content: '{"version":1}\n' })],
+      [createCompositeProfileFile({ relativePath: 'outfitter/profile.json', content: '{"version":1}\n' })],
       [statePath],
     );
     writeCompositeProfile(initialCompositeProfile);
@@ -387,25 +387,25 @@ describe('state persistence', () => {
     writeCompositeProfile(
       createCompositeProfile(
         compositeProfileRoot,
-        [createCompositeProfileFile({ relativePath: 'applepi/profile.json', content: '{"version":2}\n' })],
+        [createCompositeProfileFile({ relativePath: 'outfitter/profile.json', content: '{"version":2}\n' })],
         [statePath],
       ),
       { materializeStatePaths: false },
     );
 
-    expect(readFileSync(join(compositeProfileRoot, 'applepi', 'profile.json'), 'utf8')).toBe('{"version":2}\n');
+    expect(readFileSync(join(compositeProfileRoot, 'outfitter', 'profile.json'), 'utf8')).toBe('{"version":2}\n');
     expect(lstatSync(join(compositeProfileRoot, 'settings.json')).isSymbolicLink()).toBe(false);
     expect(readFileSync(join(compositeProfileRoot, 'settings.json'), 'utf8')).toBe('agent replacement\n');
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-005.6).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-005.6).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('formats state write diagnostics with the selected adapter id', async () => {
     const root = createTemporaryRoot();
     const homeDirectory = join(root, 'home');
     const projectDirectory = join(root, 'project');
     writeSettings(homeDirectory, 'default_profile: default\nprofile_sources:\n  - path: ./profiles\n');
-    writeProfile(join(homeDirectory, '.applepi', 'profiles'), 'default', 'id: default\ncontrols: {}\n');
+    writeProfile(join(homeDirectory, '.outfitter', 'profiles'), 'default', 'id: default\ncontrols: {}\n');
 
     const result = await executeRunCommand(
       { homeDirectory, projectDirectory },
@@ -446,7 +446,7 @@ describe('state persistence', () => {
     );
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-005.6).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-005.6).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('fails after launch when an error-strategy state path changes', async () => {
     const root = createTemporaryRoot();
@@ -454,7 +454,7 @@ describe('state persistence', () => {
     const projectDirectory = join(root, 'project');
     writeSettings(homeDirectory, 'default_profile: default\nprofile_sources:\n  - path: ./profiles\n');
     writeProfile(
-      join(homeDirectory, '.applepi', 'profiles'),
+      join(homeDirectory, '.outfitter', 'profiles'),
       'default',
       ['id: default', 'state_persistence:', '  settings.json: error', 'controls: {}', ''].join('\n'),
     );
@@ -475,7 +475,7 @@ describe('state persistence', () => {
     ).rejects.toThrow("pi wrote 'settings.json' with state_persistence 'error' and it was not persisted.");
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-005.6).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-005.6).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('rejects state persistence strategies that are disallowed for a pi state path', async () => {
     const root = createTemporaryRoot();
@@ -483,7 +483,7 @@ describe('state persistence', () => {
     const projectDirectory = join(root, 'project');
     writeSettings(homeDirectory, 'default_profile: default\nprofile_sources:\n  - path: ./profiles\n');
     writeProfile(
-      join(homeDirectory, '.applepi', 'profiles'),
+      join(homeDirectory, '.outfitter', 'profiles'),
       'default',
       ['id: default', 'state_persistence:', '  unknown: symlink', 'controls: {}', ''].join('\n'),
     );
@@ -502,7 +502,7 @@ describe('state persistence', () => {
     ).rejects.toThrow('state_persistence strategy \'symlink\' is not allowed for "unknown"');
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-005.6).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-005.6).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('rejects state persistence keys inherited from Object.prototype', async () => {
     const root = createTemporaryRoot();
@@ -510,7 +510,7 @@ describe('state persistence', () => {
     const projectDirectory = join(root, 'project');
     writeSettings(homeDirectory, 'default_profile: default\nprofile_sources:\n  - path: ./profiles\n');
     writeProfile(
-      join(homeDirectory, '.applepi', 'profiles'),
+      join(homeDirectory, '.outfitter', 'profiles'),
       'default',
       ['id: default', 'state_persistence:', '  toString: warn', 'controls: {}', ''].join('\n'),
     );
@@ -529,7 +529,7 @@ describe('state persistence', () => {
     ).rejects.toThrow("state_persistence path 'toString' is not declared by the pi adapter");
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-005.6).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-005.6).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('rejects state persistence keys that are undeclared by the pi adapter', async () => {
     const root = createTemporaryRoot();
@@ -537,7 +537,7 @@ describe('state persistence', () => {
     const projectDirectory = join(root, 'project');
     writeSettings(homeDirectory, 'default_profile: default\nprofile_sources:\n  - path: ./profiles\n');
     writeProfile(
-      join(homeDirectory, '.applepi', 'profiles'),
+      join(homeDirectory, '.outfitter', 'profiles'),
       'default',
       ['id: default', 'state_persistence:', '  setting.json: warn', 'controls: {}', ''].join('\n'),
     );

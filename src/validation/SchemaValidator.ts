@@ -1,4 +1,4 @@
-// Validates parsed ApplePi YAML documents against bundled JSON Schemas.
+// Validates parsed Outfitter YAML documents against bundled JSON Schemas.
 import { readFileSync } from 'node:fs';
 
 import type { AnySchema, ErrorObject, ValidateFunction } from 'ajv';

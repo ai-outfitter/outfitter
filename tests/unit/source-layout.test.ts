@@ -10,7 +10,7 @@ import { createClaudeAdapter } from '../../src/agents/claude/ClaudeAdapter.js';
 import { createClaudeCompositeProfilePaths } from '../../src/agents/claude/ClaudeCompositeProfileWriter.js';
 import { createPiAdapter } from '../../src/agents/pi/PiAdapter.js';
 import { createPiCompositeProfilePaths } from '../../src/agents/pi/PiCompositeProfileWriter.js';
-import { createApplePiProgram, createDefaultCommands } from '../../src/cli/ApplePiCli.js';
+import { createOutfitterProgram, createDefaultCommands } from '../../src/cli/OutfitterCli.js';
 import { describeCommandObject } from '../../src/cli/commands/CommandObject.js';
 import { createProfileCommands } from '../../src/cli/commands/profile/Command.js';
 import { createRunCommand } from '../../src/cli/commands/RunCommand.js';
@@ -43,11 +43,11 @@ const readJson = <T>(relativePath: string): T =>
   JSON.parse(readFileSync(new URL(relativePath, import.meta.url), 'utf8')) as T;
 
 describe('source layout scaffolding', () => {
-  // THIS TEST VALIDATES COMMAND-AVAILABILITY CLAUSES IN HARD REQUIREMENTS (APPLEPI-REQ-004.1, APPLEPI-REQ-004.2, APPLEPI-REQ-004.3, APPLEPI-REQ-005.1).
+  // THIS TEST VALIDATES COMMAND-AVAILABILITY CLAUSES IN HARD REQUIREMENTS (OFTR-004.1, OFTR-004.2, OFTR-004.3, OFTR-005.1).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('exposes focused command objects for the initial CLI commands', () => {
     const commands = createDefaultCommands();
-    const program = createApplePiProgram(commands);
+    const program = createOutfitterProgram(commands);
 
     expect(commands.map((command) => command.name)).toEqual([
       'run',
@@ -82,7 +82,7 @@ describe('source layout scaffolding', () => {
     expect(standaloneProgram.commands.at(3)?.commands.map((command) => command.name())).toEqual(['list', 'create']);
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-002.5).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-002.5).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('validates profile source entries for local, URI, and GitHub source locations', () => {
     const ajv = new Ajv2020();
@@ -92,7 +92,7 @@ describe('source layout scaffolding', () => {
     expect(validate({ path: './profiles' })).toBe(true);
     expect(validate({ uri: 'git+https://example.test/profiles.git' })).toBe(true);
     expect(validate({ uri: 'git+https://example.test/profiles.git', path: 'profiles/team', ref: 'main' })).toBe(true);
-    expect(validate({ github: 'example/applepi-config', path: 'profiles' })).toBe(true);
+    expect(validate({ github: 'example/outfitter-config', path: 'profiles' })).toBe(true);
     expect(validate({ path: './profiles', ref: 'main' })).toBe(false);
     expect(validate({ uri: 'git+https://example.test/profiles.git', github: 'example/profiles' })).toBe(false);
     expect(validate({ only: ['engineering'] })).toBe(false);
@@ -108,9 +108,9 @@ describe('source layout scaffolding', () => {
       { defaultProfile: 'engineering', profileSources: [localSource], remoteSettings: [] },
     ]);
     const settingsLoadPlan = createSettingsLoadPlan([
-      { scope: 'user', path: '~/.applepi/settings.yml' },
-      { scope: 'project', path: '.applepi/settings.yml' },
-      { scope: 'project-local', path: '.applepi/local/settings.yml' },
+      { scope: 'user', path: '~/.outfitter/settings.yml' },
+      { scope: 'project', path: '.outfitter/settings.yml' },
+      { scope: 'project-local', path: '.outfitter/local/settings.yml' },
     ]);
     const profileLoadPlan = createProfileLoadPlan([localSource, uriSource]);
 
@@ -133,14 +133,14 @@ describe('source layout scaffolding', () => {
       cacheDirectory: undefined,
       customSettings: {},
     });
-    expect(normalizeRemoteSourceUri({ github: 'example/applepi-config' })).toBe(
-      'git+https://github.com/example/applepi-config.git',
+    expect(normalizeRemoteSourceUri({ github: 'example/outfitter-config' })).toBe(
+      'git+https://github.com/example/outfitter-config.git',
     );
     expect(settingsLoadPlan.locations.map((location) => location.scope)).toEqual(['user', 'project', 'project-local']);
     expect(profileLoadPlan.sources).toEqual([localSource, uriSource]);
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-003.6).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-003.6).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('merges profile layers deterministically with higher-precedence values winning', () => {
     const baseProfile = createEmptyProfile('base');
@@ -154,10 +154,10 @@ describe('source layout scaffolding', () => {
     expect(mergedProfile.controls.model).toBe('pi/default');
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-006.3, APPLEPI-REQ-006.5).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-006.3, OFTR-006.5).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('creates pi and Claude Code launch plans using native config directory boundaries', () => {
-    const compositeProfileRoot = 'applepi-compositeProfile-root';
+    const compositeProfileRoot = 'outfitter-compositeProfile-root';
     const compositeProfile = createCompositeProfile(compositeProfileRoot, []);
     const launchPlan = createPiAdapter().createLaunchPlan(compositeProfile);
     const claudeLaunchPlan = createClaudeAdapter().createLaunchPlan(compositeProfile);
@@ -180,7 +180,7 @@ describe('source layout scaffolding', () => {
 
   it('defines compositeProfile, schema, and validation scaffolding boundaries', () => {
     const compositeProfileFile = createCompositeProfileFile('SYSTEM.md', 'hello');
-    const compositeProfile = createCompositeProfile('applepi-compositeProfile-root', [compositeProfileFile]);
+    const compositeProfile = createCompositeProfile('outfitter-compositeProfile-root', [compositeProfileFile]);
     const assembledCompositeProfile = assembleCompositeProfile({
       rootDirectory: compositeProfile.rootDirectory,
       files: compositeProfile.files,

@@ -5,7 +5,7 @@
   "launchArgs": ["--model", "ci-review-model", "--provider", "ci-provider", "--ci", "--no-interactive"],
   "launchEnv": {
     "PI_CODING_AGENT_DIR": "<composite-profile>",
-    "APPLEPI_FIXTURE": "strict_ci_profile",
+    "OUTFITTER_FIXTURE": "strict_ci_profile",
     "CI_PROFILE": "locked"
   },
   "generatedProfile": {
@@ -15,7 +15,7 @@
       "model": "ci-review-model",
       "provider": "ci-provider",
       "environment": {
-        "APPLEPI_FIXTURE": "strict_ci_profile",
+        "OUTFITTER_FIXTURE": "strict_ci_profile",
         "CI_PROFILE": "locked"
       },
       "args": ["--ci", "--no-interactive"]

@@ -10,10 +10,10 @@ export const encodeRemoteSource = (source: RemoteSourceReference): string =>
   encodeProfileSourceUri(`${normalizeRemoteSourceUri(source)}#${source.ref ?? ''}`);
 
 export const createProfileSourceCachePath = (homeDirectory: string, uri: string): string =>
-  join(homeDirectory, '.applepi', 'cache', 'profiles', encodeProfileSourceUri(uri));
+  join(homeDirectory, '.outfitter', 'cache', 'profiles', encodeProfileSourceUri(uri));
 
 export const createRemoteRepositoryCachePath = (homeDirectory: string, source: RemoteSourceReference): string =>
-  join(homeDirectory, '.applepi', 'cache', 'repos', encodeRemoteSource(source));
+  join(homeDirectory, '.outfitter', 'cache', 'repos', encodeRemoteSource(source));
 
 export const resolveRemoteRepositorySubpath = (repositoryPath: string, subpath = ''): string => {
   if (isAbsolute(subpath)) {

@@ -1,16 +1,16 @@
 release_metadata_sync:
-  description: "Review ApplePi release metadata synchronization automation."
+  description: "Review Outfitter release metadata synchronization automation."
   match:
     include:
       - "sync-release-version.mjs"
   review:
     strategy: individual
     instructions: |
-      Review the ApplePi release metadata synchronization script for correctness
+      Review the Outfitter release metadata synchronization script for correctness
       and release safety.
 
       Focus on judgment-based release safety concerns that complement the
-      deterministic unit tests for APPLEPI-REQ-009.1 release metadata synchronization.
+      deterministic unit tests for OFTR-009.1 release metadata synchronization.
 
       Check that the script:
       - Keeps its mutation scope limited to release metadata files under the

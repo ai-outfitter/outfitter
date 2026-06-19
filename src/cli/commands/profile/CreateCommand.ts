@@ -36,7 +36,7 @@ interface CreateProfileOptions {
 export const createProfileCreateCommand = (dependencies: ProfileCommandDependencies): CommandObject => {
   const command: CommandObject = {
     name: 'profile create',
-    description: 'Create a new ApplePi profile skeleton.',
+    description: 'Create a new Outfitter profile skeleton.',
     register(program: Command): void {
       getOrCreateProfileCommander(program).addCommand(createProfileCreateCommander(dependencies));
     },
@@ -47,7 +47,7 @@ export const createProfileCreateCommand = (dependencies: ProfileCommandDependenc
 
 const createProfileCreateCommander = (dependencies: ProfileCommandDependencies): Command =>
   new Command('create')
-    .description('Create a new ApplePi profile skeleton.')
+    .description('Create a new Outfitter profile skeleton.')
     .argument('<name>', 'filesystem-safe profile name')
     .option('--scope <scope>', 'destination scope: user, project, or project-local')
     .option('--path <path>', 'destination profile source directory')
@@ -120,7 +120,7 @@ const emitMessages = (messages: readonly string[], writeLine: ((message: string)
 
 const assertValidCreateProfileInput = (input: CreateProfileInput): void => {
   if (!isValidProfileId(input.name)) {
-    throw new Error(`Profile name '${input.name}' is not a filesystem-safe ApplePi profile id.`);
+    throw new Error(`Profile name '${input.name}' is not a filesystem-safe Outfitter profile id.`);
   }
 
   if (
@@ -138,11 +138,11 @@ const resolveProfileRoot = (input: CreateProfileInput): string => {
 
   switch (input.scope) {
     case 'user':
-      return join(input.homeDirectory, '.applepi', 'profiles');
+      return join(input.homeDirectory, '.outfitter', 'profiles');
     case 'project':
-      return join(input.projectDirectory, '.applepi', 'profiles');
+      return join(input.projectDirectory, '.outfitter', 'profiles');
     case 'project-local':
-      return join(input.projectDirectory, '.applepi', 'local', 'profiles');
+      return join(input.projectDirectory, '.outfitter', 'local', 'profiles');
     /* v8 ignore next 2 -- assertValidCreateProfileInput rejects missing scopes before this exhaustive guard. */
     default:
       throw new Error('Create profile requires exactly one destination: --scope or --path.');

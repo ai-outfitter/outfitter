@@ -1,0 +1,17 @@
+id: ci-strict
+label: Strict CI Profile
+state_persistence:
+  settings.json: error
+  mcp.json: error
+  cache/: discard
+  sessions/: discard
+  unknown: error
+controls:
+  model: ci-review-model
+  provider: ci-provider
+  environment:
+    OUTFITTER_FIXTURE: strict_ci_profile
+    CI_PROFILE: locked
+  args:
+    - --ci
+    - --no-interactive

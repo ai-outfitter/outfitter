@@ -18,14 +18,14 @@ import { createCompositeProfileFile } from '../../src/compositeProfile/Composite
 const temporaryRoots: string[] = [];
 
 const createTemporaryRoot = (): string => {
-  const root = mkdtempSync(join(tmpdir(), 'applepi-state-live-'));
+  const root = mkdtempSync(join(tmpdir(), 'outfitter-state-live-'));
   temporaryRoots.push(root);
   return root;
 };
 
 const writeSettings = (homeDirectory: string, content: string): void => {
-  mkdirSync(join(homeDirectory, '.applepi'), { recursive: true });
-  writeFileSync(join(homeDirectory, '.applepi', 'settings.yml'), content);
+  mkdirSync(join(homeDirectory, '.outfitter'), { recursive: true });
+  writeFileSync(join(homeDirectory, '.outfitter', 'settings.yml'), content);
 };
 
 const writeProfile = (root: string, id: string, content: string): string => {
@@ -59,13 +59,13 @@ afterEach(() => {
 });
 
 describe('live composite profile update state accounting', () => {
-  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-005.4, APPLEPI-REQ-005.6).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-005.4, OFTR-005.6).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('does not report live-regenerated compositeProfile files as agent state writes', async () => {
     const root = createTemporaryRoot();
     const homeDirectory = join(root, 'home');
     const projectDirectory = join(root, 'project');
-    const profilesDirectory = join(homeDirectory, '.applepi', 'profiles');
+    const profilesDirectory = join(homeDirectory, '.outfitter', 'profiles');
     const profilePath = writeProfile(profilesDirectory, 'default', 'id: default\nlabel: Initial\ncontrols: {}\n');
     writeSettings(homeDirectory, 'default_profile: default\nprofile_sources:\n  - path: ./profiles\n');
 

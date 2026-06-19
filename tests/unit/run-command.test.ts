@@ -12,14 +12,14 @@ import { allowTestConsoleOutput } from '../test-console.js';
 const temporaryRoots: string[] = [];
 
 const createTemporaryRoot = (): string => {
-  const root = mkdtempSync(join(tmpdir(), 'applepi-run-command-'));
+  const root = mkdtempSync(join(tmpdir(), 'outfitter-run-command-'));
   temporaryRoots.push(root);
   return root;
 };
 
 const writeSettings = (homeDirectory: string, content: string): void => {
-  mkdirSync(join(homeDirectory, '.applepi'), { recursive: true });
-  writeFileSync(join(homeDirectory, '.applepi', 'settings.yml'), content);
+  mkdirSync(join(homeDirectory, '.outfitter'), { recursive: true });
+  writeFileSync(join(homeDirectory, '.outfitter', 'settings.yml'), content);
 };
 
 const writeProfile = (root: string, id: string, content: string): string => {
@@ -68,13 +68,13 @@ afterEach(() => {
 });
 
 describe('run command', () => {
-  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-005.1, APPLEPI-REQ-005.2, APPLEPI-REQ-005.3, APPLEPI-REQ-005.4, APPLEPI-REQ-005.5).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-005.1, OFTR-005.2, OFTR-005.3, OFTR-005.4, OFTR-005.5).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('resolves the default profile, writes and refreshes a temp compositeProfile, warns, and passes through args', async () => {
     const root = createTemporaryRoot();
     const homeDirectory = join(root, 'home');
     const projectDirectory = join(root, 'project');
-    const profilesDirectory = join(homeDirectory, '.applepi', 'profiles');
+    const profilesDirectory = join(homeDirectory, '.outfitter', 'profiles');
     writeSettings(homeDirectory, 'default_profile: default\nprofile_sources:\n  - path: ./profiles\n');
     const baseProfilePath = writeProfile(
       profilesDirectory,
@@ -132,9 +132,10 @@ describe('run command', () => {
                   ].join('\n'),
                 );
                 resolve(
-                  waitForFileContaining(join(plan.env.PI_CODING_AGENT_DIR, 'applepi', 'profile.json'), 'LIVE_ENV').then(
-                    () => 0,
-                  ),
+                  waitForFileContaining(
+                    join(plan.env.PI_CODING_AGENT_DIR, 'outfitter', 'profile.json'),
+                    'LIVE_ENV',
+                  ).then(() => 0),
                 );
               }, 25);
             });
@@ -144,9 +145,9 @@ describe('run command', () => {
     );
 
     expect(result.profileId).toBe('default');
-    expect(result.compositeProfileDirectory).toContain('applepi-default-pi-');
-    expect(existsSync(join(result.compositeProfileDirectory, 'applepi', 'profile.json'))).toBe(true);
-    const profileMetadata = readFileSync(join(result.compositeProfileDirectory, 'applepi', 'profile.json'), 'utf8');
+    expect(result.compositeProfileDirectory).toContain('outfitter-default-pi-');
+    expect(existsSync(join(result.compositeProfileDirectory, 'outfitter', 'profile.json'))).toBe(true);
+    const profileMetadata = readFileSync(join(result.compositeProfileDirectory, 'outfitter', 'profile.json'), 'utf8');
     expect(profileMetadata).toContain('test-model');
     expect(profileMetadata).toContain('BASE_ENV');
     expect(profileMetadata).toContain('LIVE_ENV');
@@ -175,20 +176,22 @@ describe('run command', () => {
     );
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-005.1).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-005.1).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('runs setup automatically before the default run when user setup has not run', async () => {
     const root = createTemporaryRoot();
     const homeDirectory = join(root, 'home');
     const projectDirectory = join(root, 'project');
     const messages: string[] = [];
+    const syncedSources: unknown[] = [];
 
     const result = await executeRunCommand(
       { homeDirectory, projectDirectory },
       {
         writeLine: (message) => messages.push(message),
         synchronizer: {
-          sync(_source, cachePath) {
+          sync(source, cachePath) {
+            syncedSources.push(source);
             mkdirSync(join(cachePath, 'profiles', 'engineer'), { recursive: true });
             writeFileSync(join(cachePath, 'profiles', 'engineer', 'profile.yml'), 'id: engineer\ncontrols: {}\n');
             return 'updated';
@@ -204,22 +207,22 @@ describe('run command', () => {
 
     expect(messages).toEqual(
       expect.arrayContaining([
-        '`applepi setup` has not been run yet - running now',
+        '`outfitter setup` has not been run yet - running now',
         'Pi does not appear to be logged in yet. After Pi starts, run `/login` and choose a subscription such as Codex or provide an API key from another model provider.',
         '→ resolving profile engineer',
-        `✓ profile layer engineer  ${join(homeDirectory, '.applepi', 'profiles', 'engineer')}`,
+        `✓ profile layer engineer  ${join(homeDirectory, '.outfitter', 'profiles', 'engineer')}`,
         '✓ merged controls',
         `✓ prepared composite profile  ${result.compositeProfileDirectory}`,
         '↳ launching pi …',
       ]),
     );
-    expect(messages.some((message) => message.includes('github:applepi-ai/default-profiles/profiles'))).toBe(true);
+    expect(syncedSources).toEqual([{ github: 'ai-outfitter/default-profiles', path: 'profiles' }]);
     expect(result.profileId).toBe('engineer');
-    expect(existsSync(join(homeDirectory, '.applepi', 'settings.yml'))).toBe(true);
-    expect(existsSync(join(homeDirectory, '.applepi', 'profiles', 'engineer', 'profile.yml'))).toBe(true);
+    expect(existsSync(join(homeDirectory, '.outfitter', 'settings.yml'))).toBe(true);
+    expect(existsSync(join(homeDirectory, '.outfitter', 'profiles', 'engineer', 'profile.yml'))).toBe(true);
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-010.4).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-010.4).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('notifies pi users to run login when no native login state is configured', async () => {
     const root = createTemporaryRoot();
@@ -227,7 +230,7 @@ describe('run command', () => {
     const projectDirectory = join(root, 'project');
     const messages: string[] = [];
     writeSettings(homeDirectory, 'default_profile: engineer\nprofile_sources:\n  - path: ./profiles\n');
-    writeProfile(join(homeDirectory, '.applepi', 'profiles'), 'engineer', 'id: engineer\ncontrols: {}\n');
+    writeProfile(join(homeDirectory, '.outfitter', 'profiles'), 'engineer', 'id: engineer\ncontrols: {}\n');
 
     await executeRunCommand(
       { homeDirectory, projectDirectory },
@@ -410,7 +413,7 @@ describe('run command', () => {
     expect(result.profileId).toBe('engineer');
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-002.3, APPLEPI-REQ-002.4, APPLEPI-REQ-003.1, APPLEPI-REQ-006.1).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-002.3, OFTR-002.4, OFTR-003.1, OFTR-006.1).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('reports invalid settings, invalid profile sources, missing profiles, URI caches, and child exit codes', async () => {
     const root = createTemporaryRoot();
@@ -424,7 +427,7 @@ describe('run command', () => {
     const badProfileHome = join(root, 'bad-profile-home');
     writeSettings(badProfileHome, 'default_profile: default\nprofile_sources:\n  - path: ./profiles\n');
     writeProfile(
-      join(badProfileHome, '.applepi', 'profiles'),
+      join(badProfileHome, '.outfitter', 'profiles'),
       'default',
       'id: default\ncontrols:\n  environment:\n    COUNT: 1\n',
     );
@@ -434,7 +437,7 @@ describe('run command', () => {
 
     const missingProfileHome = join(root, 'missing-profile-home');
     writeSettings(missingProfileHome, 'default_profile: missing\nprofile_sources:\n  - path: ./profiles\n');
-    mkdirSync(join(missingProfileHome, '.applepi', 'profiles'), { recursive: true });
+    mkdirSync(join(missingProfileHome, '.outfitter', 'profiles'), { recursive: true });
     await expect(executeRunCommand({ homeDirectory: missingProfileHome, projectDirectory })).rejects.toThrow(
       "Cannot resolve profile 'missing'",
     );
@@ -443,7 +446,7 @@ describe('run command', () => {
     const uri = 'https://example.test/team/profiles.git';
     writeSettings(uriHome, `default_profile: cached\nprofile_sources:\n  - uri: ${uri}\n`);
     writeProfile(
-      join(uriHome, '.applepi', 'cache', 'profiles', Buffer.from(uri).toString('base64url')),
+      join(uriHome, '.outfitter', 'cache', 'profiles', Buffer.from(uri).toString('base64url')),
       'cached',
       'id: cached\ncontrols: {}\n',
     );
@@ -466,7 +469,7 @@ describe('run command', () => {
 
     const fallbackHome = join(root, 'fallback-home');
     writeSettings(fallbackHome, 'profile_sources:\n  - path: ./profiles\n');
-    writeProfile(join(fallbackHome, '.applepi', 'profiles'), 'default', 'id: default\ncontrols: {}\n');
+    writeProfile(join(fallbackHome, '.outfitter', 'profiles'), 'default', 'id: default\ncontrols: {}\n');
     await expect(
       executeRunCommand(
         { homeDirectory: fallbackHome, projectDirectory },
@@ -482,7 +485,7 @@ describe('run command', () => {
 
     const spawnedHome = join(root, 'spawned-home');
     writeSettings(spawnedHome, 'default_profile: default\nprofile_sources:\n  - path: ./profiles\n');
-    writeProfile(join(spawnedHome, '.applepi', 'profiles'), 'default', 'id: default\ncontrols: {}\n');
+    writeProfile(join(spawnedHome, '.outfitter', 'profiles'), 'default', 'id: default\ncontrols: {}\n');
     const spawnedResult = await executeRunCommand(
       { homeDirectory: spawnedHome, projectDirectory },
       {
@@ -517,7 +520,7 @@ describe('run command', () => {
     expect(resolveChildExitCode(null, null)).toBe(1);
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-005.5).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-005.5).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('makes unsupported control warnings fatal when strict is enabled', async () => {
     const root = createTemporaryRoot();
@@ -525,7 +528,7 @@ describe('run command', () => {
     const projectDirectory = join(root, 'project');
     writeSettings(homeDirectory, 'default_profile: default\nprofile_sources:\n  - path: ./profiles\n');
     writeProfile(
-      join(homeDirectory, '.applepi', 'profiles'),
+      join(homeDirectory, '.outfitter', 'profiles'),
       'default',
       'id: default\ncontrols:\n  unsupported_feature: true\n',
     );

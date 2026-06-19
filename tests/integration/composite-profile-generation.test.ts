@@ -21,7 +21,7 @@ afterEach(() => {
 });
 
 describe('integration fixture composite profile generation', () => {
-  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-005.3, APPLEPI-REQ-005.6).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-005.3, OFTR-005.6).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('runs a repo-only selected profile over the user default and uses native fallback state', async () => {
     const fixture = copyFixtureToTemp('trivial_repo_only_profile');
@@ -49,7 +49,7 @@ describe('integration fixture composite profile generation', () => {
             ...(summarizePiCompositeProfile(fixture, compositeProfileRoot) as Record<string, unknown>),
           };
 
-          writeFileSync(join(compositeProfileRoot, 'applepi', 'profile.json'), '{"mutated":true}\n');
+          writeFileSync(join(compositeProfileRoot, 'outfitter', 'profile.json'), '{"mutated":true}\n');
           writeFileSync(join(compositeProfileRoot, 'settings.json'), '{"fallback":"updated"}\n');
           writeFileSync(join(compositeProfileRoot, 'unexpected.txt'), 'unknown write\n');
 
@@ -64,17 +64,17 @@ describe('integration fixture composite profile generation', () => {
     expect(result.warnings).toEqual(readExpectedJson(fixture, 'pi/warnings.json'));
     expect(warnings).toEqual(result.warnings);
     expect(readFileSync(join(fixture.home, '.pi', 'agent', 'settings.json'), 'utf8')).toBe('{"fallback":"updated"}\n');
-    expect(readFixtureText(fixture, 'home/.applepi/profiles/default/profile.yml')).toContain('USER_DEFAULT');
-    expect(readFixtureText(fixture, 'project/.applepi/profiles/repo-review/profile.yml')).toContain('REPO_PROFILE');
+    expect(readFixtureText(fixture, 'home/.outfitter/profiles/default/profile.yml')).toContain('USER_DEFAULT');
+    expect(readFixtureText(fixture, 'project/.outfitter/profiles/repo-review/profile.yml')).toContain('REPO_PROFILE');
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-006.6).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-006.6).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('reconciles native pi packages duplicated by profile-controlled extensions in the composite settings file', async () => {
     const fixture = copyFixtureToTemp('trivial_repo_only_profile');
     const nativeSettingsDirectory = join(fixture.home, '.pi', 'agent');
     const nativeSettingsPath = join(nativeSettingsDirectory, 'settings.json');
-    const profilePath = join(fixture.project, '.applepi', 'profiles', 'repo-review', 'profile.yml');
+    const profilePath = join(fixture.project, '.outfitter', 'profiles', 'repo-review', 'profile.yml');
     const warnings: string[] = [];
     let compositeSettings: unknown;
     let settingsIsSymlink = true;
@@ -115,17 +115,17 @@ describe('integration fixture composite profile generation', () => {
     expect(warnings).toEqual([]);
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-003.2, APPLEPI-REQ-005.3).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-003.2, OFTR-005.3).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('runs a realistic TypeScript profile stack over the user default without writing back inherited profiles', async () => {
     const fixture = copyFixtureToTemp('language_stack_with_personal_default');
     const warnings: string[] = [];
     let compositeProfileSummary: unknown;
     const inheritedProfilePaths = [
-      'home/.applepi/profiles/default/profile.yml',
-      'project/.applepi/profiles/repo-review-base/profile.yml',
-      'project/.applepi/profiles/language-typescript/profile.yml',
-      'project/.applepi/profiles/tooling-node-vitest/profile.yml',
+      'home/.outfitter/profiles/default/profile.yml',
+      'project/.outfitter/profiles/repo-review-base/profile.yml',
+      'project/.outfitter/profiles/language-typescript/profile.yml',
+      'project/.outfitter/profiles/tooling-node-vitest/profile.yml',
     ] as const;
     const originalInheritedProfiles = new Map(
       inheritedProfilePaths.map((profilePath) => [profilePath, readFixtureText(fixture, profilePath)]),
@@ -156,7 +156,7 @@ describe('integration fixture composite profile generation', () => {
             ...(summarizePiCompositeProfile(fixture, compositeProfileRoot) as Record<string, unknown>),
           };
 
-          writeFileSync(join(compositeProfileRoot, 'applepi', 'profile.json'), '{"mutated":true}\n');
+          writeFileSync(join(compositeProfileRoot, 'outfitter', 'profile.json'), '{"mutated":true}\n');
           writeFileSync(join(compositeProfileRoot, 'settings.json'), '{"language-stack":"updated"}\n');
           writeFileSync(join(compositeProfileRoot, 'scratch.log'), 'scratch output\n');
 
@@ -178,7 +178,7 @@ describe('integration fixture composite profile generation', () => {
     }
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-003.1, APPLEPI-REQ-003.3).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-003.1, OFTR-003.3).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('uses cached remote baseline settings while project-local settings select a local profile offline', async () => {
     const fixture = copyFixtureToTemp('remote_baseline_local_selection');
@@ -207,7 +207,7 @@ describe('integration fixture composite profile generation', () => {
             ...(summarizePiCompositeProfile(fixture, compositeProfileRoot) as Record<string, unknown>),
           };
 
-          writeFileSync(join(compositeProfileRoot, 'applepi', 'profile.json'), '{"mutated":true}\n');
+          writeFileSync(join(compositeProfileRoot, 'outfitter', 'profile.json'), '{"mutated":true}\n');
           writeFileSync(
             join(compositeProfileRoot, 'settings.json'),
             '{"owner":"pi-write","source":"LOCAL_SELECTION"}\n',
@@ -228,7 +228,7 @@ describe('integration fixture composite profile generation', () => {
       readFileSync(
         join(
           fixture.project,
-          '.applepi',
+          '.outfitter',
           'local',
           'profiles',
           'local-selection',
@@ -239,21 +239,21 @@ describe('integration fixture composite profile generation', () => {
         'utf8',
       ),
     ).toBe('{"owner":"pi-write","source":"LOCAL_SELECTION"}\n');
-    expect(readFixtureText(fixture, 'home/.applepi/settings.yml')).toContain('remote_settings');
-    expect(readFixtureText(fixture, 'project/.applepi/settings.yml')).not.toContain('default_profile');
-    expect(readFixtureText(fixture, 'project/.applepi/local/settings.yml')).toContain(
+    expect(readFixtureText(fixture, 'home/.outfitter/settings.yml')).toContain('remote_settings');
+    expect(readFixtureText(fixture, 'project/.outfitter/settings.yml')).not.toContain('default_profile');
+    expect(readFixtureText(fixture, 'project/.outfitter/local/settings.yml')).toContain(
       'default_profile: local-selection',
     );
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-005.6).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-005.6).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('diagnoses declared persistent state symlinks replaced by the agent without changing sources', async () => {
     const fixture = copyFixtureToTemp('state_path_replaced_by_agent');
     const warnings: string[] = [];
     const sourceSettingsPath = join(
       fixture.project,
-      '.applepi',
+      '.outfitter',
       'profiles',
       'state-replacement',
       'cli_specific',
@@ -262,7 +262,7 @@ describe('integration fixture composite profile generation', () => {
     );
     const sourceSessionsPath = join(
       fixture.project,
-      '.applepi',
+      '.outfitter',
       'profiles',
       'state-replacement',
       'cli_specific',
@@ -306,12 +306,12 @@ describe('integration fixture composite profile generation', () => {
     expect(readFileSync(join(sourceSessionsPath, 'session.txt'), 'utf8')).toBe(
       'profile-owned session remains unchanged\n',
     );
-    expect(readFixtureText(fixture, 'project/.applepi/profiles/state-replacement/profile.yml')).toContain(
+    expect(readFixtureText(fixture, 'project/.outfitter/profiles/state-replacement/profile.yml')).toContain(
       'state_persistence',
     );
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-002.2, APPLEPI-REQ-005.6).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-002.2, OFTR-005.6).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('uses project-local sandbox defaults and keeps sandbox state writes temporary', async () => {
     const fixture = copyFixtureToTemp('local_sandbox_overrides');
@@ -337,7 +337,7 @@ describe('integration fixture composite profile generation', () => {
               SHARED_LAYER: plan.env.SHARED_LAYER,
             },
             generatedProfile: JSON.parse(
-              readFileSync(join(compositeProfileRoot, 'applepi', 'profile.json'), 'utf8'),
+              readFileSync(join(compositeProfileRoot, 'outfitter', 'profile.json'), 'utf8'),
             ) as unknown,
             stateTargets: {
               'auth.json': tokenizeFixturePath(
@@ -363,7 +363,7 @@ describe('integration fixture composite profile generation', () => {
             },
           };
 
-          writeFileSync(join(compositeProfileRoot, 'applepi', 'profile.json'), '{"mutated":true}\n');
+          writeFileSync(join(compositeProfileRoot, 'outfitter', 'profile.json'), '{"mutated":true}\n');
           writeFileSync(join(compositeProfileRoot, 'settings.json'), '{"theme":"sandbox"}\n');
           mkdirSync(join(compositeProfileRoot, 'cache'), { recursive: true });
           writeFileSync(join(compositeProfileRoot, 'cache', 'experiment.json'), '{"cached":true}\n');
@@ -382,14 +382,14 @@ describe('integration fixture composite profile generation', () => {
     expect(result.warnings).toEqual(readExpectedJson(fixture, 'pi/warnings.json'));
     expect(warnings).toEqual(result.warnings);
     expect(readFileSync(join(fixture.home, '.pi', 'agent', 'settings.json'), 'utf8')).toBe('{ "theme": "stable" }\n');
-    expect(existsSync(join(fixture.project, '.applepi', 'local', 'cache', 'cache', 'experiment.json'))).toBe(false);
-    expect(readFixtureText(fixture, 'project/.applepi/profiles/repo-review/profile.yml')).toContain('--repo-review');
-    expect(readFixtureText(fixture, 'project/.applepi/local/profiles/local-sandbox/profile.yml')).toContain(
+    expect(existsSync(join(fixture.project, '.outfitter', 'local', 'cache', 'cache', 'experiment.json'))).toBe(false);
+    expect(readFixtureText(fixture, 'project/.outfitter/profiles/repo-review/profile.yml')).toContain('--repo-review');
+    expect(readFixtureText(fixture, 'project/.outfitter/local/profiles/local-sandbox/profile.yml')).toContain(
       'settings.json: warn',
     );
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-005.3, APPLEPI-REQ-005.6).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-005.3, OFTR-005.6).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('creates and owns pi native fallback state when profiles provide no cli-specific state', async () => {
     const fixture = copyFixtureToTemp('native_fallback_cli_state');
@@ -415,7 +415,7 @@ describe('integration fixture composite profile generation', () => {
               USER_NATIVE_DEFAULT: plan.env.USER_NATIVE_DEFAULT,
             },
             generatedProfile: JSON.parse(
-              readFileSync(join(compositeProfileRoot, 'applepi', 'profile.json'), 'utf8'),
+              readFileSync(join(compositeProfileRoot, 'outfitter', 'profile.json'), 'utf8'),
             ) as unknown,
             stateTargets: Object.fromEntries(
               [
@@ -456,7 +456,7 @@ describe('integration fixture composite profile generation', () => {
           );
           writeFileSync(join(compositeProfileRoot, 'utilities', 'tool.txt'), 'utility cache\n');
           writeFileSync(join(compositeProfileRoot, 'bin', 'pi-helper'), 'helper cache\n');
-          writeFileSync(join(compositeProfileRoot, 'applepi', 'profile.json'), '{"mutated":true}\n');
+          writeFileSync(join(compositeProfileRoot, 'outfitter', 'profile.json'), '{"mutated":true}\n');
           mkdirSync(join(compositeProfileRoot, 'scratch'), { recursive: true });
           writeFileSync(join(compositeProfileRoot, 'scratch', 'native-note.txt'), 'undeclared write\n');
 
@@ -470,7 +470,7 @@ describe('integration fixture composite profile generation', () => {
     expect(result.agentId).toBe('pi');
     expect(result.warnings).toEqual(readExpectedJson(fixture, 'pi/warnings.json'));
     expect(warnings).toEqual(result.warnings);
-    expect(existsSync(join(fixture.project, '.applepi', 'profiles', 'fallback-review', 'cli_specific'))).toBe(false);
+    expect(existsSync(join(fixture.project, '.outfitter', 'profiles', 'fallback-review', 'cli_specific'))).toBe(false);
     expect(readFileSync(join(fixture.home, '.pi', 'agent', 'auth.json'), 'utf8')).toBe('{"token":"native-auth"}\n');
     expect(readFileSync(join(fixture.home, '.pi', 'agent', 'settings.json'), 'utf8')).toBe(
       '{"approval":"on-request"}\n',
@@ -492,18 +492,18 @@ describe('integration fixture composite profile generation', () => {
     expect(readFileSync(join(fixture.home, '.pi', 'agent', 'tmp', 'extensions', 'checkout.json'), 'utf8')).toBe(
       '{"repo":"fixture-extension"}\n',
     );
-    expect(readFileSync(join(fixture.home, '.applepi', 'cache', 'utilities', 'tool.txt'), 'utf8')).toBe(
+    expect(readFileSync(join(fixture.home, '.outfitter', 'cache', 'utilities', 'tool.txt'), 'utf8')).toBe(
       'utility cache\n',
     );
-    expect(readFileSync(join(fixture.home, '.applepi', 'cache', 'utilities', 'pi-helper'), 'utf8')).toBe(
+    expect(readFileSync(join(fixture.home, '.outfitter', 'cache', 'utilities', 'pi-helper'), 'utf8')).toBe(
       'helper cache\n',
     );
-    expect(readFixtureText(fixture, 'project/.applepi/profiles/fallback-review/profile.yml')).toContain(
+    expect(readFixtureText(fixture, 'project/.outfitter/profiles/fallback-review/profile.yml')).toContain(
       'fallback-review-model',
     );
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-005.3, APPLEPI-REQ-005.6).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-005.3, OFTR-005.6).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('uses the configured cache directory for reusable pi tooling state across compositeProfiles', async () => {
     const fixture = copyFixtureToTemp('cache_backed_tooling_state');
@@ -530,7 +530,7 @@ describe('integration fixture composite profile generation', () => {
               TOOLING_OWNER: plan.env.TOOLING_OWNER,
             },
             generatedProfile: JSON.parse(
-              readFileSync(join(compositeProfileRoot, 'applepi', 'profile.json'), 'utf8'),
+              readFileSync(join(compositeProfileRoot, 'outfitter', 'profile.json'), 'utf8'),
             ) as unknown,
             stateTargets: {
               bin: tokenizeFixturePath(fixture, readlinkSync(join(compositeProfileRoot, 'bin')), compositeProfileRoot),
@@ -593,7 +593,7 @@ describe('integration fixture composite profile generation', () => {
       existsSync(
         join(
           fixture.project,
-          '.applepi',
+          '.outfitter',
           'profiles',
           'cache-tooling',
           'cli_specific',
@@ -605,10 +605,10 @@ describe('integration fixture composite profile generation', () => {
     ).toBe(false);
     expect(
       existsSync(
-        join(fixture.project, '.applepi', 'profiles', 'cache-tooling', 'cli_specific', 'pi', 'bin', 'from-bin.txt'),
+        join(fixture.project, '.outfitter', 'profiles', 'cache-tooling', 'cli_specific', 'pi', 'bin', 'from-bin.txt'),
       ),
     ).toBe(false);
-    expect(readFixtureText(fixture, 'project/.applepi/profiles/cache-tooling/profile.yml')).toContain(
+    expect(readFixtureText(fixture, 'project/.outfitter/profiles/cache-tooling/profile.yml')).toContain(
       'CACHE_TOOLING_PROFILE',
     );
   });

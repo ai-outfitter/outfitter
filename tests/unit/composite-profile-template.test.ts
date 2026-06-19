@@ -1,4 +1,4 @@
-// Tests ApplePi-time template rendering for generated compositeProfile files.
+// Tests Outfitter-time template rendering for generated compositeProfile files.
 import { describe, expect, it } from 'vitest';
 
 import { createCompositeProfile } from '../../src/compositeProfile/CompositeProfile.js';
@@ -6,14 +6,14 @@ import { createCompositeProfileFile } from '../../src/compositeProfile/Composite
 import { renderCompositeProfileTemplates } from '../../src/compositeProfile/CompositeProfileTemplate.js';
 
 describe('compositeProfile template rendering', () => {
-  it('renders ApplePi compositeProfile templates with custom delimiters and leaves common shell conditionals alone', () => {
-    const compositeProfile = createCompositeProfile('/tmp/applepi-template-test', [
+  it('renders Outfitter compositeProfile templates with custom delimiters and leaves common shell conditionals alone', () => {
+    const compositeProfile = createCompositeProfile('/tmp/outfitter-template-test', [
       createCompositeProfileFile({
         relativePath: 'settings.yml',
         content: [
-          'lint: "[[= applepi.custom_settings.build_commands.lint ]]"',
+          'lint: "[[= outfitter.custom_settings.build_commands.lint ]]"',
           'commands:',
-          '[[% for command in applepi.custom_settings.commands %]]',
+          '[[% for command in outfitter.custom_settings.commands %]]',
           '  - "[[= command ]]"',
           '[[% endfor %]]',
           'shell: "[[ -f package.json ]]"',
@@ -31,7 +31,7 @@ describe('compositeProfile template rendering', () => {
           commands: ['npm test', 'npm run build'],
         },
       },
-      settingsPaths: ['/home/example/.applepi/settings.yml'],
+      settingsPaths: ['/home/example/.outfitter/settings.yml'],
       profile: { id: 'default', inherits: [], controls: {} },
       agentId: 'pi',
       projectDirectory: '/work/project',
@@ -43,14 +43,14 @@ describe('compositeProfile template rendering', () => {
     expect(rendered.files[0]?.content).toContain('shell: "[[ -f package.json ]]"');
     expect(rendered.files[0]?.sourceInputs).toEqual([
       '/profiles/default/profile.yml',
-      '/home/example/.applepi/settings.yml',
+      '/home/example/.outfitter/settings.yml',
     ]);
     expect(() =>
       renderCompositeProfileTemplates({
-        compositeProfile: createCompositeProfile('/tmp/applepi-template-test', [
+        compositeProfile: createCompositeProfile('/tmp/outfitter-template-test', [
           createCompositeProfileFile({
             relativePath: 'bad.yml',
-            content: 'missing: [[= applepi.custom_settings.missing ]]\n',
+            content: 'missing: [[= outfitter.custom_settings.missing ]]\n',
           }),
         ]),
         settings: { customSettings: {} },
@@ -59,13 +59,13 @@ describe('compositeProfile template rendering', () => {
         agentId: 'pi',
         projectDirectory: '/work/project',
       }),
-    ).toThrow("Cannot render ApplePi template in compositeProfile file 'bad.yml'");
+    ).toThrow("Cannot render Outfitter template in compositeProfile file 'bad.yml'");
   });
 
   it('renders built-in context when no custom settings are defined', () => {
     const rendered = renderCompositeProfileTemplates({
-      compositeProfile: createCompositeProfile('/tmp/applepi-template-test', [
-        createCompositeProfileFile({ relativePath: 'agent.txt', content: 'agent=[[= applepi.agent ]]\n' }),
+      compositeProfile: createCompositeProfile('/tmp/outfitter-template-test', [
+        createCompositeProfileFile({ relativePath: 'agent.txt', content: 'agent=[[= outfitter.agent ]]\n' }),
       ]),
       settings: {},
       settingsPaths: [],

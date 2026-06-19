@@ -7,8 +7,8 @@ import { describe, expect, it } from 'vitest';
 import { createWelcomeCommand, executeWelcomeCommand } from '../../src/cli/commands/WelcomeCommand.js';
 
 const defaultLoadoutSources = [
-  'git:github.com/applepi-ai/ulta-tasklist',
-  'git:github.com/applepi-ai/deepwork',
+  'git:github.com/ai-outfitter/ulta-tasklist',
+  'git:github.com/ai-outfitter/deepwork',
   'npm:pi-subagents',
   'npm:pi-mcp-adapter',
 ];
@@ -27,11 +27,11 @@ describe('welcome command', () => {
     expect(result).toEqual({
       answered: false,
       warnings: [],
-      messages: ['Skipped ApplePi welcome questions. Run `applepi welcome` any time to revisit them.'],
+      messages: ['Skipped Outfitter welcome questions. Run `outfitter welcome` any time to revisit them.'],
     });
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-010.2, APPLEPI-REQ-010.3).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-010.2, OFTR-010.3).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('returns selected default-profile role and recommended loadout data', async () => {
     const result = await executeWelcomeCommand(
@@ -49,12 +49,12 @@ describe('welcome command', () => {
     expect(result.selectedLoadout?.selectedItems.map((item) => item.source)).toEqual(defaultLoadoutSources);
     expect(result.warnings).toEqual([]);
     expect(result.messages).toEqual([
-      'Selected ApplePi role: data_analyst (Data Analyst).',
+      'Selected Outfitter role: data_analyst (Data Analyst).',
       `Selected Recommended Pi productivity loadout: ${defaultLoadoutSources.join(', ')}.`,
     ]);
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-010.2, APPLEPI-REQ-010.3).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-010.2, OFTR-010.3).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('falls back for unknown roles and skips unknown loadout items', async () => {
     const result = await executeWelcomeCommand(
@@ -72,7 +72,7 @@ describe('welcome command', () => {
 
     expect(result.selectedRole).toEqual({ id: 'engineer', label: 'Engineer' });
     expect(result.selectedLoadout?.selectedItems.map((item) => item.source)).toEqual([
-      'git:github.com/applepi-ai/deepwork',
+      'git:github.com/ai-outfitter/deepwork',
     ]);
     expect(result.warnings).toEqual([
       "Welcome role 'reviewer' is not available; using fallback role 'engineer'.",
@@ -97,15 +97,15 @@ describe('welcome command', () => {
       },
     }).register(program);
 
-    await program.parseAsync(['node', 'applepi', 'welcome']);
+    await program.parseAsync(['node', 'outfitter', 'welcome']);
 
     expect(messages).toEqual([
-      'Selected ApplePi role: engineer (Engineer).',
+      'Selected Outfitter role: engineer (Engineer).',
       `Selected Recommended Pi productivity loadout: ${defaultLoadoutSources.join(', ')}.`,
     ]);
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-010.1, APPLEPI-REQ-010.2, APPLEPI-REQ-010.3).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-010.1, OFTR-010.2, OFTR-010.3).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('supports readline answers for role and selected loadout items while showing welcome text', async () => {
     const input = Object.assign(new PassThrough(), { isTTY: true });
@@ -141,7 +141,7 @@ describe('welcome command', () => {
     expect(result.answered).toBe(true);
     expect(result.selectedRole?.id).toBe('data_analyst');
     expect(result.selectedLoadout?.selectedItems.map((item) => item.source)).toEqual([
-      'git:github.com/applepi-ai/deepwork',
+      'git:github.com/ai-outfitter/deepwork',
       'npm:pi-mcp-adapter',
     ]);
   });
@@ -223,7 +223,7 @@ describe('welcome command', () => {
     expect(result.selectedRole?.id).toBe('engineer');
     expect(result.selectedLoadout?.selectedItems).toEqual([]);
     expect(result.messages).toEqual([
-      'Selected ApplePi role: engineer (Engineer).',
+      'Selected Outfitter role: engineer (Engineer).',
       'Skipped Recommended Pi productivity loadout.',
     ]);
   });
