@@ -34,10 +34,10 @@ const piStatePathDeclarations = {
   'cache/': { defaultStrategy: 'symlink', allowedStrategies: ['symlink', 'discard', 'warn', 'error'] },
   'sessions/': { defaultStrategy: 'symlink', allowedStrategies: ['symlink', 'discard', 'warn', 'error'] },
   // Pi installs npm-sourced packages here for user-scoped `pi install npm:...` entries.
-  // Persisting it keeps package updates across ApplePi's temporary composite profile directories.
+  // Persisting it keeps package updates across Outfitter's temporary composite profile directories.
   'npm/': { defaultStrategy: 'symlink', allowedStrategies: ['symlink', 'discard', 'warn', 'error'] },
   // Pi clones git-sourced packages here for user-scoped `pi install git:...` entries.
-  // Persisting it prevents every ApplePi run from re-cloning or using stale temporary checkouts.
+  // Persisting it prevents every Outfitter run from re-cloning or using stale temporary checkouts.
   'git/': { defaultStrategy: 'symlink', allowedStrategies: ['symlink', 'discard', 'warn', 'error'] },
   // Pi expands git-sourced extensions and other temporary runtime artifacts here.
   // Persisting it avoids noisy unknown-write diagnostics and lets pi reuse the native tmp tree.
@@ -59,7 +59,7 @@ export const createPiAdapter = (): AgentAdapter => ({
       [
         createCompositeProfileFile({
           rootDirectory: input.rootDirectory,
-          relativePath: 'applepi/profile.json',
+          relativePath: 'outfitter/profile.json',
           content: `${JSON.stringify({ id: profile.id, label: profile.label, controls: profile.controls }, null, 2)}\n`,
           sourceInputs: input.profilePaths,
           strategy: 'transform',
@@ -217,7 +217,7 @@ const resolvePiStateSourcePath = (
     join(
       /* v8 ignore next -- run command always passes homeDirectory; environment fallbacks are defensive. */
       homeDirectory ?? process.env.HOME ?? '.',
-      '.applepi',
+      '.outfitter',
       'cache',
     );
 

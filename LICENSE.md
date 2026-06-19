@@ -4,7 +4,7 @@
 
 **Licensor:** Unsupervised.com, Inc.
 
-**Licensed Work:** ApplePi
+**Licensed Work:** Outfitter
 
 The Licensed Work is © 2026 Unsupervised.com, Inc.
 

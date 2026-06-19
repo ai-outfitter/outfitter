@@ -43,7 +43,7 @@
   },
   "stateTargets": {
     "auth.json": "<home>/.pi/agent/auth.json",
-    "settings.json": "<project>/.applepi/local/profiles/local-selection/cli_specific/pi/settings.json",
-    "utilities": "<home>/.applepi/cache/repos/Z2l0K2h0dHBzOi8vZ2l0aHViLmNvbS9hY21lL2FwcGxlcGktYmFzZWxpbmUuZ2l0I3Yx/settings/cache-from-remote-settings/utilities"
+    "settings.json": "<project>/.outfitter/local/profiles/local-selection/cli_specific/pi/settings.json",
+    "utilities": "<home>/.outfitter/cache/repos/Z2l0K2h0dHBzOi8vZ2l0aHViLmNvbS9hY21lL291dGZpdHRlci1iYXNlbGluZS5naXQjdjE/settings/cache-from-remote-settings/utilities"
   }
 }

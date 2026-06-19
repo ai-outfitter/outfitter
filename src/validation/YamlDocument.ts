@@ -1,4 +1,4 @@
-// Parses YAML text into ApplePi validation-friendly document results.
+// Parses YAML text into Outfitter validation-friendly document results.
 import { parse } from 'yaml';
 
 export interface ParsedYamlDocument {

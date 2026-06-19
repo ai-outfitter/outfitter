@@ -77,7 +77,7 @@
   },
   "stateTargets": {
     "auth.json": "<home>/.pi/agent/auth.json",
-    "settings.json": "<project>/.applepi/local/profiles/engineering/cli_specific/pi/settings.json",
-    "utilities": "<home>/.applepi/cache/utilities"
+    "settings.json": "<project>/.outfitter/local/profiles/engineering/cli_specific/pi/settings.json",
+    "utilities": "<home>/.outfitter/cache/utilities"
   }
 }

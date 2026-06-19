@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { parseProfileYaml } from '../../src/profiles/ProfileLoader.js';
 
 describe('profile control parsing', () => {
-  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-005.3, APPLEPI-REQ-006.3).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-005.3, OFTR-006.3).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('parses generic, pi, and claude array controls from profile YAML', () => {
     const profile = parseProfileYaml(

@@ -1,4 +1,4 @@
-# ApplePi Phased Implementation Plan
+# Outfitter Phased Implementation Plan
 
 This plan describes the order of work.
 Formal obligations live in `requirements/`.
@@ -14,7 +14,7 @@ Formal obligations live in `requirements/`.
 
 - [x] Define initial `settings.yml` and `profile.yml` JSON Schemas.
 - [x] Implement YAML parsing and schema validation with useful diagnostics.
-- [x] Implement `.applepi/settings.yml` discovery scaffolding across user, project, and project-local scopes.
+- [x] Implement `.outfitter/settings.yml` discovery scaffolding across user, project, and project-local scopes.
 - [x] Implement deterministic settings merging into the internal `Settings` object.
 
 ## Phase 3: Profile sources and profile resolution — Done

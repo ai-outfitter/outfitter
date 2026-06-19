@@ -12,13 +12,13 @@ import { createRemoteRepositoryCachePath } from '../../src/profiles/ProfileCache
 const temporaryRoots: string[] = [];
 
 const createTemporaryRoot = (): string => {
-  const root = mkdtempSync(join(tmpdir(), 'applepi-remote-sources-'));
+  const root = mkdtempSync(join(tmpdir(), 'outfitter-remote-sources-'));
   temporaryRoots.push(root);
   return root;
 };
 
 const writeSettings = (homeDirectory: string, content: string): void => {
-  const settingsDirectory = join(homeDirectory, '.applepi');
+  const settingsDirectory = join(homeDirectory, '.outfitter');
   mkdirSync(settingsDirectory, { recursive: true });
   writeFileSync(join(settingsDirectory, 'settings.yml'), content);
 };
@@ -36,7 +36,7 @@ afterEach(() => {
 });
 
 describe('remote source settings', () => {
-  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-002.5, APPLEPI-REQ-002.6, APPLEPI-REQ-004.2).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-002.5, OFTR-002.6, OFTR-004.2).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('syncs remote settings and profile sources from repository subpaths', () => {
     const root = createTemporaryRoot();
@@ -44,7 +44,7 @@ describe('remote source settings', () => {
     const projectDirectory = join(root, 'project');
     writeSettings(
       homeDirectory,
-      `remote_settings:\n  - github: example/applepi-config\n    ref: main\n    path: settings.yml\n`,
+      `remote_settings:\n  - github: example/outfitter-config\n    ref: main\n    path: settings.yml\n`,
     );
 
     const syncedSources: string[] = [];
@@ -54,11 +54,11 @@ describe('remote source settings', () => {
         synchronizer: {
           sync(source, cachePath) {
             syncedSources.push(source.github ?? source.uri);
-            if (source.github === 'example/applepi-config' && source.path === 'settings.yml') {
+            if (source.github === 'example/outfitter-config' && source.path === 'settings.yml') {
               mkdirSync(cachePath, { recursive: true });
               writeFileSync(
                 join(cachePath, 'settings.yml'),
-                `default_profile: remote\nprofile_sources:\n  - github: example/applepi-config\n    ref: main\n    path: profiles/team\n`,
+                `default_profile: remote\nprofile_sources:\n  - github: example/outfitter-config\n    ref: main\n    path: profiles/team\n`,
               );
             } else {
               writeCachedProfile(join(cachePath, source.path ?? ''), 'remote');
@@ -69,7 +69,7 @@ describe('remote source settings', () => {
       },
     );
 
-    expect(syncedSources).toEqual(['example/applepi-config', 'example/applepi-config']);
+    expect(syncedSources).toEqual(['example/outfitter-config', 'example/outfitter-config']);
     expect(result.sources).toHaveLength(2);
     expect(result.sources[0]?.message).toContain('Remote settings file available');
     expect(result.sources[1]?.message).toBe('1 profile validated.');
@@ -120,7 +120,7 @@ describe('remote source settings', () => {
     ).toThrow('Cannot sync with invalid settings');
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-002.6, APPLEPI-REQ-004.2).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-002.6, OFTR-004.2).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('reports unsafe remote settings subpaths as per-source sync failures', () => {
     const root = createTemporaryRoot();
@@ -157,7 +157,7 @@ describe('remote source settings', () => {
     expect(unsafeSyncCalls).toEqual([]);
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-002.5, APPLEPI-REQ-004.2, APPLEPI-REQ-005.1).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-002.5, OFTR-004.2, OFTR-005.1).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('runs profiles loaded from GitHub shorthand repository subpaths', async () => {
     const root = createTemporaryRoot();
@@ -165,11 +165,11 @@ describe('remote source settings', () => {
     const projectDirectory = join(root, 'project');
     writeSettings(
       homeDirectory,
-      `default_profile: remote\nprofile_sources:\n  - github: example/applepi-config\n    ref: main\n    path: profiles/team\n`,
+      `default_profile: remote\nprofile_sources:\n  - github: example/outfitter-config\n    ref: main\n    path: profiles/team\n`,
     );
     writeCachedProfile(
       join(
-        createRemoteRepositoryCachePath(homeDirectory, { github: 'example/applepi-config', ref: 'main' }),
+        createRemoteRepositoryCachePath(homeDirectory, { github: 'example/outfitter-config', ref: 'main' }),
         'profiles',
         'team',
       ),
@@ -201,7 +201,7 @@ describe('remote source settings', () => {
     const escapedProfileHomeDirectory = join(root, 'escaped-profile-home');
     writeSettings(
       escapedProfileHomeDirectory,
-      `default_profile: remote\nprofile_sources:\n  - github: example/applepi-config\n    path: ../profiles\n`,
+      `default_profile: remote\nprofile_sources:\n  - github: example/outfitter-config\n    path: ../profiles\n`,
     );
     await expect(
       executeRunCommand(

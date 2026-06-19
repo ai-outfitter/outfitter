@@ -11,7 +11,7 @@ instructions: |
   claims:
 
   ```ts
-  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-008.3).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-008.3).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it("validates durable behavior", () => {
     // ...
@@ -28,8 +28,8 @@ requirements:
   required-two-line-traceability-comment: >
     Tests that validate a formal requirement MUST include both traceability
     comment lines: `THIS TEST VALIDATES A HARD REQUIREMENT (...)` with one or
-    more requirement IDs such as `APPLEPI-REQ-NNN.M` or comma-separated IDs such
-    as `APPLEPI-REQ-005.3, APPLEPI-REQ-005.6`, and `YOU MUST NOT MODIFY THIS TEST
+    more requirement IDs such as `OFTR-NNN.M` or comma-separated IDs such
+    as `OFTR-005.3, OFTR-005.6`, and `YOU MUST NOT MODIFY THIS TEST
     UNLESS THE REQUIREMENT CHANGES.`
 
   immediate-traceability-comment-placement: >
@@ -45,9 +45,9 @@ requirements:
     Tests that validate a formal requirement MUST include a durable traceability
     comment identifying the requirement ID and warning that the test must not be
     modified unless the requirement changes.
-  valid-applepi-requirement-id: >
+  valid-outfitter-requirement-id: >
     Requirement traceability comments MUST reference IDs using the pattern
-    `APPLEPI-REQ-NNN.M` unless the test is intentionally validating an external
+    `OFTR-NNN.M` unless the test is intentionally validating an external
     standard documented by another prefix.
   no-transient-comment-context: >
     Test comments MUST NOT rely on source line numbers, pull request numbers,

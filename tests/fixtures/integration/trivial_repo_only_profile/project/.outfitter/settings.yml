@@ -1,0 +1,3 @@
+profile_sources:
+  - path: ../../home/.outfitter/profiles
+  - path: ./profiles

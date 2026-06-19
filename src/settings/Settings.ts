@@ -1,4 +1,4 @@
-// Defines the internal Settings shape produced from ApplePi settings files.
+// Defines the internal Settings shape produced from Outfitter settings files.
 import type { ProfileSourceReference, RemoteSourceReference } from '../profiles/ProfileSource.js';
 
 export type RemoteSettingsReference = RemoteSourceReference & { readonly path: string };

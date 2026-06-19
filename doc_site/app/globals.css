@@ -1,76 +1,76 @@
 :root {
-  --applepi-bg: #09090b;
-  --applepi-bg-2: #0d0d11;
-  --applepi-panel: #111116;
-  --applepi-panel-2: #16161d;
-  --applepi-border: rgba(255, 255, 255, 0.09);
-  --applepi-border-2: rgba(255, 255, 255, 0.15);
-  --applepi-fg: #fafafa;
-  --applepi-muted: #c7c7d1;
-  --applepi-dim: #8b8b97;
-  --applepi-indigo: #7c6dff;
-  --applepi-indigo-2: #9a8cff;
-  --applepi-cyan: #34e3e3;
-  --applepi-teal: #18b8a6;
-  --applepi-green: #46d39a;
-  --applepi-amber: #f5b657;
-  --applepi-font: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  --applepi-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  --applepi-serif: Georgia, serif;
+  --outfitter-bg: #09090b;
+  --outfitter-bg-2: #0d0d11;
+  --outfitter-panel: #111116;
+  --outfitter-panel-2: #16161d;
+  --outfitter-border: rgba(255, 255, 255, 0.09);
+  --outfitter-border-2: rgba(255, 255, 255, 0.15);
+  --outfitter-fg: #fafafa;
+  --outfitter-muted: #c7c7d1;
+  --outfitter-dim: #8b8b97;
+  --outfitter-indigo: #7c6dff;
+  --outfitter-indigo-2: #9a8cff;
+  --outfitter-cyan: #34e3e3;
+  --outfitter-teal: #18b8a6;
+  --outfitter-green: #46d39a;
+  --outfitter-amber: #f5b657;
+  --outfitter-font: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --outfitter-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  --outfitter-serif: Georgia, serif;
 }
 
-.applepi-landing {
+.outfitter-landing {
   width: min(100vw, calc(100vw - var(--removed-body-scroll-bar-size, 0px)));
   margin: -2rem calc(50% - 50vw) 0;
   overflow: hidden;
-  background: var(--applepi-bg);
-  color: var(--applepi-fg);
-  font-family: var(--applepi-font);
+  background: var(--outfitter-bg);
+  color: var(--outfitter-fg);
+  font-family: var(--outfitter-font);
   line-height: 1.5;
 }
 
-.applepi-landing * {
+.outfitter-landing * {
   box-sizing: border-box;
 }
 
-.applepi-landing a {
+.outfitter-landing a {
   color: inherit;
   text-decoration: none;
 }
 
-.applepi-wrap {
+.outfitter-wrap {
   width: min(1180px, calc(100% - 56px));
   margin: 0 auto;
 }
 
-.applepi-hero {
+.outfitter-hero {
   position: relative;
   overflow: hidden;
-  border-bottom: 1px solid var(--applepi-border);
+  border-bottom: 1px solid var(--outfitter-border);
 }
 
-.applepi-hero-bg {
+.outfitter-hero-bg {
   position: absolute;
   inset: 0;
   pointer-events: none;
 }
 
-.applepi-hero-bg > * {
+.outfitter-hero-bg > * {
   position: absolute;
   pointer-events: none;
 }
 
-.applepi-dots {
+.outfitter-dots {
   inset: 0;
 }
 
-.applepi-dots {
+.outfitter-dots {
   background-image: radial-gradient(rgba(255, 255, 255, 0.075) 1px, transparent 1px);
   background-size: 24px 24px;
   mask-image: radial-gradient(ellipse 70% 60% at 50% 30%, #000 35%, transparent 78%);
 }
 
-.applepi-glow {
+.outfitter-glow {
   left: 50%;
   top: -16%;
   width: min(1000px, 120vw);
@@ -86,12 +86,12 @@
   filter: blur(20px);
 }
 
-.applepi-beam {
+.outfitter-beam {
   width: 1.5px;
   height: 900px;
   margin-top: -90px;
   background: linear-gradient(transparent, rgba(124, 109, 255, 0.7), rgba(52, 227, 227, 0.35), transparent);
-  animation: applepi-beam 9s ease-in-out infinite alternate;
+  animation: outfitter-beam 9s ease-in-out infinite alternate;
 }
 
 .beam-one {
@@ -109,7 +109,7 @@
   animation-delay: -6s;
 }
 
-@keyframes applepi-beam {
+@keyframes outfitter-beam {
   from {
     opacity: 0.35;
   }
@@ -118,7 +118,7 @@
   }
 }
 
-.applepi-hero-inner {
+.outfitter-hero-inner {
   position: relative;
   z-index: 1;
   display: grid;
@@ -128,34 +128,34 @@
   padding: 72px 0 84px;
 }
 
-.applepi-copy {
+.outfitter-copy {
   display: grid;
   gap: 24px;
 }
 
-.applepi-badge {
+.outfitter-badge {
   display: inline-flex;
   width: fit-content;
   align-items: center;
   gap: 9px;
   margin: 0;
   padding: 6px 14px 6px 12px;
-  border: 1px solid var(--applepi-border-2);
+  border: 1px solid var(--outfitter-border-2);
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.04);
-  color: var(--applepi-muted);
+  color: var(--outfitter-muted);
   font-size: 13px;
 }
 
-.applepi-badge span {
+.outfitter-badge span {
   width: 7px;
   height: 7px;
   border-radius: 999px;
-  background: var(--applepi-green);
+  background: var(--outfitter-green);
   box-shadow: 0 0 0 4px rgba(70, 211, 154, 0.18);
 }
 
-.applepi-hero h1 {
+.outfitter-hero h1 {
   max-width: 13ch;
   margin: 0;
   font-size: clamp(42px, 6.4vw, 76px);
@@ -164,29 +164,29 @@
   line-height: 1.02;
 }
 
-.applepi-hero h1 span,
-.applepi-cta em {
-  background: linear-gradient(100deg, var(--applepi-indigo-2), var(--applepi-cyan));
+.outfitter-hero h1 span,
+.outfitter-cta em {
+  background: linear-gradient(100deg, var(--outfitter-indigo-2), var(--outfitter-cyan));
   background-clip: text;
   color: transparent;
 }
 
-.applepi-lede {
+.outfitter-lede {
   max-width: 48ch;
   margin: 0;
-  color: var(--applepi-muted);
+  color: var(--outfitter-muted);
   font-size: clamp(16px, 1.6vw, 19px);
   line-height: 1.62;
 }
 
-.applepi-actions {
+.outfitter-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 12px;
   align-items: center;
 }
 
-.applepi-button {
+.outfitter-button {
   display: inline-flex;
   height: 46px;
   align-items: center;
@@ -200,12 +200,12 @@
     background 0.2s ease;
 }
 
-.applepi-button:hover {
+.outfitter-button:hover {
   transform: translateY(-1px);
 }
 
-.applepi-button.primary {
-  background: linear-gradient(180deg, var(--applepi-indigo-2), var(--applepi-indigo));
+.outfitter-button.primary {
+  background: linear-gradient(180deg, var(--outfitter-indigo-2), var(--outfitter-indigo));
   box-shadow:
     0 0 0 1px rgba(124, 109, 255, 0.5),
     0 14px 40px -10px rgba(124, 109, 255, 0.75),
@@ -213,28 +213,28 @@
   color: white;
 }
 
-.applepi-button.ghost {
-  border: 1px solid var(--applepi-border-2);
+.outfitter-button.ghost {
+  border: 1px solid var(--outfitter-border-2);
   background: rgba(255, 255, 255, 0.04);
-  color: var(--applepi-fg);
+  color: var(--outfitter-fg);
 }
 
-.applepi-sub {
+.outfitter-sub {
   margin: 0;
   color: #6f6f7b;
-  font-family: var(--applepi-mono);
+  font-family: var(--outfitter-mono);
   font-size: 13px;
 }
 
-.applepi-sub code,
-.applepi-landing code {
-  font-family: var(--applepi-mono);
+.outfitter-sub code,
+.outfitter-landing code {
+  font-family: var(--outfitter-mono);
 }
 
-.applepi-terminal,
-.applepi-config-card {
+.outfitter-terminal,
+.outfitter-config-card {
   overflow: hidden;
-  border: 1px solid var(--applepi-border-2);
+  border: 1px solid var(--outfitter-border-2);
   border-radius: 14px;
   background: linear-gradient(180deg, #0c0c12, #0a0a0e);
   box-shadow:
@@ -243,11 +243,11 @@
     0 0 60px -20px rgba(124, 109, 255, 0.4);
 }
 
-.applepi-float {
-  animation: applepi-float 7s ease-in-out infinite;
+.outfitter-float {
+  animation: outfitter-float 7s ease-in-out infinite;
 }
 
-@keyframes applepi-float {
+@keyframes outfitter-float {
   0%,
   100% {
     transform: translateY(0);
@@ -257,56 +257,56 @@
   }
 }
 
-.applepi-termbar {
+.outfitter-termbar {
   display: flex;
   align-items: center;
   gap: 8px;
   padding: 11px 14px;
-  border-bottom: 1px solid var(--applepi-border);
+  border-bottom: 1px solid var(--outfitter-border);
   background: rgba(255, 255, 255, 0.02);
 }
 
-.applepi-termbar i {
+.outfitter-termbar i {
   width: 11px;
   height: 11px;
   border-radius: 999px;
 }
 
-.applepi-termbar i:nth-child(1) {
+.outfitter-termbar i:nth-child(1) {
   background: #ff5f57;
 }
-.applepi-termbar i:nth-child(2) {
+.outfitter-termbar i:nth-child(2) {
   background: #febc2e;
 }
-.applepi-termbar i:nth-child(3) {
+.outfitter-termbar i:nth-child(3) {
   background: #28c840;
 }
-.applepi-termbar span {
+.outfitter-termbar span {
   margin-left: 8px;
   color: #6f6f7b;
-  font: 12px var(--applepi-mono);
+  font: 12px var(--outfitter-mono);
 }
 
-.applepi-terminal pre,
-.applepi-config-card pre {
+.outfitter-terminal pre,
+.outfitter-config-card pre {
   margin: 0;
   padding: 18px 20px 22px;
   overflow: auto;
   background: transparent;
-  color: var(--applepi-muted);
-  font: 13px/1.8 var(--applepi-mono);
+  color: var(--outfitter-muted);
+  font: 13px/1.8 var(--outfitter-mono);
 }
 
 .prompt,
 .arrow {
-  color: var(--applepi-indigo-2);
+  color: var(--outfitter-indigo-2);
 }
 .flag,
 .ok {
-  color: var(--applepi-cyan);
+  color: var(--outfitter-cyan);
 }
 .value {
-  color: var(--applepi-amber);
+  color: var(--outfitter-amber);
 }
 .dim {
   color: #6f6f7b;
@@ -316,206 +316,206 @@
   width: 8px;
   height: 15px;
   margin-left: 2px;
-  background: var(--applepi-cyan);
+  background: var(--outfitter-cyan);
   vertical-align: -2px;
-  animation: applepi-blink 1s steps(1) infinite;
+  animation: outfitter-blink 1s steps(1) infinite;
 }
 
-@keyframes applepi-blink {
+@keyframes outfitter-blink {
   50% {
     opacity: 0;
   }
 }
 
-.applepi-strip {
-  border-bottom: 1px solid var(--applepi-border);
-  background: var(--applepi-bg-2);
+.outfitter-strip {
+  border-bottom: 1px solid var(--outfitter-border);
+  background: var(--outfitter-bg-2);
 }
 
-.applepi-strip .applepi-wrap {
+.outfitter-strip .outfitter-wrap {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 24px;
   padding: 22px 0;
-  color: var(--applepi-dim);
+  color: var(--outfitter-dim);
 }
 
-.applepi-strip strong {
+.outfitter-strip strong {
   color: #686875;
   font-size: 12px;
   letter-spacing: 0.12em;
   text-transform: uppercase;
 }
 
-.applepi-strip span {
+.outfitter-strip span {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  color: var(--applepi-muted);
+  color: var(--outfitter-muted);
   font-weight: 550;
 }
-.applepi-strip i {
+.outfitter-strip i {
   width: 7px;
   height: 7px;
   border-radius: 999px;
 }
-.applepi-strip .indigo {
-  background: var(--applepi-indigo-2);
+.outfitter-strip .indigo {
+  background: var(--outfitter-indigo-2);
 }
-.applepi-strip .cyan {
-  background: var(--applepi-cyan);
+.outfitter-strip .cyan {
+  background: var(--outfitter-cyan);
 }
-.applepi-strip .teal {
-  background: var(--applepi-teal);
+.outfitter-strip .teal {
+  background: var(--outfitter-teal);
 }
-.applepi-strip em {
+.outfitter-strip em {
   color: #686875;
   font-style: normal;
 }
 
-.applepi-section {
+.outfitter-section {
   padding: 96px 0;
 }
-.applepi-eyebrow {
+.outfitter-eyebrow {
   margin: 0 0 14px;
-  color: var(--applepi-indigo-2);
+  color: var(--outfitter-indigo-2);
   font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.14em;
   text-transform: uppercase;
 }
-.applepi-section-head {
+.outfitter-section-head {
   max-width: 720px;
 }
-.applepi-section h2,
-.applepi-cta h2,
-.applepi-showcase h2 {
+.outfitter-section h2,
+.outfitter-cta h2,
+.outfitter-showcase h2 {
   margin: 0 0 14px;
   font-size: clamp(29px, 3.7vw, 44px);
   font-weight: 600;
   letter-spacing: -0.04em;
   line-height: 1.08;
 }
-.applepi-section-head p,
-.applepi-section-copy {
+.outfitter-section-head p,
+.outfitter-section-copy {
   margin: 0;
-  color: var(--applepi-dim);
+  color: var(--outfitter-dim);
   font-size: 17px;
   line-height: 1.6;
 }
 
-.applepi-cards {
+.outfitter-cards {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 18px;
   margin-top: 52px;
 }
-.applepi-card {
+.outfitter-card {
   position: relative;
   overflow: hidden;
   min-height: 230px;
   padding: 24px 22px 26px;
-  border: 1px solid var(--applepi-border);
+  border: 1px solid var(--outfitter-border);
   border-radius: 14px;
-  background: linear-gradient(180deg, var(--applepi-panel), var(--applepi-bg-2));
+  background: linear-gradient(180deg, var(--outfitter-panel), var(--outfitter-bg-2));
   transition:
     transform 0.25s ease,
     border-color 0.25s ease;
 }
-.applepi-card:hover {
+.outfitter-card:hover {
   transform: translateY(-3px);
-  border-color: var(--applepi-border-2);
+  border-color: var(--outfitter-border-2);
 }
-.applepi-card::after {
+.outfitter-card::after {
   content: '';
   position: absolute;
   inset: auto -40% -55% -40%;
   height: 140px;
   background: radial-gradient(ellipse, rgba(124, 109, 255, 0.25), transparent 70%);
 }
-.applepi-card > div[aria-hidden='true'] {
+.outfitter-card > div[aria-hidden='true'] {
   display: grid;
   width: 42px;
   height: 42px;
   place-items: center;
   margin-bottom: 18px;
-  border: 1px solid var(--applepi-border-2);
+  border: 1px solid var(--outfitter-border-2);
   border-radius: 11px;
   background: linear-gradient(160deg, rgba(124, 109, 255, 0.22), rgba(52, 227, 227, 0.12));
-  color: var(--applepi-indigo-2);
+  color: var(--outfitter-indigo-2);
   font-size: 20px;
 }
-.applepi-card h3 {
+.outfitter-card h3 {
   margin: 0 0 9px;
   font-size: 17px;
   font-weight: 650;
 }
-.applepi-card p,
-.applepi-card-copy {
+.outfitter-card p,
+.outfitter-card-copy {
   margin: 0;
-  color: var(--applepi-dim);
+  color: var(--outfitter-dim);
   font-size: 14px;
   line-height: 1.6;
 }
 
-.applepi-layers-band {
-  border-block: 1px solid var(--applepi-border);
-  background: var(--applepi-bg-2);
+.outfitter-layers-band {
+  border-block: 1px solid var(--outfitter-border);
+  background: var(--outfitter-bg-2);
 }
-.applepi-layers {
+.outfitter-layers {
   display: grid;
   grid-template-columns: 1fr 1.1fr;
   gap: 56px;
   align-items: center;
   margin-top: 54px;
 }
-.applepi-layer-list {
+.outfitter-layer-list {
   display: grid;
   gap: 14px;
 }
-.applepi-layer-list > div {
+.outfitter-layer-list > div {
   display: grid;
   grid-template-columns: 30px 1fr;
   gap: 14px 16px;
   padding: 18px;
-  border: 1px solid var(--applepi-border);
+  border: 1px solid var(--outfitter-border);
   border-radius: 14px;
-  background: var(--applepi-panel);
+  background: var(--outfitter-panel);
 }
-.applepi-layer-list span {
+.outfitter-layer-list span {
   display: grid;
   width: 30px;
   height: 30px;
   place-items: center;
-  border: 1px solid var(--applepi-border-2);
+  border: 1px solid var(--outfitter-border-2);
   border-radius: 9px;
   background: rgba(124, 109, 255, 0.13);
-  color: var(--applepi-indigo-2);
-  font: 600 13px var(--applepi-mono);
+  color: var(--outfitter-indigo-2);
+  font: 600 13px var(--outfitter-mono);
 }
-.applepi-layer-list h3 {
+.outfitter-layer-list h3 {
   margin: 0 0 5px;
   font-size: 15px;
 }
-.applepi-layer-list p,
-.applepi-layer-copy {
+.outfitter-layer-list p,
+.outfitter-layer-copy {
   grid-column: 2;
   margin: 0;
-  color: var(--applepi-dim);
+  color: var(--outfitter-dim);
   font-size: 13.5px;
   line-height: 1.55;
 }
-.applepi-layer-list code,
-.applepi-layer-copy code {
+.outfitter-layer-list code,
+.outfitter-layer-copy code {
   padding: 1px 6px;
   border: 1px solid rgba(52, 227, 227, 0.16);
   border-radius: 6px;
   background: rgba(52, 227, 227, 0.08);
-  color: var(--applepi-cyan);
+  color: var(--outfitter-cyan);
 }
 
-.applepi-stack {
+.outfitter-stack {
   display: grid;
   justify-items: center;
 }
@@ -523,9 +523,9 @@
 .stack-result {
   width: min(380px, 88%);
   padding: 15px 18px;
-  border: 1px solid var(--applepi-border-2);
+  border: 1px solid var(--outfitter-border-2);
   border-radius: 13px;
-  background: linear-gradient(180deg, var(--applepi-panel-2), var(--applepi-panel));
+  background: linear-gradient(180deg, var(--outfitter-panel-2), var(--outfitter-panel));
   box-shadow: 0 16px 40px -24px rgba(0, 0, 0, 0.9);
 }
 .stack-card small,
@@ -540,8 +540,8 @@
 }
 .stack-card b,
 .stack-result b {
-  color: var(--applepi-muted);
-  font: 500 13px var(--applepi-mono);
+  color: var(--outfitter-muted);
+  font: 500 13px var(--outfitter-mono);
 }
 .stack-card.a {
   transform: rotate(-1.4deg);
@@ -563,10 +563,10 @@
   height: 34px;
   place-items: center;
   margin: 12px 0;
-  border: 1px solid var(--applepi-border-2);
+  border: 1px solid var(--outfitter-border-2);
   border-radius: 999px;
-  background: var(--applepi-bg);
-  color: var(--applepi-indigo-2);
+  background: var(--outfitter-bg);
+  color: var(--outfitter-indigo-2);
   box-shadow: 0 0 24px -6px rgba(124, 109, 255, 0.7);
   font-weight: 800;
 }
@@ -578,123 +578,123 @@
     0 22px 60px -28px rgba(124, 109, 255, 0.7);
 }
 .stack-result small {
-  color: var(--applepi-indigo-2);
+  color: var(--outfitter-indigo-2);
 }
 .stack-result b {
-  color: var(--applepi-fg);
+  color: var(--outfitter-fg);
 }
 .stack-launch {
   margin-top: 18px;
   padding: 10px 17px;
   border-radius: 999px;
-  background: linear-gradient(100deg, var(--applepi-cyan), var(--applepi-indigo-2));
-  color: var(--applepi-bg);
-  font: 700 13px var(--applepi-mono);
+  background: linear-gradient(100deg, var(--outfitter-cyan), var(--outfitter-indigo-2));
+  color: var(--outfitter-bg);
+  font: 700 13px var(--outfitter-mono);
 }
 
-.applepi-showcase {
+.outfitter-showcase {
   display: grid;
   grid-template-columns: 0.9fr 1.1fr;
   gap: 54px;
   align-items: center;
 }
-.applepi-feature-list {
+.outfitter-feature-list {
   display: grid;
   gap: 20px;
   margin-top: 28px;
 }
-.applepi-feature-list p {
+.outfitter-feature-list p {
   margin: 0;
-  color: var(--applepi-dim);
+  color: var(--outfitter-dim);
   font-size: 14px;
   line-height: 1.6;
 }
-.applepi-feature-list strong {
-  color: var(--applepi-fg);
+.outfitter-feature-list strong {
+  color: var(--outfitter-fg);
   font-size: 15px;
 }
-.applepi-feature-list code {
-  color: var(--applepi-cyan);
+.outfitter-feature-list code {
+  color: var(--outfitter-cyan);
 }
-.applepi-config-card > div {
+.outfitter-config-card > div {
   display: flex;
-  border-bottom: 1px solid var(--applepi-border);
+  border-bottom: 1px solid var(--outfitter-border);
 }
-.applepi-config-card > div span {
+.outfitter-config-card > div span {
   padding: 11px 15px;
   color: #70707b;
-  font: 12px var(--applepi-mono);
+  font: 12px var(--outfitter-mono);
 }
-.applepi-config-card > div .active {
-  border-bottom: 2px solid var(--applepi-indigo);
+.outfitter-config-card > div .active {
+  border-bottom: 2px solid var(--outfitter-indigo);
   background: rgba(124, 109, 255, 0.07);
-  color: var(--applepi-fg);
+  color: var(--outfitter-fg);
 }
 
-.applepi-matrix-wrap {
+.outfitter-matrix-wrap {
   margin-top: 52px;
   overflow: auto;
-  border: 1px solid var(--applepi-border);
+  border: 1px solid var(--outfitter-border);
   border-radius: 14px;
-  background: var(--applepi-panel);
+  background: var(--outfitter-panel);
 }
-.applepi-matrix {
+.outfitter-matrix {
   width: 100%;
   min-width: 720px;
   border-collapse: collapse;
   font-size: 14.5px;
 }
-.applepi-matrix th,
-.applepi-matrix td {
+.outfitter-matrix th,
+.outfitter-matrix td {
   padding: 15px 18px;
-  border-bottom: 1px solid var(--applepi-border);
+  border-bottom: 1px solid var(--outfitter-border);
   text-align: left;
 }
-.applepi-matrix th {
-  background: var(--applepi-bg-2);
-  color: var(--applepi-dim);
+.outfitter-matrix th {
+  background: var(--outfitter-bg-2);
+  color: var(--outfitter-dim);
   font-size: 13px;
   font-weight: 650;
 }
-.applepi-matrix tr:last-child td {
+.outfitter-matrix tr:last-child td {
   border-bottom: 0;
 }
-.applepi-matrix td:first-child,
-.applepi-matrix th:first-child {
+.outfitter-matrix td:first-child,
+.outfitter-matrix th:first-child {
   width: 38%;
-  color: var(--applepi-fg);
+  color: var(--outfitter-fg);
   font-weight: 550;
 }
-.applepi-matrix td:not(:first-child),
-.applepi-matrix th:not(:first-child) {
+.outfitter-matrix td:not(:first-child),
+.outfitter-matrix th:not(:first-child) {
   text-align: center;
 }
-.applepi-matrix td:nth-child(2),
-.applepi-matrix th:nth-child(2) {
+.outfitter-matrix td:nth-child(2),
+.outfitter-matrix th:nth-child(2) {
   background: linear-gradient(180deg, rgba(124, 109, 255, 0.12), rgba(124, 109, 255, 0.05));
-  color: var(--applepi-indigo-2);
+  color: var(--outfitter-indigo-2);
   font-weight: 800;
 }
-.applepi-matrix td:not(:first-child):not(:nth-child(2)) {
-  color: var(--applepi-green);
+.outfitter-matrix td:not(:first-child):not(:nth-child(2)) {
+  color: var(--outfitter-green);
 }
-.applepi-matrix td:not(:first-child) {
+.outfitter-matrix td:not(:first-child) {
   font-size: 18px;
 }
-.applepi-matrix td:nth-child(n + 2):not(:last-child) {
+.outfitter-matrix td:nth-child(n + 2):not(:last-child) {
   white-space: nowrap;
 }
 
-.applepi-cta {
+.outfitter-cta {
   position: relative;
   display: grid;
   place-items: center;
   min-height: 420px;
   overflow: hidden;
-  border-top: 1px solid var(--applepi-border);
+  border-top: 1px solid var(--outfitter-border);
   text-align: center;
 }
-.applepi-cta::before {
+.outfitter-cta::before {
   content: '';
   position: absolute;
   left: 50%;
@@ -706,7 +706,7 @@
   background: radial-gradient(ellipse, rgba(124, 109, 255, 0.3), rgba(52, 227, 227, 0.08) 45%, transparent 72%);
   filter: blur(10px);
 }
-.applepi-cta > div:not(.applepi-dots) {
+.outfitter-cta > div:not(.outfitter-dots) {
   position: relative;
   z-index: 1;
   display: grid;
@@ -714,62 +714,62 @@
   gap: 20px;
   width: min(760px, calc(100% - 56px));
 }
-.applepi-cta h2 {
+.outfitter-cta h2 {
   margin: 0;
   font-size: clamp(34px, 4.7vw, 54px);
 }
-.applepi-cta em {
-  font-family: var(--applepi-serif);
+.outfitter-cta em {
+  font-family: var(--outfitter-serif);
   font-style: italic;
   font-weight: 400;
 }
-.applepi-cta p:not(.applepi-eyebrow) {
+.outfitter-cta p:not(.outfitter-eyebrow) {
   margin: 0;
-  color: var(--applepi-muted);
+  color: var(--outfitter-muted);
   font-size: 18px;
 }
-.applepi-cta code {
+.outfitter-cta code {
   padding: 12px 18px;
-  border: 1px solid var(--applepi-border-2);
+  border: 1px solid var(--outfitter-border-2);
   border-radius: 11px;
   background: rgba(255, 255, 255, 0.035);
-  color: var(--applepi-muted);
+  color: var(--outfitter-muted);
   font-size: 14px;
 }
 
 @media (max-width: 980px) {
-  .applepi-hero-inner,
-  .applepi-layers,
-  .applepi-showcase {
+  .outfitter-hero-inner,
+  .outfitter-layers,
+  .outfitter-showcase {
     grid-template-columns: 1fr;
     gap: 40px;
   }
-  .applepi-cards {
+  .outfitter-cards {
     grid-template-columns: repeat(2, 1fr);
   }
-  .applepi-terminal {
+  .outfitter-terminal {
     max-width: 720px;
   }
 }
 
 @media (max-width: 640px) {
-  .applepi-landing {
+  .outfitter-landing {
     margin-top: -1rem;
   }
-  .applepi-wrap {
+  .outfitter-wrap {
     width: min(calc(100% - 32px), 1180px);
   }
-  .applepi-hero-inner {
+  .outfitter-hero-inner {
     padding: 54px 0 64px;
   }
-  .applepi-cards {
+  .outfitter-cards {
     grid-template-columns: 1fr;
   }
-  .applepi-section {
+  .outfitter-section {
     padding: 72px 0;
   }
-  .applepi-terminal pre,
-  .applepi-config-card pre {
+  .outfitter-terminal pre,
+  .outfitter-config-card pre {
     font-size: 12px;
   }
 }

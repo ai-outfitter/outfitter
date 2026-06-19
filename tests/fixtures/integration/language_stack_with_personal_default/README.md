@@ -4,17 +4,17 @@ This fixture models a realistic TypeScript repository profile that composes chec
 
 ## Setup
 
-- `home/.applepi/settings.yml` declares the personal `default` profile, the `pi` default agent, and a user cache directory.
-- `home/.applepi/profiles/default/profile.yml` contributes personal environment and session defaults that should sit below all repository profiles.
-- `project/.applepi/settings.yml` exposes both the synthetic user profile source and the checked-in repository profile source.
-- `project/.applepi/profiles/repo-review-base/profile.yml` contains shared review conventions for the repository.
-- `project/.applepi/profiles/language-typescript/profile.yml` inherits the review base and adds TypeScript-specific controls.
-- `project/.applepi/profiles/tooling-node-vitest/profile.yml` inherits the review base and adds Node/Vitest tooling controls.
-- `project/.applepi/profiles/typescript-review/profile.yml` inherits the language and tooling profiles and is selected by the integration test.
+- `home/.outfitter/settings.yml` declares the personal `default` profile, the `pi` default agent, and a user cache directory.
+- `home/.outfitter/profiles/default/profile.yml` contributes personal environment and session defaults that should sit below all repository profiles.
+- `project/.outfitter/settings.yml` exposes both the synthetic user profile source and the checked-in repository profile source.
+- `project/.outfitter/profiles/repo-review-base/profile.yml` contains shared review conventions for the repository.
+- `project/.outfitter/profiles/language-typescript/profile.yml` inherits the review base and adds TypeScript-specific controls.
+- `project/.outfitter/profiles/tooling-node-vitest/profile.yml` inherits the review base and adds Node/Vitest tooling controls.
+- `project/.outfitter/profiles/typescript-review/profile.yml` inherits the language and tooling profiles and is selected by the integration test.
 
 ## Expected behavior
 
-When the test selects `typescript-review`, ApplePi should first include the user's implicit `default` profile, then resolve the repository inheritance stack.
+When the test selects `typescript-review`, Outfitter should first include the user's implicit `default` profile, then resolve the repository inheritance stack.
 Repository controls win overlapping environment keys while preserving lower-precedence personal values that are not overridden.
 
 The resulting pi launch plan should include the selected model, prompt controls, inherited environment variables, and the selected profile's final review argument.

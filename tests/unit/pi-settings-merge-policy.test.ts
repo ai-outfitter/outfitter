@@ -10,7 +10,7 @@ import {
 } from '../../src/agents/pi/PiSettingsMergePolicy.js';
 
 describe('Pi settings merge policies', () => {
-  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-006.6).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-006.6).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('declares merge policies for Pi settings resource arrays', () => {
     expect(Object.keys(piSettingsArrayPolicies).sort()).toEqual([
@@ -40,35 +40,35 @@ describe('Pi settings merge policies', () => {
     expect(mergeArrayByPolicy(['dark.json'], ['dark.json'], piSettingsArrayPolicies.themes)).toEqual(['dark.json']);
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-006.6).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-006.6).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('normalizes package entries and filters package duplicates of profile extensions', () => {
     const packages = [
       'npm:pi-subagents',
-      { source: 'git+https://github.com/applepi-ai/deepwork.git#main' },
+      { source: 'git+https://github.com/ai-outfitter/deepwork.git#main' },
       { source: 'npm:kept-package' },
       null,
     ];
 
     expect(readPiSettingsPackageSource(packages[0])).toBe('npm:pi-subagents');
-    expect(readPiSettingsPackageSource(packages[1])).toBe('git+https://github.com/applepi-ai/deepwork.git#main');
+    expect(readPiSettingsPackageSource(packages[1])).toBe('git+https://github.com/ai-outfitter/deepwork.git#main');
     expect(readPiSettingsPackageSource(null)).toBeUndefined();
     expect(readPiSettingsPackageSource([])).toBeUndefined();
     expect(readPiSettingsPackageSource({ source: 42 })).toBeUndefined();
     expect(normalizePiSettingsPackageResourceIdentity(undefined)).toBeUndefined();
     expect(normalizePiSettingsPackageResourceIdentity(packages[1])).toBe(
-      'git:https://github.com/applepi-ai/deepwork.git',
+      'git:https://github.com/ai-outfitter/deepwork.git',
     );
     expect(
       filterPiSettingsPackagesDuplicatingExtensions(packages, [
         'npm:pi-subagents@2',
-        'git:github.com/applepi-ai/deepwork#v1',
+        'git:github.com/ai-outfitter/deepwork#v1',
       ]),
     ).toEqual([{ source: 'npm:kept-package' }, null]);
     expect(filterPiSettingsPackagesDuplicatingExtensions(packages, [])).toBe(packages);
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-006.6).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-006.6).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('keeps malformed package-like entries distinct when applying generic package dedupe', () => {
     expect(

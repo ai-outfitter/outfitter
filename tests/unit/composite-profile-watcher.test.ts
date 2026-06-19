@@ -16,7 +16,7 @@ import {
 const temporaryRoots: string[] = [];
 
 const createTemporaryRoot = (): string => {
-  const root = mkdtempSync(join(tmpdir(), 'applepi-compositeProfile-watcher-'));
+  const root = mkdtempSync(join(tmpdir(), 'outfitter-compositeProfile-watcher-'));
   temporaryRoots.push(root);
   return root;
 };
@@ -43,13 +43,13 @@ afterEach(() => {
 });
 
 describe('composite profile input watching', () => {
-  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-005.4).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-005.4).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('watches composite profile inputs, rewrites safe generated files, and warns when an input cannot be watched', async () => {
     const warnings: string[] = [];
-    const compositeProfile = createCompositeProfile('/tmp/applepi-watch-test', [
+    const compositeProfile = createCompositeProfile('/tmp/outfitter-watch-test', [
       createCompositeProfileFile({
-        relativePath: 'applepi/profile.json',
+        relativePath: 'outfitter/profile.json',
         content: '{}\n',
         sourceInputs: ['/path/that/does/not/exist/profile.yml'],
       }),
@@ -62,8 +62,8 @@ describe('composite profile input watching', () => {
     expect(createProfileWatchPaths(['/profiles/default/profile.yml', '/profiles/default/other.yml'])).toEqual([
       '/profiles/default',
     ]);
-    expect(compositeProfileFileOutputPath(compositeProfile, 'applepi/profile.json')).toBe(
-      '/tmp/applepi-watch-test/applepi/profile.json',
+    expect(compositeProfileFileOutputPath(compositeProfile, 'outfitter/profile.json')).toBe(
+      '/tmp/outfitter-watch-test/outfitter/profile.json',
     );
 
     const root = createTemporaryRoot();

@@ -35,7 +35,7 @@ export interface ListProfilesResult {
 export const createProfileListCommand = (dependencies: ProfileCommandDependencies): CommandObject => {
   const command: CommandObject = {
     name: 'profile list',
-    description: 'List available ApplePi profiles.',
+    description: 'List available Outfitter profiles.',
     register(program: Command): void {
       getOrCreateProfileCommander(program).addCommand(createProfileListCommander(dependencies));
     },
@@ -45,7 +45,7 @@ export const createProfileListCommand = (dependencies: ProfileCommandDependencie
 };
 
 const createProfileListCommander = (dependencies: ProfileCommandDependencies): Command =>
-  new Command('list').description('List available ApplePi profiles.').action(() => {
+  new Command('list').description('List available Outfitter profiles.').action(() => {
     const result = executeListProfilesCommand({
       /* v8 ignore next -- default process home is exercised by the direct CLI entrypoint, not unit tests. */
       homeDirectory: dependencies.homeDirectory ?? homedir(),

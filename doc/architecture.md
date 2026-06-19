@@ -1,13 +1,13 @@
-# ApplePi Architecture
+# Outfitter Architecture
 
 ## Purpose
 
-ApplePi is a TypeScript CLI that assembles and launches reproducible agent-CLI profiles.
+Outfitter is a TypeScript CLI that assembles and launches reproducible agent-CLI profiles.
 It is generic enough for organizations to define profiles once and run them across multiple agent CLIs, while supporting `pi` first and most deeply, plus Claude Code as an additional supported adapter.
 
 Formal implementation requirements live in `requirements/`; this document explains the architectural shape behind those requirements.
 
-> Naming rule: any occurrence of `applepi` in docs, prompts, examples, or generated text is a typo/autocorrect and MUST be treated as `applepi`.
+> Naming rule: any occurrence of `outfitter` in docs, prompts, examples, or generated text is a typo/autocorrect and MUST be treated as `outfitter`.
 
 ## Architectural Principles
 
@@ -18,7 +18,7 @@ Formal implementation requirements live in `requirements/`; this document explai
 5. **YAML for persisted config**: user-editable persisted config uses `.yml`/`.yaml` rather than JSON so comments are possible.
 6. **JSON Schema for validation**: every YAML file format has a corresponding JSON Schema used wherever the file is read.
 7. **Deterministic merging**: settings and profile layers merge predictably using normal precedence: project-local, project, then user.
-8. **Warn on partial support**: if a profile asks for a control an agent adapter cannot support, ApplePi warns to stderr; `--strict` makes unsupported controls fatal.
+8. **Warn on partial support**: if a profile asks for a control an agent adapter cannot support, Outfitter warns to stderr; `--strict` makes unsupported controls fatal.
 9. **Complete test coverage early**: the project starts with a test framework and a 100% global coverage requirement.
 10. **Complexity limits early**: ESLint is configured immediately with maximum complexity `10`.
 
@@ -27,7 +27,7 @@ Formal implementation requirements live in `requirements/`; this document explai
 - Runtime: Node.js `>=22.19.0`.
 - Language: TypeScript.
 - Package manager: npm.
-  This matches the current pi-coding-agent package distribution model and gives ApplePi a conventional `package-lock.json`-based install path.
+  This matches the current pi-coding-agent package distribution model and gives Outfitter a conventional `package-lock.json`-based install path.
 - CLI framework: Commander `^14`.
   Commander is the initial choice because it supports default commands, command aliases, `allowUnknownOption`, pass-through argument collection, and testable parser construction without spawning child processes.
 - Test framework: Vitest `^4` with `@vitest/coverage-v8`.
@@ -36,7 +36,7 @@ Formal implementation requirements live in `requirements/`; this document explai
 - Linting: ESLint `^10`, `@eslint/js`, and `typescript-eslint`, with `complexity: ["error", 10]`.
 - Schema and validation: TypeBox for schema authoring where TypeScript-schema coupling is useful, JSON Schema artifacts for persisted format contracts, and AJV for runtime validation.
 - YAML: `yaml`, matching pi's dependency choice.
-- Merge behavior: `defu`, so ApplePi can use controlled deep defaults while documenting key-specific array behavior.
+- Merge behavior: `defu`, so Outfitter can use controlled deep defaults while documenting key-specific array behavior.
 - Process launch: `cross-spawn`, matching pi's dependency choice and avoiding platform-specific spawn edge cases.
 - Filesystem discovery and URI parsing: `glob` and `hosted-git-info`, aligned with pi where compatible with Node `>=22.19.0`.
 
@@ -49,7 +49,7 @@ Runtime dependencies in the first `package.json`:
 - `ajv`: JSON Schema validation at file-read boundaries.
 - `typebox`: Type-friendly schema definitions and schema-derived types where useful.
 - `defu`: controlled deep merging for settings and profiles.
-- `liquidjs`: safe ApplePi-time composite profile templating with custom delimiters that avoid common agent template syntaxes.
+- `liquidjs`: safe Outfitter-time composite profile templating with custom delimiters that avoid common agent template syntaxes.
 - `cross-spawn`: portable child process launch for agent CLIs.
 - `glob`: profile/resource discovery.
 - `hosted-git-info`: parsing hosted git URIs for sync/cache handling; pinned to the latest line compatible with Node `>=22.19.0`.
@@ -75,37 +75,37 @@ The repository layout and source/test directory boundaries live in `doc/file_str
 
 ## Settings Resolution
 
-ApplePi uses a `.applepi` folder convention at multiple scopes:
+Outfitter uses a `.outfitter` folder convention at multiple scopes:
 
 ```text
-~/.applepi/
+~/.outfitter/
   settings.yml
   profiles
   cache/
     profiles/
     utilities/
 
-<project>/.applepi/
+<project>/.outfitter/
   settings.yml
   profiles/
 
-<project>/.applepi/local/
+<project>/.outfitter/local/
   settings.yml
   profiles/
 ```
 
-All discovered `settings.yml` files are collectively referred to as ApplePi settings.
+All discovered `settings.yml` files are collectively referred to as Outfitter settings.
 The internal `Settings` object is the single conceptual result of reading all settings sources and applying precedence.
 
-Note they are all the same in conceptual structure, with the exceptions that the <project>/.applepi/ contains the local one inside it, and the ~/.applepi includes the cache folder.
+Note they are all the same in conceptual structure, with the exceptions that the <project>/.outfitter/ contains the local one inside it, and the ~/.outfitter includes the cache folder.
 
 ### Settings Precedence
 
 Highest to lowest:
 
-1. Project-local: `<project>/.applepi/local/settings.yml`
-2. Project: `<project>/.applepi/settings.yml`
-3. User: `~/.applepi/settings.yml`
+1. Project-local: `<project>/.outfitter/local/settings.yml`
+2. Project: `<project>/.outfitter/settings.yml`
+3. User: `~/.outfitter/settings.yml`
 4. Cached remote settings referenced by local settings
 5. Built-in defaults
 
@@ -113,13 +113,13 @@ Additional sources can be added behind the same `SettingsLoader` abstraction.
 
 ### Required User Default Profile
 
-`~/.applepi/settings.yml` MUST declare a default profile after setup completes.
-This guarantees `applepi run` can resolve a profile even when no `--profile` is provided.
+`~/.outfitter/settings.yml` MUST declare a default profile after setup completes.
+This guarantees `outfitter run` can resolve a profile even when no `--profile` is provided.
 
 Example:
 
 ```yaml
-# ~/.applepi/settings.yml
+# ~/.outfitter/settings.yml
 default_profile: user_default
 
 profile_sources:
@@ -129,7 +129,7 @@ profile_sources:
 A minimal user profile tree for that settings file looks like this:
 
 ```text
-~/.applepi/
+~/.outfitter/
   settings.yml
   profiles/
     user_default/
@@ -153,18 +153,18 @@ profile_sources:
       - engineering
       - support
 
-  - uri: git+https://github.com/example/company-applepi-profiles.git
+  - uri: git+https://github.com/example/company-outfitter-profiles.git
     ref: main
     path: profiles/team
     except:
       - experimental
 
-  - github: example/applepi-config
+  - github: example/outfitter-config
     ref: main
     path: profiles
 
 remote_settings:
-  - github: example/applepi-config
+  - github: example/outfitter-config
     ref: main
     path: settings.yml
 
@@ -176,23 +176,23 @@ profiles:
 Rules:
 
 - Every settings file MUST validate against `settings.schema.json`.
-- `default_agent`, when present, selects the run adapter (`pi` or `claude`) used when `applepi run --agent` is omitted.
+- `default_agent`, when present, selects the run adapter (`pi` or `claude`) used when `outfitter run --agent` is omitted.
 - `profile_sources` entries MUST specify a local `path`, a remote `uri`, or a `github` shorthand.
 - `only` and `except` are optional filters; without either, all profiles from the source are loaded.
 - Local-only relative `path` values are resolved relative to the settings file containing them.
-- `cache_directory` optionally selects the ApplePi cache root; relative values are resolved relative to the settings file containing them.
+- `cache_directory` optionally selects the Outfitter cache root; relative values are resolved relative to the settings file containing them.
 - Remote `uri` and `github` profile sources can specify `ref` and repository-subdirectory `path` values.
 - `remote_settings` entries point at settings-style YAML files inside synced remote repositories.
-- `uri`, `github`, and `remote_settings` sources are fetched/cached by `applepi sync`.
+- `uri`, `github`, and `remote_settings` sources are fetched/cached by `outfitter sync`.
 - `custom_settings` may contain arbitrary YAML-compatible nested data.
-  ApplePi deep-merges custom settings objects using normal settings precedence; arrays and scalar values are replaced by the higher-precedence settings layer.
+  Outfitter deep-merges custom settings objects using normal settings precedence; arrays and scalar values are replaced by the higher-precedence settings layer.
 
 ### Settings File Examples
 
 A user settings file can select a default profile and expose user-managed profiles:
 
 ```yaml
-# ~/.applepi/settings.yml
+# ~/.outfitter/settings.yml
 default_profile: personal-engineering
 cache_directory: ./cache
 
@@ -208,12 +208,12 @@ custom_settings:
 A project settings file can add checked-in project profiles and remote organizational profiles:
 
 ```yaml
-# <project>/.applepi/settings.yml
+# <project>/.outfitter/settings.yml
 default_profile: project-engineering
 
 profile_sources:
   - path: ./profiles
-  - github: example/company-applepi-config
+  - github: example/company-outfitter-config
     ref: main
     path: profiles/shared
     only:
@@ -221,7 +221,7 @@ profile_sources:
       - secure-review
 
 remote_settings:
-  - github: example/company-applepi-config
+  - github: example/company-outfitter-config
     ref: main
     path: settings.yml
 ```
@@ -229,7 +229,7 @@ remote_settings:
 A project-local settings file can override the default profile without changing checked-in files:
 
 ```yaml
-# <project>/.applepi/local/settings.yml
+# <project>/.outfitter/local/settings.yml
 default_profile: local-sandbox
 
 profile_sources:
@@ -238,10 +238,10 @@ profile_sources:
 
 ## Composite profile Template Rendering
 
-ApplePi renders ApplePi-time templates in generated composite profile files after profile and settings resolution and before writing the composite profile directory to disk.
+Outfitter renders Outfitter-time templates in generated composite profile files after profile and settings resolution and before writing the composite profile directory to disk.
 Source settings files are never rewritten.
 
-ApplePi uses LiquidJS with custom delimiters rather than common `{{ ... }}` / `{% ... %}` delimiters so templates do not collide with common agent prompt, skill, command, Handlebars, Mustache, Jinja, or Claude Code syntaxes.
+Outfitter uses LiquidJS with custom delimiters rather than common `{{ ... }}` / `{% ... %}` delimiters so templates do not collide with common agent prompt, skill, command, Handlebars, Mustache, Jinja, or Claude Code syntaxes.
 
 Canonical delimiters:
 
@@ -250,12 +250,12 @@ Canonical delimiters:
 [[% tag %]]        Liquid control tag, such as if, for, endif, or endfor
 ```
 
-ApplePi only treats `[[=` and `[[%` as template openers, so plain shell or Bash expressions such as `[[ -f package.json ]]` pass through unchanged.
+Outfitter only treats `[[=` and `[[%` as template openers, so plain shell or Bash expressions such as `[[ -f package.json ]]` pass through unchanged.
 
 Template context:
 
 ```yaml
-applepi:
+outfitter:
   custom_settings: # resolved settings.custom_settings
   settings: # resolved settings using YAML-style key names
   profile: # resolved profile object
@@ -275,14 +275,14 @@ custom_settings:
 ```
 
 ```yaml
-# any generated composite profile settings file containing ApplePi template delimiters
+# any generated composite profile settings file containing Outfitter template delimiters
 hooks:
   lint:
-    command: "[[= applepi.custom_settings.build_commands.lint ]]"
+    command: "[[= outfitter.custom_settings.build_commands.lint ]]"
 
-[[% if applepi.custom_settings.build_commands.test %]]
+[[% if outfitter.custom_settings.build_commands.test %]]
   test:
-    command: "[[= applepi.custom_settings.build_commands.test ]]"
+    command: "[[= outfitter.custom_settings.build_commands.test ]]"
 [[% endif %]]
 ```
 
@@ -290,7 +290,7 @@ Liquid loops and filters are available with the same custom tag and output delim
 
 ```yaml
 commands:
-[[% for command in applepi.custom_settings.commands %]]
+[[% for command in outfitter.custom_settings.commands %]]
   - "[[= command ]]"
 [[% endfor %]]
 ```
@@ -329,13 +329,13 @@ The `github: owner/repo` shorthand normalizes to `git+https://github.com/owner/r
 Remote sources without `ref` or repository subpaths retain the original profile cache location for compatibility:
 
 ```text
-~/.applepi/cache/profiles/<encoded-uri>/
+~/.outfitter/cache/profiles/<encoded-uri>/
 ```
 
 Remote sources that specify `ref`, repository-subdirectory `path`, or `github` are fetched into the shared repository cache:
 
 ```text
-~/.applepi/cache/repos/<encoded-uri-and-ref>/
+~/.outfitter/cache/repos/<encoded-uri-and-ref>/
 ```
 
 Profile loading then reads from the requested subdirectory inside the cached repository.
@@ -344,12 +344,12 @@ Profile loading then reads from the requested subdirectory inside the cached rep
 
 ```yaml
 remote_settings:
-  - github: example/applepi-config
+  - github: example/outfitter-config
     ref: main
     path: settings.yml
 ```
 
-`applepi sync` fetches remote settings repositories into the shared repository cache, validates that the requested settings file exists, then loads cached remote settings as lower-precedence settings sources during later settings resolution.
+`outfitter sync` fetches remote settings repositories into the shared repository cache, validates that the requested settings file exists, then loads cached remote settings as lower-precedence settings sources during later settings resolution.
 
 ## Profile Layout
 
@@ -397,8 +397,9 @@ Rules:
 - Every `profile.yml` MUST validate against `profile.schema.json`.
 - `inherits` is an ordered array of profile names.
 - `cli_specific/<cli-name>/` contains files copied or translated directly into the generated composite profile for that CLI.
-- Pi profiles may provide `cli_specific/pi/.mcp.json`; ApplePi merges contributing profile fragments into the composite profile with unique array entries by identity and last writer wins for duplicate identities.
-- Pi profiles may provide DeepWork jobs under `cli_specific/pi/deepwork/jobs/`; ApplePi appends contributing job folders to `DEEPWORK_ADDITIONAL_JOBS_FOLDERS` when launching Pi so DeepWork can discover those profile-owned workflows. Profile-bundled jobs are isolated by default: inherited `DEEPWORK_ADDITIONAL_JOBS_FOLDERS` entries are included only when the profile sets `controls.pi.allow_external_deepwork_jobs: true`.
+- Pi profiles may provide `cli_specific/pi/.mcp.json`; Outfitter merges contributing profile fragments into the composite profile with unique array entries by identity and last writer wins for duplicate identities.
+- Pi profiles may provide DeepWork jobs under `cli_specific/pi/deepwork/jobs/`; Outfitter appends contributing job folders to `DEEPWORK_ADDITIONAL_JOBS_FOLDERS` when launching Pi so DeepWork can discover those profile-owned workflows.
+  Profile-bundled jobs are isolated by default: inherited `DEEPWORK_ADDITIONAL_JOBS_FOLDERS` entries are included only when the profile sets `controls.pi.allow_external_deepwork_jobs: true`.
 - CLI-specific configuration wins over generic controls when both apply to the same generated artifact.
 
 ### Profile Directory Examples
@@ -406,7 +407,7 @@ Rules:
 A small user-level profile set can keep a base profile and a specialized profile side by side:
 
 ```text
-~/.applepi/profiles/
+~/.outfitter/profiles/
   base-typescript/
     profile.yml
     prompts/
@@ -421,7 +422,7 @@ A small user-level profile set can keep a base profile and a specialized profile
 ```
 
 ```yaml
-# ~/.applepi/profiles/base-typescript/profile.yml
+# ~/.outfitter/profiles/base-typescript/profile.yml
 id: base-typescript
 label: Base TypeScript
 
@@ -435,7 +436,7 @@ controls:
 ```
 
 ```yaml
-# ~/.applepi/profiles/personal-engineering/profile.yml
+# ~/.outfitter/profiles/personal-engineering/profile.yml
 id: personal-engineering
 label: Personal Engineering
 inherits:
@@ -450,13 +451,13 @@ controls:
       - --no-themes
 ```
 
-If no resolved profile folder provides `cli_specific/<adapter>/<state-path>` for an adapter-declared symlink path, ApplePi falls back directly to the native CLI state location for that path, such as `~/.pi/agent/settings.json` or `~/.claude/settings.json`.
+If no resolved profile folder provides `cli_specific/<adapter>/<state-path>` for an adapter-declared symlink path, Outfitter falls back directly to the native CLI state location for that path, such as `~/.pi/agent/settings.json` or `~/.claude/settings.json`.
 That native fallback is not a hidden base profile: it does not participate in `inherits`, cannot contribute profile controls, and only supplies durable symlink targets for declared CLI state.
 
 A checked-in project profile set can add project-specific prompts and pi resources:
 
 ```text
-<project>/.applepi/profiles/
+<project>/.outfitter/profiles/
   project-engineering/
     profile.yml
     prompts/
@@ -473,7 +474,7 @@ A checked-in project profile set can add project-specific prompts and pi resourc
 ```
 
 ```yaml
-# <project>/.applepi/profiles/project-engineering/profile.yml
+# <project>/.outfitter/profiles/project-engineering/profile.yml
 id: project-engineering
 label: Project Engineering
 inherits:
@@ -484,7 +485,7 @@ controls:
   append_system_prompt: ./prompts/review.md
   extensions:
     - ./extensions/project-bootstrap
-  session_directory: ./.applepi/sessions/project-engineering
+  session_directory: ./.outfitter/sessions/project-engineering
   pi:
     prompt_template: code-review
     args:
@@ -495,7 +496,7 @@ controls:
 A local-only sandbox profile can use the highest-precedence project-local layer:
 
 ```text
-<project>/.applepi/local/
+<project>/.outfitter/local/
   settings.yml
   profiles/
     local-sandbox/
@@ -505,21 +506,21 @@ A local-only sandbox profile can use the highest-precedence project-local layer:
 ```
 
 ```yaml
-# <project>/.applepi/local/profiles/local-sandbox/profile.yml
+# <project>/.outfitter/local/profiles/local-sandbox/profile.yml
 id: local-sandbox
 label: Local Sandbox
 
 controls:
   system_prompt: ./prompts/sandbox.md
   environment:
-    APPLEPI_EXPERIMENTAL_MODE: '1'
+    OUTFITTER_EXPERIMENTAL_MODE: '1'
   pi:
     thinking: high
 ```
 
 ## Profile Resolution and Inheritance
 
-When `applepi run --profile X` is invoked, ApplePi builds an ordered profile stack.
+When `outfitter run --profile X` is invoked, Outfitter builds an ordered profile stack.
 
 Highest to lowest precedence:
 
@@ -543,39 +544,39 @@ A **composite profile** is the dynamically assembled runtime configuration direc
 
 Example term usage: “the composite profile for `data-analyst` on `claude`”.
 
-Composite profiles are generated under the system temp directory so they can be reclaimed trivially, while adapter-declared state paths can be symlinked to durable profile, native CLI, or ApplePi cache locations:
+Composite profiles are generated under the system temp directory so they can be reclaimed trivially, while adapter-declared state paths can be symlinked to durable profile, native CLI, or Outfitter cache locations:
 
 ```text
-$TMPDIR/applepi-<profile-id>-<agent-id>-<random>/
+$TMPDIR/outfitter-<profile-id>-<agent-id>-<random>/
 ```
 
 The pi adapter uses this state model for native pi state and for pi-managed utilities: most declared pi state paths, including `tmp/`, symlink to `~/.pi/agent/<path>` by default, while composite profile `utilities/` and `bin/` both symlink to `<cache_directory>/utilities` by default, so temporary composite profile cleanup does not force pi to redownload helper binaries such as `fd` and `rg`.
 
-When profile-controlled Pi extensions would duplicate native Pi `settings.json` package entries, ApplePi generates a reconciled runtime `settings.json` inside the composite profile for that launch.
+When profile-controlled Pi extensions would duplicate native Pi `settings.json` package entries, Outfitter generates a reconciled runtime `settings.json` inside the composite profile for that launch.
 The generated file preserves unrelated settings and package entries, removes duplicate native package entries by normalized resource identity, and keeps the declared `settings.json` state path non-durable with `discard` write handling so runtime edits are not reported as unknown state.
 
-During `applepi run`, the ApplePi process remains alive while the child agent CLI runs.
+During `outfitter run`, the Outfitter process remains alive while the child agent CLI runs.
 It owns the composite profile lifecycle.
 
 ### Functional State Updating Model
 
-ApplePi treats agent state updates as an explicit product behavior rather than an accidental side effect of temporary composite profile files.
+Outfitter treats agent state updates as an explicit product behavior rather than an accidental side effect of temporary composite profile files.
 Before launch, the selected adapter names the paths the agent CLI is expected to mutate, such as authentication files, settings files, plugin folders, caches, and sessions.
 The resolved profile then chooses a functional persistence strategy for each path:
 
 - `symlink`: writes are durable because the composite profile path points at a profile-managed or native CLI state path.
 - `discard`: writes are allowed for the run but thrown away with the temporary composite profile.
 - `warn`: writes are allowed and discarded, then reported after exit.
-- `error`: writes are allowed during the run but make the ApplePi command fail after exit.
+- `error`: writes are allowed during the run but make the Outfitter command fail after exit.
 - `prompt`: reserved for future interactive handling; currently treated as a non-persistent diagnostic.
 
 Unknown writes are handled separately from declared state paths.
-They are never silently persisted because ApplePi has no declared durable destination for them.
+They are never silently persisted because Outfitter has no declared durable destination for them.
 The adapter's `unknown` policy decides whether to discard, warn, error, or eventually prompt.
 
 The practical user model is:
 
-1. Put durable, editable CLI state under `cli_specific/<agent>/` in a profile, or let ApplePi fall back to the native CLI state location.
+1. Put durable, editable CLI state under `cli_specific/<agent>/` in a profile, or let Outfitter fall back to the native CLI state location.
 2. Use `state_persistence` in `profile.yml` only for paths that should deviate from the adapter defaults.
 3. Use `warn` or `error` for strict profiles and CI when unexpected state mutation should be visible.
 4. Use `discard` for caches, sessions, or experimental state that should not outlive the run.
@@ -645,7 +646,7 @@ The adapter owns CLI-specific details such as env vars, flags, state path declar
 ### Supported Adapters: Pi and Claude Code
 
 Pi is the default adapter for backward compatibility.
-ApplePi should prefer native pi mechanisms:
+Outfitter should prefer native pi mechanisms:
 
 - `PI_CODING_AGENT_DIR` for profile-scoped global state;
 - `PI_CODING_AGENT_SESSION_DIR` or `--session-dir` for sessions;
@@ -656,28 +657,28 @@ ApplePi should prefer native pi mechanisms:
 - model/provider/thinking flags where supported;
 - generated Pi settings reconciliation in the composite profile where flags/env are not the right mechanism.
 
-If generic ApplePi controls conflict with pi naming or behavior, prefer pi’s terminology and conventions.
-Because ApplePi chooses `PI_CODING_AGENT_DIR` and other startup-sensitive configuration before launching pi, a requested pi control that would require changing startup discovery after pi has already begun cannot be applied by an extension or late runtime hook.
+If generic Outfitter controls conflict with pi naming or behavior, prefer pi’s terminology and conventions.
+Because Outfitter chooses `PI_CODING_AGENT_DIR` and other startup-sensitive configuration before launching pi, a requested pi control that would require changing startup discovery after pi has already begun cannot be applied by an extension or late runtime hook.
 The pi adapter reports such unsupported or startup-order-impossible controls through normal adapter warnings, and `--strict` makes those warnings fatal.
 
 Claude Code is also supported through the `claude` adapter.
-ApplePi launches `claude` with `CLAUDE_CONFIG_DIR` pointing at the composite profile root, maps supported controls to native flags (`--model`, `--effort`, `--system-prompt`, `--append-system-prompt`, and repeated `--plugin-dir`), and preserves Claude Code state paths such as `settings.json`, `agents/`, `skills/`, `commands/`, `plugins/`, `projects/`, and `debug/` through adapter-declared state persistence.
+Outfitter launches `claude` with `CLAUDE_CONFIG_DIR` pointing at the composite profile root, maps supported controls to native flags (`--model`, `--effort`, `--system-prompt`, `--append-system-prompt`, and repeated `--plugin-dir`), and preserves Claude Code state paths such as `settings.json`, `agents/`, `skills/`, `commands/`, `plugins/`, `projects/`, and `debug/` through adapter-declared state persistence.
 Claude-specific profile overrides live under `controls.claude` and win over generic controls for Claude runs.
 
 ## CLI Commands
 
-### `applepi run`
+### `outfitter run`
 
 `run` is the default command when no command is specified.
 
 Examples:
 
 ```bash
-applepi
-applepi run
-applepi run --profile engineering
-applepi run -p support -- --model anthropic/claude-sonnet-4
-applepi run --agent claude -p support -- --permission-mode plan
+outfitter
+outfitter run
+outfitter run --profile engineering
+outfitter run -p support -- --model anthropic/claude-sonnet-4
+outfitter run --agent claude -p support -- --permission-mode plan
 ```
 
 Requirements:
@@ -689,54 +690,54 @@ Requirements:
 - `--strict` makes unsupported profile controls or composite profile assembly warnings fatal.
 - The child agent CLI runs with the generated composite profile, env, and argv.
 
-### `applepi setup`
+### `outfitter setup`
 
 Responsibilities:
 
-- create `~/.applepi/settings.yml` when missing;
-- accept an optional setup source URI, for example `applepi setup https://github.com/example/applepi-config`, and clone/update it under `~/.applepi/cache/repos/<encoded-uri-and-ref>/`;
-- when a setup source is provided, use its root `settings.yml` or `.applepi/settings.yml` and `profiles/` or `.applepi/profiles/` as the initial non-overwriting user setup starting point;
+- create `~/.outfitter/settings.yml` when missing;
+- accept an optional setup source URI, for example `outfitter setup https://github.com/example/outfitter-config`, and clone/update it under `~/.outfitter/cache/repos/<encoded-uri-and-ref>/`;
+- when a setup source is provided, use its root `settings.yml` or `.outfitter/settings.yml` and `profiles/` or `.outfitter/profiles/` as the initial non-overwriting user setup starting point;
 - require an interactive TTY on both stdin and stdout before running setup prompts;
 - create a default profile when missing;
 - validate all discovered settings files and any starter settings file;
-- run `applepi sync` behavior for URI profile sources before profile selection;
+- run `outfitter sync` behavior for URI profile sources before profile selection;
 - on initial interactive first-run setup, skip the older setup default-profile prompt and let welcome onboarding choose the generated local default profile;
 - outside that initial welcome handoff, show a setup wizard with synced profile choices, preserve display labels where available, validate the selected profile ID, and write the selected default profile to user settings;
 - create any missing fallback default profile file for the final selected default profile;
 - run welcome onboarding after interactive setup completes;
 - report actionable next steps.
 
-### `applepi welcome`
+### `outfitter welcome`
 
 Responsibilities:
 
 - require an interactive TTY on both stdin and stdout before running welcome prompts;
-- show welcome text that explains ApplePi and Pi before asking onboarding questions;
+- show welcome text that explains Outfitter and Pi before asking onboarding questions;
 - ask whether the user wants to answer setup questions now;
 - ask the user to choose an initial built-in standard role, currently including `engineer` and `data_analyst`;
-- recommend a named Pi productivity loadout containing `git:github.com/applepi-ai/ulta-tasklist`, `git:github.com/applepi-ai/deepwork`, `npm:pi-subagents`, and `npm:pi-mcp-adapter`;
+- recommend a named Pi productivity loadout containing `git:github.com/ai-outfitter/ulta-tasklist`, `git:github.com/ai-outfitter/deepwork`, `npm:pi-subagents`, and `npm:pi-mcp-adapter`;
 - allow the user to accept the loadout, choose individual loadout items, or skip loadout installation;
 - create the selected local role profile on the fly, appending only the selected loadout resources and leaving extensions/skills empty when the user selects none;
 - return typed onboarding choices so later work can persist richer profile/loadout metadata behind a schema-validated YAML format if needed.
 
-Before launching Pi after welcome onboarding, `applepi run` checks whether native Pi appears to have login state in `auth.json` or `models.json`.
-If no login state is detected, ApplePi starts Pi with `/login` automatically; outside the welcome flow it prints an informational `/login` notice instead.
-Credential collection stays inside Pi so provider API keys are not collected or persisted by ApplePi.
+Before launching Pi after welcome onboarding, `outfitter run` checks whether native Pi appears to have login state in `auth.json` or `models.json`.
+If no login state is detected, Outfitter starts Pi with `/login` automatically; outside the welcome flow it prints an informational `/login` notice instead.
+Credential collection stays inside Pi so provider API keys are not collected or persisted by Outfitter.
 
-### `applepi sync`
+### `outfitter sync`
 
 Responsibilities:
 
 - read settings;
 - validate profile sources;
 - fetch/update URI-based, GitHub shorthand, and remote settings sources;
-- store plain URI profile sources without `ref` or repository subpaths under `~/.applepi/cache/profiles/<encoded-uri>/` for compatibility;
-- store GitHub shorthand sources and sources with `ref` or repository subpaths under `~/.applepi/cache/repos/<encoded-uri-and-ref>/`;
+- store plain URI profile sources without `ref` or repository subpaths under `~/.outfitter/cache/profiles/<encoded-uri>/` for compatibility;
+- store GitHub shorthand sources and sources with `ref` or repository subpaths under `~/.outfitter/cache/repos/<encoded-uri-and-ref>/`;
 - validate fetched remote settings files and profiles;
 - report whether each source was updated, unchanged, skipped, or failed;
 - redact credentials embedded in source URIs from user-facing output.
 
-### `applepi profile list`
+### `outfitter profile list`
 
 Lists profile IDs from configured local and cached remote profile sources.
 
@@ -747,16 +748,16 @@ Responsibilities:
 - report unique profile IDs deterministically;
 - use the highest-precedence loaded definition when duplicate profile IDs exist.
 
-### `applepi profile create`
+### `outfitter profile create`
 
 Creates a placeholder profile folder at a requested scope.
 
 Example shape:
 
 ```bash
-applepi profile create engineering --scope user
-applepi profile create support --scope project
-applepi profile create sandbox --scope project-local
+outfitter profile create engineering --scope user
+outfitter profile create support --scope project
+outfitter profile create sandbox --scope project-local
 ```
 
 Responsibilities:
@@ -820,14 +821,14 @@ Requirements:
 - scenario fixtures for common combinations instead of one-off bespoke setup.
 
 Scenario fixture directory conventions are documented in `doc/file_structure.md`.
-Each scenario should include realistic `.applepi` folders and expected resolution output.
+Each scenario should include realistic `.outfitter` folders and expected resolution output.
 
 ## Settled Initial Decisions
 
-1. ApplePi uses npm and commits `package-lock.json`.
-2. ApplePi uses Commander for CLI parsing.
-3. ApplePi uses Vitest with V8 coverage for tests.
-4. ApplePi profile IDs are filesystem-safe slugs; optional display names can carry spaces or punctuation.
+1. Outfitter uses npm and commits `package-lock.json`.
+2. Outfitter uses Commander for CLI parsing.
+3. Outfitter uses Vitest with V8 coverage for tests.
+4. Outfitter profile IDs are filesystem-safe slugs; optional display names can carry spaces or punctuation.
 5. Profile-management commands use a resource namespace: `profile list` and `profile create`.
 6. URI profile source lockfiles are deferred beyond v1; v1 sync records cache metadata but does not require lockfile-driven reproducibility.
 7. Claude Code is supported as an additional adapter, while pi remains the default adapter.

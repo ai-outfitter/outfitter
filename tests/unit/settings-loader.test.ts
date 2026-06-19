@@ -20,7 +20,7 @@ import { parseYamlDocument } from '../../src/validation/YamlDocument.js';
 const temporaryRoots: string[] = [];
 
 const createTemporaryRoot = (): string => {
-  const root = mkdtempSync(join(tmpdir(), 'applepi-settings-'));
+  const root = mkdtempSync(join(tmpdir(), 'outfitter-settings-'));
   temporaryRoots.push(root);
   return root;
 };
@@ -37,7 +37,7 @@ afterEach(() => {
 });
 
 describe('settings loading', () => {
-  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-002.1).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-002.1).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('discovers user, project, and project-local settings.yml locations', () => {
     const homeDirectory = '/home/example';
@@ -46,28 +46,28 @@ describe('settings loading', () => {
     const plan = discoverSettingsLoadPlan({ homeDirectory, projectDirectory });
 
     expect(plan.locations).toEqual([
-      { scope: 'user', path: '/home/example/.applepi/settings.yml' },
-      { scope: 'project', path: '/work/project/.applepi/settings.yml' },
-      { scope: 'project-local', path: '/work/project/.applepi/local/settings.yml' },
+      { scope: 'user', path: '/home/example/.outfitter/settings.yml' },
+      { scope: 'project', path: '/work/project/.outfitter/settings.yml' },
+      { scope: 'project-local', path: '/work/project/.outfitter/local/settings.yml' },
     ]);
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-002.2).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-002.2).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('loads discovered settings and merges them with project-local precedence', () => {
     const root = createTemporaryRoot();
     const homeDirectory = join(root, 'home');
     const projectDirectory = join(root, 'project');
     writeSettings(
-      join(homeDirectory, '.applepi', 'settings.yml'),
+      join(homeDirectory, '.outfitter', 'settings.yml'),
       'default_profile: user-default\ndefault_agent: pi\ncache_directory: ./user-cache\nprofile_sources:\n  - path: ./profiles\n',
     );
     writeSettings(
-      join(projectDirectory, '.applepi', 'settings.yml'),
+      join(projectDirectory, '.outfitter', 'settings.yml'),
       'default_profile: project-default\ndefault_agent: claude\ncache_directory: ./project-cache\n',
     );
     writeSettings(
-      join(projectDirectory, '.applepi', 'local', 'settings.yml'),
+      join(projectDirectory, '.outfitter', 'local', 'settings.yml'),
       'default_profile: local-default\ncache_directory: ./local-cache\n',
     );
 
@@ -77,12 +77,12 @@ describe('settings loading', () => {
     expect(loaded.files.map((file) => file.location.scope)).toEqual(['user', 'project', 'project-local']);
     expect(loaded.settings.defaultProfile).toBe('local-default');
     expect(loaded.settings.defaultAgent).toBe('claude');
-    expect(loaded.settings.profileSources).toEqual([{ path: join(homeDirectory, '.applepi', 'profiles') }]);
+    expect(loaded.settings.profileSources).toEqual([{ path: join(homeDirectory, '.outfitter', 'profiles') }]);
     expect(loaded.settings.remoteSettings).toEqual([]);
-    expect(loaded.settings.cacheDirectory).toBe(join(projectDirectory, '.applepi', 'local', 'local-cache'));
+    expect(loaded.settings.cacheDirectory).toBe(join(projectDirectory, '.outfitter', 'local', 'local-cache'));
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-002.3).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-002.3).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('reports YAML parse and schema validation diagnostics with file paths', () => {
     const root = createTemporaryRoot();
@@ -108,38 +108,38 @@ describe('settings loading', () => {
     });
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-002.5, APPLEPI-REQ-002.6).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-002.5, OFTR-002.6).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('validates local, URI, GitHub, and remote settings entries from settings files', () => {
     const root = createTemporaryRoot();
-    const settingsPath = join(root, '.applepi', 'settings.yml');
+    const settingsPath = join(root, '.outfitter', 'settings.yml');
     writeSettings(
       settingsPath,
-      `profile_sources:\n  - path: ./profiles\n    only: [engineering]\n  - path: ${join(root, 'absolute-profiles')}\n  - uri: git+https://example.test/profiles.git\n    path: team/profiles\n    ref: main\n    except: [sandbox]\n  - github: example/applepi-config\n    path: profiles\nremote_settings:\n  - github: example/applepi-config\n    ref: main\n    path: settings.yml\n`,
+      `profile_sources:\n  - path: ./profiles\n    only: [engineering]\n  - path: ${join(root, 'absolute-profiles')}\n  - uri: git+https://example.test/profiles.git\n    path: team/profiles\n    ref: main\n    except: [sandbox]\n  - github: example/outfitter-config\n    path: profiles\nremote_settings:\n  - github: example/outfitter-config\n    ref: main\n    path: settings.yml\n`,
     );
 
     const result = loadSettingsFiles(createSettingsLoadPlan([{ scope: 'user', path: settingsPath }]));
 
     expect(result.issues).toEqual([]);
     expect(result.files[0]?.settings.profileSources).toEqual([
-      { path: join(root, '.applepi', 'profiles'), only: ['engineering'] },
+      { path: join(root, '.outfitter', 'profiles'), only: ['engineering'] },
       { path: join(root, 'absolute-profiles') },
       { uri: 'git+https://example.test/profiles.git', path: 'team/profiles', ref: 'main', except: ['sandbox'] },
-      { github: 'example/applepi-config', path: 'profiles' },
+      { github: 'example/outfitter-config', path: 'profiles' },
     ]);
     expect(result.files[0]?.settings.remoteSettings).toEqual([
-      { github: 'example/applepi-config', ref: 'main', path: 'settings.yml' },
+      { github: 'example/outfitter-config', ref: 'main', path: 'settings.yml' },
     ]);
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-002.7).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-002.7).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('loads and deep-merges arbitrary custom settings with higher-precedence overrides', () => {
     const root = createTemporaryRoot();
     const homeDirectory = join(root, 'home');
     const projectDirectory = join(root, 'project');
     writeSettings(
-      join(homeDirectory, '.applepi', 'settings.yml'),
+      join(homeDirectory, '.outfitter', 'settings.yml'),
       [
         'custom_settings:',
         '  build_commands:',
@@ -151,7 +151,7 @@ describe('settings loading', () => {
       ].join('\n'),
     );
     writeSettings(
-      join(projectDirectory, '.applepi', 'settings.yml'),
+      join(projectDirectory, '.outfitter', 'settings.yml'),
       ['custom_settings:', '  build_commands:', '    lint: npm run lint:ci', '  tools:', '    - prettier', ''].join(
         '\n',
       ),
@@ -171,13 +171,13 @@ describe('settings loading', () => {
 
   it('resolves configured cache directories relative to the containing settings file', () => {
     const root = createTemporaryRoot();
-    const settingsPath = join(root, '.applepi', 'settings.yml');
+    const settingsPath = join(root, '.outfitter', 'settings.yml');
     writeSettings(settingsPath, 'cache_directory: ./cache\n');
 
     const result = loadSettingsFiles(createSettingsLoadPlan([{ scope: 'user', path: settingsPath }]));
 
     expect(result.issues).toEqual([]);
-    expect(result.files[0]?.settings.cacheDirectory).toBe(join(root, '.applepi', 'cache'));
+    expect(result.files[0]?.settings.cacheDirectory).toBe(join(root, '.outfitter', 'cache'));
   });
 
   it('skips missing settings files and exposes generic YAML and schema helpers', () => {
@@ -193,52 +193,52 @@ describe('settings loading', () => {
     expect(validateSchema('settings', null).issues[0]?.path).toBe('/');
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-002.6).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-002.6).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('loads cached remote settings from repository subpaths with local settings precedence', () => {
     const root = createTemporaryRoot();
     const homeDirectory = join(root, 'home');
     const projectDirectory = join(root, 'project');
     writeSettings(
-      join(homeDirectory, '.applepi', 'settings.yml'),
-      'default_profile: local\nremote_settings:\n  - uri: git+https://github.com/example/applepi-config.git\n    ref: main\n    path: settings.yml\n',
+      join(homeDirectory, '.outfitter', 'settings.yml'),
+      'default_profile: local\nremote_settings:\n  - uri: git+https://github.com/example/outfitter-config.git\n    ref: main\n    path: settings.yml\n',
     );
     const remoteSettingsPath = join(
       createRemoteRepositoryCachePath(homeDirectory, {
-        uri: 'git+https://github.com/example/applepi-config.git',
+        uri: 'git+https://github.com/example/outfitter-config.git',
         ref: 'main',
       }),
       'settings.yml',
     );
     writeSettings(
       remoteSettingsPath,
-      'default_profile: remote\nprofile_sources:\n  - github: example/applepi-config\n    path: remote-profiles\n',
+      'default_profile: remote\nprofile_sources:\n  - github: example/outfitter-config\n    path: remote-profiles\n',
     );
 
     const loaded = loadSettingsWithCachedRemoteSettings({ homeDirectory, projectDirectory });
 
     expect(loaded.issues).toEqual([]);
     expect(loaded.settings.defaultProfile).toBe('local');
-    expect(loaded.settings.profileSources).toEqual([{ github: 'example/applepi-config', path: 'remote-profiles' }]);
+    expect(loaded.settings.profileSources).toEqual([{ github: 'example/outfitter-config', path: 'remote-profiles' }]);
 
     writeSettings(
-      join(homeDirectory, '.applepi', 'settings.yml'),
-      'default_profile: local\nprofile_sources:\n  - path: ./local-profiles\nremote_settings:\n  - uri: git+https://github.com/example/applepi-config.git\n    ref: main\n    path: settings.yml\n',
+      join(homeDirectory, '.outfitter', 'settings.yml'),
+      'default_profile: local\nprofile_sources:\n  - path: ./local-profiles\nremote_settings:\n  - uri: git+https://github.com/example/outfitter-config.git\n    ref: main\n    path: settings.yml\n',
     );
     const localOverrideLoaded = loadSettingsWithCachedRemoteSettings({ homeDirectory, projectDirectory });
     expect(localOverrideLoaded.settings.profileSources).toEqual([
-      { path: join(homeDirectory, '.applepi', 'local-profiles') },
+      { path: join(homeDirectory, '.outfitter', 'local-profiles') },
     ]);
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-002.6).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-002.6).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('reports invalid cached remote settings subpaths as settings issues', () => {
     const root = createTemporaryRoot();
     const homeDirectory = join(root, 'home');
     const projectDirectory = join(root, 'project');
     writeSettings(
-      join(homeDirectory, '.applepi', 'settings.yml'),
+      join(homeDirectory, '.outfitter', 'settings.yml'),
       'remote_settings:\n  - github: example/absolute\n    path: /tmp/settings.yml\n  - github: example/escape\n    path: ../settings.yml\n',
     );
 

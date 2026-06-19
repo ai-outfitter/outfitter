@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://applepi.dev/schemas/profile-source.schema.json",
-  "title": "ApplePi profile source",
+  "$id": "https://outfitter.dev/schemas/profile-source.schema.json",
+  "title": "Outfitter profile source",
   "type": "object",
   "oneOf": [
     {

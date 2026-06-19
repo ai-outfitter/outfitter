@@ -13,14 +13,14 @@ import { parseProfileYaml } from '../../src/profiles/ProfileLoader.js';
 const temporaryRoots: string[] = [];
 
 const createTemporaryRoot = (): string => {
-  const root = mkdtempSync(join(tmpdir(), 'applepi-claude-'));
+  const root = mkdtempSync(join(tmpdir(), 'outfitter-claude-'));
   temporaryRoots.push(root);
   return root;
 };
 
 const writeSettings = (homeDirectory: string, content: string): void => {
-  mkdirSync(join(homeDirectory, '.applepi'), { recursive: true });
-  writeFileSync(join(homeDirectory, '.applepi', 'settings.yml'), content);
+  mkdirSync(join(homeDirectory, '.outfitter'), { recursive: true });
+  writeFileSync(join(homeDirectory, '.outfitter', 'settings.yml'), content);
 };
 
 const writeProfile = (root: string, id: string, content: string): void => {
@@ -36,7 +36,7 @@ afterEach(() => {
 });
 
 describe('Claude Code adapter support', () => {
-  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-006.1, APPLEPI-REQ-006.2, APPLEPI-REQ-006.5).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-006.1, OFTR-006.2, OFTR-006.5).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('translates generic and claude-specific profile controls into Claude Code env and argv', () => {
     const adapter = createClaudeAdapter();
@@ -66,7 +66,7 @@ describe('Claude Code adapter support', () => {
       },
     };
     const compositeProfilePlan = adapter.createCompositeProfile(profile, {
-      rootDirectory: '/tmp/applepi-engineering-claude-123',
+      rootDirectory: '/tmp/outfitter-engineering-claude-123',
       profilePaths: ['/profiles/engineering/profile.yml'],
     });
     const launchPlan = adapter.createLaunchPlan(compositeProfilePlan.compositeProfile, profile, ['--verbose']);
@@ -89,13 +89,13 @@ describe('Claude Code adapter support', () => {
       "claude adapter cannot translate requested control 'skills'.",
       "claude adapter cannot translate requested control 'claude.unsupportedClaudeControl'.",
     ]);
-    expect(compositeProfilePlan.compositeProfile.rootDirectory).toBe('/tmp/applepi-engineering-claude-123');
+    expect(compositeProfilePlan.compositeProfile.rootDirectory).toBe('/tmp/outfitter-engineering-claude-123');
     expect(compositeProfilePlan.compositeProfile.files[0]?.sourceInputs).toEqual(['/profiles/engineering/profile.yml']);
     expect(launchPlan.command).toBe('claude');
     expect(launchPlan.env).toEqual({
       GENERIC: '1',
       CLAUDE_ONLY: '1',
-      CLAUDE_CONFIG_DIR: '/tmp/applepi-engineering-claude-123',
+      CLAUDE_CONFIG_DIR: '/tmp/outfitter-engineering-claude-123',
     });
     expect(launchPlan.args).toEqual([
       '--model',
@@ -156,7 +156,7 @@ describe('Claude Code adapter support', () => {
     }
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-005.6, APPLEPI-REQ-006.5).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-005.6, OFTR-006.5).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('declares Claude Code state paths and validates state persistence overrides', () => {
     const root = createTemporaryRoot();
@@ -220,7 +220,7 @@ describe('Claude Code adapter support', () => {
     ).toThrow("state_persistence path 'missing.json' is not declared by the claude adapter");
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-006.2).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-006.2).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('selects supported adapters from the registry and rejects unknown agents', () => {
     expect(isSupportedAgentId('pi')).toBe(true);
@@ -231,13 +231,13 @@ describe('Claude Code adapter support', () => {
     expect(() => createAgentAdapter('other')).toThrow("Unknown agent 'other'. Expected one of: pi, claude.");
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-005.1, APPLEPI-REQ-006.2, APPLEPI-REQ-006.5).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-005.1, OFTR-006.2, OFTR-006.5).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('selects Claude Code from CLI input or settings while preserving pi as the default agent', async () => {
     const root = createTemporaryRoot();
     const homeDirectory = join(root, 'home');
     const projectDirectory = join(root, 'project');
-    const profilesDirectory = join(homeDirectory, '.applepi', 'profiles');
+    const profilesDirectory = join(homeDirectory, '.outfitter', 'profiles');
     writeSettings(homeDirectory, 'default_profile: default\nprofile_sources:\n  - path: ./profiles\n');
     writeProfile(
       profilesDirectory,
@@ -292,11 +292,11 @@ describe('Claude Code adapter support', () => {
     );
 
     expect(defaultResult.agentId).toBe('pi');
-    expect(defaultResult.compositeProfileDirectory).toContain('applepi-default-pi-');
+    expect(defaultResult.compositeProfileDirectory).toContain('outfitter-default-pi-');
     expect(defaultResult.launchPlan.command).toBe('pi');
     expect(cliClaudeResult.agentId).toBe('claude');
-    expect(cliClaudeResult.compositeProfileDirectory).toContain('applepi-default-claude-');
-    expect(existsSync(join(cliClaudeResult.compositeProfileDirectory, 'applepi', 'profile.json'))).toBe(true);
+    expect(cliClaudeResult.compositeProfileDirectory).toContain('outfitter-default-claude-');
+    expect(existsSync(join(cliClaudeResult.compositeProfileDirectory, 'outfitter', 'profile.json'))).toBe(true);
     expect(cliClaudeResult.launchPlan.command).toBe('claude');
     expect(cliClaudeResult.launchPlan.env.CLAUDE_CONFIG_DIR).toBe(cliClaudeResult.compositeProfileDirectory);
     expect(cliClaudeResult.launchPlan.args).toEqual([
@@ -312,7 +312,7 @@ describe('Claude Code adapter support', () => {
     expect(messages).toContain('↳ launching claude …');
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-005.5, APPLEPI-REQ-006.5).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-005.5, OFTR-006.5).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('makes Claude Code unsupported control warnings fatal when strict is enabled', async () => {
     const root = createTemporaryRoot();
@@ -320,7 +320,7 @@ describe('Claude Code adapter support', () => {
     const projectDirectory = join(root, 'project');
     writeSettings(homeDirectory, 'default_profile: default\nprofile_sources:\n  - path: ./profiles\n');
     writeProfile(
-      join(homeDirectory, '.applepi', 'profiles'),
+      join(homeDirectory, '.outfitter', 'profiles'),
       'default',
       'id: default\ncontrols:\n  provider: anthropic\n',
     );

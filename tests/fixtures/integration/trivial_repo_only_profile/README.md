@@ -4,12 +4,12 @@ This fixture models the ordinary case where a repository contributes one checked
 
 ## Setup
 
-- `home/.applepi/settings.yml` defines the user default profile as `default`.
-- `home/.applepi/profiles/default/profile.yml` contributes personal defaults such as `USER_DEFAULT` environment values.
-- `project/.applepi/settings.yml` declares the profile sources needed for this synthetic test tree: the user profile source and the repo profile source.
-- `project/.applepi/profiles/repo-review/profile.yml` defines the selected repository profile.
+- `home/.outfitter/settings.yml` defines the user default profile as `default`.
+- `home/.outfitter/profiles/default/profile.yml` contributes personal defaults such as `USER_DEFAULT` environment values.
+- `project/.outfitter/settings.yml` declares the profile sources needed for this synthetic test tree: the user profile source and the repo profile source.
+- `project/.outfitter/profiles/repo-review/profile.yml` defines the selected repository profile.
 
-The test selects `repo-review` explicitly, so ApplePi should resolve the user's `default` profile as the implicit lower-precedence profile and then layer `repo-review` above it.
+The test selects `repo-review` explicitly, so Outfitter should resolve the user's `default` profile as the implicit lower-precedence profile and then layer `repo-review` above it.
 
 ## Expected behavior
 

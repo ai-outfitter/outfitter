@@ -19,11 +19,11 @@ export const persistFirstRunWelcomeProfile = (
   }
 
   const welcomeProfile = createFirstRunWelcomeProfile(welcomeResult, welcomeResult.selectedRole);
-  const profilePath = join(homeDirectory, '.applepi', 'profiles', welcomeProfile.id, 'profile.yml');
+  const profilePath = join(homeDirectory, '.outfitter', 'profiles', welcomeProfile.id, 'profile.yml');
   const createdProfile = !existsSync(profilePath);
 
   if (createdProfile) {
-    mkdirSync(join(homeDirectory, '.applepi', 'profiles', welcomeProfile.id), { recursive: true });
+    mkdirSync(join(homeDirectory, '.outfitter', 'profiles', welcomeProfile.id), { recursive: true });
     writeFileSync(profilePath, welcomeProfile.content);
   }
 

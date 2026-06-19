@@ -1,4 +1,4 @@
-// Defines the adapter contract for translating ApplePi profiles to agent CLI launches.
+// Defines the adapter contract for translating Outfitter profiles to agent CLI launches.
 import type { Profile } from '../profiles/Profile.js';
 import type { Settings } from '../settings/Settings.js';
 import type { StatePathDeclaration } from '../compositeProfile/StatePersistence.js';

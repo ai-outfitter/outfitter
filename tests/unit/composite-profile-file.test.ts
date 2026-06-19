@@ -15,7 +15,7 @@ import { createCompositeProfileFile } from '../../src/compositeProfile/Composite
 const temporaryRoots: string[] = [];
 
 const createTemporaryRoot = (): string => {
-  const root = mkdtempSync(join(tmpdir(), 'applepi-compositeProfile-file-'));
+  const root = mkdtempSync(join(tmpdir(), 'outfitter-compositeProfile-file-'));
   temporaryRoots.push(root);
   return root;
 };
@@ -27,22 +27,22 @@ afterEach(() => {
 });
 
 describe('compositeProfile file assembly', () => {
-  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-005.2, APPLEPI-REQ-005.3).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-005.2, OFTR-005.3).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('represents compositeProfile files with source inputs, output paths, and transform strategy', () => {
     const compositeProfileFile = createCompositeProfileFile({
-      rootDirectory: '/tmp/applepi-default-pi-abc',
-      relativePath: 'applepi/profile.json',
+      rootDirectory: '/tmp/outfitter-default-pi-abc',
+      relativePath: 'outfitter/profile.json',
       content: '{}\n',
       sourceInputs: ['/profiles/default/profile.yml'],
       strategy: 'transform',
     });
 
     expect(compositeProfileFile).toEqual({
-      relativePath: 'applepi/profile.json',
+      relativePath: 'outfitter/profile.json',
       content: '{}\n',
       sourceInputs: ['/profiles/default/profile.yml'],
-      outputPath: '/tmp/applepi-default-pi-abc/applepi/profile.json',
+      outputPath: '/tmp/outfitter-default-pi-abc/outfitter/profile.json',
       strategy: 'transform',
     });
     expect(createCompositeProfileFile('EMPTY.md')).toMatchObject({ content: '', outputPath: 'EMPTY.md' });
@@ -50,7 +50,7 @@ describe('compositeProfile file assembly', () => {
       sourceInputs: [],
       strategy: 'generate',
     });
-    expect(assembleCompositeProfile({ files: [] }).rootDirectory).toContain('applepi-profile-agent-');
+    expect(assembleCompositeProfile({ files: [] }).rootDirectory).toContain('outfitter-profile-agent-');
 
     const root = createTemporaryRoot();
     expect(() =>

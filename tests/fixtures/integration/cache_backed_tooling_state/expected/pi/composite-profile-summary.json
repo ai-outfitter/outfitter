@@ -24,9 +24,9 @@
   },
   "stateTargets": {
     "bin": "<cache>/utilities",
-    "cache": "<project>/.applepi/profiles/cache-tooling/cli_specific/pi/cache",
-    "git": "<project>/.applepi/profiles/cache-tooling/cli_specific/pi/git",
-    "npm": "<project>/.applepi/profiles/cache-tooling/cli_specific/pi/npm",
+    "cache": "<project>/.outfitter/profiles/cache-tooling/cli_specific/pi/cache",
+    "git": "<project>/.outfitter/profiles/cache-tooling/cli_specific/pi/git",
+    "npm": "<project>/.outfitter/profiles/cache-tooling/cli_specific/pi/npm",
     "utilities": "<cache>/utilities"
   }
 }

@@ -8,5 +8,5 @@ export interface PiCompositeProfilePaths {
 
 export const createPiCompositeProfilePaths = (agentDirectory: string): PiCompositeProfilePaths => ({
   agentDirectory,
-  profileMetadataPath: join(agentDirectory, 'applepi', 'profile.json'),
+  profileMetadataPath: join(agentDirectory, 'outfitter', 'profile.json'),
 });

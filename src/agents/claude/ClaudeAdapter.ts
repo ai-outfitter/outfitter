@@ -67,7 +67,7 @@ export const createClaudeAdapter = (): AgentAdapter => ({
       [
         createCompositeProfileFile({
           rootDirectory: input.rootDirectory,
-          relativePath: 'applepi/profile.json',
+          relativePath: 'outfitter/profile.json',
           content: `${JSON.stringify({ id: profile.id, label: profile.label, controls: profile.controls }, null, 2)}\n`,
           sourceInputs: input.profilePaths,
           strategy: 'transform',

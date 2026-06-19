@@ -1,4 +1,4 @@
-// Tests the GitHub Actions workflow that publishes ApplePi to npm.
+// Tests the GitHub Actions workflow that publishes Outfitter to npm.
 import { readFileSync } from 'node:fs';
 
 import { parse } from 'yaml';
@@ -41,9 +41,9 @@ const findStep = (workflow: WorkflowDocument, stepName: string): WorkflowStep =>
 };
 
 describe('release workflow', () => {
-  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-009.2).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-009.2).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
-  it('publishes the applepi npm package only after release preparation and checks', () => {
+  it('publishes the @ai-outfitter/outfitter npm package only after release preparation and checks', () => {
     const workflow = loadReleaseWorkflow();
     const stepNames = workflow.jobs['publish-npm'].steps.map((step) => step.name);
 

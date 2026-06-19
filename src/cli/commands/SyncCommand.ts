@@ -97,7 +97,7 @@ export const executeSyncCommand = (
 export const createSyncCommand = (dependencies: SyncCommandDependencies = {}): CommandObject => {
   const command: CommandObject = {
     name: 'sync',
-    description: 'Synchronize URI-backed ApplePi profile and remote settings sources into the local cache.',
+    description: 'Synchronize URI-backed Outfitter profile and remote settings sources into the local cache.',
     register(program: Command): void {
       program
         .command(command.name)

@@ -10,14 +10,14 @@ import { executeRunCommand } from '../../src/cli/commands/RunCommand.js';
 const temporaryRoots: string[] = [];
 
 const createTemporaryRoot = (): string => {
-  const root = mkdtempSync(join(tmpdir(), 'applepi-run-deepwork-jobs-'));
+  const root = mkdtempSync(join(tmpdir(), 'outfitter-run-deepwork-jobs-'));
   temporaryRoots.push(root);
   return root;
 };
 
 const writeSettings = (homeDirectory: string, content: string): void => {
-  mkdirSync(join(homeDirectory, '.applepi'), { recursive: true });
-  writeFileSync(join(homeDirectory, '.applepi', 'settings.yml'), content);
+  mkdirSync(join(homeDirectory, '.outfitter'), { recursive: true });
+  writeFileSync(join(homeDirectory, '.outfitter', 'settings.yml'), content);
 };
 
 const writeProfile = (root: string, id: string, content: string): string => {
@@ -46,7 +46,7 @@ describe('run command DeepWork job exposure', () => {
     const root = createTemporaryRoot();
     const homeDirectory = join(root, 'home');
     const projectDirectory = join(root, 'project');
-    const profilesDirectory = join(homeDirectory, '.applepi', 'profiles');
+    const profilesDirectory = join(homeDirectory, '.outfitter', 'profiles');
     const baseProfileDirectory = writeProfile(profilesDirectory, 'base', 'id: base\ncontrols: {}\n');
     const selectedProfileDirectory = writeProfile(
       profilesDirectory,

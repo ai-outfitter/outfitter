@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 
-// Installs this checkout as the active global applepi command for local development.
+// Installs this checkout as the active global outfitter command for local development.
 // The command intentionally uses `npm link` rather than `npm install -g .` so the
 // global package points at this working tree. Rebuilding `dist/` in this checkout
-// immediately updates the globally linked `applepi` executable.
+// immediately updates the globally linked `outfitter` executable.
 import { execFileSync } from 'node:child_process';
 import { existsSync, realpathSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -28,7 +28,7 @@ run('npm', ['run', 'build']);
 run('npm', ['link']);
 
 const globalRoot = run('npm', ['root', '-g'], { capture: true }).trim();
-const linkedPackagePath = join(globalRoot, 'applepi');
+const linkedPackagePath = join(globalRoot, '@ai-outfitter', 'outfitter');
 
 if (!existsSync(linkedPackagePath)) {
   throw new Error(`Expected npm link to create ${linkedPackagePath}.`);
@@ -38,13 +38,13 @@ const linkedPackageRealpath = realpathSync(linkedPackagePath);
 const projectRealpath = realpathSync(projectRoot);
 
 if (linkedPackageRealpath !== projectRealpath) {
-  throw new Error(`Global applepi package points at ${linkedPackageRealpath}, not ${projectRealpath}.`);
+  throw new Error(`Global outfitter package points at ${linkedPackageRealpath}, not ${projectRealpath}.`);
 }
 
 // Smoke-test the command through the globally linked bin. This catches stale bin
 // targets and symlink-entrypoint bugs before the user starts manual testing.
-run('applepi', ['--version']);
-run('applepi', ['--help']);
+run('outfitter', ['--version']);
+run('outfitter', ['--help']);
 
-console.log('\napplepi is globally linked to this checkout.');
+console.log('\noutfitter is globally linked to this checkout.');
 console.log('After source changes, run `npm run build` to refresh the linked dist/ output.');

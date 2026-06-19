@@ -40,10 +40,10 @@ prompt_best_practices:
       - FAIL: Issues found. List each issue with location, severity, best practice violated, description, and suggested improvement.
 
 requirements_traceability:
-  description: "Verify APPLEPI-REQ-008 traceability between requirements, TypeScript tests, DeepSchemas, and DeepReview rules."
+  description: "Verify OFTR-008 traceability between requirements, TypeScript tests, DeepSchemas, and DeepReview rules."
   match:
     include:
-      - "requirements/APPLEPI-REQ-*.md"
+      - "requirements/OFTR-*.md"
       - "src/**/*.ts"
       - "src/schemas/**/*.json"
       - "bin/**/*.ts"
@@ -58,8 +58,8 @@ requirements_traceability:
     instructions: |
       Review the changed files for requirements traceability.
 
-      Requirements live in `requirements/` as `APPLEPI-REQ-NNN-<topic>.md`,
-      with individually numbered items such as `APPLEPI-REQ-008.3`. Each
+      Requirements live in `requirements/` as `OFTR-NNN-<topic>.md`,
+      with individually numbered items such as `OFTR-008.3`. Each
       requirement should be validated by TypeScript tests, DeepSchemas, or
       `.deepreview` rules using the mechanism that fits the requirement.
 
@@ -87,10 +87,10 @@ integration_fixture_requirement_coverage:
   description: "Require fixture-backed integration coverage when requirements change composite profile, profile, adapter, or state behavior."
   match:
     include:
-      - "requirements/APPLEPI-REQ-003-profiles.md"
-      - "requirements/APPLEPI-REQ-005-run-and-composite profile.md"
-      - "requirements/APPLEPI-REQ-006-agent-adapters.md"
-      - "requirements/APPLEPI-REQ-007-controllable-elements.md"
+      - "requirements/OFTR-003-profiles.md"
+      - "requirements/OFTR-005-run-and-composite-profile.md"
+      - "requirements/OFTR-006-agent-adapters.md"
+      - "requirements/OFTR-007-controllable-elements.md"
   review:
     strategy: all_changed_files
     additional_context:
@@ -130,7 +130,7 @@ doc_consistency:
   description: "Verify architecture, file structure, state writeback, and public docs stay current when requirements or related docs change."
   match:
     include:
-      - "requirements/APPLEPI-REQ-*.md"
+      - "requirements/OFTR-*.md"
       - "doc/architecture.md"
       - "doc/file_structure.md"
       - "doc/state_writeback_strategy.md"
@@ -176,7 +176,7 @@ doc_consistency:
       - FAIL: Issues found. List each stale, missing, conflicting, contradictory, or broken documentation statement with a line reference.
 
 doc_site_product_consistency:
-  description: "Verify public documentation site claims stay aligned with ApplePi architecture and controllable element support."
+  description: "Verify public documentation site claims stay aligned with Outfitter architecture and controllable element support."
   match:
     include:
       - "doc/*"
@@ -185,7 +185,7 @@ doc_site_product_consistency:
     additional_context:
       unchanged_matching_files: true
     instructions: |
-      Review public documentation site MDX pages against ApplePi's architecture and
+      Review public documentation site MDX pages against Outfitter's architecture and
       controllable element documentation. 
 
       Check that:

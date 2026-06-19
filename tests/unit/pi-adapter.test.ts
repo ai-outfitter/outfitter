@@ -24,7 +24,7 @@ const writePiMcpConfig = (profileFolder: string, content: object | string): void
 };
 
 describe('pi adapter', () => {
-  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-006.1, APPLEPI-REQ-006.2, APPLEPI-REQ-006.3, APPLEPI-REQ-006.4).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-006.1, OFTR-006.2, OFTR-006.3, OFTR-006.4).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('translates generic and pi-specific profile controls into pi env and argv', () => {
     const adapter = createPiAdapter();
@@ -52,7 +52,7 @@ describe('pi adapter', () => {
           },
         },
       },
-      { rootDirectory: '/tmp/applepi-engineering-pi-123', profilePaths: ['/profiles/engineering/profile.yml'] },
+      { rootDirectory: '/tmp/outfitter-engineering-pi-123', profilePaths: ['/profiles/engineering/profile.yml'] },
     );
     const launchPlan = adapter.createLaunchPlan(compositeProfilePlan.compositeProfile, {
       id: 'engineering',
@@ -88,13 +88,13 @@ describe('pi adapter', () => {
         controls: { pi: { unsupportedPiControl: true } },
       }),
     ).toEqual(['pi.unsupportedPiControl']);
-    expect(compositeProfilePlan.compositeProfile.rootDirectory).toBe('/tmp/applepi-engineering-pi-123');
+    expect(compositeProfilePlan.compositeProfile.rootDirectory).toBe('/tmp/outfitter-engineering-pi-123');
     expect(compositeProfilePlan.compositeProfile.files[0]?.sourceInputs).toEqual(['/profiles/engineering/profile.yml']);
     expect(launchPlan.command).toBe('pi');
     expect(launchPlan.env).toEqual({
       GENERIC: '1',
       PI_ONLY: '1',
-      PI_CODING_AGENT_DIR: '/tmp/applepi-engineering-pi-123',
+      PI_CODING_AGENT_DIR: '/tmp/outfitter-engineering-pi-123',
     });
     expect(launchPlan.args).toEqual([
       '--model',
@@ -135,7 +135,7 @@ describe('pi adapter', () => {
     }
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-006.3).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-006.3).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('makes native pi models config available inside the composite profile', () => {
     const { homeDirectory } = createPiSettingsTestHome();
@@ -143,7 +143,7 @@ describe('pi adapter', () => {
     const compositeProfilePlan = adapter.createCompositeProfile(
       { id: 'engineering', inherits: [], controls: {} },
       {
-        rootDirectory: '/tmp/applepi-engineering-pi-models',
+        rootDirectory: '/tmp/outfitter-engineering-pi-models',
         profilePaths: ['/profiles/engineering/profile.yml'],
         homeDirectory,
       },
@@ -166,7 +166,7 @@ describe('pi adapter', () => {
     const compositeProfilePlan = adapter.createCompositeProfile(
       { id: 'engineering', inherits: [], controls: {} },
       {
-        rootDirectory: '/tmp/applepi-engineering-pi-mcp',
+        rootDirectory: '/tmp/outfitter-engineering-pi-mcp',
         profilePaths: ['/profiles/engineering/profile.yml'],
         homeDirectory,
       },
@@ -188,7 +188,7 @@ describe('pi adapter', () => {
     expect(readFileSync(join(homeDirectory, '.pi', 'agent', 'models.json'), 'utf8')).toBe('{"providers":{}}\n');
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-006.6).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-006.6).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('transforms pi settings packages when profile extensions would duplicate native packages', () => {
     const { homeDirectory, settingsPath } = createPiSettingsTestHome();
@@ -198,7 +198,7 @@ describe('pi adapter', () => {
         packages: [
           'npm:pi-subagents',
           { source: 'npm:kept-package', extensions: ['index.ts'] },
-          { source: 'git+https://github.com/applepi-ai/deepwork.git#main' },
+          { source: 'git+https://github.com/ai-outfitter/deepwork.git#main' },
           { source: 42, note: 'kept because it has no string source' },
           null,
         ],
@@ -213,12 +213,12 @@ describe('pi adapter', () => {
         inherits: [],
         controls: {
           pi: {
-            extensions: ['npm:pi-subagents@2', 'git:github.com/applepi-ai/deepwork#v1'],
+            extensions: ['npm:pi-subagents@2', 'git:github.com/ai-outfitter/deepwork#v1'],
           },
         },
       },
       {
-        rootDirectory: '/tmp/applepi-engineering-pi-456',
+        rootDirectory: '/tmp/outfitter-engineering-pi-456',
         profilePaths: ['/profiles/engineering/profile.yml'],
         homeDirectory,
       },
@@ -246,7 +246,7 @@ describe('pi adapter', () => {
     });
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-006.6).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-006.6).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('keeps native pi settings state when settings do not need reconciliation or cannot be parsed', () => {
     const noDuplicate = createPiSettingsTestHome();
@@ -275,7 +275,7 @@ describe('pi adapter', () => {
       malformedPackages.homeDirectory,
     ]) {
       const compositeProfilePlan = adapter.createCompositeProfile(profile, {
-        rootDirectory: '/tmp/applepi-engineering-pi-789',
+        rootDirectory: '/tmp/outfitter-engineering-pi-789',
         profilePaths: ['/profiles/engineering/profile.yml'],
         homeDirectory,
       });
@@ -295,17 +295,17 @@ describe('pi adapter', () => {
 
     expect(() =>
       adapter.createCompositeProfile(profile, {
-        rootDirectory: '/tmp/applepi-engineering-pi-789',
+        rootDirectory: '/tmp/outfitter-engineering-pi-789',
         profilePaths: ['/profiles/engineering/profile.yml'],
         homeDirectory: unreadable.homeDirectory,
       }),
     ).toThrow(/Could not read pi settings file/u);
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-006.3).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-006.3).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('merges pi .mcp.json profile fragments with unique array identities keeping the last entry', () => {
-    const root = createTemporaryPiAdapterTestRoot('applepi-pi-mcp-test-');
+    const root = createTemporaryPiAdapterTestRoot('outfitter-pi-mcp-test-');
     const baseProfileFolder = join(root, 'base');
     const explicitProfileFolder = join(root, 'explicit');
 
@@ -403,7 +403,7 @@ describe('pi adapter', () => {
   });
 
   it('rejects pi .mcp.json profile fragments that are invalid or not JSON objects', () => {
-    const root = createTemporaryPiAdapterTestRoot('applepi-pi-mcp-invalid-test-');
+    const root = createTemporaryPiAdapterTestRoot('outfitter-pi-mcp-invalid-test-');
     const nonObjectProfileFolder = join(root, 'non-object-profile');
     const malformedProfileFolder = join(root, 'malformed-profile');
     const unreadableProfileFolder = join(root, 'unreadable-profile');
@@ -455,7 +455,7 @@ const createTemporaryPiAdapterTestRoot = (prefix: string): string => {
 };
 
 const createPiSettingsTestHome = (): { readonly homeDirectory: string; readonly settingsPath: string } => {
-  const homeDirectory = createTemporaryPiAdapterTestRoot('applepi-pi-settings-');
+  const homeDirectory = createTemporaryPiAdapterTestRoot('outfitter-pi-settings-');
   const settingsDirectory = join(homeDirectory, '.pi', 'agent');
   const settingsPath = join(settingsDirectory, 'settings.json');
   mkdirSync(settingsDirectory, { recursive: true });

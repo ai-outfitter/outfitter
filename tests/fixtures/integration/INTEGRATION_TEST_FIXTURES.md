@@ -58,7 +58,7 @@ Use it to verify missing inherited profile diagnostics.
 
 Location: `tests/fixtures/integration/trivial_repo_only_profile/`
 
-This is the ordinary happy path: the repository defines one checked-in profile, while the user has a normal `default` profile in `~/.applepi/profiles/default`.
+This is the ordinary happy path: the repository defines one checked-in profile, while the user has a normal `default` profile in `~/.outfitter/profiles/default`.
 
 The selected repo profile should compose with the user's implicit default profile.
 The fixture should intentionally omit profile-owned CLI state files so adapter defaults fall through to native standard locations, such as each adapter's normal config/state directory.
@@ -117,7 +117,7 @@ If profile-owned CLI state is absent, adapter state should use native or cache f
 
 Location: `tests/fixtures/integration/local_sandbox_overrides/`
 
-This fixture should have stable checked-in repo profiles, plus `.applepi/local/settings.yml` selecting a local-only sandbox profile.
+This fixture should have stable checked-in repo profiles, plus `.outfitter/local/settings.yml` selecting a local-only sandbox profile.
 The sandbox can add experimental args, environment, prompts, and selected `state_persistence` overrides.
 
 Use it to cover developer-local customization without changing repo files.

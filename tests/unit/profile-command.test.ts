@@ -18,13 +18,13 @@ import { createProfileSourceCachePath, createRemoteRepositoryCachePath } from '.
 const temporaryRoots: string[] = [];
 
 const createTemporaryRoot = (): string => {
-  const root = mkdtempSync(join(tmpdir(), 'applepi-profile-command-'));
+  const root = mkdtempSync(join(tmpdir(), 'outfitter-profile-command-'));
   temporaryRoots.push(root);
   return root;
 };
 
 const writeSettings = (homeDirectory: string, content: string): void => {
-  const settingsDirectory = join(homeDirectory, '.applepi');
+  const settingsDirectory = join(homeDirectory, '.outfitter');
   mkdirSync(settingsDirectory, { recursive: true });
   writeFileSync(join(settingsDirectory, 'settings.yml'), content);
 };
@@ -51,7 +51,7 @@ afterEach(() => {
 });
 
 describe('profile command', () => {
-  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-004.3).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-004.3).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('creates placeholder profiles by scope or path under profile create', async () => {
     const root = createTemporaryRoot();
@@ -84,9 +84,9 @@ describe('profile command', () => {
     expect(existsSync(join(byScope.profileDirectory, 'extensions'))).toBe(true);
     expect(existsSync(join(byScope.profileDirectory, 'cli_specific', 'pi'))).toBe(true);
     expect(existsSync(join(byScope.profileDirectory, 'cli_specific', 'claude'))).toBe(true);
-    expect(byProject.profileDirectory).toBe(join(projectDirectory, '.applepi', 'profiles', 'project-profile'));
+    expect(byProject.profileDirectory).toBe(join(projectDirectory, '.outfitter', 'profiles', 'project-profile'));
     expect(byProjectLocal.profileDirectory).toBe(
-      join(projectDirectory, '.applepi', 'local', 'profiles', 'local-profile'),
+      join(projectDirectory, '.outfitter', 'local', 'profiles', 'local-profile'),
     );
     expect(byPath.profileDirectory).toBe(join(customRoot, 'research'));
 
@@ -103,12 +103,12 @@ describe('profile command', () => {
       projectDirectory,
       writeLine: (message) => messages.push(message),
     });
-    await program.parseAsync(['node', 'applepi', 'profile', 'create', 'valid', '--path', join(root, 'cli-profiles')]);
+    await program.parseAsync(['node', 'outfitter', 'profile', 'create', 'valid', '--path', join(root, 'cli-profiles')]);
 
     expect(messages).toContainEqual(expect.stringContaining("Created profile 'valid'"));
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-004.3, APPLEPI-REQ-004.4).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-004.3, OFTR-004.4).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('rejects invalid profile create inputs and missing command arguments', async () => {
     const root = createTemporaryRoot();
@@ -127,10 +127,10 @@ describe('profile command', () => {
 
     const program = new Command();
     registerProfileCommands(program, { homeDirectory, projectDirectory, writeLine: () => undefined });
-    await program.parseAsync(['node', 'applepi', 'profile', 'create', 'scoped', '--scope', 'user']);
-    expect(existsSync(join(homeDirectory, '.applepi', 'profiles', 'scoped', 'profile.yml'))).toBe(true);
+    await program.parseAsync(['node', 'outfitter', 'profile', 'create', 'scoped', '--scope', 'user']);
+    expect(existsSync(join(homeDirectory, '.outfitter', 'profiles', 'scoped', 'profile.yml'))).toBe(true);
     await expect(
-      program.parseAsync(['node', 'applepi', 'profile', 'create', 'valid', '--scope', 'invalid']),
+      program.parseAsync(['node', 'outfitter', 'profile', 'create', 'valid', '--scope', 'invalid']),
     ).rejects.toThrow("Unknown profile scope 'invalid'");
 
     const missingNameProgram = new Command();
@@ -141,11 +141,11 @@ describe('profile command', () => {
     profileCreateCommand?.exitOverride();
     profileCreateCommand?.configureOutput({ writeErr: () => undefined });
     await expect(
-      missingNameProgram.parseAsync(['node', 'applepi', 'profile', 'create', '--scope', 'user']),
+      missingNameProgram.parseAsync(['node', 'outfitter', 'profile', 'create', '--scope', 'user']),
     ).rejects.toThrow("missing required argument 'name'");
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-004.5).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-004.5).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('wires setup and sync command actions to command object executors', async () => {
     const root = createTemporaryRoot();
@@ -157,7 +157,7 @@ describe('profile command', () => {
     createSyncCommand({ homeDirectory, projectDirectory, writeLine: (message) => syncMessages.push(message) }).register(
       syncProgram,
     );
-    await syncProgram.parseAsync(['node', 'applepi', 'sync']);
+    await syncProgram.parseAsync(['node', 'outfitter', 'sync']);
     expect(syncMessages).toEqual(['No URI profile or remote settings sources configured; nothing to sync.']);
 
     const setupMessages: string[] = [];
@@ -182,18 +182,18 @@ describe('profile command', () => {
         return Promise.resolve({ answerQuestions: false });
       },
     }).register(setupProgram);
-    await setupProgram.parseAsync(['node', 'applepi', 'setup']);
-    expect(setupMessages).not.toContain('Welcome to ApplePi. ApplePi is the easiest way to run Pi.');
+    await setupProgram.parseAsync(['node', 'outfitter', 'setup']);
+    expect(setupMessages).not.toContain('Welcome to Outfitter. Outfitter is the easiest way to run Pi.');
     expect(setupMessages).toContainEqual(expect.stringContaining('Created user settings'));
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-004.5).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-004.5).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('lists unique profiles from configured local and cached remote sources', async () => {
     const root = createTemporaryRoot();
     const homeDirectory = join(root, 'home');
     const projectDirectory = join(root, 'project');
-    const localProfiles = join(homeDirectory, '.applepi', 'profiles');
+    const localProfiles = join(homeDirectory, '.outfitter', 'profiles');
     const remoteSource = { github: 'example/team-profiles', ref: 'main', path: 'profiles' };
     const uri = 'https://example.test/plain-profiles.git';
     const remoteProfiles = join(createRemoteRepositoryCachePath(homeDirectory, remoteSource), 'profiles');
@@ -229,11 +229,11 @@ describe('profile command', () => {
       projectDirectory,
       writeLine: (message) => messages.push(message),
     });
-    await program.parseAsync(['node', 'applepi', 'profile', 'list']);
+    await program.parseAsync(['node', 'outfitter', 'profile', 'list']);
     expect(messages).toEqual(['engineering', 'plain-uri', 'research', 'support']);
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-004.5).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-004.5).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('reports empty profile lists and invalid list inputs', () => {
     const root = createTemporaryRoot();

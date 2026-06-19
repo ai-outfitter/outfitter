@@ -7,8 +7,8 @@ controllable_elements_matrix:
     strategy: individual
     instructions: |
       Review doc/controllable-elements.md for judgment-based mapping accuracy.
-      This rule provides judgment-based review coverage for APPLEPI-REQ-007.1,
-      APPLEPI-REQ-007.2, and APPLEPI-REQ-007.3 concerns that cannot be validated
+      This rule provides judgment-based review coverage for OFTR-007.1,
+      OFTR-007.2, and OFTR-007.3 concerns that cannot be validated
       deterministically by the controllable_elements_matrix DeepSchema.
 
       Deterministic facts such as table shape, one row per defined term, allowed
@@ -21,7 +21,7 @@ controllable_elements_matrix:
          behavior.
       2. Non-pi mappings are clearly framed as roadmap/experimental unless a
          supported adapter exists.
-      3. Support status claims do not overstate tested ApplePi behavior.
+      3. Support status claims do not overstate tested Outfitter behavior.
       4. Defined controllable elements are meaningful product-boundary concepts,
          not implementation-only details.
 

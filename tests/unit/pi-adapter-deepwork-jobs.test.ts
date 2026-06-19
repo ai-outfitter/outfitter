@@ -17,7 +17,7 @@ afterEach(() => {
 
 describe('pi adapter DeepWork jobs', () => {
   it('adds only selected profile-bundled DeepWork jobs to the pi launch environment by default', () => {
-    const root = mkdtempSync(join(tmpdir(), 'applepi-pi-deepwork-jobs-'));
+    const root = mkdtempSync(join(tmpdir(), 'outfitter-pi-deepwork-jobs-'));
     temporaryPiAdapterTestRoots.push(root);
     const baseProfileFolder = join(root, 'base');
     const selectedProfileFolder = join(root, 'selected');
@@ -63,7 +63,7 @@ describe('pi adapter DeepWork jobs', () => {
   });
 
   it('uses external DeepWork job folders only when the profile allows them', () => {
-    const root = mkdtempSync(join(tmpdir(), 'applepi-pi-deepwork-process-env-'));
+    const root = mkdtempSync(join(tmpdir(), 'outfitter-pi-deepwork-process-env-'));
     temporaryPiAdapterTestRoots.push(root);
     const profileFolder = join(root, 'selected');
     const jobsFolder = join(profileFolder, 'cli_specific', 'pi', 'deepwork', 'jobs');

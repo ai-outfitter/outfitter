@@ -27,7 +27,7 @@ const temporaryRoots: string[] = [];
 const fixturesRoot = fileURLToPath(new URL('../fixtures/integration/', import.meta.url));
 
 export const copyFixtureToTemp = (name: string): IntegrationFixture => {
-  const temporaryRoot = mkdtempSync(join(tmpdir(), `applepi-fixture-${name}-`));
+  const temporaryRoot = mkdtempSync(join(tmpdir(), `outfitter-fixture-${name}-`));
   temporaryRoots.push(temporaryRoot);
   const root = join(temporaryRoot, name);
 
@@ -89,7 +89,9 @@ export const compositeProfileRootFromLaunchPlan = (plan: AgentLaunchPlan): strin
 };
 
 export const summarizePiCompositeProfile = (fixture: IntegrationFixture, compositeProfileRoot: string): unknown => ({
-  generatedProfile: JSON.parse(readFileSync(join(compositeProfileRoot, 'applepi', 'profile.json'), 'utf8')) as unknown,
+  generatedProfile: JSON.parse(
+    readFileSync(join(compositeProfileRoot, 'outfitter', 'profile.json'), 'utf8'),
+  ) as unknown,
   stateTargets: {
     'auth.json': tokenizeFixturePath(
       fixture,
@@ -113,7 +115,9 @@ export const summarizeClaudeCompositeProfile = (
   fixture: IntegrationFixture,
   compositeProfileRoot: string,
 ): unknown => ({
-  generatedProfile: JSON.parse(readFileSync(join(compositeProfileRoot, 'applepi', 'profile.json'), 'utf8')) as unknown,
+  generatedProfile: JSON.parse(
+    readFileSync(join(compositeProfileRoot, 'outfitter', 'profile.json'), 'utf8'),
+  ) as unknown,
   stateTargets: {
     'settings.json': tokenizeFixturePath(
       fixture,

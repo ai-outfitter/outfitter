@@ -2,7 +2,7 @@
 import { Command } from 'commander';
 
 export const profileCommandName = 'profile';
-export const profileCommandDescription = 'List and manage ApplePi profiles.';
+export const profileCommandDescription = 'List and manage Outfitter profiles.';
 
 export interface ProfileCommandDependencies {
   readonly homeDirectory?: string;

@@ -19,7 +19,7 @@ afterEach(() => {
 });
 
 describe('strict CI integration fixture composite profile generation', () => {
-  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-005.6).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-005.6).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('fails a strict CI profile when declared error-state configuration changes', async () => {
     const fixture = copyFixtureToTemp('strict_ci_profile');
@@ -44,11 +44,11 @@ describe('strict CI integration fixture composite profile generation', () => {
               launchArgs: plan.args,
               launchEnv: {
                 PI_CODING_AGENT_DIR: tokenizeFixturePath(fixture, plan.env.PI_CODING_AGENT_DIR, compositeProfileRoot),
-                APPLEPI_FIXTURE: plan.env.APPLEPI_FIXTURE,
+                OUTFITTER_FIXTURE: plan.env.OUTFITTER_FIXTURE,
                 CI_PROFILE: plan.env.CI_PROFILE,
               },
               generatedProfile: JSON.parse(
-                readFileSync(join(compositeProfileRoot, 'applepi', 'profile.json'), 'utf8'),
+                readFileSync(join(compositeProfileRoot, 'outfitter', 'profile.json'), 'utf8'),
               ) as unknown,
               strictStateFiles: {
                 'settings.json': existsSync(settingsPath) ? 'present-before-launch' : 'absent-before-launch',
@@ -73,10 +73,10 @@ describe('strict CI integration fixture composite profile generation', () => {
     expect(launchSummary).toEqual(readExpectedJson(fixture, 'pi/launch-summary.json'));
     expect(existsSync(join(fixture.home, '.pi', 'agent', 'settings.json'))).toBe(false);
     expect(existsSync(join(fixture.home, '.pi', 'agent', 'cache', 'index.json'))).toBe(false);
-    expect(readFixtureText(fixture, 'project/.applepi/profiles/ci-strict/profile.yml')).toContain('unknown: error');
+    expect(readFixtureText(fixture, 'project/.outfitter/profiles/ci-strict/profile.yml')).toContain('unknown: error');
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (APPLEPI-REQ-005.6).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-005.6).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('fails a strict CI profile when undeclared composite profile state is written', async () => {
     const fixture = copyFixtureToTemp('strict_ci_profile');
@@ -98,7 +98,7 @@ describe('strict CI integration fixture composite profile generation', () => {
     ).rejects.toThrow(diagnostics.unknownWriteError);
 
     expect(existsSync(join(fixture.home, '.pi', 'agent', 'undeclared-state.json'))).toBe(false);
-    expect(readFixtureText(fixture, 'project/.applepi/profiles/ci-strict/profile.yml')).toContain(
+    expect(readFixtureText(fixture, 'project/.outfitter/profiles/ci-strict/profile.yml')).toContain(
       'settings.json: error',
     );
   });

@@ -1,4 +1,4 @@
-// Provides the parent profile command namespace for ApplePi profile management.
+// Provides the parent profile command namespace for Outfitter profile management.
 import type { Command } from 'commander';
 
 import type { CommandObject } from '../CommandObject.js';

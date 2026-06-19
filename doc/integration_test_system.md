@@ -2,7 +2,7 @@
 
 ## Purpose
 
-ApplePi uses fixture-backed integration tests to exercise real settings/profile directory trees rather than constructing every input inside individual tests.
+Outfitter uses fixture-backed integration tests to exercise real settings/profile directory trees rather than constructing every input inside individual tests.
 This is especially important for composite profile generation and state persistence because the effective runtime composite profile can be composed from multiple settings files, multiple profile sources, inherited profiles, adapter defaults, and CLI-specific profile state files.
 
 The core risk is that a generated composite profile can look correct in isolated unit tests while write-back/state-persistence behavior remains ambiguous or unsafe when the composite profile came from four or more durable sources.
@@ -10,17 +10,17 @@ Integration fixtures make those source relationships visible and testable.
 
 ## Goals
 
-- Store realistic, pre-written ApplePi projects as fixture directories.
+- Store realistic, pre-written Outfitter projects as fixture directories.
 - Copy each fixture into a temporary directory before the test mutates it.
 - Traverse fixtures through the same public loading, resolution, composite profile assembly, and run/write detection paths used by commands.
 - Assert the resulting composite profile shape, symlinks, generated files, argv/env launch plan, warnings, and durable write results.
-- Make source ownership explicit enough that tests prove ApplePi does not perform unsupported generic write-back into composed settings/profile inputs.
+- Make source ownership explicit enough that tests prove Outfitter does not perform unsupported generic write-back into composed settings/profile inputs.
 - Keep fixtures reusable across tests and documented in the integration fixture catalog.
 
 ## Non-goals
 
 - Integration tests do not replace focused unit tests for schema validation, merge algorithms, adapter helpers, or path-safety checks.
-- ApplePi does not implement generic structured merge-back from generated composite profile files into settings or profiles.
+- Outfitter does not implement generic structured merge-back from generated composite profile files into settings or profiles.
 - Integration tests do not require real pi or Claude Code binaries.
   Tests inject fake launchers that read/write the composite profile.
 - Integration tests do not depend on the developer machine's real home directory, native CLI config, or network state.
@@ -38,11 +38,11 @@ tests/
       trivial_repo_only_profile/
         README.md
         home/
-          .applepi/settings.yml
-          .applepi/profiles/default/profile.yml
+          .outfitter/settings.yml
+          .outfitter/profiles/default/profile.yml
         project/
-          .applepi/settings.yml
-          .applepi/profiles/repo-review/profile.yml
+          .outfitter/settings.yml
+          .outfitter/profiles/repo-review/profile.yml
         expected/
           pi/
             composite profile-summary.json
@@ -70,12 +70,12 @@ A fixture uses these top-level entries:
 
 A fixture may also include these top-level entries:
 
-| Path      | Purpose                                                                                       |
-| --------- | --------------------------------------------------------------------------------------------- |
-| `native/` | Explicit native CLI state tree for tests that map adapter fallbacks away from `home/`.        |
-| `cache/`  | Pre-seeded ApplePi cache, remote-profile cache, or adapter cache/tooling state when required. |
+| Path      | Purpose                                                                                         |
+| --------- | ----------------------------------------------------------------------------------------------- |
+| `native/` | Explicit native CLI state tree for tests that map adapter fallbacks away from `home/`.          |
+| `cache/`  | Pre-seeded Outfitter cache, remote-profile cache, or adapter cache/tooling state when required. |
 
-Settings and profiles inside `home/` and `project/` use normal ApplePi paths such as `.applepi/settings.yml`, `.applepi/local/settings.yml`, and `.applepi/profiles/<id>/profile.yml`.
+Settings and profiles inside `home/` and `project/` use normal Outfitter paths such as `.outfitter/settings.yml`, `.outfitter/local/settings.yml`, and `.outfitter/profiles/<id>/profile.yml`.
 CLI-specific state lives under profile folders, for example `cli_specific/pi/settings.json` or `cli_specific/claude/settings.json`.
 Fixture names describe the user/project scenario rather than the adapter; adapter-specific expected output is nested under `expected/pi/`, `expected/claude/`, and similar directories.
 
@@ -102,7 +102,7 @@ The framework uses a split model:
 - **Test code encodes behavior.
   ** The Vitest test case chooses which fixture to run, defines the fake launcher's mutation script, and performs assertions against the copied fixture and any expected files.
 
-This keeps fixtures readable as normal ApplePi directory trees while keeping active behavior in TypeScript where it can use filesystem APIs, helper functions, and precise assertions.
+This keeps fixtures readable as normal Outfitter directory trees while keeping active behavior in TypeScript where it can use filesystem APIs, helper functions, and precise assertions.
 Do not hide executable test behavior in ad hoc YAML unless a future mutation-script format is deliberately added.
 
 For example:
@@ -114,14 +114,14 @@ it('does not copy generated composed settings back to source layers', async () =
   const result = await runFixture(fixture, {
     launcher(plan) {
       const composite profileRoot = composite profileRootFromLaunchPlan(plan);
-      writeFileSync(join(composite profileRoot, 'applepi', 'profile.json'), '{"mutated":true}\n');
+      writeFileSync(join(composite profileRoot, 'outfitter', 'profile.json'), '{"mutated":true}\n');
       writeFileSync(join(composite profileRoot, 'unexpected.txt'), 'unknown write\n');
       return Promise.resolve(0);
     },
   });
 
   expect(result.warnings).toEqual(readExpectedJson(fixture, 'warnings.json'));
-  expect(readFileSync(join(fixture.project, '.applepi/settings.yml'), 'utf8')).toBe(
+  expect(readFileSync(join(fixture.project, '.outfitter/settings.yml'), 'utf8')).toBe(
     readExpectedText(fixture, 'source-project-settings-after.yml'),
   );
 });
@@ -145,7 +145,7 @@ Use structured expected files for broad composite profile summaries and explicit
 A typical integration test:
 
 1. Copies a named fixture to a temporary directory.
-2. Runs ApplePi command code with the copied `homeDirectory` and `projectDirectory`.
+2. Runs Outfitter command code with the copied `homeDirectory` and `projectDirectory`.
 3. Uses a fake launcher defined in the Vitest test to inspect the composite profile while it exists.
 4. Mutates declared or undeclared composite profile paths from that fake launcher when the scenario requires it.
 5. Lets normal post-run state detection classify the mutations.
@@ -168,7 +168,7 @@ Useful composite profile assertions include:
 
 - selected adapter and profile id;
 - resolved profile stack order;
-- generated ApplePi metadata files;
+- generated Outfitter metadata files;
 - generated adapter-specific files such as profile/settings payloads;
 - launch argv and environment;
 - symlink versus temporary materialization for each declared state path;
@@ -178,7 +178,7 @@ Useful composite profile assertions include:
 
 ## Write-back/state-persistence focus
 
-The integration suite encodes the product rule from `doc/state_writeback_strategy.md`: ApplePi does not do generic post-run copy-back or structured merge-back.
+The integration suite encodes the product rule from `doc/state_writeback_strategy.md`: Outfitter does not do generic post-run copy-back or structured merge-back.
 Durable writes happen only through declared state paths that have a persistent strategy, normally by symlink.
 
 Important cases:

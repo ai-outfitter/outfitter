@@ -42,9 +42,9 @@
     }
   },
   "stateTargets": {
-    "auth.json": "<project>/.applepi/local/profiles/local-sandbox/cli_specific/pi/auth.json",
+    "auth.json": "<project>/.outfitter/local/profiles/local-sandbox/cli_specific/pi/auth.json",
     "mcp.json": "<home>/.pi/agent/mcp.json",
-    "utilities": "<project>/.applepi/local/cache/utilities"
+    "utilities": "<project>/.outfitter/local/cache/utilities"
   },
   "sandboxState": {
     "cacheExists": true,

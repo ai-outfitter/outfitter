@@ -1,4 +1,4 @@
-// Defines a logical file generated into a temporary ApplePi compositeProfile directory.
+// Defines a logical file generated into a temporary Outfitter compositeProfile directory.
 import { join } from 'node:path';
 
 export type CompositeProfileFileStrategy = 'copy' | 'merge' | 'transform' | 'generate';

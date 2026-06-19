@@ -18,7 +18,7 @@ export interface CompositeProfileWriteOptions {
 }
 
 export const createCompositeProfileRootDirectory = (profileId: string, agentId: string): string =>
-  mkdtempSync(join(tmpdir(), `applepi-${profileId}-${agentId}-`));
+  mkdtempSync(join(tmpdir(), `outfitter-${profileId}-${agentId}-`));
 
 export const assembleCompositeProfile = (input: CompositeProfileAssemblyInput): CompositeProfile =>
   createCompositeProfile(input.rootDirectory ?? createCompositeProfileRootDirectory('profile', 'agent'), input.files);

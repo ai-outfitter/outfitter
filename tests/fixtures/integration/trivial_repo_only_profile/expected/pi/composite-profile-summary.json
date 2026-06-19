@@ -25,6 +25,6 @@
   "stateTargets": {
     "auth.json": "<home>/.pi/agent/auth.json",
     "settings.json": "<home>/.pi/agent/settings.json",
-    "utilities": "<home>/.applepi/cache/utilities"
+    "utilities": "<home>/.outfitter/cache/utilities"
   }
 }

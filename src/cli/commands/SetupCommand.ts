@@ -1,4 +1,4 @@
-// Provides the command object for first-run ApplePi setup.
+// Provides the command object for first-run Outfitter setup.
 import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { createInterface } from 'node:readline/promises';
 import { homedir } from 'node:os';
@@ -84,7 +84,7 @@ export const executeSetupCommand = async (
   dependencies: SetupCommandDependencies = {},
 ): Promise<SetupCommandResult> => {
   requireInteractiveTerminalIfNeeded(dependencies);
-  const settingsPath = join(input.homeDirectory, '.applepi', 'settings.yml');
+  const settingsPath = join(input.homeDirectory, '.outfitter', 'settings.yml');
   const initialSettingsMissing = !existsSync(settingsPath);
   const starterLayout = input.setupSourceUri
     ? prepareStarterLayout(input.homeDirectory, input.setupSourceUri, dependencies.setupSourceSynchronizer)
@@ -104,7 +104,7 @@ export const executeSetupCommand = async (
   ensureExistingUserSettingsDefaultProfile(settingsPath, loadedSettings.files, defaultProfileId);
   const copiedStarterProfileFiles = copyStarterProfileFilesIfPresent(
     starterLayout?.profilesPath,
-    join(input.homeDirectory, '.applepi', 'profiles'),
+    join(input.homeDirectory, '.outfitter', 'profiles'),
   );
   const syncResult = executeSyncCommand(input, dependencies);
   const selectedDefaultProfileId = shouldSkipInitialDefaultProfilePrompt(initialSettingsMissing, dependencies)
@@ -148,7 +148,7 @@ const prepareFinalDefaultProfile = (
   welcomeProfile: PersistedFirstRunWelcomeProfile | undefined,
 ): FinalDefaultProfile => {
   const finalDefaultProfileId = welcomeProfile?.profileId ?? selectedDefaultProfileId;
-  const finalDefaultProfilePath = join(homeDirectory, '.applepi', 'profiles', finalDefaultProfileId, 'profile.yml');
+  const finalDefaultProfilePath = join(homeDirectory, '.outfitter', 'profiles', finalDefaultProfileId, 'profile.yml');
   const createdDefaultProfile =
     welcomeProfile?.createdProfile ?? createDefaultProfileIfMissing(finalDefaultProfilePath, finalDefaultProfileId);
 
@@ -186,7 +186,7 @@ const buildSetupMessages = (input: SetupMessageInput): readonly string[] => {
     messages.push(
       `Copied ${input.copiedStarterProfileFiles} starter profile file(s) into ${join(
         input.input.homeDirectory,
-        '.applepi',
+        '.outfitter',
         'profiles',
       )}.`,
     );
@@ -206,7 +206,7 @@ const buildSetupMessages = (input: SetupMessageInput): readonly string[] => {
 export const createSetupCommand = (dependencies: SetupCommandDependencies = {}): CommandObject => {
   const command: CommandObject = {
     name: 'setup',
-    description: 'Create initial ApplePi settings and a default profile.',
+    description: 'Create initial Outfitter settings and a default profile.',
     register(program: Command): void {
       program
         .command(`${command.name} [source]`)
@@ -242,16 +242,19 @@ const prepareStarterLayout = (
   const cachePath = createSetupSourceCachePath(homeDirectory, setupSourceUri);
   synchronizer.sync(setupSourceUri, cachePath);
 
-  const settingsPath = firstExistingPath(join(cachePath, 'settings.yml'), join(cachePath, '.applepi', 'settings.yml'));
+  const settingsPath = firstExistingPath(
+    join(cachePath, 'settings.yml'),
+    join(cachePath, '.outfitter', 'settings.yml'),
+  );
   validateStarterSettingsIfPresent(settingsPath);
 
-  const preferredProfilesPath = settingsPath?.endsWith(join('.applepi', 'settings.yml'))
-    ? join(cachePath, '.applepi', 'profiles')
+  const preferredProfilesPath = settingsPath?.endsWith(join('.outfitter', 'settings.yml'))
+    ? join(cachePath, '.outfitter', 'profiles')
     : join(cachePath, 'profiles');
   const profilesPath = firstExistingPath(
     preferredProfilesPath,
     join(cachePath, 'profiles'),
-    join(cachePath, '.applepi', 'profiles'),
+    join(cachePath, '.outfitter', 'profiles'),
   );
 
   return { cachePath, settingsPath, profilesPath };
@@ -339,7 +342,7 @@ const ensureExistingUserSettingsDefaultProfile = (
 
 const assertValidDefaultProfileId = (profileId: string): void => {
   if (!isValidProfileId(profileId)) {
-    throw new Error(`Default profile '${profileId}' is not a filesystem-safe ApplePi profile id.`);
+    throw new Error(`Default profile '${profileId}' is not a filesystem-safe Outfitter profile id.`);
   }
 };
 
@@ -442,7 +445,7 @@ const requireInteractiveTerminalIfNeeded = (dependencies: SetupCommandDependenci
   const outputIsTty = (dependencies.output ?? process.stdout).isTTY === true;
 
   if (!inputIsTty || !outputIsTty) {
-    throw new Error('`applepi setup` requires an interactive TTY on both stdin and stdout.');
+    throw new Error('`outfitter setup` requires an interactive TTY on both stdin and stdout.');
   }
 };
 
@@ -467,8 +470,10 @@ const selectDefaultProfileIfInteractive = async (
       ? discoveredProfiles
       : builtInSetupProfileChoices;
   const writer = dependencies.writeLine ?? console.log;
-  writer('Welcome to ApplePi. ApplePi is the easiest way to run Pi.');
-  writer('ApplePi manages full pi configurations for you, so you can use different profiles in different situations.');
+  writer('Welcome to Outfitter. Outfitter is the easiest way to run Pi.');
+  writer(
+    'Outfitter manages full pi configurations for you, so you can use different profiles in different situations.',
+  );
   const selectedProfile = await selectSetupProfile(profiles, currentDefault, dependencies);
   assertValidSelectedDefaultProfile(selectedProfile, profiles);
   updateSettingsDefaultProfile(settingsPath, selectedProfile);

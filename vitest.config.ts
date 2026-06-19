@@ -1,4 +1,4 @@
-// Configures Vitest coverage enforcement for the ApplePi project.
+// Configures Vitest coverage enforcement for the Outfitter project.
 import { defineConfig } from 'vitest/config';
 
 const coverage = {

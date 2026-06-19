@@ -1,5 +1,5 @@
 ---
-title: ApplePi Agent Harness Manager
+title: Outfitter Agent Harness Manager
 description: Making your AI Harness manageable, composable and portable
 theme:
   layout: full
@@ -8,43 +8,43 @@ theme:
   pagination: false
 ---
 
-<div className="applepi-landing">
-  <section className="applepi-hero">
-    <div className="applepi-hero-bg" aria-hidden="true">
-      <div className="applepi-dots" />
-      <div className="applepi-glow" />
-      <div className="applepi-beam beam-one" />
-      <div className="applepi-beam beam-two" />
-      <div className="applepi-beam beam-three" />
+<div className="outfitter-landing">
+  <section className="outfitter-hero">
+    <div className="outfitter-hero-bg" aria-hidden="true">
+      <div className="outfitter-dots" />
+      <div className="outfitter-glow" />
+      <div className="outfitter-beam beam-one" />
+      <div className="outfitter-beam beam-two" />
+      <div className="outfitter-beam beam-three" />
     </div>
-    <div className="applepi-wrap applepi-hero-inner">
-      <div className="applepi-copy">
-        <p className="applepi-badge"><span aria-hidden="true" /> Agent harness profiles</p>
+    <div className="outfitter-wrap outfitter-hero-inner">
+      <div className="outfitter-copy">
+        <p className="outfitter-badge"><span aria-hidden="true" /> Agent harness profiles</p>
         <h1>Your agent harness, <span>finally manageable</span></h1>
-        <div className="applepi-lede">
-          ApplePi is the pi-first control layer for AI coding agents. Define reusable profiles that travel between machines, adapt per repo, compose in layers, and launch through native pi configuration.
+        <div className="outfitter-lede">
+          Outfitter is the pi-first control layer for AI coding agents. Define reusable profiles that travel between machines, adapt per repo, compose in layers, and launch through native pi configuration.
         </div>
-        <div className="applepi-actions">
-          <a className="applepi-button primary" href="#get-started">Get started →</a>
-          <a className="applepi-button ghost" href="#feature-comparison">Compare the gaps</a>
+        <div className="outfitter-actions">
+          <a className="outfitter-button primary" href="#get-started">Get started →</a>
+          <a className="outfitter-button ghost" href="#feature-comparison">Compare the gaps</a>
         </div>
-        <p className="applepi-sub"><code>$ npm i -g applepi</code> · pi-first · profile-driven · deterministic</p>
+        <p className="outfitter-sub"><code>$ npm i -g outfitter</code> · pi-first · profile-driven · deterministic</p>
       </div>
-      <div className="applepi-terminal applepi-float">
-        <div className="applepi-termbar"><i aria-hidden="true" /><i aria-hidden="true" /><i aria-hidden="true" /><span>applepi — run</span></div>
-        <pre>{`$ applepi run --profile engineering-default
+      <div className="outfitter-terminal outfitter-float">
+        <div className="outfitter-termbar"><i aria-hidden="true" /><i aria-hidden="true" /><i aria-hidden="true" /><span>outfitter — run</span></div>
+        <pre>{`$ outfitter run --profile engineering-default
 → resolving profile  engineering-default
   ✓ user source      github:nhorton/agent-profiles@main
-  ✓ repo overlay     .applepi/profiles/engineer
+  ✓ repo overlay     .outfitter/profiles/engineer
   ✓ merged controls  model=claude-sonnet-4
-  ✓ prepared composite profile    /tmp/applepi-engineering-default-pi-a91f
+  ✓ prepared composite profile    /tmp/outfitter-engineering-default-pi-a91f
 ↳ launching pi …`}</pre>
       </div>
     </div>
   </section>
 
-<div className="applepi-strip">
-  <div className="applepi-wrap">
+<div className="outfitter-strip">
+  <div className="outfitter-wrap">
     <strong>Built for</strong>
     <span>
       <i className="indigo" aria-hidden="true" /> pi today
@@ -59,77 +59,77 @@ theme:
   </div>
 </div>
 
-<section className="applepi-section applepi-wrap" id="why-applepi">
-  <p className="applepi-eyebrow">Why ApplePi</p>
-  <div className="applepi-section-head">
+<section className="outfitter-section outfitter-wrap" id="why-outfitter">
+  <p className="outfitter-eyebrow">Why Outfitter</p>
+  <div className="outfitter-section-head">
     <h2>Agent config is powerful — and fragmented</h2>
-    <div className="applepi-section-copy">
+    <div className="outfitter-section-copy">
       Machine-global settings rot into a junk drawer. Project settings force every role and language through one
-      default. ApplePi fills the gap with portable, composable profiles.
+      default. Outfitter fills the gap with portable, composable profiles.
     </div>
   </div>
-  <div className="applepi-cards">
-    <div className="applepi-card">
+  <div className="outfitter-cards">
+    <div className="outfitter-card">
       <div aria-hidden="true">◇</div>
       <h3>Like dotfiles, but shared</h3>
-      <div className="applepi-card-copy">
+      <div className="outfitter-card-copy">
         Keep user-global settings in source-controlled profile repos instead of burying them in one machine's home
         directory.
       </div>
     </div>
-    <div className="applepi-card">
+    <div className="outfitter-card">
       <div aria-hidden="true">⌘</div>
       <h3>Per-stack setups</h3>
       <p>Switch between TypeScript, Python, Rust, docs, or data profiles without rewriting project configuration.</p>
     </div>
-    <div className="applepi-card">
+    <div className="outfitter-card">
       <div aria-hidden="true">◌</div>
       <h3>Intent-specific modes</h3>
       <p>Use a PM profile for planning, DevOps for deployment work, and engineering for implementation.</p>
     </div>
-    <div className="applepi-card">
+    <div className="outfitter-card">
       <div aria-hidden="true">✓</div>
       <h3>Pi-first policy</h3>
-      <div className="applepi-card-copy">
+      <div className="outfitter-card-copy">
         Describe generic profile controls once, then let the pi adapter map supported controls into native settings.
       </div>
     </div>
   </div>
 </section>
 
-<section className="applepi-section applepi-layers-band">
-  <div className="applepi-wrap">
-    <p className="applepi-eyebrow">Layered profiles in practice</p>
-    <div className="applepi-section-head">
+<section className="outfitter-section outfitter-layers-band">
+  <div className="outfitter-wrap">
+    <p className="outfitter-eyebrow">Layered profiles in practice</p>
+    <div className="outfitter-section-head">
       <h2>Dotfiles, team standards, and repo overrides — resolved into one composite profile</h2>
-      <div className="applepi-section-copy">
-        ApplePi combines the relevant layers deterministically, warns when a requested control is unsupported, and
-        prepares a clean runtime composite profile before launch. If no profile owns a declared CLI state path, ApplePi
-        symlinks that path to the native CLI fallback, such as <code>~/.pi/agent/settings.json</code>; that fallback is
-        durable state, not a hidden base profile layer.
+      <div className="outfitter-section-copy">
+        Outfitter combines the relevant layers deterministically, warns when a requested control is unsupported, and
+        prepares a clean runtime composite profile before launch. If no profile owns a declared CLI state path,
+        Outfitter symlinks that path to the native CLI fallback, such as <code>~/.pi/agent/settings.json</code>; that
+        fallback is durable state, not a hidden base profile layer.
       </div>
     </div>
-    <div className="applepi-layers">
-      <div className="applepi-layer-list">
+    <div className="outfitter-layers">
+      <div className="outfitter-layer-list">
         <div>
           <span>1</span>
           <h3>User profile source</h3>
-          <div className="applepi-layer-copy">
+          <div className="outfitter-layer-copy">
             <code>github:nhorton/agent-profiles</code> provides shared defaults and machine-independent policy.
           </div>
         </div>
         <div>
           <span>2</span>
           <h3>Organization standard</h3>
-          <div className="applepi-layer-copy">
+          <div className="outfitter-layer-copy">
             <code>github:acme/agent-standards</code> sets approved defaults and common controls.
           </div>
         </div>
         <div>
           <span>3</span>
           <h3>Repository-local profile</h3>
-          <div className="applepi-layer-copy">
-            <code>.applepi/profiles/engineer</code> adds repo-specific guidance and safety rules.
+          <div className="outfitter-layer-copy">
+            <code>.outfitter/profiles/engineer</code> adds repo-specific guidance and safety rules.
           </div>
         </div>
         <div>
@@ -141,7 +141,7 @@ theme:
           </p>
         </div>
       </div>
-      <div className="applepi-stack" role="img" aria-label="Profile layer stack">
+      <div className="outfitter-stack" role="img" aria-label="Profile layer stack">
         <div className="stack-card a">
           <small>User profile source</small>
           <b>github:nhorton/agent-profiles</b>
@@ -152,7 +152,7 @@ theme:
         </div>
         <div className="stack-card c">
           <small>Repository overlay</small>
-          <b>.applepi/profiles/engineer</b>
+          <b>.outfitter/profiles/engineer</b>
         </div>
         <div className="stack-plus">＋</div>
         <div className="stack-result">
@@ -165,34 +165,34 @@ theme:
   </div>
 </section>
 
-  <section className="applepi-section applepi-wrap applepi-showcase">
+  <section className="outfitter-section outfitter-wrap outfitter-showcase">
     <div>
-      <p className="applepi-eyebrow">One command</p>
+      <p className="outfitter-eyebrow">One command</p>
       <h2>Select a profile. Launch consistently.</h2>
-      <div className="applepi-feature-list">
+      <div className="outfitter-feature-list">
         <p><strong>Pick the right loadout</strong><br />One flag selects language, role, risk level, or intent.</p>
-        <p><strong>Sync from anywhere</strong><br /><code>applepi sync</code> pulls remote settings and profile sources before a run.</p>
+        <p><strong>Sync from anywhere</strong><br /><code>outfitter sync</code> pulls remote settings and profile sources before a run.</p>
         <p><strong>Deterministic every time</strong><br />The same profile resolves to the same composite profile: reviewable and reproducible.</p>
       </div>
     </div>
-    <div className="applepi-config-card">
+    <div className="outfitter-config-card">
       <div><span className="active">profile.yml</span><span>settings.yml</span></div>
       <pre>{'id: engineering-default\nlabel: Engineering Default\ninherits:\n  - base-typescript\n\ncontrols:\n  model: anthropic/claude-sonnet-4\n  environment:\n    TEAM_MODE: engineering'}</pre>
     </div>
 
   </section>
 
-<section className="applepi-section applepi-wrap" id="feature-comparison">
-  <p className="applepi-eyebrow">Feature comparison</p>
-  <div className="applepi-section-head">
-    <h2>The configuration gaps ApplePi closes</h2>
+<section className="outfitter-section outfitter-wrap" id="feature-comparison">
+  <p className="outfitter-eyebrow">Feature comparison</p>
+  <div className="outfitter-section-head">
+    <h2>The configuration gaps Outfitter closes</h2>
   </div>
-  <div className="applepi-matrix-wrap">
-    <table className="applepi-matrix">
+  <div className="outfitter-matrix-wrap">
+    <table className="outfitter-matrix">
       <thead>
         <tr>
           <th>Capability</th>
-          <th>ApplePi</th>
+          <th>Outfitter</th>
           <th>Claude Enterprise</th>
           <th>Claude Personal</th>
           <th>Pi.dev</th>
@@ -260,13 +260,13 @@ theme:
   </div>
 </section>
 
-  <section className="applepi-cta" id="get-started">
-    <div className="applepi-dots" aria-hidden="true" />
+  <section className="outfitter-cta" id="get-started">
+    <div className="outfitter-dots" aria-hidden="true" />
     <div>
-      <p className="applepi-eyebrow">Get started</p>
+      <p className="outfitter-eyebrow">Get started</p>
       <h2>Treat agent setup like <em>real</em> infrastructure</h2>
       <p>{'Documented, reviewable, reusable. Put defaults in a profile repo, override only where it matters, and launch consistently.'}</p>
-      <code>$ npm i -g applepi</code>
+      <code>$ npm i -g outfitter</code>
     </div>
   </section>
 </div>
