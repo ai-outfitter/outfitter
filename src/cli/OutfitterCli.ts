@@ -1,4 +1,6 @@
 // Assembles the top-level Outfitter Commander program from command objects.
+import { readFileSync } from 'node:fs';
+
 import { Command } from 'commander';
 
 import type { CommandObject } from './commands/CommandObject.js';
@@ -22,11 +24,18 @@ export const createOutfitterProgram = (commands: readonly CommandObject[] = crea
   program
     .name('outfitter')
     .description('Profile-oriented wrapper for launching pi, Claude Code, and future agent CLIs.')
-    .version('0.1.0');
+    .version(readPackageVersion());
 
   for (const command of commands) {
     command.register(program);
   }
 
   return program;
+};
+
+const readPackageVersion = (): string => {
+  const packageJsonPath = new URL('../../package.json', import.meta.url);
+  const packageJson = JSON.parse(readFileSync(packageJsonPath, 'utf8')) as { version: string };
+
+  return packageJson.version;
 };
