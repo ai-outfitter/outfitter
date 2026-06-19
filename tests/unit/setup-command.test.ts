@@ -3,7 +3,7 @@
 import { PassThrough } from 'node:stream';
 import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
@@ -90,23 +90,66 @@ describe('setup command', () => {
     expect(readFileSync(defaultProfilePath, 'utf8')).toBe('id: default\nlabel: Custom\n');
   });
 
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-004.1).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('fails first-run setup when the default profile source cannot sync', async () => {
     const root = createTemporaryRoot();
     const homeDirectory = join(root, 'home');
     const projectDirectory = join(root, 'project');
 
+    const failingDependencies = {
+      synchronizer: {
+        sync() {
+          return 'failed' as const;
+        },
+      },
+    };
+
+    await expect(executeSetupCommand({ homeDirectory, projectDirectory }, failingDependencies)).rejects.toThrow(
+      'Cannot complete first-run setup because the default profiles source failed to sync',
+    );
+    expect(existsSync(join(homeDirectory, '.outfitter', 'settings.yml'))).toBe(false);
+    await expect(executeSetupCommand({ homeDirectory, projectDirectory }, failingDependencies)).rejects.toThrow(
+      'Cannot complete first-run setup because the default profiles source failed to sync',
+    );
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-004.1).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('does not delete settings created during setup-source synchronization when first-run sync fails', async () => {
+    const root = createTemporaryRoot();
+    const homeDirectory = join(root, 'home');
+    const projectDirectory = join(root, 'project');
+    const settingsPath = join(homeDirectory, '.outfitter', 'settings.yml');
+    const settingsContent = [
+      'default_profile: engineer',
+      'profile_sources:',
+      '  - github: ai-outfitter/default-profiles',
+      '    path: profiles',
+      '',
+    ].join('\n');
+
     await expect(
       executeSetupCommand(
-        { homeDirectory, projectDirectory },
+        { homeDirectory, projectDirectory, setupSourceUri: 'https://example.test/outfitter-config.git' },
         {
+          setupSourceSynchronizer: {
+            sync(_uri, cachePath) {
+              mkdirSync(cachePath, { recursive: true });
+              mkdirSync(dirname(settingsPath), { recursive: true });
+              writeFileSync(settingsPath, settingsContent);
+            },
+          },
           synchronizer: {
             sync() {
-              return 'failed';
+              return 'failed' as const;
             },
           },
         },
       ),
     ).rejects.toThrow('Cannot complete first-run setup because the default profiles source failed to sync');
+
+    expect(readFileSync(settingsPath, 'utf8')).toBe(settingsContent);
   });
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-004.1).
@@ -388,6 +431,8 @@ describe('setup command', () => {
     expect(result.welcomeResult?.messages).toEqual(['custom welcome runner']);
   });
 
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-010.2, OFTR-010.3).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('runs welcome onboarding after interactive setup completes', async () => {
     const root = createTemporaryRoot();
     const homeDirectory = join(root, 'home');

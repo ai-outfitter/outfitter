@@ -1,4 +1,4 @@
-// Tests profile-bundled DeepWork job exposure during run command launches.
+// Tests profile-bundled Pi resource exposure during run command launches.
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { delimiter, join } from 'node:path';
@@ -48,7 +48,7 @@ afterEach(() => {
   }
 });
 
-describe('run command DeepWork job exposure', () => {
+describe('run command profile-bundled Pi resource exposure', () => {
   it('exposes selected profile-bundled DeepWork jobs when launching pi', async () => {
     const root = createTemporaryRoot();
     const homeDirectory = join(root, 'home');
@@ -92,6 +92,8 @@ describe('run command DeepWork job exposure', () => {
     expect(result.launchPlan.env.DEEPWORK_ADDITIONAL_JOBS_FOLDERS).not.toContain(unrelatedJobsFolder);
   });
 
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-006.3).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('exposes selected profile-bundled Pi skills when launching pi', async () => {
     const root = createTemporaryRoot();
     const homeDirectory = join(root, 'home');

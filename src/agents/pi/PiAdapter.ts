@@ -1,5 +1,5 @@
 // Provides the pi adapter for composite profile generation and native pi launch plans.
-import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, statSync, type Dirent } from 'node:fs';
 import { delimiter, join } from 'node:path';
 
 import type { AgentAdapter, AgentLaunchPlan, AgentCompositeProfilePlan, AgentLaunchContext } from '../AgentAdapter.js';
@@ -251,19 +251,15 @@ const createPiSkillSources = (controls: PiProfileControls, profileFolders: reado
 const piSkillSourcesForProfile = (profileFolder: string): readonly string[] => {
   const skillsFolder = join(profileFolder, 'cli_specific', 'pi', 'skills');
 
-  try {
-    return readdirSync(skillsFolder, { withFileTypes: true })
-      .filter(isPiSkillEntry(skillsFolder))
-      .map((entry) => join(skillsFolder, entry.name))
-      .sort();
-  } catch {
-    return [];
-  }
+  return readOptionalDirectoryEntries(skillsFolder, 'profile Pi skills folder')
+    .filter(isPiSkillEntry(skillsFolder))
+    .map((entry) => join(skillsFolder, entry.name))
+    .sort();
 };
 
 const isPiSkillEntry =
   (folderPath: string) =>
-  (entry: { readonly name: string; isDirectory(): boolean }): boolean =>
+  (entry: Dirent): boolean =>
     entry.isDirectory() && isFile(join(folderPath, entry.name, 'SKILL.md'));
 
 const createDeepWorkAdditionalJobsFolders = (
@@ -290,26 +286,44 @@ const allowExternalDeepWorkJobs = (controls: PiProfileControls): boolean =>
 const deepWorkJobsFolderForProfile = (profileFolder: string): string =>
   join(profileFolder, 'cli_specific', 'pi', 'deepwork', 'jobs');
 
-const isExistingDeepWorkJobsFolder = (folderPath: string): boolean => {
-  try {
-    return readdirSync(folderPath, { withFileTypes: true }).some(isDeepWorkJobEntry(folderPath));
-  } catch {
-    return false;
-  }
-};
+const isExistingDeepWorkJobsFolder = (folderPath: string): boolean =>
+  readOptionalDirectoryEntries(folderPath, 'profile DeepWork jobs folder').some(isDeepWorkJobEntry(folderPath));
 
 const isDeepWorkJobEntry =
   (folderPath: string) =>
-  (entry: { readonly name: string; isDirectory(): boolean }): boolean =>
+  (entry: Dirent): boolean =>
     entry.isDirectory() && isFile(join(folderPath, entry.name, 'job.yml'));
+
+const readOptionalDirectoryEntries = (folderPath: string, description: string): readonly Dirent[] => {
+  try {
+    return readdirSync(folderPath, { withFileTypes: true });
+  } catch (error) {
+    if (isMissingPathError(error)) {
+      return [];
+    }
+
+    throw new Error(`Could not read ${description} '${folderPath}': ${formatFilesystemError(error)}`, {
+      cause: error,
+    });
+  }
+};
 
 const isFile = (path: string): boolean => {
   try {
     return statSync(path).isFile();
-  } catch {
-    return false;
+  } catch (error) {
+    if (isMissingPathError(error)) {
+      return false;
+    }
+
+    throw new Error(`Could not inspect file '${path}': ${formatFilesystemError(error)}`, { cause: error });
   }
 };
+
+const isMissingPathError = (error: unknown): boolean =>
+  error !== null && typeof error === 'object' && 'code' in error && error.code === 'ENOENT';
+
+const formatFilesystemError = (error: unknown): string => String(error);
 
 const splitPathList = (value: string | undefined): readonly string[] =>
   value === undefined || value === '' ? [] : value.split(delimiter).filter((entry) => entry !== '');

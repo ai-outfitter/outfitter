@@ -1,6 +1,6 @@
 /* eslint-disable max-lines */
 // Provides the command object for first-run Outfitter setup.
-import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { createInterface } from 'node:readline/promises';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
@@ -24,7 +24,11 @@ import {
   loadSettingsWithCachedRemoteSettings,
 } from '../../settings/SettingsLoader.js';
 import type { CommandObject } from './CommandObject.js';
-import { persistFirstRunWelcomeProfile, type PersistedFirstRunWelcomeProfile } from './FirstRunWelcomeProfile.js';
+import {
+  persistFirstRunWelcomeProfile,
+  updateSettingsDefaultProfile,
+  type PersistedFirstRunWelcomeProfile,
+} from './FirstRunWelcomeProfile.js';
 import type { SyncCommandDependencies, SyncCommandResult } from './SyncCommand.js';
 import { executeSyncCommand } from './SyncCommand.js';
 import { executeWelcomeCommand } from './WelcomeCommand.js';
@@ -108,8 +112,9 @@ export const executeSetupCommand = async (
     starterLayout?.profilesPath,
     join(input.homeDirectory, '.outfitter', 'profiles'),
   );
+  const rollbackCreatedSettings = createdSettings ? () => rmSync(settingsPath, { force: true }) : () => undefined;
   const syncResult = executeSyncCommand(input, dependencies);
-  failOnInitialDefaultProfileSyncFailure(initialSettingsMissing, syncResult);
+  failOnInitialDefaultProfileSyncFailure(initialSettingsMissing, rollbackCreatedSettings, syncResult);
   const selectedDefaultProfileId = shouldSkipInitialDefaultProfilePrompt(initialSettingsMissing, dependencies)
     ? defaultProfileId
     : await selectDefaultProfileIfInteractive(input, settingsPath, defaultProfileId, dependencies);
@@ -145,6 +150,7 @@ const defaultProfilesSourceUri = 'git+https://github.com/ai-outfitter/default-pr
 
 const failOnInitialDefaultProfileSyncFailure = (
   initialSettingsMissing: boolean,
+  rollbackCreatedSettings: () => void,
   syncResult: SyncCommandResult,
 ): void => {
   if (!initialSettingsMissing) {
@@ -159,9 +165,11 @@ const failOnInitialDefaultProfileSyncFailure = (
     return;
   }
 
+  rollbackCreatedSettings();
+
   throw new Error(
     `Cannot complete first-run setup because the default profiles source failed to sync: ${failedDefaultProfilesSource.message}. ` +
-      'Fix the network/git issue and rerun `outfitter setup`, or run `outfitter sync` once the source is reachable.',
+      'Fix the network/git issue and rerun `outfitter setup` once the source is reachable.',
   );
 };
 
@@ -657,14 +665,7 @@ const promptForSetupProfile = async (
   }
 };
 
-export const updateSettingsDefaultProfile = (settingsPath: string, profileId: string): void => {
-  const content = readFileSync(settingsPath, 'utf8');
-  const nextContent = /^default_profile:.*$/mu.test(content)
-    ? content.replace(/^default_profile:.*$/gmu, `default_profile: ${profileId}`)
-    : `${content.replace(/\s*$/u, '\n')}default_profile: ${profileId}\n`;
-
-  writeFileSync(settingsPath, nextContent);
-};
+export { updateSettingsDefaultProfile };
 
 const formatSettingsIssue = (issue: {
   readonly filePath: string;

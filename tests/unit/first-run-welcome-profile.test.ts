@@ -1,3 +1,4 @@
+/* eslint-disable max-lines */
 // Tests first-run welcome choices affecting the launched profile.
 import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -80,6 +81,8 @@ afterEach(() => {
 });
 
 describe('first-run welcome profile', () => {
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-004.1).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('leaves first-run welcome opt-out on the generated role profile before launching pi', async () => {
     const root = createTemporaryRoot();
     const homeDirectory = join(root, 'home');
@@ -119,6 +122,8 @@ describe('first-run welcome profile', () => {
     );
   });
 
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-010.2, OFTR-010.3).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('persists first-run welcome role selection with no loadout items before launching pi', async () => {
     const root = createTemporaryRoot();
     const homeDirectory = join(root, 'home');
@@ -160,6 +165,9 @@ describe('first-run welcome profile', () => {
     const homeDirectory = join(root, 'home');
     const projectDirectory = join(root, 'project');
     const messages: string[] = [];
+    const providerApiKey = 'outfitter-test-provider-api-key';
+    const previousOpenAiApiKey = process.env.OPENAI_API_KEY;
+    process.env.OPENAI_API_KEY = providerApiKey;
 
     const result = await executeRunCommand(
       { homeDirectory, projectDirectory },
@@ -181,7 +189,14 @@ describe('first-run welcome profile', () => {
           },
         },
       },
-    );
+    ).finally(() => {
+      if (previousOpenAiApiKey === undefined) {
+        delete process.env.OPENAI_API_KEY;
+        return;
+      }
+
+      process.env.OPENAI_API_KEY = previousOpenAiApiKey;
+    });
 
     expect(result.launchPlan.args[0]).toBe('--extension');
     const loginExtensionContent = readFileSync(result.launchPlan.args[1] ?? '', 'utf8');
@@ -190,9 +205,19 @@ describe('first-run welcome profile', () => {
     expect(messages).toContain(
       'Pi does not appear to be logged in yet. Outfitter will open `/login` automatically after Pi starts.',
     );
-    expect(messages.join('\n')).not.toContain('sk-');
+    expect(messages.join('\n')).not.toContain(providerApiKey);
+    expect(loginExtensionContent).not.toContain(providerApiKey);
+    expect(JSON.stringify(result.launchPlan)).not.toContain(providerApiKey);
+    for (const fileName of ['auth.json', 'models.json', 'mcp.json']) {
+      const piStatePath = join(homeDirectory, '.pi', 'agent', fileName);
+      if (existsSync(piStatePath)) {
+        expect(readFileSync(piStatePath, 'utf8')).not.toContain(providerApiKey);
+      }
+    }
   });
 
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-010.4).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('leaves non-interactive pi launches on a manual login notice after welcome', async () => {
     const root = createTemporaryRoot();
     const homeDirectory = join(root, 'home');
@@ -275,6 +300,8 @@ describe('first-run welcome profile', () => {
     expect(readFileSync(settingsPath, 'utf8')).toContain('default_profile: engineer');
   });
 
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-010.2, OFTR-010.3).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('falls back to a generated welcome profile when the selected role is not cached', async () => {
     const root = createTemporaryRoot();
     const homeDirectory = join(root, 'home');
@@ -390,6 +417,8 @@ describe('first-run welcome profile', () => {
     expect(copiedProfile).toContain('git:x');
   });
 
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-010.3).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('adds copied profile exclusions to the default profile source', () => {
     const root = createTemporaryRoot();
     const homeDirectory = join(root, 'home');
@@ -407,12 +436,28 @@ describe('first-run welcome profile', () => {
         '    except:',
         '      - engineer',
         '      - 7',
+        '  - uri: git+https://github.com/ai-outfitter/default-profiles.git',
+        '    path: profiles',
+        '  - uri: git+https://github.com/ai-outfitter/other-profiles.git',
+        '    path: profiles',
         '  - path: ./profiles',
         '  - literal-source',
         '',
       ].join('\n'),
     );
-    writeFileSync(join(sourceProfileDirectory, 'profile.yml'), 'id: data_analyst\ncontrols: {}\n');
+    writeFileSync(
+      join(sourceProfileDirectory, 'profile.yml'),
+      [
+        'id: data_analyst',
+        'controls:',
+        '  extensions:',
+        '    - git:github.com/ai-outfitter/default-generic',
+        '  pi:',
+        '    extensions:',
+        '      - git:github.com/ai-outfitter/default-pi',
+        '',
+      ].join('\n'),
+    );
 
     persistFirstRunWelcomeProfile(
       homeDirectory,
@@ -420,6 +465,11 @@ describe('first-run welcome profile', () => {
       {
         answered: true,
         selectedRole: { id: 'data_analyst', label: 'Data Analyst' },
+        selectedLoadout: {
+          id: 'recommended',
+          label: 'Recommended',
+          selectedItems: [{ id: 'deepwork', label: 'DeepWork', kind: 'extension', source: 'git:selected' }],
+        },
         warnings: [],
         messages: [],
       },
@@ -429,9 +479,18 @@ describe('first-run welcome profile', () => {
     const settings = readFileSync(settingsPath, 'utf8');
     expect(settings).toContain('except:');
     expect(settings).toContain('- engineer');
-    expect(settings).toContain('- data_analyst');
+    expect(settings.match(/- data_analyst/gu)).toHaveLength(2);
     expect(settings).not.toContain('- 7');
     expect(settings).toContain('literal-source');
+
+    const copiedProfile = readFileSync(
+      join(homeDirectory, '.outfitter', 'profiles', 'data_analyst', 'profile.yml'),
+      'utf8',
+    );
+    expect(copiedProfile).toContain('extensions: []');
+    expect(copiedProfile).toContain('git:selected');
+    expect(copiedProfile).not.toContain('default-generic');
+    expect(copiedProfile).not.toContain('default-pi');
   });
 
   it('adds a default profile setting when persisting welcome into sparse settings', () => {

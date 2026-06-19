@@ -36,7 +36,7 @@ export const persistFirstRunWelcomeProfile = (
     if (options.sourceProfileDirectory !== undefined && existsSync(options.sourceProfileDirectory)) {
       cpSync(options.sourceProfileDirectory, profileDirectory, { recursive: true, force: false });
       updateCopiedProfile(profilePath, welcomeProfile.extensions);
-      excludeDefaultProfileSource(settingsPath, welcomeProfile.id);
+      excludeDefaultProfileSources(settingsPath, welcomeProfile.id);
       messages.push(
         `Copied the ${welcomeProfile.label} profile locally so your extension choices can be edited at ${profilePath}.`,
       );
@@ -103,6 +103,7 @@ const updateCopiedProfile = (profilePath: string, extensions: readonly string[])
   const controls = readRecord(profile.controls);
   const piControls = readRecord(controls.pi);
 
+  controls.extensions = [];
   piControls.extensions = [...extensions];
   controls.pi = piControls;
   profile.controls = controls;
@@ -114,14 +115,18 @@ const updateCopiedProfile = (profilePath: string, extensions: readonly string[])
 const readRecord = (value: unknown): Record<string, unknown> =>
   value !== null && typeof value === 'object' && !Array.isArray(value) ? { ...(value as Record<string, unknown>) } : {};
 
-const excludeDefaultProfileSource = (settingsPath: string, profileId: string): void => {
+const defaultProfilesSourceGithub = 'ai-outfitter/default-profiles';
+const defaultProfilesSourcePath = 'profiles';
+const defaultProfilesSourceUri = 'https://github.com/ai-outfitter/default-profiles';
+
+const excludeDefaultProfileSources = (settingsPath: string, profileId: string): void => {
   const document = readRecord(parse(readFileSync(settingsPath, 'utf8')) as unknown);
   const rawProfileSources = document.profile_sources;
   const profileSources: readonly unknown[] = Array.isArray(rawProfileSources) ? rawProfileSources : [];
   const nextProfileSources = profileSources.map((source): unknown => {
     const record = readRecord(source);
 
-    if (record.github !== 'ai-outfitter/default-profiles' || record.path !== 'profiles') {
+    if (!isDefaultProfilesSource(record)) {
       return source;
     }
 
@@ -134,7 +139,25 @@ const excludeDefaultProfileSource = (settingsPath: string, profileId: string): v
   writeFileSync(settingsPath, stringify({ ...document, profile_sources: nextProfileSources }));
 };
 
-const updateSettingsDefaultProfile = (settingsPath: string, profileId: string): void => {
+const isDefaultProfilesSource = (source: Record<string, unknown>): boolean => {
+  if (source.path !== defaultProfilesSourcePath) {
+    return false;
+  }
+
+  if (source.github === defaultProfilesSourceGithub) {
+    return true;
+  }
+
+  return typeof source.uri === 'string' && normalizeDefaultProfilesSourceUri(source.uri) === defaultProfilesSourceUri;
+};
+
+const normalizeDefaultProfilesSourceUri = (uri: string): string =>
+  uri
+    .replace(/^git\+/u, '')
+    .replace(/\/$/u, '')
+    .replace(/\.git$/u, '');
+
+export const updateSettingsDefaultProfile = (settingsPath: string, profileId: string): void => {
   const content = readFileSync(settingsPath, 'utf8');
   const nextContent = /^default_profile:.*$/mu.test(content)
     ? content.replace(/^default_profile:.*$/gmu, `default_profile: ${profileId}`)
