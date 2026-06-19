@@ -54,7 +54,7 @@ afterEach(() => {
 });
 
 describe('setup sources', () => {
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OUTFITTER-REQ-004.1).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-004.1).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('fetches setup source repositories with the default git synchronizer', async () => {
     const root = createTemporaryRoot();

@@ -45,7 +45,7 @@ afterEach(() => {
 });
 
 describe('setup command', () => {
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OUTFITTER-REQ-002.4, OUTFITTER-REQ-004.1).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-002.4, OFTR-004.1).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('creates initial user settings and a default user profile without overwriting existing files', async () => {
     const root = createTemporaryRoot();
@@ -79,7 +79,7 @@ describe('setup command', () => {
     expect(readFileSync(defaultProfilePath, 'utf8')).toBe('id: default\nlabel: Custom\n');
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OUTFITTER-REQ-004.1).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-004.1).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('uses a setup source repository as the initial user settings and profiles without overwriting files', async () => {
     const root = createTemporaryRoot();
@@ -147,7 +147,7 @@ describe('setup command', () => {
     );
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OUTFITTER-REQ-004.1).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-004.1).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('validates discovered settings before setup and runs URI sync behavior', async () => {
     const root = createTemporaryRoot();
@@ -231,7 +231,7 @@ describe('setup command', () => {
     expect(existsSync(join(invalidProjectHomeDirectory, '.outfitter', 'settings.yml'))).toBe(false);
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OUTFITTER-REQ-002.4, OUTFITTER-REQ-003.2, OUTFITTER-REQ-004.1).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-002.4, OFTR-003.2, OFTR-004.1).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('requires an interactive terminal and lets the setup wizard choose the default profile', async () => {
     const root = createTemporaryRoot();
@@ -407,7 +407,7 @@ describe('setup command', () => {
     });
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OUTFITTER-REQ-004.1).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-004.1).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('loads wizard choices from legacy URI and repository subpath sources', async () => {
     const root = createTemporaryRoot();
@@ -484,7 +484,7 @@ describe('setup command', () => {
     expect(result.messages).toContain("Selected default profile 'repository'.");
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OUTFITTER-REQ-004.1).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-004.1).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('updates the effective default profile when duplicate settings keys are present', () => {
     const root = createTemporaryRoot();
@@ -507,7 +507,7 @@ describe('setup command', () => {
     expect(readFileSync(missingDefaultSettingsPath, 'utf8')).toBe('profile_sources: []\ndefault_profile: selected\n');
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OUTFITTER-REQ-004.1).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-004.1).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('uses the readline setup prompt when no default-profile selector dependency is injected', async () => {
     const root = createTemporaryRoot();
@@ -537,7 +537,7 @@ describe('setup command', () => {
     expect(readFileSync(join(homeDirectory, '.outfitter', 'settings.yml'), 'utf8')).toContain('default_profile: solo');
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OUTFITTER-REQ-004.1).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-004.1).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('rejects out-of-range readline setup prompt selections', async () => {
     const root = createTemporaryRoot();

@@ -94,7 +94,7 @@ describe('first-run welcome profile', () => {
     ).not.toContain('extensions:');
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OUTFITTER-REQ-010.4).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-010.4).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('opens pi login automatically on the first launch after welcome when pi is not logged in', async () => {
     const root = createTemporaryRoot();
@@ -230,7 +230,7 @@ describe('first-run welcome profile', () => {
     expect(readFileSync(settingsPath, 'utf8')).toContain('default_profile: data_analyst');
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OUTFITTER-REQ-010.3).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-010.3).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('persists first-run welcome loadout selection before launching pi', async () => {
     const root = createTemporaryRoot();

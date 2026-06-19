@@ -1,4 +1,4 @@
-# OUTFITTER-REQ-009: Release Publishing
+# OFTR-009: Release Publishing
 
 ## Overview
 
@@ -6,7 +6,7 @@ Outfitter release publishing prepares package metadata from a GitHub release tag
 
 ## Requirements
 
-### OUTFITTER-REQ-009.1: Release Metadata Synchronization
+### OFTR-009.1: Release Metadata Synchronization
 
 1. The release metadata synchronization script MUST accept a release version from an explicit argument, `OUTFITTER_RELEASE_VERSION`, or `GITHUB_REF_NAME`, in that precedence order.
 2. The release metadata synchronization script MUST normalize a leading `v` from release tags before writing package metadata.
@@ -15,7 +15,7 @@ Outfitter release publishing prepares package metadata from a GitHub release tag
 5. The release metadata synchronization script MUST verify that the root package metadata it prepares belongs to the `outfitter` npm package.
 6. The release metadata synchronization script MUST fail with an actionable error when required package-lock root package metadata is missing.
 
-### OUTFITTER-REQ-009.2: Npm Release Workflow
+### OFTR-009.2: Npm Release Workflow
 
 1. The npm release workflow MUST run when a GitHub release is published.
 2. The npm release workflow MUST install dependencies with `npm ci` before publishing.

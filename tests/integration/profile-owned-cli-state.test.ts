@@ -19,7 +19,7 @@ afterEach(() => {
 });
 
 describe('profile-owned CLI state integration fixture composite profile generation', () => {
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OUTFITTER-REQ-005.3, OUTFITTER-REQ-005.6, OUTFITTER-REQ-006.3).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-005.3, OFTR-005.6, OFTR-006.3).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('uses pi state owned by the selected profile and writes through declared symlinks', async () => {
     const fixture = copyFixtureToTemp('profile_owned_cli_state');
@@ -107,7 +107,7 @@ describe('profile-owned CLI state integration fixture composite profile generati
     ).toBe('{ "profile": "claude-settings", "permissions": "review" }\n');
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OUTFITTER-REQ-005.3, OUTFITTER-REQ-005.6).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-005.3, OFTR-005.6).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('uses claude state owned by the selected profile without touching pi state', async () => {
     const fixture = copyFixtureToTemp('profile_owned_cli_state');

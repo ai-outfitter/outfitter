@@ -37,7 +37,7 @@ afterEach(() => {
 });
 
 describe('settings loading', () => {
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OUTFITTER-REQ-002.1).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-002.1).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('discovers user, project, and project-local settings.yml locations', () => {
     const homeDirectory = '/home/example';
@@ -52,7 +52,7 @@ describe('settings loading', () => {
     ]);
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OUTFITTER-REQ-002.2).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-002.2).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('loads discovered settings and merges them with project-local precedence', () => {
     const root = createTemporaryRoot();
@@ -82,7 +82,7 @@ describe('settings loading', () => {
     expect(loaded.settings.cacheDirectory).toBe(join(projectDirectory, '.outfitter', 'local', 'local-cache'));
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OUTFITTER-REQ-002.3).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-002.3).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('reports YAML parse and schema validation diagnostics with file paths', () => {
     const root = createTemporaryRoot();
@@ -108,7 +108,7 @@ describe('settings loading', () => {
     });
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OUTFITTER-REQ-002.5, OUTFITTER-REQ-002.6).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-002.5, OFTR-002.6).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('validates local, URI, GitHub, and remote settings entries from settings files', () => {
     const root = createTemporaryRoot();
@@ -132,7 +132,7 @@ describe('settings loading', () => {
     ]);
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OUTFITTER-REQ-002.7).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-002.7).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('loads and deep-merges arbitrary custom settings with higher-precedence overrides', () => {
     const root = createTemporaryRoot();
@@ -193,7 +193,7 @@ describe('settings loading', () => {
     expect(validateSchema('settings', null).issues[0]?.path).toBe('/');
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OUTFITTER-REQ-002.6).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-002.6).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('loads cached remote settings from repository subpaths with local settings precedence', () => {
     const root = createTemporaryRoot();
@@ -231,7 +231,7 @@ describe('settings loading', () => {
     ]);
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OUTFITTER-REQ-002.6).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-002.6).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('reports invalid cached remote settings subpaths as settings issues', () => {
     const root = createTemporaryRoot();

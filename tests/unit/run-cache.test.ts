@@ -33,7 +33,7 @@ afterEach(() => {
 });
 
 describe('run command cache persistence', () => {
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OUTFITTER-REQ-002.7).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-002.7).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('uses the default cache directory for pi utilities state paths during run command execution', async () => {
     const root = createTemporaryRoot();
@@ -55,7 +55,7 @@ describe('run command cache persistence', () => {
     );
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OUTFITTER-REQ-002.7).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-002.7).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('uses configured cache directories for pi utilities state paths during run command execution', async () => {
     const root = createTemporaryRoot();

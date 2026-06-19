@@ -45,7 +45,7 @@ afterEach(() => {
 });
 
 describe('release version synchronization script', () => {
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OUTFITTER-REQ-009.1).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-009.1).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('normalizes release tags and updates package metadata consistently', () => {
     const root = createTemporaryPackageRoot();
@@ -60,7 +60,7 @@ describe('release version synchronization script', () => {
     expect((lockfile.packages as Record<string, Record<string, unknown>>)['']?.version).toBe('1.2.3-alpha.1+build.5');
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OUTFITTER-REQ-009.1).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-009.1).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('uses release version sources in precedence order', () => {
     const explicitRoot = createTemporaryPackageRoot();
@@ -76,7 +76,7 @@ describe('release version synchronization script', () => {
     expect(readJson(join(githubEnvRoot, 'package.json')).version).toBe('3.0.0');
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OUTFITTER-REQ-009.1).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-009.1).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('rejects invalid versions and package metadata mismatches', () => {
     const invalidVersionRoot = createTemporaryPackageRoot();

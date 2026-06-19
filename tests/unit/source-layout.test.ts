@@ -43,7 +43,7 @@ const readJson = <T>(relativePath: string): T =>
   JSON.parse(readFileSync(new URL(relativePath, import.meta.url), 'utf8')) as T;
 
 describe('source layout scaffolding', () => {
-  // THIS TEST VALIDATES COMMAND-AVAILABILITY CLAUSES IN HARD REQUIREMENTS (OUTFITTER-REQ-004.1, OUTFITTER-REQ-004.2, OUTFITTER-REQ-004.3, OUTFITTER-REQ-005.1).
+  // THIS TEST VALIDATES COMMAND-AVAILABILITY CLAUSES IN HARD REQUIREMENTS (OFTR-004.1, OFTR-004.2, OFTR-004.3, OFTR-005.1).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('exposes focused command objects for the initial CLI commands', () => {
     const commands = createDefaultCommands();
@@ -82,7 +82,7 @@ describe('source layout scaffolding', () => {
     expect(standaloneProgram.commands.at(3)?.commands.map((command) => command.name())).toEqual(['list', 'create']);
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OUTFITTER-REQ-002.5).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-002.5).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('validates profile source entries for local, URI, and GitHub source locations', () => {
     const ajv = new Ajv2020();
@@ -140,7 +140,7 @@ describe('source layout scaffolding', () => {
     expect(profileLoadPlan.sources).toEqual([localSource, uriSource]);
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OUTFITTER-REQ-003.6).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-003.6).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('merges profile layers deterministically with higher-precedence values winning', () => {
     const baseProfile = createEmptyProfile('base');
@@ -154,7 +154,7 @@ describe('source layout scaffolding', () => {
     expect(mergedProfile.controls.model).toBe('pi/default');
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OUTFITTER-REQ-006.3, OUTFITTER-REQ-006.5).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-006.3, OFTR-006.5).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('creates pi and Claude Code launch plans using native config directory boundaries', () => {
     const compositeProfileRoot = 'outfitter-compositeProfile-root';

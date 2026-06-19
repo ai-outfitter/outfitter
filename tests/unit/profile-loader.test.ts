@@ -36,7 +36,7 @@ afterEach(() => {
 });
 
 describe('profile loading', () => {
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OUTFITTER-REQ-002.5).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-002.5).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('applies profile source only and except filters to local profile loading', () => {
     const root = createProfileSourceRoot();
@@ -52,7 +52,7 @@ describe('profile loading', () => {
     expect(isProfileIncludedBySource('research', createLocalProfileSource(root))).toBe(true);
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OUTFITTER-REQ-003.1).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-003.1).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('parses profile.yml files from profile folders with fallback folder identity', () => {
     const root = createProfileSourceRoot();
@@ -77,7 +77,7 @@ describe('profile loading', () => {
     });
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OUTFITTER-REQ-003.2).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-003.2).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('rejects profile IDs that are not safe for CLI references', () => {
     expect(isValidProfileId('engineering.default')).toBe(true);
@@ -92,7 +92,7 @@ describe('profile loading', () => {
     expect('message' in invalidIdResult && invalidIdResult.message).toContain('must match pattern');
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OUTFITTER-REQ-003.1).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-003.1).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('reports profile.yml schema validation diagnostics with field pointers', () => {
     const root = createProfileSourceRoot();

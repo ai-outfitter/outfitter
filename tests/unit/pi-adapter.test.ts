@@ -24,7 +24,7 @@ const writePiMcpConfig = (profileFolder: string, content: object | string): void
 };
 
 describe('pi adapter', () => {
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OUTFITTER-REQ-006.1, OUTFITTER-REQ-006.2, OUTFITTER-REQ-006.3, OUTFITTER-REQ-006.4).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-006.1, OFTR-006.2, OFTR-006.3, OFTR-006.4).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('translates generic and pi-specific profile controls into pi env and argv', () => {
     const adapter = createPiAdapter();
@@ -135,7 +135,7 @@ describe('pi adapter', () => {
     }
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OUTFITTER-REQ-006.3).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-006.3).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('makes native pi models config available inside the composite profile', () => {
     const { homeDirectory } = createPiSettingsTestHome();
@@ -188,7 +188,7 @@ describe('pi adapter', () => {
     expect(readFileSync(join(homeDirectory, '.pi', 'agent', 'models.json'), 'utf8')).toBe('{"providers":{}}\n');
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OUTFITTER-REQ-006.6).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-006.6).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('transforms pi settings packages when profile extensions would duplicate native packages', () => {
     const { homeDirectory, settingsPath } = createPiSettingsTestHome();
@@ -246,7 +246,7 @@ describe('pi adapter', () => {
     });
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OUTFITTER-REQ-006.6).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-006.6).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('keeps native pi settings state when settings do not need reconciliation or cannot be parsed', () => {
     const noDuplicate = createPiSettingsTestHome();
@@ -302,7 +302,7 @@ describe('pi adapter', () => {
     ).toThrow(/Could not read pi settings file/u);
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OUTFITTER-REQ-006.3).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-006.3).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('merges pi .mcp.json profile fragments with unique array identities keeping the last entry', () => {
     const root = createTemporaryPiAdapterTestRoot('outfitter-pi-mcp-test-');

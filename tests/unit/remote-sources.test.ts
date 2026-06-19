@@ -36,7 +36,7 @@ afterEach(() => {
 });
 
 describe('remote source settings', () => {
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OUTFITTER-REQ-002.5, OUTFITTER-REQ-002.6, OUTFITTER-REQ-004.2).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-002.5, OFTR-002.6, OFTR-004.2).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('syncs remote settings and profile sources from repository subpaths', () => {
     const root = createTemporaryRoot();
@@ -120,7 +120,7 @@ describe('remote source settings', () => {
     ).toThrow('Cannot sync with invalid settings');
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OUTFITTER-REQ-002.6, OUTFITTER-REQ-004.2).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-002.6, OFTR-004.2).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('reports unsafe remote settings subpaths as per-source sync failures', () => {
     const root = createTemporaryRoot();
@@ -157,7 +157,7 @@ describe('remote source settings', () => {
     expect(unsafeSyncCalls).toEqual([]);
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OUTFITTER-REQ-002.5, OUTFITTER-REQ-004.2, OUTFITTER-REQ-005.1).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-002.5, OFTR-004.2, OFTR-005.1).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('runs profiles loaded from GitHub shorthand repository subpaths', async () => {
     const root = createTemporaryRoot();

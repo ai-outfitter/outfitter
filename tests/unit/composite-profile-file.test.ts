@@ -27,7 +27,7 @@ afterEach(() => {
 });
 
 describe('compositeProfile file assembly', () => {
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OUTFITTER-REQ-005.2, OUTFITTER-REQ-005.3).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-005.2, OFTR-005.3).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('represents compositeProfile files with source inputs, output paths, and transform strategy', () => {
     const compositeProfileFile = createCompositeProfileFile({

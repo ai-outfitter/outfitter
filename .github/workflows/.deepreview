@@ -7,7 +7,7 @@ release_workflow_safety:
     strategy: individual
     instructions: |
       Review the Outfitter npm release workflow for release-safety concerns that
-      complement deterministic workflow tests for OUTFITTER-REQ-009.2.
+      complement deterministic workflow tests for OFTR-009.2.
 
       Check that the workflow:
       - Does not expose npm tokens or other secrets through logs, command-line

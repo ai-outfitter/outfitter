@@ -30,7 +30,7 @@ Outfitter is organized around clear TypeScript source boundaries, requirement do
 │   ├── package.json                   # documentation site package scripts and dependencies
 │   └── tsconfig.json                  # documentation site TypeScript configuration
 ├── requirements/                      # formal OUTFITTER requirement documents
-│   ├── OUTFITTER-REQ-001-project-foundation.md
+│   ├── OFTR-001-project-foundation.md
 │   └── ...
 ├── .prettierignore                    # Prettier ignore rules
 ├── .prettierrc.json                   # Prettier formatting configuration

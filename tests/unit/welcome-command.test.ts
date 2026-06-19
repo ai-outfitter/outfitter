@@ -31,7 +31,7 @@ describe('welcome command', () => {
     });
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OUTFITTER-REQ-010.2, OUTFITTER-REQ-010.3).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-010.2, OFTR-010.3).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('returns selected default-profile role and recommended loadout data', async () => {
     const result = await executeWelcomeCommand(
@@ -54,7 +54,7 @@ describe('welcome command', () => {
     ]);
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OUTFITTER-REQ-010.2, OUTFITTER-REQ-010.3).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-010.2, OFTR-010.3).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('falls back for unknown roles and skips unknown loadout items', async () => {
     const result = await executeWelcomeCommand(
@@ -105,7 +105,7 @@ describe('welcome command', () => {
     ]);
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OUTFITTER-REQ-010.1, OUTFITTER-REQ-010.2, OUTFITTER-REQ-010.3).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-010.1, OFTR-010.2, OFTR-010.3).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('supports readline answers for role and selected loadout items while showing welcome text', async () => {
     const input = Object.assign(new PassThrough(), { isTTY: true });

@@ -19,7 +19,7 @@ afterEach(() => {
 });
 
 describe('strict CI integration fixture composite profile generation', () => {
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OUTFITTER-REQ-005.6).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-005.6).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('fails a strict CI profile when declared error-state configuration changes', async () => {
     const fixture = copyFixtureToTemp('strict_ci_profile');
@@ -76,7 +76,7 @@ describe('strict CI integration fixture composite profile generation', () => {
     expect(readFixtureText(fixture, 'project/.outfitter/profiles/ci-strict/profile.yml')).toContain('unknown: error');
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OUTFITTER-REQ-005.6).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-005.6).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('fails a strict CI profile when undeclared composite profile state is written', async () => {
     const fixture = copyFixtureToTemp('strict_ci_profile');

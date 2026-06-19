@@ -1,4 +1,4 @@
-# OUTFITTER-REQ-002: Settings Discovery and Validation
+# OFTR-002: Settings Discovery and Validation
 
 ## Overview
 
@@ -7,14 +7,14 @@ The internal Settings object is the single source of resolved configuration for 
 
 ## Requirements
 
-### OUTFITTER-REQ-002.1: Settings Locations
+### OFTR-002.1: Settings Locations
 
 1. Outfitter MUST support a user settings file at `~/.outfitter/settings.yml`.
 2. Outfitter MUST support a project settings file at `<project>/.outfitter/settings.yml`.
 3. Outfitter MUST support a project-local settings file at `<project>/.outfitter/local/settings.yml`.
 4. Outfitter MUST collectively refer to discovered settings files as `settings.yml` in user-facing documentation when discussing the merged settings concept.
 
-### OUTFITTER-REQ-002.2: Settings Precedence
+### OFTR-002.2: Settings Precedence
 
 1. Project-local settings MUST take precedence over project settings.
 2. Project settings MUST take precedence over user settings.
@@ -22,20 +22,20 @@ The internal Settings object is the single source of resolved configuration for 
 4. Outfitter MUST expose the merged result as a conceptual internal `Settings` object.
 5. The Settings loader SHOULD be designed so future settings sources can be added without changing command implementations.
 
-### OUTFITTER-REQ-002.3: Settings Schema
+### OFTR-002.3: Settings Schema
 
 1. Outfitter MUST provide a JSON Schema for `settings.yml`.
 2. Outfitter MUST validate every discovered `settings.yml` file against the settings JSON Schema before merging it.
 3. Validation diagnostics MUST identify the file that failed validation.
 4. Validation diagnostics SHOULD identify the failing setting path when the validator provides that information.
 
-### OUTFITTER-REQ-002.4: Default Profile
+### OFTR-002.4: Default Profile
 
 1. The user settings file `~/.outfitter/settings.yml` MUST declare a default profile after `outfitter setup` completes.
 2. `outfitter run` MUST use the resolved default profile when no profile is selected with `-p` or `--profile`.
 3. Outfitter MUST report an actionable error when no selected profile and no default profile are available.
 
-### OUTFITTER-REQ-002.5: Profile Sources in Settings
+### OFTR-002.5: Profile Sources in Settings
 
 1. `settings.yml` MAY contain a `profile_sources` array.
 2. Each `profile_sources` entry MUST specify either a local `path`, a remote `uri`, or a `github` shorthand.
@@ -48,7 +48,7 @@ The internal Settings object is the single source of resolved configuration for 
 9. A profile source MAY specify `except` to exclude named profiles from that source.
 10. If neither `only` nor `except` is specified, Outfitter MUST load all profiles from the source.
 
-### OUTFITTER-REQ-002.6: Remote Settings Sources
+### OFTR-002.6: Remote Settings Sources
 
 1. `settings.yml` MAY contain a `remote_settings` array.
 2. Each `remote_settings` entry MUST specify either a remote `uri` or a `github` shorthand.
@@ -57,7 +57,7 @@ The internal Settings object is the single source of resolved configuration for 
 5. Outfitter MUST load cached remote settings files from their repository subpaths when resolving settings.
 6. Local discovered settings MUST take precedence over remote settings when both define the same setting.
 
-### OUTFITTER-REQ-002.7: Cache Directory Setting
+### OFTR-002.7: Cache Directory Setting
 
 1. `settings.yml` MAY contain a `cache_directory` path.
 2. Relative `cache_directory` values MUST resolve relative to the settings file containing them.

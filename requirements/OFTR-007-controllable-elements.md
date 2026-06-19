@@ -1,4 +1,4 @@
-# OUTFITTER-REQ-007: Controllable Elements Documentation
+# OFTR-007: Controllable Elements Documentation
 
 ## Overview
 
@@ -7,14 +7,14 @@ This vocabulary is documented separately from implementation details so companie
 
 ## Requirements
 
-### OUTFITTER-REQ-007.1: Documentation File
+### OFTR-007.1: Documentation File
 
 1. The project MUST include documentation with the header `Controllable Elements`.
 2. The controllable elements documentation MUST define each generic controllable aspect as a named term.
 3. Each defined term MUST describe the equivalent name or mechanism for pi.
 4. Each defined term SHOULD describe the equivalent name or mechanism for other major CLIs when those mappings are known.
 
-### OUTFITTER-REQ-007.2: Support Matrix
+### OFTR-007.2: Support Matrix
 
 1. The controllable elements documentation MUST include a support matrix table.
 2. The support matrix MUST contain one row for each defined controllable aspect.
@@ -22,7 +22,7 @@ This vocabulary is documented separately from implementation details so companie
 4. Each support matrix cell MUST contain exactly one of `Unsupported`, `Supported`, or `Roadmap`.
 5. Pi MUST be the only CLI with `Supported` entries until another adapter is implemented and tested.
 
-### OUTFITTER-REQ-007.3: Initial Controllable Aspects
+### OFTR-007.3: Initial Controllable Aspects
 
 1. The documentation MUST include an Agent Config Directory controllable element.
 2. The documentation MUST include a Session Directory controllable element.

@@ -57,7 +57,7 @@ afterEach(() => {
 });
 
 describe('state persistence', () => {
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OUTFITTER-REQ-005.6).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-005.6).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('parses state persistence overrides from profile YAML', () => {
     const profile = parseProfileYaml(
@@ -78,7 +78,7 @@ describe('state persistence', () => {
     });
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OUTFITTER-REQ-005.6).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-005.6).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('materializes pi state paths as symlinks and reports non-persistent writes', async () => {
     const root = createTemporaryRoot();
@@ -137,7 +137,7 @@ describe('state persistence', () => {
     expect(warnings).toEqual(result.warnings);
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OUTFITTER-REQ-005.6).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-005.6).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('assembles pi fallback state source paths without mutating native state directories', () => {
     const root = createTemporaryRoot();
@@ -162,7 +162,7 @@ describe('state persistence', () => {
     expect(existsSync(join(homeDirectory, '.pi', 'agent', 'settings.json'))).toBe(true);
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OUTFITTER-REQ-005.6).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-005.6).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('persists pi package install and temporary runtime directories across composite profiles', () => {
     const root = createTemporaryRoot();
@@ -194,7 +194,7 @@ describe('state persistence', () => {
     expect(readlinkSync(join(compositeProfile.rootDirectory, 'tmp'))).toBe(join(homeDirectory, '.pi', 'agent', 'tmp'));
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OUTFITTER-REQ-005.6).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-005.6).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('detects changed temporary state paths and protects compositeProfile path boundaries', () => {
     const root = createTemporaryRoot();
@@ -280,7 +280,7 @@ describe('state persistence', () => {
     expect(createCompositeProfileStateBaseline(join(root, 'missing')).fingerprints.size).toBe(0);
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OUTFITTER-REQ-005.6).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-005.6).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('does not create native fallback state paths while planning a pi compositeProfile', () => {
     const root = createTemporaryRoot();
@@ -302,7 +302,7 @@ describe('state persistence', () => {
     expect(existsSync(join(homeDirectory, '.pi'))).toBe(false);
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OUTFITTER-REQ-005.6).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-005.6).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('resolves state sources using profile stack order rather than loaded folder order', () => {
     const root = createTemporaryRoot();
@@ -334,7 +334,7 @@ describe('state persistence', () => {
     ).toBe(explicitSettings);
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OUTFITTER-REQ-005.6).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-005.6).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('reports when an agent replaces a symlinked state path instead of writing through it', async () => {
     const root = createTemporaryRoot();
@@ -363,7 +363,7 @@ describe('state persistence', () => {
     );
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OUTFITTER-REQ-005.6).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-005.6).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('can rewrite generated files without rematerializing state paths during live updates', () => {
     const root = createTemporaryRoot();
@@ -398,7 +398,7 @@ describe('state persistence', () => {
     expect(readFileSync(join(compositeProfileRoot, 'settings.json'), 'utf8')).toBe('agent replacement\n');
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OUTFITTER-REQ-005.6).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-005.6).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('formats state write diagnostics with the selected adapter id', async () => {
     const root = createTemporaryRoot();
@@ -446,7 +446,7 @@ describe('state persistence', () => {
     );
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OUTFITTER-REQ-005.6).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-005.6).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('fails after launch when an error-strategy state path changes', async () => {
     const root = createTemporaryRoot();
@@ -475,7 +475,7 @@ describe('state persistence', () => {
     ).rejects.toThrow("pi wrote 'settings.json' with state_persistence 'error' and it was not persisted.");
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OUTFITTER-REQ-005.6).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-005.6).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('rejects state persistence strategies that are disallowed for a pi state path', async () => {
     const root = createTemporaryRoot();
@@ -502,7 +502,7 @@ describe('state persistence', () => {
     ).rejects.toThrow('state_persistence strategy \'symlink\' is not allowed for "unknown"');
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OUTFITTER-REQ-005.6).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-005.6).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('rejects state persistence keys inherited from Object.prototype', async () => {
     const root = createTemporaryRoot();
@@ -529,7 +529,7 @@ describe('state persistence', () => {
     ).rejects.toThrow("state_persistence path 'toString' is not declared by the pi adapter");
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OUTFITTER-REQ-005.6).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-005.6).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('rejects state persistence keys that are undeclared by the pi adapter', async () => {
     const root = createTemporaryRoot();

@@ -36,7 +36,7 @@ afterEach(() => {
 });
 
 describe('Claude Code adapter support', () => {
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OUTFITTER-REQ-006.1, OUTFITTER-REQ-006.2, OUTFITTER-REQ-006.5).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-006.1, OFTR-006.2, OFTR-006.5).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('translates generic and claude-specific profile controls into Claude Code env and argv', () => {
     const adapter = createClaudeAdapter();
@@ -156,7 +156,7 @@ describe('Claude Code adapter support', () => {
     }
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OUTFITTER-REQ-005.6, OUTFITTER-REQ-006.5).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-005.6, OFTR-006.5).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('declares Claude Code state paths and validates state persistence overrides', () => {
     const root = createTemporaryRoot();
@@ -220,7 +220,7 @@ describe('Claude Code adapter support', () => {
     ).toThrow("state_persistence path 'missing.json' is not declared by the claude adapter");
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OUTFITTER-REQ-006.2).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-006.2).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('selects supported adapters from the registry and rejects unknown agents', () => {
     expect(isSupportedAgentId('pi')).toBe(true);
@@ -231,7 +231,7 @@ describe('Claude Code adapter support', () => {
     expect(() => createAgentAdapter('other')).toThrow("Unknown agent 'other'. Expected one of: pi, claude.");
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OUTFITTER-REQ-005.1, OUTFITTER-REQ-006.2, OUTFITTER-REQ-006.5).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-005.1, OFTR-006.2, OFTR-006.5).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('selects Claude Code from CLI input or settings while preserving pi as the default agent', async () => {
     const root = createTemporaryRoot();
@@ -312,7 +312,7 @@ describe('Claude Code adapter support', () => {
     expect(messages).toContain('↳ launching claude …');
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OUTFITTER-REQ-005.5, OUTFITTER-REQ-006.5).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-005.5, OFTR-006.5).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('makes Claude Code unsupported control warnings fatal when strict is enabled', async () => {
     const root = createTemporaryRoot();

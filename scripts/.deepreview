@@ -10,7 +10,7 @@ release_metadata_sync:
       and release safety.
 
       Focus on judgment-based release safety concerns that complement the
-      deterministic unit tests for OUTFITTER-REQ-009.1 release metadata synchronization.
+      deterministic unit tests for OFTR-009.1 release metadata synchronization.
 
       Check that the script:
       - Keeps its mutation scope limited to release metadata files under the

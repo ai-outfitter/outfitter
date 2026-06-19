@@ -21,7 +21,7 @@ afterEach(() => {
 });
 
 describe('integration fixture composite profile generation', () => {
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OUTFITTER-REQ-005.3, OUTFITTER-REQ-005.6).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-005.3, OFTR-005.6).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('runs a repo-only selected profile over the user default and uses native fallback state', async () => {
     const fixture = copyFixtureToTemp('trivial_repo_only_profile');
@@ -68,7 +68,7 @@ describe('integration fixture composite profile generation', () => {
     expect(readFixtureText(fixture, 'project/.outfitter/profiles/repo-review/profile.yml')).toContain('REPO_PROFILE');
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OUTFITTER-REQ-006.6).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-006.6).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('reconciles native pi packages duplicated by profile-controlled extensions in the composite settings file', async () => {
     const fixture = copyFixtureToTemp('trivial_repo_only_profile');
@@ -115,7 +115,7 @@ describe('integration fixture composite profile generation', () => {
     expect(warnings).toEqual([]);
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OUTFITTER-REQ-003.2, OUTFITTER-REQ-005.3).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-003.2, OFTR-005.3).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('runs a realistic TypeScript profile stack over the user default without writing back inherited profiles', async () => {
     const fixture = copyFixtureToTemp('language_stack_with_personal_default');
@@ -178,7 +178,7 @@ describe('integration fixture composite profile generation', () => {
     }
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OUTFITTER-REQ-003.1, OUTFITTER-REQ-003.3).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-003.1, OFTR-003.3).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('uses cached remote baseline settings while project-local settings select a local profile offline', async () => {
     const fixture = copyFixtureToTemp('remote_baseline_local_selection');
@@ -246,7 +246,7 @@ describe('integration fixture composite profile generation', () => {
     );
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OUTFITTER-REQ-005.6).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-005.6).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('diagnoses declared persistent state symlinks replaced by the agent without changing sources', async () => {
     const fixture = copyFixtureToTemp('state_path_replaced_by_agent');
@@ -311,7 +311,7 @@ describe('integration fixture composite profile generation', () => {
     );
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OUTFITTER-REQ-002.2, OUTFITTER-REQ-005.6).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-002.2, OFTR-005.6).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('uses project-local sandbox defaults and keeps sandbox state writes temporary', async () => {
     const fixture = copyFixtureToTemp('local_sandbox_overrides');
@@ -389,7 +389,7 @@ describe('integration fixture composite profile generation', () => {
     );
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OUTFITTER-REQ-005.3, OUTFITTER-REQ-005.6).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-005.3, OFTR-005.6).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('creates and owns pi native fallback state when profiles provide no cli-specific state', async () => {
     const fixture = copyFixtureToTemp('native_fallback_cli_state');
@@ -503,7 +503,7 @@ describe('integration fixture composite profile generation', () => {
     );
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OUTFITTER-REQ-005.3, OUTFITTER-REQ-005.6).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-005.3, OFTR-005.6).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('uses the configured cache directory for reusable pi tooling state across compositeProfiles', async () => {
     const fixture = copyFixtureToTemp('cache_backed_tooling_state');

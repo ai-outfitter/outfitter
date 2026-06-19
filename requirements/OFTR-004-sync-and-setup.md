@@ -1,4 +1,4 @@
-# OUTFITTER-REQ-004: Setup, Sync, and Profile Creation Commands
+# OFTR-004: Setup, Sync, and Profile Creation Commands
 
 ## Overview
 
@@ -6,7 +6,7 @@ Outfitter provides setup and maintenance commands that create initial configurat
 
 ## Requirements
 
-### OUTFITTER-REQ-004.1: Setup Command
+### OFTR-004.1: Setup Command
 
 1. Outfitter MUST provide a `setup` command.
 2. The `setup` command MUST create `~/.outfitter/settings.yml` when it does not exist.
@@ -22,7 +22,7 @@ Outfitter provides setup and maintenance commands that create initial configurat
 12. When the interactive `setup` command presents setup profile choices outside the initial welcome handoff, it MUST validate the selected default profile ID before writing it to `settings.yml`.
 13. After the interactive `setup` command writes a selected default profile, any newly-created fallback default profile file MUST correspond to the final selected default profile.
 
-### OUTFITTER-REQ-004.2: Sync Command
+### OFTR-004.2: Sync Command
 
 1. Outfitter MUST provide a `sync` command.
 2. The `sync` command MUST read and validate settings before synchronizing sources.
@@ -34,7 +34,7 @@ Outfitter provides setup and maintenance commands that create initial configurat
 8. The first version of `sync` MUST NOT require lockfile-based profile source reproducibility.
 9. The `sync` command MUST redact credentials embedded in source URIs from user-facing output.
 
-### OUTFITTER-REQ-004.3: Create Profile Command
+### OFTR-004.3: Create Profile Command
 
 1. Outfitter MUST provide a `profile create` command.
 2. The `profile create` command MUST require a destination scope or destination path.
@@ -42,14 +42,14 @@ Outfitter provides setup and maintenance commands that create initial configurat
 4. The `profile create` command MUST create a placeholder profile folder with a valid `profile.yml` file.
 5. The `profile create` command SHOULD create conventional subfolders for common profile resources.
 
-### OUTFITTER-REQ-004.4: Command Object Implementation
+### OFTR-004.4: Command Object Implementation
 
 1. All CLI command entry points MUST execute command objects rather than duplicate implementation logic in parser callbacks.
 2. Command objects MUST accept typed input objects rather than reading directly from `process.argv`.
 3. Command objects SHOULD receive filesystem, settings, profile, and process dependencies through constructors or equivalent dependency injection.
 4. The `profile create` parser entry point MUST execute the profile-creation command object.
 
-### OUTFITTER-REQ-004.5: List Profiles Command
+### OFTR-004.5: List Profiles Command
 
 1. Outfitter MUST provide a `profile list` command.
 2. The `profile list` command MUST read and validate settings before listing profiles.

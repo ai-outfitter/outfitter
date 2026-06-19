@@ -40,10 +40,10 @@ prompt_best_practices:
       - FAIL: Issues found. List each issue with location, severity, best practice violated, description, and suggested improvement.
 
 requirements_traceability:
-  description: "Verify OUTFITTER-REQ-008 traceability between requirements, TypeScript tests, DeepSchemas, and DeepReview rules."
+  description: "Verify OFTR-008 traceability between requirements, TypeScript tests, DeepSchemas, and DeepReview rules."
   match:
     include:
-      - "requirements/OUTFITTER-REQ-*.md"
+      - "requirements/OFTR-*.md"
       - "src/**/*.ts"
       - "src/schemas/**/*.json"
       - "bin/**/*.ts"
@@ -58,8 +58,8 @@ requirements_traceability:
     instructions: |
       Review the changed files for requirements traceability.
 
-      Requirements live in `requirements/` as `OUTFITTER-REQ-NNN-<topic>.md`,
-      with individually numbered items such as `OUTFITTER-REQ-008.3`. Each
+      Requirements live in `requirements/` as `OFTR-NNN-<topic>.md`,
+      with individually numbered items such as `OFTR-008.3`. Each
       requirement should be validated by TypeScript tests, DeepSchemas, or
       `.deepreview` rules using the mechanism that fits the requirement.
 
@@ -87,10 +87,10 @@ integration_fixture_requirement_coverage:
   description: "Require fixture-backed integration coverage when requirements change composite profile, profile, adapter, or state behavior."
   match:
     include:
-      - "requirements/OUTFITTER-REQ-003-profiles.md"
-      - "requirements/OUTFITTER-REQ-005-run-and-composite profile.md"
-      - "requirements/OUTFITTER-REQ-006-agent-adapters.md"
-      - "requirements/OUTFITTER-REQ-007-controllable-elements.md"
+      - "requirements/OFTR-003-profiles.md"
+      - "requirements/OFTR-005-run-and-composite profile.md"
+      - "requirements/OFTR-006-agent-adapters.md"
+      - "requirements/OFTR-007-controllable-elements.md"
   review:
     strategy: all_changed_files
     additional_context:
@@ -130,7 +130,7 @@ doc_consistency:
   description: "Verify architecture, file structure, state writeback, and public docs stay current when requirements or related docs change."
   match:
     include:
-      - "requirements/OUTFITTER-REQ-*.md"
+      - "requirements/OFTR-*.md"
       - "doc/architecture.md"
       - "doc/file_structure.md"
       - "doc/state_writeback_strategy.md"

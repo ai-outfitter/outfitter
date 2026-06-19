@@ -54,7 +54,7 @@ afterEach(() => {
 });
 
 describe('sync command', () => {
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OUTFITTER-REQ-004.2).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-004.2).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('encodes URI cache paths for arbitrary URIs and validates synced profiles', () => {
     const root = createTemporaryRoot();
@@ -90,7 +90,7 @@ describe('sync command', () => {
     expect(result.messages[0]).toContain(`${firstUri} -> ${createProfileSourceCachePath(homeDirectory, firstUri)}`);
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OUTFITTER-REQ-004.2).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-004.2).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('redacts URI credentials from sync results and messages', () => {
     const root = createTemporaryRoot();
@@ -136,7 +136,7 @@ describe('sync command', () => {
     );
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OUTFITTER-REQ-004.2).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-004.2).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('fetches URI profile sources with the default git synchronizer and updates existing caches', () => {
     const root = createTemporaryRoot();
@@ -191,7 +191,7 @@ describe('sync command', () => {
     expect(unsafeRefResult.sources[0]?.message).toContain("must not start with '-'");
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OUTFITTER-REQ-004.2).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-004.2).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('reports sync validation failures, synchronizer failures, invalid settings, and no-op syncs clearly', () => {
     const root = createTemporaryRoot();

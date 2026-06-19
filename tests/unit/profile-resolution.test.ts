@@ -18,7 +18,7 @@ const createLoadedProfile = (loadedProfile: Omit<LoadedProfile, 'folderPath' | '
 });
 
 describe('profile resolution', () => {
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OUTFITTER-REQ-003.3, OUTFITTER-REQ-003.6).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-003.3, OFTR-003.6).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('merges same-id profile definitions with project-local precedence over project and user definitions', () => {
     const userProfiles = loadLocalProfileSource(
@@ -138,7 +138,7 @@ describe('profile resolution', () => {
     expect(result.profile?.controls.custom_list).toEqual(['selected']);
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OUTFITTER-REQ-003.4, OUTFITTER-REQ-003.5).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-003.4, OFTR-003.5).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('resolves inherited profiles below explicit profiles and includes the implicit user default without duplicates', () => {
     const loaded = loadLocalProfileSource(
@@ -180,7 +180,7 @@ describe('profile resolution', () => {
     expect(multipleInheritanceResult.profile?.controls.environment?.SHARED).toBe('composite');
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OUTFITTER-REQ-003.4).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-003.4).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('reports missing inherited profiles and inheritance cycles as resolution issues', () => {
     const cycleProfiles = loadLocalProfileSource(createLocalProfileSource(scenarioPath('profile-cycle', 'profiles')));

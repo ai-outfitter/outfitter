@@ -20,7 +20,7 @@ afterEach(() => {
 });
 
 describe('heavily overridden integration fixture composite profile generation', () => {
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OUTFITTER-REQ-003.3, OUTFITTER-REQ-003.4, OUTFITTER-REQ-005.3, OUTFITTER-REQ-005.6).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-003.3, OFTR-003.4, OFTR-005.3, OFTR-005.6).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('merges a heavily overridden engineering profile and writes back only highest-precedence owned state', async () => {
     const fixture = copyFixtureToTemp('heavily_overridden_engineering');

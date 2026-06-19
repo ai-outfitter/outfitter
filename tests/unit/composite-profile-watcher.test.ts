@@ -43,7 +43,7 @@ afterEach(() => {
 });
 
 describe('composite profile input watching', () => {
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OUTFITTER-REQ-005.4).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-005.4).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('watches composite profile inputs, rewrites safe generated files, and warns when an input cannot be watched', async () => {
     const warnings: string[] = [];

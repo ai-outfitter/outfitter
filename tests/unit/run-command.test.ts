@@ -68,7 +68,7 @@ afterEach(() => {
 });
 
 describe('run command', () => {
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OUTFITTER-REQ-005.1, OUTFITTER-REQ-005.2, OUTFITTER-REQ-005.3, OUTFITTER-REQ-005.4, OUTFITTER-REQ-005.5).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-005.1, OFTR-005.2, OFTR-005.3, OFTR-005.4, OFTR-005.5).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('resolves the default profile, writes and refreshes a temp compositeProfile, warns, and passes through args', async () => {
     const root = createTemporaryRoot();
@@ -176,7 +176,7 @@ describe('run command', () => {
     );
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OUTFITTER-REQ-005.1).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-005.1).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('runs setup automatically before the default run when user setup has not run', async () => {
     const root = createTemporaryRoot();
@@ -217,7 +217,7 @@ describe('run command', () => {
     expect(existsSync(join(homeDirectory, '.outfitter', 'profiles', 'engineer', 'profile.yml'))).toBe(true);
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OUTFITTER-REQ-010.4).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-010.4).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('notifies pi users to run login when no native login state is configured', async () => {
     const root = createTemporaryRoot();
@@ -408,7 +408,7 @@ describe('run command', () => {
     expect(result.profileId).toBe('engineer');
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OUTFITTER-REQ-002.3, OUTFITTER-REQ-002.4, OUTFITTER-REQ-003.1, OUTFITTER-REQ-006.1).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-002.3, OFTR-002.4, OFTR-003.1, OFTR-006.1).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('reports invalid settings, invalid profile sources, missing profiles, URI caches, and child exit codes', async () => {
     const root = createTemporaryRoot();
@@ -515,7 +515,7 @@ describe('run command', () => {
     expect(resolveChildExitCode(null, null)).toBe(1);
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OUTFITTER-REQ-005.5).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-005.5).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('makes unsupported control warnings fatal when strict is enabled', async () => {
     const root = createTemporaryRoot();

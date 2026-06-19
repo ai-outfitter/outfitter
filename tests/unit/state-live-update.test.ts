@@ -59,7 +59,7 @@ afterEach(() => {
 });
 
 describe('live composite profile update state accounting', () => {
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OUTFITTER-REQ-005.4, OUTFITTER-REQ-005.6).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-005.4, OFTR-005.6).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('does not report live-regenerated compositeProfile files as agent state writes', async () => {
     const root = createTemporaryRoot();
