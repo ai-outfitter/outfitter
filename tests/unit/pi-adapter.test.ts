@@ -135,6 +135,30 @@ describe('pi adapter', () => {
     }
   });
 
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-003.6, OFTR-006.3).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('passes composed append system prompts as repeated pi flags', () => {
+    const adapter = createPiAdapter();
+    const compositeProfilePlan = adapter.createCompositeProfile(
+      { id: 'engineering', inherits: [], controls: {} },
+      { rootDirectory: '/tmp/outfitter-engineering-pi-append-prompts', profilePaths: [] },
+    );
+    const launchPlan = adapter.createLaunchPlan(compositeProfilePlan.compositeProfile, {
+      id: 'engineering',
+      inherits: [],
+      controls: {
+        appendSystemPrompt: ['./prompts/role.md', './prompts/vcs.md'],
+      },
+    });
+
+    expect(launchPlan.args).toEqual([
+      '--append-system-prompt',
+      './prompts/role.md',
+      '--append-system-prompt',
+      './prompts/vcs.md',
+    ]);
+  });
+
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-006.3).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('makes native pi models config available inside the composite profile', () => {

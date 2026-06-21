@@ -8,6 +8,7 @@ import {
   genericControlNames,
   mergeAgentSpecificControls,
   repeatFlag,
+  repeatFlagValue,
   supportedControlNames,
 } from '../AdapterProfileControls.js';
 import { createDeclaredStatePaths, findProfileStateSource } from '../AdapterStatePaths.js';
@@ -338,7 +339,7 @@ const createPiArgs = (controls: PiProfileControls): readonly string[] => [
   ...flagValue('--session-dir', controls.sessionDirectory),
   ...flagValue('--prompt-template', controls.promptTemplate),
   ...flagValue('--system-prompt', controls.systemPrompt),
-  ...flagValue('--append-system-prompt', controls.appendSystemPrompt),
+  ...repeatFlagValue('--append-system-prompt', controls.appendSystemPrompt),
   ...repeatFlag('--extension', controls.extensions),
   ...repeatFlag('--skill', controls.skills),
   ...(controls.args ?? []),

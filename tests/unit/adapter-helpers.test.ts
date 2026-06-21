@@ -11,6 +11,7 @@ import {
   genericControlNames,
   mergeAgentSpecificControls,
   repeatFlag,
+  repeatFlagValue,
 } from '../../src/agents/AdapterProfileControls.js';
 import {
   createDeclaredStatePaths,
@@ -49,6 +50,13 @@ describe('adapter helper modules', () => {
     expect(flagValue('--model', undefined)).toEqual([]);
     expect(repeatFlag('--skill', ['a', 'b'])).toEqual(['--skill', 'a', '--skill', 'b']);
     expect(repeatFlag('--skill', undefined)).toEqual([]);
+    expect(repeatFlagValue('--append-system-prompt', 'base.md')).toEqual(['--append-system-prompt', 'base.md']);
+    expect(repeatFlagValue('--append-system-prompt', ['base.md', 'vcs.md'])).toEqual([
+      '--append-system-prompt',
+      'base.md',
+      '--append-system-prompt',
+      'vcs.md',
+    ]);
   });
 
   it('finds unsupported controls while normalizing aliases', () => {

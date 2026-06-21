@@ -50,12 +50,17 @@ const mergeMemberValue = (
   path: MergePath,
   options: MergeValueOptions,
 ): MergeableValue => {
-  if (Array.isArray(higherPrecedence)) {
-    return mergeArrayByPolicy(
-      isMergeableArray(lowerPrecedence) ? lowerPrecedence : undefined,
-      higherPrecedence,
-      options.arrayPolicyForPath?.(path) ?? 'replace',
-    );
+  const arrayPolicy = options.arrayPolicyForPath?.(path);
+  const listMergedValue = mergeListMemberValue(lowerPrecedence, higherPrecedence, arrayPolicy);
+
+  if (listMergedValue !== undefined) {
+    return listMergedValue;
+  }
+
+  const arrayMergedValue = mergeArrayMemberValue(lowerPrecedence, higherPrecedence, arrayPolicy);
+
+  if (arrayMergedValue !== undefined) {
+    return arrayMergedValue;
   }
 
   if (isPlainMergeableObject(lowerPrecedence) && isPlainMergeableObject(higherPrecedence)) {
@@ -63,6 +68,38 @@ const mergeMemberValue = (
   }
 
   return cloneMergeableValue(higherPrecedence);
+};
+
+const mergeListMemberValue = (
+  lowerPrecedence: MergeableValue | undefined,
+  higherPrecedence: MergeableValue,
+  arrayPolicy: ArrayMergePolicy<MergeableValue> | undefined,
+): MergeableValue | undefined => {
+  if (arrayPolicy !== 'appendList' && arrayPolicy !== 'prependList') {
+    return undefined;
+  }
+
+  return mergeArrayByPolicy(
+    coerceMergeableList(lowerPrecedence),
+    coerceDefinedMergeableList(higherPrecedence),
+    arrayPolicy === 'appendList' ? 'append' : 'prepend',
+  );
+};
+
+const mergeArrayMemberValue = (
+  lowerPrecedence: MergeableValue | undefined,
+  higherPrecedence: MergeableValue,
+  arrayPolicy: ArrayMergePolicy<MergeableValue> | undefined,
+): MergeableValue | undefined => {
+  if (!Array.isArray(higherPrecedence)) {
+    return undefined;
+  }
+
+  return mergeArrayByPolicy(
+    isMergeableArray(lowerPrecedence) ? lowerPrecedence : undefined,
+    higherPrecedence,
+    arrayPolicy ?? 'replace',
+  );
 };
 
 const cloneMergeableValue = (value: MergeableValue): MergeableValue => {
@@ -81,3 +118,14 @@ const isPlainMergeableObject = (value: unknown): value is MergeableObject =>
   value !== null && typeof value === 'object' && !Array.isArray(value);
 
 const isMergeableArray = (value: unknown): value is readonly MergeableValue[] => Array.isArray(value);
+
+const coerceMergeableList = (value: MergeableValue | undefined): readonly MergeableValue[] | undefined => {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  return coerceDefinedMergeableList(value);
+};
+
+const coerceDefinedMergeableList = (value: MergeableValue): readonly MergeableValue[] =>
+  isMergeableArray(value) ? value : [value];

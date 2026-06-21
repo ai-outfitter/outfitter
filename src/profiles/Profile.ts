@@ -2,6 +2,7 @@
 import type { StatePersistenceStrategy } from '../compositeProfile/StatePersistence.js';
 
 export type StatePersistenceOverrides = Readonly<Record<string, StatePersistenceStrategy>>;
+export type AppendSystemPromptControl = string | readonly string[];
 
 interface BaseProfileControls {
   readonly [controlName: string]: unknown;
@@ -15,7 +16,7 @@ interface BaseProfileControls {
   readonly skills?: readonly string[];
   readonly promptTemplate?: string;
   readonly systemPrompt?: string;
-  readonly appendSystemPrompt?: string;
+  readonly appendSystemPrompt?: AppendSystemPromptControl;
 }
 
 export type AgentSpecificProfileControls = BaseProfileControls;

@@ -43,7 +43,7 @@
         },
         "prompt_template": { "type": "string" },
         "system_prompt": { "type": "string" },
-        "append_system_prompt": { "type": "string" },
+        "append_system_prompt": { "$ref": "#/$defs/appendSystemPrompt" },
         "environment": {
           "type": "object",
           "additionalProperties": { "type": "string" }
@@ -69,7 +69,7 @@
             },
             "prompt_template": { "type": "string" },
             "system_prompt": { "type": "string" },
-            "append_system_prompt": { "type": "string" },
+            "append_system_prompt": { "$ref": "#/$defs/appendSystemPrompt" },
             "allow_external_deepwork_jobs": { "type": "boolean" },
             "environment": {
               "type": "object",
@@ -99,7 +99,7 @@
             },
             "prompt_template": { "type": "string" },
             "system_prompt": { "type": "string" },
-            "append_system_prompt": { "type": "string" },
+            "append_system_prompt": { "$ref": "#/$defs/appendSystemPrompt" },
             "environment": {
               "type": "object",
               "additionalProperties": { "type": "string" }
@@ -111,5 +111,16 @@
       "additionalProperties": true
     }
   },
-  "additionalProperties": true
+  "additionalProperties": true,
+  "$defs": {
+    "appendSystemPrompt": {
+      "oneOf": [
+        { "type": "string" },
+        {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      ]
+    }
+  }
 }

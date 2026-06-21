@@ -47,6 +47,10 @@ const profileArrayPolicy = (path: MergePath): ArrayMergePolicy | undefined => {
     return 'prepend';
   }
 
+  if (isAppendSystemPromptPath(pathKey)) {
+    return 'prependList';
+  }
+
   if (['controls.extensions', 'controls.pi.extensions', 'controls.claude.extensions'].includes(pathKey)) {
     return {
       mode: 'uniqueBy',
@@ -67,6 +71,16 @@ const profileArrayPolicy = (path: MergePath): ArrayMergePolicy | undefined => {
 
   return undefined;
 };
+
+const isAppendSystemPromptPath = (pathKey: string): boolean =>
+  [
+    'controls.appendSystemPrompt',
+    'controls.append_system_prompt',
+    'controls.pi.appendSystemPrompt',
+    'controls.pi.append_system_prompt',
+    'controls.claude.appendSystemPrompt',
+    'controls.claude.append_system_prompt',
+  ].includes(pathKey);
 
 export const resolveProfile = (input: ProfileResolutionInput): ProfileResolutionResult => {
   const definitions = createProfileDefinitions(input.profiles);

@@ -400,6 +400,7 @@ Rules:
 - Pi profiles may provide `cli_specific/pi/.mcp.json`; Outfitter merges contributing profile fragments into the composite profile with unique array entries by identity and last writer wins for duplicate identities.
 - Pi profiles may provide DeepWork jobs under `cli_specific/pi/deepwork/jobs/`; Outfitter appends contributing job folders to `DEEPWORK_ADDITIONAL_JOBS_FOLDERS` when launching Pi so DeepWork can discover those profile-owned workflows.
   Profile-bundled jobs are isolated by default: inherited `DEEPWORK_ADDITIONAL_JOBS_FOLDERS` entries are included only when the profile sets `controls.pi.allow_external_deepwork_jobs: true`.
+- `append_system_prompt` accepts a string or an ordered string array. When multiple resolved profile layers provide it, Outfitter composes the values into repeated agent append-prompt inputs in profile precedence order so shared prompt profiles do not need to use raw CLI `args`.
 - CLI-specific configuration wins over generic controls when both apply to the same generated artifact.
 
 ### Profile Directory Examples

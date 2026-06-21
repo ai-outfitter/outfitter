@@ -14,14 +14,17 @@ describe('profile control parsing', () => {
         '  args: [--generic]',
         '  extensions: [ext-a]',
         '  skills: [skill-a]',
+        '  append_system_prompt: [prompt-a, prompt-b]',
         '  pi:',
         '    args: [--pi]',
         '    extensions: [ext-pi]',
         '    skills: [skill-pi]',
+        '    append_system_prompt: [prompt-pi-a, prompt-pi-b]',
         '  claude:',
         '    args: [--claude]',
         '    extensions: [plugin-claude]',
         '    skills: [skill-claude]',
+        '    append_system_prompt: [prompt-claude-a, prompt-claude-b]',
         '',
       ].join('\n'),
       'fallback',
@@ -32,12 +35,15 @@ describe('profile control parsing', () => {
       expect(profile.controls.args).toEqual(['--generic']);
       expect(profile.controls.extensions).toEqual(['ext-a']);
       expect(profile.controls.skills).toEqual(['skill-a']);
+      expect(profile.controls.appendSystemPrompt).toEqual(['prompt-a', 'prompt-b']);
       expect(profile.controls.pi?.args).toEqual(['--pi']);
       expect(profile.controls.pi?.extensions).toEqual(['ext-pi']);
       expect(profile.controls.pi?.skills).toEqual(['skill-pi']);
+      expect(profile.controls.pi?.appendSystemPrompt).toEqual(['prompt-pi-a', 'prompt-pi-b']);
       expect(profile.controls.claude?.args).toEqual(['--claude']);
       expect(profile.controls.claude?.extensions).toEqual(['plugin-claude']);
       expect(profile.controls.claude?.skills).toEqual(['skill-claude']);
+      expect(profile.controls.claude?.appendSystemPrompt).toEqual(['prompt-claude-a', 'prompt-claude-b']);
     }
   });
 });

@@ -167,6 +167,14 @@ const readOptionalStringArray = (value: unknown): readonly string[] | undefined 
   return undefined;
 };
 
+const readOptionalStringOrStringArray = (value: unknown): string | readonly string[] | undefined => {
+  if (typeof value === 'string') {
+    return value;
+  }
+
+  return readOptionalStringArray(value);
+};
+
 const readControls = (value: unknown): ProfileControls => {
   const controls = readObject(value);
 
@@ -186,7 +194,7 @@ const readControls = (value: unknown): ProfileControls => {
     skills: readOptionalStringArray(controls.skills),
     promptTemplate: readOptionalString(controls.prompt_template),
     systemPrompt: readOptionalString(controls.system_prompt),
-    appendSystemPrompt: readOptionalString(controls.append_system_prompt),
+    appendSystemPrompt: readOptionalStringOrStringArray(controls.append_system_prompt),
     pi: readAgentSpecificControls(controls.pi),
     claude: readAgentSpecificControls(controls.claude),
   });
@@ -211,7 +219,7 @@ const readAgentSpecificControls = (value: unknown): AgentSpecificProfileControls
     skills: readOptionalStringArray(controls.skills),
     promptTemplate: readOptionalString(controls.prompt_template),
     systemPrompt: readOptionalString(controls.system_prompt),
-    appendSystemPrompt: readOptionalString(controls.append_system_prompt),
+    appendSystemPrompt: readOptionalStringOrStringArray(controls.append_system_prompt),
   });
 };
 
