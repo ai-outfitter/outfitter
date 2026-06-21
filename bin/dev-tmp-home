@@ -5,11 +5,12 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd -- "$SCRIPT_DIR/.." && pwd)"
 SOURCE_HOME="${HOME:-}"
 PROJECT_DIR="$(pwd)"
-SETUP_SOURCE="${1:-}"
+FRESH_PI=0
+SETUP_SOURCE=""
 
 usage() {
   cat <<'USAGE'
-Usage: bin/dev-tmp-home [setup-source]
+Usage: bin/dev-tmp-home [--fresh-pi] [setup-source]
 
 Launch this Outfitter checkout with a fresh temporary HOME.
 
@@ -20,6 +21,10 @@ then launches the selected/default profile.
 With a setup source, this exercises setup-source flow: `outfitter setup
 <setup-source>`. The setup source may be a local Git repository path or a remote
 Git URL.
+
+By default, the temporary HOME is seeded with the current user's Pi auth, model,
+and settings files when they exist. Use --fresh-pi to leave Pi auth/model state
+empty so provider/model login bootstrap can be tested.
 USAGE
 }
 
@@ -28,12 +33,27 @@ die() {
   exit 1
 }
 
-if [[ "${SETUP_SOURCE:-}" == "-h" || "${SETUP_SOURCE:-}" == "--help" ]]; then
-  usage
-  exit 0
-fi
-
-[[ $# -le 1 ]] || die "expected at most one setup source argument"
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    --fresh-pi)
+      [[ "$FRESH_PI" -eq 0 ]] || die "--fresh-pi was provided more than once"
+      FRESH_PI=1
+      shift
+      ;;
+    --*)
+      die "unknown option: $1"
+      ;;
+    *)
+      [[ -z "$SETUP_SOURCE" ]] || die "expected at most one setup source argument"
+      SETUP_SOURCE="$1"
+      shift
+      ;;
+  esac
+done
 
 DEV_HOME="$(mktemp -d -t outfitter-dev-home.XXXXXX)"
 
@@ -42,28 +62,71 @@ cleanup() {
 }
 trap cleanup EXIT
 
-mkdir -p "$DEV_HOME/.pi/agent/cache" \
-  "$DEV_HOME/.pi/agent/git" \
-  "$DEV_HOME/.pi/agent/npm" \
-  "$DEV_HOME/.pi/agent/plugins" \
-  "$DEV_HOME/.pi/agent/sessions" \
-  "$DEV_HOME/.pi/agent/tmp"
+PI_AGENT_DIR="$DEV_HOME/.pi/agent"
+SOURCE_PI_AGENT_DIR="$SOURCE_HOME/.pi/agent"
 
-cat > "$DEV_HOME/.pi/agent/settings.json" <<'JSON'
+mkdir -p "$PI_AGENT_DIR/cache" \
+  "$PI_AGENT_DIR/git" \
+  "$PI_AGENT_DIR/npm" \
+  "$PI_AGENT_DIR/plugins" \
+  "$PI_AGENT_DIR/sessions" \
+  "$PI_AGENT_DIR/tmp"
+
+write_default_pi_settings() {
+  cat > "$PI_AGENT_DIR/settings.json" <<'JSON'
 {
   "defaultProvider": "openai-codex",
   "defaultModel": "gpt-5.5",
   "defaultThinkingLevel": "xhigh"
 }
 JSON
-printf '{"providers":{}}\n' > "$DEV_HOME/.pi/agent/models.json"
-printf '{}\n' > "$DEV_HOME/.pi/agent/mcp.json"
+}
 
-if [[ -n "$SOURCE_HOME" && -f "$SOURCE_HOME/.pi/agent/auth.json" ]]; then
-  install -m 600 "$SOURCE_HOME/.pi/agent/auth.json" "$DEV_HOME/.pi/agent/auth.json"
+copy_pi_file_or_write_default() {
+  local filename="$1"
+  local fallback_content="$2"
+  local target_path="$PI_AGENT_DIR/$filename"
+  local source_path="$SOURCE_PI_AGENT_DIR/$filename"
+
+  if [[ -n "$SOURCE_HOME" && -f "$source_path" ]]; then
+    cp -- "$source_path" "$target_path"
+    return 0
+  fi
+
+  printf '%s\n' "$fallback_content" > "$target_path"
+  return 1
+}
+
+seed_piggyback_pi_state() {
+  if [[ -n "$SOURCE_HOME" && -f "$SOURCE_PI_AGENT_DIR/auth.json" ]]; then
+    install -m 600 "$SOURCE_PI_AGENT_DIR/auth.json" "$PI_AGENT_DIR/auth.json"
+  else
+    printf '{}\n' > "$PI_AGENT_DIR/auth.json"
+    chmod 600 "$PI_AGENT_DIR/auth.json"
+  fi
+
+  copy_pi_file_or_write_default models.json '{"providers":{}}' >/dev/null || true
+  copy_pi_file_or_write_default mcp.json '{}' >/dev/null || true
+
+  if [[ -n "$SOURCE_HOME" && -f "$SOURCE_PI_AGENT_DIR/settings.json" ]]; then
+    cp -- "$SOURCE_PI_AGENT_DIR/settings.json" "$PI_AGENT_DIR/settings.json"
+  else
+    write_default_pi_settings
+  fi
+}
+
+seed_fresh_pi_state() {
+  printf '{}\n' > "$PI_AGENT_DIR/auth.json"
+  chmod 600 "$PI_AGENT_DIR/auth.json"
+  printf '{"providers":{}}\n' > "$PI_AGENT_DIR/models.json"
+  printf '{}\n' > "$PI_AGENT_DIR/mcp.json"
+  printf '{}\n' > "$PI_AGENT_DIR/settings.json"
+}
+
+if [[ "$FRESH_PI" -eq 1 ]]; then
+  seed_fresh_pi_state
 else
-  printf '{}\n' > "$DEV_HOME/.pi/agent/auth.json"
-  chmod 600 "$DEV_HOME/.pi/agent/auth.json"
+  seed_piggyback_pi_state
 fi
 
 npm --prefix "$REPO_ROOT" run build
@@ -75,10 +138,17 @@ if [[ -n "$SETUP_SOURCE" ]]; then
 else
   echo "Setup source:      GitHub default profiles via outfitter first-run setup"
 fi
-if grep -q '"openai-codex"' "$DEV_HOME/.pi/agent/auth.json" 2>/dev/null; then
+if [[ "$FRESH_PI" -eq 1 ]]; then
+  echo "Pi state:          fresh unauthenticated (--fresh-pi); provider bootstrap should run"
+else
+  echo "Pi state:          piggybacked from $SOURCE_HOME/.pi/agent when files exist"
+fi
+if grep -q '"openai-codex"' "$PI_AGENT_DIR/auth.json" 2>/dev/null; then
   echo "Pi auth:           copied openai-codex auth from $SOURCE_HOME"
+elif [[ "$FRESH_PI" -eq 1 ]]; then
+  echo "Pi auth:           empty fresh auth.json"
 elif [[ -n "${OPENAI_API_KEY:-}" ]]; then
-  echo "Pi auth:           using OPENAI_API_KEY from environment"
+  echo "Pi auth:           no auth.json copied; OPENAI_API_KEY remains available from environment"
 else
   echo "Pi auth:           no openai-codex auth found; Pi may ask you to log in" >&2
 fi
