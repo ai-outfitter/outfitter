@@ -711,14 +711,19 @@ Responsibilities:
 - create `~/.outfitter/settings.yml` when missing;
 - accept an optional setup source URI, for example `outfitter setup https://github.com/example/outfitter-config`, and clone/update it under `~/.outfitter/cache/repos/<encoded-uri-and-ref>/`;
 - when a setup source is provided, use its root `settings.yml` or `.outfitter/settings.yml` and `profiles/` or `.outfitter/profiles/` as the initial non-overwriting user setup starting point;
+- copy a profile's hidden `setup/skills/outfitter-profile-setup/` directory when that profile folder is copied locally;
 - require an interactive TTY on both stdin and stdout before running setup prompts;
 - create a default profile when missing;
 - validate all discovered settings files and any starter settings file;
 - run `outfitter sync` behavior for URI profile sources before profile selection;
-- on initial interactive first-run setup, skip the older setup default-profile prompt and let welcome onboarding choose the generated local default profile;
+- on initial interactive first-run setup without a profile setup skill, skip the older setup default-profile prompt and let welcome onboarding choose the generated local default profile;
 - outside that initial welcome handoff, show a setup wizard with synced profile choices, preserve display labels where available, validate the selected profile ID, and write the selected default profile to user settings;
+- when the configured default profile has one effective `outfitter-profile-setup` skill, open that profile and inject the setup skill only for the immediate setup launch so the agent can ask whether to run one-time setup for a project or org folder;
+- never expose `outfitter-profile-setup` during normal `outfitter run` launches or write it into persistent settings/profile controls;
+- fail clearly if multiple contributing profile folders expose an effective `outfitter-profile-setup` skill for the setup launch;
+- avoid launching an agent during non-interactive setup, even when a profile setup skill is available;
 - create any missing fallback default profile file for the final selected default profile;
-- run welcome onboarding after interactive setup completes;
+- run welcome onboarding after interactive setup completes when no profile setup skill launch replaces that onboarding path;
 - report actionable next steps.
 
 ### `outfitter welcome`

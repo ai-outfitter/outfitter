@@ -140,11 +140,14 @@ When a repository is provided, it clones or updates the repository in Outfitter'
 
 - if `~/.outfitter/settings.yml` does not exist, Outfitter copies the starter `settings.yml`;
 - if starter profiles exist, Outfitter copies missing profile files into `~/.outfitter/profiles/`;
+- if a copied profile contains `setup/skills/outfitter-profile-setup/`, that hidden setup skill is copied with the profile folder;
 - existing user settings and profile files are otherwise left unchanged;
 - after setup, Outfitter runs the same sync behavior used by `outfitter sync`;
-- on initial interactive first-run setup, Outfitter skips the older default-profile prompt and lets welcome onboarding choose the generated local default profile;
+- on initial interactive first-run setup without a source profile setup skill, Outfitter skips the older default-profile prompt and lets welcome onboarding choose the generated local default profile;
 - outside that initial welcome handoff, Outfitter shows a short setup wizard that lists synced profiles and writes the selected default profile to user settings;
-- interactive setup continues into welcome onboarding to record role and loadout choices.
+- when the configured default profile has one effective `outfitter-profile-setup` skill, interactive setup opens that profile and injects the setup skill for that launch only;
+- non-interactive setup never launches an agent, even when a profile setup skill is available;
+- interactive setup continues into welcome onboarding to record role and loadout choices only when no profile setup skill launch replaces that onboarding path.
 
 A setup repository can use either root-level Outfitter files:
 
@@ -154,6 +157,10 @@ outfitter_config/
   profiles/
     engineering-default/
       profile.yml
+      setup/
+        skills/
+          outfitter-profile-setup/
+            SKILL.md
     support/
       profile.yml
 ```
@@ -167,6 +174,10 @@ outfitter_config/
     profiles/
       engineering-default/
         profile.yml
+        setup/
+          skills/
+            outfitter-profile-setup/
+              SKILL.md
       support/
         profile.yml
 ```
@@ -184,6 +195,8 @@ profile_sources:
     ref: main
     path: profiles
 ```
+
+`outfitter-profile-setup` is the only setup skill id recognized by setup. It is hidden from normal `outfitter run` launches and is injected only during the immediate interactive `outfitter setup <repo>` launch. If more than one contributing profile folder provides that same setup skill for the launch, setup fails with an ambiguity error instead of selecting one silently.
 
 If you want ongoing centralized settings, use a small local `~/.outfitter/settings.yml` that points at remote settings:
 

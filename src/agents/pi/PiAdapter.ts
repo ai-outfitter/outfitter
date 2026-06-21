@@ -13,7 +13,7 @@ import {
 } from '../AdapterProfileControls.js';
 import { createDeclaredStatePaths, findProfileStateSource } from '../AdapterStatePaths.js';
 import { filterPiSettingsPackagesDuplicatingExtensions } from './PiSettingsMergePolicy.js';
-import type { PiProfileControls, Profile, ProfileControls } from '../../profiles/Profile.js';
+import type { AppendSystemPromptControl, PiProfileControls, Profile, ProfileControls } from '../../profiles/Profile.js';
 import type { CompositeProfile } from '../../compositeProfile/CompositeProfile.js';
 import { createCompositeProfile } from '../../compositeProfile/CompositeProfile.js';
 import { createCompositeProfileFile } from '../../compositeProfile/CompositeProfileFile.js';
@@ -87,11 +87,12 @@ export const createPiAdapter = (): AgentAdapter => ({
     const controls = mergePiControls(profile?.controls ?? {});
     const profileFolders = context.profileFolders ?? [];
     const deepWorkJobsFolders = createDeepWorkAdditionalJobsFolders(controls, profileFolders);
-    const skillSources = createPiSkillSources(controls, profileFolders);
+    const skillSources = [...createPiSkillSources(controls, profileFolders), ...(context.extraSkills ?? [])];
+    const appendSystemPrompt = mergeAppendSystemPrompt(controls.appendSystemPrompt, context.appendSystemPrompt);
 
     return {
       command: 'pi',
-      args: [...createPiArgs({ ...controls, skills: skillSources }), ...passThroughArgs],
+      args: [...createPiArgs({ ...controls, appendSystemPrompt, skills: skillSources }), ...passThroughArgs],
       env: {
         ...controls.environment,
         ...(deepWorkJobsFolders === undefined ? {} : { DEEPWORK_ADDITIONAL_JOBS_FOLDERS: deepWorkJobsFolders }),
@@ -331,6 +332,25 @@ const splitPathList = (value: string | undefined): readonly string[] =>
 
 const mergePiControls = (controls: ProfileControls): PiProfileControls =>
   mergeAgentSpecificControls<PiProfileControls>(controls, 'pi');
+
+const mergeAppendSystemPrompt = (
+  profilePrompt: AppendSystemPromptControl | undefined,
+  launchPrompt: string | readonly string[] | undefined,
+): AppendSystemPromptControl | undefined => {
+  if (launchPrompt === undefined) {
+    return profilePrompt;
+  }
+
+  return [...appendSystemPromptArray(profilePrompt), ...appendSystemPromptArray(launchPrompt)];
+};
+
+const appendSystemPromptArray = (value: AppendSystemPromptControl | undefined): readonly string[] => {
+  if (value === undefined) {
+    return [];
+  }
+
+  return typeof value === 'string' ? [value] : value;
+};
 
 const createPiArgs = (controls: PiProfileControls): readonly string[] => [
   ...flagValue('--model', controls.model),

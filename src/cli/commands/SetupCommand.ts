@@ -29,6 +29,13 @@ import {
   updateSettingsDefaultProfile,
   type PersistedFirstRunWelcomeProfile,
 } from './FirstRunWelcomeProfile.js';
+import {
+  executeProfileLaunch,
+  loadResolvedProfile,
+  type ProfileLaunchDependencies,
+  type ProfileLaunchResult,
+} from './ProfileLaunch.js';
+import { findProfileSetupSkill, profileSetupSkillId, type ProfileSetupSkill } from './ProfileSetupSkill.js';
 import type { SyncCommandDependencies, SyncCommandResult } from './SyncCommand.js';
 import { executeSyncCommand } from './SyncCommand.js';
 import { executeWelcomeCommand } from './WelcomeCommand.js';
@@ -48,6 +55,8 @@ export interface SetupCommandResult {
   readonly createdDefaultProfile: boolean;
   readonly syncResult: SyncCommandResult;
   readonly welcomeResult?: WelcomeCommandResult;
+  readonly profileSetupSkillAvailable: boolean;
+  readonly profileSetupSkillLaunchResult?: ProfileLaunchResult;
   readonly messages: readonly string[];
 }
 
@@ -56,7 +65,8 @@ export interface SetupSourceSynchronizer {
 }
 
 export type SetupCommandDependencies = SyncCommandDependencies &
-  WelcomeCommandDependencies & {
+  WelcomeCommandDependencies &
+  ProfileLaunchDependencies & {
     readonly setupSourceSynchronizer?: SetupSourceSynchronizer;
     readonly selectDefaultProfile?: (
       profiles: readonly SetupProfileChoice[],
@@ -118,7 +128,17 @@ export const executeSetupCommand = async (
   const selectedDefaultProfileId = shouldSkipInitialDefaultProfilePrompt(initialSettingsMissing, dependencies)
     ? defaultProfileId
     : await selectDefaultProfileIfInteractive(input, settingsPath, defaultProfileId, dependencies);
-  const welcomeResult = await runWelcomeAfterInteractiveSetup(input, dependencies);
+  const profileSetupSkill = findProfileSetupSkillForSetup(input, dependencies, selectedDefaultProfileId);
+  const profileSetupSkillLaunchResult = await runProfileSetupSkillLaunch(
+    input,
+    dependencies,
+    selectedDefaultProfileId,
+    profileSetupSkill,
+  );
+  const welcomeResult =
+    profileSetupSkillLaunchResult === undefined
+      ? await runWelcomeAfterInteractiveSetup(input, dependencies)
+      : undefined;
   const welcomeProfile = persistWelcomeProfileForSetup(input, settingsPath, welcomeResult);
   const finalDefaultProfile = prepareFinalDefaultProfile(input.homeDirectory, selectedDefaultProfileId, welcomeProfile);
 
@@ -130,6 +150,8 @@ export const executeSetupCommand = async (
     createdDefaultProfile: finalDefaultProfile.created,
     syncResult,
     welcomeResult,
+    profileSetupSkillAvailable: profileSetupSkill !== undefined,
+    profileSetupSkillLaunchResult,
     messages: buildSetupMessages({
       input,
       starterLayout,
@@ -141,6 +163,8 @@ export const executeSetupCommand = async (
       createdDefaultProfile: finalDefaultProfile.created,
       syncResult,
       welcomeProfileMessages: welcomeProfile?.messages ?? [],
+      profileSetupSkillAvailable: profileSetupSkill !== undefined,
+      profileSetupSkillLaunchResult,
     }),
   };
 };
@@ -203,6 +227,8 @@ interface SetupMessageInput {
   readonly createdDefaultProfile: boolean;
   readonly syncResult: SyncCommandResult;
   readonly welcomeProfileMessages: readonly string[];
+  readonly profileSetupSkillAvailable: boolean;
+  readonly profileSetupSkillLaunchResult?: ProfileLaunchResult;
 }
 
 const buildSetupMessages = (input: SetupMessageInput): readonly string[] => {
@@ -235,12 +261,60 @@ const buildSetupMessages = (input: SetupMessageInput): readonly string[] => {
       ? `Created default user profile at ${input.defaultProfilePath}.`
       : `Default user profile at ${input.defaultProfilePath} already exists; left unchanged.`,
     `Selected default profile '${input.defaultProfileId}'.`,
+    ...profileSetupSkillLaunchMessages(input.profileSetupSkillLaunchResult),
     ...input.welcomeProfileMessages,
     ...input.syncResult.messages,
   );
 
   return messages;
 };
+
+const profileSetupSkillLaunchMessages = (launchResult: ProfileLaunchResult | undefined): readonly string[] =>
+  launchResult === undefined
+    ? []
+    : [`Launched profile setup skill '${profileSetupSkillId}' with profile '${launchResult.profileId}'.`];
+
+const findProfileSetupSkillForSetup = (
+  input: SetupCommandInput,
+  dependencies: SetupCommandDependencies,
+  profileId: string,
+): ProfileSetupSkill | undefined => {
+  if (input.setupSourceUri === undefined || dependencies.interactive !== true) {
+    return undefined;
+  }
+
+  return findProfileSetupSkill(loadResolvedProfile({ ...input, profileId }));
+};
+
+const runProfileSetupSkillLaunch = async (
+  input: SetupCommandInput,
+  dependencies: SetupCommandDependencies,
+  profileId: string,
+  setupSkill: ProfileSetupSkill | undefined,
+): Promise<ProfileLaunchResult | undefined> => {
+  if (setupSkill === undefined || dependencies.interactive !== true) {
+    return undefined;
+  }
+
+  return executeProfileLaunch(
+    {
+      ...input,
+      profileId,
+      launchContext: {
+        extraSkills: [setupSkill.path],
+        appendSystemPrompt: profileSetupSkillPrompt,
+      },
+    },
+    dependencies,
+  );
+};
+
+const profileSetupSkillPrompt = [
+  `A one-time ${profileSetupSkillId} skill is available for this Outfitter setup session.`,
+  'Ask whether the user wants to run it now for a project folder or org folder.',
+  'If yes, use the setup skill instructions. If no, record that setup was skipped.',
+  'This skill is available only during this setup launch.',
+].join(' ');
 
 export const createSetupCommand = (dependencies: SetupCommandDependencies = {}): CommandObject => {
   const command: CommandObject = {

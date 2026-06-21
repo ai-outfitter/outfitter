@@ -220,6 +220,147 @@ describe('setup command', () => {
     );
   });
 
+  it('launches a setup source default profile with its hidden profile setup skill', async () => {
+    const root = createTemporaryRoot();
+    const homeDirectory = join(root, 'home');
+    const projectDirectory = join(root, 'project');
+    const setupSourceUri = 'https://example.test/link-profiles';
+    const launchPlans: Array<{ readonly args: readonly string[] }> = [];
+
+    const result = await executeSetupCommand(
+      { homeDirectory, projectDirectory, setupSourceUri },
+      {
+        interactive: true,
+        input: { isTTY: true } as NodeJS.ReadableStream & { isTTY: true },
+        output: { isTTY: true } as NodeJS.WritableStream & { isTTY: true },
+        writeLine: () => undefined,
+        setupSourceSynchronizer: {
+          sync(_uri, cachePath) {
+            const profileFolder = join(cachePath, 'profiles', 'project-lead');
+            const setupSkillFolder = join(profileFolder, 'setup', 'skills', 'outfitter-profile-setup');
+            mkdirSync(setupSkillFolder, { recursive: true });
+            writeFileSync(
+              join(cachePath, 'settings.yml'),
+              'default_profile: project-lead\nprofile_sources:\n  - path: ./profiles\n',
+            );
+            writeFileSync(join(profileFolder, 'profile.yml'), 'id: project-lead\nlabel: Project Lead\ncontrols: {}\n');
+            writeFileSync(join(setupSkillFolder, 'SKILL.md'), '---\nname: outfitter-profile-setup\n---\n');
+          },
+        },
+        selectWelcomePlan() {
+          throw new Error('welcome should not run when profile setup skill launches');
+        },
+        launcher: {
+          launch(plan) {
+            launchPlans.push({ args: plan.args });
+            return Promise.resolve(0);
+          },
+        },
+      },
+    );
+
+    const copiedSetupSkillFolder = join(
+      homeDirectory,
+      '.outfitter',
+      'profiles',
+      'project-lead',
+      'setup',
+      'skills',
+      'outfitter-profile-setup',
+    );
+
+    expect(result.profileSetupSkillAvailable).toBe(true);
+    expect(result.profileSetupSkillLaunchResult?.profileId).toBe('project-lead');
+    expect(result.welcomeResult).toBeUndefined();
+    expect(launchPlans).toHaveLength(1);
+    expect(launchPlans[0]?.args).toContain(copiedSetupSkillFolder);
+    expect(launchPlans[0]?.args).toContain(
+      'A one-time outfitter-profile-setup skill is available for this Outfitter setup session. Ask whether the user wants to run it now for a project folder or org folder. If yes, use the setup skill instructions. If no, record that setup was skipped. This skill is available only during this setup launch.',
+    );
+    expect(existsSync(join(copiedSetupSkillFolder, 'SKILL.md'))).toBe(true);
+    expect(readFileSync(join(homeDirectory, '.outfitter', 'settings.yml'), 'utf8')).not.toContain(
+      'outfitter-profile-setup',
+    );
+    expect(
+      readFileSync(join(homeDirectory, '.outfitter', 'profiles', 'project-lead', 'profile.yml'), 'utf8'),
+    ).not.toContain('outfitter-profile-setup');
+    expect(result.messages).toContain(
+      "Launched profile setup skill 'outfitter-profile-setup' with profile 'project-lead'.",
+    );
+  });
+
+  it('rejects duplicate effective profile setup skills during interactive setup', async () => {
+    const root = createTemporaryRoot();
+    const homeDirectory = join(root, 'home');
+    const projectDirectory = join(root, 'project');
+
+    await expect(
+      executeSetupCommand(
+        { homeDirectory, projectDirectory, setupSourceUri: 'https://example.test/duplicate-setup-skills' },
+        {
+          interactive: true,
+          input: { isTTY: true } as NodeJS.ReadableStream & { isTTY: true },
+          output: { isTTY: true } as NodeJS.WritableStream & { isTTY: true },
+          setupSourceSynchronizer: {
+            sync(_uri, cachePath) {
+              mkdirSync(cachePath, { recursive: true });
+              writeFileSync(
+                join(cachePath, 'settings.yml'),
+                'default_profile: project-lead\nprofile_sources:\n  - path: ./profiles\n',
+              );
+              for (const profileId of ['base', 'project-lead']) {
+                const profileFolder = join(cachePath, 'profiles', profileId);
+                const setupSkillFolder = join(profileFolder, 'setup', 'skills', 'outfitter-profile-setup');
+                mkdirSync(setupSkillFolder, { recursive: true });
+                writeFileSync(
+                  join(profileFolder, 'profile.yml'),
+                  profileId === 'base'
+                    ? 'id: base\ncontrols: {}\n'
+                    : 'id: project-lead\ninherits: [base]\ncontrols: {}\n',
+                );
+                writeFileSync(join(setupSkillFolder, 'SKILL.md'), '---\nname: outfitter-profile-setup\n---\n');
+              }
+            },
+          },
+        },
+      ),
+    ).rejects.toThrow("Multiple contributing profile folders expose 'outfitter-profile-setup'");
+  });
+
+  it('does not launch an agent for non-interactive setup sources with profile setup skills', async () => {
+    const root = createTemporaryRoot();
+    const homeDirectory = join(root, 'home');
+    const projectDirectory = join(root, 'project');
+    const launchPlans: unknown[] = [];
+
+    await executeSetupCommand(
+      { homeDirectory, projectDirectory, setupSourceUri: 'https://example.test/non-interactive-setup-skill' },
+      {
+        setupSourceSynchronizer: {
+          sync(_uri, cachePath) {
+            const profileFolder = join(cachePath, 'profiles', 'project-lead');
+            const setupSkillFolder = join(profileFolder, 'setup', 'skills', 'outfitter-profile-setup');
+            mkdirSync(setupSkillFolder, { recursive: true });
+            writeFileSync(
+              join(cachePath, 'settings.yml'),
+              'default_profile: project-lead\nprofile_sources:\n  - path: ./profiles\n',
+            );
+            writeFileSync(join(profileFolder, 'profile.yml'), 'id: project-lead\ncontrols: {}\n');
+            writeFileSync(join(setupSkillFolder, 'SKILL.md'), '---\nname: outfitter-profile-setup\n---\n');
+          },
+        },
+        launcher: {
+          launch(plan) {
+            launchPlans.push(plan);
+            return Promise.resolve(0);
+          },
+        },
+      },
+    );
+
+    expect(launchPlans).toHaveLength(0);
+  });
+
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-004.1).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('validates discovered settings before setup and runs URI sync behavior', async () => {

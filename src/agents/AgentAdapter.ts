@@ -12,6 +12,8 @@ export interface AgentLaunchPlan {
 
 export interface AgentLaunchContext {
   readonly profileFolders?: readonly string[];
+  readonly extraSkills?: readonly string[];
+  readonly appendSystemPrompt?: string | readonly string[];
 }
 
 export interface AgentCompositeProfilePlan {

@@ -21,6 +21,13 @@ Outfitter provides setup and maintenance commands that create initial configurat
 11. When the interactive `setup` command presents setup profile choices outside the initial welcome handoff, it MUST present discovered profile IDs as default-profile choices and preserve available display labels in the prompt choices.
 12. When the interactive `setup` command presents setup profile choices outside the initial welcome handoff, it MUST validate the selected default profile ID before writing it to `settings.yml`.
 13. After the interactive `setup` command writes a selected default profile, any newly-created fallback default profile file MUST correspond to the final selected default profile.
+14. A setup source profile MAY publish exactly one hidden profile setup skill at `setup/skills/outfitter-profile-setup/SKILL.md` inside that profile folder.
+15. `outfitter-profile-setup` MUST be the only profile setup skill id recognized by `setup`; other skill ids under a profile `setup/skills/` folder MUST NOT be exposed by setup.
+16. When `setup` copies a starter profile folder locally, it MUST copy that profile's `setup/skills/outfitter-profile-setup/` directory with the profile folder.
+17. `setup` MUST expose `outfitter-profile-setup` only to the immediate interactive setup launch and MUST NOT expose it during normal `outfitter run` profile launches or write it into persistent settings/profile controls.
+18. Interactive `setup` with a setup source and one effective `outfitter-profile-setup` skill MUST open the configured default profile and instruct the launched agent to ask whether to run the one-time setup for a project or org folder.
+19. Non-interactive `setup` MUST NOT launch an agent; when a profile setup skill is available it SHOULD report that the setup skill can be run by rerunning interactive setup.
+20. If multiple contributing profile folders expose an effective `outfitter-profile-setup` skill for the setup launch, `setup` MUST fail with a clear ambiguity error rather than selecting one implicitly.
 
 ### OFTR-004.2: Sync Command
 
