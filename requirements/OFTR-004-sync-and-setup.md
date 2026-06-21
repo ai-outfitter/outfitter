@@ -28,6 +28,10 @@ Outfitter provides setup and maintenance commands that create initial configurat
 18. Interactive `setup` with a setup source and one effective `outfitter-profile-setup` skill MUST open the configured default profile and instruct the launched agent to ask whether to run the one-time setup for a project or org folder.
 19. Non-interactive `setup` MUST NOT launch an agent; when a profile setup skill is available it SHOULD report that the setup skill can be run by rerunning interactive setup.
 20. If multiple contributing profile folders expose an effective `outfitter-profile-setup` skill for the setup launch, `setup` MUST fail with a clear ambiguity error rather than selecting one implicitly.
+21. Interactive setup-triggered Pi launches MUST open Pi's `/login` flow automatically when no usable user-local Pi `auth.json` or `models.json` state exists.
+22. Setup MUST NOT ask for provider/model setup when usable user-local Pi auth/models state already exists.
+23. Setup MUST NOT write provider/model choices into published profile controls or persistent setup-skill controls.
+24. Rerunning `outfitter setup <repo>` SHOULD re-consume the setup source non-destructively and expose any effective setup skill only for that interactive setup session.
 
 ### OFTR-004.2: Sync Command
 
@@ -48,6 +52,9 @@ Outfitter provides setup and maintenance commands that create initial configurat
 3. The `profile create` command MUST require a profile name.
 4. The `profile create` command MUST create a placeholder profile folder with a valid `profile.yml` file.
 5. The `profile create` command SHOULD create conventional subfolders for common profile resources.
+6. The `profile create --scope user` command MUST create profiles under `~/.outfitter/profiles/`.
+7. The `profile create --scope project` command MUST create profiles under `<cwd>/.outfitter/profiles/`.
+8. The `profile create --scope project-local` command MUST create profiles under `<cwd>/.outfitter/local/profiles/` for machine-local overrides.
 
 ### OFTR-004.4: Command Object Implementation
 

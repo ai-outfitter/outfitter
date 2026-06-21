@@ -38,6 +38,7 @@ import {
 import { findProfileSetupSkill, profileSetupSkillId, type ProfileSetupSkill } from './ProfileSetupSkill.js';
 import type { SyncCommandDependencies, SyncCommandResult } from './SyncCommand.js';
 import { executeSyncCommand } from './SyncCommand.js';
+import { hasConfiguredPiLoginState } from './PiLoginLaunch.js';
 import { executeWelcomeCommand } from './WelcomeCommand.js';
 import type { WelcomeCommandDependencies, WelcomeCommandResult } from './WelcomeCommand.js';
 
@@ -57,6 +58,8 @@ export interface SetupCommandResult {
   readonly welcomeResult?: WelcomeCommandResult;
   readonly profileSetupSkillAvailable: boolean;
   readonly profileSetupSkillLaunchResult?: ProfileLaunchResult;
+  readonly providerBootstrapRequired: boolean;
+  readonly providerBootstrapLaunch: boolean;
   readonly messages: readonly string[];
 }
 
@@ -128,12 +131,15 @@ export const executeSetupCommand = async (
   const selectedDefaultProfileId = shouldSkipInitialDefaultProfilePrompt(initialSettingsMissing, dependencies)
     ? defaultProfileId
     : await selectDefaultProfileIfInteractive(input, settingsPath, defaultProfileId, dependencies);
+  const providerBootstrapRequired = !hasConfiguredPiLoginState(input.homeDirectory);
+  const providerBootstrapLaunch = dependencies.interactive === true && providerBootstrapRequired;
   const profileSetupSkill = findProfileSetupSkillForSetup(input, dependencies, selectedDefaultProfileId);
   const profileSetupSkillLaunchResult = await runProfileSetupSkillLaunch(
     input,
     dependencies,
     selectedDefaultProfileId,
     profileSetupSkill,
+    providerBootstrapLaunch,
   );
   const welcomeResult =
     profileSetupSkillLaunchResult === undefined
@@ -152,6 +158,8 @@ export const executeSetupCommand = async (
     welcomeResult,
     profileSetupSkillAvailable: profileSetupSkill !== undefined,
     profileSetupSkillLaunchResult,
+    providerBootstrapRequired,
+    providerBootstrapLaunch,
     messages: buildSetupMessages({
       input,
       starterLayout,
@@ -291,6 +299,7 @@ const runProfileSetupSkillLaunch = async (
   dependencies: SetupCommandDependencies,
   profileId: string,
   setupSkill: ProfileSetupSkill | undefined,
+  providerBootstrapLaunch: boolean,
 ): Promise<ProfileLaunchResult | undefined> => {
   if (setupSkill === undefined || dependencies.interactive !== true) {
     return undefined;
@@ -300,6 +309,7 @@ const runProfileSetupSkillLaunch = async (
     {
       ...input,
       profileId,
+      providerBootstrapLaunch,
       launchContext: {
         extraSkills: [setupSkill.path],
         appendSystemPrompt: profileSetupSkillPrompt,

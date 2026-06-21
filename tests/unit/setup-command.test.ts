@@ -271,8 +271,12 @@ describe('setup command', () => {
 
     expect(result.profileSetupSkillAvailable).toBe(true);
     expect(result.profileSetupSkillLaunchResult?.profileId).toBe('project-lead');
+    expect(result.providerBootstrapRequired).toBe(true);
+    expect(result.providerBootstrapLaunch).toBe(true);
     expect(result.welcomeResult).toBeUndefined();
     expect(launchPlans).toHaveLength(1);
+    expect(launchPlans[0]?.args[0]).toBe('--extension');
+    expect(readFileSync(launchPlans[0]?.args[1] ?? '', 'utf8')).toContain('setEditorText("/login")');
     expect(launchPlans[0]?.args).toContain(copiedSetupSkillFolder);
     expect(launchPlans[0]?.args).toContain(
       'A one-time outfitter-profile-setup skill is available for this Outfitter setup session. Ask whether the user wants to run it now for a project folder or org folder. If yes, use the setup skill instructions. If no, record that setup was skipped. This skill is available only during this setup launch.',
@@ -286,6 +290,52 @@ describe('setup command', () => {
     ).not.toContain('outfitter-profile-setup');
     expect(result.messages).toContain(
       "Launched profile setup skill 'outfitter-profile-setup' with profile 'project-lead'.",
+    );
+  });
+
+  it('skips provider bootstrap when setup-source launch already has Pi model state', async () => {
+    const root = createTemporaryRoot();
+    const homeDirectory = join(root, 'home');
+    const projectDirectory = join(root, 'project');
+    const launchPlans: Array<{ readonly args: readonly string[] }> = [];
+    mkdirSync(join(homeDirectory, '.pi', 'agent'), { recursive: true });
+    writeFileSync(join(homeDirectory, '.pi', 'agent', 'models.json'), '{"providers":{"codex":{}}}\n');
+
+    const result = await executeSetupCommand(
+      { homeDirectory, projectDirectory, setupSourceUri: 'https://example.test/link-profiles' },
+      {
+        interactive: true,
+        input: { isTTY: true } as NodeJS.ReadableStream & { isTTY: true },
+        output: { isTTY: true } as NodeJS.WritableStream & { isTTY: true },
+        writeLine: () => undefined,
+        setupSourceSynchronizer: {
+          sync(_uri, cachePath) {
+            const profileFolder = join(cachePath, 'profiles', 'project-lead');
+            const setupSkillFolder = join(profileFolder, 'setup', 'skills', 'outfitter-profile-setup');
+            mkdirSync(setupSkillFolder, { recursive: true });
+            writeFileSync(
+              join(cachePath, 'settings.yml'),
+              'default_profile: project-lead\nprofile_sources:\n  - path: ./profiles\n',
+            );
+            writeFileSync(join(profileFolder, 'profile.yml'), 'id: project-lead\nlabel: Project Lead\ncontrols: {}\n');
+            writeFileSync(join(setupSkillFolder, 'SKILL.md'), '---\nname: outfitter-profile-setup\n---\n');
+          },
+        },
+        launcher: {
+          launch(plan) {
+            launchPlans.push({ args: plan.args });
+            return Promise.resolve(0);
+          },
+        },
+      },
+    );
+
+    expect(result.providerBootstrapRequired).toBe(false);
+    expect(result.providerBootstrapLaunch).toBe(false);
+    expect(launchPlans).toHaveLength(1);
+    expect(launchPlans[0]?.args[0]).not.toBe('--extension');
+    expect(launchPlans[0]?.args).toContain(
+      join(homeDirectory, '.outfitter', 'profiles', 'project-lead', 'setup', 'skills', 'outfitter-profile-setup'),
     );
   });
 

@@ -30,7 +30,10 @@ export const executeRunCommand = async (
   dependencies: RunCommandDependencies = {},
 ): Promise<RunCommandResult> => {
   const setupResult = await runSetupIfNeeded(input, dependencies);
-  return executeProfileLaunch({ ...input, setupResult }, dependencies);
+  return executeProfileLaunch(
+    { ...input, setupResult, providerBootstrapLaunch: setupResult?.providerBootstrapLaunch },
+    dependencies,
+  );
 };
 
 /* v8 ignore start -- Commander registration is exercised through CLI integration, while command behavior is unit-tested through executeRunCommand. */

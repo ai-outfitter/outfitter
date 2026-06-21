@@ -146,6 +146,8 @@ When a repository is provided, it clones or updates the repository in Outfitter'
 - on initial interactive first-run setup without a source profile setup skill, Outfitter skips the older default-profile prompt and lets welcome onboarding choose the generated local default profile;
 - outside that initial welcome handoff, Outfitter shows a short setup wizard that lists synced profiles and writes the selected default profile to user settings;
 - when the configured default profile has one effective `outfitter-profile-setup` skill, interactive setup opens that profile and injects the setup skill for that launch only;
+- if Pi has no usable user-local `auth.json` or `models.json` state, interactive setup-triggered Pi launches open Pi's `/login` flow so the user can choose a provider before continuing;
+- if Pi already has usable provider/model state, setup does not ask for provider setup again;
 - non-interactive setup never launches an agent, even when a profile setup skill is available;
 - interactive setup continues into welcome onboarding to record role and loadout choices only when no profile setup skill launch replaces that onboarding path.
 
@@ -213,6 +215,45 @@ Then run:
 outfitter sync
 ```
 
+### Rerunning setup and choosing scope
+
+Rerun setup whenever you want to revisit Outfitter's local setup decisions:
+
+```bash
+outfitter setup
+```
+
+Rerun setup with a source repository to re-consume that repository's published
+settings/profiles and expose its hidden `outfitter-profile-setup` skill for that
+setup session:
+
+```bash
+outfitter setup https://github.com/my_account/outfitter_config
+```
+
+Setup reads settings in normal precedence order:
+
+1. user/home: `~/.outfitter/settings.yml` and `~/.outfitter/profiles/`;
+2. project/cwd: `<cwd>/.outfitter/settings.yml` and `<cwd>/.outfitter/profiles/`;
+3. project-local/cwd-local: `<cwd>/.outfitter/local/settings.yml` and `<cwd>/.outfitter/local/profiles/`.
+
+Create profiles at the matching scope with:
+
+```bash
+outfitter profile create personal --scope user
+outfitter profile create project-default --scope project
+outfitter profile create local-sandbox --scope project-local
+```
+
+Use `project-local` for machine-local overrides such as a personal sandbox or
+local default-profile override; projects should normally ignore
+`.outfitter/local/` so those choices do not change committed team profiles.
+
+Provider/model setup remains user-local. Published profiles should not set a
+shared default model/provider for normal onboarding. When Pi lacks usable local
+provider/model state, interactive setup launches Pi `/login`; otherwise setup
+reuses the existing local provider/model state without prompting.
+
 ## Profile model sketch
 
 A profile will use YAML.
@@ -226,7 +267,6 @@ inherits:
   - shared-prose
 
 controls:
-  model: anthropic/claude-sonnet-4
   environment:
     TEAM_MODE: engineering
 ```

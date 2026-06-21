@@ -10,6 +10,7 @@ export interface PiLoginLaunchPlanInput {
   readonly homeDirectory: string;
   readonly launchPlan: AgentLaunchPlan;
   readonly setupResult?: SetupCommandResult;
+  readonly providerBootstrapLaunch?: boolean;
   readonly writeLine?: (message: string) => void;
 }
 
@@ -26,7 +27,7 @@ export const preparePiLoginLaunchPlan = (input: PiLoginLaunchPlanInput): AgentLa
     return input.launchPlan;
   }
 
-  if (shouldAutoOpenPiLogin(input.setupResult, input.launchPlan.args)) {
+  if (shouldAutoOpenPiLogin(input)) {
     writePiLoginMessage(input.writeLine, automaticLoginMessage);
     return addPiLoginPrefillExtension(input.launchPlan);
   }
@@ -67,13 +68,14 @@ const writePiLoginMessage = (writeLine: ((message: string) => void) | undefined,
   (writeLine ?? console.log)(message);
 };
 
-const shouldAutoOpenPiLogin = (setupResult: SetupCommandResult | undefined, args: readonly string[]): boolean =>
-  setupResult?.welcomeResult !== undefined && !isNonInteractivePiLaunch(args);
+const shouldAutoOpenPiLogin = (input: PiLoginLaunchPlanInput): boolean =>
+  (input.providerBootstrapLaunch === true || input.setupResult?.providerBootstrapLaunch === true) &&
+  !isNonInteractivePiLaunch(input.launchPlan.args);
 
 const isNonInteractivePiLaunch = (args: readonly string[]): boolean =>
   args.some((arg) => nonInteractivePiLaunchFlags.has(arg));
 
-const hasConfiguredPiLoginState = (homeDirectory: string): boolean =>
+export const hasConfiguredPiLoginState = (homeDirectory: string): boolean =>
   hasConfiguredPiStateFile(homeDirectory, 'auth.json') || hasConfiguredPiStateFile(homeDirectory, 'models.json');
 
 const hasConfiguredPiStateFile = (homeDirectory: string, fileName: string): boolean => {

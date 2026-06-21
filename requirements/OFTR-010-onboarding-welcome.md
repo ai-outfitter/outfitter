@@ -32,7 +32,8 @@ Outfitter welcome onboarding guides a new user through the minimum choices neede
 
 ### OFTR-010.4: Pi Login Setup
 
-1. Before launching Pi after the welcome flow, Outfitter MUST detect whether native Pi appears to have no configured login state.
-2. If Pi is not logged in after the welcome flow, Outfitter MUST automatically invoke Pi's `/login` flow when Pi starts.
-3. When Outfitter launches Pi outside the welcome flow and Pi does not appear to be logged in, Outfitter MUST inform the user to run `/login` inside Pi.
+1. Before launching Pi after setup or welcome onboarding, Outfitter MUST detect whether native Pi appears to have no configured login/provider/model state.
+2. If Pi has no usable login/provider/model state after an interactive setup-triggered launch, Outfitter MUST automatically invoke Pi's `/login` flow when Pi starts.
+3. When Outfitter launches Pi outside a setup-triggered launch and Pi does not appear to be logged in, Outfitter MUST inform the user to run `/login` inside Pi.
 4. Pi login setup MUST NOT ask Outfitter to collect, echo, or persist provider API keys.
+5. Published/default profiles SHOULD NOT encode a shared default provider or model for normal onboarding; provider/model setup is user-local runtime state.

@@ -97,7 +97,7 @@ Outfitter uses a `.outfitter` folder convention at multiple scopes:
 All discovered `settings.yml` files are collectively referred to as Outfitter settings.
 The internal `Settings` object is the single conceptual result of reading all settings sources and applying precedence.
 
-Note they are all the same in conceptual structure, with the exceptions that the <project>/.outfitter/ contains the local one inside it, and the ~/.outfitter includes the cache folder.
+The user/home scope is for machine-wide defaults. The project/cwd scope is for committed project profiles and settings. The project-local/cwd-local scope is for ignored machine-local overrides such as a personal sandbox or local default-profile override. All three use the same conceptual settings/profile structure, with the exceptions that `<project>/.outfitter/` contains the `local/` scope inside it, and `~/.outfitter/` includes the cache folder.
 
 ### Settings Precedence
 
@@ -377,7 +377,6 @@ inherits:
   - base-typescript
 
 controls:
-  model: anthropic/claude-sonnet-4
   system_prompt: ./prompts/system.md
   append_system_prompt: ./prompts/company-policy.md
   skills:
@@ -430,8 +429,6 @@ id: base-typescript
 label: Base TypeScript
 
 controls:
-  provider: anthropic
-  model: anthropic/claude-sonnet-4
   thinking: medium
   system_prompt: ./prompts/system.md
   environment:
@@ -709,6 +706,7 @@ Requirements:
 Responsibilities:
 
 - create `~/.outfitter/settings.yml` when missing;
+- support rerunning `outfitter setup` to revisit setup/welcome/default-profile behavior;
 - accept an optional setup source URI, for example `outfitter setup https://github.com/example/outfitter-config`, and clone/update it under `~/.outfitter/cache/repos/<encoded-uri-and-ref>/`;
 - when a setup source is provided, use its root `settings.yml` or `.outfitter/settings.yml` and `profiles/` or `.outfitter/profiles/` as the initial non-overwriting user setup starting point;
 - copy a profile's hidden `setup/skills/outfitter-profile-setup/` directory when that profile folder is copied locally;
@@ -719,6 +717,8 @@ Responsibilities:
 - on initial interactive first-run setup without a profile setup skill, skip the older setup default-profile prompt and let welcome onboarding choose the generated local default profile;
 - outside that initial welcome handoff, show a setup wizard with synced profile choices, preserve display labels where available, validate the selected profile ID, and write the selected default profile to user settings;
 - when the configured default profile has one effective `outfitter-profile-setup` skill, open that profile and inject the setup skill only for the immediate setup launch so the agent can ask whether to run one-time setup for a project or org folder;
+- when an interactive setup-triggered Pi launch starts and native Pi has no usable user-local `auth.json` or `models.json` state, open Pi's `/login` flow automatically so provider/model setup remains user-local;
+- skip provider/model setup prompts when Pi already has usable local auth/models state;
 - never expose `outfitter-profile-setup` during normal `outfitter run` launches or write it into persistent settings/profile controls;
 - fail clearly if multiple contributing profile folders expose an effective `outfitter-profile-setup` skill for the setup launch;
 - avoid launching an agent during non-interactive setup, even when a profile setup skill is available;
@@ -739,9 +739,9 @@ Responsibilities:
 - create the selected local role profile on the fly, appending only the selected loadout resources and leaving extensions/skills empty when the user selects none;
 - return typed onboarding choices so later work can persist richer profile/loadout metadata behind a schema-validated YAML format if needed.
 
-Before launching Pi after welcome onboarding, `outfitter run` checks whether native Pi appears to have login state in `auth.json` or `models.json`.
-If no login state is detected, Outfitter starts Pi with `/login` automatically; outside the welcome flow it prints an informational `/login` notice instead.
-Credential collection stays inside Pi so provider API keys are not collected or persisted by Outfitter.
+Before launching Pi after setup or welcome onboarding, `outfitter run` checks whether native Pi appears to have login state in `auth.json` or provider/model state in `models.json`.
+If no usable state is detected for an immediate interactive setup-triggered launch, Outfitter starts Pi with `/login` automatically. Outside setup-triggered launches it prints an informational `/login` notice instead.
+Credential collection stays inside Pi so provider API keys are not collected or persisted by Outfitter, and published profiles should not encode a shared default provider/model for normal onboarding.
 
 ### `outfitter sync`
 
@@ -771,7 +771,7 @@ Responsibilities:
 
 ### `outfitter profile create`
 
-Creates a placeholder profile folder at a requested scope.
+Creates a placeholder profile folder at a requested scope. These scopes map to the settings resolution locations: `user` writes under `~/.outfitter/profiles/`, `project` writes under `<cwd>/.outfitter/profiles/`, and `project-local` writes under `<cwd>/.outfitter/local/profiles/`.
 
 Example shape:
 

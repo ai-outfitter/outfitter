@@ -44,6 +44,7 @@ export interface ProfileLaunchInput {
   readonly strict?: boolean;
   readonly passThroughArgs?: readonly string[];
   readonly setupResult?: SetupCommandResult;
+  readonly providerBootstrapLaunch?: boolean;
   readonly launchContext?: AgentLaunchContext;
 }
 
@@ -111,6 +112,7 @@ export const executeProfileLaunch = async (
       { profileFolders: resolvedProfile.profileFolders, ...input.launchContext },
     ),
     setupResult: input.setupResult,
+    providerBootstrapLaunch: input.providerBootstrapLaunch,
     writeLine: dependencies.writeLine,
   });
   emitLaunchSummary(
