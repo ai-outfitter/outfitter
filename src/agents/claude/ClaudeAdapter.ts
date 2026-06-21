@@ -7,6 +7,7 @@ import {
   flagValue,
   mergeAgentSpecificControls,
   repeatFlag,
+  repeatFlagValue,
   supportedControlNames,
 } from '../AdapterProfileControls.js';
 import { createDeclaredStatePaths, findProfileStateSource } from '../AdapterStatePaths.js';
@@ -162,7 +163,7 @@ const createClaudeArgs = (controls: ClaudeProfileControls): readonly string[] =>
   ...flagValue('--model', controls.model),
   ...flagValue('--effort', controls.thinking),
   ...flagValue('--system-prompt', controls.systemPrompt),
-  ...flagValue('--append-system-prompt', controls.appendSystemPrompt),
+  ...repeatFlagValue('--append-system-prompt', controls.appendSystemPrompt),
   ...repeatFlag('--plugin-dir', controls.extensions),
   ...(controls.args ?? []),
 ];
