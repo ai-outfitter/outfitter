@@ -81,7 +81,7 @@ const mergeListMemberValue = (
 
   return mergeArrayByPolicy(
     coerceMergeableList(lowerPrecedence),
-    coerceMergeableList(higherPrecedence),
+    coerceDefinedMergeableList(higherPrecedence),
     arrayPolicy === 'appendList' ? 'append' : 'prepend',
   );
 };
@@ -124,5 +124,8 @@ const coerceMergeableList = (value: MergeableValue | undefined): readonly Mergea
     return undefined;
   }
 
-  return isMergeableArray(value) ? value : [value];
+  return coerceDefinedMergeableList(value);
 };
+
+const coerceDefinedMergeableList = (value: MergeableValue): readonly MergeableValue[] =>
+  isMergeableArray(value) ? value : [value];
