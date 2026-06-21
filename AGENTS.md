@@ -28,6 +28,6 @@
 
 - Prefer `npm run check` before handing work back if auto-fixable lint issues may exist.
 - Use `npm run check-ci` when you need a non-mutating validation pass, such as in CI or before reviewing the final diff.
-- Use `bin/dev-tmp-home` as the preferred branch-local interactive smoke-test harness for launching this checkout with an isolated temporary `HOME`; start with `bin/dev-tmp-home --dry-run --keep` to inspect the generated command and temp home. It currently launches `outfitter run`, so test exact `outfitter setup <repo>` behavior by reusing the temp home with `HOME=<dev-home> node dist/cli.js setup <repo>` or by extending the harness deliberately.
+- Use `bin/dev-tmp-home` as the preferred branch-local interactive smoke-test harness for launching this checkout with a fresh temporary `HOME`. Run it with no arguments to exercise normal first-run `outfitter run` setup/welcome against GitHub default profiles; pass one local Git repository path or remote Git URL to exercise `outfitter setup <source>`. Keep this harness narrow: do not add flags for local default-profile discovery, dry-run, keep-home, or alternate setup policy; Outfitter itself should own default GitHub profile sync.
 - When adding files or changing directory layout, first check `doc/file_structure.md` for current structure and update the relevant documentation afterward.
 - When adding tests that validate formal requirements, include the required two-line traceability comment immediately before the relevant `it(...)` or `describe(...)` block.
