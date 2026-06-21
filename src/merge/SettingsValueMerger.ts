@@ -81,7 +81,7 @@ const mergeListMemberValue = (
 
   return mergeArrayByPolicy(
     coerceMergeableList(lowerPrecedence),
-    coerceMergeableList(higherPrecedence) ?? [],
+    coerceMergeableList(higherPrecedence),
     arrayPolicy === 'appendList' ? 'append' : 'prepend',
   );
 };
