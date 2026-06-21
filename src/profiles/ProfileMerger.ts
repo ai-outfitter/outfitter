@@ -28,12 +28,21 @@ export interface ProfileResolutionResult {
 
 export const mergeProfileStack = (profileStack: NonEmptyProfileStack): Profile => {
   const [baseProfile, ...higherPrecedenceProfiles] = profileStack;
-
-  return higherPrecedenceProfiles.reduce<Profile>(
+  const mergedProfile = higherPrecedenceProfiles.reduce<Profile>(
     (mergedProfile, profile) =>
       mergeObjectsWithPolicy(mergedProfile, profile, { arrayPolicyForPath: profileArrayPolicy }),
     baseProfile,
   );
+
+  return withProfileTemplateFromTopProfile(mergedProfile, profileStack[profileStack.length - 1]);
+};
+
+const withProfileTemplateFromTopProfile = (profile: Profile, topProfile: Profile): Profile => {
+  if (topProfile.template === true) {
+    return { ...profile, template: true };
+  }
+
+  return Object.fromEntries(Object.entries(profile).filter(([key]) => key !== 'template')) as Profile;
 };
 
 const profileArrayPolicy = (path: MergePath): ArrayMergePolicy | undefined => {

@@ -20,11 +20,13 @@ export interface ListedProfile {
   readonly id: string;
   readonly label?: string;
   readonly profilePath: string;
+  readonly template: boolean;
 }
 
 export interface ListProfilesInput {
   readonly homeDirectory: string;
   readonly projectDirectory: string;
+  readonly includeTemplates?: boolean;
 }
 
 export interface ListProfilesResult {
@@ -45,16 +47,20 @@ export const createProfileListCommand = (dependencies: ProfileCommandDependencie
 };
 
 const createProfileListCommander = (dependencies: ProfileCommandDependencies): Command =>
-  new Command('list').description('List available Outfitter profiles.').action(() => {
-    const result = executeListProfilesCommand({
-      /* v8 ignore next -- default process home is exercised by the direct CLI entrypoint, not unit tests. */
-      homeDirectory: dependencies.homeDirectory ?? homedir(),
-      /* v8 ignore next -- default process cwd is exercised by the direct CLI entrypoint, not unit tests. */
-      projectDirectory: dependencies.projectDirectory ?? process.cwd(),
-    });
+  new Command('list')
+    .description('List available Outfitter profiles.')
+    .option('--all', 'Include template profiles that are intended only for inheritance.')
+    .action((options: { all?: boolean }) => {
+      const result = executeListProfilesCommand({
+        /* v8 ignore next -- default process home is exercised by the direct CLI entrypoint, not unit tests. */
+        homeDirectory: dependencies.homeDirectory ?? homedir(),
+        /* v8 ignore next -- default process cwd is exercised by the direct CLI entrypoint, not unit tests. */
+        projectDirectory: dependencies.projectDirectory ?? process.cwd(),
+        includeTemplates: options.all,
+      });
 
-    emitMessages(result.messages, dependencies.writeLine);
-  });
+      emitMessages(result.messages, dependencies.writeLine);
+    });
 
 export const executeListProfilesCommand = (input: ListProfilesInput): ListProfilesResult => {
   const loadedSettings = loadSettingsWithCachedRemoteSettings(input);
@@ -73,11 +79,13 @@ export const executeListProfilesCommand = (input: ListProfilesInput): ListProfil
     );
   }
 
-  const profiles = listHighestPrecedenceProfiles(profileLoadResult.profiles);
+  const profiles = listHighestPrecedenceProfiles(profileLoadResult.profiles).filter(
+    (profile) => input.includeTemplates === true || !profile.template,
+  );
 
   return {
     profiles,
-    messages: profiles.length === 0 ? ['No profiles found.'] : profiles.map((profile) => profile.id),
+    messages: profiles.length === 0 ? ['No profiles found.'] : profiles.map(formatListedProfile),
   };
 };
 
@@ -132,11 +140,15 @@ const listHighestPrecedenceProfiles = (loadedProfiles: readonly LoadedProfile[])
       id: loadedProfile.profile.id,
       label: loadedProfile.profile.label,
       profilePath: loadedProfile.profilePath,
+      template: loadedProfile.profile.template === true,
     });
   }
 
   return [...profilesById.values()].sort((left, right) => left.id.localeCompare(right.id));
 };
+
+const formatListedProfile = (profile: ListedProfile): string =>
+  profile.template ? `${profile.id} (template)` : profile.id;
 
 const formatSettingsIssue = (issue: {
   readonly filePath: string;

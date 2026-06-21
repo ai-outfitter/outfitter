@@ -57,6 +57,7 @@ export const parseProfileDocument = (document: unknown, fallbackId: string): Pro
   return omitUndefined({
     id,
     label: readOptionalString(record.label),
+    template: readOptionalBoolean(record.template),
     inherits: readStringArray(record.inherits),
     controls: readControls(record.controls),
     statePersistence: Object.keys(statePersistence).length > 0 ? statePersistence : undefined,
@@ -145,6 +146,14 @@ const readString = (value: unknown, fallback: string): string => {
 
 const readOptionalString = (value: unknown): string | undefined => {
   if (typeof value === 'string') {
+    return value;
+  }
+
+  return undefined;
+};
+
+const readOptionalBoolean = (value: unknown): boolean | undefined => {
+  if (typeof value === 'boolean') {
     return value;
   }
 

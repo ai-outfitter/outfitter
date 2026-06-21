@@ -400,6 +400,12 @@ const loadResolvedProfile = (input: RunCommandInput): ResolvedRunProfile => {
     throw new Error(`Cannot resolve profile '${profileId}': ${resolution.issues.map(formatProfileIssue).join('; ')}`);
   }
 
+  const selectedProfile = resolution.profileStack.find((profile) => profile.id === profileId) as Profile;
+
+  if (selectedProfile.template === true) {
+    throw new Error(`Profile '${profileId}' is a template profile and must be inherited by a runnable profile.`);
+  }
+
   return {
     profile: resolution.profile,
     profileLayers: findContributingLoadedProfiles(resolution.profileStack, loadedProfiles.profiles),

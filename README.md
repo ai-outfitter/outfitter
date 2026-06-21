@@ -210,12 +210,15 @@ id: engineering-default
 label: Engineering Default
 inherits:
   - base-typescript
+  - shared-prose
 
 controls:
   model: anthropic/claude-sonnet-4
   environment:
     TEAM_MODE: engineering
 ```
+
+Set `template: true` on profiles such as `shared-prose` that should only be inherited by runnable profiles, not selected directly with `outfitter run`.
 
 The exact stable schema is governed by the requirements in `requirements/` and the JSON Schema files in `src/schemas/`, which are still expected to evolve with implementation.
 

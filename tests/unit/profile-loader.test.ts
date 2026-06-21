@@ -92,6 +92,25 @@ describe('profile loading', () => {
     expect('message' in invalidIdResult && invalidIdResult.message).toContain('must match pattern');
   });
 
+  it('parses template profile markers and validates their type', () => {
+    expect(parseProfileYaml('id: shared\ntemplate: true\ncontrols: {}\n', 'fallback')).toEqual({
+      id: 'shared',
+      template: true,
+      inherits: [],
+      controls: {},
+    });
+    expect(parseProfileYaml('id: runnable\ntemplate: false\ncontrols: {}\n', 'fallback')).toEqual({
+      id: 'runnable',
+      template: false,
+      inherits: [],
+      controls: {},
+    });
+    expect(parseProfileYaml('id: invalid\ntemplate: yes\ncontrols: {}\n', 'fallback')).toEqual({
+      path: '/template',
+      message: 'must be boolean',
+    });
+  });
+
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-003.1).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('reports profile.yml schema validation diagnostics with field pointers', () => {

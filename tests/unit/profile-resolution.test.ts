@@ -156,6 +156,38 @@ describe('profile resolution', () => {
     expect(result.profile?.controls.custom_list).toEqual(['selected']);
   });
 
+  it('keeps template profiles inheritable without marking runnable descendants as templates', () => {
+    const inheritedTemplate = createLoadedProfile({
+      source: createLocalProfileSource('<project-profiles>'),
+      profile: {
+        id: 'shared-prose',
+        template: true,
+        inherits: [],
+        controls: { appendSystemPrompt: 'shared prompt' },
+      },
+    });
+    const selectedRunnable = createLoadedProfile({
+      source: createLocalProfileSource('<project-profiles>'),
+      profile: {
+        id: 'project-lead',
+        inherits: ['shared-prose'],
+        controls: { appendSystemPrompt: 'role prompt' },
+      },
+    });
+
+    const runnableResult = resolveProfile({
+      profileId: 'project-lead',
+      profiles: [inheritedTemplate, selectedRunnable],
+    });
+    const templateResult = resolveProfile({ profileId: 'shared-prose', profiles: [inheritedTemplate] });
+
+    expect(runnableResult.issues).toEqual([]);
+    expect(runnableResult.profile?.template).toBeUndefined();
+    expect(runnableResult.profile?.controls.appendSystemPrompt).toEqual(['role prompt', 'shared prompt']);
+    expect(templateResult.issues).toEqual([]);
+    expect(templateResult.profile?.template).toBe(true);
+  });
+
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-003.4, OFTR-003.5).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('resolves inherited profiles below explicit profiles and includes the implicit user default without duplicates', () => {
