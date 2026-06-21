@@ -132,6 +132,7 @@ find_profiles_dir() {
     "$REPO_ROOT/.outfitter/profiles"
     "$REPO_ROOT/../../outfitter-default-profiles/self-contained-data-analyst-jobs/profiles"
     "$REPO_ROOT/../../../outfitter-default-profiles/profiles"
+    "$REPO_ROOT/../../../../outfitter-default-profiles/profiles"
     "$REPO_ROOT/../default-profiles/profiles"
     "$REPO_ROOT/../outfitter-default-profiles/profiles"
   )
