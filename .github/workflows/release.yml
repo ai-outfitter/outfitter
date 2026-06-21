@@ -7,11 +7,13 @@ on:
 
 permissions:
   contents: read
+  id-token: write
 
 jobs:
   publish-npm:
     name: Publish npm package
     runs-on: ubuntu-latest
+    environment: npm-publish
 
     steps:
       - name: Checkout
@@ -42,6 +44,4 @@ jobs:
         run: npm run build
 
       - name: Publish package to npm
-        run: npm publish --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish --access public --provenance

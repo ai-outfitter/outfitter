@@ -1,26 +1,33 @@
 release_workflow_safety:
-  description: "Review Outfitter npm release workflow safety."
+  description: "Review Outfitter release automation and npm publishing workflow safety."
   match:
     include:
       - "release.yml"
+      - "release-please.yml"
   review:
     strategy: individual
     instructions: |
-      Review the Outfitter npm release workflow for release-safety concerns that
-      complement deterministic workflow tests for OFTR-009.2.
+      Review Outfitter release automation and npm publishing workflows for
+      release-safety concerns that complement actionlint and CI.
 
-      Check that the workflow:
-      - Does not expose npm tokens or other secrets through logs, command-line
-        arguments, checked-in files, or environment variables beyond the npm
-        publish step.
-      - Uses release triggers intentionally and does not publish from pull
-        requests, arbitrary pushes, or untrusted forks.
-      - Avoids git mutation, repository write credentials, or unrelated network
-        side effects that are not required for dependency installation, CI, or
-        npm publishing.
-      - Keeps maintainer-facing step names, comments, and assumptions accurate
+      Check that the workflows:
+      - Use Release Please intentionally for pushes to `main`, not pull requests
+        from forks or arbitrary untrusted events.
+      - Follow the upstream `googleapis/release-please-action@v4` example shape
+        with `secrets.RELEASE_PLEASE_TOKEN`, `contents: write`, `issues: write`,
+        and `pull-requests: write`, while using `release-type: node` because
+        Outfitter is an npm package.
+      - Do not expose npm tokens or other secrets through logs, command-line
+        arguments, checked-in files, or environment variables.
+      - Publish npm only from GitHub release events through the `npm-publish`
+        environment with `id-token: write`, provenance, and no `NPM_TOKEN` or
+        `NODE_AUTH_TOKEN` usage.
+      - Avoid unrelated git mutation, repository write credentials, or network
+        side effects that are not required for Release Please, dependency
+        installation, CI, build, or npm publishing.
+      - Keep maintainer-facing step names, comments, and assumptions accurate
         enough to diagnose release failures.
 
       Output Format:
-      - PASS: The release workflow is appropriately scoped and safe.
+      - PASS: The release automation and npm publishing workflows are appropriately scoped and safe.
       - FAIL: Issues found. List each unsafe or inaccurate workflow concern with a line reference.

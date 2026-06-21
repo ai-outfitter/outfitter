@@ -2,7 +2,7 @@
 
 ## Overview
 
-Outfitter release publishing prepares package metadata from a GitHub release tag and publishes the `@ai-outfitter/outfitter` npm package through GitHub Actions.
+Outfitter release publishing prepares package metadata from Conventional Commit release PRs and GitHub release tags, then publishes the `@ai-outfitter/outfitter` npm package through GitHub Actions using npm trusted publishing / OIDC.
 
 ## Requirements
 
@@ -22,4 +22,13 @@ Outfitter release publishing prepares package metadata from a GitHub release tag
 3. The npm release workflow MUST synchronize package metadata from the GitHub release tag before publishing.
 4. The npm release workflow MUST run CI checks before publishing.
 5. The npm release workflow MUST build the package before publishing.
-6. The npm release workflow MUST publish the public `@ai-outfitter/outfitter` package to the npm registry using an npm token secret.
+6. The npm release workflow MUST request `id-token: write`, use the `npm-publish` GitHub environment, and publish the public `@ai-outfitter/outfitter` package to the npm registry with provenance through npm trusted publishing / OIDC rather than `NPM_TOKEN` or `NODE_AUTH_TOKEN`.
+
+### OFTR-009.3: Conventional Commit Release Automation
+
+1. The Release Please workflow MUST run on pushes to `main`.
+2. The Release Please workflow MUST use `googleapis/release-please-action@v4` with the upstream example-style token input from `secrets.RELEASE_PLEASE_TOKEN`.
+3. The Release Please workflow MUST use `release-type: node` for the root `@ai-outfitter/outfitter` npm package.
+4. The Release Please workflow MUST derive version bumps from Conventional Commits.
+5. The Release Please workflow MUST update npm package metadata and changelog through a release PR before publishing.
+6. The Release Please workflow MUST use GitHub repository write auth capable of triggering release PR CI and the release-published npm workflow, not the default `GITHUB_TOKEN`.
