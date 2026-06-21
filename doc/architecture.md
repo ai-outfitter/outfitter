@@ -372,6 +372,7 @@ Example `profile.yml`:
 ```yaml
 id: engineering
 label: Engineering
+template: false
 inherits:
   - base-typescript
 
@@ -396,6 +397,7 @@ Rules:
 
 - Every `profile.yml` MUST validate against `profile.schema.json`.
 - `inherits` is an ordered array of profile names.
+- `template: true` marks a profile as inheritance-only: it may contribute controls to runnable profiles through `inherits`, but `outfitter run --profile <id>` and `default_profile: <id>` launches reject it directly.
 - `cli_specific/<cli-name>/` contains files copied or translated directly into the generated composite profile for that CLI.
 - Pi profiles may provide `cli_specific/pi/.mcp.json`; Outfitter merges contributing profile fragments into the composite profile with unique array entries by identity and last writer wins for duplicate identities.
 - Pi profiles may provide DeepWork jobs under `cli_specific/pi/deepwork/jobs/`; Outfitter appends contributing job folders to `DEEPWORK_ADDITIONAL_JOBS_FOLDERS` when launching Pi so DeepWork can discover those profile-owned workflows.
@@ -437,11 +439,22 @@ controls:
 ```
 
 ```yaml
+# ~/.outfitter/profiles/shared-prose/profile.yml
+id: shared-prose
+label: Shared Prose
+template: true
+
+controls:
+  append_system_prompt: ./prompts/prose.md
+```
+
+```yaml
 # ~/.outfitter/profiles/personal-engineering/profile.yml
 id: personal-engineering
 label: Personal Engineering
 inherits:
   - base-typescript
+  - shared-prose
 
 controls:
   append_system_prompt: ./prompts/system.md
@@ -746,6 +759,8 @@ Responsibilities:
 
 - read and validate settings;
 - load configured local and cached remote profile sources;
+- hide template profiles by default because they are inheritance-only;
+- include template profiles when `--all` is requested and mark them as templates in output;
 - report unique profile IDs deterministically;
 - use the highest-precedence loaded definition when duplicate profile IDs exist.
 

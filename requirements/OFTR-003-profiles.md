@@ -50,3 +50,10 @@ Outfitter resolves profile definitions across settings scopes, explicit sources,
 3. Array merge behavior MUST be documented per profile key before that key is treated as stable.
 4. CLI-specific profile content MUST take precedence over generic controls when both generate the same agent-specific artifact.
 5. Outfitter MUST compose `append_system_prompt` values from multiple resolved profile layers into repeated agent append-prompt inputs without requiring profiles to use raw CLI `args` for prompt composition.
+
+### OFTR-003.7: Template Profiles
+
+1. A profile MAY set top-level `template: true` to indicate it is intended for inheritance by runnable profiles rather than direct launch.
+2. Outfitter MUST allow template profiles to contribute controls through `inherits` without marking the inheriting profile as a template.
+3. Outfitter MUST reject direct launches of template profiles, including launches selected through `default_profile`.
+4. `outfitter profile list` SHOULD hide template profiles by default and MUST expose them when the user explicitly requests all profiles.

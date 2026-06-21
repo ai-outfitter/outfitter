@@ -212,15 +212,27 @@ describe('profile command', () => {
     );
     writeProfile(localProfiles, 'engineering', 'id: engineering\nlabel: User Engineering\ncontrols: {}\n');
     writeProfile(localProfiles, 'research');
+    writeProfile(localProfiles, 'shared-prose', 'id: shared-prose\ntemplate: true\ncontrols: {}\n');
     writeProfile(remoteProfiles, 'engineering', 'id: engineering\nlabel: Remote Engineering\ncontrols: {}\n');
     writeProfile(remoteProfiles, 'support');
     writeProfile(uriProfiles, 'plain-uri');
 
     const result = executeListProfilesCommand({ homeDirectory, projectDirectory });
+    const allResult = executeListProfilesCommand({ homeDirectory, projectDirectory, includeTemplates: true });
 
     expect(result.profiles.map((profile) => profile.id)).toEqual(['engineering', 'plain-uri', 'research', 'support']);
     expect(result.profiles.find((profile) => profile.id === 'engineering')?.label).toBe('Remote Engineering');
+    expect(result.profiles.every((profile) => !profile.template)).toBe(true);
     expect(result.messages).toEqual(['engineering', 'plain-uri', 'research', 'support']);
+    expect(allResult.profiles.map((profile) => profile.id)).toEqual([
+      'engineering',
+      'plain-uri',
+      'research',
+      'shared-prose',
+      'support',
+    ]);
+    expect(allResult.profiles.find((profile) => profile.id === 'shared-prose')?.template).toBe(true);
+    expect(allResult.messages).toContain('shared-prose (template)');
 
     const messages: string[] = [];
     const program = new Command();
@@ -231,6 +243,16 @@ describe('profile command', () => {
     });
     await program.parseAsync(['node', 'outfitter', 'profile', 'list']);
     expect(messages).toEqual(['engineering', 'plain-uri', 'research', 'support']);
+
+    const allMessages: string[] = [];
+    const allProgram = new Command();
+    registerProfileCommands(allProgram, {
+      homeDirectory,
+      projectDirectory,
+      writeLine: (message) => allMessages.push(message),
+    });
+    await allProgram.parseAsync(['node', 'outfitter', 'profile', 'list', '--all']);
+    expect(allMessages).toContain('shared-prose (template)');
   });
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-004.5).
