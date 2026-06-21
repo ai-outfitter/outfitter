@@ -49,3 +49,4 @@ Outfitter resolves profile definitions across settings scopes, explicit sources,
 2. YAML object values SHOULD be merged with `defu` or an equivalent controlled deep-merge utility.
 3. Array merge behavior MUST be documented per profile key before that key is treated as stable.
 4. CLI-specific profile content MUST take precedence over generic controls when both generate the same agent-specific artifact.
+5. Outfitter MUST compose `append_system_prompt` values from multiple resolved profile layers into repeated agent append-prompt inputs without requiring profiles to use raw CLI `args` for prompt composition.

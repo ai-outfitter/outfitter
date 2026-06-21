@@ -81,6 +81,8 @@ describe('profile resolution', () => {
     ).toBe('user');
   });
 
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-003.6).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('uses path-specific array merge policies and deduplicates profile launch resources by identity', () => {
     const result = resolveProfile({
       profileId: 'selected',
@@ -93,8 +95,11 @@ describe('profile resolution', () => {
             inherits: [],
             controls: {
               args: ['--default'],
+              appendSystemPrompt: 'default prompt',
+              append_system_prompt: 'default prompt',
               extensions: ['npm:pi-subagents@1', 'git:github.com/ai-outfitter/deepwork#main'],
               skills: ['./skills/review'],
+              pi: { appendSystemPrompt: 'default pi prompt' },
               custom_list: ['default'],
             },
           },
@@ -106,8 +111,11 @@ describe('profile resolution', () => {
             inherits: [],
             controls: {
               args: ['--base'],
+              appendSystemPrompt: 'base prompt',
+              append_system_prompt: 'base prompt',
               extensions: ['npm:base-only', 'npm:pi-subagents@2'],
               skills: ['./skills/base'],
+              pi: { appendSystemPrompt: 'base pi prompt' },
             },
           },
         }),
@@ -118,8 +126,11 @@ describe('profile resolution', () => {
             inherits: ['base'],
             controls: {
               args: ['--selected'],
+              appendSystemPrompt: 'selected prompt',
+              append_system_prompt: 'selected prompt',
               extensions: ['npm:pi-subagents@3'],
               skills: ['./skills/review'],
+              pi: { appendSystemPrompt: 'selected pi prompt' },
               custom_list: ['selected'],
             },
           },
@@ -129,6 +140,13 @@ describe('profile resolution', () => {
 
     expect(result.issues).toEqual([]);
     expect(result.profile?.controls.args).toEqual(['--selected', '--base', '--default']);
+    expect(result.profile?.controls.appendSystemPrompt).toEqual(['selected prompt', 'base prompt', 'default prompt']);
+    expect(result.profile?.controls.append_system_prompt).toEqual(['selected prompt', 'base prompt', 'default prompt']);
+    expect(result.profile?.controls.pi?.appendSystemPrompt).toEqual([
+      'selected pi prompt',
+      'base pi prompt',
+      'default pi prompt',
+    ]);
     expect(result.profile?.controls.extensions).toEqual([
       'npm:pi-subagents@3',
       'npm:base-only',

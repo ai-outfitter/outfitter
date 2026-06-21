@@ -48,8 +48,17 @@ export const mergeAgentSpecificControls = <T extends ProfileControls>(
   } as T;
 };
 
-export const flagValue = (flag: string, value: string | undefined): readonly string[] =>
-  value === undefined ? [] : [flag, value];
+export const flagValue = (flag: string, value: string | readonly string[] | undefined): readonly string[] => {
+  if (value === undefined) {
+    return [];
+  }
+
+  if (typeof value === 'string') {
+    return [flag, value];
+  }
+
+  return repeatFlag(flag, value);
+};
 
 export const repeatFlag = (flag: string, values: readonly string[] | undefined): readonly string[] =>
   values === undefined ? [] : values.flatMap((value) => [flag, value]);
