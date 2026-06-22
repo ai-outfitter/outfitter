@@ -4,7 +4,7 @@ set -Eeuo pipefail
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd -- "$SCRIPT_DIR/.." && pwd)"
 SOURCE_HOME="${HOME:-}"
-PROJECT_DIR="$(pwd)"
+SOURCE_CWD="$(pwd)"
 FRESH_PI=0
 SETUP_SOURCE=""
 
@@ -12,7 +12,8 @@ usage() {
   cat <<'USAGE'
 Usage: bin/dev-tmp-home [--fresh-pi] [setup-source]
 
-Launch this Outfitter checkout with a fresh temporary HOME.
+Launch this Outfitter checkout with a fresh temporary HOME and project
+directory.
 
 With no setup source, this exercises the normal first-run flow: `outfitter run`
 creates user settings, syncs default profiles from GitHub, runs welcome, and
@@ -20,7 +21,8 @@ then launches the selected/default profile.
 
 With a setup source, this exercises setup-source flow: `outfitter setup
 <setup-source>`. The setup source may be a local Git repository path or a remote
-Git URL.
+Git URL. Local setup-source paths are resolved before switching to the temporary
+project directory.
 
 By default, the temporary HOME is seeded with the current user's Pi auth, model,
 and settings files when they exist. Use --fresh-pi to leave Pi auth/model state
@@ -55,7 +57,12 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+if [[ -n "$SETUP_SOURCE" && -d "$SETUP_SOURCE" ]]; then
+  SETUP_SOURCE="$(cd -- "$SETUP_SOURCE" && pwd)"
+fi
+
 DEV_HOME="$(mktemp -d -t outfitter-dev-home.XXXXXX)"
+PROJECT_DIR="$DEV_HOME/project"
 
 cleanup() {
   rm -rf -- "$DEV_HOME"
@@ -65,7 +72,8 @@ trap cleanup EXIT
 PI_AGENT_DIR="$DEV_HOME/.pi/agent"
 SOURCE_PI_AGENT_DIR="$SOURCE_HOME/.pi/agent"
 
-mkdir -p "$PI_AGENT_DIR/cache" \
+mkdir -p "$PROJECT_DIR" \
+  "$PI_AGENT_DIR/cache" \
   "$PI_AGENT_DIR/git" \
   "$PI_AGENT_DIR/npm" \
   "$PI_AGENT_DIR/plugins" \
@@ -132,6 +140,7 @@ fi
 npm --prefix "$REPO_ROOT" run build
 
 echo "Outfitter dev HOME: $DEV_HOME"
+echo "Source cwd:        $SOURCE_CWD"
 echo "Project dir:       $PROJECT_DIR"
 if [[ -n "$SETUP_SOURCE" ]]; then
   echo "Setup source:      $SETUP_SOURCE"
