@@ -5,7 +5,7 @@ import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { executeSetupCommand, updateSettingsDefaultProfile } from '../../src/cli/commands/SetupCommand.js';
 import { createProfileSourceCachePath, createRemoteRepositoryCachePath } from '../../src/profiles/ProfileCache.js';
@@ -56,6 +56,47 @@ const waitForOutput = async (chunks: readonly Buffer[], output: PassThrough, exp
   });
 };
 
+const waitForCapturedOutput = async (chunks: readonly string[], expectedText: string): Promise<void> => {
+  for (let attempt = 0; attempt < 100; attempt += 1) {
+    if (chunks.join('').includes(expectedText)) {
+      return;
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+
+  throw new Error(`Timed out waiting for output: ${expectedText}`);
+};
+
+const forceProcessStdoutTty = (): (() => void) => {
+  const descriptor = Object.getOwnPropertyDescriptor(process.stdout, 'isTTY');
+  Object.defineProperty(process.stdout, 'isTTY', { configurable: true, value: true });
+
+  return () => {
+    if (descriptor === undefined) {
+      Reflect.deleteProperty(process.stdout, 'isTTY');
+      return;
+    }
+
+    Object.defineProperty(process.stdout, 'isTTY', descriptor);
+  };
+};
+
+const captureProcessStdout = (chunks: string[]): void => {
+  vi.spyOn(process.stdout, 'write').mockImplementation(
+    (
+      chunk: string | Uint8Array,
+      encodingOrCallback?: BufferEncoding | ((error?: Error | null) => void),
+      callback?: (error?: Error | null) => void,
+    ) => {
+      chunks.push(Buffer.isBuffer(chunk) ? chunk.toString('utf8') : String(chunk));
+      const done = typeof encodingOrCallback === 'function' ? encodingOrCallback : callback;
+      done?.();
+      return true;
+    },
+  );
+};
+
 const defaultProfileSynchronizer = {
   sync(_source: unknown, cachePath: string) {
     writeCachedProfile(join(cachePath, 'profiles'), 'engineer');
@@ -65,6 +106,8 @@ const defaultProfileSynchronizer = {
 };
 
 afterEach(() => {
+  vi.restoreAllMocks();
+
   for (const root of temporaryRoots.splice(0)) {
     rmSync(root, { recursive: true, force: true });
   }
@@ -396,6 +439,78 @@ describe('setup command', () => {
     expect(readFileSync(join(homeDirectory, '.outfitter', 'settings.yml'), 'utf8')).toContain(
       'default_profile: project-lead',
     );
+  });
+
+  it('prints the setup-source welcome to stdout when no CLI output writer is injected', async () => {
+    const root = createTemporaryRoot();
+    const homeDirectory = join(root, 'home');
+    const projectDirectory = join(root, 'project');
+    const setupSourceUri = 'https://example.test/link-profiles';
+    const input = Object.assign(new PassThrough(), { isTTY: true });
+    const stdoutChunks: string[] = [];
+    const restoreStdoutTty = forceProcessStdoutTty();
+    captureProcessStdout(stdoutChunks);
+
+    writeSettings(
+      homeDirectory,
+      [
+        'default_profile: engineer',
+        'profile_sources:',
+        '  - github: ai-outfitter/default-profiles',
+        '    path: profiles',
+        '  - path: ./profiles',
+        '',
+      ].join('\n'),
+    );
+
+    try {
+      const resultPromise = executeSetupCommand(
+        { homeDirectory, projectDirectory, setupSourceUri },
+        {
+          interactive: true,
+          input,
+          synchronizer: defaultProfileSynchronizer,
+          setupSourceSynchronizer: {
+            sync(_uri, cachePath) {
+              const outfitterDirectory = join(cachePath, '.outfitter');
+              mkdirSync(outfitterDirectory, { recursive: true });
+              writeFileSync(
+                join(outfitterDirectory, 'settings.yml'),
+                'default_profile: project-lead\nprofile_sources:\n  - path: ./profiles\n',
+              );
+
+              for (const [profileId, label] of [
+                ['engineer', 'Engineer'],
+                ['project-lead', 'Project Lead'],
+              ] as const) {
+                const profileFolder = join(outfitterDirectory, 'profiles', profileId);
+                mkdirSync(profileFolder, { recursive: true });
+                writeFileSync(join(profileFolder, 'profile.yml'), `id: ${profileId}\nlabel: ${label}\ncontrols: {}\n`);
+              }
+            },
+          },
+        },
+      );
+      await waitForCapturedOutput(stdoutChunks, 'Import target [1]:');
+      input.write('\n');
+      await waitForCapturedOutput(stdoutChunks, 'Default profile [1]:');
+      input.end('\n');
+      const result = await resultPromise;
+
+      const promptOutput = stdoutChunks.join('');
+      expect(promptOutput).toContain('____        _    __ _ _   _');
+      expect(promptOutput).toContain('Welcome to Outfitter.');
+      expect(promptOutput).toContain("You're importing Outfitter profiles from https://example.test/link-profiles.");
+      expect(promptOutput).toContain('Choose where to install these profiles:');
+      expect(promptOutput).toContain('1. User home');
+      expect(promptOutput).toContain('2. Current project');
+      expect(promptOutput).toContain('Choose the default profile from this setup source:');
+      expect(promptOutput).toContain('1. project-lead - Project Lead');
+      expect(promptOutput).toContain('Default profile [1]:');
+      expect(result.messages).toContain("Selected default profile 'project-lead'.");
+    } finally {
+      restoreStdoutTty();
+    }
   });
 
   it('imports setup-source profiles into the project without changing the user default', async () => {
