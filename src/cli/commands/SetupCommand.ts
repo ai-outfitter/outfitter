@@ -117,7 +117,7 @@ export const executeSetupCommand = async (
   failOnInitialDefaultProfileSyncFailure(initialSettingsMissing, rollbackCreatedSettings, syncResult);
   const selectedDefaultProfileId = shouldSkipInitialDefaultProfilePrompt(initialSettingsMissing, dependencies)
     ? defaultProfileId
-    : await selectDefaultProfileIfInteractive(input, settingsPath, defaultProfileId, dependencies);
+    : await selectDefaultProfileIfInteractive(input, settingsPath, defaultProfileId, dependencies, starterLayout);
   const welcomeResult = await runWelcomeAfterInteractiveSetup(input, dependencies);
   const welcomeProfile = persistWelcomeProfileForSetup(input, settingsPath, welcomeResult);
   const finalDefaultProfile = prepareFinalDefaultProfile(input.homeDirectory, selectedDefaultProfileId, welcomeProfile);
@@ -542,14 +542,17 @@ const selectDefaultProfileIfInteractive = async (
   settingsPath: string,
   currentDefault: string,
   dependencies: SetupCommandDependencies,
+  starterLayout?: StarterLayout,
 ): Promise<string> => {
   if (dependencies.interactive !== true) {
     return currentDefault;
   }
 
-  const discoveredProfiles = discoverSetupProfileChoices(input);
+  const discoveredProfiles = discoverSetupProfileChoices(input, starterLayout);
   const profiles =
-    discoveredProfiles.length > 0 || builtInSetupProfileChoices.every((profile) => profile.id !== currentDefault)
+    discoveredProfiles.length > 0 ||
+    input.setupSourceUri !== undefined ||
+    builtInSetupProfileChoices.every((profile) => profile.id !== currentDefault)
       ? discoveredProfiles
       : builtInSetupProfileChoices;
   const writer = dependencies.writeLine ?? console.log;
@@ -571,7 +574,29 @@ const assertValidSelectedDefaultProfile = (selectedProfile: string, profiles: re
   }
 };
 
-const discoverSetupProfileChoices = (input: SetupCommandInput): readonly SetupProfileChoice[] => {
+const discoverSetupProfileChoices = (
+  input: SetupCommandInput,
+  starterLayout?: StarterLayout,
+): readonly SetupProfileChoice[] => {
+  if (input.setupSourceUri !== undefined && starterLayout?.profilesPath !== undefined) {
+    return discoverSetupProfileChoicesFromLocalSource(starterLayout.profilesPath);
+  }
+
+  return discoverSetupProfileChoicesFromEffectiveSettings(input);
+};
+
+const discoverSetupProfileChoicesFromLocalSource = (path: string): readonly SetupProfileChoice[] => {
+  const loadedProfiles = loadLocalProfileSource({ path });
+
+  return loadedProfiles.profiles
+    .map((profile) => ({
+      id: profile.profile.id,
+      label: profile.profile.label,
+    }))
+    .sort((left, right) => left.id.localeCompare(right.id));
+};
+
+const discoverSetupProfileChoicesFromEffectiveSettings = (input: SetupCommandInput): readonly SetupProfileChoice[] => {
   const loadedSettings = loadSettingsWithCachedRemoteSettings(input);
   const choices = new Map<string, SetupProfileChoice>();
 
