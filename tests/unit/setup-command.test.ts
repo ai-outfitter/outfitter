@@ -250,15 +250,20 @@ describe('setup command', () => {
         synchronizer: defaultProfileSynchronizer,
         setupSourceSynchronizer: {
           sync(_uri, cachePath) {
-            const profileFolder = join(cachePath, 'profiles', 'project-lead');
-            mkdirSync(profileFolder, { recursive: true });
-            writeFileSync(join(profileFolder, 'profile.yml'), 'id: project-lead\nlabel: Project Lead\ncontrols: {}\n');
+            for (const [profileId, label] of [
+              ['project-lead', 'Project Lead'],
+              ['ops', 'Operations'],
+            ] as const) {
+              const profileFolder = join(cachePath, 'profiles', profileId);
+              mkdirSync(profileFolder, { recursive: true });
+              writeFileSync(join(profileFolder, 'profile.yml'), `id: ${profileId}\nlabel: ${label}\ncontrols: {}\n`);
+            }
           },
         },
         selectDefaultProfile(profiles, currentDefault) {
           expect(currentDefault).toBe('engineer');
-          expect(profiles.map((profile) => profile.id)).toEqual(['project-lead']);
-          expect(profiles[0]?.label).toBe('Project Lead');
+          expect(profiles.map((profile) => profile.id)).toEqual(['ops', 'project-lead']);
+          expect(profiles.map((profile) => profile.label)).toEqual(['Operations', 'Project Lead']);
           return Promise.resolve('project-lead');
         },
         selectWelcomePlan() {
