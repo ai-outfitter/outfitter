@@ -29,6 +29,13 @@
 - Prefer `npm run check` before handing work back if auto-fixable lint issues may exist.
 - Use `npm run check-ci` when you need a non-mutating validation pass, such as in CI or before reviewing the final diff.
 - Use `bin/dev-tmp-home` as the preferred branch-local interactive smoke-test harness for launching this checkout with a fresh temporary Outfitter `HOME` and project directory, so existing `.outfitter` settings in the caller's cwd cannot override the smoke-test defaults. Run it with no arguments to exercise normal first-run `outfitter run` setup/welcome against GitHub default profiles; pass one local Git repository path or remote Git URL to exercise `outfitter setup <source>`. By default, the temp home is seeded with the current user's Pi auth/model/settings state; add `--fresh-pi` when you need empty Pi auth/model state to test provider/model login bootstrap. Keep this harness narrow: do not add flags for local default-profile discovery, dry-run, keep-home, profile selection, or alternate setup policy; Outfitter itself should own default GitHub profile sync.
-- Use `bin/dev-setup-source <setup-source>` when you intentionally want real org/project setup behavior from the caller's current directory while still running this checkout's local build. This helper preserves the caller's real `HOME` and cwd, so it can initialize or update the target folder's `.outfitter` state with a remote profile source such as `https://github.com/ai-outfitter/link`. Do not use it for isolated first-run smoke tests; use `bin/dev-tmp-home` for that.
+- Use `bin/dev-setup-source <setup-source>` when you intentionally want real org/project setup behavior from the caller's current directory while still running this checkout's local build. This helper preserves the caller's real `HOME` and cwd, so it can initialize or update the target folder's `.outfitter` state with a remote profile source such as `https://github.com/ai-outfitter/link`. Do not use it for isolated first-run smoke tests; use `bin/dev-tmp-home` for that. For the current PR #69 worktree, test the Link source from the target org folder with:
+
+  ```sh
+  cd /home/ncrmro/repos/ncrmro/keystone-systems
+  /home/ncrmro/repos/unsupervised/worktrees/outfitter/feat/setup-source-setup-skill/bin/dev-setup-source \
+    https://github.com/ai-outfitter/link
+  ```
+
 - When adding files or changing directory layout, first check `doc/file_structure.md` for current structure and update the relevant documentation afterward.
 - When adding tests that validate formal requirements, include the required two-line traceability comment immediately before the relevant `it(...)` or `describe(...)` block.
