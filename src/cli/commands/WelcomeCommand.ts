@@ -63,16 +63,20 @@ export interface WelcomeCommandDependencies {
 }
 
 const welcomeIntroLines = [
-  String.raw`    _                _        ____  _`,
-  String.raw`   / \   _ __  _ __ | | ___  |  _ \(_)`,
-  String.raw`  / _ \ | '_ \| '_ \| |/ _ \ | |_) | |`,
-  String.raw` / ___ \| |_) | |_) | |  __/ |  __/| |`,
-  String.raw`/_/   \_\ .__/| .__/|_|\___| |_|   |_|`,
-  String.raw`        |_|   |_|`,
+  String.raw`  ____        _    __ _ _   _            `,
+  String.raw` / __ \      | |  / _(_) | | |           `,
+  String.raw`| |  | |_   _| |_| |_ _| |_| |_ ___ _ __ `,
+  String.raw`| |  | | | | | __|  _| | __| __/ _ \ '__|`,
+  String.raw`| |__| | |_| | |_| | | | |_| ||  __/ |   `,
+  String.raw` \____/ \__,_|\__|_| |_|\__|\__\___|_|   `,
   '',
   'Welcome to Outfitter.',
   'Pi is a heavily customizable coding harness. The next few questions will configure Outfitter to best suit your workflow.',
 ] as const;
+
+export const writeWelcomeIntro = (output: Pick<NodeJS.WritableStream, 'write'>): void => {
+  output.write(`\n${welcomeIntroLines.join('\n')}\n`);
+};
 
 const defaultProfileRoleChoices: readonly WelcomeRoleChoice[] = [
   { id: 'engineer', label: 'Engineer' },
@@ -188,7 +192,7 @@ const promptForWelcomePlan = async (dependencies: WelcomeCommandDependencies): P
   const readline = createInterface({ input: dependencies.input ?? process.stdin, output });
 
   try {
-    output.write(`\n${welcomeIntroLines.join('\n')}\n`);
+    writeWelcomeIntro(output);
     const answerQuestions = await promptForYesNo(
       readline,
       'Choose a role and recommended Pi loadout now? [Y/n]: ',

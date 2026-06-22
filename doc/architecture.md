@@ -710,15 +710,16 @@ Responsibilities:
 
 - create `~/.outfitter/settings.yml` when missing;
 - accept an optional setup source URI, for example `outfitter setup https://github.com/example/outfitter-config`, and clone/update it under `~/.outfitter/cache/repos/<encoded-uri-and-ref>/`;
-- when a setup source is provided, use its root `settings.yml` or `.outfitter/settings.yml` and `profiles/` or `.outfitter/profiles/` as the initial non-overwriting user setup starting point;
+
+- when a setup source is provided, use its root `settings.yml` or `.outfitter/settings.yml` and `profiles/` or `.outfitter/profiles/` as the initial non-overwriting setup starting point for the selected import target;
+- during interactive setup-source onboarding, show the Outfitter welcome first, explain the source being imported, ask whether to install into user home or the current project, then ask exactly one source-profile/default prompt;
 - require an interactive TTY on both stdin and stdout before running setup prompts;
 - create a default profile when missing;
 - validate all discovered settings files and any starter settings file;
 - run `outfitter sync` behavior for URI profile sources before profile selection;
-- on initial interactive first-run setup, skip the older setup default-profile prompt and let welcome onboarding choose the generated local default profile;
-- outside that initial welcome handoff, show a setup wizard with synced profile choices, preserve display labels where available, validate the selected profile ID, and write the selected default profile to user settings;
+
+- outside that initial welcome handoff and outside setup-source import onboarding, show a setup wizard with synced profile choices, preserve display labels where available, validate the selected profile ID, and write the selected default profile to user settings;
 - create any missing fallback default profile file for the final selected default profile;
-- run welcome onboarding after interactive setup completes;
 - report actionable next steps.
 
 ### `outfitter welcome`

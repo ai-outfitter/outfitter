@@ -133,7 +133,8 @@ describe('welcome command', () => {
     setImmediate(writeNextAnswer);
     const result = await resultPromise;
 
-    expect(outputText).toContain('____  _');
+    expect(outputText).toContain('____        _    __ _ _   _');
+    expect(outputText).not.toContain('____  _');
     expect(outputText).toContain('Pi is a heavily customizable coding harness.');
     expect(outputText).toContain('engineer - Engineer');
     expect(outputText).toContain('data_analyst - Data Analyst');

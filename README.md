@@ -138,13 +138,15 @@ outfitter setup https://github.com/my_account/outfitter_config
 `outfitter setup` requires an interactive terminal on both stdin and stdout.
 When a repository is provided, it clones or updates the repository in Outfitter's shared repository cache, then uses it as a non-overwriting starting point:
 
-- if `~/.outfitter/settings.yml` does not exist, Outfitter copies the starter `settings.yml`;
-- if starter profiles exist, Outfitter copies missing profile files into `~/.outfitter/profiles/`;
-- existing user settings and profile files are otherwise left unchanged;
+- interactive setup-source onboarding shows the Outfitter welcome first, explains which source is being imported, asks whether to install profiles into user home or the current project, then asks one source-profile/default prompt;
+- if the user chooses home and `~/.outfitter/settings.yml` does not exist, Outfitter copies the starter `settings.yml`;
+- if the user chooses project and `<project>/.outfitter/settings.yml` does not exist, Outfitter copies the starter `settings.yml` and ensures `./profiles` is exposed;
+- if starter profiles exist, Outfitter copies missing profile files into the selected `profiles/` folder;
+- existing settings and profile files are otherwise left unchanged;
 - after setup, Outfitter runs the same sync behavior used by `outfitter sync`;
 - on initial interactive first-run setup, Outfitter skips the older default-profile prompt and lets welcome onboarding choose the generated local default profile;
-- outside that initial welcome handoff, Outfitter shows a short setup wizard that lists synced profiles and writes the selected default profile to user settings;
-- interactive setup continues into welcome onboarding to record role and loadout choices.
+- outside that initial welcome handoff and outside setup-source import onboarding, Outfitter shows a short setup wizard that lists synced profiles and writes the selected default profile to user settings;
+- no-source interactive setup continues into welcome onboarding to record role and loadout choices.
 
 A setup repository can use either root-level Outfitter files:
 
