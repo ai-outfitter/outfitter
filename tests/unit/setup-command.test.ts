@@ -220,6 +220,69 @@ describe('setup command', () => {
     );
   });
 
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-004.1.14).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('limits setup-source wizard profile choices to the passed source', async () => {
+    const root = createTemporaryRoot();
+    const homeDirectory = join(root, 'home');
+    const projectDirectory = join(root, 'project');
+    const setupSourceUri = 'https://example.test/link-profiles';
+
+    writeSettings(
+      homeDirectory,
+      [
+        'default_profile: engineer',
+        'profile_sources:',
+        '  - github: ai-outfitter/default-profiles',
+        '    path: profiles',
+        '  - path: ./profiles',
+        '',
+      ].join('\n'),
+    );
+
+    const result = await executeSetupCommand(
+      { homeDirectory, projectDirectory, setupSourceUri },
+      {
+        interactive: true,
+        input: { isTTY: true } as NodeJS.ReadableStream & { isTTY: true },
+        output: { isTTY: true } as NodeJS.WritableStream & { isTTY: true },
+        writeLine: () => undefined,
+        synchronizer: defaultProfileSynchronizer,
+        setupSourceSynchronizer: {
+          sync(_uri, cachePath) {
+            for (const [profileId, label] of [
+              ['project-lead', 'Project Lead'],
+              ['ops', 'Operations'],
+            ] as const) {
+              const profileFolder = join(cachePath, 'profiles', profileId);
+              mkdirSync(profileFolder, { recursive: true });
+              writeFileSync(join(profileFolder, 'profile.yml'), `id: ${profileId}\nlabel: ${label}\ncontrols: {}\n`);
+            }
+          },
+        },
+        selectDefaultProfile(profiles, currentDefault) {
+          expect(currentDefault).toBe('engineer');
+          expect(profiles.map((profile) => profile.id)).toEqual(['ops', 'project-lead']);
+          expect(profiles.map((profile) => profile.label)).toEqual(['Operations', 'Project Lead']);
+          return Promise.resolve('project-lead');
+        },
+        selectWelcomePlan() {
+          return Promise.resolve({ answerQuestions: false });
+        },
+      },
+    );
+
+    expect(result.defaultProfilePath).toBe(
+      join(homeDirectory, '.outfitter', 'profiles', 'project-lead', 'profile.yml'),
+    );
+    expect(result.createdDefaultProfile).toBe(false);
+    expect(result.messages).toContain("Selected default profile 'project-lead'.");
+    expect(readFileSync(join(homeDirectory, '.outfitter', 'settings.yml'), 'utf8')).toContain(
+      'default_profile: project-lead',
+    );
+  });
+
+
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-004.1).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('validates discovered settings before setup and runs URI sync behavior', async () => {
