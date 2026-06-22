@@ -393,7 +393,6 @@ const loadResolvedProfile = (input: RunCommandInput): ResolvedRunProfile => {
   const resolution = resolveProfile({
     profiles: loadedProfiles.profiles,
     profileId,
-    defaultProfileId: loadedSettings.settings.defaultProfile,
   });
 
   if (resolution.profile === undefined || resolution.issues.length > 0) {

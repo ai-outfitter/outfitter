@@ -86,7 +86,6 @@ describe('profile resolution', () => {
   it('uses path-specific array merge policies and deduplicates profile launch resources by identity', () => {
     const result = resolveProfile({
       profileId: 'selected',
-      defaultProfileId: 'default',
       profiles: [
         createLoadedProfile({
           source: createLocalProfileSource('<project-profiles>'),
@@ -178,7 +177,6 @@ describe('profile resolution', () => {
 
     const result = resolveProfile({
       profileId: 'engineering',
-      defaultProfileId: 'default',
       profiles: loaded.profiles,
     });
     const multipleInheritanceResult = resolveProfile({

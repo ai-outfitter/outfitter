@@ -12,7 +12,6 @@ export interface ProfileResolutionInput {
   /** Profiles ordered from lowest precedence to highest precedence. */
   readonly profiles: readonly LoadedProfile[];
   readonly profileId: string;
-  readonly defaultProfileId?: string;
 }
 
 export interface ProfileResolutionIssue {

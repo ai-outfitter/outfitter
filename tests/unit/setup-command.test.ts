@@ -53,6 +53,7 @@ const waitForOutput = async (chunks: readonly Buffer[], output: PassThrough, exp
     }, 1000);
 
     output.on('data', checkOutput);
+    checkOutput();
   });
 };
 
