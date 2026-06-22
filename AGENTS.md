@@ -28,5 +28,6 @@
 
 - Prefer `npm run check` before handing work back if auto-fixable lint issues may exist.
 - Use `npm run check-ci` when you need a non-mutating validation pass, such as in CI or before reviewing the final diff.
+- Use `bin/dev-setup-source <setup-source>` when you intentionally want real org/project setup behavior from the caller's current directory while still running this checkout's local build. This helper preserves the caller's real `HOME` and cwd, so it can initialize or update the target folder's `.outfitter` state with a remote profile source such as `https://github.com/ai-outfitter/link`. Do not use it for isolated first-run smoke tests; use `bin/dev-tmp-home` for that.
 - When adding files or changing directory layout, first check `doc/file_structure.md` for current structure and update the relevant documentation afterward.
 - When adding tests that validate formal requirements, include the required two-line traceability comment immediately before the relevant `it(...)` or `describe(...)` block.
