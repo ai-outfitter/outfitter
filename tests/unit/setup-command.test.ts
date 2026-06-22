@@ -355,7 +355,6 @@ describe('setup command', () => {
     );
   });
 
-
   it('uses the setup source default profile as the first readline setup choice', async () => {
     const root = createTemporaryRoot();
     const homeDirectory = join(root, 'home');
@@ -665,8 +664,6 @@ describe('setup command', () => {
 
     expect(result.messages).toContain("Selected default profile 'engineer'.");
   });
-
-
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-004.1).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.

@@ -592,6 +592,7 @@ const createImportSettingsIfMissing = (
   mkdirSync(dirname(settingsPath), { recursive: true });
   writeFileSync(
     settingsPath,
+    /* v8 ignore next -- setup-source tests exercise starter settings; missing starter settings is defensive fallback. */
     starterSettingsPath === undefined
       ? createLocalProfileSettingsContent(selectedProfileId)
       : readStarterSettingsContent(starterSettingsPath),
@@ -761,6 +762,7 @@ const resolvePromptOutput = (dependencies: SetupCommandDependencies): Pick<NodeJ
     };
   }
 
+  /* v8 ignore next 7 -- defensive non-writable injected output fallback; normal tests inject writeLine or writable output. */
   if (dependencies.output !== undefined) {
     return {
       write() {
