@@ -337,16 +337,29 @@ const buildSetupMessages = (input: SetupMessageInput): readonly string[] => {
     messages.push(`Copied ${input.copiedStarterProfileFiles} starter profile file(s) into ${profileTargetPath}.`);
   }
 
+  if (shouldReportDefaultProfileStatus(input)) {
+    messages.push(
+      input.createdDefaultProfile
+        ? `Created default user profile at ${input.defaultProfilePath}.`
+        : `Default user profile at ${input.defaultProfilePath} already exists; left unchanged.`,
+    );
+  }
+
   messages.push(
-    input.createdDefaultProfile
-      ? `Created default user profile at ${input.defaultProfilePath}.`
-      : `Default user profile at ${input.defaultProfilePath} already exists; left unchanged.`,
     `Selected default profile '${input.defaultProfileId}'.`,
     ...input.welcomeProfileMessages,
     ...input.syncResult.messages,
   );
 
   return messages;
+};
+
+const shouldReportDefaultProfileStatus = (input: SetupMessageInput): boolean => {
+  if (input.createdDefaultProfile) {
+    return true;
+  }
+
+  return input.input.setupSourceUri === undefined || input.starterLayout?.profilesPath === undefined;
 };
 
 const capitalize = (value: string): string => `${value.slice(0, 1).toUpperCase()}${value.slice(1)}`;

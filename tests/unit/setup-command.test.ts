@@ -349,6 +349,7 @@ describe('setup command', () => {
       join(homeDirectory, '.outfitter', 'profiles', 'project-lead', 'profile.yml'),
     );
     expect(result.createdDefaultProfile).toBe(false);
+    expect(result.messages.join('\n')).not.toContain('Default user profile');
     expect(result.messages).toContain("Selected default profile 'project-lead'.");
     expect(readFileSync(join(homeDirectory, '.outfitter', 'settings.yml'), 'utf8')).toContain(
       'default_profile: project-lead',
@@ -562,6 +563,7 @@ describe('setup command', () => {
       join(projectDirectory, '.outfitter', 'profiles', 'project-lead', 'profile.yml'),
     );
     expect(result.createdDefaultProfile).toBe(false);
+    expect(result.messages.join('\n')).not.toContain('Default user profile');
     expect(readFileSync(join(homeDirectory, '.outfitter', 'settings.yml'), 'utf8')).toBe(
       'default_profile: engineer\nprofile_sources:\n  - path: ./profiles\n',
     );
