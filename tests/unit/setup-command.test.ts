@@ -257,6 +257,9 @@ describe('setup command', () => {
     expect(result.copiedStarterProfileFiles).toBe(1);
     expect(result.messages.join('\n')).not.toContain('secret');
     expect(result.createdDefaultProfile).toBe(false);
+    expect(result.messages.join('\n')).toContain(
+      'Start the selected default profile either way:\n  outfitter\n  outfitter --profile team',
+    );
     expect(readFileSync(join(homeDirectory, '.outfitter', 'settings.yml'), 'utf8')).toBe(
       'default_profile: team\nprofile_sources:\n  - path: ./profiles\n',
     );
@@ -564,6 +567,9 @@ describe('setup command', () => {
     );
     expect(result.createdDefaultProfile).toBe(false);
     expect(result.messages.join('\n')).not.toContain('Default user profile');
+    expect(result.messages.join('\n')).toContain(
+      'Start the selected default profile either way:\n  outfitter\n  outfitter --profile project-lead',
+    );
     expect(readFileSync(join(homeDirectory, '.outfitter', 'settings.yml'), 'utf8')).toBe(
       'default_profile: engineer\nprofile_sources:\n  - path: ./profiles\n',
     );
@@ -574,6 +580,53 @@ describe('setup command', () => {
     expect(readFileSync(join(projectDirectory, '.outfitter', 'profiles', 'project-lead', 'profile.yml'), 'utf8')).toBe(
       'id: project-lead\nlabel: Project Lead\ncontrols: {}\n',
     );
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-004.1).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('starts Outfitter with the selected setup-source default profile when requested', async () => {
+    const root = createTemporaryRoot();
+    const homeDirectory = join(root, 'home');
+    const projectDirectory = join(root, 'project');
+    const launchedProfiles: string[] = [];
+
+    const result = await executeSetupCommand(
+      { homeDirectory, projectDirectory, setupSourceUri: 'https://example.test/link-profiles' },
+      {
+        interactive: true,
+        input: { isTTY: true } as NodeJS.ReadableStream & { isTTY: true },
+        output: { isTTY: true } as NodeJS.WritableStream & { isTTY: true },
+        writeLine: () => undefined,
+        setupSourceSynchronizer: {
+          sync(_uri, cachePath) {
+            const outfitterDirectory = join(cachePath, '.outfitter');
+            const profileFolder = join(outfitterDirectory, 'profiles', 'project-lead');
+            mkdirSync(profileFolder, { recursive: true });
+            writeFileSync(join(outfitterDirectory, 'settings.yml'), 'default_profile: project-lead\n');
+            writeFileSync(join(profileFolder, 'profile.yml'), 'id: project-lead\nlabel: Project Lead\ncontrols: {}\n');
+          },
+        },
+        selectSetupSourceImportTarget() {
+          return Promise.resolve('project');
+        },
+        selectDefaultProfile() {
+          return Promise.resolve('project-lead');
+        },
+        selectSetupSourceLaunchAction(profileId) {
+          expect(profileId).toBe('project-lead');
+          return Promise.resolve('start');
+        },
+        launchSetupSourceProfile(input) {
+          expect(input.homeDirectory).toBe(homeDirectory);
+          expect(input.projectDirectory).toBe(projectDirectory);
+          launchedProfiles.push(input.profileId);
+          return Promise.resolve();
+        },
+      },
+    );
+
+    expect(launchedProfiles).toEqual(['project-lead']);
+    expect(result.messages.join('\n')).not.toContain('outfitter --profile project-lead');
   });
 
   it('adds a local project profile source when setup-source settings omit profile sources', async () => {

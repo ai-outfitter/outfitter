@@ -28,6 +28,9 @@ Outfitter provides setup and maintenance commands that create initial configurat
 18. Interactive `setup <source>` MUST present exactly one setup-source profile/default choice after the import target choice when setup-source profiles are available.
 19. When the interactive setup-source import target is user home, setup MUST copy missing source profiles into `~/.outfitter/profiles`, write the selected default profile to `~/.outfitter/settings.yml`, and preserve non-overwrite copy behavior.
 20. When the interactive setup-source import target is the current project, setup MUST copy missing source profiles into `<project>/.outfitter/profiles`, write the selected default profile to `<project>/.outfitter/settings.yml`, ensure that project settings expose `./profiles`, and preserve any existing user default profile.
+21. After interactive `setup <source>` imports the selected default profile, setup MUST offer to start Outfitter with that selected profile.
+22. When the user declines the post-import start offer, setup MUST exit without launching and show both `outfitter` for starting the configured default profile and `outfitter --profile <selected-profile>` for starting it explicitly.
+23. Non-interactive `setup <source>` completion MUST NOT launch Outfitter and MUST show the same default and explicit start command guidance.
 
 ### OFTR-004.2: Sync Command
 

@@ -143,7 +143,7 @@ When a repository is provided, it clones or updates the repository in Outfitter'
 - if the user chooses project and `<project>/.outfitter/settings.yml` does not exist, Outfitter copies the starter `settings.yml` and ensures `./profiles` is exposed;
 - if starter profiles exist, Outfitter copies missing profile files into the selected `profiles/` folder;
 - existing settings and profile files are otherwise left unchanged;
-- after setup, Outfitter runs the same sync behavior used by `outfitter sync`;
+- after setup, Outfitter runs the same sync behavior used by `outfitter sync`, then offers to start with the selected default profile or shows both `outfitter` and `outfitter --profile <profile>` start commands;
 - on initial interactive first-run setup, Outfitter skips the older default-profile prompt and lets welcome onboarding choose the generated local default profile;
 - outside that initial welcome handoff and outside setup-source import onboarding, Outfitter shows a short setup wizard that lists synced profiles and writes the selected default profile to user settings;
 - no-source interactive setup continues into welcome onboarding to record role and loadout choices.

@@ -56,6 +56,14 @@ export interface SetupSourceSynchronizer {
   sync(uri: string, cachePath: string): void;
 }
 
+export interface SetupSourceLaunchInput {
+  readonly homeDirectory: string;
+  readonly projectDirectory: string;
+  readonly profileId: string;
+}
+
+export type SetupSourcePostImportAction = 'start' | 'exit';
+
 export type SetupCommandDependencies = SyncCommandDependencies &
   WelcomeCommandDependencies & {
     readonly setupSourceSynchronizer?: SetupSourceSynchronizer;
@@ -67,6 +75,8 @@ export type SetupCommandDependencies = SyncCommandDependencies &
       choices: readonly SetupSourceImportTargetChoice[],
       defaultTarget: SetupSourceImportTarget,
     ) => Promise<SetupSourceImportTarget>;
+    readonly selectSetupSourceLaunchAction?: (profileId: string) => Promise<SetupSourcePostImportAction>;
+    readonly launchSetupSourceProfile?: (input: SetupSourceLaunchInput) => Promise<void>;
     readonly runWelcome?: (
       input: SetupCommandInput,
       dependencies: SetupCommandDependencies,
@@ -178,6 +188,7 @@ export const executeSetupCommand = async (
       createdDefaultProfile: finalDefaultProfile.created,
       syncResult,
       welcomeProfileMessages: welcomeProfile?.messages ?? [],
+      runExampleMessages: input.setupSourceUri === undefined ? [] : [formatRunProfileExample(finalDefaultProfile.id)],
     }),
   };
 };
@@ -256,6 +267,7 @@ const executeInteractiveSetupSourceCommand = async ({
 
   const defaultProfilePath = join(appliedImport.profilesPath, onboarding.selectedProfileId, 'profile.yml');
   const createdDefaultProfile = createDefaultProfileIfMissing(defaultProfilePath, onboarding.selectedProfileId);
+  const postImportAction = await runSetupSourcePostImportAction(input, dependencies, onboarding.selectedProfileId);
 
   return {
     settingsPath: appliedImport.settingsPath,
@@ -277,6 +289,7 @@ const executeInteractiveSetupSourceCommand = async ({
       createdDefaultProfile,
       syncResult,
       welcomeProfileMessages: [],
+      runExampleMessages: postImportAction === 'exit' ? [formatRunProfileExample(onboarding.selectedProfileId)] : [],
     }),
   };
 };
@@ -313,6 +326,7 @@ interface SetupMessageInput {
   readonly createdDefaultProfile: boolean;
   readonly syncResult: SyncCommandResult;
   readonly welcomeProfileMessages: readonly string[];
+  readonly runExampleMessages: readonly string[];
 }
 
 const buildSetupMessages = (input: SetupMessageInput): readonly string[] => {
@@ -348,6 +362,7 @@ const buildSetupMessages = (input: SetupMessageInput): readonly string[] => {
   messages.push(
     `Selected default profile '${input.defaultProfileId}'.`,
     ...input.welcomeProfileMessages,
+    ...input.runExampleMessages,
     ...input.syncResult.messages,
   );
 
@@ -360,6 +375,45 @@ const shouldReportDefaultProfileStatus = (input: SetupMessageInput): boolean => 
   }
 
   return input.input.setupSourceUri === undefined || input.starterLayout?.profilesPath === undefined;
+};
+
+const formatRunProfileExample = (profileId: string): string =>
+  `Start the selected default profile either way:\n  outfitter\n  outfitter --profile ${profileId}`;
+
+const runSetupSourcePostImportAction = async (
+  input: SetupCommandInput,
+  dependencies: SetupCommandDependencies,
+  profileId: string,
+): Promise<SetupSourcePostImportAction> => {
+  if (
+    dependencies.interactive !== true ||
+    (dependencies.launchSetupSourceProfile === undefined && dependencies.selectSetupSourceLaunchAction === undefined)
+  ) {
+    return 'exit';
+  }
+
+  const action = await selectSetupSourceLaunchAction(profileId, dependencies);
+
+  if (action === 'start') {
+    await dependencies.launchSetupSourceProfile?.({
+      homeDirectory: input.homeDirectory,
+      projectDirectory: input.projectDirectory,
+      profileId,
+    });
+  }
+
+  return action;
+};
+
+const selectSetupSourceLaunchAction = async (
+  profileId: string,
+  dependencies: SetupCommandDependencies,
+): Promise<SetupSourcePostImportAction> => {
+  if (dependencies.selectSetupSourceLaunchAction !== undefined) {
+    return dependencies.selectSetupSourceLaunchAction(profileId);
+  }
+
+  return promptForSetupSourceLaunchAction(profileId, dependencies);
 };
 
 const capitalize = (value: string): string => `${value.slice(0, 1).toUpperCase()}${value.slice(1)}`;
@@ -919,6 +973,24 @@ const assertValidSetupSourceImportTarget = (target: SetupSourceImportTarget): vo
   /* v8 ignore next -- defensive validation for custom dependency injection. */
   if (setupSourceImportTargetChoices.every((choice) => choice.target !== target)) {
     throw new Error(`Selected setup-source import target '${target}' is not available.`);
+  }
+};
+
+/* v8 ignore next -- covered by interactive CLI smoke tests; unit tests inject the launch choice. */
+const promptForSetupSourceLaunchAction = async (
+  profileId: string,
+  dependencies: SetupCommandDependencies,
+): Promise<SetupSourcePostImportAction> => {
+  const readline = createInterface({
+    input: dependencies.input ?? process.stdin,
+    output: resolveReadlineOutput(dependencies),
+  });
+
+  try {
+    const answer = await readline.question(`Start Outfitter with profile '${profileId}' now? [Y/n]: `);
+    return answer.trim().toLowerCase().startsWith('n') ? 'exit' : 'start';
+  } finally {
+    readline.close();
   }
 };
 
