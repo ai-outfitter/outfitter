@@ -356,6 +356,15 @@ const readStarterDefaultProfileId = (settingsPath?: string): string => {
   return loaded.files[0]?.settings.defaultProfile ?? 'engineer';
 };
 
+const readStarterExplicitDefaultProfileId = (settingsPath?: string): string | undefined => {
+  if (settingsPath === undefined) {
+    return undefined;
+  }
+
+  const loaded = loadSettingsFiles(createSettingsLoadPlan([{ scope: 'user', path: settingsPath }]));
+  return loaded.files[0]?.settings.defaultProfile;
+};
+
 type LoadedSetupSettingsFile = {
   readonly location: { readonly scope: string };
   readonly settings: { readonly defaultProfile?: string };
@@ -549,18 +558,15 @@ const selectDefaultProfileIfInteractive = async (
   }
 
   const discoveredProfiles = discoverSetupProfileChoices(input, starterLayout);
-  const profiles =
-    discoveredProfiles.length > 0 ||
-    input.setupSourceUri !== undefined ||
-    builtInSetupProfileChoices.every((profile) => profile.id !== currentDefault)
-      ? discoveredProfiles
-      : builtInSetupProfileChoices;
+  const sourceDefault = discoverSetupSourcePromptDefault(input, starterLayout, discoveredProfiles);
+  const promptDefault = sourceDefault ?? currentDefault;
+  const profiles = selectSetupPromptProfiles(input, discoveredProfiles, currentDefault, sourceDefault);
   const writer = dependencies.writeLine ?? console.log;
   writer('Welcome to Outfitter. Outfitter is the easiest way to run Pi.');
   writer(
     'Outfitter manages full pi configurations for you, so you can use different profiles in different situations.',
   );
-  const selectedProfile = await selectSetupProfile(profiles, currentDefault, dependencies);
+  const selectedProfile = await selectSetupProfile(profiles, promptDefault, dependencies);
   assertValidSelectedDefaultProfile(selectedProfile, profiles);
   updateSettingsDefaultProfile(settingsPath, selectedProfile);
   return selectedProfile;
@@ -573,6 +579,43 @@ const assertValidSelectedDefaultProfile = (selectedProfile: string, profiles: re
     throw new Error(`Selected default profile '${selectedProfile}' was not one of the available setup profiles.`);
   }
 };
+
+const discoverSetupSourcePromptDefault = (
+  input: SetupCommandInput,
+  starterLayout: StarterLayout | undefined,
+  profiles: readonly SetupProfileChoice[],
+): string | undefined => {
+  if (input.setupSourceUri === undefined) {
+    return undefined;
+  }
+
+  const sourceDefault = readStarterExplicitDefaultProfileId(starterLayout?.settingsPath);
+  return profiles.some((profile) => profile.id === sourceDefault) ? sourceDefault : undefined;
+};
+
+const selectSetupPromptProfiles = (
+  input: SetupCommandInput,
+  discoveredProfiles: readonly SetupProfileChoice[],
+  currentDefault: string,
+  sourceDefault: string | undefined,
+): readonly SetupProfileChoice[] => {
+  const profiles =
+    discoveredProfiles.length > 0 ||
+    input.setupSourceUri !== undefined ||
+    builtInSetupProfileChoices.every((profile) => profile.id !== currentDefault)
+      ? discoveredProfiles
+      : builtInSetupProfileChoices;
+
+  return sourceDefault === undefined ? profiles : prioritizeSetupProfileChoice(profiles, sourceDefault);
+};
+
+const prioritizeSetupProfileChoice = (
+  profiles: readonly SetupProfileChoice[],
+  profileId: string,
+): readonly SetupProfileChoice[] => [
+  ...profiles.filter((profile) => profile.id === profileId),
+  ...profiles.filter((profile) => profile.id !== profileId),
+];
 
 const discoverSetupProfileChoices = (
   input: SetupCommandInput,

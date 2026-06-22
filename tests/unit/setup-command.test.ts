@@ -283,6 +283,122 @@ describe('setup command', () => {
   });
 
 
+  it('uses the setup source default profile as the first readline setup choice', async () => {
+    const root = createTemporaryRoot();
+    const homeDirectory = join(root, 'home');
+    const projectDirectory = join(root, 'project');
+    const setupSourceUri = 'https://example.test/link-profiles';
+    const input = Object.assign(new PassThrough(), { isTTY: true });
+    const output = Object.assign(new PassThrough(), { isTTY: true });
+    const outputChunks: Buffer[] = [];
+    output.on('data', (chunk: Buffer) => outputChunks.push(chunk));
+
+    writeSettings(
+      homeDirectory,
+      [
+        'default_profile: engineer',
+        'profile_sources:',
+        '  - github: ai-outfitter/default-profiles',
+        '    path: profiles',
+        '  - path: ./profiles',
+        '',
+      ].join('\n'),
+    );
+    input.end('\n');
+
+    const result = await executeSetupCommand(
+      { homeDirectory, projectDirectory, setupSourceUri },
+      {
+        interactive: true,
+        input,
+        output,
+        writeLine: () => undefined,
+        synchronizer: defaultProfileSynchronizer,
+        setupSourceSynchronizer: {
+          sync(_uri, cachePath) {
+            const outfitterDirectory = join(cachePath, '.outfitter');
+            mkdirSync(outfitterDirectory, { recursive: true });
+            writeFileSync(
+              join(outfitterDirectory, 'settings.yml'),
+              'default_profile: project-lead\nprofile_sources:\n  - path: ./profiles\n',
+            );
+
+            for (const [profileId, label] of [
+              ['engineer', 'Engineer'],
+              ['project-lead', 'Project Lead'],
+            ] as const) {
+              const profileFolder = join(outfitterDirectory, 'profiles', profileId);
+              mkdirSync(profileFolder, { recursive: true });
+              writeFileSync(join(profileFolder, 'profile.yml'), `id: ${profileId}\nlabel: ${label}\ncontrols: {}\n`);
+            }
+          },
+        },
+        selectWelcomePlan() {
+          return Promise.resolve({ answerQuestions: false });
+        },
+      },
+    );
+
+    const promptOutput = Buffer.concat(outputChunks).toString('utf8');
+    expect(promptOutput).toContain('1. project-lead - Project Lead');
+    expect(promptOutput).toContain('2. engineer - Engineer');
+    expect(promptOutput).toContain('Default profile [1]:');
+    expect(result.messages).toContain("Selected default profile 'project-lead'.");
+    expect(readFileSync(join(homeDirectory, '.outfitter', 'settings.yml'), 'utf8')).toContain(
+      'default_profile: project-lead',
+    );
+  });
+
+  it('does not promote a setup source default absent from source profile choices', async () => {
+    const root = createTemporaryRoot();
+    const homeDirectory = join(root, 'home');
+    const projectDirectory = join(root, 'project');
+    const setupSourceUri = 'https://example.test/link-profiles';
+
+    writeSettings(homeDirectory, 'default_profile: engineer\nprofile_sources:\n  - path: ./profiles\n');
+
+    const result = await executeSetupCommand(
+      { homeDirectory, projectDirectory, setupSourceUri },
+      {
+        interactive: true,
+        input: { isTTY: true } as NodeJS.ReadableStream & { isTTY: true },
+        output: { isTTY: true } as NodeJS.WritableStream & { isTTY: true },
+        writeLine: () => undefined,
+        setupSourceSynchronizer: {
+          sync(_uri, cachePath) {
+            const outfitterDirectory = join(cachePath, '.outfitter');
+            mkdirSync(outfitterDirectory, { recursive: true });
+            writeFileSync(
+              join(outfitterDirectory, 'settings.yml'),
+              'default_profile: unavailable\nprofile_sources:\n  - path: ./profiles\n',
+            );
+
+            for (const [profileId, label] of [
+              ['project-lead', 'Project Lead'],
+              ['engineer', 'Engineer'],
+            ] as const) {
+              const profileFolder = join(outfitterDirectory, 'profiles', profileId);
+              mkdirSync(profileFolder, { recursive: true });
+              writeFileSync(join(profileFolder, 'profile.yml'), `id: ${profileId}\nlabel: ${label}\ncontrols: {}\n`);
+            }
+          },
+        },
+        selectDefaultProfile(profiles, currentDefault) {
+          expect(currentDefault).toBe('engineer');
+          expect(profiles.map((profile) => profile.id)).toEqual(['engineer', 'project-lead']);
+          return Promise.resolve('engineer');
+        },
+        selectWelcomePlan() {
+          return Promise.resolve({ answerQuestions: false });
+        },
+      },
+    );
+
+    expect(result.messages).toContain("Selected default profile 'engineer'.");
+  });
+
+
+
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-004.1).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('validates discovered settings before setup and runs URI sync behavior', async () => {

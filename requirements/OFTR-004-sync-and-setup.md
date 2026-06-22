@@ -22,6 +22,7 @@ Outfitter provides setup and maintenance commands that create initial configurat
 12. When the interactive `setup` command presents setup profile choices outside the initial welcome handoff, it MUST validate the selected default profile ID before writing it to `settings.yml`.
 13. After the interactive `setup` command writes a selected default profile, any newly-created fallback default profile file MUST correspond to the final selected default profile.
 14. When interactive `setup <source>` presents setup profile choices, it MUST limit those choices to profiles from the passed setup source and MUST NOT include default profile sources from pre-existing effective settings.
+15. When interactive `setup <source>` presents setup profile choices and the setup source declares an explicit `default_profile` that exists among those source choices, it MUST make that profile the prompt default and first displayed choice; pre-existing user defaults MUST NOT override that source default for the setup-source prompt.
 
 ### OFTR-004.2: Sync Command
 
