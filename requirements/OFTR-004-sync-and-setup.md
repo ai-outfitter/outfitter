@@ -33,6 +33,7 @@ Outfitter provides setup and maintenance commands that create initial configurat
 23. Setup MUST NOT write provider/model choices into published profile controls or persistent setup-skill controls.
 24. Rerunning `outfitter setup <repo>` SHOULD re-consume the setup source non-destructively and expose any effective setup skill only for that interactive setup session.
 25. When interactive `setup <source>` presents setup profile choices, it MUST limit those choices to profiles from the passed setup source and MUST NOT include default profile sources from pre-existing effective settings.
+26. When interactive `setup <source>` presents setup profile choices and the setup source declares an explicit `default_profile` that exists among those source choices, it MUST make that profile the prompt default and first displayed choice; pre-existing user defaults MUST NOT override that source default for the setup-source prompt.
 
 ### OFTR-004.2: Sync Command
 
