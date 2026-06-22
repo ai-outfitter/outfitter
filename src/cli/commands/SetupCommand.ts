@@ -853,12 +853,24 @@ const resolvePromptOutput = (dependencies: SetupCommandDependencies): Pick<NodeJ
     return dependencies.output;
   }
 
-  return {
-    write(message: string) {
-      dependencies.writeLine?.(message.replace(/\n$/u, ''));
-      return true;
-    },
-  };
+  if (dependencies.writeLine !== undefined) {
+    return {
+      write(message: string) {
+        dependencies.writeLine?.(message.replace(/\n$/u, ''));
+        return true;
+      },
+    };
+  }
+
+  if (dependencies.output !== undefined) {
+    return {
+      write() {
+        return true;
+      },
+    };
+  }
+
+  return process.stdout;
 };
 
 const runSetupSourceOnboarding = async (
