@@ -362,6 +362,8 @@ profiles/
     prompts/
     skills/
     extensions/
+    deepwork/
+      jobs/
     cli_specific/
       pi/
       claude/
@@ -397,10 +399,12 @@ Rules:
 - Every `profile.yml` MUST validate against `profile.schema.json`.
 - `inherits` is an ordered array of profile names.
 - `template: true` marks a profile as inheritance-only: it may contribute controls to runnable profiles through `inherits`, but `outfitter run --profile <id>` and `default_profile: <id>` launches reject it directly.
-- `cli_specific/<cli-name>/` contains files copied or translated directly into the generated composite profile for that CLI.
-- Pi profiles may provide `cli_specific/pi/.mcp.json`; Outfitter merges contributing profile fragments into the composite profile with unique array entries by identity and last writer wins for duplicate identities.
-- Pi profiles may provide DeepWork jobs under `cli_specific/pi/deepwork/jobs/`; Outfitter appends contributing job folders to `DEEPWORK_ADDITIONAL_JOBS_FOLDERS` when launching Pi so DeepWork can discover those profile-owned workflows.
+- `skills/` contains profile-bundled Agent Skills. Outfitter exposes valid skills from contributing profile folders when launching Pi.
+- `deepwork/jobs/` contains profile-bundled DeepWork jobs. Outfitter appends contributing profile job folders to `DEEPWORK_ADDITIONAL_JOBS_FOLDERS` when launching Pi so DeepWork can discover profile-owned workflows.
   Profile-bundled jobs are isolated by default: inherited `DEEPWORK_ADDITIONAL_JOBS_FOLDERS` entries are included only when the profile sets `controls.pi.allow_external_deepwork_jobs: true`.
+- `cli_specific/<cli-name>/` contains files copied or translated directly into the generated composite profile for that CLI, plus resources that intentionally apply only to one adapter.
+- Pi profiles may provide `cli_specific/pi/.mcp.json`; Outfitter merges contributing profile fragments into the composite profile with unique array entries by identity and last writer wins for duplicate identities.
+- Pi-specific skills and DeepWork jobs may also live under `cli_specific/pi/skills/` and `cli_specific/pi/deepwork/jobs/` when they should not be exposed to other adapters.
 - `append_system_prompt` accepts a string or an ordered string array. When multiple resolved profile layers provide it, Outfitter composes the values into repeated agent append-prompt inputs in profile precedence order so shared prompt profiles do not need to use raw CLI `args`.
 - CLI-specific configuration wins over generic controls when both apply to the same generated artifact.
 

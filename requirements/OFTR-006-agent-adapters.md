@@ -37,6 +37,8 @@ Pi is the default and primary supported adapter; Claude Code is also supported t
 9. The pi adapter SHOULD support pi model, provider, and thinking controls where native pi flags exist.
 10. The pi adapter MUST merge `.mcp.json` files from contributing `cli_specific/pi/` profile folders into the composite profile, adding unique array entries by identity while keeping the last entry for duplicate identities.
 11. The pi adapter MUST make native Pi `models.json` available inside the composite profile so custom providers and model definitions are visible before Pi resolves `--provider` and `--model` flags.
+12. The pi adapter MUST expose valid Agent Skills from contributing profile `skills/` folders as `--skill` arguments, and MAY also expose Pi-specific skills from `cli_specific/pi/skills/`.
+13. The pi adapter MUST expose DeepWork jobs from contributing profile `deepwork/jobs/` folders through `DEEPWORK_ADDITIONAL_JOBS_FOLDERS`, and MAY also expose Pi-specific jobs from `cli_specific/pi/deepwork/jobs/`.
 
 ### OFTR-006.4: Pi Startup Boundary
 

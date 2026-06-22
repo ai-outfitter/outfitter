@@ -24,10 +24,10 @@ describe('pi adapter DeepWork jobs', () => {
     const unrelatedProfileFolder = join(root, 'unrelated');
     const invalidProfileFolder = join(root, 'invalid');
     const missingProfileFolder = join(root, 'missing');
-    const baseJobsFolder = join(baseProfileFolder, 'cli_specific', 'pi', 'deepwork', 'jobs');
-    const selectedJobsFolder = join(selectedProfileFolder, 'cli_specific', 'pi', 'deepwork', 'jobs');
-    const unrelatedJobsFolder = join(unrelatedProfileFolder, 'cli_specific', 'pi', 'deepwork', 'jobs');
-    const invalidJobsFolder = join(invalidProfileFolder, 'cli_specific', 'pi', 'deepwork', 'jobs');
+    const baseJobsFolder = join(baseProfileFolder, 'deepwork', 'jobs');
+    const selectedJobsFolder = join(selectedProfileFolder, 'deepwork', 'jobs');
+    const unrelatedJobsFolder = join(unrelatedProfileFolder, 'deepwork', 'jobs');
+    const invalidJobsFolder = join(invalidProfileFolder, 'deepwork', 'jobs');
 
     mkdirSync(join(baseJobsFolder, 'metric_audit'), { recursive: true });
     mkdirSync(join(selectedJobsFolder, 'insight_brief'), { recursive: true });
@@ -66,7 +66,7 @@ describe('pi adapter DeepWork jobs', () => {
     const root = mkdtempSync(join(tmpdir(), 'outfitter-pi-deepwork-process-env-'));
     temporaryPiAdapterTestRoots.push(root);
     const profileFolder = join(root, 'selected');
-    const jobsFolder = join(profileFolder, 'cli_specific', 'pi', 'deepwork', 'jobs');
+    const jobsFolder = join(profileFolder, 'deepwork', 'jobs');
     const previousJobsFolders = process.env.DEEPWORK_ADDITIONAL_JOBS_FOLDERS;
 
     try {

@@ -431,8 +431,8 @@ describe('pi adapter', () => {
   it('adds profile-bundled Pi skills to the launch args', () => {
     const root = createTemporaryPiAdapterTestRoot('outfitter-pi-profile-skills-');
     const profileFolder = join(root, 'profiles', 'data_analyst');
-    const skillFolder = join(profileFolder, 'cli_specific', 'pi', 'skills', 'demos');
-    const incompleteSkillFolder = join(profileFolder, 'cli_specific', 'pi', 'skills', 'draft');
+    const skillFolder = join(profileFolder, 'skills', 'demos');
+    const incompleteSkillFolder = join(profileFolder, 'skills', 'draft');
     mkdirSync(skillFolder, { recursive: true });
     mkdirSync(incompleteSkillFolder, { recursive: true });
     writeFileSync(join(skillFolder, 'SKILL.md'), '---\nname: demos\ndescription: Demo runner\n---\n');
@@ -456,23 +456,23 @@ describe('pi adapter', () => {
     const root = createTemporaryPiAdapterTestRoot('outfitter-pi-profile-resource-errors-');
     const adapter = createPiAdapter();
     const profileFolder = join(root, 'profiles', 'data_analyst');
-    const skillsFolder = join(profileFolder, 'cli_specific', 'pi', 'skills');
-    const jobsFolder = join(profileFolder, 'cli_specific', 'pi', 'deepwork', 'jobs');
+    const skillsFolder = join(profileFolder, 'skills');
+    const jobsFolder = join(profileFolder, 'deepwork', 'jobs');
     const compositeProfilePlan = adapter.createCompositeProfile(
       { id: 'data_analyst', inherits: [], controls: {} },
       { rootDirectory: join(root, 'composite'), profilePaths: [], profileFolders: [profileFolder] },
     );
 
-    mkdirSync(join(profileFolder, 'cli_specific', 'pi'), { recursive: true });
+    mkdirSync(profileFolder, { recursive: true });
     writeFileSync(skillsFolder, 'not a directory');
     expect(() =>
       adapter.createLaunchPlan(compositeProfilePlan.compositeProfile, undefined, [], {
         profileFolders: [profileFolder],
       }),
-    ).toThrow(`Could not read profile Pi skills folder '${skillsFolder}'`);
+    ).toThrow(`Could not read profile skills folder '${skillsFolder}'`);
 
     rmSync(skillsFolder, { force: true });
-    mkdirSync(join(profileFolder, 'cli_specific', 'pi', 'deepwork'), { recursive: true });
+    mkdirSync(join(profileFolder, 'deepwork'), { recursive: true });
     writeFileSync(jobsFolder, 'not a directory');
     expect(() =>
       adapter.createLaunchPlan(compositeProfilePlan.compositeProfile, undefined, [], {
