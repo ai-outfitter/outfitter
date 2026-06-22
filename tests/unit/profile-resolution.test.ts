@@ -89,22 +89,6 @@ describe('profile resolution', () => {
       defaultProfileId: 'default',
       profiles: [
         createLoadedProfile({
-          source: createLocalProfileSource('<user-profiles>'),
-          profile: {
-            id: 'default',
-            inherits: [],
-            controls: {
-              args: ['--default'],
-              appendSystemPrompt: 'default prompt',
-              append_system_prompt: 'default prompt',
-              extensions: ['npm:pi-subagents@1', 'git:github.com/ai-outfitter/deepwork#main'],
-              skills: ['./skills/review'],
-              pi: { appendSystemPrompt: 'default pi prompt' },
-              custom_list: ['default'],
-            },
-          },
-        }),
-        createLoadedProfile({
           source: createLocalProfileSource('<project-profiles>'),
           profile: {
             id: 'base',
@@ -139,19 +123,11 @@ describe('profile resolution', () => {
     });
 
     expect(result.issues).toEqual([]);
-    expect(result.profile?.controls.args).toEqual(['--selected', '--base', '--default']);
-    expect(result.profile?.controls.appendSystemPrompt).toEqual(['selected prompt', 'base prompt', 'default prompt']);
-    expect(result.profile?.controls.append_system_prompt).toEqual(['selected prompt', 'base prompt', 'default prompt']);
-    expect(result.profile?.controls.pi?.appendSystemPrompt).toEqual([
-      'selected pi prompt',
-      'base pi prompt',
-      'default pi prompt',
-    ]);
-    expect(result.profile?.controls.extensions).toEqual([
-      'npm:pi-subagents@3',
-      'npm:base-only',
-      'git:github.com/ai-outfitter/deepwork#main',
-    ]);
+    expect(result.profile?.controls.args).toEqual(['--selected', '--base']);
+    expect(result.profile?.controls.appendSystemPrompt).toEqual(['selected prompt', 'base prompt']);
+    expect(result.profile?.controls.append_system_prompt).toEqual(['selected prompt', 'base prompt']);
+    expect(result.profile?.controls.pi?.appendSystemPrompt).toEqual(['selected pi prompt', 'base pi prompt']);
+    expect(result.profile?.controls.extensions).toEqual(['npm:pi-subagents@3', 'npm:base-only']);
     expect(result.profile?.controls.skills).toEqual(['./skills/review', './skills/base']);
     expect(result.profile?.controls.custom_list).toEqual(['selected']);
   });
@@ -190,7 +166,7 @@ describe('profile resolution', () => {
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-003.4, OFTR-003.5).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
-  it('resolves inherited profiles below explicit profiles and includes the implicit user default without duplicates', () => {
+  it('resolves inherited profiles below explicit profiles without implicitly composing the default profile', () => {
     const loaded = loadLocalProfileSource(
       createLocalProfileSource(scenarioPath('profile-inheritance-chain', 'profiles')),
     );
@@ -211,12 +187,11 @@ describe('profile resolution', () => {
     });
 
     expect(result.issues).toEqual([]);
-    expect(result.profileStack.map((profile) => profile.id)).toEqual(['base', 'default', 'engineering']);
+    expect(result.profileStack.map((profile) => profile.id)).toEqual(['base', 'engineering']);
     expect(result.profile?.controls).toEqual({
       model: 'engineering-model',
       environment: {
         BASE: 'enabled',
-        DEFAULT: 'enabled',
         ENGINEERING: 'enabled',
         SHARED: 'engineering',
       },

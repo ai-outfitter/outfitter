@@ -48,7 +48,6 @@ describe('adapter-specific integration fixture composite profile generation', ()
               GENERIC_ENV: plan.env.GENERIC_ENV,
               PI_ONLY: plan.env.PI_ONLY,
               SHARED_LAYER: plan.env.SHARED_LAYER,
-              USER_DEFAULT: plan.env.USER_DEFAULT,
             },
             ...(summarizePiCompositeProfile(fixture, compositeProfileRoot) as Record<string, unknown>),
           };
@@ -111,7 +110,6 @@ describe('adapter-specific integration fixture composite profile generation', ()
               CLAUDE_ONLY: plan.env.CLAUDE_ONLY,
               GENERIC_ENV: plan.env.GENERIC_ENV,
               SHARED_LAYER: plan.env.SHARED_LAYER,
-              USER_DEFAULT: plan.env.USER_DEFAULT,
             },
             ...(summarizeClaudeCompositeProfile(fixture, compositeProfileRoot) as Record<string, unknown>),
           };

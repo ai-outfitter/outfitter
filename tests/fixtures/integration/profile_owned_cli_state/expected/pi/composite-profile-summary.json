@@ -25,7 +25,6 @@
   ],
   "launchEnv": {
     "PI_CODING_AGENT_DIR": "<composite-profile>",
-    "PERSONAL_DEFAULT": "enabled",
     "TEAM_BASE": "enabled",
     "SELECTED_PROFILE": "stateful-review",
     "PI_PROFILE_STATE": "profile-owned",
@@ -37,12 +36,11 @@
     "controls": {
       "model": "generic-stateful-model",
       "environment": {
-        "PERSONAL_DEFAULT": "enabled",
         "SHARED_LAYER": "stateful-review",
         "TEAM_BASE": "enabled",
         "SELECTED_PROFILE": "stateful-review"
       },
-      "args": ["--generic-review", "--personal-default"],
+      "args": ["--generic-review"],
       "provider": "generic-provider",
       "thinking": "medium",
       "extensions": ["generic-extension", "team-extension"],

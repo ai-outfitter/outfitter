@@ -6,8 +6,7 @@
   "launchEnv": {
     "PI_CODING_AGENT_DIR": "<composite-profile>",
     "FALLBACK_LAYER": "project",
-    "PROJECT_NATIVE_FALLBACK": "enabled",
-    "USER_NATIVE_DEFAULT": "enabled"
+    "PROJECT_NATIVE_FALLBACK": "enabled"
   },
   "generatedProfile": {
     "id": "fallback-review",
@@ -17,8 +16,7 @@
       "provider": "openai",
       "environment": {
         "FALLBACK_LAYER": "project",
-        "PROJECT_NATIVE_FALLBACK": "enabled",
-        "USER_NATIVE_DEFAULT": "enabled"
+        "PROJECT_NATIVE_FALLBACK": "enabled"
       },
       "args": ["--native-fallback-fixture"]
     }
