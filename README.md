@@ -138,13 +138,15 @@ outfitter setup https://github.com/my_account/outfitter_config
 `outfitter setup` requires an interactive terminal on both stdin and stdout.
 When a repository is provided, it clones or updates the repository in Outfitter's shared repository cache, then uses it as a non-overwriting starting point:
 
-- if `~/.outfitter/settings.yml` does not exist, Outfitter copies the starter `settings.yml`;
-- if starter profiles exist, Outfitter copies missing profile files into `~/.outfitter/profiles/`;
-- existing user settings and profile files are otherwise left unchanged;
-- after setup, Outfitter runs the same sync behavior used by `outfitter sync`;
+- interactive setup-source onboarding shows the Outfitter welcome first, explains which source is being imported, asks whether to install profiles into user home or the current project, then asks one source-profile/default prompt;
+- if the user chooses home and `~/.outfitter/settings.yml` does not exist, Outfitter copies the starter `settings.yml`;
+- if the user chooses project and `<project>/.outfitter/settings.yml` does not exist, Outfitter copies the starter `settings.yml` and ensures `./profiles` is exposed;
+- if starter profiles exist, Outfitter copies missing profile files into the selected `profiles/` folder;
+- existing settings and profile files are otherwise left unchanged;
+- after setup, Outfitter runs the same sync behavior used by `outfitter sync`, then offers to start with the selected default profile or shows both `outfitter` and `outfitter --profile <profile>` start commands;
 - on initial interactive first-run setup, Outfitter skips the older default-profile prompt and lets welcome onboarding choose the generated local default profile;
-- outside that initial welcome handoff, Outfitter shows a short setup wizard that lists synced profiles and writes the selected default profile to user settings;
-- interactive setup continues into welcome onboarding to record role and loadout choices.
+- outside that initial welcome handoff and outside setup-source import onboarding, Outfitter shows a short setup wizard that lists synced profiles and writes the selected default profile to user settings;
+- no-source interactive setup continues into welcome onboarding to record role and loadout choices.
 
 A setup repository can use either root-level Outfitter files:
 
@@ -222,9 +224,10 @@ Set `template: true` on profiles such as `shared-prose` that should only be inhe
 
 The exact stable schema is governed by the requirements in `requirements/` and the JSON Schema files in `src/schemas/`, which are still expected to evolve with implementation.
 
-Pi profiles can also ship DeepWork jobs for that profile under `cli_specific/pi/deepwork/jobs/`.
+Profiles can also ship DeepWork jobs for that profile under `deepwork/jobs/`.
 When Outfitter launches Pi, it adds contributing profile job folders to `DEEPWORK_ADDITIONAL_JOBS_FOLDERS` so the DeepWork frontend can discover profile-owned workflows without copying them into a project `.deepwork/jobs/` directory.
 By default, profiles with bundled jobs receive only their profile-bundled jobs; set `controls.pi.allow_external_deepwork_jobs: true` to also include inherited `DEEPWORK_ADDITIONAL_JOBS_FOLDERS` entries.
+Pi-specific job overrides remain supported under `cli_specific/pi/deepwork/jobs/`.
 
 ## Design direction
 

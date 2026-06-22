@@ -23,7 +23,7 @@ afterEach(() => {
 describe('integration fixture composite profile generation', () => {
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-005.3, OFTR-005.6).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
-  it('runs a repo-only selected profile over the user default and uses native fallback state', async () => {
+  it('runs a repo-only selected profile without composing the user default and uses native fallback state', async () => {
     const fixture = copyFixtureToTemp('trivial_repo_only_profile');
     const warnings: string[] = [];
     let compositeProfileSummary: unknown;
@@ -44,7 +44,6 @@ describe('integration fixture composite profile generation', () => {
               PI_CODING_AGENT_DIR: tokenizeFixturePath(fixture, plan.env.PI_CODING_AGENT_DIR, compositeProfileRoot),
               REPO_PROFILE: plan.env.REPO_PROFILE,
               SHARED_LAYER: plan.env.SHARED_LAYER,
-              USER_DEFAULT: plan.env.USER_DEFAULT,
             },
             ...(summarizePiCompositeProfile(fixture, compositeProfileRoot) as Record<string, unknown>),
           };
@@ -117,7 +116,7 @@ describe('integration fixture composite profile generation', () => {
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-003.2, OFTR-005.3).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
-  it('runs a realistic TypeScript profile stack over the user default without writing back inherited profiles', async () => {
+  it('runs a realistic TypeScript profile stack without composing the user default', async () => {
     const fixture = copyFixtureToTemp('language_stack_with_personal_default');
     const warnings: string[] = [];
     let compositeProfileSummary: unknown;
@@ -145,9 +144,7 @@ describe('integration fixture composite profile generation', () => {
             launchArgs: plan.args,
             launchEnv: {
               PI_CODING_AGENT_DIR: tokenizeFixturePath(fixture, plan.env.PI_CODING_AGENT_DIR, compositeProfileRoot),
-              EDITOR_STYLE: plan.env.EDITOR_STYLE,
               LANGUAGE_STACK: plan.env.LANGUAGE_STACK,
-              PERSONAL_DEFAULT: plan.env.PERSONAL_DEFAULT,
               REPO_REVIEW_BASE: plan.env.REPO_REVIEW_BASE,
               REVIEW_STACK: plan.env.REVIEW_STACK,
               SELECTED_PROFILE: plan.env.SELECTED_PROFILE,
@@ -412,7 +409,6 @@ describe('integration fixture composite profile generation', () => {
               PI_CODING_AGENT_DIR: tokenizeFixturePath(fixture, plan.env.PI_CODING_AGENT_DIR, compositeProfileRoot),
               FALLBACK_LAYER: plan.env.FALLBACK_LAYER,
               PROJECT_NATIVE_FALLBACK: plan.env.PROJECT_NATIVE_FALLBACK,
-              USER_NATIVE_DEFAULT: plan.env.USER_NATIVE_DEFAULT,
             },
             generatedProfile: JSON.parse(
               readFileSync(join(compositeProfileRoot, 'outfitter', 'profile.json'), 'utf8'),
@@ -525,7 +521,6 @@ describe('integration fixture composite profile generation', () => {
             launchArgs: plan.args,
             launchEnv: {
               CACHE_TOOLING_PROFILE: plan.env.CACHE_TOOLING_PROFILE,
-              PERSONAL_CACHE_DEFAULT: plan.env.PERSONAL_CACHE_DEFAULT,
               PI_CODING_AGENT_DIR: tokenizeFixturePath(fixture, plan.env.PI_CODING_AGENT_DIR, compositeProfileRoot),
               TOOLING_OWNER: plan.env.TOOLING_OWNER,
             },

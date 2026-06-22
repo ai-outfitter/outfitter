@@ -13,7 +13,7 @@ This fixture models a project that wants reusable agent tooling to survive acros
 
 ## Expected behavior
 
-The selected `cache-tooling` profile should merge over the user default and launch pi with `PI_CODING_AGENT_DIR` pointing at the temporary composite profile.
+The selected `cache-tooling` profile should launch without implicitly merging the user default, with `PI_CODING_AGENT_DIR` pointing at the temporary composite profile.
 Pi's reusable tooling paths, `utilities/` and `bin/`, should both symlink to the configured fixture cache directory (`cache/utilities`) so repeated composite profiles reuse the same installed helpers.
 
 Other adapter-declared state such as `cache/`, `npm/`, and `git/` remains governed by normal pi state-source resolution.

@@ -12,7 +12,7 @@ Outfitter resolves profile definitions across settings scopes, explicit sources,
 1. A profile MUST be represented by a folder with a required `profile.yml` file.
 2. Outfitter MUST provide a JSON Schema for `profile.yml`.
 3. Outfitter MUST validate every loaded `profile.yml` file against the profile JSON Schema.
-4. A profile folder MAY contain conventional resource folders such as `skills`, `prompts`, and `extensions`.
+4. A profile folder MAY contain conventional resource folders such as `skills`, `prompts`, `extensions`, and `deepwork/jobs`.
 5. A profile folder MAY contain `cli_specific/<cli-name>/` folders for agent-specific resources and overrides.
 
 ### OFTR-003.2: Profile Identity
@@ -37,11 +37,11 @@ Outfitter resolves profile definitions across settings scopes, explicit sources,
 4. Outfitter MUST detect inheritance cycles and report them as validation errors.
 5. Outfitter MUST preserve inherited profile order when building the profile stack.
 
-### OFTR-003.5: Implicit Default Profile
+### OFTR-003.5: Default Profile Selection
 
-1. The default profile from user settings MUST be included as an implicit bottom profile when running any explicit profile.
-2. Profiles inherited by the implicit default profile MUST be included recursively below the default profile according to the inheritance rules.
-3. Outfitter MUST avoid duplicating a profile in the resolved stack when the same profile appears explicitly and implicitly.
+1. Outfitter MUST use the configured `default_profile` only when no explicit profile is selected.
+2. When an explicit profile is selected, Outfitter MUST resolve only that profile and its declared `inherits` chain.
+3. Outfitter MUST NOT include the configured `default_profile` as an implicit base layer for an explicit profile.
 
 ### OFTR-003.6: Profile Merging
 

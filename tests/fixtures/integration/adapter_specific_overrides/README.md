@@ -15,7 +15,7 @@ This fixture models one repository-selected profile that combines portable Outfi
 Running the same selected profile as pi should launch `pi` with generic controls overlaid by `controls.pi`: pi-specific scalar controls, args, and environment should win over shared generic values, while extension and skill resources should merge with adapter-specific resources first.
 Running it as Claude Code should launch `claude` with generic controls overlaid by `controls.claude`: Claude-specific scalar controls, args, and environment should win over shared generic values, while plugin directories should merge with Claude-specific resources first.
 
-Both adapters should still receive the user's implicit default environment below the repository profile.
+Both adapters should resolve only the selected repository profile and its explicit inheritance chain; user defaults should not be implicitly composed.
 Each adapter should select only its own `cli_specific/<adapter>/settings.json` as the declared state target.
 
 ## Mutation/write-back behavior

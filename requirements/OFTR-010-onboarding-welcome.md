@@ -9,6 +9,7 @@ Outfitter welcome onboarding guides a new user through the minimum choices neede
 ### OFTR-010.1: Welcome Text
 
 1. Welcome text MUST be shown to the user explaining what Outfitter and Pi are.
+2. Welcome text MUST use Outfitter-branded ASCII/text.
 
 > Pi is a heavily customizable coding harness.
 > The next few questions will configure Outfitter to best suit your workflow.

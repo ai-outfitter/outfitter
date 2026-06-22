@@ -6,8 +6,7 @@
   "launchEnv": {
     "PI_CODING_AGENT_DIR": "<composite-profile>",
     "REPO_PROFILE": "enabled",
-    "SHARED_LAYER": "repo-review",
-    "USER_DEFAULT": "enabled"
+    "SHARED_LAYER": "repo-review"
   },
   "generatedProfile": {
     "id": "repo-review",
@@ -16,8 +15,7 @@
       "model": "repo-review-model",
       "environment": {
         "REPO_PROFILE": "enabled",
-        "SHARED_LAYER": "repo-review",
-        "USER_DEFAULT": "enabled"
+        "SHARED_LAYER": "repo-review"
       },
       "args": ["--repo-flag"]
     }

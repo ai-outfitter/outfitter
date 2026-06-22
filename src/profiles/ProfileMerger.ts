@@ -12,7 +12,6 @@ export interface ProfileResolutionInput {
   /** Profiles ordered from lowest precedence to highest precedence. */
   readonly profiles: readonly LoadedProfile[];
   readonly profileId: string;
-  readonly defaultProfileId?: string;
 }
 
 export interface ProfileResolutionIssue {
@@ -94,15 +93,7 @@ const isAppendSystemPromptPath = (pathKey: string): boolean =>
 export const resolveProfile = (input: ProfileResolutionInput): ProfileResolutionResult => {
   const definitions = createProfileDefinitions(input.profiles);
   const issues: ProfileResolutionIssue[] = [];
-  const explicitStack = resolveProfileStack(input.profileId, definitions, [], issues);
-  const defaultStack =
-    input.defaultProfileId === undefined || input.defaultProfileId === input.profileId
-      ? []
-      : resolveProfileStack(input.defaultProfileId, definitions, [], issues);
-  const profileStack = uniqueProfileStack([
-    ...defaultStack.filter((profile) => profile.id !== input.profileId),
-    ...explicitStack,
-  ]);
+  const profileStack = uniqueProfileStack(resolveProfileStack(input.profileId, definitions, [], issues));
 
   return {
     profile:

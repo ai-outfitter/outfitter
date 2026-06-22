@@ -13,8 +13,6 @@
     "Review {{project.name}} with repository standards",
     "--system-prompt",
     "Supplemental engineering guardrails",
-    "--append-system-prompt",
-    "Personal review preferences",
     "--extension",
     "personal-lint",
     "--skill",
@@ -24,7 +22,6 @@
   "launchEnv": {
     "PI_CODING_AGENT_DIR": "<composite-profile>",
     "BASE_SHARED": "team-baseline",
-    "DEFAULT_SHARED": "user-default",
     "LOCAL_ONLY": "enabled",
     "PI_ONLY": "enabled",
     "REMOTE_ONLY": "enabled",
@@ -33,7 +30,6 @@
     "SOURCE_ORDER": "local",
     "SUPPLEMENTAL_ONLY": "enabled",
     "TEAM_BASELINE": "enabled",
-    "USER_DEFAULT": "enabled",
     "USER_ONLY": "enabled"
   },
   "generatedProfile": {
@@ -41,8 +37,6 @@
     "label": "Local Engineering Override",
     "controls": {
       "environment": {
-        "USER_DEFAULT": "enabled",
-        "DEFAULT_SHARED": "user-default",
         "SHARED": "local",
         "BASE_SHARED": "team-baseline",
         "TEAM_BASELINE": "enabled",
@@ -53,8 +47,6 @@
         "REPO_ONLY": "enabled",
         "LOCAL_ONLY": "enabled"
       },
-      "appendSystemPrompt": "Personal review preferences",
-      "append_system_prompt": "Personal review preferences",
       "provider": "team-provider",
       "skills": ["code-review"],
       "model": "local-model",

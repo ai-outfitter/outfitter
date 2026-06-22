@@ -60,7 +60,7 @@ Location: `tests/fixtures/integration/trivial_repo_only_profile/`
 
 This is the ordinary happy path: the repository defines one checked-in profile, while the user has a normal `default` profile in `~/.outfitter/profiles/default`.
 
-The selected repo profile should compose with the user's implicit default profile.
+The selected repo profile should not compose with the user's default profile unless it explicitly inherits it.
 The fixture should intentionally omit profile-owned CLI state files so adapter defaults fall through to native standard locations, such as each adapter's normal config/state directory.
 
 Use it as the first integration smoke test.
@@ -84,7 +84,7 @@ The profile id `engineering` should exist in several places:
 
 Each layer should use obvious values such as `REMOTE_ONLY`, `USER_ONLY`, `REPO_ONLY`, `LOCAL_ONLY`, and `SHARED` so failures identify the wrong winning layer immediately.
 
-Use it to verify same-id profile precedence, source ordering, implicit defaults, inherited defaults, profile-folder attribution, and generated composite profile output when many sources contribute.
+Use it to verify same-id profile precedence, source ordering, explicit inheritance, profile-folder attribution, and generated composite profile output when many sources contribute.
 
 Write-back focus: if a highest-precedence profile-owned state file exists, writes through that declared state path should update only that source file.
 Mutating a generated file in the composite profile must not be ambiguously written back to any source layer.
@@ -204,14 +204,14 @@ Write-back focus: replacement should be diagnosed as not persisted, and the orig
 | `profile-multiple-inheritance`         | Existing | none                | 1            | 2 parents        | none      | none            | none             |
 | `profile-cycle`                        | Existing | none                | 1            | cycle            | none      | none            | diagnostics      |
 | `profile-missing-inheritance`          | Existing | none                | 1            | missing          | none      | none            | diagnostics      |
-| `trivial_repo_only_profile`            | Existing | user + repo         | 1            | implicit default | pi        | native fallback | generated files  |
+| `trivial_repo_only_profile`            | Existing | user + repo         | 1            | none             | pi        | native fallback | generated files  |
 | `heavily_overridden_engineering`       | Existing | remote + 3          | 5            | 1-2              | all       | highest profile | source ownership |
-| `remote_baseline_local_selection`      | Existing | remote + 3          | 1-2          | implicit default | all       | mixed           | source ownership |
+| `remote_baseline_local_selection`      | Existing | remote + 3          | 1-2          | explicit default | all       | mixed           | source ownership |
 | `language_stack_with_personal_default` | Existing | user + repo         | 1            | 2-3              | all       | native fallback | inherited output |
 | `local_sandbox_overrides`              | Existing | user + repo + local | 1-2          | 1                | all       | temporary       | local overrides  |
 | `strict_ci_profile`                    | Existing | repo                | 1            | 0-1              | all       | temporary       | errors           |
 | `profile_owned_cli_state`              | Existing | user + repo         | 1            | 0-1              | all       | profile state   | symlink writes   |
 | `native_fallback_cli_state`            | Existing | user + repo         | 1            | 0-1              | all       | native fallback | fallback writes  |
-| `cache_backed_tooling_state`           | Existing | user + repo         | 1            | implicit default | pi subset | cache           | cache writes     |
+| `cache_backed_tooling_state`           | Existing | user + repo         | 1            | none             | pi subset | cache           | cache writes     |
 | `adapter_specific_overrides`           | Existing | user + repo         | 1            | 0-1              | all       | mixed           | adapter controls |
 | `state_path_replaced_by_agent`         | Existing | user + repo         | 1            | 0                | all       | profile/native  | symlink replaced |

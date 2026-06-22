@@ -362,6 +362,8 @@ profiles/
     prompts/
     skills/
     extensions/
+    deepwork/
+      jobs/
     cli_specific/
       pi/
       claude/
@@ -398,10 +400,12 @@ Rules:
 - Every `profile.yml` MUST validate against `profile.schema.json`.
 - `inherits` is an ordered array of profile names.
 - `template: true` marks a profile as inheritance-only: it may contribute controls to runnable profiles through `inherits`, but `outfitter run --profile <id>` and `default_profile: <id>` launches reject it directly.
-- `cli_specific/<cli-name>/` contains files copied or translated directly into the generated composite profile for that CLI.
-- Pi profiles may provide `cli_specific/pi/.mcp.json`; Outfitter merges contributing profile fragments into the composite profile with unique array entries by identity and last writer wins for duplicate identities.
-- Pi profiles may provide DeepWork jobs under `cli_specific/pi/deepwork/jobs/`; Outfitter appends contributing job folders to `DEEPWORK_ADDITIONAL_JOBS_FOLDERS` when launching Pi so DeepWork can discover those profile-owned workflows.
+- `skills/` contains profile-bundled Agent Skills. Outfitter exposes valid skills from contributing profile folders when launching Pi.
+- `deepwork/jobs/` contains profile-bundled DeepWork jobs. Outfitter appends contributing profile job folders to `DEEPWORK_ADDITIONAL_JOBS_FOLDERS` when launching Pi so DeepWork can discover profile-owned workflows.
   Profile-bundled jobs are isolated by default: inherited `DEEPWORK_ADDITIONAL_JOBS_FOLDERS` entries are included only when the profile sets `controls.pi.allow_external_deepwork_jobs: true`.
+- `cli_specific/<cli-name>/` contains files copied or translated directly into the generated composite profile for that CLI, plus resources that intentionally apply only to one adapter.
+- Pi profiles may provide `cli_specific/pi/.mcp.json`; Outfitter merges contributing profile fragments into the composite profile with unique array entries by identity and last writer wins for duplicate identities.
+- Pi-specific skills and DeepWork jobs may also live under `cli_specific/pi/skills/` and `cli_specific/pi/deepwork/jobs/` when they should not be exposed to other adapters.
 - `append_system_prompt` accepts a string or an ordered string array. When multiple resolved profile layers provide it, Outfitter composes the values into repeated agent append-prompt inputs in profile precedence order so shared prompt profiles do not need to use raw CLI `args`.
 - CLI-specific configuration wins over generic controls when both apply to the same generated artifact.
 
@@ -710,15 +714,16 @@ Responsibilities:
 
 - create `~/.outfitter/settings.yml` when missing;
 - accept an optional setup source URI, for example `outfitter setup https://github.com/example/outfitter-config`, and clone/update it under `~/.outfitter/cache/repos/<encoded-uri-and-ref>/`;
-- when a setup source is provided, use its root `settings.yml` or `.outfitter/settings.yml` and `profiles/` or `.outfitter/profiles/` as the initial non-overwriting user setup starting point;
+
+- when a setup source is provided, use its root `settings.yml` or `.outfitter/settings.yml` and `profiles/` or `.outfitter/profiles/` as the initial non-overwriting setup starting point for the selected import target;
+- during interactive setup-source onboarding, show the Outfitter welcome first, explain the source being imported, ask whether to install into user home or the current project, then ask exactly one source-profile/default prompt;
 - require an interactive TTY on both stdin and stdout before running setup prompts;
 - create a default profile when missing;
 - validate all discovered settings files and any starter settings file;
 - run `outfitter sync` behavior for URI profile sources before profile selection;
-- on initial interactive first-run setup, skip the older setup default-profile prompt and let welcome onboarding choose the generated local default profile;
-- outside that initial welcome handoff, show a setup wizard with synced profile choices, preserve display labels where available, validate the selected profile ID, and write the selected default profile to user settings;
+
+- outside that initial welcome handoff and outside setup-source import onboarding, show a setup wizard with synced profile choices, preserve display labels where available, validate the selected profile ID, and write the selected default profile to user settings;
 - create any missing fallback default profile file for the final selected default profile;
-- run welcome onboarding after interactive setup completes;
 - report actionable next steps.
 
 ### `outfitter welcome`

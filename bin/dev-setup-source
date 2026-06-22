@@ -1,0 +1,60 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd -- "$SCRIPT_DIR/.." && pwd)"
+TARGET_CWD="$(pwd)"
+SETUP_SOURCE=""
+
+usage() {
+  cat <<'USAGE'
+Usage: bin/dev-setup-source <setup-source>
+
+Run this Outfitter checkout's local build against a real setup-source target.
+
+This helper preserves the caller's HOME and current working directory so
+`outfitter setup <setup-source>` initializes or updates the intended org/project
+`.outfitter` state. Use a remote Git URL such as
+`https://github.com/ai-outfitter/link` or a local Git repository path.
+
+For isolated first-run smoke tests with a temporary HOME and project directory,
+use bin/dev-tmp-home instead.
+USAGE
+}
+
+die() {
+  echo "error: $*" >&2
+  echo >&2
+  usage >&2
+  exit 2
+}
+
+case "${1:-}" in
+  -h|--help)
+    usage
+    exit 0
+    ;;
+  "")
+    die "missing setup source argument"
+    ;;
+  -*)
+    die "unknown option: $1"
+    ;;
+  *)
+    SETUP_SOURCE="$1"
+    shift
+    ;;
+esac
+
+[[ $# -eq 0 ]] || die "expected exactly one setup source argument"
+
+npm --prefix "$REPO_ROOT" run build
+
+cat <<SUMMARY
+Outfitter repo: $REPO_ROOT
+Target cwd:     $TARGET_CWD
+Setup source:   $SETUP_SOURCE
+HOME:           ${HOME:-}
+SUMMARY
+
+node "$REPO_ROOT/dist/cli.js" setup "$SETUP_SOURCE"

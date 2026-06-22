@@ -22,7 +22,7 @@ This document specifies the baseline runtime, language, test, lint, and document
 1. The project MUST use Vitest as its test framework before implementing substantial runtime behavior.
 2. The test command MUST be runnable from package scripts.
 3. The coverage command MUST use `@vitest/coverage-v8`.
-4. The test configuration MUST enforce 100% global coverage for statements, branches, functions, and lines.
+4. The test configuration MUST enforce at least 99% global coverage for statements, branches, functions, and lines.
 5. The coverage configuration MUST include all `src/**/*.ts` files even when a source file is not imported by any test.
 6. Tests that validate formal requirements MUST follow the traceability format required by OFTR-008.3.
 

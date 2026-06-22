@@ -40,7 +40,6 @@ describe('profile-owned CLI state integration fixture composite profile generati
             launchArgs: plan.args,
             launchEnv: {
               PI_CODING_AGENT_DIR: tokenizeFixturePath(fixture, plan.env.PI_CODING_AGENT_DIR, compositeProfileRoot),
-              PERSONAL_DEFAULT: plan.env.PERSONAL_DEFAULT,
               TEAM_BASE: plan.env.TEAM_BASE,
               SELECTED_PROFILE: plan.env.SELECTED_PROFILE,
               PI_PROFILE_STATE: plan.env.PI_PROFILE_STATE,
@@ -128,7 +127,6 @@ describe('profile-owned CLI state integration fixture composite profile generati
             launchArgs: plan.args,
             launchEnv: {
               CLAUDE_CONFIG_DIR: tokenizeFixturePath(fixture, plan.env.CLAUDE_CONFIG_DIR, compositeProfileRoot),
-              PERSONAL_DEFAULT: plan.env.PERSONAL_DEFAULT,
               TEAM_BASE: plan.env.TEAM_BASE,
               SELECTED_PROFILE: plan.env.SELECTED_PROFILE,
               CLAUDE_PROFILE_STATE: plan.env.CLAUDE_PROFILE_STATE,

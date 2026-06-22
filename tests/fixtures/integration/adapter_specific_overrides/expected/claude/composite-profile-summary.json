@@ -22,8 +22,7 @@
     "ADAPTER_ENV": "claude",
     "CLAUDE_ONLY": "enabled",
     "GENERIC_ENV": "enabled",
-    "SHARED_LAYER": "adapter-review",
-    "USER_DEFAULT": "enabled"
+    "SHARED_LAYER": "adapter-review"
   },
   "generatedProfile": {
     "id": "adapter-review",
@@ -34,8 +33,7 @@
       "environment": {
         "ADAPTER_ENV": "generic",
         "GENERIC_ENV": "enabled",
-        "SHARED_LAYER": "adapter-review",
-        "USER_DEFAULT": "enabled"
+        "SHARED_LAYER": "adapter-review"
       },
       "args": ["--generic-flag"],
       "extensions": ["./tools/generic-extension"],
