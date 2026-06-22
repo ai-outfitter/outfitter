@@ -31,6 +31,31 @@ const writeCachedProfile = (cachePath: string, profileId = 'remote'): void => {
   writeFileSync(join(profileDirectory, 'profile.yml'), `id: ${profileId}\ncontrols: {}\n`);
 };
 
+const waitForOutput = async (chunks: readonly Buffer[], output: PassThrough, expectedText: string): Promise<void> => {
+  if (Buffer.concat(chunks).toString('utf8').includes(expectedText)) {
+    return;
+  }
+
+  await new Promise<void>((resolve, reject) => {
+    function checkOutput() {
+      if (!Buffer.concat(chunks).toString('utf8').includes(expectedText)) {
+        return;
+      }
+
+      clearTimeout(timeout);
+      output.off('data', checkOutput);
+      resolve();
+    }
+
+    const timeout = setTimeout(() => {
+      output.off('data', checkOutput);
+      reject(new Error(`Timed out waiting for output: ${expectedText}`));
+    }, 1000);
+
+    output.on('data', checkOutput);
+  });
+};
+
 const defaultProfileSynchronizer = {
   sync(_source: unknown, cachePath: string) {
     writeCachedProfile(join(cachePath, 'profiles'), 'engineer');
@@ -260,6 +285,11 @@ describe('setup command', () => {
             }
           },
         },
+        selectSetupSourceImportTarget(choices, defaultTarget) {
+          expect(defaultTarget).toBe('home');
+          expect(choices.map((choice) => choice.target)).toEqual(['home', 'project']);
+          return Promise.resolve('home');
+        },
         selectDefaultProfile(profiles, currentDefault) {
           expect(currentDefault).toBe('engineer');
           expect(profiles.map((profile) => profile.id)).toEqual(['ops', 'project-lead']);
@@ -303,9 +333,8 @@ describe('setup command', () => {
         '',
       ].join('\n'),
     );
-    input.end('\n');
 
-    const result = await executeSetupCommand(
+    const resultPromise = executeSetupCommand(
       { homeDirectory, projectDirectory, setupSourceUri },
       {
         interactive: true,
@@ -337,15 +366,135 @@ describe('setup command', () => {
         },
       },
     );
+    await waitForOutput(outputChunks, output, 'Import target [1]:');
+    input.write('\n');
+    await waitForOutput(outputChunks, output, 'Default profile [1]:');
+    input.end('\n');
+    const result = await resultPromise;
 
     const promptOutput = Buffer.concat(outputChunks).toString('utf8');
+    expect(promptOutput).toContain('Welcome to Outfitter.');
+    expect(promptOutput).toContain("You're importing Outfitter profiles from https://example.test/link-profiles.");
+    expect(promptOutput).toContain('Choose where to install these profiles:');
+    expect(promptOutput).toContain('1. User home');
+    expect(promptOutput).toContain('2. Current project');
+    expect(promptOutput).toContain('Choose the default profile from this setup source:');
+    expect(promptOutput.match(/Choose the default profile/gu)).toHaveLength(1);
+    expect(promptOutput.indexOf('Welcome to Outfitter.')).toBeLessThan(
+      promptOutput.indexOf("You're importing Outfitter profiles"),
+    );
+    expect(promptOutput.indexOf('Choose where to install these profiles:')).toBeLessThan(
+      promptOutput.indexOf('Choose the default profile from this setup source:'),
+    );
     expect(promptOutput).toContain('1. project-lead - Project Lead');
     expect(promptOutput).toContain('2. engineer - Engineer');
     expect(promptOutput).toContain('Default profile [1]:');
+    expect(promptOutput).toContain('____        _    __ _ _   _');
+    expect(promptOutput).not.toContain('____  _');
     expect(result.messages).toContain("Selected default profile 'project-lead'.");
     expect(readFileSync(join(homeDirectory, '.outfitter', 'settings.yml'), 'utf8')).toContain(
       'default_profile: project-lead',
     );
+  });
+
+  it('imports setup-source profiles into the project without changing the user default', async () => {
+    const root = createTemporaryRoot();
+    const homeDirectory = join(root, 'home');
+    const projectDirectory = join(root, 'project');
+    const setupSourceUri = 'https://example.test/link-profiles';
+
+    writeSettings(homeDirectory, 'default_profile: engineer\nprofile_sources:\n  - path: ./profiles\n');
+
+    const result = await executeSetupCommand(
+      { homeDirectory, projectDirectory, setupSourceUri },
+      {
+        interactive: true,
+        input: { isTTY: true } as NodeJS.ReadableStream & { isTTY: true },
+        output: { isTTY: true } as NodeJS.WritableStream & { isTTY: true },
+        writeLine: () => undefined,
+        setupSourceSynchronizer: {
+          sync(_uri, cachePath) {
+            const outfitterDirectory = join(cachePath, '.outfitter');
+            mkdirSync(outfitterDirectory, { recursive: true });
+            for (const [profileId, label] of [
+              ['engineer', 'Engineer'],
+              ['project-lead', 'Project Lead'],
+            ] as const) {
+              const profileFolder = join(outfitterDirectory, 'profiles', profileId);
+              mkdirSync(profileFolder, { recursive: true });
+              writeFileSync(join(profileFolder, 'profile.yml'), `id: ${profileId}\nlabel: ${label}\ncontrols: {}\n`);
+            }
+          },
+        },
+        selectSetupSourceImportTarget(choices, defaultTarget) {
+          expect(defaultTarget).toBe('home');
+          expect(choices.map((choice) => choice.target)).toEqual(['home', 'project']);
+          return Promise.resolve('project');
+        },
+        selectDefaultProfile(profiles, currentDefault) {
+          expect(currentDefault).toBe('engineer');
+          expect(profiles.map((profile) => profile.id)).toEqual(['engineer', 'project-lead']);
+          return Promise.resolve('project-lead');
+        },
+        selectWelcomePlan() {
+          throw new Error('source import onboarding should not run the generic welcome role prompt');
+        },
+      },
+    );
+
+    expect(result.settingsPath).toBe(join(projectDirectory, '.outfitter', 'settings.yml'));
+    expect(result.defaultProfilePath).toBe(
+      join(projectDirectory, '.outfitter', 'profiles', 'project-lead', 'profile.yml'),
+    );
+    expect(result.createdDefaultProfile).toBe(false);
+    expect(readFileSync(join(homeDirectory, '.outfitter', 'settings.yml'), 'utf8')).toBe(
+      'default_profile: engineer\nprofile_sources:\n  - path: ./profiles\n',
+    );
+    expect(readFileSync(join(projectDirectory, '.outfitter', 'settings.yml'), 'utf8')).toContain(
+      'default_profile: project-lead',
+    );
+    expect(readFileSync(join(projectDirectory, '.outfitter', 'settings.yml'), 'utf8')).toContain('path: ./profiles');
+    expect(readFileSync(join(projectDirectory, '.outfitter', 'profiles', 'project-lead', 'profile.yml'), 'utf8')).toBe(
+      'id: project-lead\nlabel: Project Lead\ncontrols: {}\n',
+    );
+  });
+
+  it('adds a local project profile source when setup-source settings omit profile sources', async () => {
+    const root = createTemporaryRoot();
+    const homeDirectory = join(root, 'home');
+    const projectDirectory = join(root, 'project');
+
+    const result = await executeSetupCommand(
+      { homeDirectory, projectDirectory, setupSourceUri: 'https://example.test/minimal-link-profiles' },
+      {
+        interactive: true,
+        input: { isTTY: true } as NodeJS.ReadableStream & { isTTY: true },
+        output: { isTTY: true } as NodeJS.WritableStream & { isTTY: true },
+        writeLine: () => undefined,
+        setupSourceSynchronizer: {
+          sync(_uri, cachePath) {
+            const outfitterDirectory = join(cachePath, '.outfitter');
+            const profileFolder = join(outfitterDirectory, 'profiles', 'project-lead');
+            mkdirSync(profileFolder, { recursive: true });
+            writeFileSync(join(outfitterDirectory, 'settings.yml'), 'default_profile: project-lead\n');
+            writeFileSync(join(profileFolder, 'profile.yml'), 'id: project-lead\nlabel: Project Lead\ncontrols: {}\n');
+          },
+        },
+        selectSetupSourceImportTarget() {
+          return Promise.resolve('project');
+        },
+        selectDefaultProfile(profiles, currentDefault) {
+          expect(currentDefault).toBe('project-lead');
+          expect(profiles.map((profile) => profile.id)).toEqual(['project-lead']);
+          return Promise.resolve('project-lead');
+        },
+      },
+    );
+
+    const projectSettings = readFileSync(join(projectDirectory, '.outfitter', 'settings.yml'), 'utf8');
+    expect(result.settingsPath).toBe(join(projectDirectory, '.outfitter', 'settings.yml'));
+    expect(projectSettings).toContain('default_profile: project-lead');
+    expect(projectSettings).toContain('path: ./profiles');
   });
 
   it('does not promote a setup source default absent from source profile choices', async () => {
@@ -381,6 +530,11 @@ describe('setup command', () => {
               writeFileSync(join(profileFolder, 'profile.yml'), `id: ${profileId}\nlabel: ${label}\ncontrols: {}\n`);
             }
           },
+        },
+        selectSetupSourceImportTarget(choices, defaultTarget) {
+          expect(defaultTarget).toBe('home');
+          expect(choices.map((choice) => choice.target)).toEqual(['home', 'project']);
+          return Promise.resolve('home');
         },
         selectDefaultProfile(profiles, currentDefault) {
           expect(currentDefault).toBe('engineer');
@@ -422,6 +576,14 @@ describe('setup command', () => {
             writeFileSync(join(profileFolder, 'profile.yml'), 'id: project-lead\nlabel: Project Lead\ncontrols: {}\n');
             writeFileSync(join(setupSkillFolder, 'SKILL.md'), '---\nname: outfitter-profile-setup\n---\n');
           },
+        },
+        selectSetupSourceImportTarget() {
+          return Promise.resolve('home');
+        },
+        selectDefaultProfile(profiles, currentDefault) {
+          expect(currentDefault).toBe('project-lead');
+          expect(profiles.map((profile) => profile.id)).toEqual(['project-lead']);
+          return Promise.resolve('project-lead');
         },
         selectWelcomePlan() {
           throw new Error('welcome should not run when profile setup skill launches');
@@ -469,6 +631,74 @@ describe('setup command', () => {
     );
   });
 
+  it('launches a project-imported setup source profile with its hidden setup skill', async () => {
+    const root = createTemporaryRoot();
+    const homeDirectory = join(root, 'home');
+    const projectDirectory = join(root, 'project');
+    const setupSourceUri = 'https://example.test/link-profiles';
+    const launchPlans: Array<{ readonly args: readonly string[] }> = [];
+
+    writeSettings(homeDirectory, 'default_profile: engineer\nprofile_sources:\n  - path: ./profiles\n');
+
+    const result = await executeSetupCommand(
+      { homeDirectory, projectDirectory, setupSourceUri },
+      {
+        interactive: true,
+        input: { isTTY: true } as NodeJS.ReadableStream & { isTTY: true },
+        output: { isTTY: true } as NodeJS.WritableStream & { isTTY: true },
+        writeLine: () => undefined,
+        setupSourceSynchronizer: {
+          sync(_uri, cachePath) {
+            const profileFolder = join(cachePath, 'profiles', 'project-lead');
+            const setupSkillFolder = join(profileFolder, 'setup', 'skills', 'outfitter-profile-setup');
+            mkdirSync(setupSkillFolder, { recursive: true });
+            writeFileSync(
+              join(cachePath, 'settings.yml'),
+              'default_profile: project-lead\nprofile_sources:\n  - path: ./profiles\n',
+            );
+            writeFileSync(join(profileFolder, 'profile.yml'), 'id: project-lead\nlabel: Project Lead\ncontrols: {}\n');
+            writeFileSync(join(setupSkillFolder, 'SKILL.md'), '---\nname: outfitter-profile-setup\n---\n');
+          },
+        },
+        selectSetupSourceImportTarget() {
+          return Promise.resolve('project');
+        },
+        selectDefaultProfile() {
+          return Promise.resolve('project-lead');
+        },
+        launcher: {
+          launch(plan) {
+            launchPlans.push({ args: plan.args });
+            return Promise.resolve(0);
+          },
+        },
+      },
+    );
+
+    const copiedSetupSkillFolder = join(
+      projectDirectory,
+      '.outfitter',
+      'profiles',
+      'project-lead',
+      'setup',
+      'skills',
+      'outfitter-profile-setup',
+    );
+
+    expect(result.settingsPath).toBe(join(projectDirectory, '.outfitter', 'settings.yml'));
+    expect(result.profileSetupSkillAvailable).toBe(true);
+    expect(result.profileSetupSkillLaunchResult?.profileId).toBe('project-lead');
+    expect(launchPlans).toHaveLength(1);
+    expect(launchPlans[0]?.args).toContain(copiedSetupSkillFolder);
+    expect(existsSync(join(copiedSetupSkillFolder, 'SKILL.md'))).toBe(true);
+    expect(readFileSync(join(homeDirectory, '.outfitter', 'settings.yml'), 'utf8')).toContain(
+      'default_profile: engineer',
+    );
+    expect(readFileSync(join(projectDirectory, '.outfitter', 'settings.yml'), 'utf8')).toContain(
+      'default_profile: project-lead',
+    );
+  });
+
   it('skips provider bootstrap when setup-source launch already has Pi model state', async () => {
     const root = createTemporaryRoot();
     const homeDirectory = join(root, 'home');
@@ -496,6 +726,12 @@ describe('setup command', () => {
             writeFileSync(join(profileFolder, 'profile.yml'), 'id: project-lead\nlabel: Project Lead\ncontrols: {}\n');
             writeFileSync(join(setupSkillFolder, 'SKILL.md'), '---\nname: outfitter-profile-setup\n---\n');
           },
+        },
+        selectSetupSourceImportTarget() {
+          return Promise.resolve('home');
+        },
+        selectDefaultProfile() {
+          return Promise.resolve('project-lead');
         },
         launcher: {
           launch(plan) {
@@ -547,6 +783,12 @@ describe('setup command', () => {
                 writeFileSync(join(setupSkillFolder, 'SKILL.md'), '---\nname: outfitter-profile-setup\n---\n');
               }
             },
+          },
+          selectSetupSourceImportTarget() {
+            return Promise.resolve('home');
+          },
+          selectDefaultProfile() {
+            return Promise.resolve('project-lead');
           },
         },
       ),

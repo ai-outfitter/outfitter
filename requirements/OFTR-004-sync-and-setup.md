@@ -14,7 +14,7 @@ Outfitter provides setup and maintenance commands that create initial configurat
 4. The `setup` command MUST validate discovered settings files.
 5. The `setup` command MUST run sync behavior for URI-based profile sources.
 6. The `setup` command SHOULD avoid overwriting existing user files unless a future explicit force option authorizes replacement.
-7. When provided a setup source URI, the `setup` command MUST use that source repository's Outfitter `settings.yml` and profiles as the initial user setup starting point.
+7. When provided a setup source URI, the `setup` command MUST use that source repository's Outfitter `settings.yml` and profiles as the initial setup starting point for the selected import target.
 8. The interactive `setup` command MUST require interactive TTY streams on both stdin and stdout before prompting.
 9. The interactive `setup` command MUST synchronize remote profile sources before any setup profile choice prompt.
 10. Initial interactive first-run setup MUST NOT ask a separate default-profile choice before welcome onboarding; the welcome role selection determines the generated local default profile.
@@ -34,6 +34,11 @@ Outfitter provides setup and maintenance commands that create initial configurat
 24. Rerunning `outfitter setup <repo>` SHOULD re-consume the setup source non-destructively and expose any effective setup skill only for that interactive setup session.
 25. When interactive `setup <source>` presents setup profile choices, it MUST limit those choices to profiles from the passed setup source and MUST NOT include default profile sources from pre-existing effective settings.
 26. When interactive `setup <source>` presents setup profile choices and the setup source declares an explicit `default_profile` that exists among those source choices, it MUST make that profile the prompt default and first displayed choice; pre-existing user defaults MUST NOT override that source default for the setup-source prompt.
+27. Interactive `setup <source>` MUST NOT present a default-profile choice before the setup-source welcome/import explanation.
+28. Interactive `setup <source>` MUST explain which setup source is being imported and MUST let the user choose whether to install profiles into user home or the current project before writing setup-source profiles/settings.
+29. Interactive `setup <source>` MUST present exactly one setup-source profile/default choice after the import target choice when setup-source profiles are available.
+30. When the interactive setup-source import target is user home, setup MUST copy missing source profiles into `~/.outfitter/profiles`, write the selected default profile to `~/.outfitter/settings.yml`, and preserve non-overwrite copy behavior.
+31. When the interactive setup-source import target is the current project, setup MUST copy missing source profiles into `<project>/.outfitter/profiles`, write the selected default profile to `<project>/.outfitter/settings.yml`, ensure that project settings expose `./profiles`, and preserve any existing user default profile.
 
 ### OFTR-004.2: Sync Command
 

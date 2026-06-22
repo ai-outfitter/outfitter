@@ -138,18 +138,20 @@ outfitter setup https://github.com/my_account/outfitter_config
 `outfitter setup` requires an interactive terminal on both stdin and stdout.
 When a repository is provided, it clones or updates the repository in Outfitter's shared repository cache, then uses it as a non-overwriting starting point:
 
-- if `~/.outfitter/settings.yml` does not exist, Outfitter copies the starter `settings.yml`;
-- if starter profiles exist, Outfitter copies missing profile files into `~/.outfitter/profiles/`;
+- interactive setup-source onboarding shows the Outfitter welcome first, explains which source is being imported, asks whether to install profiles into user home or the current project, then asks one source-profile/default prompt;
+- if the user chooses home and `~/.outfitter/settings.yml` does not exist, Outfitter copies the starter `settings.yml`;
+- if the user chooses project and `<project>/.outfitter/settings.yml` does not exist, Outfitter copies the starter `settings.yml` and ensures `./profiles` is exposed;
+- if starter profiles exist, Outfitter copies missing profile files into the selected `profiles/` folder;
 - if a copied profile contains `setup/skills/outfitter-profile-setup/`, that hidden setup skill is copied with the profile folder;
-- existing user settings and profile files are otherwise left unchanged;
+- existing settings and profile files are otherwise left unchanged;
 - after setup, Outfitter runs the same sync behavior used by `outfitter sync`;
 - on initial interactive first-run setup without a source profile setup skill, Outfitter skips the older default-profile prompt and lets welcome onboarding choose the generated local default profile;
-- outside that initial welcome handoff, Outfitter shows a short setup wizard that lists synced profiles and writes the selected default profile to user settings;
+- outside that initial welcome handoff and outside setup-source import onboarding, Outfitter shows a short setup wizard that lists synced profiles and writes the selected default profile to user settings;
 - when the configured default profile has one effective `outfitter-profile-setup` skill, interactive setup opens that profile and injects the setup skill for that launch only;
 - if Pi has no usable user-local `auth.json` or `models.json` state, interactive setup-triggered Pi launches open Pi's `/login` flow so the user can choose a provider before continuing;
 - if Pi already has usable provider/model state, setup does not ask for provider setup again;
 - non-interactive setup never launches an agent, even when a profile setup skill is available;
-- interactive setup continues into welcome onboarding to record role and loadout choices only when no profile setup skill launch replaces that onboarding path.
+- no-source interactive setup continues into welcome onboarding to record role and loadout choices only when no profile setup skill launch replaces that onboarding path.
 
 A setup repository can use either root-level Outfitter files:
 
