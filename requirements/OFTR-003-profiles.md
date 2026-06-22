@@ -12,7 +12,7 @@ Outfitter resolves profile definitions across settings scopes, explicit sources,
 1. A profile MUST be represented by a folder with a required `profile.yml` file.
 2. Outfitter MUST provide a JSON Schema for `profile.yml`.
 3. Outfitter MUST validate every loaded `profile.yml` file against the profile JSON Schema.
-4. A profile folder MAY contain conventional resource folders such as `skills`, `prompts`, and `extensions`.
+4. A profile folder MAY contain conventional resource folders such as `skills`, `prompts`, `extensions`, and `deepwork/jobs`.
 5. A profile folder MAY contain `cli_specific/<cli-name>/` folders for agent-specific resources and overrides.
 
 ### OFTR-003.2: Profile Identity

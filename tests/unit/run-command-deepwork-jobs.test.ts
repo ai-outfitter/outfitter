@@ -29,14 +29,14 @@ const writeProfile = (root: string, id: string, content: string): string => {
 };
 
 const writeDeepWorkJob = (profileDirectory: string, jobName: string): string => {
-  const jobsFolder = join(profileDirectory, 'cli_specific', 'pi', 'deepwork', 'jobs');
+  const jobsFolder = join(profileDirectory, 'deepwork', 'jobs');
   mkdirSync(join(jobsFolder, jobName), { recursive: true });
   writeFileSync(join(jobsFolder, jobName, 'job.yml'), `name: ${jobName}\nsummary: ${jobName}\n`);
   return jobsFolder;
 };
 
 const writePiSkill = (profileDirectory: string, skillName: string): string => {
-  const skillFolder = join(profileDirectory, 'cli_specific', 'pi', 'skills', skillName);
+  const skillFolder = join(profileDirectory, 'skills', skillName);
   mkdirSync(skillFolder, { recursive: true });
   writeFileSync(join(skillFolder, 'SKILL.md'), `---\nname: ${skillName}\ndescription: ${skillName}\n---\n`);
   return skillFolder;

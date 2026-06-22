@@ -246,17 +246,19 @@ const resolvePiStateSourcePath = (
 const deepWorkAdditionalJobsFoldersEnv = 'DEEPWORK_ADDITIONAL_JOBS_FOLDERS';
 
 const createPiSkillSources = (controls: PiProfileControls, profileFolders: readonly string[]): readonly string[] => [
-  ...new Set([...(controls.skills ?? []), ...profileFolders.flatMap(piSkillSourcesForProfile)]),
+  ...new Set([...(controls.skills ?? []), ...profileFolders.flatMap(skillSourcesForProfile)]),
 ];
 
-const piSkillSourcesForProfile = (profileFolder: string): readonly string[] => {
-  const skillsFolder = join(profileFolder, 'cli_specific', 'pi', 'skills');
+const skillSourcesForProfile = (profileFolder: string): readonly string[] => [
+  ...skillSourcesForFolder(join(profileFolder, 'skills'), 'profile skills folder'),
+  ...skillSourcesForFolder(join(profileFolder, 'cli_specific', 'pi', 'skills'), 'profile Pi skills folder'),
+];
 
-  return readOptionalDirectoryEntries(skillsFolder, 'profile Pi skills folder')
+const skillSourcesForFolder = (skillsFolder: string, description: string): readonly string[] =>
+  readOptionalDirectoryEntries(skillsFolder, description)
     .filter(isPiSkillEntry(skillsFolder))
     .map((entry) => join(skillsFolder, entry.name))
     .sort();
-};
 
 const isPiSkillEntry =
   (folderPath: string) =>
@@ -268,7 +270,7 @@ const createDeepWorkAdditionalJobsFolders = (
   profileFolders: readonly string[],
 ): string | undefined => {
   const profileJobFolders = [
-    ...new Set(profileFolders.map(deepWorkJobsFolderForProfile).filter(isExistingDeepWorkJobsFolder)),
+    ...new Set(profileFolders.flatMap(deepWorkJobsFoldersForProfile).filter(isExistingDeepWorkJobsFolder)),
   ];
 
   if (profileJobFolders.length === 0) {
@@ -284,8 +286,10 @@ const createDeepWorkAdditionalJobsFolders = (
 const allowExternalDeepWorkJobs = (controls: PiProfileControls): boolean =>
   controls.allowExternalDeepWorkJobs === true || controls.allow_external_deepwork_jobs === true;
 
-const deepWorkJobsFolderForProfile = (profileFolder: string): string =>
-  join(profileFolder, 'cli_specific', 'pi', 'deepwork', 'jobs');
+const deepWorkJobsFoldersForProfile = (profileFolder: string): readonly string[] => [
+  join(profileFolder, 'deepwork', 'jobs'),
+  join(profileFolder, 'cli_specific', 'pi', 'deepwork', 'jobs'),
+];
 
 const isExistingDeepWorkJobsFolder = (folderPath: string): boolean =>
   readOptionalDirectoryEntries(folderPath, 'profile DeepWork jobs folder').some(isDeepWorkJobEntry(folderPath));

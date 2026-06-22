@@ -224,9 +224,10 @@ Set `template: true` on profiles such as `shared-prose` that should only be inhe
 
 The exact stable schema is governed by the requirements in `requirements/` and the JSON Schema files in `src/schemas/`, which are still expected to evolve with implementation.
 
-Pi profiles can also ship DeepWork jobs for that profile under `cli_specific/pi/deepwork/jobs/`.
+Profiles can also ship DeepWork jobs for that profile under `deepwork/jobs/`.
 When Outfitter launches Pi, it adds contributing profile job folders to `DEEPWORK_ADDITIONAL_JOBS_FOLDERS` so the DeepWork frontend can discover profile-owned workflows without copying them into a project `.deepwork/jobs/` directory.
 By default, profiles with bundled jobs receive only their profile-bundled jobs; set `controls.pi.allow_external_deepwork_jobs: true` to also include inherited `DEEPWORK_ADDITIONAL_JOBS_FOLDERS` entries.
+Pi-specific job overrides remain supported under `cli_specific/pi/deepwork/jobs/`.
 
 ## Design direction
 
