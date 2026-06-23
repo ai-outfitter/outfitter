@@ -229,6 +229,40 @@ When Outfitter launches Pi, it adds contributing profile job folders to `DEEPWOR
 By default, profiles with bundled jobs receive only their profile-bundled jobs; set `controls.pi.allow_external_deepwork_jobs: true` to also include inherited `DEEPWORK_ADDITIONAL_JOBS_FOLDERS` entries.
 Pi-specific job overrides remain supported under `cli_specific/pi/deepwork/jobs/`.
 
+### Updating profile-managed Pi extensions
+
+Profiles can request Pi extensions with `controls.pi.extensions`, for example:
+
+```yaml
+controls:
+  pi:
+    extensions:
+      - git:github.com/ai-outfitter/deepwork
+```
+
+For normal users, extension updates should flow through the profile rather than
+through hand-edited Pi cache directories:
+
+1. If your profile is remote-managed, run `outfitter sync` to fetch the latest
+   Outfitter settings and profile sources.
+2. Confirm the active profile names the desired extension source, such as
+   `git:github.com/ai-outfitter/deepwork` after a repository move.
+3. Start a new Outfitter-managed Pi session with `outfitter` or
+   `outfitter run --profile <profile>`. Restart any already-running Pi session;
+   newly registered tools and extension code are only loaded when Pi starts or
+   reloads resources.
+
+`outfitter sync` updates Outfitter's own remote profile/settings cache. Pi still
+owns installation and loading of the `git:` extension declared by the resolved
+profile. Outfitter keeps Pi's `git/` and `tmp/` state paths persistent across
+runs so installed extensions are reusable, but users should not need one-off
+scripts that modify temporary extension cache paths.
+
+If an extension still appears stale after syncing profiles and restarting Pi,
+check the resolved profile first. A future Outfitter command may add a
+first-class extension-cache refresh path, but direct cache surgery is a
+troubleshooting fallback rather than the normal update flow.
+
 ## Design direction
 
 The current recommendation is to build `outfitter` around pi's existing native configuration mechanisms:
