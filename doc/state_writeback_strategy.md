@@ -101,6 +101,14 @@ state_paths:
     default_strategy: symlink
     allowed_strategies: [symlink, warn, error, prompt]
 
+  models.json:
+    default_strategy: symlink
+    allowed_strategies: [symlink, warn, error, prompt]
+
+  trust.json:
+    default_strategy: symlink
+    allowed_strategies: [symlink, warn, error, prompt]
+
   plugins/:
     default_strategy: symlink
     allowed_strategies: [symlink, discard, warn, error, prompt]
