@@ -65,10 +65,10 @@ while [[ $# -gt 0 ]]; do
 done
 
 command -v docker >/dev/null 2>&1 || die "docker is required"
-[[ -f "$REPO_ROOT/.Dockerfile" ]] || die "missing Dockerfile: $REPO_ROOT/.Dockerfile"
+[[ -f "$REPO_ROOT/Dockerfile" ]] || die "missing Dockerfile: $REPO_ROOT/Dockerfile"
 
 if [[ "$SKIP_BUILD" -eq 0 ]]; then
-  docker build -f "$REPO_ROOT/.Dockerfile" -t "$IMAGE" "$REPO_ROOT"
+  docker build -f "$REPO_ROOT/Dockerfile" -t "$IMAGE" "$REPO_ROOT"
 fi
 
 RUN_FLAGS=(--rm)

@@ -10,8 +10,8 @@ Outfitter is organized around clear TypeScript source boundaries, requirement do
 ```text
 .                                      # repository root
 ├── .deepreview                        # root DeepWork review rules for project-wide checks
-├── .Dockerfile                        # local Outfitter container image definition
 ├── .dockerignore                      # container build context exclusions
+├── Dockerfile                         # local and release Outfitter container image definition
 ├── .deepwork/                         # DeepWork schemas and generated review instruction scratch files
 │   └── schemas/                       # project-specific DeepSchema definitions
 ├── .github/                           # GitHub automation configuration

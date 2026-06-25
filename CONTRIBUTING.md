@@ -106,28 +106,7 @@ docker run --rm -it \
 The named `outfitter-pi-agent` volume stores container-only Pi credentials and settings under `/home/node/.pi/agent`.
 The container starts in `/home/node/repos`; without extra mounts, each run gets a clean working directory.
 
-## Release publishing
-
-Outfitter uses Release Please for release PRs, npm trusted publishing for package publishing, and GitHub Container Registry for the prebuilt Docker image.
-
-Release flow:
-
-1. Land changes on `main` using Conventional Commits.
-2. Release Please opens or updates a release PR.
-3. A maintainer reviews and merges the release PR when ready.
-4. Release Please creates the `vX.Y.Z` GitHub release.
-5. The release workflow publishes `@ai-outfitter/outfitter` to npm through trusted publishing / OIDC.
-6. The release workflow builds `.Dockerfile` and publishes `ghcr.io/ai-outfitter/outfitter:X.Y.Z` plus `ghcr.io/ai-outfitter/outfitter:latest`.
-
-Conventional Commit bump mapping: `fix:` creates a patch release, `feat:` creates a minor release, and a breaking-change marker (`!` or `BREAKING CHANGE:` footer) creates a major release.
-
-Human setup required:
-
-- Configure the organization Actions secret `RELEASE_PLEASE_TOKEN` under `ai-outfitter`, scoped to selected repositories. Add `outfitter` now and add future npm-published repositories as they adopt this workflow. The token needs contents, pull-request, and issue write access for Release Please.
-- Configure npm trusted publishing for `@ai-outfitter/outfitter` with owner `ai-outfitter`, repository `outfitter`, workflow file `release.yml`, and environment `npm-publish`.
-- Create the GitHub environment `npm-publish` in each publishing repository that uses that environment. The environment is repository-scoped even when the Release Please token is organization-scoped.
-- Allow the release workflow to publish GitHub Packages / GHCR images for `ai-outfitter/outfitter`.
-- Do not configure `NPM_TOKEN`; the release workflow publishes with OIDC and does not set `NODE_AUTH_TOKEN`.
+Release images are published as `ghcr.io/ai-outfitter/outfitter:X.Y.Z`, matching the npm package version, and as `ghcr.io/ai-outfitter/outfitter:latest`.
 
 ## Validate changes before opening or updating a PR
 
