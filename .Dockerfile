@@ -9,6 +9,8 @@ RUN apt-get update \
 WORKDIR /opt/outfitter
 
 COPY package.json package-lock.json tsconfig.json tsconfig.build.json ./
+COPY prompts ./prompts
+COPY skills ./skills
 COPY src ./src
 
 RUN npm ci \
