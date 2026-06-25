@@ -38,6 +38,8 @@ Outfitter is organized around clear TypeScript source boundaries, requirement do
 ├── .prettierrc.json                   # Prettier formatting configuration
 ├── .snapperrc.toml                    # Snapper Markdown formatting configuration
 ├── plan.md                            # implementation plan
+├── prompts/                           # Pi package prompt templates published with Outfitter
+│   └── outfitter.md                   # /outfitter command that loads the Outfitter skill
 ├── CONTRIBUTING.md                    # local install and contributor workflow guide
 ├── bin/                               # local executable development helpers
 │   ├── dev-container-setup            # clean container helper for setup smoke tests
@@ -106,6 +108,9 @@ Outfitter is organized around clear TypeScript source boundaries, requirement do
 ├── scripts/                           # local development and formatting helper scripts
 │   ├── .deepreview                    # script-specific DeepWork review rules
 │   └── run-snapper.mjs                # pinned Snapper binary downloader/runner
+├── skills/                            # Pi package skills published with Outfitter
+│   └── outfitter/                     # default /outfitter setup guidance skill
+│       └── SKILL.md
 ├── tests/                             # automated tests
 │   ├── fixtures/                      # reusable test fixtures
 │   │   ├── integration/               # fixture-backed integration scenarios, catalog, and local .deepreview

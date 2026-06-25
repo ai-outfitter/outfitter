@@ -1,6 +1,7 @@
 // Provides the pi adapter for composite profile generation and native pi launch plans.
 import { existsSync, readdirSync, readFileSync, statSync, type Dirent } from 'node:fs';
-import { delimiter, join } from 'node:path';
+import { delimiter, dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import type { AgentAdapter, AgentLaunchPlan, AgentCompositeProfilePlan, AgentLaunchContext } from '../AgentAdapter.js';
 import {
@@ -245,9 +246,19 @@ const resolvePiStateSourcePath = (
 };
 
 const deepWorkAdditionalJobsFoldersEnv = 'DEEPWORK_ADDITIONAL_JOBS_FOLDERS';
+const packageRootDirectory = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
+const builtInOutfitterPromptTemplate = join(packageRootDirectory, 'prompts', 'outfitter.md');
+const builtInOutfitterSkill = join(packageRootDirectory, 'skills', 'outfitter');
 
 const createPiSkillSources = (controls: PiProfileControls, profileFolders: readonly string[]): readonly string[] => [
-  ...new Set([...(controls.skills ?? []), ...profileFolders.flatMap(skillSourcesForProfile)]),
+  ...new Set([builtInOutfitterSkill, ...(controls.skills ?? []), ...profileFolders.flatMap(skillSourcesForProfile)]),
+];
+
+const createPiPromptTemplateSources = (controls: PiProfileControls): readonly string[] => [
+  ...new Set([
+    builtInOutfitterPromptTemplate,
+    ...(controls.promptTemplate === undefined ? [] : [controls.promptTemplate]),
+  ]),
 ];
 
 const skillSourcesForProfile = (profileFolder: string): readonly string[] => [
@@ -342,7 +353,7 @@ const createPiArgs = (controls: PiProfileControls): readonly string[] => [
   ...flagValue('--provider', controls.provider),
   ...flagValue('--thinking', controls.thinking),
   ...flagValue('--session-dir', controls.sessionDirectory),
-  ...flagValue('--prompt-template', controls.promptTemplate),
+  ...repeatFlag('--prompt-template', createPiPromptTemplateSources(controls)),
   ...flagValue('--system-prompt', controls.systemPrompt),
   ...repeatFlagValue('--append-system-prompt', controls.appendSystemPrompt),
   ...repeatFlag('--extension', controls.extensions),

@@ -8,6 +8,8 @@
   },
   "files": [
     "dist",
+    "skills",
+    "prompts",
     "requirements",
     "src/schemas",
     "doc",
@@ -63,9 +65,18 @@
   "keywords": [
     "agent",
     "cli",
+    "pi-package",
     "pi",
     "profiles"
   ],
+  "pi": {
+    "prompts": [
+      "./prompts"
+    ],
+    "skills": [
+      "./skills"
+    ]
+  },
   "license": "BUSL-1.1",
   "publishConfig": {
     "access": "public"

@@ -1,0 +1,1 @@
+Use the `outfitter` skill to help me set up or improve Outfitter profiles for this repository. If I did not provide a specific request, list and summarize the available profiles first, then ask whether I want to create a new profile.
