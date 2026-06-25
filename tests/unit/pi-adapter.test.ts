@@ -2,6 +2,7 @@
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
@@ -10,6 +11,9 @@ import { writeCompositeProfile } from '../../src/compositeProfile/CompositeProfi
 import { parseProfileYaml } from '../../src/profiles/ProfileLoader.js';
 
 const temporaryPiAdapterTestRoots: string[] = [];
+const repositoryRoot = fileURLToPath(new URL('../..', import.meta.url));
+const builtInOutfitterPromptTemplate = join(repositoryRoot, 'prompts', 'outfitter.md');
+const builtInOutfitterSkill = join(repositoryRoot, 'skills', 'outfitter');
 
 afterEach(() => {
   for (const root of temporaryPiAdapterTestRoots.splice(0)) {
@@ -106,6 +110,8 @@ describe('pi adapter', () => {
       '--session-dir',
       '/tmp/pi-sessions',
       '--prompt-template',
+      builtInOutfitterPromptTemplate,
+      '--prompt-template',
       'template-a',
       '--system-prompt',
       'base prompt',
@@ -115,6 +121,8 @@ describe('pi adapter', () => {
       'npm:pi-subagents@2',
       '--extension',
       'ext-a',
+      '--skill',
+      builtInOutfitterSkill,
       '--skill',
       'skill-pi',
       '--skill',
@@ -131,6 +139,10 @@ describe('pi adapter', () => {
       expect(adapter.createLaunchPlan(compositeProfilePlan.compositeProfile, genericFallbackProfile).args).toEqual([
         '--model',
         'generic-model',
+        '--prompt-template',
+        builtInOutfitterPromptTemplate,
+        '--skill',
+        builtInOutfitterSkill,
       ]);
     }
   });
@@ -152,10 +164,14 @@ describe('pi adapter', () => {
     });
 
     expect(launchPlan.args).toEqual([
+      '--prompt-template',
+      builtInOutfitterPromptTemplate,
       '--append-system-prompt',
       './prompts/role.md',
       '--append-system-prompt',
       './prompts/vcs.md',
+      '--skill',
+      builtInOutfitterSkill,
     ]);
   });
 
@@ -452,7 +468,16 @@ describe('pi adapter', () => {
       { profileFolders: [profileFolder] },
     );
 
-    expect(launchPlan.args).toEqual(['--skill', 'user-skill', '--skill', skillFolder]);
+    expect(launchPlan.args).toEqual([
+      '--prompt-template',
+      builtInOutfitterPromptTemplate,
+      '--skill',
+      builtInOutfitterSkill,
+      '--skill',
+      'user-skill',
+      '--skill',
+      skillFolder,
+    ]);
   });
 
   it('reports invalid profile-bundled Pi resource paths', () => {

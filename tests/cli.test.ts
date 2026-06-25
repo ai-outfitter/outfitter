@@ -1,5 +1,5 @@
 // Tests for the initial Outfitter CLI shell and package foundation.
-import { mkdtempSync, readFileSync, rmSync, symlinkSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync, symlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -12,6 +12,12 @@ interface PackageJson {
   dependencies: Record<string, string>;
   devDependencies: Record<string, string>;
   engines: Record<string, string>;
+  files: string[];
+  keywords: string[];
+  pi?: {
+    prompts?: string[];
+    skills?: string[];
+  };
   scripts: Record<string, string>;
 }
 
@@ -102,6 +108,18 @@ describe('project foundation', () => {
 
     expect(program.name()).toBe('outfitter');
     expect(program.description()).toContain('Profile-oriented wrapper');
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-010.3).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('publishes the default Outfitter Pi skill and command', () => {
+    expect(packageJson.files).toContain('skills');
+    expect(packageJson.files).toContain('prompts');
+    expect(packageJson.keywords).toContain('pi-package');
+    expect(packageJson.pi?.prompts).toEqual(['./prompts']);
+    expect(packageJson.pi?.skills).toEqual(['./skills']);
+    expect(existsSync(new URL('../skills/outfitter/SKILL.md', import.meta.url))).toBe(true);
+    expect(existsSync(new URL('../prompts/outfitter.md', import.meta.url))).toBe(true);
   });
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-001.5).
