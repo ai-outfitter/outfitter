@@ -1,5 +1,7 @@
 // Tests source layout, command registration, schemas, and small boundary helpers.
 import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import type { AnySchema } from 'ajv';
 import { Ajv2020 } from 'ajv/dist/2020.js';
@@ -41,6 +43,10 @@ import { createValidationResult } from '../../src/validation/SchemaValidator.js'
 
 const readJson = <T>(relativePath: string): T =>
   JSON.parse(readFileSync(new URL(relativePath, import.meta.url), 'utf8')) as T;
+
+const repositoryRoot = fileURLToPath(new URL('../..', import.meta.url));
+const builtInOutfitterPromptTemplate = join(repositoryRoot, 'prompts', 'outfitter.md');
+const builtInOutfitterSkill = join(repositoryRoot, 'skills', 'outfitter');
 
 describe('source layout scaffolding', () => {
   // THIS TEST VALIDATES COMMAND-AVAILABILITY CLAUSES IN HARD REQUIREMENTS (OFTR-004.1, OFTR-004.2, OFTR-004.3, OFTR-005.1).
@@ -166,7 +172,7 @@ describe('source layout scaffolding', () => {
 
     expect(launchPlan).toEqual({
       command: 'pi',
-      args: [],
+      args: ['--prompt-template', builtInOutfitterPromptTemplate, '--skill', builtInOutfitterSkill],
       env: { PI_CODING_AGENT_DIR: compositeProfileRoot },
     });
     expect(claudeLaunchPlan).toEqual({

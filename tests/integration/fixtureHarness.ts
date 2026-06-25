@@ -25,6 +25,7 @@ export interface RunFixtureOptions extends Omit<Partial<RunCommandInput>, 'homeD
 const temporaryRoots: string[] = [];
 
 const fixturesRoot = fileURLToPath(new URL('../fixtures/integration/', import.meta.url));
+const repositoryRoot = fileURLToPath(new URL('../..', import.meta.url));
 
 export const copyFixtureToTemp = (name: string): IntegrationFixture => {
   const temporaryRoot = mkdtempSync(join(tmpdir(), `outfitter-fixture-${name}-`));
@@ -142,5 +143,6 @@ export const tokenizeFixturePath = (
     .replaceAll(fixture.home, '<home>')
     .replaceAll(fixture.project, '<project>')
     .replaceAll(fixture.cache, '<cache>')
-    .replaceAll(fixture.root, '<fixture>');
+    .replaceAll(fixture.root, '<fixture>')
+    .replaceAll(repositoryRoot, '<repo>/');
 };

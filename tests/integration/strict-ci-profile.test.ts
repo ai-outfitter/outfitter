@@ -41,7 +41,7 @@ describe('strict CI integration fixture composite profile generation', () => {
               profileId: 'ci-strict',
               agentId: 'pi',
               launchCommand: plan.command,
-              launchArgs: plan.args,
+              launchArgs: plan.args.map((arg) => tokenizeFixturePath(fixture, arg, compositeProfileRoot)),
               launchEnv: {
                 PI_CODING_AGENT_DIR: tokenizeFixturePath(fixture, plan.env.PI_CODING_AGENT_DIR, compositeProfileRoot),
                 OUTFITTER_FIXTURE: plan.env.OUTFITTER_FIXTURE,

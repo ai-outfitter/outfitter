@@ -2,6 +2,7 @@
 import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
@@ -10,6 +11,9 @@ import { createCompositeProfile } from '../../src/compositeProfile/CompositeProf
 import { allowTestConsoleOutput } from '../test-console.js';
 
 const temporaryRoots: string[] = [];
+const repositoryRoot = fileURLToPath(new URL('../..', import.meta.url));
+const builtInOutfitterPromptTemplate = join(repositoryRoot, 'prompts', 'outfitter.md');
+const builtInOutfitterSkill = join(repositoryRoot, 'skills', 'outfitter');
 
 const createTemporaryRoot = (): string => {
   const root = mkdtempSync(join(tmpdir(), 'outfitter-run-command-'));
@@ -76,7 +80,7 @@ describe('run command', () => {
     const projectDirectory = join(root, 'project');
     const profilesDirectory = join(homeDirectory, '.outfitter', 'profiles');
     writeSettings(homeDirectory, 'default_profile: default\nprofile_sources:\n  - path: ./profiles\n');
-    const baseProfilePath = writeProfile(
+    writeProfile(
       profilesDirectory,
       'base',
       ['id: base', 'controls:', '  model: base-model', '  environment:', '    BASE_ENV: inherited', ''].join('\n'),
@@ -95,11 +99,7 @@ describe('run command', () => {
         '',
       ].join('\n'),
     );
-    const unrelatedProfilePath = writeProfile(
-      profilesDirectory,
-      'unrelated',
-      'id: unrelated\ncontrols:\n  model: unrelated-model\n',
-    );
+    writeProfile(profilesDirectory, 'unrelated', 'id: unrelated\ncontrols:\n  model: unrelated-model\n');
     const warnings: string[] = [];
     const launches: unknown[] = [];
 
@@ -152,15 +152,21 @@ describe('run command', () => {
     expect(profileMetadata).toContain('BASE_ENV');
     expect(profileMetadata).toContain('LIVE_ENV');
     expect(profileMetadata).not.toContain('unrelated-model');
-    expect(result.launchPlan.args).toEqual(['--model', 'test-model', '--debug', 'prompt text']);
+    expect(result.launchPlan.args).toEqual([
+      '--model',
+      'test-model',
+      '--prompt-template',
+      builtInOutfitterPromptTemplate,
+      '--skill',
+      builtInOutfitterSkill,
+      '--debug',
+      'prompt text',
+    ]);
     expect(result.launchPlan.env.TEST_ENV).toBe('yes');
     expect(result.launchPlan.env.PI_CODING_AGENT_DIR).toBe(result.compositeProfileDirectory);
     expect(result.warnings).toEqual(["pi adapter cannot translate requested control 'unsupported_feature'."]);
     expect(warnings).toEqual(result.warnings);
     expect(launches).toHaveLength(1);
-    expect(profilePath).toContain('profile.yml');
-    expect(baseProfilePath).toContain('profile.yml');
-    expect(unrelatedProfilePath).toContain('profile.yml');
 
     await executeRunCommand(
       { homeDirectory, projectDirectory, profileId: 'default' },
