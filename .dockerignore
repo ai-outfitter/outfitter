@@ -5,4 +5,5 @@ doc_site/node_modules
 doc_site/.next
 .git
 .deepwork
+.outfitter
 sessions
