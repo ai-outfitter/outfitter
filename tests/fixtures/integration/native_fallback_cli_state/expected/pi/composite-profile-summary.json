@@ -2,7 +2,17 @@
   "profileId": "fallback-review",
   "agentId": "pi",
   "launchCommand": "pi",
-  "launchArgs": ["--model", "fallback-review-model", "--provider", "openai", "--native-fallback-fixture"],
+  "launchArgs": [
+    "--model",
+    "fallback-review-model",
+    "--provider",
+    "openai",
+    "--prompt-template",
+    "<repo>/prompts/outfitter.md",
+    "--skill",
+    "<repo>/skills/outfitter",
+    "--native-fallback-fixture"
+  ],
   "launchEnv": {
     "PI_CODING_AGENT_DIR": "<composite-profile>",
     "FALLBACK_LAYER": "project",

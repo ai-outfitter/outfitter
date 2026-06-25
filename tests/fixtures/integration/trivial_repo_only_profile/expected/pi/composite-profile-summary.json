@@ -2,7 +2,15 @@
   "profileId": "repo-review",
   "agentId": "pi",
   "launchCommand": "pi",
-  "launchArgs": ["--model", "repo-review-model", "--repo-flag"],
+  "launchArgs": [
+    "--model",
+    "repo-review-model",
+    "--prompt-template",
+    "<repo>/prompts/outfitter.md",
+    "--skill",
+    "<repo>/skills/outfitter",
+    "--repo-flag"
+  ],
   "launchEnv": {
     "PI_CODING_AGENT_DIR": "<composite-profile>",
     "REPO_PROFILE": "enabled",

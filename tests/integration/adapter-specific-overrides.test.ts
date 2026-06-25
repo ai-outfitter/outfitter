@@ -41,7 +41,7 @@ describe('adapter-specific integration fixture composite profile generation', ()
             profileId: 'adapter-review',
             agentId: 'pi',
             launchCommand: plan.command,
-            launchArgs: plan.args,
+            launchArgs: plan.args.map((arg) => tokenizeFixturePath(fixture, arg, compositeProfileRoot)),
             launchEnv: {
               PI_CODING_AGENT_DIR: tokenizeFixturePath(fixture, plan.env.PI_CODING_AGENT_DIR, compositeProfileRoot),
               ADAPTER_ENV: plan.env.ADAPTER_ENV,
@@ -103,7 +103,7 @@ describe('adapter-specific integration fixture composite profile generation', ()
             profileId: 'adapter-review',
             agentId: 'claude',
             launchCommand: plan.command,
-            launchArgs: plan.args,
+            launchArgs: plan.args.map((arg) => tokenizeFixturePath(fixture, arg, compositeProfileRoot)),
             launchEnv: {
               CLAUDE_CONFIG_DIR: tokenizeFixturePath(fixture, plan.env.CLAUDE_CONFIG_DIR, compositeProfileRoot),
               ADAPTER_ENV: plan.env.ADAPTER_ENV,

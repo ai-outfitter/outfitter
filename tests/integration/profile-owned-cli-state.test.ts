@@ -37,7 +37,7 @@ describe('profile-owned CLI state integration fixture composite profile generati
             profileId: 'stateful-review',
             agentId: 'pi',
             launchCommand: plan.command,
-            launchArgs: plan.args,
+            launchArgs: plan.args.map((arg) => tokenizeFixturePath(fixture, arg, compositeProfileRoot)),
             launchEnv: {
               PI_CODING_AGENT_DIR: tokenizeFixturePath(fixture, plan.env.PI_CODING_AGENT_DIR, compositeProfileRoot),
               TEAM_BASE: plan.env.TEAM_BASE,
@@ -124,7 +124,7 @@ describe('profile-owned CLI state integration fixture composite profile generati
             profileId: 'stateful-review',
             agentId: 'claude',
             launchCommand: plan.command,
-            launchArgs: plan.args,
+            launchArgs: plan.args.map((arg) => tokenizeFixturePath(fixture, arg, compositeProfileRoot)),
             launchEnv: {
               CLAUDE_CONFIG_DIR: tokenizeFixturePath(fixture, plan.env.CLAUDE_CONFIG_DIR, compositeProfileRoot),
               TEAM_BASE: plan.env.TEAM_BASE,

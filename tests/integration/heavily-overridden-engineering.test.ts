@@ -50,7 +50,7 @@ describe('heavily overridden integration fixture composite profile generation', 
             profileId: 'engineering',
             agentId: 'pi',
             launchCommand: plan.command,
-            launchArgs: plan.args,
+            launchArgs: plan.args.map((arg) => tokenizeFixturePath(fixture, arg, compositeProfileRoot)),
             launchEnv: {
               PI_CODING_AGENT_DIR: tokenizeFixturePath(fixture, plan.env.PI_CODING_AGENT_DIR, compositeProfileRoot),
               BASE_SHARED: plan.env.BASE_SHARED,

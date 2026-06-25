@@ -39,7 +39,7 @@ describe('integration fixture composite profile generation', () => {
             profileId: 'repo-review',
             agentId: 'pi',
             launchCommand: plan.command,
-            launchArgs: plan.args,
+            launchArgs: plan.args.map((arg) => tokenizeFixturePath(fixture, arg, compositeProfileRoot)),
             launchEnv: {
               PI_CODING_AGENT_DIR: tokenizeFixturePath(fixture, plan.env.PI_CODING_AGENT_DIR, compositeProfileRoot),
               REPO_PROFILE: plan.env.REPO_PROFILE,
@@ -141,7 +141,7 @@ describe('integration fixture composite profile generation', () => {
             profileId: 'typescript-review',
             agentId: 'pi',
             launchCommand: plan.command,
-            launchArgs: plan.args,
+            launchArgs: plan.args.map((arg) => tokenizeFixturePath(fixture, arg, compositeProfileRoot)),
             launchEnv: {
               PI_CODING_AGENT_DIR: tokenizeFixturePath(fixture, plan.env.PI_CODING_AGENT_DIR, compositeProfileRoot),
               LANGUAGE_STACK: plan.env.LANGUAGE_STACK,
@@ -191,7 +191,7 @@ describe('integration fixture composite profile generation', () => {
             profileId: 'local-selection',
             agentId: 'pi',
             launchCommand: plan.command,
-            launchArgs: plan.args,
+            launchArgs: plan.args.map((arg) => tokenizeFixturePath(fixture, arg, compositeProfileRoot)),
             launchEnv: {
               PI_CODING_AGENT_DIR: tokenizeFixturePath(fixture, plan.env.PI_CODING_AGENT_DIR, compositeProfileRoot),
               LOCAL_SELECTION: plan.env.LOCAL_SELECTION,
@@ -325,7 +325,7 @@ describe('integration fixture composite profile generation', () => {
             profileId: 'local-sandbox',
             agentId: 'pi',
             launchCommand: plan.command,
-            launchArgs: plan.args,
+            launchArgs: plan.args.map((arg) => tokenizeFixturePath(fixture, arg, compositeProfileRoot)),
             launchEnv: {
               LOCAL_SANDBOX: plan.env.LOCAL_SANDBOX,
               PI_CODING_AGENT_DIR: tokenizeFixturePath(fixture, plan.env.PI_CODING_AGENT_DIR, compositeProfileRoot),
@@ -404,7 +404,7 @@ describe('integration fixture composite profile generation', () => {
             profileId: 'fallback-review',
             agentId: 'pi',
             launchCommand: plan.command,
-            launchArgs: plan.args,
+            launchArgs: plan.args.map((arg) => tokenizeFixturePath(fixture, arg, compositeProfileRoot)),
             launchEnv: {
               PI_CODING_AGENT_DIR: tokenizeFixturePath(fixture, plan.env.PI_CODING_AGENT_DIR, compositeProfileRoot),
               FALLBACK_LAYER: plan.env.FALLBACK_LAYER,
@@ -518,7 +518,7 @@ describe('integration fixture composite profile generation', () => {
             profileId: 'cache-tooling',
             agentId: 'pi',
             launchCommand: plan.command,
-            launchArgs: plan.args,
+            launchArgs: plan.args.map((arg) => tokenizeFixturePath(fixture, arg, compositeProfileRoot)),
             launchEnv: {
               CACHE_TOOLING_PROFILE: plan.env.CACHE_TOOLING_PROFILE,
               PI_CODING_AGENT_DIR: tokenizeFixturePath(fixture, plan.env.PI_CODING_AGENT_DIR, compositeProfileRoot),
