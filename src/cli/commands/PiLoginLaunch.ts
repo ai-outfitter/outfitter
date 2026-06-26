@@ -29,22 +29,30 @@ export const preparePiLoginLaunchPlan = (input: PiLoginLaunchPlanInput): AgentLa
     return input.launchPlan;
   }
 
+  // Brand the interactive startup header with an Outfitter + pi line. The header text is
+  // compiled into pi, so the only repo-local override is a launch-time extension calling
+  // ctx.ui.setHeader. Non-interactive launches (--print, --export, …) keep pi untouched.
+  let launchPlan = input.launchPlan;
+  if (!isNonInteractivePiLaunch(input.launchPlan.args)) {
+    launchPlan = addPrefillExtension(launchPlan, 'outfitter-header-extension.js', piOutfitterHeaderExtensionContent);
+  }
+
   if (!hasConfiguredPiLoginState(input.homeDirectory)) {
     if (shouldAutoOpenPiLogin(input.setupResult, input.launchPlan.args)) {
       writePiLoginMessage(input.writeLine, automaticLoginMessage);
-      return addPrefillExtension(input.launchPlan, 'prefill-login-extension.js', piLoginPrefillExtensionContent);
+      return addPrefillExtension(launchPlan, 'prefill-login-extension.js', piLoginPrefillExtensionContent);
     }
 
     writePiLoginMessage(input.writeLine, manualLoginMessage);
-    return input.launchPlan;
+    return launchPlan;
   }
 
   if (shouldAutoOpenOutfitterSkill(input.setupResult, input.launchPlan.args)) {
     writePiLoginMessage(input.writeLine, outfitterSkillMessage);
-    return addPrefillExtension(input.launchPlan, 'prefill-outfitter-extension.js', piOutfitterPrefillExtensionContent);
+    return addPrefillExtension(launchPlan, 'prefill-outfitter-extension.js', piOutfitterPrefillExtensionContent);
   }
 
-  return input.launchPlan;
+  return launchPlan;
 };
 
 const addPrefillExtension = (launchPlan: AgentLaunchPlan, fileName: string, content: string): AgentLaunchPlan => {
@@ -54,6 +62,28 @@ const addPrefillExtension = (launchPlan: AgentLaunchPlan, fileName: string, cont
 
   return { ...launchPlan, args: ['--extension', extensionPath, ...launchPlan.args] };
 };
+
+const piOutfitterHeaderExtensionContent = `export default function outfitterHeader(pi) {
+  pi.on("session_start", (_event, ctx) => {
+    if (ctx.mode !== "tui") return;
+    ctx.ui.setHeader((_tui, theme) => {
+      const lines = [
+        theme.bold(theme.fg("accent", "Outfitter")) + theme.fg("dim", " + pi"),
+        theme.fg("muted", "/ commands · ! bash · ctrl+o more"),
+        "",
+        theme.fg(
+          "dim",
+          "Outfitter + Pi can explain its own features and look up its docs. Ask it how to use or extend Pi or outfitter profiles.",
+        ),
+      ];
+      return {
+        render: () => lines,
+        invalidate: () => undefined,
+      };
+    });
+  });
+}
+`;
 
 const piOutfitterPrefillExtensionContent = `export default function outfitterSkillPrefill(pi) {
   pi.on("session_start", async (_event, ctx) => {

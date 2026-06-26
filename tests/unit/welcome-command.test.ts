@@ -33,7 +33,9 @@ describe('welcome command', () => {
     expect(result).toEqual({
       answered: false,
       warnings: [],
-      messages: ['Skipped default profile setup. Use /outfitter inside Pi or run `outfitter profile list` to manage profiles.'],
+      messages: [
+        'Skipped default profile setup. Use /outfitter inside Pi or run `outfitter profile list` to manage profiles.',
+      ],
     });
   });
 

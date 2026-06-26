@@ -152,6 +152,8 @@ describe('run command', () => {
     expect(profileMetadata).toContain('LIVE_ENV');
     expect(profileMetadata).not.toContain('unrelated-model');
     expect(result.launchPlan.args).toEqual([
+      '--extension',
+      join(result.compositeProfileDirectory, 'outfitter', 'outfitter-header-extension.js'),
       '--model',
       'test-model',
       '--skill',
