@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.5.0](https://github.com/ai-outfitter/outfitter/compare/v0.4.0...v0.5.0) (2026-06-26)
+
+
+### Features
+
+* Publish default Outfitter setup skill ([#76](https://github.com/ai-outfitter/outfitter/issues/76)) ([5423439](https://github.com/ai-outfitter/outfitter/commit/5423439266b9413e150e0065d5585cac41bdbf9d))
+
+
+### Bug Fixes
+
+* Preserve Pi trust state in composite profiles ([#73](https://github.com/ai-outfitter/outfitter/issues/73)) ([e502b71](https://github.com/ai-outfitter/outfitter/commit/e502b71abf15f8a11b6f91f595a5088262ecdc82))
+
 ## [0.4.0](https://github.com/ai-outfitter/outfitter/compare/v0.3.0...v0.4.0) (2026-06-22)
 
 
