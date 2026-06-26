@@ -124,3 +124,22 @@ npm run check-ci
 
 Both commands run the coverage suite.
 Coverage thresholds are intentionally set to 100% for statements, branches, functions, and lines.
+Coverage includes all `src/**/*.ts` files, so new source files need tests even if they are only scaffolding.
+
+## Commit and release workflow
+
+Use Conventional Commits for every commit and PR title that will be squash-merged.
+Valid types are `feat`, `fix`, `refactor`, `chore`, `docs`, `test`, `ci`, `perf`, and `build`.
+Each commit should represent one logical change.
+
+Release automation is split across two workflows:
+
+1. `.github/workflows/release-please.yml` runs on pushes to `main`.
+   It uses `googleapis/release-please-action` to open or update a release PR when releasable Conventional Commits are present.
+2. Merge the release-please PR to publish the GitHub release and tag.
+3. `.github/workflows/release.yml` runs when that GitHub release is published.
+   It publishes the npm package with trusted publishing and then publishes matching GHCR image tags.
+
+`feat` commits normally create a minor release, and `fix` or `perf` commits normally create a patch release.
+Maintenance-only commits such as `chore`, `docs`, `test`, `ci`, `refactor`, and `build` may appear in the changelog context but do not necessarily create a release by themselves.
+If a change must produce a release, use a releasable Conventional Commit type that accurately describes the user-facing impact.
