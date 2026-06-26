@@ -9,8 +9,6 @@
     "repo-provider",
     "--thinking",
     "high",
-    "--prompt-template",
-    "<repo>/prompts/outfitter.md",
     "--system-prompt",
     "./prompts/sandbox.md",
     "--skill",

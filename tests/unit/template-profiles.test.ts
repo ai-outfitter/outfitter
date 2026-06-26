@@ -10,7 +10,6 @@ import { executeRunCommand } from '../../src/cli/commands/RunCommand.js';
 
 const temporaryRoots: string[] = [];
 const repositoryRoot = fileURLToPath(new URL('../..', import.meta.url));
-const builtInOutfitterPromptTemplate = join(repositoryRoot, 'prompts', 'outfitter.md');
 const builtInOutfitterSkill = join(repositoryRoot, 'skills', 'outfitter');
 
 const createTemporaryRoot = (): string => {
@@ -93,8 +92,6 @@ describe('template profiles', () => {
 
     expect(result.profileId).toBe('project-lead');
     expect(result.launchPlan.args).toEqual([
-      '--prompt-template',
-      builtInOutfitterPromptTemplate,
       '--append-system-prompt',
       'lead.md',
       '--append-system-prompt',

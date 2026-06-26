@@ -7,8 +7,6 @@
     "fallback-review-model",
     "--provider",
     "openai",
-    "--prompt-template",
-    "<repo>/prompts/outfitter.md",
     "--skill",
     "<repo>/skills/outfitter",
     "--native-fallback-fixture"

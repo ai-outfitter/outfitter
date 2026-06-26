@@ -12,7 +12,6 @@ import { allowTestConsoleOutput } from '../test-console.js';
 
 const temporaryRoots: string[] = [];
 const repositoryRoot = fileURLToPath(new URL('../..', import.meta.url));
-const builtInOutfitterPromptTemplate = join(repositoryRoot, 'prompts', 'outfitter.md');
 const builtInOutfitterSkill = join(repositoryRoot, 'skills', 'outfitter');
 
 const createTemporaryRoot = (): string => {
@@ -155,8 +154,6 @@ describe('run command', () => {
     expect(result.launchPlan.args).toEqual([
       '--model',
       'test-model',
-      '--prompt-template',
-      builtInOutfitterPromptTemplate,
       '--skill',
       builtInOutfitterSkill,
       '--debug',

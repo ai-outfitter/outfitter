@@ -13,7 +13,6 @@ RUN npm pkg delete scripts.prepare \
   && npm ci
 
 COPY package.json tsconfig.json tsconfig.build.json ./
-COPY prompts ./prompts
 COPY skills ./skills
 COPY src ./src
 

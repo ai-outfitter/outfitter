@@ -9,8 +9,6 @@
     "remote-provider",
     "--thinking",
     "user-default-thinking",
-    "--prompt-template",
-    "<repo>/prompts/outfitter.md",
     "--skill",
     "<repo>/skills/outfitter",
     "--local-selection",

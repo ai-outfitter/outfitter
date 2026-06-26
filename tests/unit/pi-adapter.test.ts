@@ -12,7 +12,6 @@ import { parseProfileYaml } from '../../src/profiles/ProfileLoader.js';
 
 const temporaryPiAdapterTestRoots: string[] = [];
 const repositoryRoot = fileURLToPath(new URL('../..', import.meta.url));
-const builtInOutfitterPromptTemplate = join(repositoryRoot, 'prompts', 'outfitter.md');
 const builtInOutfitterSkill = join(repositoryRoot, 'skills', 'outfitter');
 
 afterEach(() => {
@@ -110,8 +109,6 @@ describe('pi adapter', () => {
       '--session-dir',
       '/tmp/pi-sessions',
       '--prompt-template',
-      builtInOutfitterPromptTemplate,
-      '--prompt-template',
       'template-a',
       '--system-prompt',
       'base prompt',
@@ -139,8 +136,6 @@ describe('pi adapter', () => {
       expect(adapter.createLaunchPlan(compositeProfilePlan.compositeProfile, genericFallbackProfile).args).toEqual([
         '--model',
         'generic-model',
-        '--prompt-template',
-        builtInOutfitterPromptTemplate,
         '--skill',
         builtInOutfitterSkill,
       ]);
@@ -164,8 +159,6 @@ describe('pi adapter', () => {
     });
 
     expect(launchPlan.args).toEqual([
-      '--prompt-template',
-      builtInOutfitterPromptTemplate,
       '--append-system-prompt',
       './prompts/role.md',
       '--append-system-prompt',

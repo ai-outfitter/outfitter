@@ -112,14 +112,11 @@ describe('project foundation', () => {
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-010.3).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
-  it('publishes the default Outfitter Pi skill and command', () => {
+  it('publishes the default Outfitter Pi skill', () => {
     expect(packageJson.files).toContain('skills');
-    expect(packageJson.files).toContain('prompts');
     expect(packageJson.keywords).toContain('pi-package');
-    expect(packageJson.pi?.prompts).toEqual(['./prompts']);
     expect(packageJson.pi?.skills).toEqual(['./skills']);
     expect(existsSync(new URL('../skills/outfitter/SKILL.md', import.meta.url))).toBe(true);
-    expect(existsSync(new URL('../prompts/outfitter.md', import.meta.url))).toBe(true);
   });
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-001.5).

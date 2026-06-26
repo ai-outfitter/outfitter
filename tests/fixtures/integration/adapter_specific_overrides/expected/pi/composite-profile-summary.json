@@ -12,8 +12,6 @@
     "--session-dir",
     "pi-review-sessions",
     "--prompt-template",
-    "<repo>/prompts/outfitter.md",
-    "--prompt-template",
     "./prompts/pi-review.md",
     "--system-prompt",
     "Use the pi-specific repository review policy.",

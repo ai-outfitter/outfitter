@@ -9,7 +9,6 @@
   "files": [
     "dist",
     "skills",
-    "prompts",
     "requirements",
     "src/schemas",
     "doc",
@@ -70,9 +69,6 @@
     "profiles"
   ],
   "pi": {
-    "prompts": [
-      "./prompts"
-    ],
     "skills": [
       "./skills"
     ]

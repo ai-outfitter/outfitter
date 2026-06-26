@@ -10,7 +10,6 @@ import { createPiAdapter } from '../../src/agents/pi/PiAdapter.js';
 
 const temporaryRoots: string[] = [];
 const repositoryRoot = fileURLToPath(new URL('../..', import.meta.url));
-const builtInOutfitterPromptTemplate = join(repositoryRoot, 'prompts', 'outfitter.md');
 const builtInOutfitterSkill = join(repositoryRoot, 'skills', 'outfitter');
 
 afterEach(() => {
@@ -44,8 +43,6 @@ describe('pi adapter profile resources', () => {
     );
 
     expect(launchPlan.args).toEqual([
-      '--prompt-template',
-      builtInOutfitterPromptTemplate,
       '--skill',
       builtInOutfitterSkill,
       '--skill',

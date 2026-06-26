@@ -12,8 +12,6 @@
     "--session-dir",
     "./sessions/stateful-review",
     "--prompt-template",
-    "<repo>/prompts/outfitter.md",
-    "--prompt-template",
     "pi-review-template",
     "--system-prompt",
     "Review repository state using profile-owned CLI files.",

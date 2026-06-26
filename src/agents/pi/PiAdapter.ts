@@ -247,18 +247,10 @@ const resolvePiStateSourcePath = (
 
 const deepWorkAdditionalJobsFoldersEnv = 'DEEPWORK_ADDITIONAL_JOBS_FOLDERS';
 const packageRootDirectory = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
-const builtInOutfitterPromptTemplate = join(packageRootDirectory, 'prompts', 'outfitter.md');
 const builtInOutfitterSkill = join(packageRootDirectory, 'skills', 'outfitter');
 
 const createPiSkillSources = (controls: PiProfileControls, profileFolders: readonly string[]): readonly string[] => [
   ...new Set([builtInOutfitterSkill, ...(controls.skills ?? []), ...profileFolders.flatMap(skillSourcesForProfile)]),
-];
-
-const createPiPromptTemplateSources = (controls: PiProfileControls): readonly string[] => [
-  ...new Set([
-    builtInOutfitterPromptTemplate,
-    ...(controls.promptTemplate === undefined ? [] : [controls.promptTemplate]),
-  ]),
 ];
 
 const skillSourcesForProfile = (profileFolder: string): readonly string[] => [
@@ -353,7 +345,7 @@ const createPiArgs = (controls: PiProfileControls): readonly string[] => [
   ...flagValue('--provider', controls.provider),
   ...flagValue('--thinking', controls.thinking),
   ...flagValue('--session-dir', controls.sessionDirectory),
-  ...repeatFlag('--prompt-template', createPiPromptTemplateSources(controls)),
+  ...flagValue('--prompt-template', controls.promptTemplate),
   ...flagValue('--system-prompt', controls.systemPrompt),
   ...repeatFlagValue('--append-system-prompt', controls.appendSystemPrompt),
   ...repeatFlag('--extension', controls.extensions),

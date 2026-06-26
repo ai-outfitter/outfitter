@@ -10,8 +10,6 @@
     "--thinking",
     "high",
     "--prompt-template",
-    "<repo>/prompts/outfitter.md",
-    "--prompt-template",
     "Review {{project.name}} with repository standards",
     "--system-prompt",
     "Supplemental engineering guardrails",

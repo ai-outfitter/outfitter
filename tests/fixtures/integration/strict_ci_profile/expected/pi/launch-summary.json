@@ -7,8 +7,6 @@
     "ci-review-model",
     "--provider",
     "ci-provider",
-    "--prompt-template",
-    "<repo>/prompts/outfitter.md",
     "--skill",
     "<repo>/skills/outfitter",
     "--ci",

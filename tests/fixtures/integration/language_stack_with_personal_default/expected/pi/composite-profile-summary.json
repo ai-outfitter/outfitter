@@ -8,8 +8,6 @@
     "--provider",
     "local-node",
     "--prompt-template",
-    "<repo>/prompts/outfitter.md",
-    "--prompt-template",
     "Use npm scripts and Vitest evidence when reviewing changes.",
     "--system-prompt",
     "Review for correctness, maintainability, and project conventions.",

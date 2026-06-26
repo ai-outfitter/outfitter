@@ -29,8 +29,8 @@ Outfitter welcome onboarding guides a new user through the minimum choices neede
 3. The welcome onboarding flow MUST allow the user to accept the recommended loadout, select individual loadout items, or skip loadout installation.
 4. The default recommended loadout MUST include `git:github.com/ai-outfitter/ulta-tasklist`, `git:github.com/ai-outfitter/deepwork`, `npm:pi-subagents`, and `npm:pi-mcp-adapter` while those packages remain available.
 5. Loadout installation MUST be captured as structured onboarding data so future profile creation can install the selected extensions, skills, or package resources deterministically.
-6. The Outfitter npm package MUST publish a default Pi skill named `outfitter` and a `/outfitter` prompt command that loads it for profile setup guidance from inside Pi.
-7. The Pi adapter MUST load the default Outfitter skill and `/outfitter` prompt command for normal profile launches.
+6. The Outfitter npm package MUST publish a default Pi skill named `outfitter` for profile setup guidance from inside Pi.
+7. The Pi adapter MUST load the default Outfitter skill for normal profile launches.
 8. If a loadout item is unavailable or unsupported by the selected agent adapter, Outfitter MUST warn the user and continue with the remaining selected loadout items unless strict onboarding validation is enabled.
 
 ### OFTR-010.4: Pi Login Setup
