@@ -10,6 +10,8 @@ Outfitter is organized around clear TypeScript source boundaries, requirement do
 ```text
 .                                      # repository root
 ├── .deepreview                        # root DeepWork review rules for project-wide checks
+├── .dockerignore                      # container build context exclusions
+├── Dockerfile                         # local and release Outfitter container image definition
 ├── .deepwork/                         # DeepWork schemas and generated review instruction scratch files
 │   └── schemas/                       # project-specific DeepSchema definitions
 ├── .github/                           # GitHub automation configuration
@@ -37,6 +39,10 @@ Outfitter is organized around clear TypeScript source boundaries, requirement do
 ├── .snapperrc.toml                    # Snapper Markdown formatting configuration
 ├── plan.md                            # implementation plan
 ├── CONTRIBUTING.md                    # local install and contributor workflow guide
+├── bin/                               # local executable development helpers
+│   ├── dev-container-setup            # clean container helper for setup smoke tests
+│   ├── dev-setup-source               # local build helper for real setup-source targets
+│   └── dev-tmp-home                   # isolated temporary HOME launch helper
 ├── src/                               # production TypeScript source
 │   ├── cli.ts                         # executable CLI entry point
 │   ├── cli/                           # CLI parser construction and command registration

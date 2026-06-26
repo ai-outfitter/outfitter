@@ -1,0 +1,104 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd -- "$SCRIPT_DIR/.." && pwd)"
+
+IMAGE="outfitter-dev:local"
+PI_VOLUME="outfitter-pi-agent"
+SETUP_SOURCE=""
+SKIP_BUILD=0
+
+die() {
+  echo "error: $*" >&2
+  exit 1
+}
+
+usage() {
+  cat <<'USAGE'
+Usage: bin/dev-container-setup [options] [setup-source] [-- <outfitter setup args>]
+
+Build the local Outfitter Docker image, start in ~/repos, and run Outfitter.
+With no setup-source, this opens `outfitter`. With setup-source, it runs
+`outfitter setup <setup-source>`.
+
+Pi credentials and settings are stored in a named container volume mounted at
+~/.pi/agent. They are not copied from the host.
+
+When setup-source is a local directory, it is mounted read-only into the
+container. Remote Git URLs are passed through unchanged.
+
+Options:
+  --skip-build   Run the existing outfitter-dev:local image.
+  -h, --help     Show this help.
+
+Examples:
+  bin/dev-container-setup
+  bin/dev-container-setup https://github.com/ai-outfitter/link
+  bin/dev-container-setup ../outfitter-default-profiles
+USAGE
+}
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --skip-build)
+      SKIP_BUILD=1
+      shift
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    --)
+      shift
+      break
+      ;;
+    -*)
+      die "unknown option: $1"
+      ;;
+    *)
+      SETUP_SOURCE="$1"
+      shift
+      break
+      ;;
+  esac
+done
+
+command -v docker >/dev/null 2>&1 || die "docker is required"
+[[ -f "$REPO_ROOT/Dockerfile" ]] || die "missing Dockerfile: $REPO_ROOT/Dockerfile"
+
+if [[ "$SKIP_BUILD" -eq 0 ]]; then
+  docker build -f "$REPO_ROOT/Dockerfile" -t "$IMAGE" "$REPO_ROOT"
+fi
+
+RUN_FLAGS=(--rm)
+if [[ -t 0 && -t 1 ]]; then
+  RUN_FLAGS+=(-it)
+fi
+
+RUN_FLAGS+=(
+  -e HOME=/home/node
+  -e OPENAI_API_KEY
+  --mount "type=volume,source=$PI_VOLUME,target=/home/node/.pi/agent"
+  -w /home/node/repos
+)
+
+CONTAINER_SETUP_SOURCE="$SETUP_SOURCE"
+if [[ -n "$SETUP_SOURCE" && -d "$SETUP_SOURCE" ]]; then
+  SOURCE_ABS="$(cd -- "$SETUP_SOURCE" && pwd)"
+  CONTAINER_SETUP_SOURCE="/home/node/repos/setup-source"
+  RUN_FLAGS+=(-v "$SOURCE_ABS:$CONTAINER_SETUP_SOURCE:ro")
+fi
+
+CONTAINER_SCRIPT='
+set -Eeuo pipefail
+mkdir -p "$HOME/repos"
+cd "$HOME/repos"
+if [[ -n "$1" ]]; then
+  outfitter setup "$1" "${@:2}"
+else
+  exec outfitter "$@"
+fi
+'
+
+exec docker run "${RUN_FLAGS[@]}" --entrypoint bash "$IMAGE" -lc "$CONTAINER_SCRIPT" bash "$CONTAINER_SETUP_SOURCE" "$@"

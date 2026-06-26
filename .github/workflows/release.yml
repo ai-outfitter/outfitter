@@ -8,10 +8,11 @@ on:
 permissions:
   contents: read
   id-token: write
+  packages: write
 
 jobs:
   publish-npm:
-    name: Publish npm package
+    name: Publish npm package and container image
     runs-on: ubuntu-latest
     environment: npm-publish
 
@@ -45,3 +46,28 @@ jobs:
 
       - name: Publish package to npm
         run: npm publish --access public --provenance
+
+      - name: Prepare container image metadata
+        id: container
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          image="ghcr.io/${GITHUB_REPOSITORY,,}"
+          echo "image=$image" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and publish container image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile
+          push: true
+          tags: |
+            ${{ steps.container.outputs.image }}:${{ steps.container.outputs.version }}
+            ${{ steps.container.outputs.image }}:latest
