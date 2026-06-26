@@ -3,248 +3,27 @@ set -Eeuo pipefail
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd -- "$SCRIPT_DIR/.." && pwd)"
-SOURCE_HOME="${OUTFITTER_DEV_SOURCE_HOME:-${HOME:-}}"
-PROFILE_ID="${OUTFITTER_DEV_PROFILE:-data_analyst}"
-PROJECT_DIR="${OUTFITTER_DEV_PROJECT_DIR:-$(pwd)}"
-DEV_HOME="${OUTFITTER_DEV_HOME:-}"
-PROFILES_INPUT="${OUTFITTER_DEFAULT_PROFILES_DIR:-}"
-COPY_PI_AUTH=1
-KEEP_HOME="${OUTFITTER_DEV_KEEP_HOME:-0}"
-RUN_BUILD=1
-DRY_RUN=0
 
-die() {
-  echo "error: $*" >&2
+DEFAULT_PROFILES_SOURCE="$REPO_ROOT/../outfitter-default-profiles"
+[[ -d "$DEFAULT_PROFILES_SOURCE" ]] || {
+  echo "error: could not find outfitter-default-profiles at $DEFAULT_PROFILES_SOURCE" >&2
   exit 1
 }
 
-usage() {
-  cat <<'USAGE'
-Usage: bin/dev-tmp-home [options] [-- <pi args>]
-
-Start this Outfitter checkout with an isolated temporary HOME, local default
-profiles, and the data_analyst/openai-codex/gpt-5.5 configuration.
-
-Options:
-  --home <dir>          Use an explicit dev HOME instead of mktemp.
-  --profiles <dir>      Default-profiles repo root or profiles directory.
-  --profile <id>        Profile to launch. Default: data_analyst.
-  --project-dir <dir>   Project directory for Outfitter/Pi. Default: current dir.
-  --source-home <dir>   Home to copy existing Pi auth from. Default: current HOME.
-  --no-copy-pi-auth     Do not copy .pi/agent/auth.json into the dev HOME.
-  --keep                Keep the generated dev HOME after exit.
-  --no-build            Skip npm run build before launching.
-  --dry-run             Print config and launch command without starting Pi.
-  -h, --help            Show this help.
-
-Environment overrides:
-  OUTFITTER_DEV_HOME, OUTFITTER_DEFAULT_PROFILES_DIR, OUTFITTER_DEV_PROFILE,
-  OUTFITTER_DEV_PROJECT_DIR, OUTFITTER_DEV_SOURCE_HOME, OUTFITTER_DEV_KEEP_HOME
-USAGE
-}
-
-while [[ $# -gt 0 ]]; do
-  case "$1" in
-    --home)
-      [[ $# -ge 2 ]] || die "--home requires a directory"
-      DEV_HOME="$2"
-      shift 2
-      ;;
-    --profiles)
-      [[ $# -ge 2 ]] || die "--profiles requires a directory"
-      PROFILES_INPUT="$2"
-      shift 2
-      ;;
-    --profile)
-      [[ $# -ge 2 ]] || die "--profile requires an id"
-      PROFILE_ID="$2"
-      shift 2
-      ;;
-    --project-dir)
-      [[ $# -ge 2 ]] || die "--project-dir requires a directory"
-      PROJECT_DIR="$2"
-      shift 2
-      ;;
-    --source-home)
-      [[ $# -ge 2 ]] || die "--source-home requires a directory"
-      SOURCE_HOME="$2"
-      shift 2
-      ;;
-    --no-copy-pi-auth)
-      COPY_PI_AUTH=0
-      shift
-      ;;
-    --keep)
-      KEEP_HOME=1
-      shift
-      ;;
-    --no-build)
-      RUN_BUILD=0
-      shift
-      ;;
-    --dry-run)
-      DRY_RUN=1
-      shift
-      ;;
-    -h|--help)
-      usage
-      exit 0
-      ;;
-    --)
-      shift
-      break
-      ;;
-    *)
-      break
-      ;;
-  esac
-done
-
-abs_dir() {
-  mkdir -p "$1"
-  cd -- "$1" && pwd
-}
-
-normalize_profiles_dir() {
-  local candidate="$1"
-
-  if [[ -f "$candidate/$PROFILE_ID/profile.yml" ]]; then
-    cd -- "$candidate" && pwd
-    return 0
-  fi
-
-  if [[ -f "$candidate/profiles/$PROFILE_ID/profile.yml" ]]; then
-    cd -- "$candidate/profiles" && pwd
-    return 0
-  fi
-
-  return 1
-}
-
-find_profiles_dir() {
-  local candidates=()
-
-  if [[ -n "$PROFILES_INPUT" ]]; then
-    candidates+=("$PROFILES_INPUT")
-  fi
-
-  candidates+=(
-    "$REPO_ROOT/.outfitter/profiles"
-    "$REPO_ROOT/../../outfitter-default-profiles/self-contained-data-analyst-jobs/profiles"
-    "$REPO_ROOT/../../../outfitter-default-profiles/profiles"
-    "$REPO_ROOT/../default-profiles/profiles"
-    "$REPO_ROOT/../outfitter-default-profiles/profiles"
-  )
-
-  local candidate
-  for candidate in "${candidates[@]}"; do
-    [[ -n "$candidate" ]] || continue
-    if normalize_profiles_dir "$candidate" >/dev/null 2>&1; then
-      normalize_profiles_dir "$candidate"
-      return 0
-    fi
-  done
-
-  return 1
-}
-
-is_truthy() {
-  case "${1,,}" in
-    1|true|yes|y|on) return 0 ;;
-    *) return 1 ;;
-  esac
-}
-
-if [[ -z "$SOURCE_HOME" ]]; then
-  die "HOME is not set; pass --source-home if you want Pi auth copied"
-fi
-
-SOURCE_HOME="$(abs_dir "$SOURCE_HOME")"
-PROJECT_DIR="$(abs_dir "$PROJECT_DIR")"
-
-if [[ -z "$DEV_HOME" ]]; then
-  DEV_HOME="$(mktemp -d -t outfitter-dev-home.XXXXXX)"
-else
-  DEV_HOME="$(abs_dir "$DEV_HOME")"
-fi
-
-[[ "$DEV_HOME" != "/" ]] || die "refusing to use / as dev HOME"
-[[ "$DEV_HOME" != "$SOURCE_HOME" ]] || die "refusing to use source HOME as dev HOME"
+DEV_HOME="$(mktemp -d -t outfitter-dev-home.XXXXXX)"
 
 cleanup() {
-  if ! is_truthy "$KEEP_HOME" && [[ -n "${DEV_HOME:-}" && -d "$DEV_HOME" ]]; then
-    rm -rf -- "$DEV_HOME"
-  fi
+  [[ -n "${DEV_HOME:-}" && -d "$DEV_HOME" ]] && rm -rf -- "$DEV_HOME"
 }
 trap cleanup EXIT
 
-PROFILES_DIR="$(find_profiles_dir)" || die "could not find default profiles. Pass --profiles /path/to/default-profiles or set OUTFITTER_DEFAULT_PROFILES_DIR."
+mkdir -p "$DEV_HOME/.pi/agent"
 
-mkdir -p "$DEV_HOME/.outfitter" "$DEV_HOME/.pi/agent"
-rm -rf -- "$DEV_HOME/.outfitter/profiles"
-ln -s "$PROFILES_DIR" "$DEV_HOME/.outfitter/profiles"
-cat > "$DEV_HOME/.outfitter/settings.yml" <<YAML
-default_profile: $PROFILE_ID
-profile_sources:
-  - path: ./profiles
-YAML
-
-cat > "$DEV_HOME/.pi/agent/settings.json" <<'JSON'
-{
-  "defaultProvider": "openai-codex",
-  "defaultModel": "gpt-5.5",
-  "defaultThinkingLevel": "xhigh"
-}
-JSON
-printf '{"providers":{}}\n' > "$DEV_HOME/.pi/agent/models.json"
-printf '{}\n' > "$DEV_HOME/.pi/agent/mcp.json"
-mkdir -p "$DEV_HOME/.pi/agent/cache" \
-  "$DEV_HOME/.pi/agent/git" \
-  "$DEV_HOME/.pi/agent/npm" \
-  "$DEV_HOME/.pi/agent/plugins" \
-  "$DEV_HOME/.pi/agent/sessions" \
-  "$DEV_HOME/.pi/agent/tmp"
-
-if [[ "$COPY_PI_AUTH" -eq 1 && -f "$SOURCE_HOME/.pi/agent/auth.json" ]]; then
-  install -m 600 "$SOURCE_HOME/.pi/agent/auth.json" "$DEV_HOME/.pi/agent/auth.json"
-else
-  printf '{}\n' > "$DEV_HOME/.pi/agent/auth.json"
-  chmod 600 "$DEV_HOME/.pi/agent/auth.json"
+if [[ -f "${HOME:-}/.pi/agent/auth.json" ]]; then
+  install -m 600 "$HOME/.pi/agent/auth.json" "$DEV_HOME/.pi/agent/auth.json"
 fi
 
-if [[ "$RUN_BUILD" -eq 1 ]]; then
-  npm --prefix "$REPO_ROOT" run build
-fi
-
-LAUNCH_CMD=(node "$REPO_ROOT/dist/cli.js" run --profile "$PROFILE_ID" -- "$@")
+npm --prefix "$REPO_ROOT" run build
 
 echo "Outfitter dev HOME: $DEV_HOME"
-echo "Default profiles:  $PROFILES_DIR"
-echo "Project dir:       $PROJECT_DIR"
-echo "Profile:           $PROFILE_ID (openai-codex / gpt-5.5)"
-if grep -q '"openai-codex"' "$DEV_HOME/.pi/agent/auth.json" 2>/dev/null; then
-  echo "Pi auth:           copied openai-codex auth from $SOURCE_HOME"
-elif [[ -n "${OPENAI_API_KEY:-}" ]]; then
-  echo "Pi auth:           using OPENAI_API_KEY from environment"
-else
-  echo "Pi auth:           no openai-codex auth found; Pi may ask you to log in" >&2
-fi
-if is_truthy "$KEEP_HOME"; then
-  echo "Cleanup:           keeping dev HOME"
-else
-  echo "Cleanup:           dev HOME will be removed on exit (pass --keep to inspect)"
-fi
-
-if [[ "$DRY_RUN" -eq 1 ]]; then
-  printf 'Launch command:    HOME=%q ' "$DEV_HOME"
-  printf '%q ' "${LAUNCH_CMD[@]}"
-  printf '\n'
-  exit 0
-fi
-
-cd -- "$PROJECT_DIR"
-set +e
-HOME="$DEV_HOME" "${LAUNCH_CMD[@]}"
-STATUS=$?
-set -e
-exit "$STATUS"
+HOME="$DEV_HOME" node "$REPO_ROOT/dist/cli.js" setup "$DEFAULT_PROFILES_SOURCE"
