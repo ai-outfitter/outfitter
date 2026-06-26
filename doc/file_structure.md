@@ -37,7 +37,6 @@ Outfitter is organized around clear TypeScript source boundaries, requirement do
 ├── .prettierignore                    # Prettier ignore rules
 ├── .prettierrc.json                   # Prettier formatting configuration
 ├── .snapperrc.toml                    # Snapper Markdown formatting configuration
-├── plan.md                            # implementation plan
 ├── CONTRIBUTING.md                    # local install and contributor workflow guide
 ├── bin/                               # local executable development helpers
 │   ├── dev-container-setup            # clean container helper for setup smoke tests

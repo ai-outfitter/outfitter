@@ -275,8 +275,6 @@ The current recommendation is to build `outfitter` around pi's existing native c
 5. Decide per profile whether project-local `.pi` overrides are allowed.
 6. Keep the wrapper responsible for anything that must happen before pi starts, such as selecting config directories, setting credentials, or choosing session locations.
 
-See [`recommendation.md`](./recommendation.md) for current notes on pi startup behavior and wrapper strategy.
-
 ## Status
 
 This repository is under phased implementation.
