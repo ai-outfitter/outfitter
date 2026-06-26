@@ -13,6 +13,9 @@ export interface PiLoginLaunchPlanInput {
   readonly writeLine?: (message: string) => void;
 }
 
+const outfitterSkillMessage =
+  'No profile set up. Outfitter will open `/outfitter` automatically so you can configure a profile.';
+
 const manualLoginMessage =
   'Pi does not appear to be logged in yet. After Pi starts, run `/login` and choose a subscription such as Codex or provide an API key from another model provider.';
 
@@ -22,26 +25,54 @@ const automaticLoginMessage =
 const nonInteractivePiLaunchFlags = new Set(['--print', '-p', '--mode', '--export', '--list-models']);
 
 export const preparePiLoginLaunchPlan = (input: PiLoginLaunchPlanInput): AgentLaunchPlan => {
-  if (input.adapterId !== 'pi' || hasConfiguredPiLoginState(input.homeDirectory)) {
+  if (input.adapterId !== 'pi') {
     return input.launchPlan;
   }
 
-  if (shouldAutoOpenPiLogin(input.setupResult, input.launchPlan.args)) {
-    writePiLoginMessage(input.writeLine, automaticLoginMessage);
-    return addPiLoginPrefillExtension(input.launchPlan);
+  if (!hasConfiguredPiLoginState(input.homeDirectory)) {
+    if (shouldAutoOpenPiLogin(input.setupResult, input.launchPlan.args)) {
+      writePiLoginMessage(input.writeLine, automaticLoginMessage);
+      return addPrefillExtension(input.launchPlan, 'prefill-login-extension.js', piLoginPrefillExtensionContent);
+    }
+
+    writePiLoginMessage(input.writeLine, manualLoginMessage);
+    return input.launchPlan;
   }
 
-  writePiLoginMessage(input.writeLine, manualLoginMessage);
+  if (shouldAutoOpenOutfitterSkill(input.setupResult, input.launchPlan.args)) {
+    writePiLoginMessage(input.writeLine, outfitterSkillMessage);
+    return addPrefillExtension(input.launchPlan, 'prefill-outfitter-extension.js', piOutfitterPrefillExtensionContent);
+  }
+
   return input.launchPlan;
 };
 
-const addPiLoginPrefillExtension = (launchPlan: AgentLaunchPlan): AgentLaunchPlan => {
-  const extensionPath = join(launchPlan.env.PI_CODING_AGENT_DIR, 'outfitter', 'prefill-login-extension.js');
+const addPrefillExtension = (launchPlan: AgentLaunchPlan, fileName: string, content: string): AgentLaunchPlan => {
+  const extensionPath = join(launchPlan.env.PI_CODING_AGENT_DIR, 'outfitter', fileName);
   mkdirSync(dirname(extensionPath), { recursive: true });
-  writeFileSync(extensionPath, piLoginPrefillExtensionContent);
+  writeFileSync(extensionPath, content);
 
   return { ...launchPlan, args: ['--extension', extensionPath, ...launchPlan.args] };
 };
+
+const piOutfitterPrefillExtensionContent = `export default function outfitterSkillPrefill(pi) {
+  pi.on("session_start", async (_event, ctx) => {
+    ctx.ui.setEditorText("/outfitter");
+    ctx.ui.notify("Outfitter is opening /outfitter to help you set up your profile.", "info");
+    await ctx.ui.custom((tui, _theme, _keybindings, done) => {
+      setTimeout(() => {
+        tui.focusedComponent?.handleInput?.("\\r");
+        done();
+      }, 25);
+
+      return {
+        render: () => [],
+        invalidate: () => undefined,
+      };
+    }, { overlay: true, overlayOptions: { nonCapturing: true, visible: () => false } });
+  });
+}
+`;
 
 const piLoginPrefillExtensionContent = `export default function outfitterLoginPrefill(pi) {
   pi.on("session_start", async (_event, ctx) => {
@@ -66,6 +97,9 @@ const writePiLoginMessage = (writeLine: ((message: string) => void) | undefined,
   /* v8 ignore next -- console fallback is direct CLI behavior; tests inject a writer for login messages. */
   (writeLine ?? console.log)(message);
 };
+
+const shouldAutoOpenOutfitterSkill = (setupResult: SetupCommandResult | undefined, args: readonly string[]): boolean =>
+  setupResult?.welcomeResult?.answered === false && !isNonInteractivePiLaunch(args);
 
 const shouldAutoOpenPiLogin = (setupResult: SetupCommandResult | undefined, args: readonly string[]): boolean =>
   setupResult?.welcomeResult !== undefined && !isNonInteractivePiLaunch(args);

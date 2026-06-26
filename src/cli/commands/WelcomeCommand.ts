@@ -75,7 +75,7 @@ const welcomeIntroLines = [
   'Outfitter configures Pi with profiles and extensions — turning it into a complete agentic development environment.',
   'The founder profile brings Pi to feature parity with dedicated agentic coding tools:',
   'task tracking, multi-step reviews, browser automation, subagents, interactive shell, and MCP support.',
-  'The next few questions will configure your profile and extension loadout.',
+  'Press Y to install it now. Run /outfitter inside Pi at any time to customize your profile.',
 ] as const;
 
 export const writeWelcomeIntro = (output: Pick<NodeJS.WritableStream, 'write'>): void => {
@@ -168,7 +168,7 @@ export const executeWelcomeCommand = async (
     return {
       answered: false,
       warnings: [],
-      messages: ['Skipped Outfitter welcome questions. Run `outfitter welcome` any time to revisit them.'],
+      messages: ['Skipped default profile setup. Starting Pi with /outfitter to help you configure a profile.'],
     };
   }
 
@@ -181,7 +181,7 @@ export const executeWelcomeCommand = async (
     selectedRole: roleResolution.role,
     selectedLoadout: loadoutResolution.loadout,
     warnings,
-    messages: buildWelcomeMessages(roleResolution.role, loadoutResolution.loadout, warnings),
+    messages: buildWelcomeMessages(warnings),
   };
 };
 
@@ -234,93 +234,17 @@ const promptForWelcomePlan = async (dependencies: WelcomeCommandDependencies): P
 
   try {
     writeWelcomeIntro(output);
-    const answerQuestions = await promptForYesNo(
-      readline,
-      'Choose a role and recommended Pi loadout now? [Y/n]: ',
-      true,
-    );
+    const answer = (await readline.question('Install the founder profile? [Y/n]: ')).trim().toLowerCase();
+    const answerQuestions = answer === '' || ['y', 'yes'].includes(answer);
 
     if (!answerQuestions) {
       return { answerQuestions: false };
     }
 
-    const selectedRoleId = await promptForRole(readline, output);
-    const loadoutItemIds = await promptForLoadout(readline, output);
-
-    return { answerQuestions: true, selectedRoleId, loadoutItemIds };
+    return { answerQuestions: true, selectedRoleId: 'founder' };
   } finally {
     readline.close();
   }
-};
-
-const promptForYesNo = async (
-  readline: { question(query: string): Promise<string> },
-  query: string,
-  defaultValue: boolean,
-): Promise<boolean> => {
-  const answer = (await readline.question(query)).trim().toLowerCase();
-
-  if (answer === '') {
-    return defaultValue;
-  }
-
-  return ['y', 'yes'].includes(answer);
-};
-
-const promptForRole = async (
-  readline: { question(query: string): Promise<string> },
-  output: NodeJS.WritableStream,
-): Promise<string> => {
-  output.write('\nChoose your initial Outfitter role/profile:\n');
-  defaultProfileRoleChoices.forEach((role, index) => output.write(`${index + 1}. ${role.id} - ${role.label}\n`));
-
-  return defaultProfileRoleChoices[await promptForSelectionIndex(readline, 'Role [1]: ', 0)]?.id ?? fallbackRoleId;
-};
-
-const promptForLoadout = async (
-  readline: { question(query: string): Promise<string> },
-  output: NodeJS.WritableStream,
-): Promise<readonly string[]> => {
-  output.write(`\n${recommendedPiLoadout.label}:\n`);
-  recommendedPiLoadout.items.forEach((item, index) => {
-    output.write(`${index + 1}. ${item.label} (${item.kind}) - ${item.source}\n`);
-  });
-
-  const mode = (await readline.question('Install recommended loadout? [Y=all/c=choose/n=skip]: ')).trim().toLowerCase();
-
-  if (['n', 'no', 'skip'].includes(mode)) {
-    return [];
-  }
-
-  if (!['c', 'choose', 'custom', 's', 'select'].includes(mode)) {
-    return recommendedPiLoadout.items.map((item) => item.id);
-  }
-
-  const answer = (await readline.question('Loadout items [1,2,3,4 or blank for all]: ')).trim();
-
-  if (answer === '') {
-    return recommendedPiLoadout.items.map((item) => item.id);
-  }
-
-  return answer
-    .split(',')
-    .map((part) => Number.parseInt(part.trim(), 10) - 1)
-    .filter((index) => index >= 0 && index < recommendedPiLoadout.items.length)
-    .map((index) => recommendedPiLoadout.items[index].id);
-};
-
-const promptForSelectionIndex = async (
-  readline: { question(query: string): Promise<string> },
-  query: string,
-  defaultIndex: number,
-): Promise<number> => {
-  const answer = (await readline.question(query)).trim();
-
-  if (answer === '') {
-    return defaultIndex;
-  }
-
-  return Math.max(Number.parseInt(answer, 10) - 1, 0);
 };
 
 const resolveSelectedRole = (
@@ -366,22 +290,10 @@ const resolveSelectedLoadout = (
   };
 };
 
-const buildWelcomeMessages = (
-  selectedRole: WelcomeRoleChoice,
-  selectedLoadout: WelcomeLoadoutSelection,
-  warnings: readonly string[],
-): readonly string[] => {
-  const loadoutMessage =
-    selectedLoadout.selectedItems.length === 0
-      ? `Skipped ${selectedLoadout.label}.`
-      : `Selected ${selectedLoadout.label}: ${selectedLoadout.selectedItems.map((item) => item.source).join(', ')}.`;
-
-  return [
-    `Selected Outfitter role: ${selectedRole.id} (${selectedRole.label}).`,
-    loadoutMessage,
-    ...warnings.map((warning) => `Warning: ${warning}`),
-  ];
-};
+const buildWelcomeMessages = (warnings: readonly string[]): readonly string[] => [
+  'Installed the founder profile. Run /outfitter inside Pi to modify extensions, switch roles, or create new profiles.',
+  ...warnings.map((warning) => `Warning: ${warning}`),
+];
 
 const requireInteractiveTerminalIfNeeded = (dependencies: WelcomeCommandDependencies): void => {
   if (dependencies.interactive !== true) {

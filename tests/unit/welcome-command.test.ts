@@ -33,7 +33,7 @@ describe('welcome command', () => {
     expect(result).toEqual({
       answered: false,
       warnings: [],
-      messages: ['Skipped Outfitter welcome questions. Run `outfitter welcome` any time to revisit them.'],
+      messages: ['Skipped default profile setup. Starting Pi with /outfitter to help you configure a profile.'],
     });
   });
 
@@ -55,8 +55,7 @@ describe('welcome command', () => {
     expect(result.selectedLoadout?.selectedItems.map((item) => item.source)).toEqual(defaultLoadoutSources);
     expect(result.warnings).toEqual([]);
     expect(result.messages).toEqual([
-      'Selected Outfitter role: data_analyst (Data Analyst).',
-      `Selected Recommended Pi productivity loadout: ${defaultLoadoutSources.join(', ')}.`,
+      'Installed the founder profile. Run /outfitter inside Pi to modify extensions, switch roles, or create new profiles.',
     ]);
   });
 
@@ -106,137 +105,51 @@ describe('welcome command', () => {
     await program.parseAsync(['node', 'outfitter', 'welcome']);
 
     expect(messages).toEqual([
-      'Selected Outfitter role: founder (Founder).',
-      `Selected Recommended Pi productivity loadout: ${defaultLoadoutSources.join(', ')}.`,
+      'Installed the founder profile. Run /outfitter inside Pi to modify extensions, switch roles, or create new profiles.',
     ]);
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-010.1, OFTR-010.2, OFTR-010.3).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-010.1, OFTR-010.3).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
-  it('supports readline answers for role and selected loadout items while showing welcome text', async () => {
+  it('accepts with a single Y and installs the full founder loadout while showing welcome text', async () => {
     const input = Object.assign(new PassThrough(), { isTTY: true });
     const output = Object.assign(new PassThrough(), { isTTY: true });
     let outputText = '';
     output.on('data', (chunk: Buffer | string) => {
       outputText += chunk.toString();
     });
-    const answers = ['y', '2', 'c', '2,4'];
-    const writeNextAnswer = (): void => {
-      const answer = answers.shift();
-
-      if (answer === undefined) {
-        input.end();
-        return;
-      }
-
-      input.write(`${answer}\n`);
-      setImmediate(writeNextAnswer);
-    };
     const resultPromise = executeWelcomeCommand(
       { homeDirectory: '/tmp/home', projectDirectory: '/work/acme/default' },
       { interactive: true, input, output },
     );
-    setImmediate(writeNextAnswer);
+    setImmediate(() => input.end('y\n'));
     const result = await resultPromise;
 
     expect(outputText).toContain('____        _    __ _ _   _');
     expect(outputText).not.toContain('____  _');
     expect(outputText).toContain('Pi is a fully extensible agentic coding harness.');
-    expect(outputText).toContain('founder - Founder');
-    expect(outputText).toContain('engineer - Engineer');
-    expect(outputText).toContain('data_analyst - Data Analyst');
-    expect(outputText).toContain('npm:pi-mcp-adapter');
+    expect(outputText).toContain('Run /outfitter inside Pi at any time to customize your profile.');
     expect(result.answered).toBe(true);
-    expect(result.selectedRole?.id).toBe('engineer');
-    expect(result.selectedLoadout?.selectedItems.map((item) => item.source)).toEqual([
-      'npm:@juicesharp/rpiv-ask-user-question',
-      'npm:pi-nolo',
-    ]);
-  });
-
-  it('supports readline role fallback and accepting the full loadout', async () => {
-    const input = Object.assign(new PassThrough(), { isTTY: true });
-    const output = Object.assign(new PassThrough(), { isTTY: true });
-    const answers = ['y', '9', ''];
-    const writeNextAnswer = (): void => {
-      const answer = answers.shift();
-
-      if (answer === undefined) {
-        input.end();
-        return;
-      }
-
-      input.write(`${answer}\n`);
-      setImmediate(writeNextAnswer);
-    };
-    const resultPromise = executeWelcomeCommand(
-      { homeDirectory: '/tmp/home', projectDirectory: '/work/acme' },
-      { interactive: true, input, output },
-    );
-    setImmediate(writeNextAnswer);
-    const result = await resultPromise;
-
     expect(result.selectedRole?.id).toBe('founder');
     expect(result.selectedLoadout?.selectedItems.map((item) => item.source)).toEqual(defaultLoadoutSources);
   });
 
-  it('supports readline custom loadout defaults', async () => {
+  it('accepts with Enter (default) and installs the full founder loadout', async () => {
     const input = Object.assign(new PassThrough(), { isTTY: true });
     const output = Object.assign(new PassThrough(), { isTTY: true });
-    const answers = ['y', '', 'c', ''];
-    const writeNextAnswer = (): void => {
-      const answer = answers.shift();
-
-      if (answer === undefined) {
-        input.end();
-        return;
-      }
-
-      input.write(`${answer}\n`);
-      setImmediate(writeNextAnswer);
-    };
     const resultPromise = executeWelcomeCommand(
       { homeDirectory: '/tmp/home', projectDirectory: '/work/acme' },
       { interactive: true, input, output },
     );
-    setImmediate(writeNextAnswer);
-    const result = await resultPromise;
-
-    expect(result.selectedLoadout?.selectedItems.map((item) => item.source)).toEqual(defaultLoadoutSources);
-  });
-
-  it('supports readline defaults and skipping loadout installation', async () => {
-    const input = Object.assign(new PassThrough(), { isTTY: true });
-    const output = Object.assign(new PassThrough(), { isTTY: true });
-    const answers = ['', '', 'n'];
-    const writeNextAnswer = (): void => {
-      const answer = answers.shift();
-
-      if (answer === undefined) {
-        input.end();
-        return;
-      }
-
-      input.write(`${answer}\n`);
-      setImmediate(writeNextAnswer);
-    };
-    const resultPromise = executeWelcomeCommand(
-      { homeDirectory: '/tmp/home', projectDirectory: '/work/acme' },
-      { interactive: true, input, output },
-    );
-    setImmediate(writeNextAnswer);
+    setImmediate(() => input.end('\n'));
     const result = await resultPromise;
 
     expect(result.answered).toBe(true);
     expect(result.selectedRole?.id).toBe('founder');
-    expect(result.selectedLoadout?.selectedItems).toEqual([]);
-    expect(result.messages).toEqual([
-      'Selected Outfitter role: founder (Founder).',
-      'Skipped Recommended Pi productivity loadout.',
-    ]);
+    expect(result.selectedLoadout?.selectedItems.map((item) => item.source)).toEqual(defaultLoadoutSources);
   });
 
-  it('supports readline opt-out answers', async () => {
+  it('declines with N and returns unanswered', async () => {
     const input = Object.assign(new PassThrough(), { isTTY: true });
     const output = Object.assign(new PassThrough(), { isTTY: true });
     const resultPromise = executeWelcomeCommand(
@@ -247,6 +160,9 @@ describe('welcome command', () => {
     const result = await resultPromise;
 
     expect(result.answered).toBe(false);
+    expect(result.messages).toEqual([
+      'Skipped default profile setup. Starting Pi with /outfitter to help you configure a profile.',
+    ]);
   });
 
   it('requires TTY streams for interactive welcome prompts', async () => {
