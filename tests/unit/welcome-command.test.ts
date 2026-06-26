@@ -33,7 +33,7 @@ describe('welcome command', () => {
     expect(result).toEqual({
       answered: false,
       warnings: [],
-      messages: ['Skipped default profile setup. Starting Pi with /outfitter to help you configure a profile.'],
+      messages: ['Skipped default profile setup. Use /outfitter inside Pi or run `outfitter profile list` to manage profiles.'],
     });
   });
 
@@ -55,7 +55,7 @@ describe('welcome command', () => {
     expect(result.selectedLoadout?.selectedItems.map((item) => item.source)).toEqual(defaultLoadoutSources);
     expect(result.warnings).toEqual([]);
     expect(result.messages).toEqual([
-      'Installed the founder profile. Run /outfitter inside Pi to modify extensions, switch roles, or create new profiles.',
+      'Installed the founder profile. Use /outfitter inside Pi or run `outfitter profile list` to manage profiles.',
     ]);
   });
 
@@ -105,7 +105,7 @@ describe('welcome command', () => {
     await program.parseAsync(['node', 'outfitter', 'welcome']);
 
     expect(messages).toEqual([
-      'Installed the founder profile. Run /outfitter inside Pi to modify extensions, switch roles, or create new profiles.',
+      'Installed the founder profile. Use /outfitter inside Pi or run `outfitter profile list` to manage profiles.',
     ]);
   });
 
@@ -128,7 +128,7 @@ describe('welcome command', () => {
     expect(outputText).toContain('____        _    __ _ _   _');
     expect(outputText).not.toContain('____  _');
     expect(outputText).toContain('Pi is a fully extensible agentic coding harness.');
-    expect(outputText).toContain('Run /outfitter inside Pi at any time to customize your profile.');
+    expect(outputText).toContain('Press Y to install it now.');
     expect(result.answered).toBe(true);
     expect(result.selectedRole?.id).toBe('founder');
     expect(result.selectedLoadout?.selectedItems.map((item) => item.source)).toEqual(defaultLoadoutSources);
@@ -161,7 +161,7 @@ describe('welcome command', () => {
 
     expect(result.answered).toBe(false);
     expect(result.messages).toEqual([
-      'Skipped default profile setup. Starting Pi with /outfitter to help you configure a profile.',
+      'Skipped default profile setup. Use /outfitter inside Pi or run `outfitter profile list` to manage profiles.',
     ]);
   });
 

@@ -30,7 +30,7 @@ so the user can configure a profile interactively.
 1. On acceptance, the full recommended loadout MUST be installed automatically with no item-level selection prompt.
 2. The default recommended loadout MUST include `git:github.com/ai-outfitter/deepwork`, `npm:@juicesharp/rpiv-ask-user-question`, `git:github.com/applepi-ai/ulta-tasklist`, `npm:pi-nolo`, `npm:pi-browser-harness`, `npm:@mjakl/pi-subagent`, `npm:@narumitw/pi-btw`, `npm:pi-must-have-extension`, `npm:pi-interactive-shell`, and `npm:pi-mcp-adapter` while those packages remain available.
 3. Loadout installation MUST be captured as structured onboarding data so profile creation can install the selected extensions deterministically.
-4. On acceptance, Outfitter MUST display a message directing users to `/outfitter` for post-install customization.
+4. On acceptance, Outfitter MUST display a message directing users to `/outfitter` inside Pi and `outfitter profile list` in the terminal for post-install management.
 5. If a loadout item is unavailable or unsupported by the selected agent adapter, Outfitter MUST warn the user and continue with the remaining loadout items unless strict onboarding validation is enabled.
 6. The Outfitter npm package MUST publish a default Pi skill named `outfitter` for profile setup guidance from inside Pi.
 7. The Pi adapter MUST load the default Outfitter skill for normal profile launches.

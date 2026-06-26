@@ -75,7 +75,7 @@ const welcomeIntroLines = [
   'Outfitter configures Pi with profiles and extensions — turning it into a complete agentic development environment.',
   'The founder profile brings Pi to feature parity with dedicated agentic coding tools:',
   'task tracking, multi-step reviews, browser automation, subagents, interactive shell, and MCP support.',
-  'Press Y to install it now. Run /outfitter inside Pi at any time to customize your profile.',
+  'Press Y to install it now.',
 ] as const;
 
 export const writeWelcomeIntro = (output: Pick<NodeJS.WritableStream, 'write'>): void => {
@@ -168,7 +168,9 @@ export const executeWelcomeCommand = async (
     return {
       answered: false,
       warnings: [],
-      messages: ['Skipped default profile setup. Starting Pi with /outfitter to help you configure a profile.'],
+      messages: [
+        'Skipped default profile setup. Use /outfitter inside Pi or run `outfitter profile list` to manage profiles.',
+      ],
     };
   }
 
@@ -291,7 +293,7 @@ const resolveSelectedLoadout = (
 };
 
 const buildWelcomeMessages = (warnings: readonly string[]): readonly string[] => [
-  'Installed the founder profile. Run /outfitter inside Pi to modify extensions, switch roles, or create new profiles.',
+  'Installed the founder profile. Use /outfitter inside Pi or run `outfitter profile list` to manage profiles.',
   ...warnings.map((warning) => `Warning: ${warning}`),
 ];
 

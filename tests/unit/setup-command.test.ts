@@ -966,7 +966,7 @@ describe('setup command', () => {
       },
       warnings: [],
       messages: [
-        'Installed the founder profile. Run /outfitter inside Pi to modify extensions, switch roles, or create new profiles.',
+        'Installed the founder profile. Use /outfitter inside Pi or run `outfitter profile list` to manage profiles.',
       ],
     });
   });
