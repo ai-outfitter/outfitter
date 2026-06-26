@@ -49,7 +49,7 @@ describe('preparePiLoginLaunchPlan', () => {
       writeLine: () => undefined,
     });
 
-    const header = readExtension(plan, 'outfitter-header-extension.js');
+    const header = readExtension(plan, 'outfitter-extension.js');
     expect(header).toContain('ctx.ui.setHeader');
     expect(header).toContain(
       'Outfitter + Pi can explain its own features and look up its docs. Ask it how to use or extend Pi or outfitter profiles.',
@@ -94,7 +94,7 @@ describe('preparePiLoginLaunchPlan', () => {
       writeLine: (message) => messages.push(message),
     });
 
-    expect(() => readExtension(plan, 'outfitter-header-extension.js')).not.toThrow();
+    expect(() => readExtension(plan, 'outfitter-extension.js')).not.toThrow();
     expect(() => readExtension(plan, 'prefill-login-extension.js')).not.toThrow();
     expect(messages.some((message) => message.includes('/login'))).toBe(true);
   });

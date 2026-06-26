@@ -29,18 +29,19 @@ export const preparePiLoginLaunchPlan = (input: PiLoginLaunchPlanInput): AgentLa
     return input.launchPlan;
   }
 
-  // Brand the interactive startup header with an Outfitter + pi line. The header text is
-  // compiled into pi, so the only repo-local override is a launch-time extension calling
-  // ctx.ui.setHeader. Non-interactive launches (--print, --export, …) keep pi untouched.
+  // Load the Outfitter runtime extension for every interactive pi session. It brands the
+  // startup header today and is the home for future Outfitter↔pi integration. The header
+  // text is compiled into pi, so a launch-time extension is the only repo-local override.
+  // Non-interactive launches (--print, --export, …) keep pi untouched.
   let launchPlan = input.launchPlan;
   if (!isNonInteractivePiLaunch(input.launchPlan.args)) {
-    launchPlan = addPrefillExtension(launchPlan, 'outfitter-header-extension.js', piOutfitterHeaderExtensionContent);
+    launchPlan = addExtension(launchPlan, 'outfitter-extension.js', piOutfitterExtensionContent);
   }
 
   if (!hasConfiguredPiLoginState(input.homeDirectory)) {
     if (shouldAutoOpenPiLogin(input.setupResult, input.launchPlan.args)) {
       writePiLoginMessage(input.writeLine, automaticLoginMessage);
-      return addPrefillExtension(launchPlan, 'prefill-login-extension.js', piLoginPrefillExtensionContent);
+      return addExtension(launchPlan, 'prefill-login-extension.js', piLoginPrefillExtensionContent);
     }
 
     writePiLoginMessage(input.writeLine, manualLoginMessage);
@@ -49,13 +50,13 @@ export const preparePiLoginLaunchPlan = (input: PiLoginLaunchPlanInput): AgentLa
 
   if (shouldAutoOpenOutfitterSkill(input.setupResult, input.launchPlan.args)) {
     writePiLoginMessage(input.writeLine, outfitterSkillMessage);
-    return addPrefillExtension(launchPlan, 'prefill-outfitter-extension.js', piOutfitterPrefillExtensionContent);
+    return addExtension(launchPlan, 'prefill-outfitter-extension.js', piOutfitterPrefillExtensionContent);
   }
 
   return launchPlan;
 };
 
-const addPrefillExtension = (launchPlan: AgentLaunchPlan, fileName: string, content: string): AgentLaunchPlan => {
+const addExtension = (launchPlan: AgentLaunchPlan, fileName: string, content: string): AgentLaunchPlan => {
   const extensionPath = join(launchPlan.env.PI_CODING_AGENT_DIR, 'outfitter', fileName);
   mkdirSync(dirname(extensionPath), { recursive: true });
   writeFileSync(extensionPath, content);
@@ -63,7 +64,9 @@ const addPrefillExtension = (launchPlan: AgentLaunchPlan, fileName: string, cont
   return { ...launchPlan, args: ['--extension', extensionPath, ...launchPlan.args] };
 };
 
-const piOutfitterHeaderExtensionContent = `export default function outfitterHeader(pi) {
+// The general Outfitter pi extension. Currently brands the startup header with an
+// Outfitter + pi line; extend its session_start handler for further integration.
+const piOutfitterExtensionContent = `export default function outfitter(pi) {
   pi.on("session_start", (_event, ctx) => {
     if (ctx.mode !== "tui") return;
     ctx.ui.setHeader((_tui, theme) => {

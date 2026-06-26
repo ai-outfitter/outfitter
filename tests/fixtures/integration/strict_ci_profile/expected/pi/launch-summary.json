@@ -4,7 +4,7 @@
   "launchCommand": "pi",
   "launchArgs": [
     "--extension",
-    "<composite-profile>/outfitter/outfitter-header-extension.js",
+    "<composite-profile>/outfitter/outfitter-extension.js",
     "--model",
     "ci-review-model",
     "--provider",
