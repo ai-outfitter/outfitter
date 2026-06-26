@@ -18,7 +18,7 @@ Outfitter welcome onboarding guides a new user through the minimum choices neede
 
 1. The welcome onboarding flow MUST ask the user to choose an initial role for the Outfitter-managed agent session.
 2. Role choices MUST align with Outfitter's built-in standard role catalog, not DeepWork review personas or a remote default profile source.
-3. The role selection prompt MUST include the currently available built-in standard profile roles, including `engineer` and `data_analyst` while those roles remain supported.
+3. The role selection prompt MUST include the currently available built-in standard profile roles, including `founder`, `engineer`, and `data_analyst` while those roles remain supported. `founder` MUST be listed first and MUST be the default selection.
 4. The selected role MUST be captured as structured onboarding data so profile creation or profile selection can map it to the matching standard profile ID.
 5. If the selected role cannot be mapped to an available standard profile for the selected agent adapter, Outfitter MUST warn the user and choose a deterministic fallback role rather than silently ignoring the selection.
 
@@ -27,7 +27,7 @@ Outfitter welcome onboarding guides a new user through the minimum choices neede
 1. The welcome onboarding flow MUST recommend at least one default loadout for the selected role.
 2. A loadout MUST be represented as a named set of Pi extensions, skills, or package resources that Outfitter can translate into profile controls or profile-managed Pi configuration.
 3. The welcome onboarding flow MUST allow the user to accept the recommended loadout, select individual loadout items, or skip loadout installation.
-4. The default recommended loadout MUST include `git:github.com/ai-outfitter/ulta-tasklist`, `git:github.com/ai-outfitter/deepwork`, `npm:pi-subagents`, and `npm:pi-mcp-adapter` while those packages remain available.
+4. The default recommended loadout MUST include `git:github.com/ai-outfitter/deepwork`, `npm:@juicesharp/rpiv-ask-user-question`, `git:github.com/applepi-ai/ulta-tasklist`, `npm:pi-nolo`, `npm:pi-browser-harness`, `npm:@mjakl/pi-subagent`, `npm:@narumitw/pi-btw`, `npm:pi-must-have-extension`, `npm:pi-interactive-shell`, and `npm:pi-mcp-adapter` while those packages remain available.
 5. Loadout installation MUST be captured as structured onboarding data so future profile creation can install the selected extensions, skills, or package resources deterministically.
 6. The Outfitter npm package MUST publish a default Pi skill named `outfitter` for profile setup guidance from inside Pi.
 7. The Pi adapter MUST load the default Outfitter skill for normal profile launches.

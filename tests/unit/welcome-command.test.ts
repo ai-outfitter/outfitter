@@ -7,9 +7,15 @@ import { describe, expect, it } from 'vitest';
 import { createWelcomeCommand, executeWelcomeCommand } from '../../src/cli/commands/WelcomeCommand.js';
 
 const defaultLoadoutSources = [
-  'git:github.com/ai-outfitter/ulta-tasklist',
   'git:github.com/ai-outfitter/deepwork',
-  'npm:pi-subagents',
+  'npm:@juicesharp/rpiv-ask-user-question',
+  'git:github.com/applepi-ai/ulta-tasklist',
+  'npm:pi-nolo',
+  'npm:pi-browser-harness',
+  'npm:@mjakl/pi-subagent',
+  'npm:@narumitw/pi-btw',
+  'npm:pi-must-have-extension',
+  'npm:pi-interactive-shell',
   'npm:pi-mcp-adapter',
 ];
 
@@ -70,16 +76,16 @@ describe('welcome command', () => {
       },
     );
 
-    expect(result.selectedRole).toEqual({ id: 'engineer', label: 'Engineer' });
+    expect(result.selectedRole).toEqual({ id: 'founder', label: 'Founder' });
     expect(result.selectedLoadout?.selectedItems.map((item) => item.source)).toEqual([
       'git:github.com/ai-outfitter/deepwork',
     ]);
     expect(result.warnings).toEqual([
-      "Welcome role 'reviewer' is not available; using fallback role 'engineer'.",
+      "Welcome role 'reviewer' is not available; using fallback role 'founder'.",
       "Loadout item 'missing-package' is not available for recommended-pi; skipping it.",
     ]);
     expect(result.messages).toContain(
-      "Warning: Welcome role 'reviewer' is not available; using fallback role 'engineer'.",
+      "Warning: Welcome role 'reviewer' is not available; using fallback role 'founder'.",
     );
   });
 
@@ -100,7 +106,7 @@ describe('welcome command', () => {
     await program.parseAsync(['node', 'outfitter', 'welcome']);
 
     expect(messages).toEqual([
-      'Selected Outfitter role: engineer (Engineer).',
+      'Selected Outfitter role: founder (Founder).',
       `Selected Recommended Pi productivity loadout: ${defaultLoadoutSources.join(', ')}.`,
     ]);
   });
@@ -135,15 +141,16 @@ describe('welcome command', () => {
 
     expect(outputText).toContain('____        _    __ _ _   _');
     expect(outputText).not.toContain('____  _');
-    expect(outputText).toContain('Pi is a heavily customizable coding harness.');
+    expect(outputText).toContain('Pi is a fully extensible agentic coding harness.');
+    expect(outputText).toContain('founder - Founder');
     expect(outputText).toContain('engineer - Engineer');
     expect(outputText).toContain('data_analyst - Data Analyst');
     expect(outputText).toContain('npm:pi-mcp-adapter');
     expect(result.answered).toBe(true);
-    expect(result.selectedRole?.id).toBe('data_analyst');
+    expect(result.selectedRole?.id).toBe('engineer');
     expect(result.selectedLoadout?.selectedItems.map((item) => item.source)).toEqual([
-      'git:github.com/ai-outfitter/deepwork',
-      'npm:pi-mcp-adapter',
+      'npm:@juicesharp/rpiv-ask-user-question',
+      'npm:pi-nolo',
     ]);
   });
 
@@ -169,7 +176,7 @@ describe('welcome command', () => {
     setImmediate(writeNextAnswer);
     const result = await resultPromise;
 
-    expect(result.selectedRole?.id).toBe('engineer');
+    expect(result.selectedRole?.id).toBe('founder');
     expect(result.selectedLoadout?.selectedItems.map((item) => item.source)).toEqual(defaultLoadoutSources);
   });
 
@@ -221,10 +228,10 @@ describe('welcome command', () => {
     const result = await resultPromise;
 
     expect(result.answered).toBe(true);
-    expect(result.selectedRole?.id).toBe('engineer');
+    expect(result.selectedRole?.id).toBe('founder');
     expect(result.selectedLoadout?.selectedItems).toEqual([]);
     expect(result.messages).toEqual([
-      'Selected Outfitter role: engineer (Engineer).',
+      'Selected Outfitter role: founder (Founder).',
       'Skipped Recommended Pi productivity loadout.',
     ]);
   });

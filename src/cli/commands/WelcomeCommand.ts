@@ -6,7 +6,7 @@ import type { Command } from 'commander';
 
 import type { CommandObject } from './CommandObject.js';
 
-export type WelcomeDefaultProfileRoleId = 'engineer' | 'data_analyst';
+export type WelcomeDefaultProfileRoleId = 'founder' | 'engineer' | 'data_analyst';
 export type WelcomeLoadoutItemKind = 'extension' | 'package';
 
 export interface WelcomeCommandInput {
@@ -71,7 +71,11 @@ const welcomeIntroLines = [
   String.raw` \____/ \__,_|\__|_| |_|\__|\__\___|_|   `,
   '',
   'Welcome to Outfitter.',
-  'Pi is a heavily customizable coding harness. The next few questions will configure Outfitter to best suit your workflow.',
+  'Pi is a fully extensible agentic coding harness.',
+  'Outfitter configures Pi with profiles and extensions — turning it into a complete agentic development environment.',
+  'The founder profile brings Pi to feature parity with dedicated agentic coding tools:',
+  'task tracking, multi-step reviews, browser automation, subagents, interactive shell, and MCP support.',
+  'The next few questions will configure your profile and extension loadout.',
 ] as const;
 
 export const writeWelcomeIntro = (output: Pick<NodeJS.WritableStream, 'write'>): void => {
@@ -79,22 +83,17 @@ export const writeWelcomeIntro = (output: Pick<NodeJS.WritableStream, 'write'>):
 };
 
 const defaultProfileRoleChoices: readonly WelcomeRoleChoice[] = [
+  { id: 'founder', label: 'Founder' },
   { id: 'engineer', label: 'Engineer' },
   { id: 'data_analyst', label: 'Data Analyst' },
 ];
 
-const fallbackRoleId: WelcomeDefaultProfileRoleId = 'engineer';
+const fallbackRoleId: WelcomeDefaultProfileRoleId = 'founder';
 
 const recommendedPiLoadout: WelcomeLoadout = {
   id: 'recommended-pi',
   label: 'Recommended Pi productivity loadout',
   items: [
-    {
-      id: 'ulta-tasklist',
-      label: 'Ulta Tasklist',
-      kind: 'extension',
-      source: 'git:github.com/ai-outfitter/ulta-tasklist',
-    },
     {
       id: 'deepwork',
       label: 'DeepWork',
@@ -102,14 +101,56 @@ const recommendedPiLoadout: WelcomeLoadout = {
       source: 'git:github.com/ai-outfitter/deepwork',
     },
     {
-      id: 'pi-subagents',
-      label: 'Pi Subagents',
+      id: 'rpiv-ask-user-question',
+      label: 'Ask User Question',
       kind: 'package',
-      source: 'npm:pi-subagents',
+      source: 'npm:@juicesharp/rpiv-ask-user-question',
+    },
+    {
+      id: 'ulta-tasklist',
+      label: 'Ulta Tasklist',
+      kind: 'extension',
+      source: 'git:github.com/applepi-ai/ulta-tasklist',
+    },
+    {
+      id: 'pi-nolo',
+      label: 'Pi NOLO',
+      kind: 'package',
+      source: 'npm:pi-nolo',
+    },
+    {
+      id: 'pi-browser-harness',
+      label: 'Browser Harness',
+      kind: 'package',
+      source: 'npm:pi-browser-harness',
+    },
+    {
+      id: 'pi-subagent',
+      label: 'Pi Subagent',
+      kind: 'package',
+      source: 'npm:@mjakl/pi-subagent',
+    },
+    {
+      id: 'pi-btw',
+      label: 'Pi BTW',
+      kind: 'package',
+      source: 'npm:@narumitw/pi-btw',
+    },
+    {
+      id: 'pi-must-have-extension',
+      label: 'Must-Have Extension',
+      kind: 'package',
+      source: 'npm:pi-must-have-extension',
+    },
+    {
+      id: 'pi-interactive-shell',
+      label: 'Interactive Shell',
+      kind: 'package',
+      source: 'npm:pi-interactive-shell',
     },
     {
       id: 'pi-mcp-adapter',
-      label: 'Pi MCP Adapter',
+      label: 'MCP Adapter',
       kind: 'package',
       source: 'npm:pi-mcp-adapter',
     },
