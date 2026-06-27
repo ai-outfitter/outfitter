@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.1](https://github.com/ai-outfitter/outfitter/compare/v0.6.0...v0.6.1) (2026-06-27)
+
+
+### Bug Fixes
+
+* **release:** declare npm provenance repository ([#86](https://github.com/ai-outfitter/outfitter/issues/86)) ([b6c8ec1](https://github.com/ai-outfitter/outfitter/commit/b6c8ec1b81758268888fe84473ffb7ed45109d69))
+
 ## [0.6.0](https://github.com/ai-outfitter/outfitter/compare/v0.5.0...v0.6.0) (2026-06-27)
 
 
