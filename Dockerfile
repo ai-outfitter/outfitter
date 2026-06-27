@@ -13,6 +13,7 @@ RUN npm pkg delete scripts.prepare \
   && npm ci
 
 COPY package.json tsconfig.json tsconfig.build.json ./
+COPY bin/outfitter-docker-entrypoint ./bin/outfitter-docker-entrypoint
 COPY skills ./skills
 COPY src ./src
 
@@ -22,9 +23,11 @@ RUN npm run build \
   && ln -sf /opt/outfitter/node_modules/.bin/pi /usr/local/bin/pi
 
 RUN mkdir -p /home/node/.pi/agent /home/node/repos \
-  && chown -R node:node /home/node/.pi /home/node/repos
+  && chown -R node:node /home/node/.pi /home/node/repos \
+  && install -m 0755 ./bin/outfitter-docker-entrypoint /usr/local/bin/outfitter-docker-entrypoint
 
-USER node
+ENV HOME=/home/node
+USER root
 WORKDIR /home/node/repos
 
-ENTRYPOINT ["outfitter"]
+ENTRYPOINT ["outfitter-docker-entrypoint"]

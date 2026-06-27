@@ -2,7 +2,7 @@
 
 ## Overview
 
-Outfitter release publishing prepares package metadata from Conventional Commit release PRs and GitHub release tags, then publishes the `@ai-outfitter/outfitter` npm package through GitHub Actions using npm trusted publishing / OIDC.
+Outfitter release publishing prepares package metadata from Conventional Commit release PRs and GitHub release tags, then publishes the `@ai-outfitter/outfitter` npm package through GitHub Actions using npm trusted publishing / OIDC. It also prepares the release container image so host-mounted Outfitter and Pi state remains writable without leaving root-owned files on conventional Docker hosts.
 
 ## Requirements
 
@@ -33,3 +33,10 @@ Outfitter release publishing prepares package metadata from Conventional Commit 
 4. The Release Please workflow MUST derive version bumps from Conventional Commits.
 5. The Release Please workflow MUST update npm package metadata and changelog through a release PR before publishing.
 6. The Release Please workflow MUST use GitHub repository write auth capable of triggering release PR CI and the release-published npm workflow, not the default `GITHUB_TOKEN`.
+
+### OFTR-009.4: Container Image Runtime
+
+1. The release container entrypoint MUST run Outfitter with `HOME=/home/node` unless the caller supplies another home directory.
+2. When the container starts as a non-root user, the entrypoint MUST execute Outfitter directly without changing the caller-selected identity.
+3. When the container starts as root and the working directory is owned by a non-root UID/GID, the entrypoint MUST drop to that UID/GID before executing Outfitter so rootful Docker bind mounts do not receive root-owned files.
+4. When the container starts as root and the working directory is owned by UID `0`, the entrypoint MUST execute Outfitter as root so rootless Podman bind mounts, which expose the host user as container root by default, remain writable.

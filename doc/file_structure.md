@@ -41,7 +41,8 @@ Outfitter is organized around clear TypeScript source boundaries, requirement do
 ├── bin/                               # local executable development helpers
 │   ├── dev-container-setup            # clean container helper for setup smoke tests
 │   ├── dev-setup-source               # local build helper for real setup-source targets
-│   └── dev-tmp-home                   # isolated temporary HOME launch helper
+│   ├── dev-tmp-home                   # isolated temporary HOME launch helper
+│   └── outfitter-docker-entrypoint     # release container entrypoint that adapts to bind-mount ownership
 ├── src/                               # production TypeScript source
 │   ├── cli.ts                         # executable CLI entry point
 │   ├── cli/                           # CLI parser construction and command registration

@@ -1,0 +1,43 @@
+#!/bin/sh
+set -eu
+
+: "${HOME:=/home/node}"
+export HOME
+
+if [ "$(id -u)" -ne 0 ]; then
+  exec outfitter "$@"
+fi
+
+# Rootful Docker exposes bind mounts with the host UID/GID; rootless Podman often exposes
+# the host user's bind mounts as container root. Pick the mounted workdir owner unless the
+# caller supplied an explicit runtime identity.
+run_uid="${OUTFITTER_CONTAINER_UID:-}"
+run_gid="${OUTFITTER_CONTAINER_GID:-}"
+
+if [ -z "$run_uid" ] || [ -z "$run_gid" ]; then
+  identity_path="${OUTFITTER_CONTAINER_IDENTITY_PATH:-$PWD}"
+
+  if [ ! -e "$identity_path" ]; then
+    identity_path="$HOME"
+  fi
+
+  run_uid="$(stat -c '%u' "$identity_path")"
+  run_gid="$(stat -c '%g' "$identity_path")"
+fi
+
+if [ "$run_uid" = "0" ]; then
+  exec outfitter "$@"
+fi
+
+mkdir -p "$HOME" "$HOME/repos" 2>/dev/null || true
+chown "$run_uid:$run_gid" "$HOME" "$HOME/repos" 2>/dev/null || true
+
+exec setpriv \
+  --reuid="$run_uid" \
+  --regid="$run_gid" \
+  --clear-groups \
+  --inh-caps=-all \
+  --ambient-caps=-all \
+  --no-new-privs \
+  -- \
+  outfitter "$@"
