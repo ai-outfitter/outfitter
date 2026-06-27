@@ -210,6 +210,7 @@ An initial profile shape is:
 ```yaml
 id: engineering-default
 label: Engineering Default
+description: General software engineering profile for coding, tests, reviews, and repo navigation.
 inherits:
   - base-typescript
   - shared-prose

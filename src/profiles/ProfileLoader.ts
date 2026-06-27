@@ -57,6 +57,7 @@ export const parseProfileDocument = (document: unknown, fallbackId: string): Pro
   return omitUndefined({
     id,
     label: readOptionalString(record.label),
+    description: readOptionalString(record.description),
     template: readOptionalBoolean(record.template),
     inherits: readStringArray(record.inherits),
     controls: readControls(record.controls),

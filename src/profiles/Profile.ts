@@ -31,6 +31,7 @@ export interface ProfileControls extends BaseProfileControls {
 export interface Profile {
   readonly id: string;
   readonly label?: string;
+  readonly description?: string;
   readonly template?: boolean;
   readonly inherits: readonly string[];
   readonly controls: ProfileControls;

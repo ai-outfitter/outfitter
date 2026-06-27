@@ -52,7 +52,11 @@ describe('welcome command', () => {
     );
 
     expect(result.answered).toBe(true);
-    expect(result.selectedRole).toEqual({ id: 'data_analyst', label: 'Data Analyst' });
+    expect(result.selectedRole).toEqual({
+      id: 'data_analyst',
+      label: 'Data Analyst',
+      description: 'Data analysis setup for careful inspection, reproducible methods, assumptions, and summaries.',
+    });
     expect(result.selectedLoadout?.id).toBe('recommended-pi');
     expect(result.selectedLoadout?.selectedItems.map((item) => item.source)).toEqual(defaultLoadoutSources);
     expect(result.warnings).toEqual([]);
@@ -77,7 +81,12 @@ describe('welcome command', () => {
       },
     );
 
-    expect(result.selectedRole).toEqual({ id: 'founder', label: 'Founder' });
+    expect(result.selectedRole).toEqual({
+      id: 'founder',
+      label: 'Founder',
+      description:
+        'Founder-operator setup for building, product thinking, research checks, dense prose, and careful delivery.',
+    });
     expect(result.selectedLoadout?.selectedItems.map((item) => item.source)).toEqual([
       'git:github.com/ai-outfitter/deepwork',
     ]);

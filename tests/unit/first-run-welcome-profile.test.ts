@@ -262,13 +262,20 @@ describe('first-run welcome profile', () => {
 
     const persisted = persistFirstRunWelcomeProfile(homeDirectory, settingsPath, {
       answered: true,
-      selectedRole: { id: 'engineer', label: 'Engineer' },
+      selectedRole: {
+        id: 'engineer',
+        label: 'Engineer',
+        description: 'Engineering setup for repository navigation, maintainable code changes, tests, and reviews.',
+      },
       warnings: [],
       messages: [],
     });
 
     const profile = readFileSync(join(homeDirectory, '.outfitter', 'profiles', 'engineer', 'profile.yml'), 'utf8');
     expect(persisted).toEqual({ profileId: 'engineer', createdProfile: true });
+    expect(profile).toContain(
+      'description: Engineering setup for repository navigation, maintainable code changes, tests, and reviews.',
+    );
     expect(profile).toContain('append_system_prompt: |');
     expect(profile).not.toContain('extensions:');
     expect(readFileSync(settingsPath, 'utf8')).toContain('default_profile: engineer');
@@ -285,7 +292,11 @@ describe('first-run welcome profile', () => {
 
     const persisted = persistFirstRunWelcomeProfile(homeDirectory, settingsPath, {
       answered: true,
-      selectedRole: { id: 'engineer', label: 'Engineer' },
+      selectedRole: {
+        id: 'engineer',
+        label: 'Engineer',
+        description: 'Engineering setup for repository navigation, maintainable code changes, tests, and reviews.',
+      },
       selectedLoadout: {
         id: 'recommended',
         label: 'Recommended',
@@ -355,7 +366,11 @@ describe('first-run welcome profile', () => {
       settingsPath,
       {
         answered: true,
-        selectedRole: { id: 'data_analyst', label: 'Data Analyst' },
+        selectedRole: {
+          id: 'data_analyst',
+          label: 'Data Analyst',
+          description: 'Data analysis setup for careful inspection, reproducible methods, assumptions, and summaries.',
+        },
         warnings: [],
         messages: [],
       },
@@ -377,6 +392,12 @@ describe('first-run welcome profile', () => {
     });
     expect(readFileSync(settingsPath, 'utf8')).toContain('profile_sources: []');
     expect(readFileSync(settingsPath, 'utf8')).toContain('default_profile: data_analyst');
+    const copiedProfile = readFileSync(
+      join(homeDirectory, '.outfitter', 'profiles', 'data_analyst', 'profile.yml'),
+      'utf8',
+    );
+    expect(copiedProfile).toContain('description: Data analysis setup for careful inspection');
+    expect(copiedProfile).toContain('assumptions, and summaries.');
   });
 
   it('handles malformed scalar source profiles when copying welcome choices', () => {
@@ -397,7 +418,11 @@ describe('first-run welcome profile', () => {
       settingsPath,
       {
         answered: true,
-        selectedRole: { id: 'data_analyst', label: 'Data Analyst' },
+        selectedRole: {
+          id: 'data_analyst',
+          label: 'Data Analyst',
+          description: 'Data analysis setup for careful inspection, reproducible methods, assumptions, and summaries.',
+        },
         selectedLoadout: {
           id: 'recommended',
           label: 'Recommended',
@@ -464,7 +489,11 @@ describe('first-run welcome profile', () => {
       settingsPath,
       {
         answered: true,
-        selectedRole: { id: 'data_analyst', label: 'Data Analyst' },
+        selectedRole: {
+          id: 'data_analyst',
+          label: 'Data Analyst',
+          description: 'Data analysis setup for careful inspection, reproducible methods, assumptions, and summaries.',
+        },
         selectedLoadout: {
           id: 'recommended',
           label: 'Recommended',
@@ -502,7 +531,11 @@ describe('first-run welcome profile', () => {
 
     persistFirstRunWelcomeProfile(homeDirectory, settingsPath, {
       answered: true,
-      selectedRole: { id: 'data_analyst', label: 'Data Analyst' },
+      selectedRole: {
+        id: 'data_analyst',
+        label: 'Data Analyst',
+        description: 'Data analysis setup for careful inspection, reproducible methods, assumptions, and summaries.',
+      },
       warnings: [],
       messages: [],
     });

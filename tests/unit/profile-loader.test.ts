@@ -59,7 +59,7 @@ describe('profile loading', () => {
     writeProfile(
       root,
       'base',
-      'label: Base Profile\ninherits:\n  - shared\ncontrols:\n  environment:\n    MODE: test\n',
+      'label: Base Profile\ndescription: Shared defaults for engineering work.\ninherits:\n  - shared\ncontrols:\n  environment:\n    MODE: test\n',
     );
     writeFileSync(join(root, 'README.md'), 'not a profile folder');
 
@@ -72,6 +72,7 @@ describe('profile loading', () => {
     expect(result.profiles[0]?.profile).toEqual({
       id: 'base',
       label: 'Base Profile',
+      description: 'Shared defaults for engineering work.',
       inherits: ['shared'],
       controls: { environment: { MODE: 'test' } },
     });
