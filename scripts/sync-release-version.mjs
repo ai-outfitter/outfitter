@@ -23,6 +23,7 @@ const packageJson = await readJson(packageJsonPath);
 const lockfile = await readJson(packageLockPath);
 
 assertPackageName(packageJson);
+assertRepositoryUrl(packageJson);
 assertPackageName(lockfile);
 
 if (lockfile.packages?.[''] === undefined) {
@@ -30,6 +31,7 @@ if (lockfile.packages?.[''] === undefined) {
 }
 
 assertPackageName(lockfile.packages['']);
+assertRepositoryUrl(lockfile.packages['']);
 
 packageJson.version = version;
 lockfile.version = version;
@@ -67,6 +69,16 @@ function isSemanticVersion(version) {
 function assertPackageName(packageJson) {
   if (packageJson.name !== '@ai-outfitter/outfitter') {
     throw new Error(`Expected package name '@ai-outfitter/outfitter' but found '${packageJson.name}'.`);
+  }
+}
+
+function assertRepositoryUrl(packageJson) {
+  const repositoryUrl = packageJson.repository?.url;
+
+  if (repositoryUrl !== 'https://github.com/ai-outfitter/outfitter.git') {
+    throw new Error(
+      `Expected repository.url 'https://github.com/ai-outfitter/outfitter.git' but found '${repositoryUrl ?? ''}'.`,
+    );
   }
 }
 

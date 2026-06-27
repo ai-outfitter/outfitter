@@ -3,6 +3,14 @@
   "version": "0.6.0",
   "description": "Profile-oriented wrapper for launching pi, Claude Code, and future agent CLIs with reproducible configuration.",
   "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ai-outfitter/outfitter.git"
+  },
+  "bugs": {
+    "url": "https://github.com/ai-outfitter/outfitter/issues"
+  },
+  "homepage": "https://github.com/ai-outfitter/outfitter#readme",
   "bin": {
     "outfitter": "dist/cli.js"
   },

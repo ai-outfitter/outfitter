@@ -8,6 +8,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 const temporaryRoots: string[] = [];
 const scriptPath = resolve('scripts/sync-release-version.mjs');
+const repository = { type: 'git', url: 'https://github.com/ai-outfitter/outfitter.git' } as const;
 
 const createTemporaryPackageRoot = (
   packageName = '@ai-outfitter/outfitter',
@@ -15,13 +16,13 @@ const createTemporaryPackageRoot = (
 ): string => {
   const root = mkdtempSync(join(tmpdir(), 'outfitter-release-version-'));
   temporaryRoots.push(root);
-  writeJson(join(root, 'package.json'), { name: packageName, version: '0.1.0' });
+  writeJson(join(root, 'package.json'), { name: packageName, version: '0.1.0', repository });
   writeJson(join(root, 'package-lock.json'), {
     name: lockfilePackageName,
     version: '0.1.0',
     lockfileVersion: 3,
     packages: {
-      '': { name: lockfilePackageName, version: '0.1.0' },
+      '': { name: lockfilePackageName, version: '0.1.0', repository },
     },
   });
   return root;
@@ -85,6 +86,17 @@ describe('release version synchronization script', () => {
     const invalidVersionRoot = createTemporaryPackageRoot();
     const packageMismatchRoot = createTemporaryPackageRoot('not-outfitter');
     const lockfileMismatchRoot = createTemporaryPackageRoot('@ai-outfitter/outfitter', 'not-outfitter');
+    const packageRepositoryMismatchRoot = createTemporaryPackageRoot();
+    const packageRepositoryMismatch = readJson(join(packageRepositoryMismatchRoot, 'package.json'));
+    packageRepositoryMismatch.repository = { type: 'git', url: '' };
+    writeJson(join(packageRepositoryMismatchRoot, 'package.json'), packageRepositoryMismatch);
+    const lockfileRepositoryMismatchRoot = createTemporaryPackageRoot();
+    const lockfileRepositoryMismatch = readJson(join(lockfileRepositoryMismatchRoot, 'package-lock.json'));
+    const lockfileRepositoryMismatchRootPackage = (
+      lockfileRepositoryMismatch.packages as Record<string, Record<string, unknown>>
+    )[''];
+    lockfileRepositoryMismatchRootPackage.repository = { type: 'git', url: '' };
+    writeJson(join(lockfileRepositoryMismatchRoot, 'package-lock.json'), lockfileRepositoryMismatch);
     const missingLockfileRootPackageRoot = createTemporaryPackageRoot();
     const missingRootPackageLockfile = readJson(join(missingLockfileRootPackageRoot, 'package-lock.json'));
     delete (missingRootPackageLockfile.packages as Record<string, unknown>)[''];
@@ -106,6 +118,12 @@ describe('release version synchronization script', () => {
     expect(() => runScript(invalidVersionRoot, '1.2.3-a..b')).toThrow('Invalid Outfitter release version: 1.2.3-a..b');
     expect(() => runScript(packageMismatchRoot, '1.2.3')).toThrow("Expected package name '@ai-outfitter/outfitter'");
     expect(() => runScript(lockfileMismatchRoot, '1.2.3')).toThrow("Expected package name '@ai-outfitter/outfitter'");
+    expect(() => runScript(packageRepositoryMismatchRoot, '1.2.3')).toThrow(
+      "Expected repository.url 'https://github.com/ai-outfitter/outfitter.git'",
+    );
+    expect(() => runScript(lockfileRepositoryMismatchRoot, '1.2.3')).toThrow(
+      "Expected repository.url 'https://github.com/ai-outfitter/outfitter.git'",
+    );
     expect(readFileSync(join(lockfileMismatchRoot, 'package.json'), 'utf8')).toBe(originalLockfileMismatchPackageJson);
     expect(readFileSync(join(lockfileMismatchRoot, 'package-lock.json'), 'utf8')).toBe(
       originalLockfileMismatchPackageLockJson,
