@@ -21,6 +21,7 @@ Outfitter resolves profile definitions across settings scopes, explicit sources,
 2. Profile IDs MUST match the regex `^[a-z0-9][a-z0-9._-]*[a-z0-9]$|^[a-z0-9]$`.
 3. Outfitter MUST reject profile IDs that cannot be safely referenced from the CLI.
 4. Outfitter SHOULD support a separate display label if human-readable names need spaces or punctuation.
+5. Profiles MAY include a short `description` for interactive prompts and profile discovery surfaces.
 
 ### OFTR-003.3: Profile Scope Precedence
 

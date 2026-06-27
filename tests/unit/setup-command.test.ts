@@ -399,13 +399,16 @@ describe('setup command', () => {
               'default_profile: project-lead\nprofile_sources:\n  - path: ./profiles\n',
             );
 
-            for (const [profileId, label] of [
-              ['engineer', 'Engineer'],
-              ['project-lead', 'Project Lead'],
+            for (const [profileId, label, description] of [
+              ['engineer', 'Engineer', 'General engineering setup.'],
+              ['project-lead', 'Project Lead', 'Planning and delivery setup.'],
             ] as const) {
               const profileFolder = join(outfitterDirectory, 'profiles', profileId);
               mkdirSync(profileFolder, { recursive: true });
-              writeFileSync(join(profileFolder, 'profile.yml'), `id: ${profileId}\nlabel: ${label}\ncontrols: {}\n`);
+              writeFileSync(
+                join(profileFolder, 'profile.yml'),
+                `id: ${profileId}\nlabel: ${label}\ndescription: ${description}\ncontrols: {}\n`,
+              );
             }
           },
         },
@@ -428,7 +431,9 @@ describe('setup command', () => {
       promptOutput.indexOf("You're importing Outfitter profiles"),
     );
     expect(promptOutput).toContain('1. project-lead - Project Lead');
+    expect(promptOutput).toContain('   Planning and delivery setup.');
     expect(promptOutput).toContain('2. engineer - Engineer');
+    expect(promptOutput).toContain('   General engineering setup.');
     expect(promptOutput).toContain('Default profile [1]:');
     expect(promptOutput).toContain('____        _    __ _ _   _');
     expect(promptOutput).not.toContain('____  _');
@@ -951,7 +956,11 @@ describe('setup command', () => {
 
     expect(result.welcomeResult).toEqual({
       answered: true,
-      selectedRole: { id: 'engineer', label: 'Engineer' },
+      selectedRole: {
+        id: 'engineer',
+        label: 'Engineer',
+        description: 'Engineering setup for repository navigation, maintainable code changes, tests, and reviews.',
+      },
       selectedLoadout: {
         id: 'recommended-pi',
         label: 'Recommended Pi productivity loadout',

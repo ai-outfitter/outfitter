@@ -374,6 +374,7 @@ Example `profile.yml`:
 ```yaml
 id: engineering
 label: Engineering
+description: General software engineering profile for coding, tests, reviews, and repo navigation.
 template: false
 inherits:
   - base-typescript

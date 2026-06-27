@@ -17,6 +17,7 @@ export interface WelcomeCommandInput {
 export interface WelcomeRoleChoice {
   readonly id: WelcomeDefaultProfileRoleId;
   readonly label: string;
+  readonly description: string;
 }
 
 export interface WelcomeLoadoutItem {
@@ -83,9 +84,22 @@ export const writeWelcomeIntro = (output: Pick<NodeJS.WritableStream, 'write'>):
 };
 
 const defaultProfileRoleChoices: readonly WelcomeRoleChoice[] = [
-  { id: 'founder', label: 'Founder' },
-  { id: 'engineer', label: 'Engineer' },
-  { id: 'data_analyst', label: 'Data Analyst' },
+  {
+    id: 'founder',
+    label: 'Founder',
+    description:
+      'Founder-operator setup for building, product thinking, research checks, dense prose, and careful delivery.',
+  },
+  {
+    id: 'engineer',
+    label: 'Engineer',
+    description: 'Engineering setup for repository navigation, maintainable code changes, tests, and reviews.',
+  },
+  {
+    id: 'data_analyst',
+    label: 'Data Analyst',
+    description: 'Data analysis setup for careful inspection, reproducible methods, assumptions, and summaries.',
+  },
 ];
 
 const fallbackRoleId: WelcomeDefaultProfileRoleId = 'founder';

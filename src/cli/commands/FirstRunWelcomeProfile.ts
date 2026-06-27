@@ -35,7 +35,7 @@ export const persistFirstRunWelcomeProfile = (
   if (createdProfile) {
     if (options.sourceProfileDirectory !== undefined && existsSync(options.sourceProfileDirectory)) {
       cpSync(options.sourceProfileDirectory, profileDirectory, { recursive: true, force: false });
-      updateCopiedProfile(profilePath, welcomeProfile.extensions);
+      updateCopiedProfile(profilePath, welcomeProfile.description, welcomeProfile.extensions);
       excludeDefaultProfileSources(settingsPath, welcomeProfile.id);
       messages.push(
         `Copied the ${welcomeProfile.label} profile locally so your extension choices can be edited at ${profilePath}.`,
@@ -60,6 +60,7 @@ const createFirstRunWelcomeProfile = (
 ): {
   readonly id: string;
   readonly label: string;
+  readonly description: string;
   readonly content: string;
   readonly extensions: readonly string[];
 } => {
@@ -70,7 +71,14 @@ const createFirstRunWelcomeProfile = (
   return {
     id: profileId,
     label: selectedRole.label,
-    content: createFirstRunWelcomeProfileContent(profileId, selectedRole.label, rolePrompt, extensions),
+    description: selectedRole.description,
+    content: createFirstRunWelcomeProfileContent(
+      profileId,
+      selectedRole.label,
+      selectedRole.description,
+      rolePrompt,
+      extensions,
+    ),
     extensions,
   };
 };
@@ -87,10 +95,11 @@ const firstRunWelcomeRolePrompts = {
 const createFirstRunWelcomeProfileContent = (
   profileId: string,
   roleLabel: string,
+  roleDescription: string,
   rolePrompt: string,
   extensions: readonly string[],
 ): string => {
-  const lines = [`id: ${profileId}`, `label: ${roleLabel}`, 'controls:'];
+  const lines = [`id: ${profileId}`, `label: ${roleLabel}`, `description: ${roleDescription}`, 'controls:'];
 
   if (extensions.length > 0) {
     lines.push('  pi:', '    extensions:', ...extensions.map((extension) => `      - ${extension}`));
@@ -100,11 +109,12 @@ const createFirstRunWelcomeProfileContent = (
   return lines.join('\n');
 };
 
-const updateCopiedProfile = (profilePath: string, extensions: readonly string[]): void => {
+const updateCopiedProfile = (profilePath: string, description: string, extensions: readonly string[]): void => {
   const profile = readRecord(parse(readFileSync(profilePath, 'utf8')) as unknown);
   const controls = readRecord(profile.controls);
   const piControls = readRecord(controls.pi);
 
+  profile.description ??= description;
   controls.extensions = [];
   piControls.extensions = [...extensions];
   controls.pi = piControls;

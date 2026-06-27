@@ -86,6 +86,7 @@ export type SetupCommandDependencies = SyncCommandDependencies &
 export interface SetupProfileChoice {
   readonly id: string;
   readonly label?: string;
+  readonly description?: string;
 }
 
 export type SetupSourceImportTarget = 'home' | 'project';
@@ -110,8 +111,16 @@ const setupSourceImportTargetChoices: readonly SetupSourceImportTargetChoice[] =
 ];
 
 const builtInSetupProfileChoices: readonly SetupProfileChoice[] = [
-  { id: 'engineer', label: 'Engineer' },
-  { id: 'data_analyst', label: 'Data Analyst' },
+  {
+    id: 'engineer',
+    label: 'Engineer',
+    description: 'Engineering setup for repository navigation, maintainable code changes, tests, and reviews.',
+  },
+  {
+    id: 'data_analyst',
+    label: 'Data Analyst',
+    description: 'Data analysis setup for careful inspection, reproducible methods, assumptions, and summaries.',
+  },
 ];
 
 interface StarterLayout {
@@ -1043,6 +1052,7 @@ const discoverSetupProfileChoicesFromLocalSource = (path: string): readonly Setu
     .map((profile) => ({
       id: profile.profile.id,
       label: profile.profile.label,
+      description: profile.profile.description,
     }))
     .sort((left, right) => left.id.localeCompare(right.id));
 };
@@ -1060,6 +1070,7 @@ const discoverSetupProfileChoicesFromEffectiveSettings = (input: SetupCommandInp
       choices.set(profile.profile.id, {
         id: profile.profile.id,
         label: profile.profile.label ?? existingChoice?.label,
+        description: profile.profile.description ?? existingChoice?.description,
       });
     }
   }
@@ -1141,6 +1152,9 @@ const promptForSetupProfileWithReadline = async (
   candidates.forEach((profile, index) => {
     const label = profile.label === undefined ? '' : ` - ${profile.label}`;
     output.write(`${index + 1}. ${profile.id}${label}\n`);
+    if (profile.description !== undefined) {
+      output.write(`   ${profile.description}\n`);
+    }
   });
 
   const currentIndex = Math.max(
