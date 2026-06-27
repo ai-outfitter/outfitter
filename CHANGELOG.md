@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.6.0](https://github.com/ai-outfitter/outfitter/compare/v0.5.0...v0.6.0) (2026-06-27)
+
+
+### Features
+
+* **profiles:** add profile descriptions ([#83](https://github.com/ai-outfitter/outfitter/issues/83)) ([ac21a01](https://github.com/ai-outfitter/outfitter/commit/ac21a01a6e69d69654010c0b5da05f462680b43f))
+* **welcome:** add founder role and update onboarding to full extension loadout ([#81](https://github.com/ai-outfitter/outfitter/issues/81)) ([936f6cf](https://github.com/ai-outfitter/outfitter/commit/936f6cfdc84e8cdd9194e36d36caeca5f40d00f1))
+
 ## [0.5.0](https://github.com/ai-outfitter/outfitter/compare/v0.4.0...v0.5.0) (2026-06-26)
 
 
