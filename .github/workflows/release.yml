@@ -68,6 +68,10 @@ jobs:
           context: .
           file: Dockerfile
           push: true
+          build-args: |
+            NODE_BASE_IMAGE=public.ecr.aws/docker/library/node:22.19.0-bookworm
+          cache-from: type=gha,scope=release-container
+          cache-to: type=gha,mode=max,scope=release-container
           tags: |
             ${{ steps.container.outputs.image }}:${{ steps.container.outputs.version }}
             ${{ steps.container.outputs.image }}:latest

@@ -1,4 +1,5 @@
-FROM node:22.19.0-bookworm
+ARG NODE_BASE_IMAGE=node:22.19.0-bookworm
+FROM ${NODE_BASE_IMAGE}
 
 ENV PATH="/opt/outfitter/node_modules/.bin:${PATH}"
 
