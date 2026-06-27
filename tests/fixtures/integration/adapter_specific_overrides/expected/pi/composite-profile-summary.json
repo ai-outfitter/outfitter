@@ -3,6 +3,8 @@
   "agentId": "pi",
   "launchCommand": "pi",
   "launchArgs": [
+    "--extension",
+    "<composite-profile>/outfitter/outfitter-extension.js",
     "--model",
     "pi-specialized-model",
     "--provider",

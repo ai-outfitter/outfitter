@@ -2,7 +2,15 @@
   "profileId": "repo-review",
   "agentId": "pi",
   "launchCommand": "pi",
-  "launchArgs": ["--model", "repo-review-model", "--skill", "<repo>/skills/outfitter", "--repo-flag"],
+  "launchArgs": [
+    "--extension",
+    "<composite-profile>/outfitter/outfitter-extension.js",
+    "--model",
+    "repo-review-model",
+    "--skill",
+    "<repo>/skills/outfitter",
+    "--repo-flag"
+  ],
   "launchEnv": {
     "PI_CODING_AGENT_DIR": "<composite-profile>",
     "REPO_PROFILE": "enabled",

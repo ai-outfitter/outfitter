@@ -92,6 +92,8 @@ describe('template profiles', () => {
 
     expect(result.profileId).toBe('project-lead');
     expect(result.launchPlan.args).toEqual([
+      '--extension',
+      join(result.compositeProfileDirectory, 'outfitter', 'outfitter-extension.js'),
       '--append-system-prompt',
       'lead.md',
       '--append-system-prompt',

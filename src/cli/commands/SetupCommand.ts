@@ -879,7 +879,7 @@ const promptForSetupSourceOnboarding = async (
 
   try {
     writeSetupSourceWelcome(input, profiles, output);
-    const importTarget = await promptForSetupSourceImportTargetWithReadline(readline, output);
+    const importTarget = 'home' as const;
     const selectedProfileId = await promptForSetupProfileWithReadline(
       readline,
       output,
@@ -926,47 +926,7 @@ const selectSetupSourceImportTarget = async (
     return selectedTarget;
   }
 
-  /* v8 ignore next -- mixed dependency injection path; the full readline path prompts with one shared readline. */
-  return promptForSetupSourceImportTarget(dependencies);
-};
-
-/* v8 ignore next -- covered by the shared readline setup-source onboarding prompt in normal CLI usage. */
-const promptForSetupSourceImportTarget = async (
-  dependencies: SetupCommandDependencies,
-): Promise<SetupSourceImportTarget> => {
-  const output = resolvePromptOutput(dependencies);
-  /* v8 ignore next -- default process streams are direct terminal behavior; tests inject streams. */
-  const readline = createInterface({
-    input: dependencies.input ?? process.stdin,
-    output: resolveReadlineOutput(dependencies),
-  });
-
-  try {
-    return await promptForSetupSourceImportTargetWithReadline(readline, output);
-  } finally {
-    readline.close();
-  }
-};
-
-const promptForSetupSourceImportTargetWithReadline = async (
-  readline: { question(query: string): Promise<string> },
-  output: Pick<NodeJS.WritableStream, 'write'>,
-): Promise<SetupSourceImportTarget> => {
-  output.write('\nChoose where to install these profiles:\n');
-  setupSourceImportTargetChoices.forEach((choice, index) => {
-    output.write(`${index + 1}. ${choice.label} - ${choice.description}\n`);
-  });
-
-  const answer = await readline.question('Import target [1]: ');
-  const selectedIndex = Number.parseInt(answer.trim() || '1', 10) - 1;
-  const selectedTarget = setupSourceImportTargetChoices[selectedIndex]?.target;
-
-  /* v8 ignore next -- defensive terminal validation; profile prompt range handling is covered separately. */
-  if (selectedTarget === undefined) {
-    throw new Error('Selected setup-source import target number is out of range.');
-  }
-
-  return selectedTarget;
+  return 'home';
 };
 
 const assertValidSetupSourceImportTarget = (target: SetupSourceImportTarget): void => {

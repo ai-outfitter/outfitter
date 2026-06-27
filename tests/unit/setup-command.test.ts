@@ -414,8 +414,6 @@ describe('setup command', () => {
         },
       },
     );
-    await waitForOutput(outputChunks, output, 'Import target [1]:');
-    input.write('\n');
     await waitForOutput(outputChunks, output, 'Default profile [1]:');
     input.end('\n');
     const result = await resultPromise;
@@ -423,16 +421,11 @@ describe('setup command', () => {
     const promptOutput = Buffer.concat(outputChunks).toString('utf8');
     expect(promptOutput).toContain('Welcome to Outfitter.');
     expect(promptOutput).toContain("You're importing Outfitter profiles from https://example.test/link-profiles.");
-    expect(promptOutput).toContain('Choose where to install these profiles:');
-    expect(promptOutput).toContain('1. User home');
-    expect(promptOutput).toContain('2. Current project');
+    expect(promptOutput).not.toContain('Choose where to install these profiles:');
     expect(promptOutput).toContain('Choose the default profile from this setup source:');
     expect(promptOutput.match(/Choose the default profile/gu)).toHaveLength(1);
     expect(promptOutput.indexOf('Welcome to Outfitter.')).toBeLessThan(
       promptOutput.indexOf("You're importing Outfitter profiles"),
-    );
-    expect(promptOutput.indexOf('Choose where to install these profiles:')).toBeLessThan(
-      promptOutput.indexOf('Choose the default profile from this setup source:'),
     );
     expect(promptOutput).toContain('1. project-lead - Project Lead');
     expect(promptOutput).toContain('2. engineer - Engineer');
@@ -495,8 +488,6 @@ describe('setup command', () => {
           },
         },
       );
-      await waitForCapturedOutput(stdoutChunks, 'Import target [1]:');
-      input.write('\n');
       await waitForCapturedOutput(stdoutChunks, 'Default profile [1]:');
       input.end('\n');
       const result = await resultPromise;
@@ -505,9 +496,7 @@ describe('setup command', () => {
       expect(promptOutput).toContain('____        _    __ _ _   _');
       expect(promptOutput).toContain('Welcome to Outfitter.');
       expect(promptOutput).toContain("You're importing Outfitter profiles from https://example.test/link-profiles.");
-      expect(promptOutput).toContain('Choose where to install these profiles:');
-      expect(promptOutput).toContain('1. User home');
-      expect(promptOutput).toContain('2. Current project');
+      expect(promptOutput).not.toContain('Choose where to install these profiles:');
       expect(promptOutput).toContain('Choose the default profile from this setup source:');
       expect(promptOutput).toContain('1. project-lead - Project Lead');
       expect(promptOutput).toContain('Default profile [1]:');
@@ -977,8 +966,7 @@ describe('setup command', () => {
       },
       warnings: [],
       messages: [
-        'Selected Outfitter role: engineer (Engineer).',
-        'Selected Recommended Pi productivity loadout: git:github.com/ai-outfitter/deepwork.',
+        'Installed the founder profile. Use /outfitter inside Pi or run `outfitter profile list` to manage profiles.',
       ],
     });
   });

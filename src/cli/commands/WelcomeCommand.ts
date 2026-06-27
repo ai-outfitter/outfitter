@@ -6,7 +6,7 @@ import type { Command } from 'commander';
 
 import type { CommandObject } from './CommandObject.js';
 
-export type WelcomeDefaultProfileRoleId = 'engineer' | 'data_analyst';
+export type WelcomeDefaultProfileRoleId = 'founder' | 'engineer' | 'data_analyst';
 export type WelcomeLoadoutItemKind = 'extension' | 'package';
 
 export interface WelcomeCommandInput {
@@ -71,7 +71,11 @@ const welcomeIntroLines = [
   String.raw` \____/ \__,_|\__|_| |_|\__|\__\___|_|   `,
   '',
   'Welcome to Outfitter.',
-  'Pi is a heavily customizable coding harness. The next few questions will configure Outfitter to best suit your workflow.',
+  'Pi is a fully extensible agentic coding harness.',
+  'Outfitter configures Pi with profiles and extensions — turning it into a complete agentic development environment.',
+  'The founder profile brings Pi to feature parity with dedicated agentic coding tools:',
+  'task tracking, multi-step reviews, browser automation, subagents, interactive shell, and MCP support.',
+  'Press Y to install it now.',
 ] as const;
 
 export const writeWelcomeIntro = (output: Pick<NodeJS.WritableStream, 'write'>): void => {
@@ -79,22 +83,17 @@ export const writeWelcomeIntro = (output: Pick<NodeJS.WritableStream, 'write'>):
 };
 
 const defaultProfileRoleChoices: readonly WelcomeRoleChoice[] = [
+  { id: 'founder', label: 'Founder' },
   { id: 'engineer', label: 'Engineer' },
   { id: 'data_analyst', label: 'Data Analyst' },
 ];
 
-const fallbackRoleId: WelcomeDefaultProfileRoleId = 'engineer';
+const fallbackRoleId: WelcomeDefaultProfileRoleId = 'founder';
 
 const recommendedPiLoadout: WelcomeLoadout = {
   id: 'recommended-pi',
   label: 'Recommended Pi productivity loadout',
   items: [
-    {
-      id: 'ulta-tasklist',
-      label: 'Ulta Tasklist',
-      kind: 'extension',
-      source: 'git:github.com/ai-outfitter/ulta-tasklist',
-    },
     {
       id: 'deepwork',
       label: 'DeepWork',
@@ -102,14 +101,56 @@ const recommendedPiLoadout: WelcomeLoadout = {
       source: 'git:github.com/ai-outfitter/deepwork',
     },
     {
-      id: 'pi-subagents',
-      label: 'Pi Subagents',
+      id: 'rpiv-ask-user-question',
+      label: 'Ask User Question',
       kind: 'package',
-      source: 'npm:pi-subagents',
+      source: 'npm:@juicesharp/rpiv-ask-user-question',
+    },
+    {
+      id: 'ulta-tasklist',
+      label: 'Ulta Tasklist',
+      kind: 'extension',
+      source: 'git:github.com/applepi-ai/ulta-tasklist',
+    },
+    {
+      id: 'pi-nolo',
+      label: 'Pi NOLO',
+      kind: 'package',
+      source: 'npm:pi-nolo',
+    },
+    {
+      id: 'pi-browser-harness',
+      label: 'Browser Harness',
+      kind: 'package',
+      source: 'npm:pi-browser-harness',
+    },
+    {
+      id: 'pi-subagent',
+      label: 'Pi Subagent',
+      kind: 'package',
+      source: 'npm:@mjakl/pi-subagent',
+    },
+    {
+      id: 'pi-btw',
+      label: 'Pi BTW',
+      kind: 'package',
+      source: 'npm:@narumitw/pi-btw',
+    },
+    {
+      id: 'pi-must-have-extension',
+      label: 'Must-Have Extension',
+      kind: 'package',
+      source: 'npm:pi-must-have-extension',
+    },
+    {
+      id: 'pi-interactive-shell',
+      label: 'Interactive Shell',
+      kind: 'package',
+      source: 'npm:pi-interactive-shell',
     },
     {
       id: 'pi-mcp-adapter',
-      label: 'Pi MCP Adapter',
+      label: 'MCP Adapter',
       kind: 'package',
       source: 'npm:pi-mcp-adapter',
     },
@@ -127,7 +168,9 @@ export const executeWelcomeCommand = async (
     return {
       answered: false,
       warnings: [],
-      messages: ['Skipped Outfitter welcome questions. Run `outfitter welcome` any time to revisit them.'],
+      messages: [
+        'Skipped default profile setup. Use /outfitter inside Pi or run `outfitter profile list` to manage profiles.',
+      ],
     };
   }
 
@@ -140,7 +183,7 @@ export const executeWelcomeCommand = async (
     selectedRole: roleResolution.role,
     selectedLoadout: loadoutResolution.loadout,
     warnings,
-    messages: buildWelcomeMessages(roleResolution.role, loadoutResolution.loadout, warnings),
+    messages: buildWelcomeMessages(warnings),
   };
 };
 
@@ -193,93 +236,17 @@ const promptForWelcomePlan = async (dependencies: WelcomeCommandDependencies): P
 
   try {
     writeWelcomeIntro(output);
-    const answerQuestions = await promptForYesNo(
-      readline,
-      'Choose a role and recommended Pi loadout now? [Y/n]: ',
-      true,
-    );
+    const answer = (await readline.question('Install the founder profile? [Y/n]: ')).trim().toLowerCase();
+    const answerQuestions = answer === '' || ['y', 'yes'].includes(answer);
 
     if (!answerQuestions) {
       return { answerQuestions: false };
     }
 
-    const selectedRoleId = await promptForRole(readline, output);
-    const loadoutItemIds = await promptForLoadout(readline, output);
-
-    return { answerQuestions: true, selectedRoleId, loadoutItemIds };
+    return { answerQuestions: true, selectedRoleId: 'founder' };
   } finally {
     readline.close();
   }
-};
-
-const promptForYesNo = async (
-  readline: { question(query: string): Promise<string> },
-  query: string,
-  defaultValue: boolean,
-): Promise<boolean> => {
-  const answer = (await readline.question(query)).trim().toLowerCase();
-
-  if (answer === '') {
-    return defaultValue;
-  }
-
-  return ['y', 'yes'].includes(answer);
-};
-
-const promptForRole = async (
-  readline: { question(query: string): Promise<string> },
-  output: NodeJS.WritableStream,
-): Promise<string> => {
-  output.write('\nChoose your initial Outfitter role/profile:\n');
-  defaultProfileRoleChoices.forEach((role, index) => output.write(`${index + 1}. ${role.id} - ${role.label}\n`));
-
-  return defaultProfileRoleChoices[await promptForSelectionIndex(readline, 'Role [1]: ', 0)]?.id ?? fallbackRoleId;
-};
-
-const promptForLoadout = async (
-  readline: { question(query: string): Promise<string> },
-  output: NodeJS.WritableStream,
-): Promise<readonly string[]> => {
-  output.write(`\n${recommendedPiLoadout.label}:\n`);
-  recommendedPiLoadout.items.forEach((item, index) => {
-    output.write(`${index + 1}. ${item.label} (${item.kind}) - ${item.source}\n`);
-  });
-
-  const mode = (await readline.question('Install recommended loadout? [Y=all/c=choose/n=skip]: ')).trim().toLowerCase();
-
-  if (['n', 'no', 'skip'].includes(mode)) {
-    return [];
-  }
-
-  if (!['c', 'choose', 'custom', 's', 'select'].includes(mode)) {
-    return recommendedPiLoadout.items.map((item) => item.id);
-  }
-
-  const answer = (await readline.question('Loadout items [1,2,3,4 or blank for all]: ')).trim();
-
-  if (answer === '') {
-    return recommendedPiLoadout.items.map((item) => item.id);
-  }
-
-  return answer
-    .split(',')
-    .map((part) => Number.parseInt(part.trim(), 10) - 1)
-    .filter((index) => index >= 0 && index < recommendedPiLoadout.items.length)
-    .map((index) => recommendedPiLoadout.items[index].id);
-};
-
-const promptForSelectionIndex = async (
-  readline: { question(query: string): Promise<string> },
-  query: string,
-  defaultIndex: number,
-): Promise<number> => {
-  const answer = (await readline.question(query)).trim();
-
-  if (answer === '') {
-    return defaultIndex;
-  }
-
-  return Math.max(Number.parseInt(answer, 10) - 1, 0);
 };
 
 const resolveSelectedRole = (
@@ -325,22 +292,10 @@ const resolveSelectedLoadout = (
   };
 };
 
-const buildWelcomeMessages = (
-  selectedRole: WelcomeRoleChoice,
-  selectedLoadout: WelcomeLoadoutSelection,
-  warnings: readonly string[],
-): readonly string[] => {
-  const loadoutMessage =
-    selectedLoadout.selectedItems.length === 0
-      ? `Skipped ${selectedLoadout.label}.`
-      : `Selected ${selectedLoadout.label}: ${selectedLoadout.selectedItems.map((item) => item.source).join(', ')}.`;
-
-  return [
-    `Selected Outfitter role: ${selectedRole.id} (${selectedRole.label}).`,
-    loadoutMessage,
-    ...warnings.map((warning) => `Warning: ${warning}`),
-  ];
-};
+const buildWelcomeMessages = (warnings: readonly string[]): readonly string[] => [
+  'Installed the founder profile. Use /outfitter inside Pi or run `outfitter profile list` to manage profiles.',
+  ...warnings.map((warning) => `Warning: ${warning}`),
+];
 
 const requireInteractiveTerminalIfNeeded = (dependencies: WelcomeCommandDependencies): void => {
   if (dependencies.interactive !== true) {

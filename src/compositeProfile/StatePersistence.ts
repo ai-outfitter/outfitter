@@ -171,6 +171,10 @@ const getJsonStateFileDefault = (sourcePath: string): string | undefined => {
     return '{"providers":{}}\n';
   }
 
+  if (isStateSourceFileName(sourcePath, 'trust.json')) {
+    return '{}\n';
+  }
+
   return undefined;
 };
 

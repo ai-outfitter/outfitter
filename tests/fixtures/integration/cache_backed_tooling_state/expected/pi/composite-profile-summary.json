@@ -2,7 +2,15 @@
   "profileId": "cache-tooling",
   "agentId": "pi",
   "launchCommand": "pi",
-  "launchArgs": ["--model", "cache-tooling-model", "--skill", "<repo>/skills/outfitter", "--cache-tooling"],
+  "launchArgs": [
+    "--extension",
+    "<composite-profile>/outfitter/outfitter-extension.js",
+    "--model",
+    "cache-tooling-model",
+    "--skill",
+    "<repo>/skills/outfitter",
+    "--cache-tooling"
+  ],
   "launchEnv": {
     "CACHE_TOOLING_PROFILE": "enabled",
     "PI_CODING_AGENT_DIR": "<composite-profile>",

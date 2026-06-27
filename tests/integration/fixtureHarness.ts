@@ -140,6 +140,7 @@ export const tokenizeFixturePath = (
   }
 
   return path
+    .replaceAll(compositeProfileRoot ?? '\0', '<composite-profile>')
     .replaceAll(fixture.home, '<home>')
     .replaceAll(fixture.project, '<project>')
     .replaceAll(fixture.cache, '<cache>')
