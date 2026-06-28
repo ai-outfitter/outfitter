@@ -417,6 +417,8 @@ describe('setup command', () => {
         },
       },
     );
+    await waitForOutput(outputChunks, output, 'Choose where to install these profiles:');
+    input.write('1\n');
     await waitForOutput(outputChunks, output, 'Default profile [1]:');
     input.end('\n');
     const result = await resultPromise;
@@ -424,11 +426,16 @@ describe('setup command', () => {
     const promptOutput = Buffer.concat(outputChunks).toString('utf8');
     expect(promptOutput).toContain('Welcome to Outfitter.');
     expect(promptOutput).toContain("You're importing Outfitter profiles from https://example.test/link-profiles.");
-    expect(promptOutput).not.toContain('Choose where to install these profiles:');
+    expect(promptOutput).toContain('Choose where to install these profiles:');
+    expect(promptOutput).toContain('1. User home');
+    expect(promptOutput).toContain('2. Current project');
     expect(promptOutput).toContain('Choose the default profile from this setup source:');
     expect(promptOutput.match(/Choose the default profile/gu)).toHaveLength(1);
     expect(promptOutput.indexOf('Welcome to Outfitter.')).toBeLessThan(
       promptOutput.indexOf("You're importing Outfitter profiles"),
+    );
+    expect(promptOutput.indexOf('Choose where to install these profiles:')).toBeLessThan(
+      promptOutput.indexOf('Choose the default profile from this setup source:'),
     );
     expect(promptOutput).toContain('1. project-lead - Project Lead');
     expect(promptOutput).toContain('   Planning and delivery setup.');
@@ -493,6 +500,8 @@ describe('setup command', () => {
           },
         },
       );
+      await waitForCapturedOutput(stdoutChunks, 'Choose where to install these profiles:');
+      input.write('1\n');
       await waitForCapturedOutput(stdoutChunks, 'Default profile [1]:');
       input.end('\n');
       const result = await resultPromise;
@@ -501,7 +510,9 @@ describe('setup command', () => {
       expect(promptOutput).toContain('____        _    __ _ _   _');
       expect(promptOutput).toContain('Welcome to Outfitter.');
       expect(promptOutput).toContain("You're importing Outfitter profiles from https://example.test/link-profiles.");
-      expect(promptOutput).not.toContain('Choose where to install these profiles:');
+      expect(promptOutput).toContain('Choose where to install these profiles:');
+      expect(promptOutput).toContain('1. User home');
+      expect(promptOutput).toContain('2. Current project');
       expect(promptOutput).toContain('Choose the default profile from this setup source:');
       expect(promptOutput).toContain('1. project-lead - Project Lead');
       expect(promptOutput).toContain('Default profile [1]:');
@@ -574,6 +585,289 @@ describe('setup command', () => {
     expect(readFileSync(join(projectDirectory, '.outfitter', 'settings.yml'), 'utf8')).toContain('path: ./profiles');
     expect(readFileSync(join(projectDirectory, '.outfitter', 'profiles', 'project-lead', 'profile.yml'), 'utf8')).toBe(
       'id: project-lead\nlabel: Project Lead\ncontrols: {}\n',
+    );
+  });
+
+  it('imports a Link-like founder setup source into the project and launches without opaque resolution failure', async () => {
+    const root = createTemporaryRoot();
+    const homeDirectory = join(root, 'home');
+    const projectDirectory = join(root, 'project');
+    const launchedProfiles: string[] = [];
+
+    writeSettings(homeDirectory, 'default_profile: engineer\nprofile_sources:\n  - path: ./profiles\n');
+    mkdirSync(join(projectDirectory, '.outfitter', 'profiles', 'project-lead'), { recursive: true });
+    writeFileSync(
+      join(projectDirectory, '.outfitter', 'settings.yml'),
+      'default_profile: project-lead\nprofile_sources:\n  - path: ./profiles\n',
+    );
+    writeFileSync(
+      join(projectDirectory, '.outfitter', 'profiles', 'project-lead', 'profile.yml'),
+      'id: project-lead\ncontrols: {}\n',
+    );
+
+    const result = await executeSetupCommand(
+      { homeDirectory, projectDirectory, setupSourceUri: 'https://example.test/link-profiles' },
+      {
+        interactive: true,
+        input: { isTTY: true } as NodeJS.ReadableStream & { isTTY: true },
+        output: { isTTY: true } as NodeJS.WritableStream & { isTTY: true },
+        writeLine: () => undefined,
+        setupSourceSynchronizer: {
+          sync(_uri, cachePath) {
+            const outfitterDirectory = join(cachePath, '.outfitter');
+            mkdirSync(join(outfitterDirectory, 'prompts'), { recursive: true });
+            writeFileSync(join(outfitterDirectory, 'settings.yml'), 'default_profile: founder\n');
+            writeFileSync(join(outfitterDirectory, 'prompts', 'plan.md'), '# Founder planning\n');
+
+            for (const [profileId, content] of [
+              ['engineer', 'id: engineer\nlabel: Engineer\ncontrols: {}\n'],
+              [
+                'founder',
+                'id: founder\nlabel: Founder\ninherits:\n  - shared\ncontrols:\n  append_system_prompt:\n    - .outfitter/prompts/plan.md\n',
+              ],
+              ['project-lead', 'id: project-lead\nlabel: Project Lead\ncontrols: {}\n'],
+              ['shared', 'id: shared\ntemplate: true\ncontrols: {}\n'],
+            ] as const) {
+              const profileFolder = join(outfitterDirectory, 'profiles', profileId);
+              mkdirSync(profileFolder, { recursive: true });
+              writeFileSync(join(profileFolder, 'profile.yml'), content);
+            }
+          },
+        },
+        selectSetupSourceImportTarget() {
+          return Promise.resolve('project');
+        },
+        selectDefaultProfile(profiles, currentDefault) {
+          expect(currentDefault).toBe('founder');
+          expect(profiles.map((profile) => profile.id)).toEqual(['founder', 'engineer', 'project-lead', 'shared']);
+          return Promise.resolve('founder');
+        },
+        selectSetupSourceLaunchAction() {
+          return Promise.resolve('start');
+        },
+        launchSetupSourceProfile(input) {
+          launchedProfiles.push(input.profileId);
+          return Promise.resolve();
+        },
+      },
+    );
+
+    expect(result.settingsPath).toBe(join(projectDirectory, '.outfitter', 'settings.yml'));
+    expect(launchedProfiles).toEqual(['founder']);
+    expect(readFileSync(join(homeDirectory, '.outfitter', 'settings.yml'), 'utf8')).toBe(
+      'default_profile: engineer\nprofile_sources:\n  - path: ./profiles\n',
+    );
+    expect(readFileSync(join(projectDirectory, '.outfitter', 'profiles', 'founder', 'profile.yml'), 'utf8')).toContain(
+      'id: founder',
+    );
+    expect(readFileSync(join(projectDirectory, '.outfitter', 'profiles', 'shared', 'profile.yml'), 'utf8')).toContain(
+      'template: true',
+    );
+    expect(readFileSync(join(projectDirectory, '.outfitter', 'prompts', 'plan.md'), 'utf8')).toBe('# Founder planning\n');
+    expect(result.messages.join('\n')).not.toContain("Cannot resolve profile 'founder'");
+  });
+
+  it('copies setup-source prompt resources needed by imported Link-style profiles', async () => {
+    const root = createTemporaryRoot();
+    const homeDirectory = join(root, 'home');
+    const projectDirectory = join(root, 'project');
+
+    const result = await executeSetupCommand(
+      { homeDirectory, projectDirectory, setupSourceUri: 'https://example.test/link-profiles' },
+      {
+        interactive: true,
+        input: { isTTY: true } as NodeJS.ReadableStream & { isTTY: true },
+        output: { isTTY: true } as NodeJS.WritableStream & { isTTY: true },
+        writeLine: () => undefined,
+        setupSourceSynchronizer: {
+          sync(_uri, cachePath) {
+            const outfitterDirectory = join(cachePath, '.outfitter');
+            const profileFolder = join(outfitterDirectory, 'profiles', 'founder');
+            mkdirSync(profileFolder, { recursive: true });
+            mkdirSync(join(outfitterDirectory, 'prompts'), { recursive: true });
+            writeFileSync(join(outfitterDirectory, 'settings.yml'), 'default_profile: founder\n');
+            writeFileSync(
+              join(profileFolder, 'profile.yml'),
+              'id: founder\nlabel: Founder\ncontrols:\n  append_system_prompt:\n    - .outfitter/prompts/plan.md\n',
+            );
+            writeFileSync(join(outfitterDirectory, 'prompts', 'plan.md'), '# Planning\n');
+          },
+        },
+        selectSetupSourceImportTarget() {
+          return Promise.resolve('project');
+        },
+        selectDefaultProfile() {
+          return Promise.resolve('founder');
+        },
+      },
+    );
+
+    expect(result.settingsPath).toBe(join(projectDirectory, '.outfitter', 'settings.yml'));
+    expect(readFileSync(join(projectDirectory, '.outfitter', 'prompts', 'plan.md'), 'utf8')).toBe('# Planning\n');
+  });
+
+  it('reports when non-overwrite preserves an existing selected setup-source profile', async () => {
+    const root = createTemporaryRoot();
+    const homeDirectory = join(root, 'home');
+    const projectDirectory = join(root, 'project');
+    const existingFounderPath = join(homeDirectory, '.outfitter', 'profiles', 'founder', 'profile.yml');
+
+    writeSettings(homeDirectory, 'default_profile: engineer\nprofile_sources:\n  - path: ./profiles\n');
+    mkdirSync(dirname(existingFounderPath), { recursive: true });
+    writeFileSync(existingFounderPath, 'id: founder\nlabel: Existing Founder\ncontrols: {}\n');
+
+    const result = await executeSetupCommand(
+      { homeDirectory, projectDirectory, setupSourceUri: 'https://example.test/link-profiles' },
+      {
+        interactive: true,
+        input: { isTTY: true } as NodeJS.ReadableStream & { isTTY: true },
+        output: { isTTY: true } as NodeJS.WritableStream & { isTTY: true },
+        writeLine: () => undefined,
+        setupSourceSynchronizer: {
+          sync(_uri, cachePath) {
+            const outfitterDirectory = join(cachePath, '.outfitter');
+            const profileFolder = join(outfitterDirectory, 'profiles', 'founder');
+            mkdirSync(profileFolder, { recursive: true });
+            writeFileSync(join(outfitterDirectory, 'settings.yml'), 'default_profile: founder\n');
+            writeFileSync(join(profileFolder, 'profile.yml'), 'id: founder\nlabel: Link Founder\ncontrols: {}\n');
+          },
+        },
+        selectSetupSourceImportTarget() {
+          return Promise.resolve('home');
+        },
+        selectDefaultProfile() {
+          return Promise.resolve('founder');
+        },
+      },
+    );
+
+    expect(readFileSync(existingFounderPath, 'utf8')).toBe('id: founder\nlabel: Existing Founder\ncontrols: {}\n');
+    expect(result.messages.join('\n')).toContain(
+      `Existing selected setup-source profile 'founder' at ${existingFounderPath} was not overwritten.`,
+    );
+  });
+
+  it('does not ask for a setup-source import target during default first-run setup', async () => {
+    const root = createTemporaryRoot();
+    const homeDirectory = join(root, 'home');
+    const projectDirectory = join(root, 'project');
+
+    const result = await executeSetupCommand(
+      { homeDirectory, projectDirectory },
+      {
+        interactive: true,
+        input: { isTTY: true } as NodeJS.ReadableStream & { isTTY: true },
+        output: { isTTY: true } as NodeJS.WritableStream & { isTTY: true },
+        writeLine: () => undefined,
+        synchronizer: defaultProfileSynchronizer,
+        selectSetupSourceImportTarget() {
+          throw new Error('default setup should not ask for a setup-source import target');
+        },
+        selectWelcomePlan() {
+          return Promise.resolve({ answerQuestions: false });
+        },
+      },
+    );
+
+    expect(result.settingsPath).toBe(join(homeDirectory, '.outfitter', 'settings.yml'));
+    expect(result.messages.join('\n')).not.toContain('Choose where to install these profiles');
+  });
+
+  it('does not print failing explicit start guidance when a declined home import is hidden by project sources', async () => {
+    const root = createTemporaryRoot();
+    const homeDirectory = join(root, 'home');
+    const projectDirectory = join(root, 'project');
+    const projectSettingsPath = join(projectDirectory, '.outfitter', 'settings.yml');
+
+    writeSettings(homeDirectory, 'default_profile: engineer\nprofile_sources:\n  - path: ./profiles\n');
+    mkdirSync(dirname(projectSettingsPath), { recursive: true });
+    writeFileSync(projectSettingsPath, 'default_profile: project-lead\nprofile_sources:\n  - path: ./profiles\n');
+
+    const result = await executeSetupCommand(
+      { homeDirectory, projectDirectory, setupSourceUri: 'https://example.test/link-profiles' },
+      {
+        interactive: true,
+        input: { isTTY: true } as NodeJS.ReadableStream & { isTTY: true },
+        output: { isTTY: true } as NodeJS.WritableStream & { isTTY: true },
+        writeLine: () => undefined,
+        setupSourceSynchronizer: {
+          sync(_uri, cachePath) {
+            const outfitterDirectory = join(cachePath, '.outfitter');
+            const profileFolder = join(outfitterDirectory, 'profiles', 'founder');
+            mkdirSync(profileFolder, { recursive: true });
+            writeFileSync(join(outfitterDirectory, 'settings.yml'), 'default_profile: founder\n');
+            writeFileSync(join(profileFolder, 'profile.yml'), 'id: founder\ncontrols: {}\n');
+          },
+        },
+        selectSetupSourceImportTarget() {
+          return Promise.resolve('home');
+        },
+        selectDefaultProfile() {
+          return Promise.resolve('founder');
+        },
+        selectSetupSourceLaunchAction() {
+          return Promise.resolve('exit');
+        },
+      },
+    );
+
+    expect(result.messages.join('\n')).toContain(
+      "Imported profile 'founder' into user home, but this project overrides profile_sources",
+    );
+    expect(result.messages.join('\n')).not.toContain('outfitter --profile founder');
+  });
+
+  it('reports an actionable error before launching a home-imported setup-source profile hidden by project sources', async () => {
+    const root = createTemporaryRoot();
+    const homeDirectory = join(root, 'home');
+    const projectDirectory = join(root, 'project');
+    const projectSettingsPath = join(projectDirectory, '.outfitter', 'settings.yml');
+
+    writeSettings(homeDirectory, 'default_profile: engineer\nprofile_sources:\n  - path: ./profiles\n');
+    mkdirSync(dirname(projectSettingsPath), { recursive: true });
+    writeFileSync(projectSettingsPath, 'default_profile: project-lead\nprofile_sources:\n  - path: ./profiles\n');
+
+    await expect(
+      executeSetupCommand(
+        { homeDirectory, projectDirectory, setupSourceUri: 'https://example.test/link-profiles' },
+        {
+          interactive: true,
+          input: { isTTY: true } as NodeJS.ReadableStream & { isTTY: true },
+          output: { isTTY: true } as NodeJS.WritableStream & { isTTY: true },
+          writeLine: () => undefined,
+          setupSourceSynchronizer: {
+            sync(_uri, cachePath) {
+              const outfitterDirectory = join(cachePath, '.outfitter');
+              mkdirSync(join(outfitterDirectory, 'profiles', 'founder'), { recursive: true });
+              mkdirSync(join(outfitterDirectory, 'profiles', 'shared'), { recursive: true });
+              writeFileSync(join(outfitterDirectory, 'settings.yml'), 'default_profile: founder\n');
+              writeFileSync(
+                join(outfitterDirectory, 'profiles', 'founder', 'profile.yml'),
+                'id: founder\nlabel: Founder\ninherits:\n  - shared\ncontrols: {}\n',
+              );
+              writeFileSync(
+                join(outfitterDirectory, 'profiles', 'shared', 'profile.yml'),
+                'id: shared\ntemplate: true\ncontrols: {}\n',
+              );
+            },
+          },
+          selectSetupSourceImportTarget() {
+            return Promise.resolve('home');
+          },
+          selectDefaultProfile(profiles) {
+            expect(profiles.map((profile) => profile.id)).toEqual(['founder', 'shared']);
+            return Promise.resolve('founder');
+          },
+          selectSetupSourceLaunchAction() {
+            return Promise.resolve('start');
+          },
+          launchSetupSourceProfile() {
+            throw new Error('launch should not run before setup-source profile visibility is checked');
+          },
+        },
+      ),
+    ).rejects.toThrow(
+      "Imported profile 'founder' into user home, but this project overrides profile_sources and does not expose ~/.outfitter/profiles.",
     );
   });
 

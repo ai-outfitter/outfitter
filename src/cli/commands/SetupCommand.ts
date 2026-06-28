@@ -17,6 +17,7 @@ import {
   resolveRemoteRepositorySubpath,
 } from '../../profiles/ProfileCache.js';
 import { isValidProfileId, loadLocalProfileSource } from '../../profiles/ProfileLoader.js';
+import { resolveProfile } from '../../profiles/ProfileMerger.js';
 import {
   createSettingsLoadPlan,
   discoverSettingsLoadPlan,
@@ -250,6 +251,8 @@ interface AppliedSetupSourceImport {
   readonly profilesPath: string;
   readonly createdSettings: boolean;
   readonly copiedStarterProfileFiles: number;
+  readonly copiedStarterResourceFiles: number;
+  readonly selectedProfileConflictMessage?: string;
 }
 
 const executeInteractiveSetupSourceCommand = async ({
@@ -276,7 +279,12 @@ const executeInteractiveSetupSourceCommand = async ({
 
   const defaultProfilePath = join(appliedImport.profilesPath, onboarding.selectedProfileId, 'profile.yml');
   const createdDefaultProfile = createDefaultProfileIfMissing(defaultProfilePath, onboarding.selectedProfileId);
-  const postImportAction = await runSetupSourcePostImportAction(input, dependencies, onboarding.selectedProfileId);
+  const postImportAction = await runSetupSourcePostImportAction(
+    input,
+    dependencies,
+    onboarding.importTarget,
+    onboarding.selectedProfileId,
+  );
 
   return {
     settingsPath: appliedImport.settingsPath,
@@ -297,8 +305,14 @@ const executeInteractiveSetupSourceCommand = async ({
       defaultProfilePath,
       createdDefaultProfile,
       syncResult,
-      welcomeProfileMessages: [],
-      runExampleMessages: postImportAction === 'exit' ? [formatRunProfileExample(onboarding.selectedProfileId)] : [],
+      welcomeProfileMessages:
+        appliedImport.selectedProfileConflictMessage === undefined
+          ? []
+          : [appliedImport.selectedProfileConflictMessage],
+      runExampleMessages:
+        postImportAction === 'exit'
+          ? formatSetupSourceExitMessages(input, onboarding.importTarget, onboarding.selectedProfileId)
+          : [],
     }),
   };
 };
@@ -389,9 +403,26 @@ const shouldReportDefaultProfileStatus = (input: SetupMessageInput): boolean => 
 const formatRunProfileExample = (profileId: string): string =>
   `Start the selected default profile either way:\n  outfitter\n  outfitter --profile ${profileId}`;
 
+const formatSetupSourceExitMessages = (
+  input: SetupCommandInput,
+  importTarget: SetupSourceImportTarget,
+  profileId: string,
+): readonly string[] => {
+  if (importTarget !== 'home' || canResolveProfileForLaunch(input, profileId)) {
+    return [formatRunProfileExample(profileId)];
+  }
+
+  return [formatHiddenHomeImportMessage(profileId)];
+};
+
+const formatHiddenHomeImportMessage = (profileId: string): string =>
+  `Imported profile '${profileId}' into user home, but this project overrides profile_sources and does not expose ~/.outfitter/profiles. ` +
+  'Import into the current project, add ~/.outfitter/profiles to project profile_sources, or run from a directory without project Outfitter settings.';
+
 const runSetupSourcePostImportAction = async (
   input: SetupCommandInput,
   dependencies: SetupCommandDependencies,
+  importTarget: SetupSourceImportTarget,
   profileId: string,
 ): Promise<SetupSourcePostImportAction> => {
   if (
@@ -404,6 +435,7 @@ const runSetupSourcePostImportAction = async (
   const action = await selectSetupSourceLaunchAction(profileId, dependencies);
 
   if (action === 'start') {
+    assertSetupSourceProfileCanLaunch(input, importTarget, profileId);
     await dependencies.launchSetupSourceProfile?.({
       homeDirectory: input.homeDirectory,
       projectDirectory: input.projectDirectory,
@@ -412,6 +444,39 @@ const runSetupSourcePostImportAction = async (
   }
 
   return action;
+};
+
+const assertSetupSourceProfileCanLaunch = (
+  input: SetupCommandInput,
+  importTarget: SetupSourceImportTarget,
+  profileId: string,
+): void => {
+  if (importTarget !== 'home' || canResolveProfileForLaunch(input, profileId)) {
+    return;
+  }
+
+  throw new Error(formatHiddenHomeImportMessage(profileId));
+};
+
+const canResolveProfileForLaunch = (input: SetupCommandInput, profileId: string): boolean => {
+  const loadedSettings = loadSettingsWithCachedRemoteSettings(input);
+
+  if (loadedSettings.issues.length > 0) {
+    return true;
+  }
+
+  const profiles = loadedSettings.settings.profileSources!.flatMap(
+    (source) =>
+      loadLocalProfileSource({
+        path: materializeSetupProfileSource(input.homeDirectory, source),
+        only: source.only,
+        except: source.except,
+      }).profiles,
+  );
+  const resolution = resolveProfile({ profiles, profileId });
+  const selectedProfile = resolution.profileStack.find((profile) => profile.id === profileId);
+
+  return resolution.profile !== undefined && resolution.issues.length === 0 && selectedProfile?.template !== true;
 };
 
 const selectSetupSourceLaunchAction = async (
@@ -626,6 +691,8 @@ const applySetupSourceImport = (
     starterLayout.settingsPath,
     onboarding.selectedProfileId,
   );
+  const selectedProfilePath = join(target.profilesPath, onboarding.selectedProfileId, 'profile.yml');
+  const selectedProfileAlreadyExists = existsSync(selectedProfilePath);
 
   ensureLocalProfileSource(target.settingsPath, target.profilesPath);
   updateSettingsDefaultProfile(target.settingsPath, onboarding.selectedProfileId);
@@ -634,6 +701,13 @@ const applySetupSourceImport = (
     ...target,
     createdSettings,
     copiedStarterProfileFiles: copyStarterProfileFilesIfPresent(starterLayout.profilesPath, target.profilesPath),
+    copiedStarterResourceFiles: copyStarterResourceFilesIfPresent(
+      starterLayout.profilesPath,
+      dirname(target.settingsPath),
+    ),
+    selectedProfileConflictMessage: selectedProfileAlreadyExists
+      ? `Existing selected setup-source profile '${onboarding.selectedProfileId}' at ${selectedProfilePath} was not overwritten.`
+      : undefined,
   };
 };
 
@@ -713,6 +787,32 @@ const copyStarterProfileFilesIfPresent = (
   }
 
   return copyDirectoryContentsWithoutOverwriting(sourceProfilesPath, targetProfilesPath);
+};
+
+const copyStarterResourceFilesIfPresent = (
+  sourceProfilesPath: string | undefined,
+  targetOutfitterPath: string,
+): number => {
+  if (sourceProfilesPath === undefined) {
+    return 0;
+  }
+
+  const sourceOutfitterPath = dirname(sourceProfilesPath);
+  return copyNamedStarterResourceDirectoryIfPresent(sourceOutfitterPath, targetOutfitterPath, 'prompts');
+};
+
+const copyNamedStarterResourceDirectoryIfPresent = (
+  sourceOutfitterPath: string,
+  targetOutfitterPath: string,
+  resourceName: string,
+): number => {
+  const sourceResourcePath = join(sourceOutfitterPath, resourceName);
+
+  if (!existsSync(sourceResourcePath)) {
+    return 0;
+  }
+
+  return copyDirectoryContentsWithoutOverwriting(sourceResourcePath, join(targetOutfitterPath, resourceName));
 };
 
 const copyDirectoryContentsWithoutOverwriting = (sourceDirectory: string, targetDirectory: string): number => {
@@ -888,7 +988,12 @@ const promptForSetupSourceOnboarding = async (
 
   try {
     writeSetupSourceWelcome(input, profiles, output);
-    const importTarget = 'home' as const;
+    const importTarget = await promptForSetupSourceImportTargetWithReadline(
+      readline,
+      output,
+      setupSourceImportTargetChoices,
+      'home',
+    );
     const selectedProfileId = await promptForSetupProfileWithReadline(
       readline,
       output,
@@ -943,6 +1048,33 @@ const assertValidSetupSourceImportTarget = (target: SetupSourceImportTarget): vo
   if (setupSourceImportTargetChoices.every((choice) => choice.target !== target)) {
     throw new Error(`Selected setup-source import target '${target}' is not available.`);
   }
+};
+
+const promptForSetupSourceImportTargetWithReadline = async (
+  readline: { question(query: string): Promise<string> },
+  output: Pick<NodeJS.WritableStream, 'write'>,
+  choices: readonly SetupSourceImportTargetChoice[],
+  defaultTarget: SetupSourceImportTarget,
+): Promise<SetupSourceImportTarget> => {
+  output.write('\nChoose where to install these profiles:\n');
+  choices.forEach((choice, index) => {
+    output.write(`${index + 1}. ${choice.label}\n`);
+    output.write(`   ${choice.description}.\n`);
+  });
+
+  const defaultIndex = Math.max(
+    choices.findIndex((choice) => choice.target === defaultTarget),
+    0,
+  );
+  const answer = await readline.question(`Import target [${defaultIndex + 1}]: `);
+  const selectedIndex = Number.parseInt(answer.trim() || String(defaultIndex + 1), 10) - 1;
+  const selectedChoice = choices[selectedIndex];
+
+  if (selectedChoice === undefined) {
+    throw new Error('Selected setup-source import target number is out of range.');
+  }
+
+  return selectedChoice.target;
 };
 
 /* v8 ignore next -- covered by interactive CLI smoke tests; unit tests inject the launch choice. */
