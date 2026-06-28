@@ -7,8 +7,6 @@ It is generic enough for organizations to define profiles once and run them acro
 
 Formal implementation requirements live in `requirements/`; this document explains the architectural shape behind those requirements.
 
-> Naming rule: any occurrence of `outfitter` in docs, prompts, examples, or generated text is a typo/autocorrect and MUST be treated as `outfitter`.
-
 ## Architectural Principles
 
 1. **TypeScript first**: production code, tests, schemas, and tooling are centered on TypeScript.
@@ -720,6 +718,8 @@ Responsibilities:
 - accept an optional setup source URI, for example `outfitter setup https://github.com/example/outfitter-config`, and clone/update it under `~/.outfitter/cache/repos/<encoded-uri-and-ref>/`;
 
 - when a setup source is provided, use its root `settings.yml` or `.outfitter/settings.yml` and `profiles/` or `.outfitter/profiles/` as the initial non-overwriting setup starting point for the selected import target;
+- keep copy/cache setup-source import as the default behavior; when interactive setup receives a local path whose source contains `.outfitter/`, optionally offer symlink mode for rapid shared-profile development;
+- explain that symlink mode links the selected target `.outfitter` to the local source `.outfitter`, so source edits affect later runs immediately, and refuse to replace a non-empty target `.outfitter` without explicit user action;
 - during interactive setup-source onboarding, show the Outfitter welcome first, explain the source being imported, ask whether to install into user home or the current project, then ask exactly one source-profile/default prompt;
 - require an interactive TTY on both stdin and stdout before running setup prompts;
 - create a default profile when missing;

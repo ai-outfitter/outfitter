@@ -1,7 +1,7 @@
 /* eslint-disable max-lines */
 // Tests setup command behavior.
 import { PassThrough } from 'node:stream';
-import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, lstatSync, mkdtempSync, mkdirSync, readFileSync, readlinkSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 
@@ -290,6 +290,97 @@ describe('setup command', () => {
     expect(readFileSync(join(homeDirectory, '.outfitter', 'profiles', 'team', 'profile.yml'), 'utf8')).toBe(
       'id: team\nlabel: Custom\n',
     );
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-004.1.24, OFTR-004.1.25, OFTR-004.1.26).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('offers local setup-source symlink mode for rapid shared profile development', async () => {
+    const root = createTemporaryRoot();
+    const homeDirectory = join(root, 'home');
+    const projectDirectory = join(root, 'project');
+    const setupSourcePath = join(root, 'shared-outfitter');
+    const sourceOutfitterPath = join(setupSourcePath, '.outfitter');
+    const promptOutput: string[] = [];
+    mkdirSync(join(sourceOutfitterPath, 'profiles', 'team'), { recursive: true });
+    writeFileSync(join(sourceOutfitterPath, 'settings.yml'), 'default_profile: team\nprofile_sources:\n  - path: ./profiles\n');
+    writeFileSync(join(sourceOutfitterPath, 'profiles', 'team', 'profile.yml'), 'id: team\ncontrols: {}\n');
+
+    const result = await executeSetupCommand(
+      { homeDirectory, projectDirectory, setupSourceUri: setupSourcePath },
+      {
+        interactive: true,
+        input: { isTTY: true } as NodeJS.ReadableStream & { isTTY: true },
+        output: { isTTY: true } as NodeJS.WritableStream & { isTTY: true },
+        writeLine: (message) => promptOutput.push(message),
+        selectSetupSourceImportTarget: () => Promise.resolve('project'),
+        selectSetupSourceImportMode: (choices, defaultMode) => {
+          expect(defaultMode).toBe('copy');
+          expect(choices.map((choice) => choice.mode)).toEqual(['copy', 'symlink']);
+          return Promise.resolve('symlink');
+        },
+        selectDefaultProfile: () => Promise.resolve('team'),
+        selectSetupSourceLaunchAction: () => Promise.resolve('exit'),
+        setupSourceSynchronizer: {
+          sync(_uri, cachePath) {
+            mkdirSync(join(cachePath, '.outfitter', 'profiles', 'team'), { recursive: true });
+            writeFileSync(
+              join(cachePath, '.outfitter', 'settings.yml'),
+              readFileSync(join(sourceOutfitterPath, 'settings.yml'), 'utf8'),
+            );
+            writeFileSync(
+              join(cachePath, '.outfitter', 'profiles', 'team', 'profile.yml'),
+              readFileSync(join(sourceOutfitterPath, 'profiles', 'team', 'profile.yml'), 'utf8'),
+            );
+          },
+        },
+      },
+    );
+
+    const targetOutfitterPath = join(projectDirectory, '.outfitter');
+    expect(result.createdSettings).toBe(false);
+    expect(result.copiedStarterProfileFiles).toBe(0);
+    expect(lstatSync(targetOutfitterPath).isSymbolicLink()).toBe(true);
+    expect(readlinkSync(targetOutfitterPath)).toBe(sourceOutfitterPath);
+    expect(promptOutput.join('\n')).toContain('Local setup source detected. Copy snapshot setup is safest');
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-004.1.27).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('refuses local setup-source symlink mode into a non-empty target .outfitter directory', async () => {
+    const root = createTemporaryRoot();
+    const homeDirectory = join(root, 'home');
+    const projectDirectory = join(root, 'project');
+    const setupSourcePath = join(root, 'shared-outfitter');
+    const sourceOutfitterPath = join(setupSourcePath, '.outfitter');
+    mkdirSync(join(sourceOutfitterPath, 'profiles', 'team'), { recursive: true });
+    mkdirSync(join(projectDirectory, '.outfitter'), { recursive: true });
+    writeFileSync(join(sourceOutfitterPath, 'settings.yml'), 'default_profile: team\nprofile_sources:\n  - path: ./profiles\n');
+    writeFileSync(join(sourceOutfitterPath, 'profiles', 'team', 'profile.yml'), 'id: team\ncontrols: {}\n');
+    writeFileSync(join(projectDirectory, '.outfitter', 'settings.yml'), 'default_profile: existing\n');
+
+    await expect(
+      executeSetupCommand(
+        { homeDirectory, projectDirectory, setupSourceUri: setupSourcePath },
+        {
+          interactive: true,
+          input: { isTTY: true } as NodeJS.ReadableStream & { isTTY: true },
+          output: { isTTY: true } as NodeJS.WritableStream & { isTTY: true },
+          writeLine: () => undefined,
+          selectSetupSourceImportTarget: () => Promise.resolve('project'),
+          selectSetupSourceImportMode: () => Promise.resolve('symlink'),
+          selectDefaultProfile: () => Promise.resolve('team'),
+          setupSourceSynchronizer: {
+            sync(_uri, cachePath) {
+              mkdirSync(join(cachePath, '.outfitter', 'profiles', 'team'), { recursive: true });
+              writeFileSync(join(cachePath, '.outfitter', 'settings.yml'), 'default_profile: team\n');
+              writeFileSync(join(cachePath, '.outfitter', 'profiles', 'team', 'profile.yml'), 'id: team\ncontrols: {}\n');
+            },
+          },
+        },
+      ),
+    ).rejects.toThrow('Cannot symlink local setup source into non-empty .outfitter directory');
+
+    expect(readFileSync(join(projectDirectory, '.outfitter', 'settings.yml'), 'utf8')).toBe('default_profile: existing\n');
   });
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-004.1.14).

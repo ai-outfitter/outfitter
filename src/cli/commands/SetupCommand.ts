@@ -1,9 +1,9 @@
 /* eslint-disable max-lines */
 // Provides the command object for first-run Outfitter setup.
-import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { createInterface } from 'node:readline/promises';
 import { homedir } from 'node:os';
-import { dirname, join } from 'node:path';
+import { dirname, isAbsolute, join, resolve } from 'node:path';
 
 import type { Command } from 'commander';
 import spawn from 'cross-spawn';
@@ -80,6 +80,10 @@ export type SetupCommandDependencies = SyncCommandDependencies &
       profileId: string,
       launchTarget: SetupSourcePostImportLaunchTarget,
     ) => Promise<SetupSourcePostImportAction>;
+    readonly selectSetupSourceImportMode?: (
+      choices: readonly SetupSourceImportModeChoice[],
+      defaultMode: SetupSourceImportMode,
+    ) => Promise<SetupSourceImportMode>;
     readonly launchSetupSourceProfile?: (input: SetupSourceLaunchInput) => Promise<void>;
     readonly runWelcome?: (
       input: SetupCommandInput,
@@ -94,12 +98,32 @@ export interface SetupProfileChoice {
 }
 
 export type SetupSourceImportTarget = 'home' | 'project';
+export type SetupSourceImportMode = 'copy' | 'symlink';
 
 export interface SetupSourceImportTargetChoice {
   readonly target: SetupSourceImportTarget;
   readonly label: string;
   readonly description: string;
 }
+
+export interface SetupSourceImportModeChoice {
+  readonly mode: SetupSourceImportMode;
+  readonly label: string;
+  readonly description: string;
+}
+
+const setupSourceImportModeChoices: readonly SetupSourceImportModeChoice[] = [
+  {
+    mode: 'copy',
+    label: 'Copy snapshot',
+    description: 'copy profiles into the selected .outfitter folder; safest for normal use',
+  },
+  {
+    mode: 'symlink',
+    label: 'Symlink for development',
+    description: 'link the selected .outfitter folder to the local source so shared profile edits apply immediately',
+  },
+];
 
 const setupSourceImportTargetChoices: readonly SetupSourceImportTargetChoice[] = [
   {
@@ -246,6 +270,7 @@ interface InteractiveSetupSourceCommandInput {
 interface SetupSourceOnboardingResult {
   readonly importTarget: SetupSourceImportTarget;
   readonly selectedProfileId: string;
+  readonly importMode: SetupSourceImportMode;
 }
 
 interface AppliedSetupSourceImport {
@@ -257,6 +282,7 @@ interface AppliedSetupSourceImport {
   readonly copiedStarterResourceFiles: number;
   readonly selectedProfileAlreadyExists: boolean;
   readonly selectedProfileConflictMessage?: string;
+  readonly symlinkedOutfitter: boolean;
 }
 
 const executeInteractiveSetupSourceCommand = async ({
@@ -282,7 +308,9 @@ const executeInteractiveSetupSourceCommand = async ({
   );
 
   const defaultProfilePath = join(appliedImport.profilesPath, onboarding.selectedProfileId, 'profile.yml');
-  const createdDefaultProfile = createDefaultProfileIfMissing(defaultProfilePath, onboarding.selectedProfileId);
+  const createdDefaultProfile = appliedImport.symlinkedOutfitter
+    ? false
+    : createDefaultProfileIfMissing(defaultProfilePath, onboarding.selectedProfileId);
   const postImportLaunchTarget = appliedImport.selectedProfileAlreadyExists ? 'default' : 'selected';
   const postImportAction = await runSetupSourcePostImportAction(
     input,
@@ -711,13 +739,25 @@ const applySetupSourceImport = (
   onboarding: SetupSourceOnboardingResult,
 ): AppliedSetupSourceImport => {
   const target = createSetupSourceImportTargetLayout(input, onboarding.importTarget);
-  const createdSettings = createImportSettingsIfMissing(
-    target.settingsPath,
-    starterLayout.settingsPath,
-    onboarding.selectedProfileId,
-  );
+  const sourceOutfitterPath = resolveLocalSetupSourceOutfitterPath(input);
+  const symlinkedOutfitter = onboarding.importMode === 'symlink';
+  const createdSettings = symlinkedOutfitter
+    ? false
+    : createImportSettingsIfMissing(target.settingsPath, starterLayout.settingsPath, onboarding.selectedProfileId);
   const selectedProfilePath = join(target.profilesPath, onboarding.selectedProfileId, 'profile.yml');
   const selectedProfileAlreadyExists = existsSync(selectedProfilePath);
+
+  if (symlinkedOutfitter) {
+    if (sourceOutfitterPath === undefined) {
+      throw new Error('Local setup-source symlink mode requires a source .outfitter directory.');
+    }
+
+    if (!existsSync(join(sourceOutfitterPath, 'settings.yml'))) {
+      throw new Error('Local setup-source symlink mode requires source .outfitter/settings.yml.');
+    }
+
+    symlinkLocalOutfitterSource(sourceOutfitterPath, dirname(target.settingsPath));
+  }
 
   ensureLocalProfileSource(target.settingsPath, target.profilesPath);
   updateSettingsDefaultProfile(target.settingsPath, onboarding.selectedProfileId);
@@ -725,16 +765,53 @@ const applySetupSourceImport = (
   return {
     ...target,
     createdSettings,
-    copiedStarterProfileFiles: copyStarterProfileFilesIfPresent(starterLayout.profilesPath, target.profilesPath),
-    copiedStarterResourceFiles: copyStarterResourceFilesIfPresent(
-      starterLayout.profilesPath,
-      dirname(target.settingsPath),
-    ),
-    selectedProfileAlreadyExists,
-    selectedProfileConflictMessage: selectedProfileAlreadyExists
-      ? `Existing selected setup-source profile '${onboarding.selectedProfileId}' at ${selectedProfilePath} was not overwritten.`
-      : undefined,
+    copiedStarterProfileFiles: symlinkedOutfitter
+      ? 0
+      : copyStarterProfileFilesIfPresent(starterLayout.profilesPath, target.profilesPath),
+    copiedStarterResourceFiles: symlinkedOutfitter
+      ? 0
+      : copyStarterResourceFilesIfPresent(starterLayout.profilesPath, dirname(target.settingsPath)),
+    selectedProfileAlreadyExists: symlinkedOutfitter || selectedProfileAlreadyExists,
+    selectedProfileConflictMessage:
+      !symlinkedOutfitter && selectedProfileAlreadyExists
+        ? `Existing selected setup-source profile '${onboarding.selectedProfileId}' at ${selectedProfilePath} was not overwritten.`
+        : undefined,
+    symlinkedOutfitter,
   };
+};
+
+
+const resolveLocalSetupSourceOutfitterPath = (input: SetupCommandInput): string | undefined => {
+  if (input.setupSourceUri === undefined || isRemoteSetupSourceUri(input.setupSourceUri)) {
+    return undefined;
+  }
+
+  const sourcePath = isAbsolute(input.setupSourceUri)
+    ? input.setupSourceUri
+    : resolve(input.projectDirectory, input.setupSourceUri);
+  const outfitterPath = sourcePath.endsWith('.outfitter') ? sourcePath : join(sourcePath, '.outfitter');
+
+  return existsSync(outfitterPath) ? outfitterPath : undefined;
+};
+
+const isRemoteSetupSourceUri = (source: string): boolean => /^[a-z][a-z0-9+.-]*:/iu.test(source) && !isAbsolute(source);
+
+const symlinkLocalOutfitterSource = (sourceOutfitterPath: string, targetOutfitterPath: string): void => {
+  if (existsSync(targetOutfitterPath)) {
+    const entries = readdirSync(targetOutfitterPath);
+
+    if (entries.length > 0) {
+      throw new Error(
+        `Cannot symlink local setup source into non-empty .outfitter directory '${targetOutfitterPath}'. ` +
+          'Move it aside or use copy snapshot setup.',
+      );
+    }
+
+    rmSync(targetOutfitterPath, { recursive: true, force: true });
+  }
+
+  mkdirSync(dirname(targetOutfitterPath), { recursive: true });
+  symlinkSync(sourceOutfitterPath, targetOutfitterPath, 'dir');
 };
 
 const createSetupSourceImportTargetLayout = (
@@ -986,23 +1063,30 @@ const runSetupSourceOnboarding = async (
   const sourceDefault = discoverSetupSourcePromptDefault(input, starterLayout, discoveredProfiles);
   const promptDefault = sourceDefault ?? currentDefault;
   const profiles = selectSetupPromptProfiles(input, discoveredProfiles, currentDefault, sourceDefault);
+  const localSymlinkAvailable = resolveLocalSetupSourceOutfitterPath(input) !== undefined;
 
-  if (dependencies.selectSetupSourceImportTarget === undefined && dependencies.selectDefaultProfile === undefined) {
-    return promptForSetupSourceOnboarding(input, profiles, promptDefault, dependencies);
+  if (
+    dependencies.selectSetupSourceImportTarget === undefined &&
+    dependencies.selectDefaultProfile === undefined &&
+    dependencies.selectSetupSourceImportMode === undefined
+  ) {
+    return promptForSetupSourceOnboarding(input, profiles, promptDefault, localSymlinkAvailable, dependencies);
   }
 
   writeSetupSourceWelcome(input, profiles, resolvePromptOutput(dependencies));
   const importTarget = await selectSetupSourceImportTarget(dependencies);
+  const importMode = await selectSetupSourceImportMode(dependencies, localSymlinkAvailable);
   const selectedProfileId = await selectSetupProfile(profiles, promptDefault, dependencies);
   assertValidSelectedDefaultProfile(selectedProfileId, profiles);
 
-  return { importTarget, selectedProfileId };
+  return { importTarget, selectedProfileId, importMode };
 };
 
 const promptForSetupSourceOnboarding = async (
   input: SetupCommandInput & { readonly setupSourceUri: string },
   profiles: readonly SetupProfileChoice[],
   currentDefault: string,
+  localSymlinkAvailable: boolean,
   dependencies: SetupCommandDependencies,
 ): Promise<SetupSourceOnboardingResult> => {
   const output = resolvePromptOutput(dependencies);
@@ -1020,6 +1104,7 @@ const promptForSetupSourceOnboarding = async (
       setupSourceImportTargetChoices,
       'home',
     );
+    const importMode = await promptForSetupSourceImportModeWithReadline(readline, output, localSymlinkAvailable);
     const selectedProfileId = await promptForSetupProfileWithReadline(
       readline,
       output,
@@ -1029,7 +1114,7 @@ const promptForSetupSourceOnboarding = async (
     );
     assertValidSelectedDefaultProfile(selectedProfileId, profiles);
 
-    return { importTarget, selectedProfileId };
+    return { importTarget, selectedProfileId, importMode };
   } finally {
     readline.close();
   }
@@ -1045,6 +1130,12 @@ const writeSetupSourceWelcome = (
     `\nYou're importing Outfitter profiles from ${redactProfileSourceUriCredentials(input.setupSourceUri)}.\n`,
   );
   output.write(`Found ${profiles.length} profile(s)${formatSetupSourceProfileList(profiles)}.\n`);
+
+  if (resolveLocalSetupSourceOutfitterPath(input) !== undefined) {
+    output.write(
+      'Local setup source detected. Copy snapshot setup is safest; symlink setup links your target .outfitter to the local source .outfitter so shared-profile edits apply immediately during development.\n',
+    );
+  }
 };
 
 const formatSetupSourceProfileList = (profiles: readonly SetupProfileChoice[]): string => {
@@ -1067,6 +1158,29 @@ const selectSetupSourceImportTarget = async (
   }
 
   return 'home';
+};
+
+const selectSetupSourceImportMode = async (
+  dependencies: SetupCommandDependencies,
+  localSymlinkAvailable: boolean,
+): Promise<SetupSourceImportMode> => {
+  if (!localSymlinkAvailable) {
+    return 'copy';
+  }
+
+  if (dependencies.selectSetupSourceImportMode !== undefined) {
+    const selectedMode = await dependencies.selectSetupSourceImportMode(setupSourceImportModeChoices, 'copy');
+    assertValidSetupSourceImportMode(selectedMode);
+    return selectedMode;
+  }
+
+  return 'copy';
+};
+
+const assertValidSetupSourceImportMode = (mode: SetupSourceImportMode): void => {
+  if (setupSourceImportModeChoices.every((choice) => choice.mode !== mode)) {
+    throw new Error(`Selected setup-source import mode '${mode}' is not available.`);
+  }
 };
 
 const assertValidSetupSourceImportTarget = (target: SetupSourceImportTarget): void => {
@@ -1101,6 +1215,32 @@ const promptForSetupSourceImportTargetWithReadline = async (
   }
 
   return selectedChoice.target;
+};
+
+const promptForSetupSourceImportModeWithReadline = async (
+  readline: { question(query: string): Promise<string> },
+  output: Pick<NodeJS.WritableStream, 'write'>,
+  localSymlinkAvailable: boolean,
+): Promise<SetupSourceImportMode> => {
+  if (!localSymlinkAvailable) {
+    return 'copy';
+  }
+
+  output.write('\nChoose how to install this local setup source:\n');
+  setupSourceImportModeChoices.forEach((choice, index) => {
+    output.write(`${index + 1}. ${choice.label}\n`);
+    output.write(`   ${choice.description}.\n`);
+  });
+
+  const answer = await readline.question('Import mode [1]: ');
+  const selectedIndex = Number.parseInt(answer.trim() || '1', 10) - 1;
+  const selectedChoice = setupSourceImportModeChoices[selectedIndex];
+
+  if (selectedChoice === undefined) {
+    throw new Error('Selected setup-source import mode number is out of range.');
+  }
+
+  return selectedChoice.mode;
 };
 
 /* v8 ignore next -- covered by interactive CLI smoke tests; unit tests inject the launch choice. */

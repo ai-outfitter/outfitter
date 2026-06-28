@@ -1,0 +1,3 @@
+default_profile: team
+profile_sources:
+  - path: ./profiles

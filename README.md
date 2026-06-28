@@ -204,6 +204,8 @@ Then run:
 outfitter sync
 ```
 
+When `outfitter setup <local-path>` points at a local setup repository, normal setup still imports a safe snapshot by caching/copying files into the selected user or project `.outfitter` directory. For rapid development of shared Outfitter profiles, interactive setup offers a symlink mode when the local source contains `.outfitter/`: the selected target `.outfitter` is linked to the source `.outfitter`, so edits in the shared profile repository affect subsequent Outfitter runs immediately. Use the default copy mode for isolation; use symlink mode when you intentionally want live iteration.
+
 ## Profile model sketch
 
 A profile uses YAML. Profile sources support both directory and flat-file layouts:

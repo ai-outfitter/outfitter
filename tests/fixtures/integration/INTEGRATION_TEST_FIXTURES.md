@@ -59,6 +59,16 @@ If template profiles gain adapter-visible filesystem behavior, add a dedicated i
 
 ## Integration fixtures
 
+### `local_setup_source_symlink`
+
+Location: `tests/fixtures/integration/local_setup_source_symlink/`
+
+This fixture models a local setup source repository with a `.outfitter/` tree and a selected `team` profile.
+
+Use it to verify that interactive `outfitter setup <local-path>` keeps copy/cache import as the default, exposes explicit symlink mode for local source development, links the selected target `.outfitter` to the local source `.outfitter`, and keeps the non-empty-target guard covered by setup-source tests.
+
+Write-back focus: symlink mode intentionally makes later source edits visible through the target `.outfitter`; tests must avoid mutating the fixture source itself by copying the fixture to a temporary directory first.
+
 ### `trivial_repo_only_profile`
 
 Location: `tests/fixtures/integration/trivial_repo_only_profile/`

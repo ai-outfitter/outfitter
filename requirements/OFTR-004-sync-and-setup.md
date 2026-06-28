@@ -31,6 +31,10 @@ Outfitter provides setup and maintenance commands that create initial configurat
 21. After interactive `setup <source>` imports the selected default profile, setup MUST offer to start Outfitter with that selected profile.
 22. When the user declines the post-import start offer, setup MUST exit without launching and show both `outfitter` for starting the configured default profile and `outfitter --profile <selected-profile>` for starting it explicitly.
 23. Non-interactive `setup <source>` completion MUST NOT launch Outfitter and MUST show the same default and explicit start command guidance.
+24. Interactive `setup <local-path>` MUST keep copy/import snapshot setup as the default behavior.
+25. Interactive `setup <local-path>` SHOULD offer an explicit symlink mode when the local source contains a `.outfitter` directory.
+26. When symlink mode is available, setup MUST explain that copy/import is an isolated snapshot while symlink mode links the target `.outfitter` to the local source `.outfitter` so shared-profile edits apply immediately during development.
+27. Symlink setup MUST NOT replace a non-empty target `.outfitter` directory without explicit user confirmation.
 
 ### OFTR-004.2: Sync Command
 
