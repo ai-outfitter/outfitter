@@ -646,7 +646,7 @@ describe('setup command', () => {
           return Promise.resolve('start');
         },
         launchSetupSourceProfile(input) {
-          launchedProfiles.push(input.profileId);
+          launchedProfiles.push(input.profileId ?? '<default>');
           return Promise.resolve();
         },
       },
@@ -663,7 +663,9 @@ describe('setup command', () => {
     expect(readFileSync(join(projectDirectory, '.outfitter', 'profiles', 'shared', 'profile.yml'), 'utf8')).toContain(
       'template: true',
     );
-    expect(readFileSync(join(projectDirectory, '.outfitter', 'prompts', 'plan.md'), 'utf8')).toBe('# Founder planning\n');
+    expect(readFileSync(join(projectDirectory, '.outfitter', 'prompts', 'plan.md'), 'utf8')).toBe(
+      '# Founder planning\n',
+    );
     expect(result.messages.join('\n')).not.toContain("Cannot resolve profile 'founder'");
   });
 
@@ -706,11 +708,12 @@ describe('setup command', () => {
     expect(readFileSync(join(projectDirectory, '.outfitter', 'prompts', 'plan.md'), 'utf8')).toBe('# Planning\n');
   });
 
-  it('reports when non-overwrite preserves an existing selected setup-source profile', async () => {
+  it('offers to start the current default profile without args when non-overwrite preserves the selected setup-source profile', async () => {
     const root = createTemporaryRoot();
     const homeDirectory = join(root, 'home');
     const projectDirectory = join(root, 'project');
     const existingFounderPath = join(homeDirectory, '.outfitter', 'profiles', 'founder', 'profile.yml');
+    const launchedProfiles: Array<string | undefined> = [];
 
     writeSettings(homeDirectory, 'default_profile: engineer\nprofile_sources:\n  - path: ./profiles\n');
     mkdirSync(dirname(existingFounderPath), { recursive: true });
@@ -738,13 +741,24 @@ describe('setup command', () => {
         selectDefaultProfile() {
           return Promise.resolve('founder');
         },
+        selectSetupSourceLaunchAction(profileId, launchTarget) {
+          expect(profileId).toBe('founder');
+          expect(launchTarget).toBe('default');
+          return Promise.resolve('start');
+        },
+        launchSetupSourceProfile(input) {
+          launchedProfiles.push(input.profileId);
+          return Promise.resolve();
+        },
       },
     );
 
     expect(readFileSync(existingFounderPath, 'utf8')).toBe('id: founder\nlabel: Existing Founder\ncontrols: {}\n');
+    expect(launchedProfiles).toEqual([undefined]);
     expect(result.messages.join('\n')).toContain(
       `Existing selected setup-source profile 'founder' at ${existingFounderPath} was not overwritten.`,
     );
+    expect(result.messages.join('\n')).not.toContain('outfitter --profile founder');
   });
 
   it('does not ask for a setup-source import target during default first-run setup', async () => {
@@ -901,14 +915,15 @@ describe('setup command', () => {
         selectDefaultProfile() {
           return Promise.resolve('project-lead');
         },
-        selectSetupSourceLaunchAction(profileId) {
+        selectSetupSourceLaunchAction(profileId, launchTarget) {
           expect(profileId).toBe('project-lead');
+          expect(launchTarget).toBe('selected');
           return Promise.resolve('start');
         },
         launchSetupSourceProfile(input) {
           expect(input.homeDirectory).toBe(homeDirectory);
           expect(input.projectDirectory).toBe(projectDirectory);
-          launchedProfiles.push(input.profileId);
+          launchedProfiles.push(input.profileId ?? '<default>');
           return Promise.resolve();
         },
       },
