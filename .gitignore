@@ -55,3 +55,7 @@ Thumbs.db
 # DeepWork generated scratch artifacts
 .deepwork/tmp/
 review-results/
+
+# DeepWork local runtime state
+.deepwork/state/
+.deepwork/status/
