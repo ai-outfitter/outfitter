@@ -1,0 +1,62 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Install this checkout as a global `outfitter-dev` command for local testing.
+# This leaves the normal `outfitter` command untouched.
+
+PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
+ALIAS_NAME="outfitter-dev"
+FORCE=0
+
+for arg in "$@"; do
+  case "$arg" in
+    --force) FORCE=1 ;;
+    *)
+      echo "Unknown argument: $arg" >&2
+      echo "Usage: bin/dev-install-outfitter-dev [--force]" >&2
+      exit 2
+      ;;
+  esac
+done
+
+cd "$PROJECT_ROOT"
+
+npm run build
+
+TARGET="$PROJECT_ROOT/dist/cli.js"
+if [[ ! -f "$TARGET" ]]; then
+  echo "Expected build to create $TARGET" >&2
+  exit 1
+fi
+chmod +x "$TARGET"
+
+PREFIX="$(npm prefix -g)"
+BIN_DIR="$PREFIX/bin"
+ALIAS_PATH="$BIN_DIR/$ALIAS_NAME"
+
+mkdir -p "$BIN_DIR"
+
+if [[ -e "$ALIAS_PATH" || -L "$ALIAS_PATH" ]]; then
+  EXISTING_TARGET=""
+  if [[ -L "$ALIAS_PATH" ]]; then
+    EXISTING_TARGET="$(readlink -f "$ALIAS_PATH")"
+  fi
+
+  if [[ "$EXISTING_TARGET" == "$TARGET" || "$FORCE" == "1" ]]; then
+    rm -f "$ALIAS_PATH"
+  else
+    echo "$ALIAS_PATH already exists${EXISTING_TARGET:+ and points at $EXISTING_TARGET}." >&2
+    echo "Rerun with --force to replace it with $TARGET." >&2
+    exit 1
+  fi
+fi
+
+ln -s "$TARGET" "$ALIAS_PATH"
+
+"$ALIAS_PATH" --version
+"$ALIAS_PATH" --help >/dev/null
+
+echo
+echo "$ALIAS_NAME is installed at $ALIAS_PATH."
+echo "$ALIAS_NAME points at $TARGET."
+echo 'After source changes, rerun this script or `npm run build` to refresh dist/ output.'
