@@ -14,6 +14,7 @@ Pi is the default and primary supported adapter; Claude Code is also supported t
 3. Each adapter MUST report which controllable elements it supports.
 4. Each adapter MUST return warnings for profile controls it cannot translate.
 5. Outfitter SHOULD keep generic profile resolution independent from adapter-specific file generation.
+6. Adapters MUST produce an inner agent launch plan before any launch backend wraps it into a final host process plan.
 
 ### OFTR-006.2: Supported Adapter Availability
 

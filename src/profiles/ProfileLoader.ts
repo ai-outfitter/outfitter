@@ -5,7 +5,13 @@ import { join } from 'node:path';
 import type { ValidationIssue } from '../validation/SchemaValidator.js';
 import { validateSchema } from '../validation/SchemaValidator.js';
 import { parseYamlDocument } from '../validation/YamlDocument.js';
-import type { AgentSpecificProfileControls, Profile, ProfileControls, StatePersistenceOverrides } from './Profile.js';
+import type {
+  AgentSpecificProfileControls,
+  ContainerProfileControls,
+  Profile,
+  ProfileControls,
+  StatePersistenceOverrides,
+} from './Profile.js';
 import type { ProfileSourceReference } from './ProfileSource.js';
 
 const profileIdPattern = /^[a-z0-9][a-z0-9._-]*[a-z0-9]$|^[a-z0-9]$/u;
@@ -205,6 +211,7 @@ const readControls = (value: unknown): ProfileControls => {
     promptTemplate: readOptionalString(controls.prompt_template),
     systemPrompt: readOptionalString(controls.system_prompt),
     appendSystemPrompt: readOptionalStringOrStringArray(controls.append_system_prompt),
+    container: readContainerControls(controls.container),
     pi: readAgentSpecificControls(controls.pi),
     claude: readAgentSpecificControls(controls.claude),
   });
@@ -230,6 +237,24 @@ const readAgentSpecificControls = (value: unknown): AgentSpecificProfileControls
     promptTemplate: readOptionalString(controls.prompt_template),
     systemPrompt: readOptionalString(controls.system_prompt),
     appendSystemPrompt: readOptionalStringOrStringArray(controls.append_system_prompt),
+    container: readContainerControls(controls.container),
+  });
+};
+
+const readContainerControls = (value: unknown): ContainerProfileControls | undefined => {
+  const controls = readObject(value);
+
+  if (controls === undefined) {
+    return undefined;
+  }
+
+  return omitUndefined({
+    image: readOptionalString(controls.image),
+    backend: readOptionalString(controls.backend) as ContainerProfileControls['backend'],
+    pull: readOptionalString(controls.pull) as ContainerProfileControls['pull'],
+    platform: readOptionalString(controls.platform),
+    envPassthrough: readOptionalStringArray(controls.env_passthrough),
+    runArgs: readOptionalStringArray(controls.run_args),
   });
 };
 

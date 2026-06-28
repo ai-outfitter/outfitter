@@ -3,6 +3,19 @@ import type { StatePersistenceStrategy } from '../compositeProfile/StatePersiste
 
 export type StatePersistenceOverrides = Readonly<Record<string, StatePersistenceStrategy>>;
 export type AppendSystemPromptControl = string | readonly string[];
+export type LaunchBackendControl = 'host' | 'auto' | 'docker' | 'podman' | 'apple-container';
+export type ContainerPullPolicy = 'missing' | 'always' | 'never';
+
+export interface ContainerProfileControls {
+  readonly image?: string;
+  readonly backend?: LaunchBackendControl;
+  readonly pull?: ContainerPullPolicy;
+  readonly platform?: string;
+  readonly envPassthrough?: readonly string[];
+  readonly env_passthrough?: readonly string[];
+  readonly runArgs?: readonly string[];
+  readonly run_args?: readonly string[];
+}
 
 interface BaseProfileControls {
   readonly [controlName: string]: unknown;
@@ -17,6 +30,7 @@ interface BaseProfileControls {
   readonly promptTemplate?: string;
   readonly systemPrompt?: string;
   readonly appendSystemPrompt?: AppendSystemPromptControl;
+  readonly container?: ContainerProfileControls;
 }
 
 export type AgentSpecificProfileControls = BaseProfileControls;

@@ -2,7 +2,7 @@
 
 ## Overview
 
-The `run` command assembles a temporary agent-specific configuration directory called a composite profile, launches the selected agent CLI, and keeps Outfitter alive to manage the composite profile while the child process runs.
+The `run` command assembles a temporary agent-specific configuration directory called a composite profile, asks the selected agent adapter for an inner launch plan, optionally wraps that plan with a launch backend, launches the final process, and keeps Outfitter alive to manage the composite profile while the child process runs.
 
 ## Requirements
 
@@ -15,6 +15,7 @@ The `run` command assembles a temporary agent-specific configuration directory c
 5. The `run` command MUST use the resolved default profile when no profile option is provided.
 6. The `run` command MUST pass unrecognized arguments through to the selected agent CLI unaltered.
 7. When invoked before user setup has created `~/.outfitter/settings.yml`, the default `run` command MUST execute setup before resolving the profile without printing a separate pre-setup announcement.
+8. The `run` command MUST accept `--launch-backend` for selecting `host`, `auto`, `docker`, `podman`, or `apple-container`.
 
 ### OFTR-005.2: Composite profile Definition
 

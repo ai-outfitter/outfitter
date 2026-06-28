@@ -8,6 +8,7 @@ export interface AgentLaunchPlan {
   readonly command: string;
   readonly args: readonly string[];
   readonly env: Readonly<Record<string, string>>;
+  readonly cwd?: string;
 }
 
 export interface AgentLaunchContext {

@@ -30,3 +30,4 @@ This vocabulary is documented separately from implementation details so companie
 4. The documentation MUST include System Prompt and Appended System Prompt controllable elements.
 5. The documentation MUST include Model Selection and Credentials and Environment controllable elements.
 6. The documentation MUST include Tool Availability, Context Files, Theme or UI Presentation, Project Override Policy, Working Directory, Pass-through Arguments, and Bootstrap Hook controllable elements.
+7. The documentation MUST include Runtime Image and Launch Backend as a controllable element.

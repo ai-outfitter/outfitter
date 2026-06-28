@@ -52,7 +52,7 @@ describe('settings loading', () => {
     ]);
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-002.2).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-002.2, OFTR-011.1).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('loads discovered settings and merges them with project-local precedence', () => {
     const root = createTemporaryRoot();
@@ -60,11 +60,11 @@ describe('settings loading', () => {
     const projectDirectory = join(root, 'project');
     writeSettings(
       join(homeDirectory, '.outfitter', 'settings.yml'),
-      'default_profile: user-default\ndefault_agent: pi\ncache_directory: ./user-cache\nprofile_sources:\n  - path: ./profiles\n',
+      'default_profile: user-default\ndefault_agent: pi\ndefault_launch_backend: podman\ncache_directory: ./user-cache\ncontainer_policy:\n  env_passthrough: [ANTHROPIC_API_KEY]\nprofile_sources:\n  - path: ./profiles\n',
     );
     writeSettings(
       join(projectDirectory, '.outfitter', 'settings.yml'),
-      'default_profile: project-default\ndefault_agent: claude\ncache_directory: ./project-cache\n',
+      'default_profile: project-default\ndefault_agent: claude\ndefault_launch_backend: docker\ncache_directory: ./project-cache\n',
     );
     writeSettings(
       join(projectDirectory, '.outfitter', 'local', 'settings.yml'),
@@ -77,6 +77,8 @@ describe('settings loading', () => {
     expect(loaded.files.map((file) => file.location.scope)).toEqual(['user', 'project', 'project-local']);
     expect(loaded.settings.defaultProfile).toBe('local-default');
     expect(loaded.settings.defaultAgent).toBe('claude');
+    expect(loaded.settings.defaultLaunchBackend).toBe('docker');
+    expect(loaded.settings.containerPolicy).toEqual({ envPassthrough: ['ANTHROPIC_API_KEY'] });
     expect(loaded.settings.profileSources).toEqual([{ path: join(homeDirectory, '.outfitter', 'profiles') }]);
     expect(loaded.settings.remoteSettings).toEqual([]);
     expect(loaded.settings.cacheDirectory).toBe(join(projectDirectory, '.outfitter', 'local', 'local-cache'));
@@ -193,7 +195,36 @@ describe('settings loading', () => {
     expect(validateSchema('settings', null).issues[0]?.path).toBe('/');
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-002.6).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-011.1).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('rejects invalid container launch backend settings values', () => {
+    const root = createTemporaryRoot();
+    const backendPath = join(root, 'invalid-backend.yml');
+    const envPath = join(root, 'invalid-env.yml');
+    writeSettings(backendPath, 'default_launch_backend: invalid\n');
+    writeSettings(envPath, 'container_policy:\n  env_passthrough: [1]\n');
+
+    const result = loadSettingsFiles(
+      createSettingsLoadPlan([
+        { scope: 'user', path: backendPath },
+        { scope: 'project', path: envPath },
+      ]),
+    );
+
+    expect(result.files).toEqual([]);
+    expect(result.issues).toContainEqual({
+      filePath: backendPath,
+      path: '/default_launch_backend',
+      message: 'must be equal to one of the allowed values',
+    });
+    expect(result.issues).toContainEqual({
+      filePath: envPath,
+      path: '/container_policy/env_passthrough/0',
+      message: 'must be string',
+    });
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-002.6, OFTR-011.1).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('loads cached remote settings from repository subpaths with local settings precedence', () => {
     const root = createTemporaryRoot();
@@ -212,13 +243,24 @@ describe('settings loading', () => {
     );
     writeSettings(
       remoteSettingsPath,
-      'default_profile: remote\nprofile_sources:\n  - github: example/outfitter-config\n    path: remote-profiles\n',
+      [
+        'default_profile: remote',
+        'default_launch_backend: docker',
+        'container_policy:',
+        '  env_passthrough: [REMOTE_SECRET]',
+        'profile_sources:',
+        '  - github: example/outfitter-config',
+        '    path: remote-profiles',
+        '',
+      ].join('\n'),
     );
 
     const loaded = loadSettingsWithCachedRemoteSettings({ homeDirectory, projectDirectory });
 
     expect(loaded.issues).toEqual([]);
     expect(loaded.settings.defaultProfile).toBe('local');
+    expect(loaded.settings.defaultLaunchBackend).toBeUndefined();
+    expect(loaded.settings.containerPolicy).toEqual({ envPassthrough: [] });
     expect(loaded.settings.profileSources).toEqual([{ github: 'example/outfitter-config', path: 'remote-profiles' }]);
 
     writeSettings(

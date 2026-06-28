@@ -340,3 +340,9 @@ Path-keyed state declarations keep the model simple:
 - `state_persistence` says what to do with each path.
 
 This avoids ambiguous writeback behavior and gives users a clear rule: if a CLI write should persist, configure that composite profile path as `symlink` and provide or accept the profile/native file that should receive the mutation.
+
+## Containerized Runs
+
+Container launch backends preserve this writeback model by identity-mounting every state source path parent (or source directory) that an adapter declares for symlink persistence. The composite profile root is also identity-mounted read-write, so the inner agent sees the same absolute paths that the adapter wrote into environment variables and argv.
+
+Profile folders are mounted read-only by default, but a narrower adapter state source mount is read-write when a symlinked state path resolves into profile-owned state. Outfitter does not mount the host home directory wholesale; only required native fallback state paths and cache paths are mounted.

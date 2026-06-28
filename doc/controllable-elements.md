@@ -133,26 +133,34 @@ An early-startup customization used to register providers, tools, hooks, or addi
 - Pi name: explicit bootstrap extension via `--extension` / `-e`
 - Claude name: startup hook/plugin mechanism, not mapped by Outfitter yet
 
+### Runtime Image / Launch Backend
+
+The final runtime used to execute the selected agent CLI: native host process, Docker, Podman, or Apple `container`.
+
+- Pi name: backend wrapper around the `pi` launch plan; the image must contain `pi`
+- Claude name: backend wrapper around the `claude` launch plan; the image must contain `claude`
+
 ## Support Matrix
 
-| Controllable Element        | Pi        | Claude    |
-| --------------------------- | --------- | --------- |
-| Agent Config Directory      | Supported | Supported |
-| Session Directory           | Supported | Supported |
-| Extensions                  | Supported | Supported |
-| Skills                      | Supported | Supported |
-| Prompt Templates            | Supported | Supported |
-| System Prompt               | Supported | Supported |
-| Appended System Prompt      | Supported | Supported |
-| Model Selection             | Supported | Supported |
-| Credentials and Environment | Supported | Supported |
-| Tool Availability           | Roadmap   | Roadmap   |
-| Context Files               | Roadmap   | Roadmap   |
-| Theme / UI Presentation     | Roadmap   | Roadmap   |
-| Project Override Policy     | Roadmap   | Roadmap   |
-| Working Directory           | Roadmap   | Roadmap   |
-| Pass-through Arguments      | Supported | Supported |
-| Bootstrap Hook              | Supported | Roadmap   |
+| Controllable Element           | Pi        | Claude    |
+| ------------------------------ | --------- | --------- |
+| Agent Config Directory         | Supported | Supported |
+| Session Directory              | Supported | Supported |
+| Extensions                     | Supported | Supported |
+| Skills                         | Supported | Supported |
+| Prompt Templates               | Supported | Supported |
+| System Prompt                  | Supported | Supported |
+| Appended System Prompt         | Supported | Supported |
+| Model Selection                | Supported | Supported |
+| Credentials and Environment    | Supported | Supported |
+| Tool Availability              | Roadmap   | Roadmap   |
+| Context Files                  | Roadmap   | Roadmap   |
+| Theme / UI Presentation        | Roadmap   | Roadmap   |
+| Project Override Policy        | Roadmap   | Roadmap   |
+| Working Directory              | Roadmap   | Roadmap   |
+| Pass-through Arguments         | Supported | Supported |
+| Bootstrap Hook                 | Supported | Roadmap   |
+| Runtime Image / Launch Backend | Supported | Supported |
 
 ## Day-One Interpretation
 

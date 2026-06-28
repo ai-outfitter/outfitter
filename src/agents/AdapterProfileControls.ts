@@ -18,6 +18,7 @@ export const genericControlNames = new Set([
   'system_prompt',
   'appendSystemPrompt',
   'append_system_prompt',
+  'container',
   'pi',
   'claude',
 ]);
@@ -38,14 +39,18 @@ export const mergeAgentSpecificControls = <T extends ProfileControls>(
 ): T => {
   const agentControls = controls[agentKey];
 
-  return {
+  return definedControls({
     ...controls,
     ...definedControls(agentControls),
     environment: { ...controls.environment, ...agentControls?.environment },
     args: agentControls?.args ?? controls.args,
     extensions: mergeLaunchResourceSources('extension', controls.extensions, agentControls?.extensions),
     skills: mergeLaunchResourceSources('skill', controls.skills, agentControls?.skills),
-  } as T;
+    container:
+      controls.container === undefined && agentControls?.container === undefined
+        ? undefined
+        : { ...controls.container, ...agentControls?.container },
+  }) as T;
 };
 
 export const flagValue = (flag: string, value: string | undefined): readonly string[] =>

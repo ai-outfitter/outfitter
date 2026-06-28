@@ -46,6 +46,7 @@
         "prompt_template": { "type": "string" },
         "system_prompt": { "type": "string" },
         "append_system_prompt": { "$ref": "#/$defs/appendSystemPrompt" },
+        "container": { "$ref": "#/$defs/containerControls" },
         "environment": {
           "type": "object",
           "additionalProperties": { "type": "string" }
@@ -72,6 +73,7 @@
             "prompt_template": { "type": "string" },
             "system_prompt": { "type": "string" },
             "append_system_prompt": { "$ref": "#/$defs/appendSystemPrompt" },
+            "container": { "$ref": "#/$defs/containerControls" },
             "allow_external_deepwork_jobs": { "type": "boolean" },
             "environment": {
               "type": "object",
@@ -102,6 +104,7 @@
             "prompt_template": { "type": "string" },
             "system_prompt": { "type": "string" },
             "append_system_prompt": { "$ref": "#/$defs/appendSystemPrompt" },
+            "container": { "$ref": "#/$defs/containerControls" },
             "environment": {
               "type": "object",
               "additionalProperties": { "type": "string" }
@@ -115,6 +118,24 @@
   },
   "additionalProperties": true,
   "$defs": {
+    "containerControls": {
+      "type": "object",
+      "properties": {
+        "image": { "type": "string", "minLength": 1 },
+        "backend": { "enum": ["host", "auto", "docker", "podman", "apple-container"] },
+        "pull": { "enum": ["missing", "always", "never"] },
+        "platform": { "type": "string", "minLength": 1 },
+        "env_passthrough": {
+          "type": "array",
+          "items": { "type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*$" }
+        },
+        "run_args": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      },
+      "additionalProperties": false
+    },
     "appendSystemPrompt": {
       "oneOf": [
         { "type": "string" },

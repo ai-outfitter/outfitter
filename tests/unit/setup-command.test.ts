@@ -663,7 +663,9 @@ describe('setup command', () => {
     expect(readFileSync(join(projectDirectory, '.outfitter', 'profiles', 'shared', 'profile.yml'), 'utf8')).toContain(
       'template: true',
     );
-    expect(readFileSync(join(projectDirectory, '.outfitter', 'prompts', 'plan.md'), 'utf8')).toBe('# Founder planning\n');
+    expect(readFileSync(join(projectDirectory, '.outfitter', 'prompts', 'plan.md'), 'utf8')).toBe(
+      '# Founder planning\n',
+    );
     expect(result.messages.join('\n')).not.toContain("Cannot resolve profile 'founder'");
   });
 

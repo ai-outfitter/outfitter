@@ -6,6 +6,7 @@
   "properties": {
     "default_profile": { "type": "string", "minLength": 1 },
     "default_agent": { "enum": ["pi", "claude"] },
+    "default_launch_backend": { "enum": ["host", "auto", "docker", "podman", "apple-container"] },
     "cache_directory": { "type": "string", "minLength": 1 },
     "profile_sources": {
       "type": "array",
@@ -27,6 +28,16 @@
         },
         "additionalProperties": false
       }
+    },
+    "container_policy": {
+      "type": "object",
+      "properties": {
+        "env_passthrough": {
+          "type": "array",
+          "items": { "type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*$" }
+        }
+      },
+      "additionalProperties": false
     },
     "custom_settings": {
       "type": "object",

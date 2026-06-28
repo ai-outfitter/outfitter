@@ -684,6 +684,16 @@ Claude Code is also supported through the `claude` adapter.
 Outfitter launches `claude` with `CLAUDE_CONFIG_DIR` pointing at the composite profile root, maps supported controls to native flags (`--model`, `--effort`, `--system-prompt`, `--append-system-prompt`, and repeated `--plugin-dir`), and preserves Claude Code state paths such as `settings.json`, `agents/`, `skills/`, `commands/`, `plugins/`, `projects/`, and `debug/` through adapter-declared state persistence.
 Claude-specific profile overrides live under `controls.claude` and win over generic controls for Claude runs.
 
+## Launch Backend Boundary
+
+After the adapter creates an inner launch plan, Outfitter resolves a launch backend and renders the final host process plan. The `host` backend launches the adapter plan directly. `docker`, `podman`, and `apple-container` wrap the inner command in the respective CLI's `run` argv, and `auto` resolves deterministically to Docker, then Podman, then Apple `container` on macOS.
+
+Container backends intentionally do not use Docker or Podman APIs. They render shell-free argv arrays and rely on the selected engine's normal `run` behavior. Images must contain the selected agent binary, such as `pi` for Pi profiles.
+
+The v1 container path policy uses conservative identity mounts so existing adapter-owned absolute paths continue to work. Outfitter mounts the project directory, composite profile root, contributing profile folders, package resources, cache directory, and adapter state source parents at the same absolute paths inside the container. It does not implicitly mount the host home directory, `/`, container engine sockets, SSH credentials, cloud credential directories, or arbitrary profile-requested host paths. Future hardening can add mapped materialization that rewrites paths into container-specific roots.
+
+Profiles may request environment variable passthrough by name, but only names allowed by trusted local `container_policy.env_passthrough` settings are passed. Summaries and warnings print variable names only, never values. Mutable image references (`latest` or no tag/digest) produce warnings, and `--strict` makes those warnings fatal.
+
 ## CLI Commands
 
 ### `outfitter run`

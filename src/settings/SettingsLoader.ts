@@ -40,9 +40,11 @@ export interface SettingsLoadIssue extends ValidationIssue {
 interface SettingsDocument {
   readonly default_profile?: string;
   readonly default_agent?: string;
+  readonly default_launch_backend?: 'host' | 'auto' | 'docker' | 'podman' | 'apple-container';
   readonly profile_sources?: readonly ProfileSourceDocument[];
   readonly remote_settings?: readonly RemoteSettingsDocument[];
   readonly cache_directory?: string;
+  readonly container_policy?: { readonly env_passthrough?: readonly string[] };
   readonly custom_settings?: CustomSettings;
 }
 
@@ -125,7 +127,7 @@ export const loadSettingsWithCachedRemoteSettings = (
   return {
     files,
     issues,
-    settings: mergeSettingsStack(files.map((file) => file.settings)),
+    settings: mergeSettingsStack(files.map((file) => stripRemoteTrustedSettings(file))),
   };
 };
 
@@ -168,6 +170,18 @@ interface SettingsLocationDiscoveryResult {
   readonly issues: readonly SettingsLoadIssue[];
 }
 
+const stripRemoteTrustedSettings = (file: LoadedSettingsFile): Settings => {
+  if (file.location.scope !== 'remote') {
+    return file.settings;
+  }
+
+  const { defaultLaunchBackend: _defaultLaunchBackend, containerPolicy: _containerPolicy, ...settings } = file.settings;
+  void _defaultLaunchBackend;
+  void _containerPolicy;
+
+  return settings;
+};
+
 const addSettingsFile = (
   location: SettingsLocation,
   files: LoadedSettingsFile[],
@@ -196,12 +210,15 @@ const addSettingsFile = (
 const convertSettingsDocument = (document: SettingsDocument, settingsDirectory: string): Settings => ({
   defaultProfile: document.default_profile,
   defaultAgent: document.default_agent,
+  defaultLaunchBackend: document.default_launch_backend,
   profileSources: document.profile_sources?.map((source) => convertProfileSource(source, settingsDirectory)),
   remoteSettings: document.remote_settings?.map(convertRemoteSettingsSource),
   cacheDirectory:
     document.cache_directory === undefined
       ? undefined
       : resolveConfigDirectory(document.cache_directory, settingsDirectory),
+  containerPolicy:
+    document.container_policy === undefined ? undefined : { envPassthrough: document.container_policy.env_passthrough },
   customSettings: document.custom_settings,
 });
 

@@ -52,6 +52,14 @@ Outfitter resolves profile definitions across settings scopes, explicit sources,
 4. CLI-specific profile content MUST take precedence over generic controls when both generate the same agent-specific artifact.
 5. Outfitter MUST compose `append_system_prompt` values from multiple resolved profile layers into repeated agent append-prompt inputs without requiring profiles to use raw CLI `args` for prompt composition.
 
+### OFTR-003.8: Container Controls
+
+1. Generic profile controls MAY include `controls.container` to request a runtime image and launch backend.
+2. Agent-specific controls MAY include `controls.pi.container` and `controls.claude.container` to override generic container controls for that adapter.
+3. Container control object fields MUST be merged deterministically, with higher-precedence scalar values winning.
+4. `env_passthrough` and `run_args` arrays MUST be replaced by the higher-precedence profile layer rather than appended.
+5. `controls.container` MUST be a backend-owned generic control and MUST NOT be reported as unsupported by agent adapters.
+
 ### OFTR-003.7: Template Profiles
 
 1. A profile MAY set top-level `template: true` to indicate it is intended for inheritance by runnable profiles rather than direct launch.

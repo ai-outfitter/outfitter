@@ -95,6 +95,16 @@ Outfitter is organized around clear TypeScript source boundaries, requirement do
 │   │   └── claude/                    # Claude Code-specific adapter implementation
 │   │       ├── ClaudeAdapter.ts
 │   │       └── ClaudeCompositeProfileWriter.ts
+│   ├── launchBackends/                # host, Docker, Podman, and Apple container final process renderers
+│   │   ├── LaunchBackend.ts           # launch backend interfaces and process launch plan shape
+│   │   ├── LaunchBackendRegistry.ts   # backend selection, auto detection, and executable preflight
+│   │   ├── ContainerControls.ts       # container control normalization and policy helpers
+│   │   ├── ContainerMountPlanner.ts   # conservative identity bind-mount planning
+│   │   ├── ContainerRenderers.ts      # shared shell-free container argv rendering
+│   │   ├── DockerLaunchBackend.ts
+│   │   ├── PodmanLaunchBackend.ts
+│   │   ├── AppleContainerLaunchBackend.ts
+│   │   └── HostLaunchBackend.ts
 │   ├── schemas/                       # JSON Schema artifacts for persisted formats
 │   │   ├── settings.schema.json
 │   │   ├── profile.schema.json

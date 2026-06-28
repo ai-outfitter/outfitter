@@ -212,3 +212,7 @@ When adding or changing a fixture:
 3. Add a Vitest integration test that copies the fixture, runs through command code, and asserts the composite profile/write-back behavior.
 4. Update `tests/fixtures/integration/INTEGRATION_TEST_FIXTURES.md` when the fixture's scenario, status, or purpose changes.
 5. Run `npm run check-ci` before opening or updating the PR.
+
+## Container Backend Fixtures
+
+Container backend tests use mocked launchers and injected executable detection. Normal CI does not require real Docker, Podman, Apple container daemons, or local images. Optional smoke tests may be added behind an explicit environment variable such as `OUTFITTER_CONTAINER_SMOKE=1`.

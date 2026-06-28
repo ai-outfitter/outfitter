@@ -43,6 +43,10 @@ import type { CommandObject } from './CommandObject.js';
 import { preparePiLoginLaunchPlan } from './PiLoginLaunch.js';
 import { executeSetupCommand } from './SetupCommand.js';
 import type { SetupCommandDependencies, SetupCommandResult } from './SetupCommand.js';
+import type { LaunchBackendId } from '../../launchBackends/LaunchBackend.js';
+import type { LaunchBackendResolverDependencies } from '../../launchBackends/LaunchBackendRegistry.js';
+import { isLaunchBackendId } from '../../launchBackends/ContainerControls.js';
+import { createRunLaunchBackendPlan } from './RunLaunchBackend.js';
 
 export interface RunCommandInput {
   readonly homeDirectory: string;
@@ -50,6 +54,7 @@ export interface RunCommandInput {
   readonly profileId?: string;
   readonly agentId?: string;
   readonly strict?: boolean;
+  readonly launchBackend?: LaunchBackendId;
   readonly passThroughArgs?: readonly string[];
 }
 
@@ -57,6 +62,8 @@ export interface RunCommandResult {
   readonly profileId: string;
   readonly agentId: string;
   readonly launchPlan: AgentLaunchPlan;
+  readonly innerLaunchPlan?: AgentLaunchPlan;
+  readonly launchBackendId: Exclude<LaunchBackendId, 'auto'>;
   readonly compositeProfileDirectory: string;
   readonly warnings: readonly string[];
   readonly exitCode: number;
@@ -70,6 +77,9 @@ export interface RunCommandDependencies extends SetupCommandDependencies {
   readonly adapter?: AgentAdapter;
   readonly launcher?: AgentProcessLauncher;
   readonly writeError?: (message: string) => void;
+  readonly launchBackendResolver?: LaunchBackendResolverDependencies;
+  readonly stdinIsTty?: boolean;
+  readonly stdoutIsTty?: boolean;
 }
 
 export const executeRunCommand = async (
@@ -95,7 +105,7 @@ export const executeRunCommand = async (
     compositeProfilePlan.compositeProfile.rootDirectory,
     compositeProfilePlan.compositeProfile.statePaths,
   );
-  const launchPlan = preparePiLoginLaunchPlan({
+  const innerLaunchPlan = preparePiLoginLaunchPlan({
     adapterId: adapter.id,
     homeDirectory: input.homeDirectory,
     launchPlan: adapter.createLaunchPlan(
@@ -107,10 +117,29 @@ export const executeRunCommand = async (
     setupResult,
     writeLine: dependencies.writeLine,
   });
+  const { backendPlan, image } = createRunLaunchBackendPlan({
+    cliLaunchBackend: input.launchBackend,
+    agentId: adapter.id,
+    profile: resolvedProfile.profile,
+    settings: resolvedProfile.settings,
+    compositeProfilePlan,
+    profileFolders: resolvedProfile.profileFolders,
+    projectDirectory: resolvedProfile.projectDirectory,
+    cacheDirectory: resolvedProfile.cacheDirectory,
+    innerLaunchPlan,
+    resolver: dependencies.launchBackendResolver,
+    stdinIsTty: dependencies.stdinIsTty ?? dependencies.input?.isTTY === true,
+    stdoutIsTty: dependencies.stdoutIsTty ?? dependencies.output?.isTTY === true,
+  });
+  const allPreLaunchWarnings = [...warnings, ...backendPlan.warnings];
+
+  failStrictOnWarnings(adapter.id, allPreLaunchWarnings, input.strict);
+  emitWarnings(backendPlan.warnings, dependencies.writeError);
   emitLaunchSummary(
     resolvedProfile,
     adapter.id,
     compositeProfilePlan.compositeProfile.rootDirectory,
+    { backendId: backendPlan.backendId, image },
     dependencies.writeLine,
   );
   const watcher = watchCompositeProfileInputs({
@@ -133,7 +162,7 @@ export const executeRunCommand = async (
     const launcher =
       dependencies.launcher ??
       /* v8 ignore next -- tests inject launchers instead of spawning pi. */ createSpawnLauncher();
-    const exitCode = await launcher.launch(launchPlan);
+    const exitCode = await launcher.launch(backendPlan.launchPlan);
     const stateWriteWarnings = handleCompositeProfileStateWrites(
       adapter.id,
       compositeProfilePlan.compositeProfile.rootDirectory,
@@ -147,9 +176,11 @@ export const executeRunCommand = async (
     return {
       profileId: resolvedProfile.profile.id,
       agentId: adapter.id,
-      launchPlan,
+      launchPlan: backendPlan.launchPlan,
+      innerLaunchPlan,
+      launchBackendId: backendPlan.backendId,
       compositeProfileDirectory: compositeProfilePlan.compositeProfile.rootDirectory,
-      warnings: [...warnings, ...stateWriteWarnings],
+      warnings: [...warnings, ...backendPlan.warnings, ...stateWriteWarnings],
       exitCode,
     };
   } finally {
@@ -165,7 +196,7 @@ export const createRunCommand = (dependencies: RunCommandDependencies = {}): Com
     register(program: Command): void {
       const action = async (
         args: readonly string[],
-        options: { profile?: string; agent?: string; strict?: boolean },
+        options: { profile?: string; agent?: string; strict?: boolean; launchBackend?: string },
       ) => {
         const result = await executeRunCommand(
           {
@@ -174,6 +205,7 @@ export const createRunCommand = (dependencies: RunCommandDependencies = {}): Com
             profileId: options.profile,
             agentId: options.agent,
             strict: options.strict,
+            launchBackend: parseLaunchBackendOption(options.launchBackend),
             passThroughArgs: args,
           },
           dependencies,
@@ -196,12 +228,16 @@ export const createRunCommand = (dependencies: RunCommandDependencies = {}): Com
 
 const configureRunCommander = (
   command: Command,
-  action: (args: readonly string[], options: { profile?: string; agent?: string; strict?: boolean }) => Promise<void>,
+  action: (
+    args: readonly string[],
+    options: { profile?: string; agent?: string; strict?: boolean; launchBackend?: string },
+  ) => Promise<void>,
 ): void => {
   command
     .argument('[args...]')
     .option('-p, --profile <profile>', 'Outfitter profile id to run')
     .option('--agent <agent>', 'agent adapter to launch: pi or claude')
+    .option('--launch-backend <backend>', 'launch backend: host, auto, docker, podman, or apple-container')
     .option('--strict', 'Fail instead of warning when controls cannot be translated')
     .allowUnknownOption(true)
     .allowExcessArguments(true)
@@ -240,6 +276,7 @@ const emitLaunchSummary = (
   resolvedProfile: ResolvedRunProfile,
   adapterId: string,
   compositeProfileRootDirectory: string,
+  backendSummary: { readonly backendId: string; readonly image?: string },
   writeLine: ((message: string) => void) | undefined,
 ): void => {
   const writer = writeLine ?? console.log;
@@ -255,7 +292,24 @@ const emitLaunchSummary = (
 
   writer(`${chalk.green('✓')} merged controls${model === undefined ? '' : `  model=${chalk.yellow(model)}`}`);
   writer(`${chalk.green('✓')} prepared composite profile  ${chalk.dim(compositeProfileRootDirectory)}`);
+  writer(
+    `${chalk.green('✓')} launch backend ${chalk.yellow(backendSummary.backendId)}${
+      backendSummary.image === undefined ? '' : `  image=${chalk.yellow(backendSummary.image)}`
+    }`,
+  );
   writer(`${chalk.blue('↳')} launching ${chalk.cyan(adapterId)} …`);
+};
+
+const parseLaunchBackendOption = (value: string | undefined): LaunchBackendId | undefined => {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  if (isLaunchBackendId(value)) {
+    return value;
+  }
+
+  throw new Error(`Invalid launch backend '${value}'. Expected host, auto, docker, podman, or apple-container.`);
 };
 
 const selectSummaryModel = (profile: Profile, adapterId: string): string | undefined => {
@@ -494,6 +548,7 @@ const createSpawnLauncher = (): AgentProcessLauncher => ({
       const child: ChildProcess = spawn(plan.command, plan.args, {
         env: { ...process.env, ...plan.env },
         stdio: 'inherit',
+        cwd: plan.cwd,
       });
 
       child.on('error', reject);

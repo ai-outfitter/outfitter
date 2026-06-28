@@ -56,6 +56,7 @@ const isRunCommandSummaryMessage = (text: string): boolean => {
     normalizedText.startsWith('✓ profile layer ') ||
     normalizedText.startsWith('✓ merged controls') ||
     normalizedText.startsWith('✓ prepared composite profile ') ||
+    normalizedText.startsWith('✓ launch backend ') ||
     normalizedText.startsWith('↳ launching ')
   );
 };
@@ -71,7 +72,7 @@ afterEach(() => {
 });
 
 describe('run command', () => {
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-005.1, OFTR-005.2, OFTR-005.3, OFTR-005.4, OFTR-005.5).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-005.1, OFTR-005.2, OFTR-005.3, OFTR-005.4, OFTR-005.5, OFTR-011.3).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('resolves the default profile, writes and refreshes a temp compositeProfile, warns, and passes through args', async () => {
     const root = createTemporaryRoot();
@@ -144,6 +145,8 @@ describe('run command', () => {
     );
 
     expect(result.profileId).toBe('default');
+    expect(result.launchBackendId).toBe('host');
+    expect(result.launchPlan.command).toBe('pi');
     expect(result.compositeProfileDirectory).toContain('outfitter-default-pi-');
     expect(existsSync(join(result.compositeProfileDirectory, 'outfitter', 'profile.json'))).toBe(true);
     const profileMetadata = readFileSync(join(result.compositeProfileDirectory, 'outfitter', 'profile.json'), 'utf8');
@@ -424,6 +427,7 @@ describe('run command', () => {
     const root = createTemporaryRoot();
     const badSettingsHome = join(root, 'bad-settings-home');
     const projectDirectory = join(root, 'project');
+    mkdirSync(projectDirectory, { recursive: true });
     writeSettings(badSettingsHome, 'profile_sources:\n  - only: [default]\n');
     await expect(executeRunCommand({ homeDirectory: badSettingsHome, projectDirectory })).rejects.toThrow(
       'Cannot run with invalid settings',

@@ -55,6 +55,10 @@ const profileArrayPolicy = (path: MergePath): ArrayMergePolicy | undefined => {
     return 'prepend';
   }
 
+  if (isContainerReplaceArrayPath(pathKey)) {
+    return 'replace';
+  }
+
   if (isAppendSystemPromptPath(pathKey)) {
     return 'prependList';
   }
@@ -79,6 +83,22 @@ const profileArrayPolicy = (path: MergePath): ArrayMergePolicy | undefined => {
 
   return undefined;
 };
+
+const isContainerReplaceArrayPath = (pathKey: string): boolean =>
+  [
+    'controls.container.envPassthrough',
+    'controls.container.env_passthrough',
+    'controls.container.runArgs',
+    'controls.container.run_args',
+    'controls.pi.container.envPassthrough',
+    'controls.pi.container.env_passthrough',
+    'controls.pi.container.runArgs',
+    'controls.pi.container.run_args',
+    'controls.claude.container.envPassthrough',
+    'controls.claude.container.env_passthrough',
+    'controls.claude.container.runArgs',
+    'controls.claude.container.run_args',
+  ].includes(pathKey);
 
 const isAppendSystemPromptPath = (pathKey: string): boolean =>
   [

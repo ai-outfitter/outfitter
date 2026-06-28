@@ -11,12 +11,18 @@ export type SettingsValue =
   | { readonly [key: string]: SettingsValue };
 export type CustomSettings = Readonly<Record<string, SettingsValue>>;
 
+export interface ContainerPolicySettings {
+  readonly envPassthrough?: readonly string[];
+}
+
 export interface Settings {
   readonly defaultProfile?: string;
   readonly defaultAgent?: string;
+  readonly defaultLaunchBackend?: 'host' | 'auto' | 'docker' | 'podman' | 'apple-container';
   readonly profileSources?: readonly ProfileSourceReference[];
   readonly remoteSettings?: readonly RemoteSettingsReference[];
   readonly cacheDirectory?: string;
+  readonly containerPolicy?: ContainerPolicySettings;
   readonly customSettings?: CustomSettings;
 }
 

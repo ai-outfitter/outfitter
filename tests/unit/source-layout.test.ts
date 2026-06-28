@@ -135,7 +135,9 @@ describe('source layout scaffolding', () => {
       remoteSettings: [],
       defaultProfile: 'remote',
       defaultAgent: undefined,
+      defaultLaunchBackend: undefined,
       cacheDirectory: undefined,
+      containerPolicy: { envPassthrough: [] },
       customSettings: {},
     });
     expect(normalizeRemoteSourceUri({ github: 'example/outfitter-config' })).toBe(

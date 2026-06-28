@@ -83,6 +83,21 @@ If neither is set, Outfitter defaults to pi for backward compatibility.
 If `outfitter` is run before `outfitter setup`, it creates the initial settings and default profile automatically before launching.
 When that first-run setup has an interactive terminal, Outfitter continues into the same welcome onboarding used by `outfitter welcome`.
 
+Profiles can also request a container image and launch backend:
+
+```yaml
+controls:
+  container:
+    image: ghcr.io/ai-outfitter/outfitter-pi:0.6.1
+    backend: docker # host | auto | docker | podman | apple-container
+    pull: missing
+    platform: linux/arm64
+    env_passthrough: [ANTHROPIC_API_KEY]
+    run_args: [--init]
+```
+
+Backend precedence is CLI `--launch-backend`, agent-specific container controls, generic container controls, `settings.default_launch_backend`, then `host` without an image or `auto` with an image. Container images must include the selected agent binary, for example `pi` for Pi profiles. Outfitter identity-mounts required project, composite profile, profile, cache, package, and state paths; it does not mount host home, engine sockets, SSH credentials, cloud credentials, or arbitrary profile-defined mounts by default. Environment passthrough is name-based and only allowed when trusted local settings list the name under `container_policy.env_passthrough`.
+
 `outfitter welcome` explains Outfitter and Pi, asks you to choose an initial built-in role, and recommends a Pi productivity loadout.
 The current built-in role choices are `engineer` and `data_analyst`; Outfitter creates the selected local profile on the fly.
 The recommended loadout includes `ulta-tasklist`, `deepwork`, `pi-subagents`, and `pi-mcp-adapter`; you can accept it, choose individual items, or skip loadout installation.
