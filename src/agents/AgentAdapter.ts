@@ -10,8 +10,17 @@ export interface AgentLaunchPlan {
   readonly env: Readonly<Record<string, string>>;
 }
 
+export interface AgentLaunchProfileLayer {
+  readonly profile: Profile;
+  readonly profilePath: string;
+  readonly sourceRootPath?: string;
+  readonly resourceRootPath?: string;
+  readonly layout?: 'directory' | 'flat-file';
+}
+
 export interface AgentLaunchContext {
   readonly profileFolders?: readonly string[];
+  readonly profileLayers?: readonly AgentLaunchProfileLayer[];
 }
 
 export interface AgentCompositeProfilePlan {
@@ -29,6 +38,7 @@ export interface AgentAdapter {
       readonly rootDirectory: string;
       readonly profilePaths: readonly string[];
       readonly profileFolders?: readonly string[];
+      readonly profileLayers?: readonly AgentLaunchProfileLayer[];
       readonly homeDirectory?: string;
       readonly cacheDirectory?: string;
       readonly settings?: Settings;

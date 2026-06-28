@@ -102,7 +102,7 @@ export const executeRunCommand = async (
       compositeProfilePlan.compositeProfile,
       resolvedProfile.profile,
       input.passThroughArgs ?? [],
-      { profileFolders: resolvedProfile.profileFolders },
+      { profileFolders: resolvedProfile.profileFolders, profileLayers: createLaunchProfileLayers(resolvedProfile.profileLayers) },
     ),
     setupResult,
     writeLine: dependencies.writeLine,
@@ -298,6 +298,7 @@ const createAdapterCompositeProfilePlan = (
     rootDirectory,
     profilePaths: resolvedProfile.profilePaths,
     profileFolders: resolvedProfile.profileFolders,
+    profileLayers: createLaunchProfileLayers(resolvedProfile.profileLayers),
     homeDirectory: resolvedProfile.homeDirectory,
     cacheDirectory: resolvedProfile.cacheDirectory,
     settings: resolvedProfile.settings,
@@ -443,7 +444,18 @@ const findContributingProfileFolders = (
   profileStack: readonly Profile[],
   loadedProfiles: readonly LoadedProfile[],
 ): readonly string[] =>
-  findContributingLoadedProfiles(profileStack, loadedProfiles).map((loadedProfile) => loadedProfile.folderPath);
+  findContributingLoadedProfiles(profileStack, loadedProfiles).flatMap((loadedProfile) =>
+    loadedProfile.resourceRootPath === undefined ? [] : [loadedProfile.resourceRootPath],
+  );
+
+const createLaunchProfileLayers = (loadedProfiles: readonly LoadedProfile[]) =>
+  loadedProfiles.map((loadedProfile) => ({
+    profile: loadedProfile.profile,
+    profilePath: loadedProfile.profilePath,
+    sourceRootPath: loadedProfile.sourceRootPath,
+    resourceRootPath: loadedProfile.resourceRootPath,
+    layout: loadedProfile.layout,
+  }));
 
 const findContributingLoadedProfiles = (
   profileStack: readonly Profile[],

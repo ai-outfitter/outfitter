@@ -59,6 +59,10 @@ const profileArrayPolicy = (path: MergePath): ArrayMergePolicy | undefined => {
     return 'prependList';
   }
 
+  if (pathKey === 'controls.deepwork.jobs') {
+    return 'appendUnique';
+  }
+
   if (['controls.extensions', 'controls.pi.extensions', 'controls.claude.extensions'].includes(pathKey)) {
     return {
       mode: 'uniqueBy',

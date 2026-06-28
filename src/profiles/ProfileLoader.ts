@@ -1,14 +1,22 @@
 // Loads local profile folders and parses profile.yml documents.
-import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, statSync, type Stats } from 'node:fs';
 import { join } from 'node:path';
 
 import type { ValidationIssue } from '../validation/SchemaValidator.js';
 import { validateSchema } from '../validation/SchemaValidator.js';
 import { parseYamlDocument } from '../validation/YamlDocument.js';
-import type { AgentSpecificProfileControls, Profile, ProfileControls, StatePersistenceOverrides } from './Profile.js';
+import type {
+  AgentSpecificProfileControls,
+  DeepWorkProfileControls,
+  Profile,
+  ProfileControls,
+  StatePersistenceOverrides,
+} from './Profile.js';
 import type { ProfileSourceReference } from './ProfileSource.js';
 
 const profileIdPattern = /^[a-z0-9][a-z0-9._-]*[a-z0-9]$|^[a-z0-9]$/u;
+const flatProfileFilePattern = /^(?<slug>.+)\.ya?ml$/u;
+const directoryProfileFileName = 'profile.yml';
 
 export interface ProfileLoadPlan {
   readonly sources: readonly ProfileSourceReference[];
@@ -16,11 +24,16 @@ export interface ProfileLoadPlan {
 
 export type ProfileLoadIssue = ValidationIssue;
 
+export type ProfileLayout = 'directory' | 'flat-file';
+
 export interface LoadedProfile {
   readonly source: ProfileSourceReference;
   readonly folderPath: string;
   readonly profilePath: string;
   readonly profile: Profile;
+  readonly sourceRootPath?: string;
+  readonly resourceRootPath?: string;
+  readonly layout?: ProfileLayout;
 }
 
 export interface ProfileLoadResult {
@@ -83,39 +96,141 @@ export const loadLocalProfileSource = (source: ProfileSourceReference): ProfileL
     };
   }
 
-  if (!existsSync(source.path) || !statSync(source.path).isDirectory()) {
-    return { profiles: [], issues: [{ path: source.path, message: 'Profile source must be an existing directory.' }] };
+  const sourceEntries = readProfileSourceEntries(source.path);
+
+  if (!Array.isArray(sourceEntries)) {
+    return { profiles: [], issues: [sourceEntries] };
   }
 
   const profiles: LoadedProfile[] = [];
   const issues: ProfileLoadIssue[] = [];
 
-  for (const entryName of readdirSync(source.path).sort()) {
-    const folderPath = join(source.path, entryName);
-    const profilePath = join(folderPath, 'profile.yml');
+  for (const { entryName, entryPath, entry } of sourceEntries) {
 
-    if (statSync(folderPath).isDirectory() && existsSync(profilePath)) {
-      addProfileFromFolder(source, entryName, folderPath, profilePath, profiles, issues);
+    if (entry.isDirectory()) {
+      const profilePath = join(entryPath, directoryProfileFileName);
+
+      if (existsSync(profilePath)) {
+        addProfileFromPath({
+          source,
+          sourceRootPath: source.path,
+          fallbackId: entryName,
+          folderPath: entryPath,
+          profilePath,
+          resourceRootPath: entryPath,
+          layout: 'directory',
+          profiles,
+          issues,
+        });
+      }
+
+      continue;
+    }
+
+    if (entry.isFile()) {
+      const fallbackId = readFlatProfileSlug(entryName);
+
+      if (fallbackId !== undefined) {
+        addProfileFromPath({
+          source,
+          sourceRootPath: source.path,
+          fallbackId,
+          folderPath: source.path,
+          profilePath: entryPath,
+          layout: 'flat-file',
+          profiles,
+          issues,
+        });
+      }
     }
   }
 
   return { profiles, issues };
 };
 
-const addProfileFromFolder = (
-  source: ProfileSourceReference,
-  fallbackId: string,
-  folderPath: string,
-  profilePath: string,
-  profiles: LoadedProfile[],
-  issues: ProfileLoadIssue[],
-): void => {
-  const profile = parseProfileYaml(readFileSync(profilePath, 'utf8'), fallbackId);
+interface ProfileSourceEntry {
+  readonly entryName: string;
+  readonly entryPath: string;
+  readonly entry: Stats;
+}
+
+const readProfileSourceEntries = (sourcePath: string): ProfileSourceEntry[] | ProfileLoadIssue => {
+  let sourceDirectory;
+
+  try {
+    sourceDirectory = existsSync(sourcePath) ? statSync(sourcePath) : undefined;
+  } catch (error) {
+    return { path: sourcePath, message: `Could not inspect profile source: ${String(error)}` };
+  }
+
+  if (sourceDirectory === undefined || !sourceDirectory.isDirectory()) {
+    return { path: sourcePath, message: 'Profile source must be an existing directory.' };
+  }
+
+  try {
+    return readdirSync(sourcePath)
+      .sort()
+      .map((entryName): ProfileSourceEntry => {
+        const entryPath = join(sourcePath, entryName);
+        return { entryName, entryPath, entry: statSync(entryPath) };
+      });
+  } catch (error) {
+    return { path: sourcePath, message: `Could not read profile source entries: ${String(error)}` };
+  }
+};
+
+const readFlatProfileSlug = (entryName: string): string | undefined => {
+  const match = flatProfileFilePattern.exec(entryName);
+
+  if (match?.groups?.slug === undefined || match.groups.slug === 'profile') {
+    return undefined;
+  }
+
+  return match.groups.slug;
+};
+
+const addProfileFromPath = (input: {
+  readonly source: ProfileSourceReference;
+  readonly sourceRootPath: string;
+  readonly fallbackId: string;
+  readonly folderPath: string;
+  readonly profilePath: string;
+  readonly resourceRootPath?: string;
+  readonly layout: ProfileLayout;
+  readonly profiles: LoadedProfile[];
+  readonly issues: ProfileLoadIssue[];
+}): void => {
+  if (!isValidProfileId(input.fallbackId)) {
+    input.issues.push({
+      path: input.profilePath,
+      message: `Profile slug '${input.fallbackId}' is not a filesystem-safe Outfitter profile id.`,
+    });
+    return;
+  }
+
+  let content: string;
+
+  try {
+    content = readFileSync(input.profilePath, 'utf8');
+  } catch (error) {
+    input.issues.push({ path: input.profilePath, message: `Could not read profile YAML: ${String(error)}` });
+    return;
+  }
+
+  const profile = parseProfileYaml(content, input.fallbackId);
 
   if ('message' in profile) {
-    issues.push({ path: `${profilePath}#${profile.path}`, message: profile.message });
-  } else if (isProfileIncludedBySource(profile.id, source)) {
-    profiles.push({ source, folderPath, profilePath, profile });
+    input.issues.push({ path: `${input.profilePath}#${profile.path}`, message: profile.message });
+  } else if (isProfileIncludedBySource(profile.id, input.source)) {
+    input.profiles.push({
+      source: input.source,
+      folderPath: input.folderPath,
+      profilePath: input.profilePath,
+      profile,
+      sourceRootPath: input.sourceRootPath,
+      resourceRootPath: input.resourceRootPath,
+      layout: input.layout,
+    });
   }
 };
 
@@ -205,8 +320,22 @@ const readControls = (value: unknown): ProfileControls => {
     promptTemplate: readOptionalString(controls.prompt_template),
     systemPrompt: readOptionalString(controls.system_prompt),
     appendSystemPrompt: readOptionalStringOrStringArray(controls.append_system_prompt),
+    deepwork: readDeepWorkControls(controls.deepwork),
     pi: readAgentSpecificControls(controls.pi),
     claude: readAgentSpecificControls(controls.claude),
+  });
+};
+
+const readDeepWorkControls = (value: unknown): DeepWorkProfileControls | undefined => {
+  const controls = readObject(value);
+
+  if (controls === undefined) {
+    return undefined;
+  }
+
+  return omitUndefined({
+    ...controls,
+    jobs: readOptionalStringArray(controls.jobs),
   });
 };
 

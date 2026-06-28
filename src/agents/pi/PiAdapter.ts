@@ -3,7 +3,13 @@ import { existsSync, readdirSync, readFileSync, statSync, type Dirent } from 'no
 import { delimiter, dirname, isAbsolute, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import type { AgentAdapter, AgentLaunchPlan, AgentCompositeProfilePlan, AgentLaunchContext } from '../AgentAdapter.js';
+import type {
+  AgentAdapter,
+  AgentLaunchPlan,
+  AgentCompositeProfilePlan,
+  AgentLaunchContext,
+  AgentLaunchProfileLayer,
+} from '../AgentAdapter.js';
 import {
   flagValue,
   genericControlNames,
@@ -53,7 +59,7 @@ const piStatePathDeclarations = {
 
 export const createPiAdapter = (): AgentAdapter => ({
   id: 'pi',
-  supportedControls: supportedControlNames(genericControlNames),
+  supportedControls: supportedControlNames(piControlNames),
   statePaths: piStatePathDeclarations,
   createCompositeProfile(profile: Profile, input): AgentCompositeProfilePlan {
     const statePaths = createPiStatePaths(profile, input);
@@ -82,9 +88,12 @@ export const createPiAdapter = (): AgentAdapter => ({
 
     return {
       compositeProfile,
-      warnings: this.getUnsupportedControls(profile).map(
-        (controlName) => `pi adapter cannot translate requested control '${controlName}'.`,
-      ),
+      warnings: [
+        ...this.getUnsupportedControls(profile).map(
+          (controlName) => `pi adapter cannot translate requested control '${controlName}'.`,
+        ),
+        ...createMissingNamedDeepWorkJobWarnings(input.profileLayers ?? []),
+      ],
     };
   },
   createLaunchPlan(
@@ -95,7 +104,7 @@ export const createPiAdapter = (): AgentAdapter => ({
   ): AgentLaunchPlan {
     const controls = mergePiControls(profile?.controls ?? {});
     const profileFolders = context.profileFolders ?? [];
-    const deepWorkJobsFolders = createDeepWorkAdditionalJobsFolders(controls, profileFolders);
+    const deepWorkJobsFolders = createDeepWorkAdditionalJobsFolders(controls, profileFolders, context.profileLayers ?? []);
     const skillSources = createPiSkillSources(controls, profileFolders);
 
     return {
@@ -189,8 +198,8 @@ const readPiSettingsDocument = (settingsPath: string): PiSettingsDocument | unde
   try {
     const parsed: unknown = JSON.parse(content);
     return isPiSettingsDocument(parsed) ? parsed : undefined;
-  } catch {
-    return undefined;
+  } catch (error) {
+    throw new Error(`Could not parse pi settings file '${settingsPath}' as JSON: ${String(error)}`, { cause: error });
   }
 };
 
@@ -435,19 +444,55 @@ const isPiSkillEntry =
 const createDeepWorkAdditionalJobsFolders = (
   controls: PiProfileControls,
   profileFolders: readonly string[],
+  profileLayers: readonly AgentLaunchProfileLayer[],
 ): string | undefined => {
   const profileJobFolders = [
     ...new Set(profileFolders.flatMap(deepWorkJobsFoldersForProfile).filter(isExistingDeepWorkJobsFolder)),
   ];
-
-  if (profileJobFolders.length === 0) {
-    return undefined;
-  }
-
+  const namedJobFolders = resolveNamedDeepWorkJobFolders(profileLayers);
   const existingValue = allowExternalDeepWorkJobs(controls)
     ? (controls.environment?.[deepWorkAdditionalJobsFoldersEnv] ?? process.env[deepWorkAdditionalJobsFoldersEnv])
     : undefined;
-  return [...splitPathList(existingValue), ...profileJobFolders].join(delimiter);
+  const jobFolders = [...new Set([...splitPathList(existingValue), ...namedJobFolders, ...profileJobFolders])];
+
+  return jobFolders.length === 0 ? undefined : jobFolders.join(delimiter);
+};
+
+const resolveNamedDeepWorkJobFolders = (profileLayers: readonly AgentLaunchProfileLayer[]): readonly string[] => [
+  ...new Set(
+    profileLayers.flatMap((profileLayer) =>
+      (profileLayer.profile.controls.deepwork?.jobs ?? []).flatMap((jobName) =>
+        resolveNamedDeepWorkJobFolder(profileLayer, jobName),
+      ),
+    ),
+  ),
+];
+
+const resolveNamedDeepWorkJobFolder = (
+  profileLayer: AgentLaunchProfileLayer,
+  jobName: string,
+): readonly string[] =>
+  sharedDeepWorkJobRootsForLayer(profileLayer).filter((jobsFolder) => isFile(join(jobsFolder, jobName, 'job.yml')));
+
+const createMissingNamedDeepWorkJobWarnings = (profileLayers: readonly AgentLaunchProfileLayer[]): readonly string[] =>
+  profileLayers.flatMap((profileLayer) =>
+    (profileLayer.profile.controls.deepwork?.jobs ?? []).flatMap((jobName) =>
+      resolveNamedDeepWorkJobFolder(profileLayer, jobName).length === 0
+        ? [`pi adapter could not find DeepWork job '${jobName}' for profile '${profileLayer.profile.id}'.`]
+        : [],
+    ),
+  );
+
+const sharedDeepWorkJobRootsForLayer = (profileLayer: AgentLaunchProfileLayer): readonly string[] => {
+  if (profileLayer.sourceRootPath === undefined) {
+    return [];
+  }
+
+  return [
+    join(dirname(profileLayer.sourceRootPath), 'deepwork', 'jobs'),
+    join(profileLayer.sourceRootPath, 'deepwork', 'jobs'),
+    join(profileLayer.sourceRootPath, '.outfitter', 'deepwork', 'jobs'),
+  ];
 };
 
 const allowExternalDeepWorkJobs = (controls: PiProfileControls): boolean =>

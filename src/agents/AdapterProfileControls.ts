@@ -18,6 +18,7 @@ export const genericControlNames = new Set([
   'system_prompt',
   'appendSystemPrompt',
   'append_system_prompt',
+  'deepwork',
   'pi',
   'claude',
 ]);

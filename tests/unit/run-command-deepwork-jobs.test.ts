@@ -131,6 +131,40 @@ describe('run command profile-bundled Pi resource exposure', () => {
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-006.3).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('resolves flat profile named DeepWork jobs from sibling source jobs without exposing flat profile resources', async () => {
+    const root = createTemporaryRoot();
+    const homeDirectory = join(root, 'home');
+    const projectDirectory = join(root, 'project');
+    const outfitterDirectory = join(projectDirectory, '.outfitter');
+    const profilesDirectory = join(outfitterDirectory, 'profiles');
+    const jobsFolder = join(outfitterDirectory, 'deepwork', 'jobs');
+    mkdirSync(profilesDirectory, { recursive: true });
+    mkdirSync(join(jobsFolder, 'project_milestone'), { recursive: true });
+    mkdirSync(join(jobsFolder, 'unselected_job'), { recursive: true });
+    writeFileSync(
+      join(profilesDirectory, 'founder.yml'),
+      ['controls:', '  deepwork:', '    jobs:', '      - project_milestone', ''].join('\n'),
+    );
+    writeFileSync(join(jobsFolder, 'project_milestone', 'job.yml'), 'name: project_milestone\nsummary: Milestone\n');
+    writeFileSync(join(jobsFolder, 'unselected_job', 'job.yml'), 'name: unselected_job\nsummary: Extra\n');
+    writeSettings(homeDirectory, 'default_profile: founder\nprofile_sources:\n  - path: ../../project/.outfitter/profiles\n');
+
+    const result = await executeRunCommand(
+      { homeDirectory, projectDirectory },
+      {
+        launcher: {
+          launch() {
+            return Promise.resolve(0);
+          },
+        },
+        writeLine: () => undefined,
+      },
+    );
+
+    expect(result.profileId).toBe('founder');
+    expect(result.launchPlan.env.DEEPWORK_ADDITIONAL_JOBS_FOLDERS).toBe(jobsFolder);
+  });
+
   it('resolves an analysis alias to data analyst bundled jobs', async () => {
     const root = createTemporaryRoot();
     const homeDirectory = join(root, 'home');

@@ -46,4 +46,24 @@ describe('profile control parsing', () => {
       expect(profile.controls.claude?.appendSystemPrompt).toEqual(['prompt-claude-a', 'prompt-claude-b']);
     }
   });
+
+  it('parses DeepWork job names from profile YAML', () => {
+    expect(
+      parseProfileYaml(
+        ['id: deepwork', 'controls:', '  deepwork:', '    jobs: [project_governance, project_kpi]', ''].join('\n'),
+        'fallback',
+      ),
+    ).toMatchObject({
+      controls: { deepwork: { jobs: ['project_governance', 'project_kpi'] } },
+    });
+  });
+
+  it('validates DeepWork job names from profile YAML', () => {
+    expect(
+      parseProfileYaml(['id: invalid', 'controls:', '  deepwork:', '    jobs:', '      - Bad Job', ''].join('\n'), 'fallback'),
+    ).toEqual({
+      path: '/controls/deepwork/jobs/0',
+      message: 'must match pattern "^[a-z][a-z0-9_]*$"',
+    });
+  });
 });

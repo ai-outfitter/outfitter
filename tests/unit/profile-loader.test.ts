@@ -69,6 +69,9 @@ describe('profile loading', () => {
     expect(result.profiles).toHaveLength(1);
     expect(result.profiles[0]?.folderPath).toBe(join(root, 'base'));
     expect(result.profiles[0]?.profilePath).toBe(join(root, 'base', 'profile.yml'));
+    expect(result.profiles[0]?.resourceRootPath).toBe(join(root, 'base'));
+    expect(result.profiles[0]?.sourceRootPath).toBe(root);
+    expect(result.profiles[0]?.layout).toBe('directory');
     expect(result.profiles[0]?.profile).toEqual({
       id: 'base',
       label: 'Base Profile',
@@ -76,6 +79,47 @@ describe('profile loading', () => {
       inherits: ['shared'],
       controls: { environment: { MODE: 'test' } },
     });
+  });
+
+  it('parses flat profile YAML files with fallback filename identities and no resource root', () => {
+    const root = createProfileSourceRoot();
+    writeFileSync(join(root, 'engineer.yml'), 'label: Engineer\ncontrols: {}\n');
+    writeFileSync(join(root, 'founder.yaml'), 'label: Founder\ncontrols: {}\n');
+    writeFileSync(join(root, 'profile.yml'), 'label: ignored root profile\n');
+    writeFileSync(join(root, 'README.md'), 'not a profile');
+
+    const result = loadLocalProfileSource(createLocalProfileSource(root));
+
+    expect(result.issues).toEqual([]);
+    expect(result.profiles.map((loadedProfile) => loadedProfile.profile.id)).toEqual(['engineer', 'founder']);
+    expect(result.profiles.map((loadedProfile) => loadedProfile.profilePath)).toEqual([
+      join(root, 'engineer.yml'),
+      join(root, 'founder.yaml'),
+    ]);
+    expect(result.profiles.map((loadedProfile) => loadedProfile.resourceRootPath)).toEqual([undefined, undefined]);
+    expect(result.profiles.map((loadedProfile) => loadedProfile.sourceRootPath)).toEqual([root, root]);
+    expect(result.profiles.map((loadedProfile) => loadedProfile.layout)).toEqual(['flat-file', 'flat-file']);
+  });
+
+  it('reports invalid discovered profile slugs before loading flat files or profile folders', () => {
+    const root = createProfileSourceRoot();
+    mkdirSync(join(root, 'Bad Folder'));
+    writeFileSync(join(root, 'Bad Folder', 'profile.yml'), 'id: valid-folder\ncontrols: {}\n');
+    writeFileSync(join(root, 'Bad File.yml'), 'id: valid-file\ncontrols: {}\n');
+
+    const result = loadLocalProfileSource(createLocalProfileSource(root));
+
+    expect(result.profiles).toEqual([]);
+    expect(result.issues).toEqual([
+      {
+        path: join(root, 'Bad File.yml'),
+        message: "Profile slug 'Bad File' is not a filesystem-safe Outfitter profile id.",
+      },
+      {
+        path: join(root, 'Bad Folder', 'profile.yml'),
+        message: "Profile slug 'Bad Folder' is not a filesystem-safe Outfitter profile id.",
+      },
+    ]);
   });
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-003.2).

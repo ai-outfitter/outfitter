@@ -4,6 +4,10 @@ import type { StatePersistenceStrategy } from '../compositeProfile/StatePersiste
 export type StatePersistenceOverrides = Readonly<Record<string, StatePersistenceStrategy>>;
 export type AppendSystemPromptControl = string | readonly string[];
 
+export interface DeepWorkProfileControls {
+  readonly jobs?: readonly string[];
+}
+
 interface BaseProfileControls {
   readonly [controlName: string]: unknown;
   readonly model?: string;
@@ -17,6 +21,7 @@ interface BaseProfileControls {
   readonly promptTemplate?: string;
   readonly systemPrompt?: string;
   readonly appendSystemPrompt?: AppendSystemPromptControl;
+  readonly deepwork?: DeepWorkProfileControls;
 }
 
 export type AgentSpecificProfileControls = BaseProfileControls;

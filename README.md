@@ -168,8 +168,11 @@ outfitter_config/
     profiles/
       engineering-default/
         profile.yml
-      support/
-        profile.yml
+      support.yml
+    deepwork/
+      jobs/
+        project_milestone/
+          job.yml
 ```
 
 Example `settings.yml` for a setup repository:
@@ -203,7 +206,24 @@ outfitter sync
 
 ## Profile model sketch
 
-A profile will use YAML.
+A profile uses YAML. Profile sources support both directory and flat-file layouts:
+
+```text
+.outfitter/
+  settings.yml
+  profiles/
+    engineering-default/
+      profile.yml
+    founder.yml
+    support.yaml
+  deepwork/
+    jobs/
+      project_milestone/
+        job.yml
+```
+
+Directory profiles can bundle profile-owned resources under their own folder. Flat profiles use their filename stem as the fallback `id` when the YAML omits `id`; the stem must be a filesystem-safe profile id. Shared DeepWork jobs can live as siblings under `.outfitter/deepwork/jobs/` and can be selected by name from profile YAML.
+
 An initial profile shape is:
 
 ```yaml
@@ -226,7 +246,17 @@ The exact stable schema is governed by the requirements in `requirements/` and t
 
 Profiles can also ship DeepWork jobs for that profile under `deepwork/jobs/`.
 When Outfitter launches Pi, it adds contributing profile job folders to `DEEPWORK_ADDITIONAL_JOBS_FOLDERS` so the DeepWork frontend can discover profile-owned workflows without copying them into a project `.deepwork/jobs/` directory.
-By default, profiles with bundled jobs receive only their profile-bundled jobs; set `controls.pi.allow_external_deepwork_jobs: true` to also include inherited `DEEPWORK_ADDITIONAL_JOBS_FOLDERS` entries.
+Profiles may also select shared Outfitter DeepWork jobs by name:
+
+```yaml
+controls:
+  deepwork:
+    jobs:
+      - project_milestone
+      - project_governance
+```
+
+Those names resolve to jobs already defined under shared roots such as `.outfitter/deepwork/jobs/project_milestone/job.yml`. By default, profiles with bundled or named jobs receive only their profile-selected jobs; set `controls.pi.allow_external_deepwork_jobs: true` to also include inherited `DEEPWORK_ADDITIONAL_JOBS_FOLDERS` entries.
 Pi-specific job overrides remain supported under `cli_specific/pi/deepwork/jobs/`.
 
 ### Updating profile-managed Pi extensions

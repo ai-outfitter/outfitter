@@ -39,6 +39,9 @@ Pi is the default and primary supported adapter; Claude Code is also supported t
 11. The pi adapter MUST make native Pi `models.json` available inside the composite profile so custom providers and model definitions are visible before Pi resolves `--provider` and `--model` flags.
 12. The pi adapter MUST expose valid Agent Skills from contributing profile `skills/` folders as `--skill` arguments, and MAY also expose Pi-specific skills from `cli_specific/pi/skills/`.
 13. The pi adapter MUST expose DeepWork jobs from contributing profile `deepwork/jobs/` folders through `DEEPWORK_ADDITIONAL_JOBS_FOLDERS`, and MAY also expose Pi-specific jobs from `cli_specific/pi/deepwork/jobs/`.
+14. The pi adapter MUST resolve `controls.deepwork.jobs` entries as DeepWork job names from shared Outfitter job roots such as `.outfitter/deepwork/jobs/<job-name>/job.yml` and expose the matching jobs root through `DEEPWORK_ADDITIONAL_JOBS_FOLDERS`.
+15. The pi adapter MUST NOT treat flat profile source roots as profile-bundled job folders unless a named DeepWork job resolves to a shared jobs root.
+16. The pi adapter MUST ignore inherited external `DEEPWORK_ADDITIONAL_JOBS_FOLDERS` values unless `controls.pi.allow_external_deepwork_jobs` is true.
 
 ### OFTR-006.4: Pi Startup Boundary
 

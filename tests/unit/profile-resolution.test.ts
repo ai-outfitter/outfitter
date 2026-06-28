@@ -131,6 +131,37 @@ describe('profile resolution', () => {
     expect(result.profile?.controls.custom_list).toEqual(['selected']);
   });
 
+  it('merges DeepWork job controls with inherited order and unique names', () => {
+    const result = resolveProfile({
+      profileId: 'selected',
+      profiles: [
+        createLoadedProfile({
+          source: createLocalProfileSource('<project-profiles>'),
+          profile: {
+            id: 'base',
+            inherits: [],
+            controls: { deepwork: { jobs: ['project_governance', 'project_kpi'] } },
+          },
+        }),
+        createLoadedProfile({
+          source: createLocalProfileSource('<project-profiles>'),
+          profile: {
+            id: 'selected',
+            inherits: ['base'],
+            controls: { deepwork: { jobs: ['project_milestone', 'project_governance'] } },
+          },
+        }),
+      ],
+    });
+
+    expect(result.issues).toEqual([]);
+    expect(result.profile?.controls.deepwork?.jobs).toEqual([
+      'project_governance',
+      'project_kpi',
+      'project_milestone',
+    ]);
+  });
+
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-003.7).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('keeps template profiles inheritable without marking runnable descendants as templates', () => {

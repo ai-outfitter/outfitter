@@ -9,19 +9,22 @@ Outfitter resolves profile definitions across settings scopes, explicit sources,
 
 ### OFTR-003.1: Profile Folder Layout
 
-1. A profile MUST be represented by a folder with a required `profile.yml` file.
-2. Outfitter MUST provide a JSON Schema for `profile.yml`.
-3. Outfitter MUST validate every loaded `profile.yml` file against the profile JSON Schema.
+1. A profile MUST be represented by either a folder with a required `profile.yml` file or a flat YAML file named `<profile-id>.yml` or `<profile-id>.yaml`.
+2. Outfitter MUST provide a JSON Schema for profile YAML documents.
+3. Outfitter MUST validate every loaded profile YAML document against the profile JSON Schema.
 4. A profile folder MAY contain conventional resource folders such as `skills`, `prompts`, `extensions`, and `deepwork/jobs`.
 5. A profile folder MAY contain `cli_specific/<cli-name>/` folders for agent-specific resources and overrides.
+6. Flat profile files MUST NOT be treated as profile resource folders.
 
 ### OFTR-003.2: Profile Identity
 
 1. Profile IDs MUST be stable identifiers suitable for commands, logs, cache keys, and documentation.
 2. Profile IDs MUST match the regex `^[a-z0-9][a-z0-9._-]*[a-z0-9]$|^[a-z0-9]$`.
 3. Outfitter MUST reject profile IDs that cannot be safely referenced from the CLI.
-4. Outfitter SHOULD support a separate display label if human-readable names need spaces or punctuation.
-5. Profiles MAY include a short `description` for interactive prompts and profile discovery surfaces.
+4. When a profile YAML document omits `id`, Outfitter MUST derive the profile ID from the containing folder name or flat filename stem.
+5. Outfitter MUST reject discovered profile folder names or flat filename stems that are not filesystem-safe profile IDs before using them as fallback IDs.
+6. Outfitter SHOULD support a separate display label if human-readable names need spaces or punctuation.
+7. Profiles MAY include a short `description` for interactive prompts and profile discovery surfaces.
 
 ### OFTR-003.3: Profile Scope Precedence
 
@@ -51,6 +54,7 @@ Outfitter resolves profile definitions across settings scopes, explicit sources,
 3. Array merge behavior MUST be documented per profile key before that key is treated as stable.
 4. CLI-specific profile content MUST take precedence over generic controls when both generate the same agent-specific artifact.
 5. Outfitter MUST compose `append_system_prompt` values from multiple resolved profile layers into repeated agent append-prompt inputs without requiring profiles to use raw CLI `args` for prompt composition.
+6. Outfitter MUST merge `controls.deepwork.jobs` deterministically and remove duplicate job names while preserving inherited job order.
 
 ### OFTR-003.7: Template Profiles
 

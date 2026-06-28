@@ -50,6 +50,19 @@
           "type": "object",
           "additionalProperties": { "type": "string" }
         },
+        "deepwork": {
+          "type": "object",
+          "properties": {
+            "jobs": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9_]*$"
+              }
+            }
+          },
+          "additionalProperties": true
+        },
         "pi": {
           "type": "object",
           "properties": {
