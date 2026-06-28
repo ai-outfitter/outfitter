@@ -1,5 +1,5 @@
 // Tests pi launch-plan preparation: Outfitter header branding plus login prefill injection.
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Script, createContext } from 'node:vm';
@@ -273,6 +273,35 @@ describe('preparePiLoginLaunchPlan', () => {
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-006.7).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('keeps the Outfitter bootstrap for --mode without a non-interactive value', () => {
+    const agentDir = createAgentDir();
+    const plan = preparePiLoginLaunchPlan({
+      adapterId: 'pi',
+      homeDirectory: agentDir,
+      launchPlan: createLaunchPlan(agentDir, ['--mode']),
+      writeLine: () => undefined,
+    });
+
+    expect(() => readExtension(plan, 'outfitter-extension.js')).not.toThrow();
+  });
+
+  it('uses the default Pi config directory when PI_CODING_AGENT_DIR is absent', () => {
+    const homeDirectory = createAgentDir();
+    const piConfigDirectory = join(homeDirectory, '.pi', 'agent');
+    mkdirSync(piConfigDirectory, { recursive: true });
+    writeFileSync(join(piConfigDirectory, 'auth.json'), '{"providers":{"demo":{}}}\n');
+    const messages: string[] = [];
+    const plan = preparePiLoginLaunchPlan({
+      adapterId: 'pi',
+      homeDirectory,
+      launchPlan: { command: 'pi', args: [], env: {} },
+      writeLine: (message) => messages.push(message),
+    });
+
+    expect(() => readExtension(plan, 'outfitter-extension.js')).not.toThrow();
+    expect(messages).toEqual([]);
+  });
+
   it('keeps the Outfitter bootstrap for explicit interactive mode launches', () => {
     const agentDir = createAgentDir();
     const plan = preparePiLoginLaunchPlan({
@@ -318,6 +347,20 @@ describe('preparePiLoginLaunchPlan', () => {
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-010.5).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('reports unreadable non-json pi login state files', () => {
+    const agentDir = createAgentDir();
+    mkdirSync(join(agentDir, 'models.json'));
+
+    expect(() =>
+      preparePiLoginLaunchPlan({
+        adapterId: 'pi',
+        homeDirectory: agentDir,
+        launchPlan: createLaunchPlan(agentDir),
+        writeLine: () => undefined,
+      }),
+    ).toThrow(`Could not read pi login state file '${join(agentDir, 'models.json')}'`);
+  });
+
   it('brands and auto-opens /outfitter when first-run welcome is declined after login', () => {
     const agentDir = createAgentDir();
     writeFileSync(join(agentDir, 'auth.json'), '{"providers":{"demo":{}}}\n');

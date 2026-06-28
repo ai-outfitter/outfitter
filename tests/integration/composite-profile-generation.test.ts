@@ -483,9 +483,10 @@ describe('integration fixture composite profile generation', () => {
     );
     expect(readFileSync(join(fixture.home, '.pi', 'agent', 'mcp.json'), 'utf8')).toBe('{"servers":{}}\n');
     expect(readFileSync(join(fixture.home, '.pi', 'agent', 'models.json'), 'utf8')).toContain('fallback-review-model');
-    expect(readFileSync(join(fixture.home, '.pi', 'agent', 'keybindings.json'), 'utf8')).toBe(
-      '{"app.thinking.cycle":["shift+tab","alt+t"],"app.model.select":"shift+ctrl+t"}\n',
-    );
+    expect(JSON.parse(readFileSync(join(fixture.home, '.pi', 'agent', 'keybindings.json'), 'utf8'))).toEqual({
+      'app.model.select': 'shift+ctrl+t',
+      'app.thinking.cycle': ['shift+tab', 'alt+t'],
+    });
     expect(readFileSync(join(fixture.home, '.pi', 'agent', 'plugins', 'review.json'), 'utf8')).toBe(
       '{"enabled":true}\n',
     );

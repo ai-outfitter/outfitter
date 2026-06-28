@@ -35,17 +35,16 @@ export const preparePiLoginLaunchPlan = (input: PiLoginLaunchPlanInput): AgentLa
   // text is compiled into pi, so a launch-time extension is the only repo-local override.
   // Non-interactive launches (--print, --export, …) keep pi untouched.
   let launchPlan = input.launchPlan;
+  const piConfigDirectory = input.launchPlan.env.PI_CODING_AGENT_DIR ?? join(input.homeDirectory, '.pi', 'agent');
   const interactiveLaunch = !isNonInteractivePiLaunch(input.launchPlan.args);
   if (interactiveLaunch) {
-    launchPlan = addExtension(launchPlan, 'outfitter-extension.js', piOutfitterExtensionContent);
+    launchPlan = addExtension(launchPlan, piConfigDirectory, 'outfitter-extension.js', piOutfitterExtensionContent);
   }
-
-  const piConfigDirectory = input.launchPlan.env.PI_CODING_AGENT_DIR ?? join(input.homeDirectory, '.pi', 'agent');
 
   if (!hasConfiguredPiLoginState(piConfigDirectory)) {
     if (shouldAutoOpenPiLogin(input.setupResult, input.launchPlan.args)) {
       writePiLoginMessage(input.writeLine, automaticLoginMessage);
-      return addExtension(launchPlan, 'prefill-login-extension.js', piLoginPrefillExtensionContent);
+      return addExtension(launchPlan, piConfigDirectory, 'prefill-login-extension.js', piLoginPrefillExtensionContent);
     }
 
     if (interactiveLaunch) {
@@ -56,18 +55,32 @@ export const preparePiLoginLaunchPlan = (input: PiLoginLaunchPlanInput): AgentLa
 
   if (shouldAutoOpenOutfitterSkill(input.setupResult, input.launchPlan.args)) {
     writePiLoginMessage(input.writeLine, outfitterSkillMessage);
-    return addExtension(launchPlan, 'prefill-outfitter-extension.js', piOutfitterPrefillExtensionContent);
+    return addExtension(
+      launchPlan,
+      piConfigDirectory,
+      'prefill-outfitter-extension.js',
+      piOutfitterPrefillExtensionContent,
+    );
   }
 
   return launchPlan;
 };
 
-const addExtension = (launchPlan: AgentLaunchPlan, fileName: string, content: string): AgentLaunchPlan => {
-  const extensionPath = join(launchPlan.env.PI_CODING_AGENT_DIR, 'outfitter', fileName);
+const addExtension = (
+  launchPlan: AgentLaunchPlan,
+  piConfigDirectory: string,
+  fileName: string,
+  content: string,
+): AgentLaunchPlan => {
+  const extensionPath = join(piConfigDirectory, 'outfitter', fileName);
   mkdirSync(dirname(extensionPath), { recursive: true });
   writeFileSync(extensionPath, content);
 
-  return { ...launchPlan, args: ['--extension', extensionPath, ...launchPlan.args] };
+  return {
+    ...launchPlan,
+    args: ['--extension', extensionPath, ...launchPlan.args],
+    env: { ...launchPlan.env, PI_CODING_AGENT_DIR: piConfigDirectory },
+  };
 };
 
 // The general Outfitter pi extension. It brands the startup header and owns

@@ -69,6 +69,80 @@ describe('pi keybinding reconciliation', () => {
     });
   });
 
+  it('skips invalid keybinding values and avoids duplicate normalized bindings', () => {
+    const { homeDirectory, keybindingsPath } = createTestHome();
+    writeFileSync(
+      keybindingsPath,
+      JSON.stringify({
+        'app.thinking.cycle': ['Ctrl+Shift+T', 'alt+t', 'ctrl+shift+t'],
+        'custom.invalid': ['alt+x', 42],
+        'custom.null': null,
+        'custom.duplicate': ['alt+d', 'ALT+D'],
+        'custom.valid': 'alt+v',
+      }),
+    );
+
+    const compositeProfilePlan = createPiAdapter().createCompositeProfile(
+      { id: 'engineering', inherits: [], controls: {} },
+      {
+        rootDirectory: join(homeDirectory, 'composite'),
+        profilePaths: [],
+        homeDirectory,
+      },
+    );
+    const keybindingsFile = compositeProfilePlan.compositeProfile.files.find(
+      (file) => file.relativePath === 'keybindings.json',
+    );
+
+    expect(JSON.parse(keybindingsFile?.content ?? '{}')).toEqual({
+      'app.thinking.cycle': ['alt+t', 'ctrl+shift+t'],
+      'custom.duplicate': ['alt+d'],
+      'custom.valid': ['alt+v'],
+    });
+  });
+
+  it('reads profile-owned keybindings without a home directory', () => {
+    const { homeDirectory } = createTestHome();
+    const profileFolder = join(homeDirectory, 'profiles', 'engineering');
+    const profileKeybindingsPath = join(profileFolder, 'cli_specific', 'pi', 'keybindings.json');
+    mkdirSync(join(profileFolder, 'cli_specific', 'pi'), { recursive: true });
+    writeFileSync(profileKeybindingsPath, '{"custom.profile":"alt+p"}\n');
+
+    const compositeProfilePlan = createPiAdapter().createCompositeProfile(
+      { id: 'engineering', inherits: [], controls: {} },
+      {
+        rootDirectory: join(homeDirectory, 'composite'),
+        profileFolders: [profileFolder],
+        profilePaths: [join(profileFolder, 'profile.yml')],
+      },
+    );
+    const keybindingsFile = compositeProfilePlan.compositeProfile.files.find(
+      (file) => file.relativePath === 'keybindings.json',
+    );
+
+    expect(keybindingsFile?.sourceInputs).toEqual([profileKeybindingsPath, join(profileFolder, 'profile.yml')]);
+    expect(JSON.parse(keybindingsFile?.content ?? '{}')).toEqual({
+      'app.thinking.cycle': ['ctrl+shift+t'],
+      'custom.profile': ['alt+p'],
+    });
+  });
+
+  it('throws when native Pi keybindings cannot be read', () => {
+    const { homeDirectory, keybindingsPath } = createTestHome();
+    mkdirSync(keybindingsPath);
+
+    expect(() =>
+      createPiAdapter().createCompositeProfile(
+        { id: 'engineering', inherits: [], controls: {} },
+        {
+          rootDirectory: join(homeDirectory, 'composite'),
+          profilePaths: [],
+          homeDirectory,
+        },
+      ),
+    ).toThrow(`Could not read pi keybindings file '${keybindingsPath}'`);
+  });
+
   it('throws when native Pi keybindings JSON is malformed', () => {
     const { homeDirectory, keybindingsPath } = createTestHome();
     writeFileSync(keybindingsPath, '{not-json');
@@ -83,6 +157,22 @@ describe('pi keybinding reconciliation', () => {
         },
       ),
     ).toThrow(`Could not parse pi keybindings file '${keybindingsPath}'`);
+  });
+
+  it('throws when native Pi keybindings JSON is not an object', () => {
+    const { homeDirectory, keybindingsPath } = createTestHome();
+    writeFileSync(keybindingsPath, '[]');
+
+    expect(() =>
+      createPiAdapter().createCompositeProfile(
+        { id: 'engineering', inherits: [], controls: {} },
+        {
+          rootDirectory: join(homeDirectory, 'composite'),
+          profilePaths: [],
+          homeDirectory,
+        },
+      ),
+    ).toThrow(`Pi keybindings file '${keybindingsPath}' must contain a JSON object.`);
   });
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-006.7).
