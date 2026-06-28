@@ -47,6 +47,14 @@ describe('profile control parsing', () => {
     }
   });
 
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-003.8).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('parses profile_export from profile YAML', () => {
+    expect(parseProfileYaml(['id: exportable', 'profile_export: false', ''].join('\n'), 'fallback')).toMatchObject({
+      profileExport: false,
+    });
+  });
+
   it('parses DeepWork job names from profile YAML', () => {
     expect(
       parseProfileYaml(

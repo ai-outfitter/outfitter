@@ -60,7 +60,7 @@ describe('settings loading', () => {
     const projectDirectory = join(root, 'project');
     writeSettings(
       join(homeDirectory, '.outfitter', 'settings.yml'),
-      'default_profile: user-default\ndefault_agent: pi\ncache_directory: ./user-cache\nprofile_sources:\n  - path: ./profiles\n',
+      'default_profile: user-default\ndefault_agent: pi\ncache_directory: ./user-cache\nprofile_export: false\nprofile_sources:\n  - path: ./profiles\n',
     );
     writeSettings(
       join(projectDirectory, '.outfitter', 'settings.yml'),
@@ -68,7 +68,7 @@ describe('settings loading', () => {
     );
     writeSettings(
       join(projectDirectory, '.outfitter', 'local', 'settings.yml'),
-      'default_profile: local-default\ncache_directory: ./local-cache\n',
+      'default_profile: local-default\ncache_directory: ./local-cache\nprofile_export: true\n',
     );
 
     const loaded = loadSettings(discoverSettingsLoadPlan({ homeDirectory, projectDirectory }));
@@ -80,6 +80,20 @@ describe('settings loading', () => {
     expect(loaded.settings.profileSources).toEqual([{ path: join(homeDirectory, '.outfitter', 'profiles') }]);
     expect(loaded.settings.remoteSettings).toEqual([]);
     expect(loaded.settings.cacheDirectory).toBe(join(projectDirectory, '.outfitter', 'local', 'local-cache'));
+    expect(loaded.settings.profileExport).toBe(true);
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-002.8, OFTR-005.7).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('loads profile_export as the default generated prompt export setting', () => {
+    const root = createTemporaryRoot();
+    const settingsPath = join(root, '.outfitter', 'settings.yml');
+    writeSettings(settingsPath, 'profile_export: true\n');
+
+    const result = loadSettingsFiles(createSettingsLoadPlan([{ scope: 'user', path: settingsPath }]));
+
+    expect(result.issues).toEqual([]);
+    expect(result.files[0]?.settings.profileExport).toBe(true);
   });
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-002.3).

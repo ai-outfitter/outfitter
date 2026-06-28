@@ -120,14 +120,14 @@ const createMockContext = () => {
   };
 };
 
-const startMockSession = (pi: ReturnType<typeof createMockPi>, context: MockContext): void => {
+const startMockSession = async (pi: ReturnType<typeof createMockPi>, context: MockContext): Promise<void> => {
   const handler = pi.handlers.session_start?.[0];
 
   if (handler === undefined) {
     throw new Error('session_start handler was not registered.');
   }
 
-  handler({}, context);
+  await handler({}, context);
 };
 
 const sendMockTerminalInput = (context: MockContext, data: string): { readonly consume?: boolean } | undefined => {
@@ -179,6 +179,8 @@ describe('preparePiLoginLaunchPlan', () => {
     });
 
     const header = readExtension(plan, 'outfitter-extension.js');
+    expect(header).toContain('ctx.getSystemPrompt()');
+    expect(header).toContain('OUTFITTER_SYSTEM_PROMPT_EXPORT_PATH');
     expect(header).toContain('ctx.ui.setHeader');
     expect(header).toContain(
       'Outfitter + Pi can explain its own features and look up its docs. Ask it how to use or extend Pi or outfitter profiles.',
@@ -220,7 +222,7 @@ describe('preparePiLoginLaunchPlan', () => {
     const context = createMockContext();
 
     extension(pi);
-    startMockSession(pi, context);
+    await startMockSession(pi, context);
 
     expect(sendMockTerminalInput(context, 'shift+tab')).toEqual({ consume: true });
     expect(pi.activeTools).toEqual(['read', 'grep', 'find', 'ls']);

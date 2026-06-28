@@ -198,8 +198,8 @@ const readPiSettingsDocument = (settingsPath: string): PiSettingsDocument | unde
   try {
     const parsed: unknown = JSON.parse(content);
     return isPiSettingsDocument(parsed) ? parsed : undefined;
-  } catch (error) {
-    throw new Error(`Could not parse pi settings file '${settingsPath}' as JSON: ${String(error)}`, { cause: error });
+  } catch {
+    return undefined;
   }
 };
 

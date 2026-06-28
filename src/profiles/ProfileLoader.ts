@@ -75,6 +75,7 @@ export const parseProfileDocument = (document: unknown, fallbackId: string): Pro
     inherits: readStringArray(record.inherits),
     controls: readControls(record.controls),
     statePersistence: Object.keys(statePersistence).length > 0 ? statePersistence : undefined,
+    profileExport: readOptionalBoolean(record.profile_export),
   });
 };
 

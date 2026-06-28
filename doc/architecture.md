@@ -144,6 +144,7 @@ A minimal user profile tree for that settings file looks like this:
 default_profile: engineering
 default_agent: pi
 cache_directory: ./cache
+profile_export: true
 
 profile_sources:
   - path: ./profiles
@@ -179,6 +180,7 @@ Rules:
 - `only` and `except` are optional filters; without either, all profiles from the source are loaded.
 - Local-only relative `path` values are resolved relative to the settings file containing them.
 - `cache_directory` optionally selects the Outfitter cache root; relative values are resolved relative to the settings file containing them.
+- `profile_export`, when true, writes generated Pi runtime prompt review artifacts for selected local profiles unless the profile overrides it.
 - Remote `uri` and `github` profile sources can specify `ref` and repository-subdirectory `path` values.
 - `remote_settings` entries point at settings-style YAML files inside synced remote repositories.
 - `uri`, `github`, and `remote_settings` sources are fetched/cached by `outfitter sync`.
@@ -406,6 +408,8 @@ Rules:
 - Pi profiles may provide `cli_specific/pi/.mcp.json`; Outfitter merges contributing profile fragments into the composite profile with unique array entries by identity and last writer wins for duplicate identities.
 - Pi-specific skills and DeepWork jobs may also live under `cli_specific/pi/skills/` and `cli_specific/pi/deepwork/jobs/` when they should not be exposed to other adapters.
 - `append_system_prompt` accepts a string or an ordered string array. When multiple resolved profile layers provide it, Outfitter composes the values into repeated agent append-prompt inputs in profile precedence order so shared prompt profiles do not need to use raw CLI `args`.
+- Top-level `profile_export: true` on settings enables generated Pi prompt export by default for selected local profiles. Top-level `profile_export: true|false` on a profile overrides the settings default for that resolved profile.
+- Generated Pi prompt exports are seeded before launch and overwritten by Outfitter's Pi runtime extension from `ctx.getSystemPrompt()`, the same Pi primitive used by `pi-inspect`. Directory profiles write `generated-system-prompt.md`; flat profiles write `<profile-id>.generated-system-prompt.md` beside the flat YAML file so teams can commit or git-ignore the fully built runtime prompt artifact.
 - CLI-specific configuration wins over generic controls when both apply to the same generated artifact.
 
 ### Profile Directory Examples

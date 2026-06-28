@@ -10,6 +10,7 @@ export const mergeSettingsStack = (settingsStack: readonly Settings[]): Settings
   let remoteSettings: Settings['remoteSettings'];
   let cacheDirectory: string | undefined;
   let customSettings: CustomSettings | undefined;
+  let profileExport: boolean | undefined;
 
   for (const settings of settingsStack) {
     defaultProfile = settings.defaultProfile ?? defaultProfile;
@@ -19,6 +20,7 @@ export const mergeSettingsStack = (settingsStack: readonly Settings[]): Settings
     remoteSettings = settings.remoteSettings ?? remoteSettings;
     cacheDirectory = settings.cacheDirectory ?? cacheDirectory;
     customSettings = mergeOptionalCustomSettings(customSettings, settings.customSettings);
+    profileExport = mergeOptionalBoolean(profileExport, settings.profileExport);
   }
 
   return {
@@ -29,8 +31,12 @@ export const mergeSettingsStack = (settingsStack: readonly Settings[]): Settings
     remoteSettings: remoteSettings ?? [],
     cacheDirectory,
     customSettings: customSettings ?? {},
+    profileExport,
   };
 };
+
+const mergeOptionalBoolean = (lowerPrecedence: boolean | undefined, higherPrecedence: boolean | undefined): boolean | undefined =>
+  higherPrecedence ?? lowerPrecedence;
 
 const mergeOptionalCustomSettings = (
   lowerPrecedence: CustomSettings | undefined,

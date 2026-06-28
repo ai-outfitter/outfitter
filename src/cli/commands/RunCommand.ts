@@ -23,6 +23,7 @@ import type { ProfileSourceReference } from '../../profiles/ProfileSource.js';
 import { resolveProfile } from '../../profiles/ProfileMerger.js';
 import type { Settings } from '../../settings/Settings.js';
 import { loadSettingsWithCachedRemoteSettings } from '../../settings/SettingsLoader.js';
+import { exportSystemPromptIfEnabled } from '../../prompts/SystemPromptExport.js';
 import {
   createCompositeProfileRootDirectory,
   writeCompositeProfile,
@@ -91,6 +92,13 @@ export const executeRunCommand = async (
   failStrictOnWarnings(adapter.id, warnings, input.strict);
   emitWarnings(warnings, dependencies.writeError);
   writeCompositeProfile(compositeProfilePlan.compositeProfile);
+  const systemPromptExport = exportSystemPromptIfEnabled({
+    profile: resolvedProfile.profile,
+    settings: resolvedProfile.settings,
+    profileLayers: resolvedProfile.profileLayers,
+    cacheDirectory: resolvedProfile.cacheDirectory,
+    warn: dependencies.writeError ?? console.error,
+  });
   let stateBaseline = createCompositeProfileStateBaseline(
     compositeProfilePlan.compositeProfile.rootDirectory,
     compositeProfilePlan.compositeProfile.statePaths,
@@ -98,11 +106,14 @@ export const executeRunCommand = async (
   const launchPlan = preparePiLoginLaunchPlan({
     adapterId: adapter.id,
     homeDirectory: input.homeDirectory,
-    launchPlan: adapter.createLaunchPlan(
-      compositeProfilePlan.compositeProfile,
-      resolvedProfile.profile,
-      input.passThroughArgs ?? [],
-      { profileFolders: resolvedProfile.profileFolders, profileLayers: createLaunchProfileLayers(resolvedProfile.profileLayers) },
+    launchPlan: withSystemPromptExportPath(
+      adapter.createLaunchPlan(
+        compositeProfilePlan.compositeProfile,
+        resolvedProfile.profile,
+        input.passThroughArgs ?? [],
+        { profileFolders: resolvedProfile.profileFolders, profileLayers: createLaunchProfileLayers(resolvedProfile.profileLayers) },
+      ),
+      systemPromptExport.outputPath,
     ),
     setupResult,
     writeLine: dependencies.writeLine,
@@ -115,9 +126,18 @@ export const executeRunCommand = async (
   );
   const watcher = watchCompositeProfileInputs({
     compositeProfile: compositeProfilePlan.compositeProfile,
-    refreshCompositeProfile: () =>
-      createAdapterCompositeProfilePlan(adapter, loadResolvedProfile(input), compositeProfileRootDirectory)
-        .compositeProfile,
+    refreshCompositeProfile: () => {
+      const refreshedProfile = loadResolvedProfile(input);
+      exportSystemPromptIfEnabled({
+        profile: refreshedProfile.profile,
+        settings: refreshedProfile.settings,
+        profileLayers: refreshedProfile.profileLayers,
+        cacheDirectory: refreshedProfile.cacheDirectory,
+        warn: dependencies.writeError ?? console.error,
+      });
+
+      return createAdapterCompositeProfilePlan(adapter, refreshedProfile, compositeProfileRootDirectory).compositeProfile;
+    },
     onCompositeProfileWritten: (compositeProfile) => {
       stateBaseline = updateCompositeProfileStateBaselinePaths(
         compositeProfile.rootDirectory,
@@ -416,6 +436,11 @@ const loadResolvedProfile = (input: RunCommandInput): ResolvedRunProfile => {
     settingsPaths: loadedSettings.files.map((file) => file.location.path),
   };
 };
+
+const withSystemPromptExportPath = (launchPlan: AgentLaunchPlan, outputPath: string | undefined): AgentLaunchPlan =>
+  outputPath === undefined
+    ? launchPlan
+    : { ...launchPlan, env: { ...launchPlan.env, OUTFITTER_SYSTEM_PROMPT_EXPORT_PATH: outputPath } };
 
 const selectRunAgentId = (selectedAgentId: string | undefined, defaultAgentId: string | undefined): string =>
   selectedAgentId ?? defaultAgentId ?? registryDefaultAgentId;

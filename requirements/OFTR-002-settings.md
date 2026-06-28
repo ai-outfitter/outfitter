@@ -63,3 +63,10 @@ The internal Settings object is the single source of resolved configuration for 
 2. Relative `cache_directory` values MUST resolve relative to the settings file containing them.
 3. When `cache_directory` is not configured, Outfitter MUST use `~/.outfitter/cache` as the default cache directory.
 4. Agent adapters MUST receive the resolved cache directory when assembling a composite profile so persistent composite profile links use the configured cache location.
+
+### OFTR-002.8: Profile Export Setting
+
+1. `settings.yml` MAY contain top-level `profile_export`.
+2. Outfitter MUST validate `profile_export` as a boolean when present.
+3. When `profile_export` is omitted from all settings scopes, generated prompt export MUST remain disabled by default.
+4. Higher-precedence settings files MUST override lower-precedence `profile_export` values.

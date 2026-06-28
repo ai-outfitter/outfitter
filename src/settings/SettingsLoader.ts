@@ -44,6 +44,7 @@ interface SettingsDocument {
   readonly remote_settings?: readonly RemoteSettingsDocument[];
   readonly cache_directory?: string;
   readonly custom_settings?: CustomSettings;
+  readonly profile_export?: boolean;
 }
 
 interface ProfileSourceDocument {
@@ -203,6 +204,7 @@ const convertSettingsDocument = (document: SettingsDocument, settingsDirectory: 
       ? undefined
       : resolveConfigDirectory(document.cache_directory, settingsDirectory),
   customSettings: document.custom_settings,
+  profileExport: document.profile_export,
 });
 
 const convertRemoteSettingsSource = (source: RemoteSettingsDocument): RemoteSettingsReference => {

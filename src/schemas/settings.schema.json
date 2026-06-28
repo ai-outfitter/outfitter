@@ -7,6 +7,7 @@
     "default_profile": { "type": "string", "minLength": 1 },
     "default_agent": { "enum": ["pi", "claude"] },
     "cache_directory": { "type": "string", "minLength": 1 },
+    "profile_export": { "type": "boolean" },
     "profile_sources": {
       "type": "array",
       "items": { "$ref": "profile-source.schema.json" }

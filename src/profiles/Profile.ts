@@ -41,6 +41,7 @@ export interface Profile {
   readonly inherits: readonly string[];
   readonly controls: ProfileControls;
   readonly statePersistence?: StatePersistenceOverrides;
+  readonly profileExport?: boolean;
 }
 
 export const createEmptyProfile = (id: string): Profile => ({

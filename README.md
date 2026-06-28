@@ -246,6 +246,8 @@ Set `template: true` on profiles such as `shared-prose` that should only be inhe
 
 The exact stable schema is governed by the requirements in `requirements/` and the JSON Schema files in `src/schemas/`, which are still expected to evolve with implementation.
 
+Generated Pi prompt exports are default-off. Set top-level `profile_export: true` in `settings.yml` to export the fully built Pi runtime system prompt for every selected local profile, or set top-level `profile_export: true|false` in a profile to override that default for one profile. Directory profiles write `generated-system-prompt.md` inside the profile directory; flat profiles write `<profile-id>.generated-system-prompt.md` beside the flat YAML file. Outfitter seeds a deterministic pre-launch fallback and its Pi launch extension overwrites it from Pi runtime `ctx.getSystemPrompt()`, matching the same primitive used by `pi-inspect`; these files can be committed for PR review or git-ignored.
+
 Profiles can also ship DeepWork jobs for that profile under `deepwork/jobs/`.
 When Outfitter launches Pi, it adds contributing profile job folders to `DEEPWORK_ADDITIONAL_JOBS_FOLDERS` so the DeepWork frontend can discover profile-owned workflows without copying them into a project `.deepwork/jobs/` directory.
 Profiles may also select shared Outfitter DeepWork jobs by name:

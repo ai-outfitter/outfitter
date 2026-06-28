@@ -18,6 +18,7 @@
         "pattern": "^[a-z0-9][a-z0-9._-]*[a-z0-9]$|^[a-z0-9]$"
       }
     },
+    "profile_export": { "type": "boolean" },
     "state_persistence": {
       "type": "object",
       "additionalProperties": {

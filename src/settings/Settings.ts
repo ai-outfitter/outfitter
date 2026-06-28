@@ -18,6 +18,7 @@ export interface Settings {
   readonly remoteSettings?: readonly RemoteSettingsReference[];
   readonly cacheDirectory?: string;
   readonly customSettings?: CustomSettings;
+  readonly profileExport?: boolean;
 }
 
 export const emptySettings = (): Settings => ({

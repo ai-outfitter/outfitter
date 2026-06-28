@@ -62,3 +62,10 @@ Outfitter resolves profile definitions across settings scopes, explicit sources,
 2. Outfitter MUST allow template profiles to contribute controls through `inherits` without marking the inheriting profile as a template.
 3. Outfitter MUST reject direct launches of template profiles, including launches selected through `default_profile`.
 4. `outfitter profile list` SHOULD hide template profiles by default and MUST expose them when the user explicitly requests all profiles.
+
+### OFTR-003.8: Generated Prompt Export Preference
+
+1. A profile MAY set top-level `profile_export: true` to request generated prompt export for that profile.
+2. A profile MAY set top-level `profile_export: false` to disable generated prompt export even when settings enable it by default.
+3. Missing `profile_export` in a profile MUST defer to the effective settings default.
+4. Outfitter MUST validate `profile_export` as a boolean when present.
