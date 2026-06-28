@@ -16,6 +16,8 @@ afterEach(() => {
 });
 
 describe('pi adapter DeepWork jobs', () => {
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-006.3).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('adds only selected profile-bundled DeepWork jobs to the pi launch environment by default', () => {
     const root = mkdtempSync(join(tmpdir(), 'outfitter-pi-deepwork-jobs-'));
     temporaryPiAdapterTestRoots.push(root);

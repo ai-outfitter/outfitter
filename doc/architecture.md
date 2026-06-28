@@ -539,17 +539,16 @@ controls:
 
 ## Profile Resolution and Inheritance
 
-When `outfitter run --profile X` is invoked, Outfitter builds an ordered profile stack.
+When `outfitter run --profile X` is invoked, Outfitter builds an ordered profile stack for `X` only; the configured `default_profile` is selected only when no explicit profile is provided.
 
-Highest to lowest precedence:
+Highest to lowest precedence for the selected profile:
 
-1. Project-local profile `X`
-2. Project profile `X`
-3. User profile `X`
-4. URI/cache profile `X` according to source order
-5. Profiles explicitly inherited by `X`, recursively, in declared order
-6. The user default profile as an implicit bottom profile, recursively including its inherited profiles
-7. Built-in defaults
+1. Project-local definition of the selected profile
+2. Project definition of the selected profile
+3. User definition of the selected profile
+4. URI/cache definition of the selected profile according to source order
+5. Profiles explicitly inherited by the selected profile, recursively, in declared order
+6. Built-in defaults
 
 Notes:
 
@@ -573,6 +572,10 @@ The pi adapter uses this state model for native pi state and for pi-managed util
 
 When profile-controlled Pi extensions would duplicate native Pi `settings.json` package entries, Outfitter generates a reconciled runtime `settings.json` inside the composite profile for that launch.
 The generated file preserves unrelated settings and package entries, removes duplicate native package entries by normalized resource identity, and keeps the declared `settings.json` state path non-durable with `discard` write handling so runtime edits are not reported as unknown state.
+
+Outfitter also generates a runtime Pi `keybindings.json` that reserves `Shift+Tab` for Outfitter mode switching and remaps Pi thinking-level cycling to `Ctrl+Shift+T`.
+The generated keybindings file preserves valid user or profile keybindings except for those reserved keys and is non-durable runtime state, so the default Outfitter shortcut policy does not overwrite the user's native Pi keybindings file.
+Interactive Pi launches inject an Outfitter bootstrap extension that consumes `Shift+Tab`, toggles build/plan mode, restricts plan mode to read-only inspection tools, and blocks Bash calls while plan mode is active; non-interactive Pi launches skip that extension.
 
 During `outfitter run`, the Outfitter process remains alive while the child agent CLI runs.
 It owns the composite profile lifecycle.
@@ -733,15 +736,15 @@ Responsibilities:
 
 - require an interactive TTY on both stdin and stdout before running welcome prompts;
 - show welcome text that explains Outfitter and Pi before asking onboarding questions;
-- ask whether the user wants to answer setup questions now;
-- ask the user to choose an initial built-in standard role, currently including `engineer` and `data_analyst`;
-- recommend a named Pi productivity loadout containing `git:github.com/ai-outfitter/ulta-tasklist`, `git:github.com/ai-outfitter/deepwork`, `npm:pi-subagents`, and `npm:pi-mcp-adapter`;
-- allow the user to accept the loadout, choose individual loadout items, or skip loadout installation;
-- create the selected local role profile on the fly, appending only the selected loadout resources and leaving extensions/skills empty when the user selects none;
+- ask a single accept/decline question for the founder profile;
+- install the founder role by default and use it as the deterministic fallback, while keeping `engineer` and `data_analyst` available through `/outfitter` after first run;
+- install the full recommended Pi productivity loadout on acceptance without item-level prompts;
+- keep the recommended loadout aligned to `git:github.com/ai-outfitter/deepwork`, `npm:@juicesharp/rpiv-ask-user-question`, `git:github.com/applepi-ai/ulta-tasklist`, `npm:pi-nolo`, `npm:pi-browser-harness`, `npm:@mjakl/pi-subagent`, `npm:@narumitw/pi-btw`, `npm:pi-must-have-extension`, `npm:pi-interactive-shell`, and `npm:pi-mcp-adapter` while those packages remain available;
+- create the selected local role profile on the fly and warn while continuing if a loadout item is unavailable;
 - return typed onboarding choices so later work can persist richer profile/loadout metadata behind a schema-validated YAML format if needed.
 
 Before launching Pi after welcome onboarding, `outfitter run` checks whether native Pi appears to have login state in `auth.json` or `models.json`.
-If no login state is detected, Outfitter starts Pi with `/login` automatically; outside the welcome flow it prints an informational `/login` notice instead.
+If no login state is detected, Outfitter starts interactive Pi welcome launches with `/login` automatically; outside the welcome flow it prints an informational `/login` notice only for interactive launches and leaves non-interactive output streams untouched.
 Credential collection stays inside Pi so provider API keys are not collected or persisted by Outfitter.
 
 ### `outfitter sync`

@@ -15,7 +15,7 @@ This fixture models a repository profile that owns selected agent CLI state alon
 
 ## Expected behavior
 
-Running the selected `stateful-review` profile should compose the user's implicit `default` profile, the inherited `team-base` profile, and the selected repository profile.
+Running the selected `stateful-review` profile should compose the inherited `team-base` profile and the selected repository profile; the configured user `default` profile is not included because the run selects `stateful-review` explicitly.
 Generic controls should be present for both adapters, while each adapter should merge its own adapter-specific control block before launch.
 
 Adapter-declared state paths that exist under the selected profile's `cli_specific/<adapter>/` directory should be symlinked into the temporary composite profile from that profile-owned state.

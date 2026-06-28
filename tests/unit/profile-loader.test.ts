@@ -93,6 +93,8 @@ describe('profile loading', () => {
     expect('message' in invalidIdResult && invalidIdResult.message).toContain('must match pattern');
   });
 
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-003.7).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('parses template profile markers and validates their type', () => {
     expect(parseProfileYaml('id: shared\ntemplate: true\ncontrols: {}\n', 'fallback')).toEqual({
       id: 'shared',
@@ -132,7 +134,7 @@ describe('profile loading', () => {
   });
 
   it('reports non-local, missing, and malformed profile sources as load issues', () => {
-    const missingRoot = join(tmpdir(), 'outfitter-missing-profile-source');
+    const missingRoot = join(createProfileSourceRoot(), 'missing-profile-source');
     const root = createProfileSourceRoot();
     writeProfile(root, 'broken', ': invalid: yaml:');
 

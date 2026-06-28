@@ -1,0 +1,9 @@
+name: review_job
+description: Fixture DeepWork job used to prove profile job folders are exposed to Pi.
+workflows:
+  noop:
+    description: No-op fixture workflow.
+    steps:
+      - id: done
+        instructions: Fixture no-op step.
+        outputs: {}

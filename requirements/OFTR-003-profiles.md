@@ -3,7 +3,7 @@
 ## Overview
 
 Profiles describe reusable agent-CLI loadouts.
-Outfitter resolves profile definitions across settings scopes, explicit sources, inherited profiles, and the implicit user default profile.
+Outfitter resolves profile definitions across settings scopes, explicit sources, and inherited profiles; the configured user default profile is selected only when no explicit profile is requested.
 
 ## Requirements
 

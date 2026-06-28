@@ -24,9 +24,9 @@ It is already used by current unit tests and does not need to move before integr
 
 Location: `tests/fixtures/scenarios/profile-inheritance-chain/`
 
-A compact fixture where `engineering` inherits `base`, and the implicit `default` profile also inherits `base`.
+A compact fixture where `engineering` inherits `base`, and the separate `default` profile also inherits `base`.
 
-Use it to verify explicit inheritance plus implicit user-default inclusion without duplicate base profiles.
+Use it to verify explicit inheritance and to prove explicit profile resolution does not implicitly compose the configured default profile.
 
 ### `profile-multiple-inheritance`
 
@@ -51,6 +51,11 @@ Location: `tests/fixtures/scenarios/profile-missing-inheritance/`
 A compact negative fixture where `engineering` inherits a missing profile id.
 
 Use it to verify missing inherited profile diagnostics.
+
+## Integration coverage boundaries
+
+Template-profile behavior is intentionally covered by unit-level command, profile-loading, and profile-resolution tests rather than a full-directory integration fixture because templates affect profile selection/listing semantics but do not add adapter-specific launch translation, composite profile materialization, or state write-back behavior beyond the selected runnable profile.
+If template profiles gain adapter-visible filesystem behavior, add a dedicated integration fixture before treating that behavior as stable.
 
 ## Integration fixtures
 
@@ -106,9 +111,9 @@ Composite profile mutations should not blur that source ownership.
 Location: `tests/fixtures/integration/language_stack_with_personal_default/`
 
 This fixture should model a real repo profile such as `typescript-review` that inherits repo language/tooling profiles.
-The user's implicit `default` profile contributes personal environment, prompt, or session defaults below the repo stack.
+A personal `default` profile can contribute environment, prompt, or session defaults only when it is selected directly or explicitly inherited by the repo stack.
 
-Use it to verify realistic inheritance plus implicit user-default composition.
+Use it to verify realistic inheritance, composed appended system prompts across inherited layers, and deliberate personal-default composition without relying on implicit default layering for explicit profile launches.
 
 Write-back focus: inherited generated controls should not be written back to any parent profile.
 If profile-owned CLI state is absent, adapter state should use native or cache fallback.
@@ -154,10 +159,11 @@ Location: `tests/fixtures/integration/native_fallback_cli_state/`
 This fixture should intentionally omit profile-owned CLI state files.
 The synthetic home/native directories can be empty or partially seeded.
 
-Use it to verify the underlying adapter default behavior where declared state symlinks point at standard native CLI locations.
+Use it to verify the underlying adapter default behavior where declared state symlinks point at standard native CLI locations, plus adapter-generated runtime files that intentionally replace declared paths for one launch.
+For Pi, the fixture seeds native `keybindings.json` and `models.json`, expects a generated non-durable runtime keybinding file that reserves Outfitter shortcuts without mutating the native source, and includes a profile-bundled Agent Skill plus DeepWork job folder to verify launch-time exposure through `--skill` and `DEEPWORK_ADDITIONAL_JOBS_FOLDERS`.
 
 Write-back focus: writes persist only through declared native fallback symlinks.
-Missing fallback files or directories are created intentionally.
+Generated runtime files such as Pi `keybindings.json` remain temporary, and missing fallback files or directories are created intentionally.
 
 ### `cache_backed_tooling_state`
 
@@ -200,7 +206,7 @@ Write-back focus: replacement should be diagnosed as not persisted, and the orig
 | Fixture                                | Status   | Settings layers     | Same-id defs | Inherit depth    | Adapters  | State owner     | Mutation focus   |
 | -------------------------------------- | -------- | ------------------- | ------------ | ---------------- | --------- | --------------- | ---------------- |
 | `profile-precedence`                   | Existing | none                | 3            | 0                | none      | none            | none             |
-| `profile-inheritance-chain`            | Existing | none                | 1            | 1 + default      | none      | none            | none             |
+| `profile-inheritance-chain`            | Existing | none                | 1            | 1                | none      | none            | none             |
 | `profile-multiple-inheritance`         | Existing | none                | 1            | 2 parents        | none      | none            | none             |
 | `profile-cycle`                        | Existing | none                | 1            | cycle            | none      | none            | diagnostics      |
 | `profile-missing-inheritance`          | Existing | none                | 1            | missing          | none      | none            | diagnostics      |

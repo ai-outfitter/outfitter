@@ -145,7 +145,7 @@ describe('profile command', () => {
     ).rejects.toThrow("missing required argument 'name'");
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-004.5).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-004.4).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('wires setup and sync command actions to command object executors', async () => {
     const root = createTemporaryRoot();
@@ -187,7 +187,7 @@ describe('profile command', () => {
     expect(setupMessages).toContainEqual(expect.stringContaining('Created user settings'));
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-004.5).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-003.7, OFTR-004.5).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('lists unique profiles from configured local and cached remote sources', async () => {
     const root = createTemporaryRoot();

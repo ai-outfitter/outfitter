@@ -5,6 +5,7 @@ controls:
   environment:
     LANGUAGE_STACK: typescript
     REVIEW_STACK: language-typescript
+  append_system_prompt: Apply TypeScript-specific review criteria.
   extensions:
     - tsconfig
   skills:

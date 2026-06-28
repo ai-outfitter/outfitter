@@ -83,11 +83,10 @@ If neither is set, Outfitter defaults to pi for backward compatibility.
 If `outfitter` is run before `outfitter setup`, it creates the initial settings and default profile automatically before launching.
 When that first-run setup has an interactive terminal, Outfitter continues into the same welcome onboarding used by `outfitter welcome`.
 
-`outfitter welcome` explains Outfitter and Pi, asks you to choose an initial built-in role, and recommends a Pi productivity loadout.
-The current built-in role choices are `engineer` and `data_analyst`; Outfitter creates the selected local profile on the fly.
-The recommended loadout includes `ulta-tasklist`, `deepwork`, `pi-subagents`, and `pi-mcp-adapter`; you can accept it, choose individual items, or skip loadout installation.
-If you skip loadout installation, the generated profile has no extensions or skills.
-If Pi does not appear to be logged in after welcome onboarding, Outfitter opens Pi with `/login` automatically; outside welcome onboarding it prints a `/login` reminder instead.
+`outfitter welcome` explains Outfitter and Pi, then asks one accept/decline question for the founder profile.
+Accepting installs the founder role as the default plus the full recommended Pi productivity loadout without item-by-item prompts; `engineer` and `data_analyst` remain available later through `/outfitter`.
+The recommended loadout includes `deepwork`, `@juicesharp/rpiv-ask-user-question`, `ulta-tasklist`, `pi-nolo`, `pi-browser-harness`, `@mjakl/pi-subagent`, `@narumitw/pi-btw`, `pi-must-have-extension`, `pi-interactive-shell`, and `pi-mcp-adapter`.
+If Pi does not appear to be logged in after welcome onboarding, Outfitter opens interactive Pi launches with `/login` automatically; outside welcome onboarding it prints a `/login` reminder only for interactive launches.
 Outfitter never collects or persists provider API keys itself.
 
 `settings.yml` can point at local profiles, full Git URIs, or GitHub shorthand sources with optional refs and repository subpaths:

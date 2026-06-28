@@ -36,6 +36,8 @@ afterEach(() => {
 });
 
 describe('template profiles', () => {
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-003.6, OFTR-003.7).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('rejects directly selected template profiles but allows inheriting them', async () => {
     const root = createTemporaryRoot();
     const homeDirectory = join(root, 'home');

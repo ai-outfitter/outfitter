@@ -131,6 +131,8 @@ describe('profile resolution', () => {
     expect(result.profile?.controls.custom_list).toEqual(['selected']);
   });
 
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-003.7).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('keeps template profiles inheritable without marking runnable descendants as templates', () => {
     const inheritedTemplate = createLoadedProfile({
       source: createLocalProfileSource('<project-profiles>'),

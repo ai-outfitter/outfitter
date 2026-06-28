@@ -6,3 +6,4 @@ controls:
     REPO_REVIEW_BASE: 'enabled'
     REVIEW_STACK: repo-base
   system_prompt: Review for correctness, maintainability, and project conventions.
+  append_system_prompt: Apply repository review conventions.

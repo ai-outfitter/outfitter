@@ -49,6 +49,8 @@ afterEach(() => {
 });
 
 describe('run command profile-bundled Pi resource exposure', () => {
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-006.3).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('exposes selected profile-bundled DeepWork jobs when launching pi', async () => {
     const root = createTemporaryRoot();
     const homeDirectory = join(root, 'home');
@@ -127,6 +129,8 @@ describe('run command profile-bundled Pi resource exposure', () => {
     expect(result.launchPlan.args).not.toContain(unrelatedSkillFolder);
   });
 
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-006.3).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('resolves an analysis alias to data analyst bundled jobs', async () => {
     const root = createTemporaryRoot();
     const homeDirectory = join(root, 'home');
