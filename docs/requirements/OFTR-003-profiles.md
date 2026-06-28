@@ -15,6 +15,7 @@ Outfitter resolves profile definitions across settings scopes, explicit sources,
 4. A profile folder MAY contain conventional resource folders such as `skills`, `prompts`, `extensions`, and `deepwork/jobs`.
 5. A profile folder MAY contain `cli_specific/<cli-name>/` folders for agent-specific resources and overrides.
 6. Flat profile files MUST NOT be treated as profile resource folders.
+7. Setup-source imports MUST preserve flat profile files as flat files unless the user explicitly invokes a profile-creation command.
 
 ### OFTR-003.2: Profile Identity
 
@@ -25,6 +26,7 @@ Outfitter resolves profile definitions across settings scopes, explicit sources,
 5. Outfitter MUST reject discovered profile folder names or flat filename stems that are not filesystem-safe profile IDs before using them as fallback IDs.
 6. Outfitter SHOULD support a separate display label if human-readable names need spaces or punctuation.
 7. Profiles MAY include a short `description` for interactive prompts and profile discovery surfaces.
+8. Interactive setup profile prompts MUST use loaded profile IDs, labels, and descriptions as their display metadata rather than hardcoding profile-repository knowledge in setup code.
 
 ### OFTR-003.3: Profile Scope Precedence
 

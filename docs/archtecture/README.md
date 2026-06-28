@@ -5,7 +5,7 @@
 Outfitter is a TypeScript CLI that assembles and launches reproducible agent-CLI profiles.
 It is generic enough for organizations to define profiles once and run them across multiple agent CLIs, while supporting `pi` first and most deeply, plus Claude Code as an additional supported adapter.
 
-Formal implementation requirements live in `requirements/`; this document explains the architectural shape behind those requirements.
+Formal implementation requirements live in [`../requirements/`](../requirements/); this document explains the architectural shape behind those requirements.
 
 ## Architectural Principles
 
@@ -69,7 +69,7 @@ The project includes `tsconfig.json` for strict typechecking across source, test
 
 ## Repository File Structure
 
-The repository layout and source/test directory boundaries live in `doc/file_structure.md`.
+The repository layout and source/test directory boundaries live in [`./file_structure.md`](./file_structure.md).
 
 ## Settings Resolution
 
@@ -605,7 +605,7 @@ The practical user model is:
 3. Use `warn` or `error` for strict profiles and CI when unexpected state mutation should be visible.
 4. Use `discard` for caches, sessions, or experimental state that should not outlive the run.
 
-See `doc/state_writeback_strategy.md` for the complete functional contract and the current pi path policy.
+See [`./state_writeback_strategy.md`](./state_writeback_strategy.md) for the complete functional contract and the current pi path policy.
 
 ### Composite profile Assembly
 
@@ -849,7 +849,7 @@ Requirements:
 - deterministic tests for unsupported controls and `--strict`;
 - scenario fixtures for common combinations instead of one-off bespoke setup.
 
-Scenario fixture directory conventions are documented in `doc/file_structure.md`.
+Scenario fixture directory conventions are documented in [`./file_structure.md`](./file_structure.md).
 Each scenario should include realistic `.outfitter` folders and expected resolution output.
 
 ## Settled Initial Decisions

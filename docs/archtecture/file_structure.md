@@ -1,7 +1,7 @@
 # Outfitter File Structure
 
 This document records the key repository file and directory structure used by Outfitter.
-See `doc/architecture.md` for runtime file conventions such as `.outfitter` settings folders, profile folders, and generated composite profile directories.
+See [`./README.md`](./README.md) for runtime file conventions such as `.outfitter` settings folders, profile folders, and generated composite profile directories.
 
 ## Repository Layout
 
@@ -16,13 +16,15 @@ Outfitter is organized around clear TypeScript source boundaries, requirement do
 │   └── schemas/                       # project-specific DeepSchema definitions
 ├── .github/                           # GitHub automation configuration
 │   └── workflows/                     # GitHub Actions workflows and local .deepreview rules
-├── doc/                               # architecture, design, and specification docs
-│   ├── .deepreview                    # documentation-specific DeepWork review rules
-│   ├── architecture.md                # architectural rationale and runtime file conventions
-│   ├── controllable-elements.md       # controllable element terminology and support matrix
-│   ├── file_structure.md              # repository file structure overview
-│   ├── integration_test_system.md     # fixture-backed integration test design
-│   ├── state_writeback_strategy.md    # composite profile state persistence and writeback design
+├── docs/                              # documentation, architecture, requirements, plans, and specs
+│   ├── archtecture/                   # architecture and internal design docs
+│   │   ├── README.md                  # architectural rationale and runtime file conventions
+│   │   ├── controllable-elements.md   # controllable element terminology and support matrix
+│   │   ├── file_structure.md          # repository file structure overview
+│   │   ├── integration_test_system.md # fixture-backed integration test design
+│   │   └── state_writeback_strategy.md # composite profile state persistence and writeback design
+│   ├── documentation/                 # user-facing Outfitter docs
+│   ├── requirements/                  # formal OUTFITTER requirement documents
 │   └── specs/                         # detailed supporting specs
 ├── doc_site/                          # Nextra/Next.js documentation website
 │   ├── app/                           # App Router pages, layout, and site styles
@@ -31,9 +33,6 @@ Outfitter is organized around clear TypeScript source boundaries, requirement do
 │   ├── next.config.mjs                # Next.js configuration wrapped by Nextra
 │   ├── package.json                   # documentation site package scripts and dependencies
 │   └── tsconfig.json                  # documentation site TypeScript configuration
-├── requirements/                      # formal OUTFITTER requirement documents
-│   ├── OFTR-001-project-foundation.md
-│   └── ...
 ├── .prettierignore                    # Prettier ignore rules
 ├── .prettierrc.json                   # Prettier formatting configuration
 ├── .snapperrc.toml                    # Snapper Markdown formatting configuration

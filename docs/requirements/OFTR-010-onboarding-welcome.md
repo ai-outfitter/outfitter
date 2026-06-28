@@ -13,6 +13,7 @@ so the user can configure a profile interactively.
 1. Welcome text MUST be shown to the user explaining what Outfitter and Pi are and what the founder profile provides.
 2. Welcome text MUST use Outfitter-branded ASCII/text.
 3. Welcome text MUST reference `/outfitter` as the way to customize the profile after installation.
+4. Every interactive `outfitter setup` path MUST render the shared Outfitter-branded ASCII welcome before prompting.
 
 > Pi is a fully extensible agentic coding harness.
 > The founder profile brings Pi to feature parity with dedicated agentic coding tools.
