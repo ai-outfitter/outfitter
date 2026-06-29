@@ -109,6 +109,11 @@ const captureProcessStdout = (chunks: string[]): void => {
 
 const defaultProfileSynchronizer = {
   sync(_source: unknown, cachePath: string) {
+    mkdirSync(cachePath, { recursive: true });
+    writeFileSync(
+      join(cachePath, 'settings.yml'),
+      ['default_profile: engineer', 'profile_sources:', '  - path: ./profiles', ''].join('\n'),
+    );
     writeCachedProfile(join(cachePath, 'profiles'), 'engineer');
     writeCachedProfile(join(cachePath, 'profiles'), 'data_analyst');
     return 'updated' as const;
@@ -142,11 +147,11 @@ describe('setup command', () => {
     expect(firstResult.createdDefaultProfile).toBe(true);
     expect(readFileSync(settingsPath, 'utf8')).toBe(
       [
-        'default_profile: engineer',
-        'profile_sources:',
+        'remote_settings:',
         '  - github: ai-outfitter/default-profiles',
-        '    path: profiles',
-        '  - path: ./profiles',
+        '    ref: main',
+        '    path: settings.yml',
+        'default_profile: engineer',
         '',
       ].join('\n'),
     );
@@ -154,7 +159,7 @@ describe('setup command', () => {
     expect(firstResult.messages).toContain("Selected default profile 'engineer'.");
     expect(firstResult.syncResult.sources).toHaveLength(1);
     expect(firstResult.syncResult.sources[0]?.uri).toBe(
-      'git+https://github.com/ai-outfitter/default-profiles.git:profiles',
+      'git+https://github.com/ai-outfitter/default-profiles.git#main:settings.yml',
     );
 
     writeFileSync(defaultProfilePath, 'id: default\nlabel: Custom\n');
@@ -166,6 +171,97 @@ describe('setup command', () => {
     expect(secondResult.createdSettings).toBe(false);
     expect(secondResult.createdDefaultProfile).toBe(false);
     expect(readFileSync(defaultProfilePath, 'utf8')).toBe('id: default\nlabel: Custom\n');
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-004.1, OFTR-010.2).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('syncs shared remote settings and passes discovered remote profiles to first-run welcome', async () => {
+    const root = createTemporaryRoot();
+    const homeDirectory = join(root, 'home');
+    const projectDirectory = join(root, 'project');
+    const seenWelcomeChoices: unknown[] = [];
+
+    const result = await executeSetupCommand(
+      { homeDirectory, projectDirectory },
+      {
+        interactive: true,
+        input: { isTTY: true } as NodeJS.ReadableStream & { isTTY: true },
+        output: { isTTY: true } as NodeJS.WritableStream & { isTTY: true },
+        writeLine: () => undefined,
+        synchronizer: {
+          sync(source, cachePath) {
+            expect(source).toEqual({ github: 'ai-outfitter/default-profiles', ref: 'main', path: 'settings.yml' });
+            mkdirSync(cachePath, { recursive: true });
+            writeFileSync(
+              join(cachePath, 'settings.yml'),
+              ['default_profile: researcher', 'profile_sources:', '  - path: ./profiles', ''].join('\n'),
+            );
+            const profilesPath = join(cachePath, 'profiles');
+            writeCachedProfile(profilesPath, 'engineer');
+            writeFileSync(
+              join(profilesPath, 'engineer', 'profile.yml'),
+              [
+                'id: engineer',
+                'label: Engineer',
+                'description: Build, test, and review code from the shared source.',
+                'controls: {}',
+                '',
+              ].join('\n'),
+            );
+            writeCachedProfile(profilesPath, 'researcher');
+            writeFileSync(
+              join(profilesPath, 'researcher', 'profile.yml'),
+              [
+                'id: researcher',
+                'label: Researcher',
+                'description: Inspect sources and summarize evidence from the shared source.',
+                'controls: {}',
+                '',
+              ].join('\n'),
+            );
+            return 'updated';
+          },
+        },
+        selectDefaultProfile() {
+          throw new Error('first-run setup should let welcome choose from shared profiles');
+        },
+        selectWelcomePlan(input) {
+          expect(input.currentDefaultProfileId).toBe('researcher');
+          seenWelcomeChoices.push(...(input.profileChoices ?? []));
+          return Promise.resolve({ answerQuestions: true, selectedProfileId: 'engineer' });
+        },
+      },
+    );
+
+    expect(seenWelcomeChoices).toEqual([
+      {
+        id: 'researcher',
+        label: 'Researcher',
+        description: 'Inspect sources and summarize evidence from the shared source.',
+      },
+      {
+        id: 'engineer',
+        label: 'Engineer',
+        description: 'Build, test, and review code from the shared source.',
+      },
+    ]);
+    expect(result.welcomeResult?.selectedProfile).toEqual({
+      id: 'engineer',
+      label: 'Engineer',
+      description: 'Build, test, and review code from the shared source.',
+    });
+    const settings = readFileSync(join(homeDirectory, '.outfitter', 'settings.yml'), 'utf8');
+    expect(settings).toContain('remote_settings:');
+    expect(settings).toContain('github: ai-outfitter/default-profiles');
+    expect(settings).toContain('ref: main');
+    expect(settings).toContain('path: settings.yml');
+    expect(settings).toContain('default_profile: engineer');
+    expect(settings).toContain('except:');
+    expect(settings).toContain('- engineer');
+    expect(settings).toContain('path: ./profiles');
+    expect(readFileSync(join(homeDirectory, '.outfitter', 'profiles', 'engineer', 'profile.yml'), 'utf8')).toContain(
+      'description: Build, test, and review code from the shared source.',
+    );
   });
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-004.1).
@@ -1509,7 +1605,7 @@ describe('setup command', () => {
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-010.2, OFTR-010.3).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
-  it('runs welcome onboarding after interactive setup completes', async () => {
+  it('runs shared-profile welcome onboarding after interactive setup completes', async () => {
     const root = createTemporaryRoot();
     const homeDirectory = join(root, 'home');
     const projectDirectory = join(root, 'project');
@@ -1528,7 +1624,7 @@ describe('setup command', () => {
         selectWelcomePlan() {
           return Promise.resolve({
             answerQuestions: true,
-            selectedRoleId: 'engineer',
+            selectedProfileId: 'engineer',
             loadoutItemIds: ['deepwork'],
           });
         },
@@ -1537,10 +1633,11 @@ describe('setup command', () => {
 
     expect(result.welcomeResult).toEqual({
       answered: true,
+      selectedProfile: {
+        id: 'engineer',
+      },
       selectedRole: {
         id: 'engineer',
-        label: 'Engineer',
-        description: 'Engineering setup for repository navigation, maintainable code changes, tests, and reviews.',
       },
       selectedLoadout: {
         id: 'recommended-pi',
@@ -1556,7 +1653,7 @@ describe('setup command', () => {
       },
       warnings: [],
       messages: [
-        'Installed the founder profile. Use /outfitter inside Pi or run `outfitter profile list` to manage profiles.',
+        "Selected default profile 'engineer' from shared profiles. Use /outfitter inside Pi or run `outfitter profile list` to manage profiles.",
       ],
     });
   });

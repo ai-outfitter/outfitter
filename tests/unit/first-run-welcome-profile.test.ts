@@ -53,8 +53,17 @@ const writeDefaultProfile = (
   );
 };
 
+const writeSharedSettings = (cachePath: string, defaultProfile = 'engineer'): void => {
+  mkdirSync(cachePath, { recursive: true });
+  writeFileSync(
+    join(cachePath, 'settings.yml'),
+    ['default_profile: ' + defaultProfile, 'profile_sources:', '  - path: ./profiles', ''].join('\n'),
+  );
+};
+
 const defaultProfileSynchronizer = {
   sync(_source: unknown, cachePath: string) {
+    writeSharedSettings(cachePath);
     const profilesDirectory = join(cachePath, 'profiles');
     writeDefaultProfile(profilesDirectory, 'engineer', ['git:github.com/ai-outfitter/deepwork']);
     writeDefaultProfile(profilesDirectory, 'data_analyst', [
@@ -69,6 +78,7 @@ const defaultProfileSynchronizer = {
 
 const engineerOnlySynchronizer = {
   sync(_source: unknown, cachePath: string) {
+    writeSharedSettings(cachePath);
     writeDefaultProfile(join(cachePath, 'profiles'), 'engineer', ['git:github.com/ai-outfitter/deepwork']);
     return 'updated' as const;
   },
@@ -124,7 +134,7 @@ describe('first-run welcome profile', () => {
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-010.2, OFTR-010.3).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
-  it('persists first-run welcome role selection with no loadout items before launching pi', async () => {
+  it('copies the selected shared profile before launching pi without loadout mutation', async () => {
     const root = createTemporaryRoot();
     const homeDirectory = join(root, 'home');
     const projectDirectory = join(root, 'project');
@@ -141,7 +151,7 @@ describe('first-run welcome profile', () => {
           return Promise.resolve('engineer');
         },
         selectWelcomePlan() {
-          return Promise.resolve({ answerQuestions: true, selectedRoleId: 'engineer', loadoutItemIds: [] });
+          return Promise.resolve({ answerQuestions: true, selectedProfileId: 'engineer', loadoutItemIds: [] });
         },
         launcher: {
           launch() {
@@ -153,9 +163,12 @@ describe('first-run welcome profile', () => {
 
     expect(result.profileId).toBe('engineer');
     expect(result.launchPlan.args).toContain('--append-system-prompt');
-    expect(readFileSync(join(homeDirectory, '.outfitter', 'profiles', 'engineer', 'profile.yml'), 'utf8')).toContain(
-      'extensions: []',
+    const copiedProfile = readFileSync(
+      join(homeDirectory, '.outfitter', 'profiles', 'engineer', 'profile.yml'),
+      'utf8',
     );
+    expect(copiedProfile).toContain('git:github.com/ai-outfitter/deepwork');
+    expect(copiedProfile).toContain('Default engineer prompt.');
   });
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-010.4).
@@ -254,7 +267,7 @@ describe('first-run welcome profile', () => {
     );
   });
 
-  it('persists a role-only welcome result without loadout data', () => {
+  it('persists a profile-only welcome result without loadout data', () => {
     const root = createTemporaryRoot();
     const homeDirectory = join(root, 'home');
     const settingsPath = join(homeDirectory, '.outfitter', 'settings.yml');
@@ -274,10 +287,10 @@ describe('first-run welcome profile', () => {
 
     const profile = readFileSync(join(homeDirectory, '.outfitter', 'profiles', 'engineer', 'profile.yml'), 'utf8');
     expect(persisted).toEqual({ profileId: 'engineer', createdProfile: true });
-    expect(profile).toContain(
-      'description: Engineering setup for repository navigation, maintainable code changes, tests, and reviews.',
-    );
-    expect(profile).toContain('append_system_prompt: |');
+    expect(profile).toContain('description: Engineering setup for repository navigation, maintainable code');
+    expect(profile).toContain('changes, tests, and reviews.');
+    expect(profile).toContain('controls: {}');
+    expect(profile).not.toContain('append_system_prompt');
     expect(profile).not.toContain('extensions:');
     expect(readFileSync(settingsPath, 'utf8')).toContain('default_profile: engineer');
   });
@@ -314,12 +327,12 @@ describe('first-run welcome profile', () => {
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-010.2, OFTR-010.3).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
-  it('falls back to a generated welcome profile when the selected role is not cached', async () => {
+  it('falls back to a discovered shared profile when an injected selection is not available', async () => {
     const root = createTemporaryRoot();
     const homeDirectory = join(root, 'home');
     const projectDirectory = join(root, 'project');
 
-    await executeRunCommand(
+    const result = await executeRunCommand(
       { homeDirectory, projectDirectory },
       {
         interactive: true,
@@ -333,7 +346,7 @@ describe('first-run welcome profile', () => {
         selectWelcomePlan() {
           return Promise.resolve({
             answerQuestions: true,
-            selectedRoleId: 'data_analyst',
+            selectedProfileId: 'data_analyst',
             loadoutItemIds: ['deepwork'],
           });
         },
@@ -345,11 +358,11 @@ describe('first-run welcome profile', () => {
       },
     );
 
-    const profileDirectory = join(homeDirectory, '.outfitter', 'profiles', 'data_analyst');
-    expect(readFileSync(join(profileDirectory, 'profile.yml'), 'utf8')).toContain(
-      'git:github.com/ai-outfitter/deepwork',
+    expect(result.profileId).toBe('engineer');
+    expect(existsSync(join(homeDirectory, '.outfitter', 'profiles', 'data_analyst'))).toBe(false);
+    expect(readFileSync(join(homeDirectory, '.outfitter', 'settings.yml'), 'utf8')).toContain(
+      'default_profile: engineer',
     );
-    expect(existsSync(join(profileDirectory, 'cli_specific'))).toBe(false);
   });
 
   it('copies source profiles even when the profile and settings YAML are empty', () => {
@@ -382,7 +395,7 @@ describe('first-run welcome profile', () => {
       profileId: 'data_analyst',
       createdProfile: true,
       messages: [
-        `Copied the Data Analyst profile locally so your extension choices can be edited at ${join(
+        `Copied the Data Analyst profile locally so it can be edited at ${join(
           homeDirectory,
           '.outfitter',
           'profiles',
@@ -391,17 +404,20 @@ describe('first-run welcome profile', () => {
         )}.`,
       ],
     });
-    expect(readFileSync(settingsPath, 'utf8')).toContain('profile_sources: []');
-    expect(readFileSync(settingsPath, 'utf8')).toContain('default_profile: data_analyst');
+    const settings = readFileSync(settingsPath, 'utf8');
+    expect(settings).toContain('github: ai-outfitter/default-profiles');
+    expect(settings).toContain('ref: main');
+    expect(settings).toContain('- data_analyst');
+    expect(settings).toContain('path: ./profiles');
+    expect(settings).toContain('default_profile: data_analyst');
     const copiedProfile = readFileSync(
       join(homeDirectory, '.outfitter', 'profiles', 'data_analyst', 'profile.yml'),
       'utf8',
     );
-    expect(copiedProfile).toContain('description: Data analysis setup for careful inspection');
-    expect(copiedProfile).toContain('assumptions, and summaries.');
+    expect(copiedProfile).toBe('');
   });
 
-  it('handles malformed scalar source profiles when copying welcome choices', () => {
+  it('copies source profile files without injecting generated welcome content', () => {
     const root = createTemporaryRoot();
     const homeDirectory = join(root, 'home');
     const settingsPath = join(homeDirectory, '.outfitter', 'settings.yml');
@@ -439,13 +455,12 @@ describe('first-run welcome profile', () => {
       join(homeDirectory, '.outfitter', 'profiles', 'data_analyst', 'profile.yml'),
       'utf8',
     );
-    expect(copiedProfile).toContain('controls:');
-    expect(copiedProfile).toContain('git:x');
+    expect(copiedProfile).toBe('scalar-profile\n');
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-010.3).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-010.2, OFTR-010.3).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
-  it('adds copied profile exclusions to the default profile source', () => {
+  it('adds copied profile exclusions to the default profile source without mutating remote content', () => {
     const root = createTemporaryRoot();
     const homeDirectory = join(root, 'home');
     const settingsPath = join(homeDirectory, '.outfitter', 'settings.yml');
@@ -517,10 +532,9 @@ describe('first-run welcome profile', () => {
       join(homeDirectory, '.outfitter', 'profiles', 'data_analyst', 'profile.yml'),
       'utf8',
     );
-    expect(copiedProfile).toContain('extensions: []');
-    expect(copiedProfile).toContain('git:selected');
-    expect(copiedProfile).not.toContain('default-generic');
-    expect(copiedProfile).not.toContain('default-pi');
+    expect(copiedProfile).toContain('git:github.com/ai-outfitter/default-generic');
+    expect(copiedProfile).toContain('git:github.com/ai-outfitter/default-pi');
+    expect(copiedProfile).not.toContain('git:selected');
   });
 
   it('adds a default profile setting when persisting welcome into sparse settings', () => {
@@ -544,9 +558,9 @@ describe('first-run welcome profile', () => {
     expect(readFileSync(settingsPath, 'utf8')).toContain('default_profile: data_analyst');
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-010.3).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-010.2, OFTR-010.3).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
-  it('persists first-run welcome loadout selection before launching pi', async () => {
+  it('preserves selected shared profile resources before launching pi', async () => {
     const root = createTemporaryRoot();
     const homeDirectory = join(root, 'home');
     const projectDirectory = join(root, 'project');
@@ -565,7 +579,7 @@ describe('first-run welcome profile', () => {
         selectWelcomePlan() {
           return Promise.resolve({
             answerQuestions: true,
-            selectedRoleId: 'data_analyst',
+            selectedProfileId: 'data_analyst',
             loadoutItemIds: ['deepwork', 'pi-mcp-adapter'],
           });
         },
@@ -579,8 +593,9 @@ describe('first-run welcome profile', () => {
 
     expect(result.profileId).toBe('data_analyst');
     expect(result.launchPlan.args).toContain('git:github.com/ai-outfitter/deepwork');
-    expect(result.launchPlan.args).toContain('npm:pi-mcp-adapter');
-    expect(result.launchPlan.args).not.toContain('git:github.com/nhorton/pi-pr-alerts');
+    expect(result.launchPlan.args).toContain('git:github.com/nhorton/pi-pr-alerts');
+    expect(result.launchPlan.args).toContain('npm:pi-subagents');
+    expect(result.launchPlan.args).not.toContain('npm:pi-mcp-adapter');
     const settings = readFileSync(join(homeDirectory, '.outfitter', 'settings.yml'), 'utf8');
     const copiedProfile = readFileSync(
       join(homeDirectory, '.outfitter', 'profiles', 'data_analyst', 'profile.yml'),
@@ -591,8 +606,9 @@ describe('first-run welcome profile', () => {
     expect(settings).toContain('except:');
     expect(settings).toContain('- data_analyst');
     expect(copiedProfile).toContain('git:github.com/ai-outfitter/deepwork');
-    expect(copiedProfile).toContain('npm:pi-mcp-adapter');
-    expect(copiedProfile).not.toContain('git:github.com/nhorton/pi-pr-alerts');
+    expect(copiedProfile).toContain('git:github.com/nhorton/pi-pr-alerts');
+    expect(copiedProfile).toContain('npm:pi-subagents');
+    expect(copiedProfile).not.toContain('npm:pi-mcp-adapter');
     expect(
       existsSync(
         join(

@@ -85,6 +85,11 @@ describe('setup sources', () => {
       {
         synchronizer: {
           sync(_source, cachePath) {
+            mkdirSync(cachePath, { recursive: true });
+            writeFileSync(
+              join(cachePath, 'settings.yml'),
+              ['default_profile: engineer', 'profile_sources:', '  - path: ./profiles', ''].join('\n'),
+            );
             writeCachedProfile(join(cachePath, 'profiles'), 'engineer');
             return 'updated';
           },

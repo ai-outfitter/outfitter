@@ -718,7 +718,7 @@ Requirements:
 
 Responsibilities:
 
-- create `~/.outfitter/settings.yml` when missing;
+- create `~/.outfitter/settings.yml` when missing, using `remote_settings` for `github: ai-outfitter/default-profiles`, `ref: main`, and `path: settings.yml` for the built-in first-run source;
 - accept an optional setup source URI, for example `outfitter setup https://github.com/example/outfitter-config`, and clone/update it under `~/.outfitter/cache/repos/<encoded-uri-and-ref>/`;
 
 - when a setup source is provided, use its root `settings.yml` or `.outfitter/settings.yml` and `profiles/` or `.outfitter/profiles/` as the initial non-overwriting setup starting point for the selected import target;
@@ -728,7 +728,8 @@ Responsibilities:
 - require an interactive TTY on both stdin and stdout before running setup prompts;
 - create a default profile when missing;
 - validate all discovered settings files and any starter settings file;
-- run `outfitter sync` behavior for URI profile sources before profile selection;
+- run `outfitter sync` behavior for remote settings and URI profile sources before profile selection;
+- during the initial welcome handoff, load shared-profile choices from the synchronized default-profiles settings source and preserve loaded IDs, labels, and descriptions;
 
 - outside that initial welcome handoff and outside setup-source import onboarding, show a setup wizard with synced profile choices, preserve display labels where available, validate the selected profile ID, and write the selected default profile to user settings;
 - create any missing fallback default profile file for the final selected default profile;
@@ -740,12 +741,11 @@ Responsibilities:
 
 - require an interactive TTY on both stdin and stdout before running welcome prompts;
 - show welcome text that explains Outfitter and Pi before asking onboarding questions;
-- ask a single accept/decline question for the founder profile;
-- install the founder role by default and use it as the deterministic fallback, while keeping `engineer` and `data_analyst` available through `/outfitter` after first run;
-- install the full recommended Pi productivity loadout on acceptance without item-level prompts;
-- keep the recommended loadout aligned to `git:github.com/ai-outfitter/deepwork`, `npm:@juicesharp/rpiv-ask-user-question`, `git:github.com/applepi-ai/ulta-tasklist`, `npm:pi-nolo`, `npm:pi-browser-harness`, `npm:@mjakl/pi-subagent`, `npm:@narumitw/pi-btw`, `npm:pi-must-have-extension`, `npm:pi-interactive-shell`, and `npm:pi-mcp-adapter` while those packages remain available;
-- create the selected local role profile on the fly and warn while continuing if a loadout item is unavailable;
-- return typed onboarding choices so later work can persist richer profile/loadout metadata behind a schema-validated YAML format if needed.
+- ask whether to use shared profiles from `https://github.com/ai-outfitter/default-profiles`;
+- present loaded shared profiles as keyboard-selectable choices using each profile's ID, label, and description when available;
+- choose a deterministic fallback from loaded profiles when an injected or stale selection is unavailable;
+- copy the selected shared profile locally without overwriting user files and without injecting stale hardcoded role prompts into copied remote content;
+- return typed onboarding choices so later work can persist richer profile metadata behind a schema-validated YAML format if needed.
 
 Before launching Pi after welcome onboarding, `outfitter run` checks whether native Pi appears to have login state in `auth.json` or `models.json`.
 If no login state is detected, Outfitter starts interactive Pi welcome launches with `/login` automatically; outside the welcome flow it prints an informational `/login` notice only for interactive launches and leaves non-interactive output streams untouched.
