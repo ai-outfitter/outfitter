@@ -211,6 +211,7 @@ export const executeSetupCommand = async (
   );
   const welcomeProfile = persistWelcomeProfileForSetup(input, settingsPath, welcomeResult);
   const finalDefaultProfile = prepareFinalDefaultProfile(input.homeDirectory, selectedDefaultProfileId, welcomeProfile);
+  ensureUnansweredWelcomeProfileSource(input.homeDirectory, settingsPath, welcomeResult);
 
   return {
     settingsPath,
@@ -406,6 +407,18 @@ const prepareFinalDefaultProfile = (
     welcomeProfile?.createdProfile ?? createDefaultProfileIfMissing(finalDefaultProfilePath, finalDefaultProfileId);
 
   return { id: finalDefaultProfileId, path: finalDefaultProfilePath, created: createdDefaultProfile };
+};
+
+const ensureUnansweredWelcomeProfileSource = (
+  homeDirectory: string,
+  settingsPath: string,
+  welcomeResult: WelcomeCommandResult | undefined,
+): void => {
+  if (welcomeResult?.answered !== false) {
+    return;
+  }
+
+  ensureLocalProfileSource(settingsPath, join(homeDirectory, '.outfitter', 'profiles'));
 };
 
 interface SetupMessageInput {

@@ -91,7 +91,7 @@ const welcomeIntroLines = [
   '  - github: ai-outfitter/default-profiles',
   '    ref: main',
   '    path: settings.yml',
-  'Choose a profile now, then use /outfitter inside Pi any time to customize it.',
+  'Choose a profile now if shared profiles are available; otherwise Outfitter will open /outfitter inside Pi.',
 ] as const;
 
 export const writeWelcomeIntro = (output: Pick<NodeJS.WritableStream, 'write'>): void => {
@@ -252,19 +252,13 @@ const promptForWelcomePlan = async (
 
   try {
     writeWelcomeIntro(output);
-    const answer = (await readline.question(`Use shared profiles from ${defaultSharedProfilesSourceUrl}? [Y/n]: `))
-      .trim()
-      .toLowerCase();
-    const answerQuestions = answer === '' || ['y', 'yes'].includes(answer);
+    const selectedProfileId = await promptForWelcomeProfileWithReadline(readline, output, input);
 
-    if (!answerQuestions) {
+    if (selectedProfileId === undefined) {
       return { answerQuestions: false };
     }
 
-    return {
-      answerQuestions: true,
-      selectedProfileId: await promptForWelcomeProfileWithReadline(readline, output, input),
-    };
+    return { answerQuestions: true, selectedProfileId };
   } finally {
     readline.close();
   }
@@ -278,7 +272,8 @@ const promptForWelcomeProfileWithReadline = async (
   const profiles = input.profileChoices ?? [];
 
   if (profiles.length === 0) {
-    return input.currentDefaultProfileId;
+    output.write('\nNo shared default profiles were found. Outfitter will open /outfitter inside Pi instead.\n');
+    return undefined;
   }
 
   const defaultIndex = Math.max(

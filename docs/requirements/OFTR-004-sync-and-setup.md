@@ -20,7 +20,7 @@ Outfitter provides setup and maintenance commands that create initial configurat
 10. The interactive `setup` command MUST require interactive TTY streams on both stdin and stdout before prompting.
 11. The interactive `setup` command MUST synchronize remote settings sources and remote profile sources before any setup profile choice prompt.
 12. Initial interactive first-run setup MUST NOT ask a separate default-profile choice before welcome onboarding; the welcome shared-profile selection determines the generated local default profile.
-13. Initial interactive first-run setup MUST load available first-run choices from the synchronized shared settings source and preserve loaded profile IDs, labels, and descriptions.
+13. Initial interactive first-run setup MUST load available first-run choices from the synchronized shared settings source, preserve loaded profile IDs, labels, and descriptions, and leave welcome unanswered for the `/outfitter` handoff when no shared choices are available.
 14. Interactive setup MUST render the shared Outfitter branded ASCII welcome before setup prompts.
 15. When the interactive `setup` command presents setup profile choices outside the initial welcome handoff, it MUST present discovered profile IDs as default-profile choices and preserve available display labels and descriptions in the prompt choices.
 16. Interactive setup profile choices MUST come from loaded profile sources and MUST NOT hardcode profile-repository IDs, labels, or descriptions in setup code.

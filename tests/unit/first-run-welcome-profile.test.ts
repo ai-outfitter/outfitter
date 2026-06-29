@@ -3,6 +3,7 @@
 import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { PassThrough } from 'node:stream';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
@@ -84,6 +85,14 @@ const engineerOnlySynchronizer = {
   },
 };
 
+const emptyDefaultProfileSynchronizer = {
+  sync(_source: unknown, cachePath: string) {
+    writeSharedSettings(cachePath);
+    mkdirSync(join(cachePath, 'profiles'), { recursive: true });
+    return 'updated' as const;
+  },
+};
+
 afterEach(() => {
   for (const root of temporaryRoots.splice(0)) {
     rmSync(root, { recursive: true, force: true });
@@ -93,7 +102,7 @@ afterEach(() => {
 describe('first-run welcome profile', () => {
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-004.1).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
-  it('leaves first-run welcome opt-out on the generated role profile before launching pi', async () => {
+  it('opens /outfitter on an unanswered first-run welcome before launching pi', async () => {
     const root = createTemporaryRoot();
     const homeDirectory = join(root, 'home');
     const projectDirectory = join(root, 'project');
@@ -124,12 +133,48 @@ describe('first-run welcome profile', () => {
 
     expect(result.profileId).toBe('engineer');
     expect(launches).toHaveLength(1);
+    expect(result.launchPlan.args[0]).toBe('--extension');
+    const outfitterExtensionContent = readFileSync(result.launchPlan.args[1] ?? '', 'utf8');
+    expect(outfitterExtensionContent).toContain('setEditorText("/outfitter")');
+    expect(outfitterExtensionContent).toContain('handleInput?.("\\r")');
     expect(readFileSync(join(homeDirectory, '.outfitter', 'settings.yml'), 'utf8')).toContain(
       'default_profile: engineer',
     );
     expect(readFileSync(join(homeDirectory, '.outfitter', 'profiles', 'engineer', 'profile.yml'), 'utf8')).toBe(
       'id: engineer\nlabel: Default\ncontrols: {}\n',
     );
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-010.2, OFTR-010.5).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('opens /outfitter when the shared default source has no profiles', async () => {
+    const root = createTemporaryRoot();
+    const homeDirectory = join(root, 'home');
+    const projectDirectory = join(root, 'project');
+    const input = Object.assign(new PassThrough(), { isTTY: true });
+    const output = Object.assign(new PassThrough(), { isTTY: true });
+
+    const result = await executeRunCommand(
+      { homeDirectory, projectDirectory },
+      {
+        interactive: true,
+        input,
+        output,
+        synchronizer: emptyDefaultProfileSynchronizer,
+        writeLine: () => undefined,
+        launcher: {
+          launch() {
+            return Promise.resolve(0);
+          },
+        },
+      },
+    );
+
+    expect(result.profileId).toBe('engineer');
+    expect(result.launchPlan.args[0]).toBe('--extension');
+    const outfitterExtensionContent = readFileSync(result.launchPlan.args[1] ?? '', 'utf8');
+    expect(outfitterExtensionContent).toContain('setEditorText("/outfitter")');
+    expect(readFileSync(join(homeDirectory, '.outfitter', 'settings.yml'), 'utf8')).toContain('path: ./profiles');
   });
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-010.2, OFTR-010.3).
@@ -194,7 +239,7 @@ describe('first-run welcome profile', () => {
           return Promise.resolve('engineer');
         },
         selectWelcomePlan() {
-          return Promise.resolve({ answerQuestions: false });
+          return Promise.resolve({ answerQuestions: true, selectedProfileId: 'engineer' });
         },
         launcher: {
           launch() {

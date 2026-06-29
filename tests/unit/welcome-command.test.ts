@@ -144,7 +144,7 @@ describe('welcome command', () => {
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-010.1, OFTR-010.2).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
-  it('accepts shared profiles and chooses among remote profile labels and descriptions', async () => {
+  it('uses the first question to choose among remote profile labels and descriptions', async () => {
     const input = Object.assign(new PassThrough(), { isTTY: true });
     const output = Object.assign(new PassThrough(), { isTTY: true });
     let outputText = '';
@@ -160,10 +160,7 @@ describe('welcome command', () => {
       },
       { interactive: true, input, output },
     );
-    setImmediate(() => {
-      input.write('y\n');
-      setImmediate(() => input.end('2\n'));
-    });
+    setImmediate(() => input.end('2\n'));
     const result = await resultPromise;
 
     expect(outputText).toContain('____        _    __ _ _   _');
@@ -174,7 +171,7 @@ describe('welcome command', () => {
     expect(outputText).toContain('github: ai-outfitter/default-profiles');
     expect(outputText).toContain('ref: main');
     expect(outputText).toContain('path: settings.yml');
-    expect(outputText).toContain('Use shared profiles from https://github.com/ai-outfitter/default-profiles? [Y/n]:');
+    expect(outputText).not.toContain('Use shared profiles from');
     expect(outputText).toContain('1. engineer - Engineer');
     expect(outputText).toContain('Engineering setup from the shared default profiles repository.');
     expect(outputText).toContain('2. researcher - Researcher');
@@ -196,10 +193,7 @@ describe('welcome command', () => {
       },
       { interactive: true, input, output },
     );
-    setImmediate(() => {
-      input.write('\n');
-      setImmediate(() => input.end('\n'));
-    });
+    setImmediate(() => input.end('\n'));
     const result = await resultPromise;
 
     expect(result.answered).toBe(true);
@@ -207,17 +201,22 @@ describe('welcome command', () => {
     expect(result.selectedLoadout?.selectedItems.map((item) => item.source)).toEqual(defaultLoadoutSources);
   });
 
-  it('declines with N and returns unanswered', async () => {
+  it('returns unanswered when no shared default profiles are available', async () => {
     const input = Object.assign(new PassThrough(), { isTTY: true });
     const output = Object.assign(new PassThrough(), { isTTY: true });
-    const resultPromise = executeWelcomeCommand(
-      { homeDirectory: '/tmp/home', projectDirectory: '/work/acme' },
+    let outputText = '';
+    output.on('data', (chunk: Buffer | string) => {
+      outputText += chunk.toString();
+    });
+    const result = await executeWelcomeCommand(
+      { homeDirectory: '/tmp/home', projectDirectory: '/work/acme', profileChoices: [] },
       { interactive: true, input, output },
     );
-    setImmediate(() => input.end('n\n'));
-    const result = await resultPromise;
 
     expect(result.answered).toBe(false);
+    expect(outputText).toContain(
+      'No shared default profiles were found. Outfitter will open /outfitter inside Pi instead.',
+    );
     expect(result.messages).toEqual([
       'Skipped shared profile setup. Use /outfitter inside Pi or run `outfitter profile list` to manage profiles.',
     ]);

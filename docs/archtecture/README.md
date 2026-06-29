@@ -729,7 +729,7 @@ Responsibilities:
 - create a default profile when missing;
 - validate all discovered settings files and any starter settings file;
 - run `outfitter sync` behavior for remote settings and URI profile sources before profile selection;
-- during the initial welcome handoff, load shared-profile choices from the synchronized default-profiles settings source and preserve loaded IDs, labels, and descriptions;
+- during the initial welcome handoff, load shared-profile choices from the synchronized default-profiles settings source, preserve loaded IDs, labels, and descriptions, and leave welcome unanswered for the `/outfitter` handoff when no shared choices are available;
 
 - outside that initial welcome handoff and outside setup-source import onboarding, show a setup wizard with synced profile choices, preserve display labels where available, validate the selected profile ID, and write the selected default profile to user settings;
 - create any missing fallback default profile file for the final selected default profile;
@@ -741,14 +741,15 @@ Responsibilities:
 
 - require an interactive TTY on both stdin and stdout before running welcome prompts;
 - show welcome text that explains Outfitter and Pi before asking onboarding questions;
-- ask whether to use shared profiles from `https://github.com/ai-outfitter/default-profiles`;
-- present loaded shared profiles as keyboard-selectable choices using each profile's ID, label, and description when available;
+- make the first prompt a keyboard-selectable choice among loaded shared profiles using each profile's ID, label, and description when available;
+- open `/outfitter` in Pi instead of asking for a profile when no loaded shared profiles are available;
 - choose a deterministic fallback from loaded profiles when an injected or stale selection is unavailable;
 - copy the selected shared profile locally without overwriting user files and without injecting stale hardcoded role prompts into copied remote content;
 - return typed onboarding choices so later work can persist richer profile metadata behind a schema-validated YAML format if needed.
 
-Before launching Pi after welcome onboarding, `outfitter run` checks whether native Pi appears to have login state in `auth.json` or `models.json`.
-If no login state is detected, Outfitter starts interactive Pi welcome launches with `/login` automatically; outside the welcome flow it prints an informational `/login` notice only for interactive launches and leaves non-interactive output streams untouched.
+Before launching Pi after accepted welcome onboarding, `outfitter run` checks whether native Pi appears to have login state in `auth.json` or `models.json`.
+If no login state is detected after a profile selection, Outfitter starts interactive Pi welcome launches with `/login` automatically; outside the welcome flow it prints an informational `/login` notice only for interactive launches and leaves non-interactive output streams untouched.
+If no shared profile is selected because none are available, Outfitter opens `/outfitter` instead so the user can configure a profile first.
 Credential collection stays inside Pi so provider API keys are not collected or persisted by Outfitter.
 
 ### `outfitter sync`
