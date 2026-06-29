@@ -48,7 +48,8 @@ Pi is the default and primary supported adapter; Claude Code is also supported t
 1. Outfitter MUST NOT rely on pi extensions to choose the initial pi configuration directory.
 2. Outfitter MUST choose pi configuration paths before launching pi.
 3. Outfitter MAY use explicit bootstrap extensions for behavior that can run after pi has discovered its initial configuration directory.
-4. Outfitter MUST document warnings when a requested pi control cannot be applied because pi startup order makes it impossible.
+4. Post-start bootstrap extensions MUST clearly communicate when a selected profile or loadout applies only to the next `outfitter` launch.
+5. Outfitter MUST document warnings when a requested pi control cannot be applied because pi startup order makes it impossible.
 
 ### OFTR-006.5: Claude Code Launch Controls
 
@@ -76,4 +77,5 @@ Pi is the default and primary supported adapter; Claude Code is also supported t
 4. Interactive Pi launches MUST inject an Outfitter bootstrap extension that consumes `shift+tab` before Pi's default thinking shortcut can handle it.
 5. The Outfitter bootstrap extension MUST toggle between normal build mode and read-only plan mode.
 6. Plan mode MUST restrict active tools to read-only inspection tools, exclude Bash from the active tool set, and block Bash tool calls while plan mode is active.
-7. Non-interactive Pi launches MUST NOT inject the Outfitter bootstrap extension.
+7. Interactive Pi launches SHOULD register a native `/outfitter` command for Outfitter-specific setup and profile management that can run without an agent turn.
+8. Non-interactive Pi launches MUST NOT inject the Outfitter bootstrap extension.

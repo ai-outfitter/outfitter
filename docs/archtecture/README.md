@@ -710,6 +710,8 @@ Requirements:
 - `-p` / `--profile` selects a profile.
 - `--agent <pi|claude>` selects the agent adapter; if omitted, `default_agent` from settings is used, then `pi`.
 - Without a selected profile, the unified settings default profile is used.
+- On an interactive clean-home Pi launch with no user settings, Outfitter starts a temporary bootstrap profile, injects the native `/outfitter` command, and lets Pi-native onboarding write the selected user default profile for the next launch.
+- Non-interactive clean-home launches do not run onboarding or mutate settings; users must run `outfitter setup` or provide settings first.
 - Unknown args are passed through to the inner agent CLI unaltered.
 - `--strict` makes unsupported profile controls or composite profile assembly warnings fatal.
 - The child agent CLI runs with the generated composite profile, env, and argv.
@@ -734,22 +736,30 @@ Responsibilities:
 - create any missing fallback default profile file for the final selected default profile;
 - report actionable next steps.
 
+### Pi-native `/outfitter` onboarding
+
+Responsibilities:
+
+- register `/outfitter` from the bootstrap extension with `pi.registerCommand("outfitter", ...)` so it executes as a native command before skill fallback dispatch;
+- run without a model turn, using Pi `ctx.ui.*` through a small question abstraction because source inspection found the installed ask-user-question package exports tool registration but no supported direct questionnaire API for other extensions;
+- list loaded default-profile choices from the synced `github: ai-outfitter/default-profiles`, `path: profiles` source and include `founder`, `engineer`, and `data_analyst` when that source is available;
+- write `~/.outfitter/settings.yml` with the shared default profile source and selected `default_profile` when settings are missing;
+- update `default_profile` without overwriting existing user profile files when settings already exist;
+- explain that selected profile/loadout changes apply on the next `outfitter` launch because Pi startup-sensitive state has already been chosen for the running process;
+- keep the published `skills/outfitter` package skill as fallback guidance for environments where the native command is unavailable.
+
 ### `outfitter welcome`
 
 Responsibilities:
 
+- remain available as an explicit compatibility command for terminal welcome prompts;
 - require an interactive TTY on both stdin and stdout before running welcome prompts;
 - show welcome text that explains Outfitter and Pi before asking onboarding questions;
-- ask a single accept/decline question for the founder profile;
-- install the founder role by default and use it as the deterministic fallback, while keeping `engineer` and `data_analyst` available through `/outfitter` after first run;
-- install the full recommended Pi productivity loadout on acceptance without item-level prompts;
-- keep the recommended loadout aligned to `git:github.com/ai-outfitter/deepwork`, `npm:@juicesharp/rpiv-ask-user-question`, `git:github.com/applepi-ai/ulta-tasklist`, `npm:pi-nolo`, `npm:pi-browser-harness`, `npm:@mjakl/pi-subagent`, `npm:@narumitw/pi-btw`, `npm:pi-must-have-extension`, `npm:pi-interactive-shell`, and `npm:pi-mcp-adapter` while those packages remain available;
-- create the selected local role profile on the fly and warn while continuing if a loadout item is unavailable;
-- return typed onboarding choices so later work can persist richer profile/loadout metadata behind a schema-validated YAML format if needed.
+- return typed onboarding choices for compatibility with existing explicit setup behavior.
 
-Before launching Pi after welcome onboarding, `outfitter run` checks whether native Pi appears to have login state in `auth.json` or `models.json`.
-If no login state is detected, Outfitter starts interactive Pi welcome launches with `/login` automatically; outside the welcome flow it prints an informational `/login` notice only for interactive launches and leaves non-interactive output streams untouched.
+The Outfitter bootstrap extension checks Pi runtime model availability with `ctx.modelRegistry.getAvailable()` and opens Pi's native `/login` flow when interactive Pi reports no available models.
 Credential collection stays inside Pi so provider API keys are not collected or persisted by Outfitter.
+Pre-start `auth.json` or `models.json` checks may print interactive guidance, but runtime model availability is the authoritative login kickoff signal.
 
 ### `outfitter sync`
 
