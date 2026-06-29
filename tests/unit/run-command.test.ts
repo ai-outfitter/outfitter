@@ -181,9 +181,9 @@ describe('run command', () => {
     );
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-005.1).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-010.5).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
-  it('runs setup automatically before the default run when user setup has not run', async () => {
+  it('starts Pi-native runtime onboarding instead of terminal setup when user settings are missing', async () => {
     const root = createTemporaryRoot();
     const homeDirectory = join(root, 'home');
     const projectDirectory = join(root, 'project');
@@ -193,38 +193,41 @@ describe('run command', () => {
     const result = await executeRunCommand(
       { homeDirectory, projectDirectory },
       {
+        interactive: true,
         writeLine: (message) => messages.push(message),
         synchronizer: {
           sync(source, cachePath) {
             syncedSources.push(source);
-            mkdirSync(join(cachePath, 'profiles', 'engineer'), { recursive: true });
-            writeFileSync(join(cachePath, 'profiles', 'engineer', 'profile.yml'), 'id: engineer\ncontrols: {}\n');
+            for (const profileId of ['founder', 'engineer', 'data_analyst']) {
+              mkdirSync(join(cachePath, 'profiles', profileId), { recursive: true });
+              writeFileSync(join(cachePath, 'profiles', profileId, 'profile.yml'), `id: ${profileId}\ncontrols: {}\n`);
+            }
             return 'updated';
           },
         },
         launcher: {
-          launch() {
+          launch(plan) {
+            expect(existsSync(join(homeDirectory, '.outfitter', 'settings.yml'))).toBe(false);
+            expect(plan.args).toContain('--extension');
             return Promise.resolve(0);
           },
         },
       },
     );
 
-    expect(messages).not.toContain('`outfitter setup` has not been run yet - running now');
     expect(messages).toEqual(
       expect.arrayContaining([
-        'Pi does not appear to be logged in yet. After Pi starts, run `/login` and choose a subscription such as Codex or provide an API key from another model provider.',
-        '→ resolving profile engineer',
-        `✓ profile layer engineer  ${join(homeDirectory, '.outfitter', 'profiles', 'engineer')}`,
+        'Outfitter will open `/outfitter` inside Pi so you can choose the default profile for future launches.',
+        'Outfitter will ask Pi to open `/login` automatically if Pi reports no available models after startup.',
+        '→ resolving profile outfitter-bootstrap',
         '✓ merged controls',
         `✓ prepared composite profile  ${result.compositeProfileDirectory}`,
         '↳ launching pi …',
       ]),
     );
     expect(syncedSources).toEqual([{ github: 'ai-outfitter/default-profiles', path: 'profiles' }]);
-    expect(result.profileId).toBe('engineer');
-    expect(existsSync(join(homeDirectory, '.outfitter', 'settings.yml'))).toBe(true);
-    expect(existsSync(join(homeDirectory, '.outfitter', 'profiles', 'engineer', 'profile.yml'))).toBe(true);
+    expect(result.profileId).toBe('outfitter-bootstrap');
+    expect(existsSync(join(homeDirectory, '.outfitter', 'settings.yml'))).toBe(false);
   });
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-010.4).
@@ -250,7 +253,7 @@ describe('run command', () => {
     );
 
     expect(messages).toContain(
-      'Pi does not appear to be logged in yet. After Pi starts, run `/login` and choose a subscription such as Codex or provide an API key from another model provider.',
+      'Outfitter will ask Pi to open `/login` automatically if Pi reports no available models after startup.',
     );
     expect(messages.join('\n')).not.toContain('sk-');
 
@@ -269,7 +272,7 @@ describe('run command', () => {
       },
     );
     expect(messages).toContain(
-      'Pi does not appear to be logged in yet. After Pi starts, run `/login` and choose a subscription such as Codex or provide an API key from another model provider.',
+      'Outfitter will ask Pi to open `/login` automatically if Pi reports no available models after startup.',
     );
 
     messages.length = 0;
@@ -286,7 +289,7 @@ describe('run command', () => {
       },
     );
     expect(messages).toContain(
-      'Pi does not appear to be logged in yet. After Pi starts, run `/login` and choose a subscription such as Codex or provide an API key from another model provider.',
+      'Outfitter will ask Pi to open `/login` automatically if Pi reports no available models after startup.',
     );
 
     messages.length = 0;
@@ -303,7 +306,7 @@ describe('run command', () => {
       },
     );
     expect(messages).toContain(
-      'Pi does not appear to be logged in yet. After Pi starts, run `/login` and choose a subscription such as Codex or provide an API key from another model provider.',
+      'Outfitter will ask Pi to open `/login` automatically if Pi reports no available models after startup.',
     );
 
     messages.length = 0;
@@ -320,7 +323,7 @@ describe('run command', () => {
       },
     );
     expect(messages).not.toContain(
-      'Pi does not appear to be logged in yet. After Pi starts, run `/login` and choose a subscription such as Codex or provide an API key from another model provider.',
+      'Outfitter will ask Pi to open `/login` automatically if Pi reports no available models after startup.',
     );
 
     rmSync(join(homeDirectory, '.pi', 'agent', 'auth.json'), { force: true });
@@ -339,7 +342,7 @@ describe('run command', () => {
     );
 
     expect(messages).not.toContain(
-      'Pi does not appear to be logged in yet. After Pi starts, run `/login` and choose a subscription such as Codex or provide an API key from another model provider.',
+      'Outfitter will ask Pi to open `/login` automatically if Pi reports no available models after startup.',
     );
 
     messages.length = 0;
@@ -357,65 +360,64 @@ describe('run command', () => {
     );
 
     expect(messages).not.toContain(
-      'Pi does not appear to be logged in yet. After Pi starts, run `/login` and choose a subscription such as Codex or provide an API key from another model provider.',
+      'Outfitter will ask Pi to open `/login` automatically if Pi reports no available models after startup.',
     );
   });
 
-  it('honors explicit non-interactive first-run setup selection', async () => {
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-010.4, OFTR-010.5).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('does not mutate settings or show onboarding for explicit non-interactive first runs', async () => {
     const root = createTemporaryRoot();
     const homeDirectory = join(root, 'home');
     const projectDirectory = join(root, 'project');
 
-    const result = await executeRunCommand(
-      { homeDirectory, projectDirectory },
-      {
-        interactive: false,
-        writeLine: () => undefined,
-        synchronizer: {
-          sync(_source, cachePath) {
-            mkdirSync(join(cachePath, 'profiles', 'engineer'), { recursive: true });
-            writeFileSync(join(cachePath, 'profiles', 'engineer', 'profile.yml'), 'id: engineer\ncontrols: {}\n');
-            return 'updated';
+    await expect(
+      executeRunCommand(
+        { homeDirectory, projectDirectory },
+        {
+          interactive: false,
+          writeLine: () => undefined,
+          synchronizer: {
+            sync() {
+              throw new Error('non-interactive first runs must not sync onboarding sources');
+            },
+          },
+          launcher: {
+            launch() {
+              throw new Error('non-interactive first runs must not launch without settings');
+            },
           },
         },
-        launcher: {
-          launch() {
-            return Promise.resolve(0);
-          },
-        },
-      },
-    );
+      ),
+    ).rejects.toThrow('Cannot run without a selected profile or default_profile');
 
-    expect(result.profileId).toBe('engineer');
+    expect(existsSync(join(homeDirectory, '.outfitter', 'settings.yml'))).toBe(false);
   });
 
-  it('falls back to non-interactive first-run setup when stdout is not a TTY', async () => {
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-010.4, OFTR-010.5).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('does not fall back to terminal setup when stdout is not a TTY', async () => {
     const root = createTemporaryRoot();
     const homeDirectory = join(root, 'home');
     const projectDirectory = join(root, 'project');
 
-    const result = await executeRunCommand(
-      { homeDirectory, projectDirectory },
-      {
-        input: { isTTY: true } as NodeJS.ReadableStream & { isTTY: true },
-        output: { isTTY: false } as NodeJS.WritableStream & { isTTY: false },
-        writeLine: () => undefined,
-        synchronizer: {
-          sync(_source, cachePath) {
-            mkdirSync(join(cachePath, 'profiles', 'engineer'), { recursive: true });
-            writeFileSync(join(cachePath, 'profiles', 'engineer', 'profile.yml'), 'id: engineer\ncontrols: {}\n');
-            return 'updated';
+    await expect(
+      executeRunCommand(
+        { homeDirectory, projectDirectory },
+        {
+          input: { isTTY: true } as NodeJS.ReadableStream & { isTTY: true },
+          output: { isTTY: false } as NodeJS.WritableStream & { isTTY: false },
+          writeLine: () => undefined,
+          launcher: {
+            launch() {
+              throw new Error('non-TTY first runs must not launch without settings');
+            },
           },
         },
-        launcher: {
-          launch() {
-            return Promise.resolve(0);
-          },
-        },
-      },
-    );
+      ),
+    ).rejects.toThrow('Cannot run without a selected profile or default_profile');
 
-    expect(result.profileId).toBe('engineer');
+    expect(existsSync(join(homeDirectory, '.outfitter', 'settings.yml'))).toBe(false);
   });
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-002.3, OFTR-002.4, OFTR-003.1, OFTR-006.1).
@@ -458,7 +460,7 @@ describe('run command', () => {
     allowTestConsoleOutput(
       ({ method, text }) =>
         method === 'log' &&
-        (isRunCommandSummaryMessage(text) || text.startsWith('Pi does not appear to be logged in yet.')),
+        (isRunCommandSummaryMessage(text) || text.startsWith('Outfitter will ask Pi to open `/login` automatically')),
     );
     const result = await executeRunCommand(
       { homeDirectory: uriHome, projectDirectory, profileId: 'cached' },

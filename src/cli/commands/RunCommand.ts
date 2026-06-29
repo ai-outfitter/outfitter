@@ -1,3 +1,4 @@
+/* eslint-disable max-lines */
 // Provides the command object for launching selected profiles.
 import { existsSync } from 'node:fs';
 import { homedir } from 'node:os';
@@ -18,10 +19,10 @@ import {
 } from '../../profiles/ProfileCache.js';
 import { loadLocalProfileSource } from '../../profiles/ProfileLoader.js';
 import type { LoadedProfile } from '../../profiles/ProfileLoader.js';
-import type { Profile } from '../../profiles/Profile.js';
+import { createEmptyProfile, type Profile } from '../../profiles/Profile.js';
 import type { ProfileSourceReference } from '../../profiles/ProfileSource.js';
 import { resolveProfile } from '../../profiles/ProfileMerger.js';
-import type { Settings } from '../../settings/Settings.js';
+import { emptySettings, type Settings } from '../../settings/Settings.js';
 import { loadSettingsWithCachedRemoteSettings } from '../../settings/SettingsLoader.js';
 import { exportSystemPromptIfEnabled } from '../../prompts/SystemPromptExport.js';
 import {
@@ -41,9 +42,9 @@ import type {
 } from '../../compositeProfile/StatePersistence.js';
 import { watchCompositeProfileInputs } from '../../compositeProfile/CompositeProfileWatcher.js';
 import type { CommandObject } from './CommandObject.js';
-import { preparePiLoginLaunchPlan } from './PiLoginLaunch.js';
-import { executeSetupCommand } from './SetupCommand.js';
-import type { SetupCommandDependencies, SetupCommandResult } from './SetupCommand.js';
+import { isNonInteractivePiLaunch, preparePiLoginLaunchPlan } from './PiLoginLaunch.js';
+import type { SetupCommandDependencies } from './SetupCommand.js';
+import { syncProfileSource, type RemoteProfileSource, type SyncSourceResult } from './SyncCommand.js';
 
 export interface RunCommandInput {
   readonly homeDirectory: string;
@@ -77,8 +78,9 @@ export const executeRunCommand = async (
   input: RunCommandInput,
   dependencies: RunCommandDependencies = {},
 ): Promise<RunCommandResult> => {
-  const setupResult = await runSetupIfNeeded(input, dependencies);
-  const resolvedProfile = loadResolvedProfile(input);
+  const runtimeOnboarding = prepareFirstRunRuntimeOnboarding(input, dependencies);
+  const resolvedProfile =
+    runtimeOnboarding === undefined ? loadResolvedProfile(input) : createFirstRunBootstrapProfile(input);
   const adapter =
     dependencies.adapter ?? createAgentAdapter(selectRunAgentId(input.agentId, resolvedProfile.settings.defaultAgent));
   const compositeProfileRootDirectory = createCompositeProfileRootDirectory(resolvedProfile.profile.id, adapter.id);
@@ -111,11 +113,17 @@ export const executeRunCommand = async (
         compositeProfilePlan.compositeProfile,
         resolvedProfile.profile,
         input.passThroughArgs ?? [],
-        { profileFolders: resolvedProfile.profileFolders, profileLayers: createLaunchProfileLayers(resolvedProfile.profileLayers) },
+        {
+          profileFolders: resolvedProfile.profileFolders,
+          profileLayers: createLaunchProfileLayers(resolvedProfile.profileLayers),
+        },
       ),
       systemPromptExport.outputPath,
     ),
-    setupResult,
+    runtimeOnboarding:
+      runtimeOnboarding === undefined
+        ? undefined
+        : { autoOpenOutfitter: true, defaultProfilesPath: runtimeOnboarding.defaultProfilesPath },
     writeLine: dependencies.writeLine,
   });
   emitLaunchSummary(
@@ -136,7 +144,8 @@ export const executeRunCommand = async (
         warn: dependencies.writeError ?? console.error,
       });
 
-      return createAdapterCompositeProfilePlan(adapter, refreshedProfile, compositeProfileRootDirectory).compositeProfile;
+      return createAdapterCompositeProfilePlan(adapter, refreshedProfile, compositeProfileRootDirectory)
+        .compositeProfile;
     },
     onCompositeProfileWritten: (compositeProfile) => {
       stateBaseline = updateCompositeProfileStateBaselinePaths(
@@ -369,20 +378,55 @@ const formatCompositeProfileStateWriteIssue = (adapterId: string, issue: Composi
   return `${adapterId} wrote '${issue.relativePath}' with state_persistence '${issue.strategy}' and it was not persisted.`;
 };
 
-const runSetupIfNeeded = async (
+interface FirstRunRuntimeOnboarding {
+  readonly defaultProfilesPath: string;
+  readonly syncResult: SyncSourceResult;
+}
+
+const defaultProfilesSource = {
+  github: 'ai-outfitter/default-profiles',
+  path: 'profiles',
+} as const satisfies RemoteProfileSource;
+
+const prepareFirstRunRuntimeOnboarding = (
   input: RunCommandInput,
   dependencies: RunCommandDependencies,
-): Promise<SetupCommandResult | undefined> => {
-  const settingsPath = join(input.homeDirectory, '.outfitter', 'settings.yml');
-
-  if (existsSync(settingsPath)) {
+): FirstRunRuntimeOnboarding | undefined => {
+  if (!shouldUsePiNativeFirstRunOnboarding(input, dependencies)) {
     return undefined;
   }
 
-  return executeSetupCommand(input, { ...dependencies, interactive: shouldRunFirstSetupInteractively(dependencies) });
+  const syncResult = syncProfileSource(input.homeDirectory, defaultProfilesSource, dependencies.synchronizer);
+
+  if (syncResult.status === 'failed') {
+    throw new Error(
+      `Cannot start Pi-native onboarding because the default profiles source failed to sync: ${syncResult.message}. ` +
+        'Fix the network/git issue or run `outfitter setup` once the source is reachable.',
+    );
+  }
+
+  return { defaultProfilesPath: join(syncResult.cachePath, defaultProfilesSource.path), syncResult };
 };
 
-const shouldRunFirstSetupInteractively = (dependencies: RunCommandDependencies): boolean => {
+const shouldUsePiNativeFirstRunOnboarding = (input: RunCommandInput, dependencies: RunCommandDependencies): boolean => {
+  if (existsSync(join(input.homeDirectory, '.outfitter', 'settings.yml'))) {
+    return false;
+  }
+
+  const selectedAgentId = dependencies.adapter?.id ?? selectRunAgentId(input.agentId, undefined);
+
+  if (input.profileId !== undefined || selectedAgentId !== 'pi') {
+    return false;
+  }
+
+  if (isNonInteractivePiLaunch(input.passThroughArgs ?? [])) {
+    return false;
+  }
+
+  return isInteractiveRunLaunch(dependencies);
+};
+
+const isInteractiveRunLaunch = (dependencies: RunCommandDependencies): boolean => {
   if (dependencies.interactive !== undefined) {
     return dependencies.interactive;
   }
@@ -394,6 +438,22 @@ const shouldRunFirstSetupInteractively = (dependencies: RunCommandDependencies):
 
   return inputIsTty && outputIsTty;
 };
+
+const createFirstRunBootstrapProfile = (input: RunCommandInput): ResolvedRunProfile => ({
+  profile: {
+    ...createEmptyProfile('outfitter-bootstrap'),
+    label: 'Outfitter Bootstrap',
+    description: 'Temporary first-run profile that starts Pi before Outfitter settings exist.',
+  },
+  profilePaths: [],
+  profileFolders: [],
+  homeDirectory: input.homeDirectory,
+  cacheDirectory: join(input.homeDirectory, '.outfitter', 'cache'),
+  projectDirectory: input.projectDirectory,
+  settings: emptySettings(),
+  settingsPaths: [],
+  profileLayers: [],
+});
 
 const loadResolvedProfile = (input: RunCommandInput): ResolvedRunProfile => {
   const loadedSettings = loadSettingsWithCachedRemoteSettings(input);

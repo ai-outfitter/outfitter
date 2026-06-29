@@ -189,7 +189,7 @@ const syncUriSource = (
   }
 };
 
-const createGitSynchronizer = (): UriProfileSourceSynchronizer => ({
+export const createGitSynchronizer = (): UriProfileSourceSynchronizer => ({
   sync(source, cachePath) {
     mkdirSync(dirname(cachePath), { recursive: true });
 
@@ -242,7 +242,13 @@ const runGit = (args: readonly string[]): void => {
   }
 };
 
-type RemoteProfileSource = ProfileSourceReference & ({ readonly uri: string } | { readonly github: string });
+export type RemoteProfileSource = ProfileSourceReference & ({ readonly uri: string } | { readonly github: string });
+
+export const syncProfileSource = (
+  homeDirectory: string,
+  source: RemoteProfileSource,
+  synchronizer: UriProfileSourceSynchronizer = createGitSynchronizer(),
+): SyncSourceResult => syncUriSource(homeDirectory, source, synchronizer);
 
 const isRemoteProfileSource = (source: ProfileSourceReference): source is RemoteProfileSource =>
   source.uri !== undefined || source.github !== undefined;

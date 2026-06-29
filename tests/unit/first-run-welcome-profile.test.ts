@@ -67,13 +67,6 @@ const defaultProfileSynchronizer = {
   },
 };
 
-const engineerOnlySynchronizer = {
-  sync(_source: unknown, cachePath: string) {
-    writeDefaultProfile(join(cachePath, 'profiles'), 'engineer', ['git:github.com/ai-outfitter/deepwork']);
-    return 'updated' as const;
-  },
-};
-
 afterEach(() => {
   for (const root of temporaryRoots.splice(0)) {
     rmSync(root, { recursive: true, force: true });
@@ -83,7 +76,7 @@ afterEach(() => {
 describe('first-run welcome profile', () => {
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-004.1).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
-  it('leaves first-run welcome opt-out on the generated role profile before launching pi', async () => {
+  it('starts Pi-native onboarding instead of the legacy welcome opt-out before launching pi', async () => {
     const root = createTemporaryRoot();
     const homeDirectory = join(root, 'home');
     const projectDirectory = join(root, 'project');
@@ -98,10 +91,10 @@ describe('first-run welcome profile', () => {
         synchronizer: defaultProfileSynchronizer,
         writeLine: () => undefined,
         selectDefaultProfile() {
-          throw new Error('first-run setup should let welcome choose the profile');
+          throw new Error('first-run runtime onboarding should not ask terminal setup questions');
         },
         selectWelcomePlan() {
-          return Promise.resolve({ answerQuestions: false });
+          throw new Error('first-run runtime onboarding should not run terminal welcome questions');
         },
         launcher: {
           launch(plan) {
@@ -112,19 +105,14 @@ describe('first-run welcome profile', () => {
       },
     );
 
-    expect(result.profileId).toBe('engineer');
+    expect(result.profileId).toBe('outfitter-bootstrap');
     expect(launches).toHaveLength(1);
-    expect(readFileSync(join(homeDirectory, '.outfitter', 'settings.yml'), 'utf8')).toContain(
-      'default_profile: engineer',
-    );
-    expect(readFileSync(join(homeDirectory, '.outfitter', 'profiles', 'engineer', 'profile.yml'), 'utf8')).toBe(
-      'id: engineer\nlabel: Default\ncontrols: {}\n',
-    );
+    expect(existsSync(join(homeDirectory, '.outfitter', 'settings.yml'))).toBe(false);
   });
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-010.2, OFTR-010.3).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
-  it('persists first-run welcome role selection with no loadout items before launching pi', async () => {
+  it('defers first-run role selection to native /outfitter before launching pi', async () => {
     const root = createTemporaryRoot();
     const homeDirectory = join(root, 'home');
     const projectDirectory = join(root, 'project');
@@ -138,10 +126,10 @@ describe('first-run welcome profile', () => {
         synchronizer: defaultProfileSynchronizer,
         writeLine: () => undefined,
         selectDefaultProfile() {
-          return Promise.resolve('engineer');
+          throw new Error('first-run runtime onboarding should not ask terminal setup questions');
         },
         selectWelcomePlan() {
-          return Promise.resolve({ answerQuestions: true, selectedRoleId: 'engineer', loadoutItemIds: [] });
+          throw new Error('first-run runtime onboarding should not run terminal welcome questions');
         },
         launcher: {
           launch() {
@@ -151,11 +139,9 @@ describe('first-run welcome profile', () => {
       },
     );
 
-    expect(result.profileId).toBe('engineer');
-    expect(result.launchPlan.args).toContain('--append-system-prompt');
-    expect(readFileSync(join(homeDirectory, '.outfitter', 'profiles', 'engineer', 'profile.yml'), 'utf8')).toContain(
-      'extensions: []',
-    );
+    expect(result.profileId).toBe('outfitter-bootstrap');
+    expect(result.launchPlan.args).not.toContain('--append-system-prompt');
+    expect(existsSync(join(homeDirectory, '.outfitter', 'profiles', 'engineer', 'profile.yml'))).toBe(false);
   });
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-010.4).
@@ -200,10 +186,11 @@ describe('first-run welcome profile', () => {
 
     expect(result.launchPlan.args[0]).toBe('--extension');
     const loginExtensionContent = readFileSync(result.launchPlan.args[1] ?? '', 'utf8');
-    expect(loginExtensionContent).toContain('setEditorText("/login")');
+    expect(loginExtensionContent).toContain('"/login"');
     expect(loginExtensionContent).toContain('handleInput?.("\\r")');
+    expect(loginExtensionContent).toContain('Credentials stay inside Pi');
     expect(messages).toContain(
-      'Pi does not appear to be logged in yet. Outfitter will open `/login` automatically after Pi starts.',
+      'Outfitter will ask Pi to open `/login` automatically if Pi reports no available models after startup.',
     );
     expect(messages.join('\n')).not.toContain(providerApiKey);
     expect(loginExtensionContent).not.toContain(providerApiKey);
@@ -224,34 +211,32 @@ describe('first-run welcome profile', () => {
     const projectDirectory = join(root, 'project');
     const messages: string[] = [];
 
-    const result = await executeRunCommand(
-      { homeDirectory, projectDirectory, passThroughArgs: ['--print', 'hello'] },
-      {
-        interactive: true,
-        input: { isTTY: true } as NodeJS.ReadableStream & { isTTY: true },
-        output: { isTTY: true } as NodeJS.WritableStream & { isTTY: true },
-        synchronizer: defaultProfileSynchronizer,
-        writeLine: (message) => messages.push(message),
-        selectDefaultProfile() {
-          return Promise.resolve('engineer');
-        },
-        selectWelcomePlan() {
-          return Promise.resolve({ answerQuestions: false });
-        },
-        launcher: {
-          launch() {
-            return Promise.resolve(0);
+    await expect(
+      executeRunCommand(
+        { homeDirectory, projectDirectory, passThroughArgs: ['--print', 'hello'] },
+        {
+          interactive: true,
+          input: { isTTY: true } as NodeJS.ReadableStream & { isTTY: true },
+          output: { isTTY: true } as NodeJS.WritableStream & { isTTY: true },
+          synchronizer: defaultProfileSynchronizer,
+          writeLine: (message) => messages.push(message),
+          selectDefaultProfile() {
+            throw new Error('non-interactive first runs must not ask terminal setup questions');
+          },
+          selectWelcomePlan() {
+            throw new Error('non-interactive first runs must not run terminal welcome questions');
+          },
+          launcher: {
+            launch() {
+              throw new Error('non-interactive first runs must not launch without settings');
+            },
           },
         },
-      },
-    );
+      ),
+    ).rejects.toThrow('Cannot run without a selected profile or default_profile');
 
-    expect(result.launchPlan.args).toContain('--print');
-    expect(result.launchPlan.args.slice(-2)).toEqual(['--print', 'hello']);
-    expect(result.launchPlan.args).not.toContain('prefill-login-extension.js');
-    expect(messages).not.toContain(
-      'Pi does not appear to be logged in yet. After Pi starts, run `/login` and choose a subscription such as Codex or provide an API key from another model provider.',
-    );
+    expect(messages).toEqual([]);
+    expect(existsSync(join(homeDirectory, '.outfitter', 'settings.yml'))).toBe(false);
   });
 
   it('persists a role-only welcome result without loadout data', () => {
@@ -314,36 +299,30 @@ describe('first-run welcome profile', () => {
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-010.2, OFTR-010.3).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
-  it('falls back to a generated welcome profile when the selected role is not cached', async () => {
+  it('falls back to a generated welcome profile when the selected role is not cached', () => {
     const root = createTemporaryRoot();
     const homeDirectory = join(root, 'home');
-    const projectDirectory = join(root, 'project');
+    const settingsPath = join(homeDirectory, '.outfitter', 'settings.yml');
+    mkdirSync(join(homeDirectory, '.outfitter'), { recursive: true });
+    writeFileSync(settingsPath, 'default_profile: engineer\nprofile_sources:\n  - path: ./profiles\n');
 
-    await executeRunCommand(
-      { homeDirectory, projectDirectory },
-      {
-        interactive: true,
-        input: { isTTY: true } as NodeJS.ReadableStream & { isTTY: true },
-        output: { isTTY: true } as NodeJS.WritableStream & { isTTY: true },
-        synchronizer: engineerOnlySynchronizer,
-        writeLine: () => undefined,
-        selectDefaultProfile() {
-          return Promise.resolve('engineer');
-        },
-        selectWelcomePlan() {
-          return Promise.resolve({
-            answerQuestions: true,
-            selectedRoleId: 'data_analyst',
-            loadoutItemIds: ['deepwork'],
-          });
-        },
-        launcher: {
-          launch() {
-            return Promise.resolve(0);
-          },
-        },
+    persistFirstRunWelcomeProfile(homeDirectory, settingsPath, {
+      answered: true,
+      selectedRole: {
+        id: 'data_analyst',
+        label: 'Data Analyst',
+        description: 'Data analysis setup for careful inspection, reproducible methods, assumptions, and summaries.',
       },
-    );
+      selectedLoadout: {
+        id: 'recommended-pi',
+        label: 'Recommended Pi productivity loadout',
+        selectedItems: [
+          { id: 'deepwork', label: 'DeepWork', kind: 'extension', source: 'git:github.com/ai-outfitter/deepwork' },
+        ],
+      },
+      warnings: [],
+      messages: [],
+    });
 
     const profileDirectory = join(homeDirectory, '.outfitter', 'profiles', 'data_analyst');
     expect(readFileSync(join(profileDirectory, 'profile.yml'), 'utf8')).toContain(
@@ -546,42 +525,54 @@ describe('first-run welcome profile', () => {
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-010.3).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
-  it('persists first-run welcome loadout selection before launching pi', async () => {
+  it('persists first-run welcome loadout selection before launching pi', () => {
     const root = createTemporaryRoot();
     const homeDirectory = join(root, 'home');
-    const projectDirectory = join(root, 'project');
+    const settingsPath = join(homeDirectory, '.outfitter', 'settings.yml');
+    const sourceProfilesDirectory = join(root, 'default-profiles');
+    const sourceProfileDirectory = join(sourceProfilesDirectory, 'data_analyst');
+    mkdirSync(join(homeDirectory, '.outfitter'), { recursive: true });
+    writeFileSync(
+      settingsPath,
+      [
+        'default_profile: engineer',
+        'profile_sources:',
+        '  - github: ai-outfitter/default-profiles',
+        '    path: profiles',
+        '',
+      ].join('\n'),
+    );
+    writeDefaultProfile(sourceProfilesDirectory, 'data_analyst', [
+      'git:github.com/nhorton/pi-pr-alerts',
+      'git:github.com/ai-outfitter/deepwork',
+      'npm:pi-subagents',
+    ]);
 
-    const result = await executeRunCommand(
-      { homeDirectory, projectDirectory },
+    persistFirstRunWelcomeProfile(
+      homeDirectory,
+      settingsPath,
       {
-        interactive: true,
-        input: { isTTY: true } as NodeJS.ReadableStream & { isTTY: true },
-        output: { isTTY: true } as NodeJS.WritableStream & { isTTY: true },
-        synchronizer: defaultProfileSynchronizer,
-        writeLine: () => undefined,
-        selectDefaultProfile() {
-          return Promise.resolve('data_analyst');
+        answered: true,
+        selectedRole: {
+          id: 'data_analyst',
+          label: 'Data Analyst',
+          description: 'Data analysis setup for careful inspection, reproducible methods, assumptions, and summaries.',
         },
-        selectWelcomePlan() {
-          return Promise.resolve({
-            answerQuestions: true,
-            selectedRoleId: 'data_analyst',
-            loadoutItemIds: ['deepwork', 'pi-mcp-adapter'],
-          });
+        selectedLoadout: {
+          id: 'recommended-pi',
+          label: 'Recommended Pi productivity loadout',
+          selectedItems: [
+            { id: 'deepwork', label: 'DeepWork', kind: 'extension', source: 'git:github.com/ai-outfitter/deepwork' },
+            { id: 'pi-mcp-adapter', label: 'MCP Adapter', kind: 'package', source: 'npm:pi-mcp-adapter' },
+          ],
         },
-        launcher: {
-          launch() {
-            return Promise.resolve(0);
-          },
-        },
+        warnings: [],
+        messages: [],
       },
+      { sourceProfileDirectory },
     );
 
-    expect(result.profileId).toBe('data_analyst');
-    expect(result.launchPlan.args).toContain('git:github.com/ai-outfitter/deepwork');
-    expect(result.launchPlan.args).toContain('npm:pi-mcp-adapter');
-    expect(result.launchPlan.args).not.toContain('git:github.com/nhorton/pi-pr-alerts');
-    const settings = readFileSync(join(homeDirectory, '.outfitter', 'settings.yml'), 'utf8');
+    const settings = readFileSync(settingsPath, 'utf8');
     const copiedProfile = readFileSync(
       join(homeDirectory, '.outfitter', 'profiles', 'data_analyst', 'profile.yml'),
       'utf8',

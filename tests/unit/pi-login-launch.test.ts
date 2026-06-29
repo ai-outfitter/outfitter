@@ -8,7 +8,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import type { AgentLaunchPlan } from '../../src/agents/AgentAdapter.js';
 import { preparePiLoginLaunchPlan } from '../../src/cli/commands/PiLoginLaunch.js';
-import type { SetupCommandResult } from '../../src/cli/commands/SetupCommand.js';
+import { createRemoteRepositoryCachePath } from '../../src/profiles/ProfileCache.js';
 
 const temporaryRoots: string[] = [];
 
@@ -23,6 +23,25 @@ const createLaunchPlan = (agentDir: string, args: readonly string[] = []): Agent
   args: [...args],
   env: { PI_CODING_AGENT_DIR: agentDir },
 });
+
+const writeDefaultProfilesCache = (homeDirectory: string): string => {
+  const profilesPath = join(
+    createRemoteRepositoryCachePath(homeDirectory, { github: 'ai-outfitter/default-profiles', path: 'profiles' }),
+    'profiles',
+  );
+
+  for (const [id, label] of [
+    ['founder', 'Founder'],
+    ['engineer', 'Engineer'],
+    ['data_analyst', 'Data Analyst'],
+  ] as const) {
+    const profileDirectory = join(profilesPath, id);
+    mkdirSync(profileDirectory, { recursive: true });
+    writeFileSync(join(profileDirectory, 'profile.yml'), `id: ${id}\nlabel: ${label}\ncontrols: {}\n`);
+  }
+
+  return profilesPath;
+};
 
 const extensionPaths = (plan: AgentLaunchPlan): string[] =>
   plan.args.filter((_arg, index) => plan.args[index - 1] === '--extension');
@@ -48,24 +67,24 @@ type MockEvent = {
 };
 type MockContext = ReturnType<typeof createMockContext>;
 type MockHandler = (event: MockEvent, context: MockContext) => unknown;
+type MockCommand = {
+  readonly description?: string;
+  readonly handler: (args: string, context: MockContext) => Promise<void>;
+};
 type OutfitterExtension = (pi: ReturnType<typeof createMockPi>) => void;
-
-const createSetupResultWithWelcome = (answered: boolean): SetupCommandResult => ({
-  settingsPath: '',
-  defaultProfilePath: '',
-  createdSettings: false,
-  copiedStarterProfileFiles: 0,
-  createdDefaultProfile: false,
-  syncResult: { sources: [], messages: [] },
-  welcomeResult: { answered, warnings: [], messages: [] },
-  messages: [],
-});
 
 const evaluateOutfitterExtension = (content: string): OutfitterExtension => {
   const executableContent = content
     .replace('import { matchesKey } from "@earendil-works/pi-tui";', 'const matchesKey = (data, key) => data === key;')
+    .replaceAll('import("node:fs")', 'globalThis.__import("node:fs")')
+    .replaceAll('import("node:path")', 'globalThis.__import("node:path")')
     .replace('export default function outfitter', 'function outfitter');
-  const sandbox = { globalThis: {} as { outfitter?: OutfitterExtension } };
+  const sandbox = {
+    globalThis: {
+      __import: (specifier: string) => import(specifier),
+    } as { __import: (specifier: string) => Promise<unknown>; outfitter?: OutfitterExtension },
+    setTimeout,
+  };
 
   new Script(`${executableContent}\nglobalThis.outfitter = outfitter;`).runInContext(createContext(sandbox));
 
@@ -77,10 +96,12 @@ const evaluateOutfitterExtension = (content: string): OutfitterExtension => {
 };
 
 const createMockPi = () => {
+  const commands: Record<string, MockCommand> = {};
   const handlers: Record<string, MockHandler[]> = {};
   let activeTools = ['read', 'bash', 'edit', 'write'];
 
   return {
+    commands,
     handlers,
     get activeTools() {
       return activeTools;
@@ -90,30 +111,80 @@ const createMockPi = () => {
     on: (eventName: string, handler: MockHandler) => {
       handlers[eventName] = [...(handlers[eventName] ?? []), handler];
     },
-    registerCommand: () => undefined,
+    registerCommand: (name: string, command: MockCommand) => {
+      commands[name] = command;
+    },
     setActiveTools: (toolNames: string[]) => {
       activeTools = toolNames;
     },
   };
 };
 
-const createMockContext = () => {
+const createMockContext = (
+  options: { readonly availableModels?: readonly unknown[]; readonly selectedOption?: string } = {},
+) => {
+  let editorText = '';
   let terminalInputHandler: ((data: string) => { readonly consume?: boolean } | undefined) | undefined;
+  const notifications: string[] = [];
+  const selectCalls: Array<{ readonly title: string; readonly options: readonly string[] }> = [];
+  const submittedInputs: string[] = [];
 
   return {
+    hasUI: true,
     mode: 'tui',
+    modelRegistry: {
+      getAvailable: () => Promise.resolve(options.availableModels ?? [{}]),
+    },
+    get editorText() {
+      return editorText;
+    },
+    notifications,
+    selectCalls,
+    submittedInputs,
     get terminalInputHandler() {
       return terminalInputHandler;
     },
     ui: {
-      notify: () => undefined,
+      custom: <T>(
+        factory: (
+          tui: { focusedComponent?: { handleInput(input: string): void } },
+          theme: unknown,
+          keybindings: unknown,
+          done: (result: T) => void,
+        ) => unknown,
+      ) =>
+        new Promise<T>((resolve) => {
+          factory(
+            {
+              focusedComponent: {
+                handleInput(input: string) {
+                  submittedInputs.push(input);
+                },
+              },
+            },
+            {},
+            {},
+            resolve,
+          );
+        }),
+      notify: (message: string) => {
+        notifications.push(message);
+      },
       onTerminalInput: (handler: (data: string) => { readonly consume?: boolean } | undefined) => {
         terminalInputHandler = handler;
         return () => undefined;
       },
+      select: (title: string, selectOptions: readonly string[]) => {
+        selectCalls.push({ title, options: selectOptions });
+        return Promise.resolve(options.selectedOption ?? selectOptions[0]);
+      },
+      setEditorText: (text: string) => {
+        editorText = text;
+      },
       setHeader: () => undefined,
       setStatus: () => undefined,
       theme: {
+        bold: (text: string) => text,
         fg: (_color: string, text: string) => text,
       },
     },
@@ -127,7 +198,7 @@ const startMockSession = async (pi: ReturnType<typeof createMockPi>, context: Mo
     throw new Error('session_start handler was not registered.');
   }
 
-  await handler({}, context);
+  await handler({ reason: 'startup' }, context);
 };
 
 const sendMockTerminalInput = (context: MockContext, data: string): { readonly consume?: boolean } | undefined => {
@@ -162,6 +233,16 @@ const runMockContextFilter = (
   return handler({ messages }, context);
 };
 
+const runOutfitterCommand = async (pi: ReturnType<typeof createMockPi>, context: MockContext): Promise<void> => {
+  const command = pi.commands.outfitter;
+
+  if (command === undefined) {
+    throw new Error('outfitter command was not registered.');
+  }
+
+  await command.handler('', context);
+};
+
 afterEach(() => {
   while (temporaryRoots.length > 0) {
     rmSync(temporaryRoots.pop() as string, { recursive: true, force: true });
@@ -181,12 +262,14 @@ describe('preparePiLoginLaunchPlan', () => {
     const header = readExtension(plan, 'outfitter-extension.js');
     expect(header).toContain('ctx.getSystemPrompt()');
     expect(header).toContain('OUTFITTER_SYSTEM_PROMPT_EXPORT_PATH');
+    expect(header).toContain('pi.registerCommand("outfitter"');
     expect(header).toContain('ctx.ui.setHeader');
     expect(header).toContain(
       'Outfitter + Pi can explain its own features and look up its docs. Ask it how to use or extend Pi or outfitter profiles.',
     );
     // Guards against running outside the interactive TUI.
     expect(header).toContain('if (ctx.mode !== "tui") return;');
+    expect(header).not.toContain('pi.sendUserMessage');
   });
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-006.7).
@@ -331,20 +414,68 @@ describe('preparePiLoginLaunchPlan', () => {
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-010.4).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
-  it('brands and auto-opens login together on first run when pi is not logged in', () => {
+  it('opens Pi login from the bootstrap extension when runtime models are unavailable', async () => {
     const agentDir = createAgentDir();
     const messages: string[] = [];
     const plan = preparePiLoginLaunchPlan({
       adapterId: 'pi',
       homeDirectory: agentDir,
       launchPlan: createLaunchPlan(agentDir),
-      setupResult: createSetupResultWithWelcome(true),
       writeLine: (message) => messages.push(message),
     });
+    const extension = evaluateOutfitterExtension(readExtension(plan, 'outfitter-extension.js'));
+    const pi = createMockPi();
+    const context = createMockContext({ availableModels: [] });
 
-    expect(() => readExtension(plan, 'outfitter-extension.js')).not.toThrow();
-    expect(() => readExtension(plan, 'prefill-login-extension.js')).not.toThrow();
-    expect(messages.some((message) => message.includes('/login'))).toBe(true);
+    extension(pi);
+    await startMockSession(pi, context);
+
+    expect(context.editorText).toBe('/login');
+    expect(context.submittedInputs).toEqual(['\r']);
+    expect(context.notifications.join('\n')).toContain('Credentials stay inside Pi');
+    expect(messages).toContain(
+      'Outfitter will ask Pi to open `/login` automatically if Pi reports no available models after startup.',
+    );
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-010.2, OFTR-010.5).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('registers native /outfitter and persists the selected default profile without an agent turn', async () => {
+    const homeDirectory = createAgentDir();
+    const agentDir = createAgentDir();
+    const defaultProfilesPath = writeDefaultProfilesCache(homeDirectory);
+    const plan = preparePiLoginLaunchPlan({
+      adapterId: 'pi',
+      homeDirectory,
+      launchPlan: createLaunchPlan(agentDir),
+      runtimeOnboarding: { defaultProfilesPath },
+      writeLine: () => undefined,
+    });
+    const extension = evaluateOutfitterExtension(readExtension(plan, 'outfitter-extension.js'));
+    const pi = createMockPi();
+    const context = createMockContext({ selectedOption: 'data_analyst — Data Analyst' });
+
+    extension(pi);
+    await runOutfitterCommand(pi, context);
+
+    const settingsPath = join(homeDirectory, '.outfitter', 'settings.yml');
+    expect(Object.keys(pi.commands)).toContain('outfitter');
+    expect(context.selectCalls[0]?.options).toEqual([
+      'founder — Founder (Recommended)',
+      'engineer — Engineer',
+      'data_analyst — Data Analyst',
+    ]);
+    expect(readFileSync(settingsPath, 'utf8')).toBe(
+      [
+        'default_profile: data_analyst',
+        'profile_sources:',
+        '  - github: ai-outfitter/default-profiles',
+        '    path: profiles',
+        '  - path: ./profiles',
+        '',
+      ].join('\n'),
+    );
+    expect(context.notifications.join('\n')).toContain("applies on the next 'outfitter' launch");
   });
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-010.5).
@@ -363,7 +494,9 @@ describe('preparePiLoginLaunchPlan', () => {
     ).toThrow(`Could not read pi login state file '${join(agentDir, 'models.json')}'`);
   });
 
-  it('brands and auto-opens /outfitter when first-run welcome is declined after login', () => {
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-010.5).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('auto-opens native /outfitter during first-run runtime onboarding', async () => {
     const agentDir = createAgentDir();
     writeFileSync(join(agentDir, 'auth.json'), '{"providers":{"demo":{}}}\n');
     const messages: string[] = [];
@@ -371,12 +504,18 @@ describe('preparePiLoginLaunchPlan', () => {
       adapterId: 'pi',
       homeDirectory: agentDir,
       launchPlan: createLaunchPlan(agentDir),
-      setupResult: createSetupResultWithWelcome(false),
+      runtimeOnboarding: { autoOpenOutfitter: true, defaultProfilesPath: writeDefaultProfilesCache(agentDir) },
       writeLine: (message) => messages.push(message),
     });
+    const extension = evaluateOutfitterExtension(readExtension(plan, 'outfitter-extension.js'));
+    const pi = createMockPi();
+    const context = createMockContext();
 
-    expect(() => readExtension(plan, 'outfitter-extension.js')).not.toThrow();
-    expect(readExtension(plan, 'prefill-outfitter-extension.js')).toContain('setEditorText("/outfitter")');
+    extension(pi);
+    await startMockSession(pi, context);
+
+    expect(context.editorText).toBe('/outfitter');
+    expect(context.submittedInputs).toEqual(['\r']);
     expect(messages.some((message) => message.includes('/outfitter'))).toBe(true);
   });
 });

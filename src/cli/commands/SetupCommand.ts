@@ -707,9 +707,9 @@ const assertValidDefaultProfileId = (profileId: string): void => {
   }
 };
 
-const createDefaultSettingsContent = (): string =>
+export const createDefaultSettingsContent = (defaultProfileId = 'engineer'): string =>
   [
-    'default_profile: engineer',
+    `default_profile: ${defaultProfileId}`,
     'profile_sources:',
     '  - github: ai-outfitter/default-profiles',
     '    path: profiles',
