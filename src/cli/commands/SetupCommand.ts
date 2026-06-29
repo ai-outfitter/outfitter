@@ -34,7 +34,7 @@ import {
 import type { SyncCommandDependencies, SyncCommandResult } from './SyncCommand.js';
 import { executeSyncCommand } from './SyncCommand.js';
 import { executeWelcomeCommand, writeWelcomeIntro } from './WelcomeCommand.js';
-import type { WelcomeCommandDependencies, WelcomeCommandResult } from './WelcomeCommand.js';
+import type { WelcomeCommandDependencies, WelcomeCommandResult, WelcomeProfileChoice } from './WelcomeCommand.js';
 
 export interface SetupCommandInput {
   readonly homeDirectory: string;
@@ -193,12 +193,25 @@ export const executeSetupCommand = async (
   const rollbackCreatedSettings = createdSettings ? () => rmSync(settingsPath, { force: true }) : () => undefined;
   const syncResult = executeSyncCommand(input, dependencies);
   failOnInitialDefaultProfileSyncFailure(initialSettingsMissing, rollbackCreatedSettings, syncResult);
+  const syncedDefaultProfileId = resolveInitialDefaultProfileAfterSync(
+    input,
+    settingsPath,
+    defaultProfileId,
+    initialSettingsMissing,
+    starterLayout,
+  );
   const selectedDefaultProfileId = shouldSkipInitialDefaultProfilePrompt(initialSettingsMissing, dependencies)
-    ? defaultProfileId
-    : await selectDefaultProfileIfInteractive(input, settingsPath, defaultProfileId, dependencies, starterLayout);
-  const welcomeResult = await runWelcomeAfterInteractiveSetup(input, dependencies);
+    ? syncedDefaultProfileId
+    : await selectDefaultProfileIfInteractive(input, settingsPath, syncedDefaultProfileId, dependencies, starterLayout);
+  const welcomeResult = await runWelcomeAfterInteractiveSetup(
+    input,
+    dependencies,
+    selectedDefaultProfileId,
+    starterLayout,
+  );
   const welcomeProfile = persistWelcomeProfileForSetup(input, settingsPath, welcomeResult);
   const finalDefaultProfile = prepareFinalDefaultProfile(input.homeDirectory, selectedDefaultProfileId, welcomeProfile);
+  ensureUnansweredWelcomeProfileSource(input.homeDirectory, settingsPath, welcomeResult);
 
   return {
     settingsPath,
@@ -226,6 +239,7 @@ export const executeSetupCommand = async (
 /* eslint-enable complexity */
 
 const defaultProfilesSourceUri = 'git+https://github.com/ai-outfitter/default-profiles.git:profiles';
+const defaultProfilesRemoteSettingsUri = 'git+https://github.com/ai-outfitter/default-profiles.git#main:settings.yml';
 
 const failOnInitialDefaultProfileSyncFailure = (
   initialSettingsMissing: boolean,
@@ -237,7 +251,9 @@ const failOnInitialDefaultProfileSyncFailure = (
   }
 
   const failedDefaultProfilesSource = syncResult.sources.find(
-    (source) => source.uri === defaultProfilesSourceUri && source.status === 'failed',
+    (source) =>
+      (source.uri === defaultProfilesRemoteSettingsUri || source.uri === defaultProfilesSourceUri) &&
+      source.status === 'failed',
   );
 
   if (failedDefaultProfilesSource === undefined) {
@@ -250,6 +266,30 @@ const failOnInitialDefaultProfileSyncFailure = (
     `Cannot complete first-run setup because the default profiles source failed to sync: ${failedDefaultProfilesSource.message}. ` +
       'Fix the network/git issue and rerun `outfitter setup` once the source is reachable.',
   );
+};
+
+const resolveInitialDefaultProfileAfterSync = (
+  input: SetupCommandInput,
+  settingsPath: string,
+  fallbackDefaultProfileId: string,
+  initialSettingsMissing: boolean,
+  starterLayout: StarterLayout | undefined,
+): string => {
+  if (!initialSettingsMissing || starterLayout !== undefined) {
+    return fallbackDefaultProfileId;
+  }
+
+  const loadedSettings = loadSettingsWithCachedRemoteSettings(input);
+  const discoveredProfiles = discoverSetupProfileChoices(input, starterLayout);
+  const syncedDefaultProfileId = chooseSetupPromptDefault(
+    discoveredProfiles,
+    loadedSettings.settings.defaultProfile,
+    fallbackDefaultProfileId,
+  );
+
+  assertValidDefaultProfileId(syncedDefaultProfileId);
+  updateSettingsDefaultProfile(settingsPath, syncedDefaultProfileId);
+  return syncedDefaultProfileId;
 };
 
 interface InteractiveSetupSourceCommandInput {
@@ -367,6 +407,18 @@ const prepareFinalDefaultProfile = (
     welcomeProfile?.createdProfile ?? createDefaultProfileIfMissing(finalDefaultProfilePath, finalDefaultProfileId);
 
   return { id: finalDefaultProfileId, path: finalDefaultProfilePath, created: createdDefaultProfile };
+};
+
+const ensureUnansweredWelcomeProfileSource = (
+  homeDirectory: string,
+  settingsPath: string,
+  welcomeResult: WelcomeCommandResult | undefined,
+): void => {
+  if (welcomeResult?.answered !== false) {
+    return;
+  }
+
+  ensureLocalProfileSource(settingsPath, join(homeDirectory, '.outfitter', 'profiles'));
 };
 
 interface SetupMessageInput {
@@ -708,14 +760,9 @@ const assertValidDefaultProfileId = (profileId: string): void => {
 };
 
 const createDefaultSettingsContent = (): string =>
-  [
-    'default_profile: engineer',
-    'profile_sources:',
-    '  - github: ai-outfitter/default-profiles',
-    '    path: profiles',
-    '  - path: ./profiles',
-    '',
-  ].join('\n');
+  ['remote_settings:', '  - github: ai-outfitter/default-profiles', '    ref: main', '    path: settings.yml', ''].join(
+    '\n',
+  );
 
 const createInitialSettingsIfMissing = (settingsPath: string, starterSettingsPath?: string): boolean => {
   if (existsSync(settingsPath)) {
@@ -1027,7 +1074,10 @@ const persistWelcomeProfileForSetup = (
   welcomeResult: WelcomeCommandResult | undefined,
 ): PersistedFirstRunWelcomeProfile | undefined =>
   persistFirstRunWelcomeProfile(input.homeDirectory, settingsPath, welcomeResult, {
-    sourceProfileDirectory: findWelcomeSourceProfileDirectory(input, welcomeResult?.selectedRole?.id),
+    sourceProfileDirectory: findWelcomeSourceProfileDirectory(
+      input,
+      welcomeResult?.selectedProfile?.id ?? welcomeResult?.selectedRole?.id,
+    ),
   });
 
 const findWelcomeSourceProfileDirectory = (
@@ -1061,6 +1111,8 @@ const findWelcomeSourceProfileDirectory = (
 const runWelcomeAfterInteractiveSetup = async (
   input: SetupCommandInput,
   dependencies: SetupCommandDependencies,
+  currentDefaultProfileId: string,
+  starterLayout?: StarterLayout,
 ): Promise<WelcomeCommandResult | undefined> => {
   if (dependencies.interactive !== true) {
     return undefined;
@@ -1070,7 +1122,14 @@ const runWelcomeAfterInteractiveSetup = async (
     return dependencies.runWelcome(input, dependencies);
   }
 
-  return executeWelcomeCommand(input, dependencies);
+  return executeWelcomeCommand(
+    {
+      ...input,
+      currentDefaultProfileId,
+      profileChoices: discoverWelcomeProfileChoices(input, starterLayout, currentDefaultProfileId),
+    },
+    dependencies,
+  );
 };
 
 const requireInteractiveTerminalIfNeeded = (dependencies: SetupCommandDependencies): void => {
@@ -1411,6 +1470,19 @@ const prioritizeSetupProfileChoice = (
   ...profiles.filter((profile) => profile.id === profileId),
   ...profiles.filter((profile) => profile.id !== profileId),
 ];
+
+const discoverWelcomeProfileChoices = (
+  input: SetupCommandInput,
+  starterLayout: StarterLayout | undefined,
+  currentDefaultProfileId: string,
+): readonly WelcomeProfileChoice[] =>
+  prioritizeSetupProfileChoice(discoverSetupProfileChoices(input, starterLayout), currentDefaultProfileId).map(
+    (profile) => ({
+      id: profile.id,
+      ...(profile.label === undefined ? {} : { label: profile.label }),
+      ...(profile.description === undefined ? {} : { description: profile.description }),
+    }),
+  );
 
 const discoverSetupProfileChoices = (
   input: SetupCommandInput,

@@ -19,6 +19,19 @@ const defaultLoadoutSources = [
   'npm:pi-mcp-adapter',
 ];
 
+const sharedProfileChoices = [
+  {
+    id: 'engineer',
+    label: 'Engineer',
+    description: 'Engineering setup from the shared default profiles repository.',
+  },
+  {
+    id: 'researcher',
+    label: 'Researcher',
+    description: 'Research setup with source checking and concise synthesis.',
+  },
+];
+
 describe('welcome command', () => {
   it('returns skipped onboarding without prompting when the selector opts out', async () => {
     const result = await executeWelcomeCommand(
@@ -34,68 +47,77 @@ describe('welcome command', () => {
       answered: false,
       warnings: [],
       messages: [
-        'Skipped default profile setup. Use /outfitter inside Pi or run `outfitter profile list` to manage profiles.',
+        'Skipped shared profile setup. Use /outfitter inside Pi or run `outfitter profile list` to manage profiles.',
       ],
     });
   });
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-010.2, OFTR-010.3).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
-  it('returns selected default-profile role and recommended loadout data', async () => {
+  it('returns selected shared default-profile data and recommended loadout data', async () => {
     const result = await executeWelcomeCommand(
-      { homeDirectory: '/tmp/home', projectDirectory: '/work/acme/api' },
+      {
+        homeDirectory: '/tmp/home',
+        projectDirectory: '/work/acme/api',
+        profileChoices: sharedProfileChoices,
+        currentDefaultProfileId: 'engineer',
+      },
       {
         selectWelcomePlan() {
-          return Promise.resolve({ answerQuestions: true, selectedRoleId: 'data_analyst' });
+          return Promise.resolve({ answerQuestions: true, selectedProfileId: 'researcher' });
         },
       },
     );
 
     expect(result.answered).toBe(true);
-    expect(result.selectedRole).toEqual({
-      id: 'data_analyst',
-      label: 'Data Analyst',
-      description: 'Data analysis setup for careful inspection, reproducible methods, assumptions, and summaries.',
+    expect(result.selectedProfile).toEqual({
+      id: 'researcher',
+      label: 'Researcher',
+      description: 'Research setup with source checking and concise synthesis.',
     });
     expect(result.selectedLoadout?.id).toBe('recommended-pi');
     expect(result.selectedLoadout?.selectedItems.map((item) => item.source)).toEqual(defaultLoadoutSources);
     expect(result.warnings).toEqual([]);
     expect(result.messages).toEqual([
-      'Installed the founder profile. Use /outfitter inside Pi or run `outfitter profile list` to manage profiles.',
+      "Selected default profile 'researcher' from shared profiles. Use /outfitter inside Pi or run `outfitter profile list` to manage profiles.",
     ]);
   });
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-010.2, OFTR-010.3).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
-  it('falls back for unknown roles and skips unknown loadout items', async () => {
+  it('falls back for unavailable shared profiles and skips unknown loadout items', async () => {
     const result = await executeWelcomeCommand(
-      { homeDirectory: '/tmp/home', projectDirectory: '/work/acme/api' },
+      {
+        homeDirectory: '/tmp/home',
+        projectDirectory: '/work/acme/api',
+        profileChoices: sharedProfileChoices,
+        currentDefaultProfileId: 'engineer',
+      },
       {
         selectWelcomePlan() {
           return Promise.resolve({
             answerQuestions: true,
-            selectedRoleId: 'reviewer',
+            selectedProfileId: 'reviewer',
             loadoutItemIds: ['deepwork', 'deepwork', 'missing-package'],
           });
         },
       },
     );
 
-    expect(result.selectedRole).toEqual({
-      id: 'founder',
-      label: 'Founder',
-      description:
-        'Founder-operator setup for building, product thinking, research checks, dense prose, and careful delivery.',
+    expect(result.selectedProfile).toEqual({
+      id: 'engineer',
+      label: 'Engineer',
+      description: 'Engineering setup from the shared default profiles repository.',
     });
     expect(result.selectedLoadout?.selectedItems.map((item) => item.source)).toEqual([
       'git:github.com/ai-outfitter/deepwork',
     ]);
     expect(result.warnings).toEqual([
-      "Welcome role 'reviewer' is not available; using fallback role 'founder'.",
+      "Welcome profile 'reviewer' is not available; using fallback profile 'engineer'.",
       "Loadout item 'missing-package' is not available for recommended-pi; skipping it.",
     ]);
     expect(result.messages).toContain(
-      "Warning: Welcome role 'reviewer' is not available; using fallback role 'founder'.",
+      "Warning: Welcome profile 'reviewer' is not available; using fallback profile 'engineer'.",
     );
   });
 
@@ -109,20 +131,20 @@ describe('welcome command', () => {
       output: { isTTY: true } as NodeJS.WritableStream & { isTTY: true },
       writeLine: (message) => messages.push(message),
       selectWelcomePlan() {
-        return Promise.resolve({ answerQuestions: true });
+        return Promise.resolve({ answerQuestions: true, selectedProfileId: 'engineer' });
       },
     }).register(program);
 
     await program.parseAsync(['node', 'outfitter', 'welcome']);
 
     expect(messages).toEqual([
-      'Installed the founder profile. Use /outfitter inside Pi or run `outfitter profile list` to manage profiles.',
+      "Selected default profile 'engineer' from shared profiles. Use /outfitter inside Pi or run `outfitter profile list` to manage profiles.",
     ]);
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-010.1, OFTR-010.3).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-010.1, OFTR-010.2).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
-  it('accepts with a single Y and installs the full founder loadout while showing welcome text', async () => {
+  it('uses the first question to choose among remote profile labels and descriptions', async () => {
     const input = Object.assign(new PassThrough(), { isTTY: true });
     const output = Object.assign(new PassThrough(), { isTTY: true });
     let outputText = '';
@@ -130,53 +152,73 @@ describe('welcome command', () => {
       outputText += chunk.toString();
     });
     const resultPromise = executeWelcomeCommand(
-      { homeDirectory: '/tmp/home', projectDirectory: '/work/acme/default' },
+      {
+        homeDirectory: '/tmp/home',
+        projectDirectory: '/work/acme/default',
+        profileChoices: sharedProfileChoices,
+        currentDefaultProfileId: 'engineer',
+      },
       { interactive: true, input, output },
     );
-    setImmediate(() => input.end('y\n'));
+    setImmediate(() => input.end('2\n'));
     const result = await resultPromise;
 
     expect(outputText).toContain('____        _    __ _ _   _');
     expect(outputText).not.toContain('____  _');
     expect(outputText).toContain('Pi is a fully extensible agentic coding harness.');
-    expect(outputText).toContain(
-      '\n\nThe founder profile brings Pi to feature parity with dedicated agentic coding tools:',
-    );
-    expect(outputText).not.toContain('Press Y to install it now.');
-    expect(outputText).toContain('Install the founder profile? [Y/n]:');
+    expect(outputText).toContain('https://github.com/ai-outfitter/default-profiles');
+    expect(outputText).toContain('remote_settings:');
+    expect(outputText).toContain('github: ai-outfitter/default-profiles');
+    expect(outputText).toContain('ref: main');
+    expect(outputText).toContain('path: settings.yml');
+    expect(outputText).not.toContain('Use shared profiles from');
+    expect(outputText).toContain('1. engineer - Engineer');
+    expect(outputText).toContain('Engineering setup from the shared default profiles repository.');
+    expect(outputText).toContain('2. researcher - Researcher');
+    expect(outputText).toContain('Research setup with source checking and concise synthesis.');
     expect(result.answered).toBe(true);
-    expect(result.selectedRole?.id).toBe('founder');
+    expect(result.selectedProfile?.id).toBe('researcher');
     expect(result.selectedLoadout?.selectedItems.map((item) => item.source)).toEqual(defaultLoadoutSources);
   });
 
-  it('accepts with Enter (default) and installs the full founder loadout', async () => {
+  it('accepts with Enter (default) and selects the current shared default profile', async () => {
     const input = Object.assign(new PassThrough(), { isTTY: true });
     const output = Object.assign(new PassThrough(), { isTTY: true });
     const resultPromise = executeWelcomeCommand(
-      { homeDirectory: '/tmp/home', projectDirectory: '/work/acme' },
+      {
+        homeDirectory: '/tmp/home',
+        projectDirectory: '/work/acme',
+        profileChoices: sharedProfileChoices,
+        currentDefaultProfileId: 'engineer',
+      },
       { interactive: true, input, output },
     );
     setImmediate(() => input.end('\n'));
     const result = await resultPromise;
 
     expect(result.answered).toBe(true);
-    expect(result.selectedRole?.id).toBe('founder');
+    expect(result.selectedProfile?.id).toBe('engineer');
     expect(result.selectedLoadout?.selectedItems.map((item) => item.source)).toEqual(defaultLoadoutSources);
   });
 
-  it('declines with N and returns unanswered', async () => {
+  it('returns unanswered when no shared default profiles are available', async () => {
     const input = Object.assign(new PassThrough(), { isTTY: true });
     const output = Object.assign(new PassThrough(), { isTTY: true });
-    const resultPromise = executeWelcomeCommand(
-      { homeDirectory: '/tmp/home', projectDirectory: '/work/acme' },
+    let outputText = '';
+    output.on('data', (chunk: Buffer | string) => {
+      outputText += chunk.toString();
+    });
+    const result = await executeWelcomeCommand(
+      { homeDirectory: '/tmp/home', projectDirectory: '/work/acme', profileChoices: [] },
       { interactive: true, input, output },
     );
-    setImmediate(() => input.end('n\n'));
-    const result = await resultPromise;
 
     expect(result.answered).toBe(false);
+    expect(outputText).toContain(
+      'No shared default profiles were found. Outfitter will open /outfitter inside Pi instead.',
+    );
     expect(result.messages).toEqual([
-      'Skipped default profile setup. Use /outfitter inside Pi or run `outfitter profile list` to manage profiles.',
+      'Skipped shared profile setup. Use /outfitter inside Pi or run `outfitter profile list` to manage profiles.',
     ]);
   });
 

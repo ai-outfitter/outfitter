@@ -1,3 +1,4 @@
+/* eslint-disable max-lines */
 // Tests run command composite profile assembly, launch behavior, and error handling.
 import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -31,6 +32,15 @@ const writeProfile = (root: string, id: string, content: string): string => {
   const profilePath = join(profileDirectory, 'profile.yml');
   writeFileSync(profilePath, content);
   return profilePath;
+};
+
+const writeDefaultProfilesRemoteSettings = (cachePath: string, profileId = 'engineer'): void => {
+  mkdirSync(cachePath, { recursive: true });
+  writeFileSync(
+    join(cachePath, 'settings.yml'),
+    ['default_profile: ' + profileId, 'profile_sources:', '  - path: ./profiles', ''].join('\n'),
+  );
+  writeProfile(join(cachePath, 'profiles'), profileId, `id: ${profileId}\ncontrols: {}\n`);
 };
 
 const waitForFileContaining = async (path: string, content: string): Promise<void> => {
@@ -197,8 +207,7 @@ describe('run command', () => {
         synchronizer: {
           sync(source, cachePath) {
             syncedSources.push(source);
-            mkdirSync(join(cachePath, 'profiles', 'engineer'), { recursive: true });
-            writeFileSync(join(cachePath, 'profiles', 'engineer', 'profile.yml'), 'id: engineer\ncontrols: {}\n');
+            writeDefaultProfilesRemoteSettings(cachePath);
             return 'updated';
           },
         },
@@ -215,13 +224,13 @@ describe('run command', () => {
       expect.arrayContaining([
         'Pi does not appear to be logged in yet. After Pi starts, run `/login` and choose a subscription such as Codex or provide an API key from another model provider.',
         '→ resolving profile engineer',
-        `✓ profile layer engineer  ${join(homeDirectory, '.outfitter', 'profiles', 'engineer')}`,
+        expect.stringContaining('✓ profile layer engineer'),
         '✓ merged controls',
         `✓ prepared composite profile  ${result.compositeProfileDirectory}`,
         '↳ launching pi …',
       ]),
     );
-    expect(syncedSources).toEqual([{ github: 'ai-outfitter/default-profiles', path: 'profiles' }]);
+    expect(syncedSources).toEqual([{ github: 'ai-outfitter/default-profiles', ref: 'main', path: 'settings.yml' }]);
     expect(result.profileId).toBe('engineer');
     expect(existsSync(join(homeDirectory, '.outfitter', 'settings.yml'))).toBe(true);
     expect(existsSync(join(homeDirectory, '.outfitter', 'profiles', 'engineer', 'profile.yml'))).toBe(true);
@@ -373,8 +382,7 @@ describe('run command', () => {
         writeLine: () => undefined,
         synchronizer: {
           sync(_source, cachePath) {
-            mkdirSync(join(cachePath, 'profiles', 'engineer'), { recursive: true });
-            writeFileSync(join(cachePath, 'profiles', 'engineer', 'profile.yml'), 'id: engineer\ncontrols: {}\n');
+            writeDefaultProfilesRemoteSettings(cachePath);
             return 'updated';
           },
         },
@@ -402,8 +410,7 @@ describe('run command', () => {
         writeLine: () => undefined,
         synchronizer: {
           sync(_source, cachePath) {
-            mkdirSync(join(cachePath, 'profiles', 'engineer'), { recursive: true });
-            writeFileSync(join(cachePath, 'profiles', 'engineer', 'profile.yml'), 'id: engineer\ncontrols: {}\n');
+            writeDefaultProfilesRemoteSettings(cachePath);
             return 'updated';
           },
         },

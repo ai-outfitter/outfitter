@@ -170,8 +170,12 @@ describe('profile command', () => {
       writeLine: (message) => setupMessages.push(message),
       synchronizer: {
         sync(_source, cachePath) {
-          mkdirSync(join(cachePath, 'profiles', 'engineer'), { recursive: true });
-          writeFileSync(join(cachePath, 'profiles', 'engineer', 'profile.yml'), 'id: engineer\ncontrols: {}\n');
+          mkdirSync(cachePath, { recursive: true });
+          writeFileSync(
+            join(cachePath, 'settings.yml'),
+            ['default_profile: engineer', 'profile_sources:', '  - path: ./profiles', ''].join('\n'),
+          );
+          writeProfile(join(cachePath, 'profiles'), 'engineer');
           return 'updated';
         },
       },

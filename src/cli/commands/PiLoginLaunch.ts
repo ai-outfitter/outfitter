@@ -41,6 +41,16 @@ export const preparePiLoginLaunchPlan = (input: PiLoginLaunchPlanInput): AgentLa
     launchPlan = addExtension(launchPlan, piConfigDirectory, 'outfitter-extension.js', piOutfitterExtensionContent);
   }
 
+  if (shouldAutoOpenOutfitterSkill(input.setupResult, input.launchPlan.args)) {
+    writePiLoginMessage(input.writeLine, outfitterSkillMessage);
+    return addExtension(
+      launchPlan,
+      piConfigDirectory,
+      'prefill-outfitter-extension.js',
+      piOutfitterPrefillExtensionContent,
+    );
+  }
+
   if (!hasConfiguredPiLoginState(piConfigDirectory)) {
     if (shouldAutoOpenPiLogin(input.setupResult, input.launchPlan.args)) {
       writePiLoginMessage(input.writeLine, automaticLoginMessage);
@@ -51,16 +61,6 @@ export const preparePiLoginLaunchPlan = (input: PiLoginLaunchPlanInput): AgentLa
       writePiLoginMessage(input.writeLine, manualLoginMessage);
     }
     return launchPlan;
-  }
-
-  if (shouldAutoOpenOutfitterSkill(input.setupResult, input.launchPlan.args)) {
-    writePiLoginMessage(input.writeLine, outfitterSkillMessage);
-    return addExtension(
-      launchPlan,
-      piConfigDirectory,
-      'prefill-outfitter-extension.js',
-      piOutfitterPrefillExtensionContent,
-    );
   }
 
   return launchPlan;
