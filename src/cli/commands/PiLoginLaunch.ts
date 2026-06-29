@@ -57,11 +57,11 @@ export const preparePiLoginLaunchPlan = (input: PiLoginLaunchPlanInput): AgentLa
   );
 
   if (input.runtimeOnboarding?.autoOpenOutfitter === true) {
-    writePiLoginMessage(input.writeLine, outfitterCommandMessage);
+    writePiLaunchMessage(input.writeLine, outfitterCommandMessage);
   }
 
   if (!hasConfiguredPiLoginState(piConfigDirectory)) {
-    writePiLoginMessage(input.writeLine, runtimeLoginMessage);
+    writePiLaunchMessage(input.writeLine, runtimeLoginMessage);
   }
 
   return launchPlan;
@@ -543,8 +543,8 @@ const createFallbackProfileContent = (profile) => {
 `;
 };
 
-const writePiLoginMessage = (writeLine: ((message: string) => void) | undefined, message: string): void => {
-  /* v8 ignore next -- console fallback is direct CLI behavior; tests inject a writer for login messages. */
+const writePiLaunchMessage = (writeLine: ((message: string) => void) | undefined, message: string): void => {
+  /* v8 ignore next -- console fallback is direct CLI behavior; tests inject a writer for launch messages. */
   (writeLine ?? console.log)(message);
 };
 

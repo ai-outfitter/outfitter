@@ -1,4 +1,4 @@
-// Tests pi launch-plan preparation: Outfitter header branding plus login prefill injection.
+// Tests pi launch-plan preparation: Outfitter bootstrap UX, native setup, and login kickoff.
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -438,7 +438,7 @@ describe('preparePiLoginLaunchPlan', () => {
     );
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-010.2, OFTR-010.5).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-010.1, OFTR-010.2).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('registers native /outfitter and persists the selected default profile without an agent turn', async () => {
     const homeDirectory = createAgentDir();
@@ -478,8 +478,35 @@ describe('preparePiLoginLaunchPlan', () => {
     expect(context.notifications.join('\n')).toContain("applies on the next 'outfitter' launch");
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-010.5).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-010.2).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('does not overwrite an existing user profile when creating runtime onboarding fallbacks', async () => {
+    const homeDirectory = createAgentDir();
+    const agentDir = createAgentDir();
+    const existingProfilePath = join(homeDirectory, '.outfitter', 'profiles', 'founder', 'profile.yml');
+    const existingProfileContent = 'id: Invalid Founder\nlabel: User-owned file\ncontrols: {}\n';
+    mkdirSync(join(homeDirectory, '.outfitter', 'profiles', 'founder'), { recursive: true });
+    writeFileSync(existingProfilePath, existingProfileContent);
+    const plan = preparePiLoginLaunchPlan({
+      adapterId: 'pi',
+      homeDirectory,
+      launchPlan: createLaunchPlan(agentDir),
+      runtimeOnboarding: {},
+      writeLine: () => undefined,
+    });
+    const extension = evaluateOutfitterExtension(readExtension(plan, 'outfitter-extension.js'));
+    const pi = createMockPi();
+    const context = createMockContext({ selectedOption: 'founder — Founder (Recommended)' });
+
+    extension(pi);
+    await runOutfitterCommand(pi, context);
+
+    expect(readFileSync(existingProfilePath, 'utf8')).toBe(existingProfileContent);
+    expect(readFileSync(join(homeDirectory, '.outfitter', 'settings.yml'), 'utf8')).toContain(
+      'default_profile: founder',
+    );
+  });
+
   it('reports unreadable non-json pi login state files', () => {
     const agentDir = createAgentDir();
     mkdirSync(join(agentDir, 'models.json'));
@@ -494,7 +521,7 @@ describe('preparePiLoginLaunchPlan', () => {
     ).toThrow(`Could not read pi login state file '${join(agentDir, 'models.json')}'`);
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-010.5).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-010.1).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('auto-opens native /outfitter during first-run runtime onboarding', async () => {
     const agentDir = createAgentDir();

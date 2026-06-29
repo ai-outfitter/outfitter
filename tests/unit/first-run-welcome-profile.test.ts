@@ -1,5 +1,5 @@
 /* eslint-disable max-lines */
-// Tests first-run welcome choices affecting the launched profile.
+// Tests Pi-native first-run deferral plus legacy welcome profile persistence helpers.
 import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -73,8 +73,8 @@ afterEach(() => {
   }
 });
 
-describe('first-run welcome profile', () => {
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-004.1).
+describe('first-run onboarding profile persistence', () => {
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-010.1).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('starts Pi-native onboarding instead of the legacy welcome opt-out before launching pi', async () => {
     const root = createTemporaryRoot();
@@ -110,7 +110,7 @@ describe('first-run welcome profile', () => {
     expect(existsSync(join(homeDirectory, '.outfitter', 'settings.yml'))).toBe(false);
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-010.2, OFTR-010.3).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-010.1).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('defers first-run role selection to native /outfitter before launching pi', async () => {
     const root = createTemporaryRoot();
@@ -146,7 +146,7 @@ describe('first-run welcome profile', () => {
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-010.4).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
-  it('opens pi login automatically on the first launch after welcome when pi is not logged in', async () => {
+  it('opens Pi login automatically during first-run bootstrap when Pi is not logged in', async () => {
     const root = createTemporaryRoot();
     const homeDirectory = join(root, 'home');
     const projectDirectory = join(root, 'project');
@@ -164,10 +164,10 @@ describe('first-run welcome profile', () => {
         synchronizer: defaultProfileSynchronizer,
         writeLine: (message) => messages.push(message),
         selectDefaultProfile() {
-          return Promise.resolve('engineer');
+          throw new Error('first-run runtime onboarding should not ask terminal setup questions');
         },
         selectWelcomePlan() {
-          return Promise.resolve({ answerQuestions: false });
+          throw new Error('first-run runtime onboarding should not run terminal welcome questions');
         },
         launcher: {
           launch() {
@@ -205,7 +205,7 @@ describe('first-run welcome profile', () => {
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-010.4).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
-  it('leaves non-interactive pi launches without login prefill or login guidance after welcome', async () => {
+  it('leaves non-interactive pi launches without onboarding, settings mutation, or login guidance', async () => {
     const root = createTemporaryRoot();
     const homeDirectory = join(root, 'home');
     const projectDirectory = join(root, 'project');
@@ -297,8 +297,6 @@ describe('first-run welcome profile', () => {
     expect(readFileSync(settingsPath, 'utf8')).toContain('default_profile: engineer');
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-010.2, OFTR-010.3).
-  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('falls back to a generated welcome profile when the selected role is not cached', () => {
     const root = createTemporaryRoot();
     const homeDirectory = join(root, 'home');
@@ -422,8 +420,6 @@ describe('first-run welcome profile', () => {
     expect(copiedProfile).toContain('git:x');
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-010.3).
-  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('adds copied profile exclusions to the default profile source', () => {
     const root = createTemporaryRoot();
     const homeDirectory = join(root, 'home');
@@ -523,9 +519,7 @@ describe('first-run welcome profile', () => {
     expect(readFileSync(settingsPath, 'utf8')).toContain('default_profile: data_analyst');
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-010.3).
-  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
-  it('persists first-run welcome loadout selection before launching pi', () => {
+  it('persists legacy welcome loadout selection into a copied profile', () => {
     const root = createTemporaryRoot();
     const homeDirectory = join(root, 'home');
     const settingsPath = join(homeDirectory, '.outfitter', 'settings.yml');

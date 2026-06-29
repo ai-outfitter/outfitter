@@ -181,7 +181,7 @@ describe('run command', () => {
     );
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-010.5).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-010.1, OFTR-010.2).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('starts Pi-native runtime onboarding instead of terminal setup when user settings are missing', async () => {
     const root = createTemporaryRoot();
@@ -232,7 +232,7 @@ describe('run command', () => {
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-010.4).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
-  it('notifies pi users to run login when no native login state is configured', async () => {
+  it('emits runtime login kickoff guidance when no native login state is configured', async () => {
     const root = createTemporaryRoot();
     const homeDirectory = join(root, 'home');
     const projectDirectory = join(root, 'project');
@@ -364,7 +364,7 @@ describe('run command', () => {
     );
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-010.4, OFTR-010.5).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-010.1).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('does not mutate settings or show onboarding for explicit non-interactive first runs', async () => {
     const root = createTemporaryRoot();
@@ -394,7 +394,7 @@ describe('run command', () => {
     expect(existsSync(join(homeDirectory, '.outfitter', 'settings.yml'))).toBe(false);
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-010.4, OFTR-010.5).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-010.1).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('does not fall back to terminal setup when stdout is not a TTY', async () => {
     const root = createTemporaryRoot();

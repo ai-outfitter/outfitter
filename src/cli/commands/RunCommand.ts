@@ -44,7 +44,7 @@ import { watchCompositeProfileInputs } from '../../compositeProfile/CompositePro
 import type { CommandObject } from './CommandObject.js';
 import { isNonInteractivePiLaunch, preparePiLoginLaunchPlan } from './PiLoginLaunch.js';
 import type { SetupCommandDependencies } from './SetupCommand.js';
-import { syncProfileSource, type RemoteProfileSource, type SyncSourceResult } from './SyncCommand.js';
+import { syncProfileSource, type RemoteProfileSource } from './SyncCommand.js';
 
 export interface RunCommandInput {
   readonly homeDirectory: string;
@@ -380,7 +380,6 @@ const formatCompositeProfileStateWriteIssue = (adapterId: string, issue: Composi
 
 interface FirstRunRuntimeOnboarding {
   readonly defaultProfilesPath: string;
-  readonly syncResult: SyncSourceResult;
 }
 
 const defaultProfilesSource = {
@@ -405,7 +404,7 @@ const prepareFirstRunRuntimeOnboarding = (
     );
   }
 
-  return { defaultProfilesPath: join(syncResult.cachePath, defaultProfilesSource.path), syncResult };
+  return { defaultProfilesPath: join(syncResult.cachePath, defaultProfilesSource.path) };
 };
 
 const shouldUsePiNativeFirstRunOnboarding = (input: RunCommandInput, dependencies: RunCommandDependencies): boolean => {
