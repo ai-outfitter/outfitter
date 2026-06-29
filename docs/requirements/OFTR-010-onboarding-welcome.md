@@ -19,12 +19,24 @@ as `outfitter setup` and `outfitter welcome` MAY still provide their documented 
 
 ### OFTR-010.2: Profile Source and Default Profile Setup
 
-1. The Pi-native onboarding flow MUST configure the shared default profile source as `github: ai-outfitter/default-profiles` with `path: profiles` unless a newer default is intentionally documented in this repository.
-2. The Pi-native onboarding flow MUST persist the selected `default_profile` to `~/.outfitter/settings.yml`.
-3. The profile picker MUST present loaded profile choices and MUST include `founder`, `engineer`, and `data_analyst` when the default-profiles source is available.
-4. The first-run recommended choice SHOULD be `founder`.
-5. If the selected profile is not present in loaded sources, Outfitter MAY create a local fallback profile under `~/.outfitter/profiles/<profile>/profile.yml`, but it MUST NOT overwrite an existing user profile file.
-6. The onboarding UI MUST clearly communicate that profile/loadout changes made after Pi starts apply to the next `outfitter` launch.
+1. The Pi-native onboarding flow MUST ask first: `How would you like to set up Outfitter?` with the choices `Use the default Outfitter profile catalog`, `Create your own profile`, and `Provide a different catalog to import`.
+2. The Pi-native onboarding flow MUST configure the shared default profile source as `github: ai-outfitter/default-profiles` with `path: profiles` unless a newer default is intentionally documented in this repository.
+3. Default-catalog profile choices MUST be read from the synced default profile catalog and MUST NOT be generated from hardcoded local profile definitions.
+4. The profile picker MUST present loaded profile choices and SHOULD include `founder`, `engineer`, and `data_analyst` when those profiles are present in the default-profiles source.
+5. The first-run recommended choice SHOULD be `founder` when the loaded catalog includes it.
+6. If the user chooses to create a profile, Outfitter MAY create a local profile under the selected install target's `.outfitter/profiles/<profile>/profile.yml`, but it MUST NOT overwrite an existing user profile file.
+7. If the user provides a different catalog to import, Outfitter MUST persist it as `remote_settings`, for example:
+
+   ```yaml
+   remote_settings:
+     - github: my_account/outfitter_config
+       ref: main
+       path: settings.yml
+   ```
+
+8. The final onboarding question MUST choose whether to install settings in the home folder or current project directory.
+9. The Pi-native onboarding flow MUST persist selected home settings to `~/.outfitter/settings.yml` and selected project settings to `<project>/.outfitter/settings.yml`.
+10. The onboarding UI MUST clearly communicate that profile/loadout changes made after Pi starts apply to the next `outfitter` launch.
 
 ### OFTR-010.3: Onboarding UI Surface
 

@@ -1,5 +1,6 @@
+/* eslint-disable max-lines */
 // Tests pi launch-plan preparation: Outfitter bootstrap UX, native setup, and login kickoff.
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Script, createContext } from 'node:vm';
@@ -121,13 +122,21 @@ const createMockPi = () => {
 };
 
 const createMockContext = (
-  options: { readonly availableModels?: readonly unknown[]; readonly selectedOption?: string } = {},
+  options: {
+    readonly availableModels?: readonly unknown[];
+    readonly inputValues?: readonly string[];
+    readonly selectedOption?: string;
+    readonly selectedOptions?: readonly string[];
+  } = {},
 ) => {
   let editorText = '';
   let terminalInputHandler: ((data: string) => { readonly consume?: boolean } | undefined) | undefined;
   const notifications: string[] = [];
   const selectCalls: Array<{ readonly title: string; readonly options: readonly string[] }> = [];
+  const inputCalls: Array<{ readonly message: string; readonly defaultValue?: string }> = [];
   const submittedInputs: string[] = [];
+  const selectedOptions = [...(options.selectedOptions ?? [])];
+  const inputValues = [...(options.inputValues ?? [])];
 
   return {
     hasUI: true,
@@ -139,6 +148,7 @@ const createMockContext = (
       return editorText;
     },
     notifications,
+    inputCalls,
     selectCalls,
     submittedInputs,
     get terminalInputHandler() {
@@ -167,6 +177,10 @@ const createMockContext = (
             resolve,
           );
         }),
+      input: (message: string, inputOptions?: { readonly defaultValue?: string }) => {
+        inputCalls.push({ message, defaultValue: inputOptions?.defaultValue });
+        return Promise.resolve(inputValues.shift() ?? inputOptions?.defaultValue ?? '');
+      },
       notify: (message: string) => {
         notifications.push(message);
       },
@@ -176,7 +190,7 @@ const createMockContext = (
       },
       select: (title: string, selectOptions: readonly string[]) => {
         selectCalls.push({ title, options: selectOptions });
-        return Promise.resolve(options.selectedOption ?? selectOptions[0]);
+        return Promise.resolve(selectedOptions.shift() ?? options.selectedOption ?? selectOptions[0]);
       },
       setEditorText: (text: string) => {
         editorText = text;
@@ -453,18 +467,33 @@ describe('preparePiLoginLaunchPlan', () => {
     });
     const extension = evaluateOutfitterExtension(readExtension(plan, 'outfitter-extension.js'));
     const pi = createMockPi();
-    const context = createMockContext({ selectedOption: 'data_analyst — Data Analyst' });
+    const context = createMockContext({
+      selectedOptions: [
+        'Use the default Outfitter profile catalog',
+        'data_analyst — Data Analyst',
+        'Home folder (~/.outfitter)',
+      ],
+    });
 
     extension(pi);
     await runOutfitterCommand(pi, context);
 
     const settingsPath = join(homeDirectory, '.outfitter', 'settings.yml');
     expect(Object.keys(pi.commands)).toContain('outfitter');
-    expect(context.selectCalls[0]?.options).toEqual([
+    expect(context.selectCalls[0]).toEqual({
+      title: 'How would you like to set up Outfitter?',
+      options: [
+        'Use the default Outfitter profile catalog',
+        'Create your own profile',
+        'Provide a different catalog to import',
+      ],
+    });
+    expect(context.selectCalls[1]?.options).toEqual([
       'founder — Founder (Recommended)',
-      'engineer — Engineer',
       'data_analyst — Data Analyst',
+      'engineer — Engineer',
     ]);
+    expect(context.selectCalls[2]?.options).toEqual(['Home folder (~/.outfitter)', 'Current project directory (.outfitter)']);
     expect(readFileSync(settingsPath, 'utf8')).toBe(
       [
         'default_profile: data_analyst',
@@ -480,11 +509,11 @@ describe('preparePiLoginLaunchPlan', () => {
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-010.2).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
-  it('does not overwrite an existing user profile when creating runtime onboarding fallbacks', async () => {
+  it('does not overwrite an existing user profile when creating an explicit custom profile', async () => {
     const homeDirectory = createAgentDir();
     const agentDir = createAgentDir();
     const existingProfilePath = join(homeDirectory, '.outfitter', 'profiles', 'founder', 'profile.yml');
-    const existingProfileContent = 'id: Invalid Founder\nlabel: User-owned file\ncontrols: {}\n';
+    const existingProfileContent = 'id: founder\nlabel: User-owned file\ncontrols: {}\n';
     mkdirSync(join(homeDirectory, '.outfitter', 'profiles', 'founder'), { recursive: true });
     writeFileSync(existingProfilePath, existingProfileContent);
     const plan = preparePiLoginLaunchPlan({
@@ -496,7 +525,10 @@ describe('preparePiLoginLaunchPlan', () => {
     });
     const extension = evaluateOutfitterExtension(readExtension(plan, 'outfitter-extension.js'));
     const pi = createMockPi();
-    const context = createMockContext({ selectedOption: 'founder — Founder (Recommended)' });
+    const context = createMockContext({
+      inputValues: ['founder', 'Founder'],
+      selectedOptions: ['Create your own profile', 'Home folder (~/.outfitter)'],
+    });
 
     extension(pi);
     await runOutfitterCommand(pi, context);
@@ -505,6 +537,42 @@ describe('preparePiLoginLaunchPlan', () => {
     expect(readFileSync(join(homeDirectory, '.outfitter', 'settings.yml'), 'utf8')).toContain(
       'default_profile: founder',
     );
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-010.2).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('persists an imported catalog as remote_settings in the selected project directory', async () => {
+    const homeDirectory = createAgentDir();
+    const projectDirectory = createAgentDir();
+    const agentDir = createAgentDir();
+    const plan = preparePiLoginLaunchPlan({
+      adapterId: 'pi',
+      homeDirectory,
+      launchPlan: createLaunchPlan(agentDir),
+      runtimeOnboarding: { projectDirectory },
+      writeLine: () => undefined,
+    });
+    const extension = evaluateOutfitterExtension(readExtension(plan, 'outfitter-extension.js'));
+    const pi = createMockPi();
+    const context = createMockContext({
+      inputValues: ['my_account/outfitter_config', 'main', 'settings.yml'],
+      selectedOptions: ['Provide a different catalog to import', 'Current project directory (.outfitter)'],
+    });
+
+    extension(pi);
+    await runOutfitterCommand(pi, context);
+
+    expect(readFileSync(join(projectDirectory, '.outfitter', 'settings.yml'), 'utf8')).toBe(
+      [
+        'remote_settings:',
+        '  - github: my_account/outfitter_config',
+        '    ref: main',
+        '    path: settings.yml',
+        '',
+      ].join('\n'),
+    );
+    expect(existsSync(join(homeDirectory, '.outfitter', 'settings.yml'))).toBe(false);
+    expect(context.selectCalls.at(-1)?.title).toBe('Where should Outfitter install these settings?');
   });
 
   it('reports unreadable non-json pi login state files', () => {

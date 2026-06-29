@@ -123,7 +123,11 @@ export const executeRunCommand = async (
     runtimeOnboarding:
       runtimeOnboarding === undefined
         ? undefined
-        : { autoOpenOutfitter: true, defaultProfilesPath: runtimeOnboarding.defaultProfilesPath },
+        : {
+            autoOpenOutfitter: true,
+            defaultProfilesPath: runtimeOnboarding.defaultProfilesPath,
+            projectDirectory: input.projectDirectory,
+          },
     writeLine: dependencies.writeLine,
   });
   emitLaunchSummary(
