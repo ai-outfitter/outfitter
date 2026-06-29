@@ -716,6 +716,8 @@ Requirements:
 
 ### `outfitter setup`
 
+The first-run prompt contract is specified in [`./onboarding.md`](./onboarding.md).
+
 Responsibilities:
 
 - create `~/.outfitter/settings.yml` when missing, using `remote_settings` for `github: ai-outfitter/default-profiles`, `ref: main`, and `path: settings.yml` for the built-in first-run source;
@@ -724,7 +726,8 @@ Responsibilities:
 - when a setup source is provided, use its root `settings.yml` or `.outfitter/settings.yml` and `profiles/` or `.outfitter/profiles/` as the initial non-overwriting setup starting point for the selected import target;
 - keep copy/cache setup-source import as the default behavior; when interactive setup receives a local path whose source contains `.outfitter/`, optionally offer symlink mode for rapid shared-profile development;
 - explain that symlink mode links the selected target `.outfitter` to the local source `.outfitter`, so source edits affect later runs immediately, and refuse to replace a non-empty target `.outfitter` without explicit user action;
-- during interactive setup-source onboarding, show the Outfitter welcome first, explain the source being imported, ask whether to install into user home or the current project, then ask exactly one source-profile/default prompt;
+- when a local Git checkout is imported without symlink mode, prefer stable `remote_settings` and `profile_sources` entries derived from the checkout remote/ref over absolute local paths;
+- during interactive setup-source onboarding, show the Outfitter welcome first, ask whether to use the default catalog, create a profile, or import a different catalog, then ask where to install the configuration with user home as the default target;
 - require an interactive TTY on both stdin and stdout before running setup prompts;
 - create a default profile when missing;
 - validate all discovered settings files and any starter settings file;
@@ -741,8 +744,9 @@ Responsibilities:
 
 - require an interactive TTY on both stdin and stdout before running welcome prompts;
 - show welcome text that explains Outfitter and Pi before asking onboarding questions;
-- make the first prompt a keyboard-selectable choice among loaded shared profiles using each profile's ID, label, and description when available;
-- open `/outfitter` in Pi instead of asking for a profile when no loaded shared profiles are available;
+- make the first prompt a keyboard-selectable setup-path choice: default Outfitter catalog, create a profile, or import a different catalog;
+- after a catalog is selected and loaded, show a keyboard-selectable profile picker using each profile's ID, label, and description when available;
+- open `/outfitter` in Pi when the user chooses profile creation or no loaded catalog profiles are available;
 - choose a deterministic fallback from loaded profiles when an injected or stale selection is unavailable;
 - copy the selected shared profile locally without overwriting user files and without injecting stale hardcoded role prompts into copied remote content;
 - return typed onboarding choices so later work can persist richer profile metadata behind a schema-validated YAML format if needed.

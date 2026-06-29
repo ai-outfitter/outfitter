@@ -19,8 +19,8 @@ Outfitter provides setup and maintenance commands that create initial configurat
 9. When provided a local setup source path, the `setup` command MUST discover profiles and settings from the live local source `.outfitter` rather than from a setup-source cache.
 10. The interactive `setup` command MUST require interactive TTY streams on both stdin and stdout before prompting.
 11. The interactive `setup` command MUST synchronize remote settings sources and remote profile sources before any setup profile choice prompt.
-12. Initial interactive first-run setup MUST NOT ask a separate default-profile choice before welcome onboarding; the welcome shared-profile selection determines the generated local default profile.
-13. Initial interactive first-run setup MUST load available first-run choices from the synchronized shared settings source, preserve loaded profile IDs, labels, and descriptions, and leave welcome unanswered for the `/outfitter` handoff when no shared choices are available.
+12. Initial interactive first-run setup MUST NOT ask a default-profile choice before the first welcome setup-path question; catalog profile selection happens only after the user chooses a catalog path.
+13. Initial interactive first-run setup MUST ask whether to use the default Outfitter catalog, create a profile, or provide a different catalog to import before loading first-run profile choices.
 14. Interactive setup MUST render the shared Outfitter branded ASCII welcome before setup prompts.
 15. When the interactive `setup` command presents setup profile choices outside the initial welcome handoff, it MUST present discovered profile IDs as default-profile choices and preserve available display labels and descriptions in the prompt choices.
 16. Interactive setup profile choices MUST come from loaded profile sources and MUST NOT hardcode profile-repository IDs, labels, or descriptions in setup code.
@@ -30,7 +30,7 @@ Outfitter provides setup and maintenance commands that create initial configurat
 20. When interactive `setup <source>` presents setup profile choices and the setup source declares an explicit `default_profile` that exists among those source choices, it MUST make that profile the prompt default and first displayed choice; pre-existing user defaults MUST NOT override that source default for the setup-source prompt.
 21. When interactive `setup <source>` presents setup profile choices and no source `default_profile` resolves, it SHOULD use the first loaded source profile as the prompt default.
 22. Interactive `setup <source>` MUST NOT present a default-profile choice before the setup-source welcome/import explanation.
-23. Interactive `setup <source>` MUST explain which setup source is being imported and MUST let the user choose whether to install profiles into user home or the current project before writing setup-source profiles/settings.
+23. Interactive `setup <source>` MUST explain which setup source is being imported and MUST let the user choose whether to install profiles into user home or the current project before writing setup-source profiles/settings; user home MUST be the default install target.
 24. Interactive `setup <source>` MUST present exactly one setup-source profile/default choice after the import target choice when setup-source profiles are available.
 25. When the interactive setup-source import target is user home, setup MUST copy missing source profiles into `~/.outfitter/profiles`, write the selected default profile to `~/.outfitter/settings.yml`, and preserve non-overwrite copy behavior.
 26. When the interactive setup-source import target is the current project, setup MUST copy missing source profiles into `<project>/.outfitter/profiles`, write the selected default profile to `<project>/.outfitter/settings.yml`, ensure that project settings expose `./profiles`, and preserve any existing user default profile.
@@ -43,6 +43,8 @@ Outfitter provides setup and maintenance commands that create initial configurat
 33. When symlink mode is available, setup MUST explain that copy/import is an isolated snapshot while symlink mode links the target `.outfitter` to the local source `.outfitter` so shared-profile edits apply immediately during development.
 34. Symlink setup MUST NOT replace a non-empty target `.outfitter` directory without explicit user confirmation.
 35. Symlink setup MUST symlink the target `.outfitter` to the local source `.outfitter` and MUST NOT copy source files, create fallback profile directories, or mutate source settings unless a future explicit option authorizes source mutation.
+36. When interactive setup imports a local Git checkout without symlink mode, setup SHOULD prefer stable `remote_settings` and `profile_sources` entries derived from the checkout remote/ref over absolute local paths.
+37. If setup cannot derive a stable remote reference from a local Git checkout, it SHOULD ask the user for a catalog reference or fall back to snapshot import with a clear warning.
 
 ### OFTR-004.2: Sync Command
 

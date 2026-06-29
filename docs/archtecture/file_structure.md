@@ -22,6 +22,7 @@ Outfitter is organized around clear TypeScript source boundaries, requirement do
 │   │   ├── controllable-elements.md   # controllable element terminology and support matrix
 │   │   ├── file_structure.md          # repository file structure overview
 │   │   ├── integration_test_system.md # fixture-backed integration test design
+│   │   ├── onboarding.md              # first-run setup prompts and handoff flow
 │   │   └── state_writeback_strategy.md # composite profile state persistence and writeback design
 │   ├── documentation/                 # user-facing Outfitter docs
 │   ├── requirements/                  # formal OUTFITTER requirement documents
