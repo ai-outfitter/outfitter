@@ -71,6 +71,10 @@ The project includes `tsconfig.json` for strict typechecking across source, test
 
 The repository layout and source/test directory boundaries live in [`./file_structure.md`](./file_structure.md).
 
+## Onboarding
+
+Pi-native first-run onboarding, generated extension behavior, custom profile picker details, and setup write boundaries live in [`./onboarding.md`](./onboarding.md).
+
 ## Settings Resolution
 
 Outfitter uses a `.outfitter` folder convention at multiple scopes:

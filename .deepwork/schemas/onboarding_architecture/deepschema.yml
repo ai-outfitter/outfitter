@@ -1,0 +1,55 @@
+summary: "Pi-native onboarding architecture documentation."
+instructions: |
+  This DeepSchema keeps docs/archtecture/onboarding.md aligned with the
+  implemented first-run Outfitter onboarding flow. Review the document as an
+  architecture contract for launch-time decisions, generated Pi extension
+  behavior, catalog/cache source-of-truth, and the custom profile picker.
+
+matchers:
+  - "docs/archtecture/onboarding.md"
+
+requirements:
+  current-state-document: >
+    The document MUST describe the current implemented onboarding flow rather
+    than aspirational future behavior.
+  mermaid-flowchart: >
+    The document MUST include a Mermaid flowchart that shows the interactive
+    versus non-interactive branch, existing-settings branch, default catalog
+    sync, generated Pi extension launch, project trust, /outfitter handoff,
+    /login handoff, setup mode choices, install target choice, and settings
+    write outcome.
+  pi-native-command-boundary: >
+    The document MUST explain that /outfitter is a Pi extension command and
+    MUST NOT be sent as an agent/model turn.
+  startup-noise-controls: >
+    The document MUST describe first-run quietStartup behavior and the temporary
+    bootstrap model argument used to avoid pre-login startup warnings.
+  project-trust-scope: >
+    The document MUST state that first-run onboarding trusts the exact project
+    folder only and does not automatically trust parent folders.
+  default-catalog-source: >
+    The document MUST state that default profile labels and descriptions are
+    read from the synchronized ai-outfitter/default-profiles catalog cache, not
+    from hardcoded profile choices in the extension.
+  custom-profile-picker: >
+    The document MUST explain why ctx.ui.select is insufficient for per-profile
+    descriptions and how ctx.ui.custom renders the selected profile description
+    to the right of the highlighted row.
+  founder-default-selection: >
+    The document MUST state that founder is the initial highlighted/default
+    profile when present and no current default profile exists.
+  login-credential-boundary: >
+    The document MUST state that /login is opened through Pi when no models are
+    available and Outfitter does not collect or store provider credentials.
+  install-target-writes: >
+    The document MUST describe both home and project settings write targets and
+    the restart boundary for selected profile changes.
+  stale-cache-explanation: >
+    The document SHOULD explain that removed upstream profiles can still appear
+    when the local synchronized cache is stale.
+
+verification_bash_command:
+  - "grep -qx '# Onboarding Architecture' \"$1\" || { echo 'FAIL: missing top-level Onboarding Architecture heading'; exit 1; }"
+  - "grep -q '^```mermaid$' \"$1\" && grep -q '^flowchart TD$' \"$1\" || { echo 'FAIL: missing Mermaid flowchart TD block'; exit 1; }"
+  - "for heading in '## Current First-Run Flow' '## Mermaid Flowchart' '## Native Command and Agent-Turn Boundary' '## Custom Profile Picker Nuance' '## Setup Modes and Writes' '## Cache and Staleness Implications'; do grep -qx \"$heading\" \"$1\" || { echo \"FAIL: missing section $heading\"; exit 1; }; done"
+  - "for text in 'ctx.ui.select' 'ctx.ui.custom' 'ai-outfitter/default-profiles' 'quietStartup' 'project_trust' '/outfitter' '/login' 'founder' 'settings.yml'; do grep -q \"$text\" \"$1\" || { echo \"FAIL: missing onboarding architecture term $text\"; exit 1; }; done"

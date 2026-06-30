@@ -126,6 +126,50 @@ integration_fixture_requirement_coverage:
       - PASS: Integration fixture coverage is appropriate for the requirement change.
       - FAIL: List each changed requirement that lacks fixture coverage or a sufficient justification.
 
+onboarding_architecture_consistency:
+  description: "Verify Pi-native onboarding architecture docs stay aligned with onboarding implementation files."
+  match:
+    include:
+      - "docs/archtecture/onboarding.md"
+      - "docs/requirements/OFTR-010-onboarding-welcome.md"
+      - "src/cli/commands/PiLoginLaunch.ts"
+      - "src/cli/commands/RunCommand.ts"
+      - "src/cli/commands/WelcomeCommand.ts"
+      - "src/cli/commands/SetupCommand.ts"
+      - "src/settings/**/*.ts"
+      - "src/schemas/settings.schema.json"
+      - "tests/unit/pi-login-launch.test.ts"
+      - "tests/unit/run-command.test.ts"
+      - "tests/unit/welcome-command.test.ts"
+      - "tests/unit/setup-command.test.ts"
+      - ".deepwork/schemas/onboarding_architecture/deepschema.yml"
+  review:
+    strategy: all_changed_files
+    additional_context:
+      unchanged_matching_files: true
+    instructions: |
+      Review changed onboarding architecture documentation, onboarding requirements,
+      generated Pi extension code, first-run runtime launch code, setup/welcome
+      compatibility code, settings schema/loading code, and related tests together.
+
+      The review MUST verify that docs/archtecture/onboarding.md remains accurate
+      when any matched implementation file changes. Check that the document:
+      1. Describes the current first-run default `outfitter` path, not aspirational behavior.
+      2. Keeps the Mermaid flowchart aligned with launch decisions, default catalog sync,
+         generated Pi extension behavior, project trust, /outfitter handoff, /login handoff,
+         setup modes, install target selection, and settings writes.
+      3. Accurately explains that default profile labels/descriptions come from the synced
+         ai-outfitter/default-profiles cache, not hardcoded extension choices.
+      4. Accurately explains why ctx.ui.custom is used for the profile picker and how the
+         selected profile description is shown beside the highlighted item.
+      5. Tracks first-run startup-noise behavior, exact-folder project trust, bootstrap model
+         behavior, and credential boundaries.
+      6. Does not conflict with OFTR-010 requirements or unit-test evidence.
+
+      Output Format:
+      - PASS: Onboarding architecture docs and implementation remain aligned.
+      - FAIL: List each stale, missing, conflicting, or overstated onboarding claim with file and line reference.
+
 doc_consistency:
   description: "Verify architecture, file structure, state writeback, and public docs stay current when requirements or related docs change."
   match:
