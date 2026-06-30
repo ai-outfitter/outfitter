@@ -1,6 +1,6 @@
 // Tests the release metadata synchronization script used by the npm publish workflow.
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
@@ -23,6 +23,33 @@ const createTemporaryPackageRoot = (
     lockfileVersion: 3,
     packages: {
       '': { name: lockfilePackageName, version: '0.1.0', repository },
+    },
+  });
+  return root;
+};
+
+const createTemporaryWorkspaceRoot = (): string => {
+  const root = mkdtempSync(join(tmpdir(), 'outfitter-release-version-workspace-'));
+  temporaryRoots.push(root);
+  mkdirSync(join(root, 'code/cli'), { recursive: true });
+  writeJson(join(root, 'package.json'), {
+    name: '@ai-outfitter/root',
+    version: '0.1.0',
+    private: true,
+    workspaces: ['code/*'],
+  });
+  writeJson(join(root, 'code/cli/package.json'), {
+    name: '@ai-outfitter/outfitter',
+    version: '0.1.0',
+    repository,
+  });
+  writeJson(join(root, 'package-lock.json'), {
+    name: '@ai-outfitter/root',
+    version: '0.1.0',
+    lockfileVersion: 3,
+    packages: {
+      '': { name: '@ai-outfitter/root', version: '0.1.0' },
+      'code/cli': { name: '@ai-outfitter/outfitter', version: '0.1.0' },
     },
   });
   return root;
@@ -62,6 +89,22 @@ describe('release version synchronization script', () => {
     const lockfile = readJson(join(root, 'package-lock.json'));
     expect(lockfile.version).toBe('1.2.3-alpha.1+build.5');
     expect((lockfile.packages as Record<string, Record<string, unknown>>)['']?.version).toBe('1.2.3-alpha.1+build.5');
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-009.1).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('synchronizes workspace root and CLI package metadata', () => {
+    const root = createTemporaryWorkspaceRoot();
+
+    expect(runScript(root, 'v1.2.3')).toContain('Synchronized Outfitter release metadata to 1.2.3.');
+
+    expect(readJson(join(root, 'package.json')).version).toBe('1.2.3');
+    expect(readJson(join(root, 'code/cli/package.json')).version).toBe('1.2.3');
+    const lockfile = readJson(join(root, 'package-lock.json'));
+    expect(lockfile.version).toBe('1.2.3');
+    const packages = lockfile.packages as Record<string, Record<string, unknown>>;
+    expect(packages['']?.version).toBe('1.2.3');
+    expect(packages['code/cli']?.version).toBe('1.2.3');
   });
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-009.1).

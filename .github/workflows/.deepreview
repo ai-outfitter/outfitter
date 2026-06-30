@@ -13,15 +13,18 @@ release_workflow_safety:
       Check that the workflows:
       - Use Release Please intentionally for pushes to `main`, not pull requests
         from forks or arbitrary untrusted events.
-      - Follow the upstream `googleapis/release-please-action@v4` example shape
-        with `secrets.RELEASE_PLEASE_TOKEN`, `contents: write`, `issues: write`,
-        and `pull-requests: write`, while using `release-type: node` because
-        Outfitter is an npm package.
+      - Follow the upstream `googleapis/release-please-action@v4` manifest
+        configuration shape with `secrets.RELEASE_PLEASE_TOKEN`, `contents: write`,
+        `issues: write`, and `pull-requests: write`, while using the repository
+        `release-please-config.json` and `.release-please-manifest.json` to release
+        only the CLI package at `code/cli`.
       - Do not expose npm tokens or other secrets through logs, command-line
         arguments, checked-in files, or environment variables.
       - Publish npm only from GitHub release events through the `npm-publish`
         environment with `id-token: write`, provenance, and no `NPM_TOKEN` or
         `NODE_AUTH_TOKEN` usage.
+      - Keep container publishing out of the CLI-only release path unless a
+        separate container release job is intentionally added later.
       - Avoid unrelated git mutation, repository write credentials, or network
         side effects that are not required for Release Please, dependency
         installation, CI, build, or npm publishing.

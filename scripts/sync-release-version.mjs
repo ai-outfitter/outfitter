@@ -40,7 +40,9 @@ if (cliLockfilePackage === undefined) {
 }
 
 assertPackageName(cliLockfilePackage);
-assertRepositoryUrl(cliLockfilePackage);
+if (cliLockfileKey === '') {
+  assertRepositoryUrl(cliLockfilePackage);
+}
 
 rootPackageJson.version = version;
 cliPackageJson.version = version;
