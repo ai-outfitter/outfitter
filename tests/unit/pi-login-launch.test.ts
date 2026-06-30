@@ -545,7 +545,9 @@ describe('preparePiLoginLaunchPlan', () => {
 
     expect(context.editorText).toBe('/login');
     expect(context.submittedInputs).toEqual(['\r']);
-    expect(context.notifications.join('\n')).toContain('Credentials stay inside Pi');
+    expect(context.notifications.join('\n')).toContain(
+      'Pi does not have a model provider connected yet. Connect one now so Outfitter can use Pi. Credentials stay inside Pi.',
+    );
     expect(messages).toContain(
       'Outfitter will ask Pi to open `/login` automatically if Pi reports no available models after startup.',
     );
@@ -598,7 +600,9 @@ describe('preparePiLoginLaunchPlan', () => {
     expect(context.customRenders[1]?.find((line) => line.includes('engineer — Engineer'))?.trimEnd()).toBe(
       '  engineer — Engineer',
     );
-    expect(context.selectCalls[1]?.options).toEqual(['Home folder (~/.outfitter)', 'Current project directory (.outfitter)']);
+    expect(context.customRenders[2]?.join('\n')).toContain('Where should Outfitter install these settings?');
+    expect(context.customRenders[2]?.join('\n')).toContain('→ Home folder (~/.outfitter)');
+    expect(context.customRenders[2]?.join('\n')).toContain('These profiles will be available anywhere you start outfitter.');
     expect(readFileSync(settingsPath, 'utf8')).toBe(
       [
         'default_profile: data_analyst',
@@ -705,7 +709,10 @@ describe('preparePiLoginLaunchPlan', () => {
       ].join('\n'),
     );
     expect(existsSync(join(homeDirectory, '.outfitter', 'settings.yml'))).toBe(false);
-    expect(context.selectCalls.at(-1)?.title).toBe('Where should Outfitter install these settings?');
+    expect(context.customRenders[1]?.join('\n')).toContain('→ Current project directory (.outfitter)');
+    expect(context.customRenders[1]?.join('\n')).toContain(
+      'These profiles will only be available in the current project directory and will compose the profiles of the same name in the home folder.',
+    );
   });
 
   it('reports unreadable non-json pi login state files', () => {

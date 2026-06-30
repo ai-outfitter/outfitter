@@ -47,7 +47,8 @@ requirements:
     profile when present and no current default profile exists.
   login-credential-boundary: >
     The document MUST state that /login is opened through Pi when no models are
-    available and Outfitter does not collect or store provider credentials.
+    available, that Outfitter explains Pi has no connected model provider, and
+    that Outfitter does not collect or store provider credentials.
   install-target-writes: >
     The document MUST describe both home and project settings write targets and
     the restart boundary for selected profile changes.
@@ -61,3 +62,4 @@ verification_bash_command:
   - "for heading in '## Current First-Run Flow' '## Mermaid Flowchart' '## Native Command and Agent-Turn Boundary' '## Custom Profile Picker Nuance' '## Setup Modes and Writes' '### Install Target Screen Variations' '## Cache and Staleness Implications'; do grep -qx \"$heading\" \"$1\" || { echo \"FAIL: missing section $heading\"; exit 1; }; done"
   - "for text in 'ctx.ui.select' 'ctx.ui.custom' 'selectDescribedOption' 'ai-outfitter/default-profiles' 'quietStartup' 'project_trust' '/outfitter' '/login' 'founder' 'settings.yml'; do grep -q \"$text\" \"$1\" || { echo \"FAIL: missing onboarding architecture term $text\"; exit 1; }; done"
   - "grep -q 'These profiles will be available anywhere you start outfitter[.]' \"$1\" && grep -q 'These profiles will only be available in the current project directory and will compose the profiles of the same name in the home folder[.]' \"$1\" || { echo 'FAIL: missing install-target explanatory copy'; exit 1; }"
+  - "grep -q 'Pi does not have a model provider connected yet[.] Connect one now so Outfitter can use Pi[.] Credentials stay inside Pi[.]' \"$1\" || { echo 'FAIL: missing no-model-provider login handoff copy'; exit 1; }"

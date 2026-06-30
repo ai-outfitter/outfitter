@@ -249,7 +249,7 @@ export default function outfitter(pi) {
     loginSubmitted = await submitSlashCommand(
       ctx,
       "/login",
-      "Outfitter is opening Pi's /login flow because Pi reports no available models. Credentials stay inside Pi.",
+      "Pi does not have a model provider connected yet. Connect one now so Outfitter can use Pi. Credentials stay inside Pi.",
     );
   };
 
@@ -265,13 +265,27 @@ export default function outfitter(pi) {
       return options.indexOf(selected) === 1 ? "create" : options.indexOf(selected) === 2 ? "catalog" : "default";
     },
     async selectInstallTarget(paths) {
-      const options = [
-        "Home folder (~/.outfitter)",
-        "Current project directory (.outfitter)",
+      const items = [
+        {
+          value: "home",
+          label: "Home folder (~/.outfitter)",
+          description: "These profiles will be available anywhere you start outfitter.",
+        },
+        {
+          value: "project",
+          label: "Current project directory (.outfitter)",
+          description: "These profiles will only be available in the current project directory and will compose the profiles of the same name in the home folder.",
+        },
       ];
-      const selected = await ctx.ui.select("Where should Outfitter install these settings?", options);
+      const title = ["Where should Outfitter install these settings?"];
+      const selected = typeof ctx.ui.custom === "function"
+        ? await selectDescribedOption(ctx, title, items, "home")
+        : await ctx.ui.select(title.join("\n"), items.map((item) => item.label));
       if (selected === undefined) return undefined;
-      return selected === options[1]
+      const selectedValue = items.some((item) => item.value === selected)
+        ? selected
+        : items.find((item) => item.label === selected)?.value;
+      return selectedValue === "project"
         ? { id: "project", settingsPath: paths.projectSettingsPath, profilesPath: paths.projectProfilesPath }
         : { id: "home", settingsPath: paths.homeSettingsPath, profilesPath: paths.homeProfilesPath };
     },
@@ -289,7 +303,7 @@ export default function outfitter(pi) {
       ];
       const initialProfileId = currentDefault ?? (profiles.some((profile) => profile.id === "founder") ? "founder" : profiles[0]?.id);
       const selectedId = typeof ctx.ui.custom === "function"
-        ? await selectProfileWithDescription(ctx, title, items, initialProfileId)
+        ? await selectDescribedOption(ctx, title, items, initialProfileId)
         : await ctx.ui.select(title.join("\n"), items.map((item) => item.label));
       if (selectedId === undefined) return undefined;
       return profiles.find((profile) => profile.id === selectedId) ?? profiles[items.findIndex((item) => item.label === selectedId)];
@@ -640,7 +654,7 @@ const compareProfiles = (left, right, currentDefault) => {
   return left.id.localeCompare(right.id);
 };
 
-const selectProfileWithDescription = (ctx, titleLines, items, initialValue) =>
+const selectDescribedOption = (ctx, titleLines, items, initialValue) =>
   ctx.ui.custom((tui, theme, _keybindings, done) => {
     let selectedIndex = Math.max(0, items.findIndex((item) => item.value === initialValue));
     const labelWidth = Math.max(...items.map((item) => item.label.length));
