@@ -72,14 +72,15 @@ HOME="$OUTFITTER_TEST_HOME" outfitter run --profile default -- --help
 
 Outfitter assembles a temporary composite profile under the system temp directory, sets `PI_CODING_AGENT_DIR` for pi, and passes arguments after the profile options through to pi.
 
-## Test profiles with the published container
+## Test profiles with a local container
 
-After a release is published, the release workflow publishes a matching container image to GitHub Container Registry.
-Use the image tag that matches the npm package version:
+The current release workflow is CLI-only and publishes the npm package from the `code/cli` workspace.
+The Dockerfile remains useful for local smoke testing, but GitHub Container Registry image publishing is not part of the current release path.
+
+Build a local image from the repository root:
 
 ```sh
-OUTFITTER_VERSION=0.4.0
-OUTFITTER_IMAGE="ghcr.io/ai-outfitter/outfitter:$OUTFITTER_VERSION"
+docker build -t outfitter:dev .
 ```
 
 Run setup from a remote setup source:
@@ -88,7 +89,7 @@ Run setup from a remote setup source:
 docker run --rm -it \
   --mount type=volume,source=outfitter-pi-agent,target=/home/node/.pi/agent \
   -w /home/node/repos \
-  "$OUTFITTER_IMAGE" \
+  outfitter:dev \
   setup https://github.com/ai-outfitter/default-profiles
 ```
 
@@ -99,14 +100,12 @@ docker run --rm -it \
   --mount type=volume,source=outfitter-pi-agent,target=/home/node/.pi/agent \
   -v "$PWD:/home/node/repos/setup-source:ro" \
   -w /home/node/repos \
-  "$OUTFITTER_IMAGE" \
+  outfitter:dev \
   setup /home/node/repos/setup-source
 ```
 
 The named `outfitter-pi-agent` volume stores container-only Pi credentials and settings under `/home/node/.pi/agent`.
 The container starts in `/home/node/repos`; without extra mounts, each run gets a clean working directory.
-
-Release images are published as `ghcr.io/ai-outfitter/outfitter:X.Y.Z`, matching the npm package version, and as `ghcr.io/ai-outfitter/outfitter:latest`.
 
 ## Validate changes before opening or updating a PR
 
@@ -138,7 +137,7 @@ Release automation is split across two workflows:
    It uses `googleapis/release-please-action` to open or update a release PR when releasable Conventional Commits are present.
 2. Merge the release-please PR to publish the GitHub release and tag.
 3. `.github/workflows/release.yml` runs when that GitHub release is published.
-   It publishes the npm package with trusted publishing and then publishes matching GHCR image tags.
+   It publishes the CLI npm package from the `code/cli` workspace with trusted publishing and provenance.
 
 `feat` commits normally create a minor release, and `fix` or `perf` commits normally create a patch release.
 Maintenance-only commits such as `chore`, `docs`, `test`, `ci`, `refactor`, and `build` may appear in the changelog context but do not necessarily create a release by themselves.

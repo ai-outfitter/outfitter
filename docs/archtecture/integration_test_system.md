@@ -28,7 +28,7 @@ Integration fixtures make those source relationships visible and testable.
 ## Repository layout
 
 ```text
-tests/
+code/cli/tests/
   integration/
     composite profile-generation.test.ts
     fixtureHarness.ts
@@ -49,12 +49,12 @@ tests/
             warnings.json
 ```
 
-The existing `tests/fixtures/scenarios/` directory contains small profile-resolution fixtures used by current unit tests.
+The existing `code/cli/tests/fixtures/scenarios/` directory contains small profile-resolution fixtures used by current unit tests.
 The integration framework does not replace or move those fixtures.
-End-to-end fixtures live in `tests/fixtures/integration/` because they model full home/project/cache/native trees and expected composite profile effects.
+End-to-end fixtures live in `code/cli/tests/fixtures/integration/` because they model full home/project/cache/native trees and expected composite profile effects.
 When an existing scenario is useful for an integration test, copy or expand it into a new integration fixture instead of changing the existing unit-test fixture in place.
 
-Additional fixture-set PRs target this framework branch and add more directories under `tests/fixtures/integration/`.
+Additional fixture-set PRs target this framework branch and add more directories under `code/cli/tests/fixtures/integration/`.
 
 ## Fixture directory contract
 
@@ -81,9 +81,9 @@ Fixture names describe the user/project scenario rather than the adapter; adapte
 
 ## Harness responsibilities
 
-`tests/integration/fixtureHarness.ts` exports these helpers:
+`code/cli/tests/integration/fixtureHarness.ts` exports these helpers:
 
-- `copyFixtureToTemp(name)` copies `tests/fixtures/integration/<name>` into `mkdtemp` and returns an `IntegrationFixture` with `root`, `home`, `project`, `cache`, and `expected` paths.
+- `copyFixtureToTemp(name)` copies `code/cli/tests/fixtures/integration/<name>` into `mkdtemp` and returns an `IntegrationFixture` with `root`, `home`, `project`, `cache`, and `expected` paths.
 - `runFixture(fixture, options)` executes `executeRunCommand` with the copied home/project and the provided fake launcher.
 - `summarizePiComposite profile(fixture, composite profileRoot)` returns stable pi-specific facts about generated profile content and selected state symlinks.
 - `readExpectedJson(fixture, relativePath)` loads expected fixture output from the copied `expected/` tree.
@@ -203,12 +203,12 @@ Important cases:
 ## Extension path
 
 The framework currently includes `trivial_repo_only_profile` as the first implemented fixture.
-Additional fixture-set PRs add the remaining cataloged scenarios under `tests/fixtures/integration/` and extend `tests/integration/composite profile-generation.test.ts` or add focused integration test files when needed.
+Additional fixture-set PRs add the remaining cataloged scenarios under `code/cli/tests/fixtures/integration/` and extend `code/cli/tests/integration/composite-profile-generation.test.ts` or add focused integration test files when needed.
 
 When adding or changing a fixture:
 
 1. Add or update the fixture root `README.md` in the same change.
 2. Add static fixture files under `home/`, `project/`, optional `cache/` or `native/`, and optional `expected/`.
 3. Add a Vitest integration test that copies the fixture, runs through command code, and asserts the composite profile/write-back behavior.
-4. Update `tests/fixtures/integration/INTEGRATION_TEST_FIXTURES.md` when the fixture's scenario, status, or purpose changes.
+4. Update `code/cli/tests/fixtures/integration/INTEGRATION_TEST_FIXTURES.md` when the fixture's scenario, status, or purpose changes.
 5. Run `npm run check-ci` before opening or updating the PR.

@@ -11,7 +11,7 @@ Outfitter is organized around a private npm workspace root, clear TypeScript pac
 .                                      # repository root
 ├── .deepreview                        # root DeepWork review rules for project-wide checks
 ├── .dockerignore                      # container build context exclusions
-├── Dockerfile                         # local and release Outfitter container image definition
+├── Dockerfile                         # local Outfitter container image definition
 ├── .deepwork/                         # DeepWork schemas and generated review instruction scratch files
 │   └── schemas/                       # project-specific DeepSchema definitions
 ├── .github/                           # GitHub automation configuration
@@ -46,7 +46,7 @@ Outfitter is organized around a private npm workspace root, clear TypeScript pac
 │   │   │   └── validation/            # shared validation helpers
 │   │   ├── tests/                     # automated CLI package tests and fixtures
 │   │   ├── tsconfig.json              # strict package typecheck configuration
-│   │   ├── tsconfig.build.json        # production emission from src/ to dist/
+│   │   ├── tsconfig.build.json        # production emission from code/cli/src/ to code/cli/dist/
 │   │   └── vitest.config.ts           # package test and coverage configuration
 │   ├── enterprise/                    # enterprise/business licensed code; see code/enterprise/LICENSE
 │   └── pi-extension/                  # private workspace boundary for future Pi extension source/assets

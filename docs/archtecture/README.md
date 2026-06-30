@@ -40,7 +40,7 @@ Formal implementation requirements live in [`../requirements/`](../requirements/
 
 ### Initial npm Dependencies
 
-Runtime dependencies in the first `package.json`:
+Runtime dependencies in the CLI workspace `code/cli/package.json`:
 
 - `commander`: CLI parsing, default command behavior, aliases, and pass-through argument support.
 - `yaml`: YAML parsing and serialization for user-editable config.
@@ -65,7 +65,7 @@ Development dependencies:
 - `@types/cross-spawn`
 - `shx`
 
-The project includes `tsconfig.json` for strict typechecking across source, tests, and config, plus `tsconfig.build.json` for production emission from `src/` to `dist/`.
+The CLI workspace includes `code/cli/tsconfig.json` for strict typechecking across source, tests, and config, plus `code/cli/tsconfig.build.json` for production emission from `code/cli/src/` to `code/cli/dist/`.
 
 ## Repository File Structure
 

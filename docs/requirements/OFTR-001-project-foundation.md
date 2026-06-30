@@ -12,7 +12,7 @@ This document specifies the baseline runtime, language, test, lint, and document
 1. The project MUST use TypeScript as its primary implementation language.
 2. The project MUST declare Node.js `>=22.19.0` as the supported runtime baseline for the first version.
 3. TypeScript configuration MUST enable strict type checking.
-4. The project MUST provide a separate build TypeScript configuration that emits production files from `src/` to `dist/`.
+4. The CLI workspace MUST provide a separate build TypeScript configuration that emits production files from `code/cli/src/` to `code/cli/dist/`.
 5. The project MUST use npm as its package manager for the first version.
 6. The project MUST commit `package-lock.json` after dependency installation or updates.
 7. When an implementation library choice remains unclear, the project SHOULD prefer the same library or convention used by pi.dev.
@@ -23,7 +23,7 @@ This document specifies the baseline runtime, language, test, lint, and document
 2. The test command MUST be runnable from package scripts.
 3. The coverage command MUST use `@vitest/coverage-v8`.
 4. The test configuration MUST enforce at least 99% global coverage for statements, branches, functions, and lines.
-5. The coverage configuration MUST include all `src/**/*.ts` files even when a source file is not imported by any test.
+5. The coverage configuration MUST include all `code/cli/src/**/*.ts` files even when a source file is not imported by any test.
 6. Tests that validate formal requirements MUST follow the traceability format required by OFTR-008.3.
 
 ### OFTR-001.3: Linting and Complexity
