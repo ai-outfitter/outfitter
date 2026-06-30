@@ -612,6 +612,34 @@ describe('preparePiLoginLaunchPlan', () => {
     expect(context.notifications.join('\n')).toContain("applies on the next 'outfitter' launch");
   });
 
+  it('defaults the profile picker to founder when founder is available', async () => {
+    const homeDirectory = createAgentDir();
+    const agentDir = createAgentDir();
+    const defaultProfilesPath = writeDefaultProfilesCache(homeDirectory);
+    const plan = preparePiLoginLaunchPlan({
+      adapterId: 'pi',
+      homeDirectory,
+      launchPlan: createLaunchPlan(agentDir),
+      runtimeOnboarding: { defaultProfilesPath },
+      writeLine: () => undefined,
+    });
+    const extension = evaluateOutfitterExtension(readExtension(plan, 'outfitter-extension.js'));
+    const pi = createMockPi();
+    const context = createMockContext({
+      selectedOptions: [
+        'Use the default Outfitter profile catalog',
+        'founder — Founder (Recommended)',
+        'Home folder (~/.outfitter)',
+      ],
+    });
+
+    extension(pi);
+    await runOutfitterCommand(pi, context);
+
+    expect(context.customRenders[0]?.join('\n')).toContain('→ founder — Founder (Recommended)');
+    expect(readFileSync(join(homeDirectory, '.outfitter', 'settings.yml'), 'utf8')).toContain('default_profile: founder');
+  });
+
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-010.2).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('does not overwrite an existing user profile when creating an explicit custom profile', async () => {

@@ -287,8 +287,9 @@ export default function outfitter(pi) {
         "Choose the default profile from the selected catalog for future 'outfitter' launches.",
         "The current Pi process keeps the profile it started with; this setting applies on the next launch.",
       ];
+      const initialProfileId = currentDefault ?? (profiles.some((profile) => profile.id === "founder") ? "founder" : profiles[0]?.id);
       const selectedId = typeof ctx.ui.custom === "function"
-        ? await selectProfileWithDescription(ctx, title, items)
+        ? await selectProfileWithDescription(ctx, title, items, initialProfileId)
         : await ctx.ui.select(title.join("\n"), items.map((item) => item.label));
       if (selectedId === undefined) return undefined;
       return profiles.find((profile) => profile.id === selectedId) ?? profiles[items.findIndex((item) => item.label === selectedId)];
@@ -639,9 +640,9 @@ const compareProfiles = (left, right, currentDefault) => {
   return left.id.localeCompare(right.id);
 };
 
-const selectProfileWithDescription = (ctx, titleLines, items) =>
+const selectProfileWithDescription = (ctx, titleLines, items, initialValue) =>
   ctx.ui.custom((tui, theme, _keybindings, done) => {
-    let selectedIndex = 0;
+    let selectedIndex = Math.max(0, items.findIndex((item) => item.value === initialValue));
     const labelWidth = Math.max(...items.map((item) => item.label.length));
 
     const finish = (value) => done(value);
