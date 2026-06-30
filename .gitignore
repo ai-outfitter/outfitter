@@ -62,3 +62,7 @@ review-results/
 # DeepWork local runtime state
 .deepwork/state/
 .deepwork/status/
+
+# Agent-local planning artifacts
+TASK.md
+PLAN.md
