@@ -131,6 +131,8 @@ describe('profile resolution', () => {
     expect(result.profile?.controls.custom_list).toEqual(['selected']);
   });
 
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-003.6).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('merges DeepWork job controls with inherited order and unique names', () => {
     const result = resolveProfile({
       profileId: 'selected',
@@ -190,6 +192,107 @@ describe('profile resolution', () => {
     expect(runnableResult.profile?.controls.appendSystemPrompt).toEqual(['role prompt', 'shared prompt']);
     expect(templateResult.issues).toEqual([]);
     expect(templateResult.profile?.template).toBe(true);
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-003.9).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('does not inherit agent generation markers into runnable descendants and preserves explicit opt-outs', () => {
+    const engineer = createLoadedProfile({
+      source: createLocalProfileSource('<project-profiles>'),
+      profile: {
+        id: 'engineer',
+        agentGeneration: true,
+        inherits: [],
+        controls: { appendSystemPrompt: 'engineer prompt' },
+      },
+    });
+    const platform = createLoadedProfile({
+      source: createLocalProfileSource('<project-profiles>'),
+      profile: {
+        id: 'platform',
+        inherits: ['engineer'],
+        controls: { appendSystemPrompt: 'platform prompt' },
+      },
+    });
+    const reviewerBase = createLoadedProfile({
+      source: createLocalProfileSource('<user-profiles>'),
+      profile: {
+        id: 'reviewer',
+        agentGeneration: true,
+        inherits: [],
+        controls: { appendSystemPrompt: 'reviewer prompt' },
+      },
+    });
+    const reviewerOptOut = createLoadedProfile({
+      source: createLocalProfileSource('<project-profiles>'),
+      profile: {
+        id: 'reviewer',
+        agentGeneration: false,
+        inherits: [],
+        controls: { model: 'reviewer-model' },
+      },
+    });
+
+    const engineerResult = resolveProfile({ profileId: 'engineer', profiles: [engineer, platform] });
+    const platformResult = resolveProfile({ profileId: 'platform', profiles: [engineer, platform] });
+    const reviewerResult = resolveProfile({ profileId: 'reviewer', profiles: [reviewerBase, reviewerOptOut] });
+
+    expect(engineerResult.issues).toEqual([]);
+    expect(engineerResult.profile?.agentGeneration).toBe(true);
+    expect(platformResult.issues).toEqual([]);
+    expect(platformResult.profile?.agentGeneration).toBeUndefined();
+    expect(platformResult.profile?.controls.appendSystemPrompt).toEqual(['platform prompt', 'engineer prompt']);
+    expect(reviewerResult.issues).toEqual([]);
+    expect(reviewerResult.profile?.agentGeneration).toBe(false);
+    expect(reviewerResult.profile?.controls.model).toBe('reviewer-model');
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-003.8).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('does not inherit profile export markers into runnable descendants', () => {
+    const exportingBase = createLoadedProfile({
+      source: createLocalProfileSource('<project-profiles>'),
+      profile: {
+        id: 'exporting-base',
+        profileExport: true,
+        inherits: [],
+        controls: { appendSystemPrompt: 'base prompt' },
+      },
+    });
+    const selected = createLoadedProfile({
+      source: createLocalProfileSource('<project-profiles>'),
+      profile: {
+        id: 'selected',
+        inherits: ['exporting-base'],
+        controls: { appendSystemPrompt: 'selected prompt' },
+      },
+    });
+    const optOutBase = createLoadedProfile({
+      source: createLocalProfileSource('<user-profiles>'),
+      profile: {
+        id: 'opt-out',
+        profileExport: true,
+        inherits: [],
+        controls: {},
+      },
+    });
+    const optOutOverride = createLoadedProfile({
+      source: createLocalProfileSource('<project-profiles>'),
+      profile: {
+        id: 'opt-out',
+        profileExport: false,
+        inherits: [],
+        controls: {},
+      },
+    });
+
+    const selectedResult = resolveProfile({ profileId: 'selected', profiles: [exportingBase, selected] });
+    const optOutResult = resolveProfile({ profileId: 'opt-out', profiles: [optOutBase, optOutOverride] });
+
+    expect(selectedResult.issues).toEqual([]);
+    expect(selectedResult.profile?.profileExport).toBeUndefined();
+    expect(optOutResult.issues).toEqual([]);
+    expect(optOutResult.profile?.profileExport).toBe(false);
   });
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-003.4, OFTR-003.5).

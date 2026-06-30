@@ -79,3 +79,10 @@ Pi is the default and primary supported adapter; Claude Code is also supported t
 6. Plan mode MUST restrict active tools to read-only inspection tools, exclude Bash from the active tool set, and block Bash tool calls while plan mode is active.
 7. Interactive Pi launches SHOULD register a native `/outfitter` command for Outfitter-specific setup and profile management that can run without an agent turn.
 8. Non-interactive Pi launches MUST NOT inject the Outfitter bootstrap extension.
+
+### OFTR-006.8: Pi Generated Subagent Definitions
+
+1. The pi adapter MUST generate native Pi subagent definition files for runnable Outfitter profiles whose resolved profile sets `agent_generation: true`.
+2. Generated Pi subagent definitions MUST be written into the runtime Pi configuration under `agents/<profile-id>.md` so Pi subagent extensions can discover them for delegation.
+3. Generated Pi subagent definitions MUST include the profile ID, description when present, Pi model when present, and guidance that preserves the profile's prompt references.
+4. Template profiles MUST NOT be generated as Pi subagent definitions even when inherited by a generated profile.

@@ -17,6 +17,8 @@ import {
   redactProfileSourceUriCredentials,
   resolveRemoteRepositorySubpath,
 } from '../../profiles/ProfileCache.js';
+import { findContributingLoadedProfiles, findContributingProfilePaths } from '../../profiles/ProfileContributors.js';
+import { findGeneratedAgentProfiles } from '../../profiles/GeneratedAgentProfiles.js';
 import { loadLocalProfileSource } from '../../profiles/ProfileLoader.js';
 import type { LoadedProfile } from '../../profiles/ProfileLoader.js';
 import { createEmptyProfile, type Profile } from '../../profiles/Profile.js';
@@ -90,7 +92,7 @@ export const executeRunCommand = async (
     resolvedProfile,
     compositeProfileRootDirectory,
   );
-  const warnings = compositeProfilePlan.warnings;
+  const warnings = [...resolvedProfile.generatedAgentProfileWarnings, ...compositeProfilePlan.warnings];
 
   failStrictOnWarnings(adapter.id, warnings, input.strict);
   emitWarnings(warnings, dependencies.writeError);
@@ -139,6 +141,7 @@ export const executeRunCommand = async (
     compositeProfilePlan.compositeProfile.rootDirectory,
     dependencies.writeLine,
   );
+  let liveRefreshError: unknown;
   const watcher = watchCompositeProfileInputs({
     compositeProfile: compositeProfilePlan.compositeProfile,
     refreshCompositeProfile: () => {
@@ -151,8 +154,19 @@ export const executeRunCommand = async (
         warn: dependencies.writeError ?? console.error,
       });
 
-      return createAdapterCompositeProfilePlan(adapter, refreshedProfile, compositeProfileRootDirectory)
-        .compositeProfile;
+      const refreshedCompositeProfilePlan = createAdapterCompositeProfilePlan(
+        adapter,
+        refreshedProfile,
+        compositeProfileRootDirectory,
+      );
+      const refreshedWarnings = [
+        ...refreshedProfile.generatedAgentProfileWarnings,
+        ...refreshedCompositeProfilePlan.warnings,
+      ];
+      failStrictOnWarnings(adapter.id, refreshedWarnings, input.strict);
+      emitWarnings(refreshedWarnings, dependencies.writeError);
+
+      return refreshedCompositeProfilePlan.compositeProfile;
     },
     onCompositeProfileWritten: (compositeProfile) => {
       stateBaseline = updateCompositeProfileStateBaselinePaths(
@@ -160,6 +174,10 @@ export const executeRunCommand = async (
         stateBaseline,
         compositeProfile.files.map((file) => file.outputPath),
       );
+    },
+    /* v8 ignore next -- CompositeProfileWatcher covers refresh-error callbacks directly. */
+    onRefreshError: (error) => {
+      liveRefreshError = error;
     },
     /* v8 ignore next -- watcher warnings are covered in CompositeProfileWatcher tests; this adapter passes the stderr writer through. */
     warn: (message) => (dependencies.writeError ?? console.error)(message),
@@ -170,6 +188,12 @@ export const executeRunCommand = async (
       dependencies.launcher ??
       /* v8 ignore next -- tests inject launchers instead of spawning pi. */ createSpawnLauncher();
     const exitCode = await launchAgentProcess(launcher, launchPlan, adapter.id);
+
+    /* v8 ignore next -- unsafe live-refresh failures are surfaced defensively after launch exits. */
+    if (liveRefreshError !== undefined) {
+      throw toError(liveRefreshError);
+    }
+
     const stateWriteWarnings = handleCompositeProfileStateWrites(
       adapter.id,
       compositeProfilePlan.compositeProfile.rootDirectory,
@@ -256,7 +280,12 @@ interface ResolvedRunProfile {
   readonly settings: Settings;
   readonly settingsPaths: readonly string[];
   readonly profileLayers: readonly LoadedProfile[];
+  readonly generatedAgentProfiles: readonly LoadedProfile[];
+  readonly generatedAgentProfileWarnings: readonly string[];
 }
+
+/* v8 ignore next -- live refresh currently reports Error objects; non-Error values are normalized defensively. */
+const toError = (error: unknown): Error => (error instanceof Error ? error : new Error(String(error)));
 
 const failStrictOnWarnings = (adapterId: string, warnings: readonly string[], strict: boolean | undefined): void => {
   if (strict === true && warnings.length > 0) {
@@ -335,6 +364,7 @@ const createAdapterCompositeProfilePlan = (
     profilePaths: resolvedProfile.profilePaths,
     profileFolders: resolvedProfile.profileFolders,
     profileLayers: createLaunchProfileLayers(resolvedProfile.profileLayers),
+    generatedAgentProfiles: createLaunchProfileLayers(resolvedProfile.generatedAgentProfiles),
     homeDirectory: resolvedProfile.homeDirectory,
     cacheDirectory: resolvedProfile.cacheDirectory,
     settings: resolvedProfile.settings,
@@ -461,6 +491,8 @@ const createFirstRunBootstrapProfile = (input: RunCommandInput): ResolvedRunProf
   settings: emptySettings(),
   settingsPaths: [],
   profileLayers: [],
+  generatedAgentProfiles: [],
+  generatedAgentProfileWarnings: [],
 });
 
 const loadResolvedProfile = (input: RunCommandInput): ResolvedRunProfile => {
@@ -492,9 +524,16 @@ const loadResolvedProfile = (input: RunCommandInput): ResolvedRunProfile => {
     throw new Error(`Profile '${profileId}' is a template profile and must be inherited by a runnable profile.`);
   }
 
+  const generatedAgentProfileWarnings: string[] = [];
+
   return {
     profile: resolution.profile,
     profileLayers: findContributingLoadedProfiles(resolution.profileStack, loadedProfiles.profiles),
+    generatedAgentProfiles: findGeneratedAgentProfiles(loadedProfiles.profiles, {
+      strict: input.strict,
+      warn: (warning) => generatedAgentProfileWarnings.push(warning),
+    }),
+    generatedAgentProfileWarnings,
     profilePaths: findContributingProfilePaths(resolution.profileStack, loadedProfiles.profiles),
     profileFolders: findContributingProfileFolders(resolution.profileStack, loadedProfiles.profiles),
     homeDirectory: input.homeDirectory,
@@ -527,12 +566,6 @@ const selectRunProfileId = (selectedProfileId: string | undefined, defaultProfil
   );
 };
 
-const findContributingProfilePaths = (
-  profileStack: readonly Profile[],
-  loadedProfiles: readonly LoadedProfile[],
-): readonly string[] =>
-  findContributingLoadedProfiles(profileStack, loadedProfiles).map((loadedProfile) => loadedProfile.profilePath);
-
 const findContributingProfileFolders = (
   profileStack: readonly Profile[],
   loadedProfiles: readonly LoadedProfile[],
@@ -548,13 +581,8 @@ export const createLaunchProfileLayers = (loadedProfiles: readonly LoadedProfile
     sourceRootPath: loadedProfile.sourceRootPath,
     resourceRootPath: loadedProfile.resourceRootPath,
     layout: loadedProfile.layout,
+    sourceInputs: loadedProfile.sourceInputs,
   }));
-
-const findContributingLoadedProfiles = (
-  profileStack: readonly Profile[],
-  loadedProfiles: readonly LoadedProfile[],
-): readonly LoadedProfile[] =>
-  profileStack.flatMap((profile) => loadedProfiles.filter((loadedProfile) => loadedProfile.profile.id === profile.id));
 
 export const loadProfileSources = (
   homeDirectory: string,

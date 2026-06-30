@@ -39,11 +39,14 @@ Outfitter is organized around a private npm workspace root, clear TypeScript pac
 │   │   │   ├── cli/                   # CLI parser construction and command objects
 │   │   │   │   └── commands/profile/LintCommand.ts # `outfitter profile lint` implementation
 │   │   │   ├── settings/              # settings loading and merging
-│   │   │   ├── profiles/              # profile loading, validation, resolution, and merging
+│   │   │   ├── profiles/              # profile loading, validation, resolution, merging, and generated-agent selection
+│   │   │   │   ├── GeneratedAgentProfiles.ts # resolves profiles exposed as native delegated subagents
+│   │   │   │   ├── ProfileContributors.ts # maps resolved profile stacks back to source files and folders
 │   │   │   │   └── PromptIncludes.ts  # typed append_system_prompt include resolution and diagnostics
 │   │   │   ├── merge/                 # deterministic value and array merge policy helpers
 │   │   │   ├── compositeProfile/      # generated runtime composite profile assembly and watching
 │   │   │   ├── agents/                # agent adapter boundary and CLI-specific adapters
+│   │   │   │   └── pi/PiGeneratedAgents.ts # transforms generated-agent profiles into Pi agents/*.md files
 │   │   │   ├── schemas/               # JSON Schema artifacts for persisted formats
 │   │   │   └── validation/            # shared validation helpers
 │   │   ├── tests/                     # automated CLI package tests and fixtures

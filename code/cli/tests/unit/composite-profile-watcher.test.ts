@@ -36,6 +36,18 @@ const waitForFileMatching = async (path: string, predicate: (content: string) =>
   }
 };
 
+const waitForWarningContaining = async (warnings: readonly string[], content: string): Promise<void> => {
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    if (warnings.some((warning) => warning.includes(content))) {
+      return;
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  }
+
+  expect(warnings).toEqual(expect.arrayContaining([expect.stringContaining(content)]));
+};
+
 afterEach(() => {
   for (const root of temporaryRoots.splice(0)) {
     rmSync(root, { recursive: true, force: true });
@@ -114,5 +126,30 @@ describe('composite profile input watching', () => {
     } finally {
       staticHandle.close();
     }
+
+    const failingInput = join(watchedDirectory, 'failing-profile.yml');
+    writeFileSync(failingInput, 'initial\n');
+    const refreshErrors: unknown[] = [];
+    const failingHandle = watchCompositeProfileInputs({
+      compositeProfile: createCompositeProfile(join(root, 'failing-compositeProfile'), [
+        createCompositeProfileFile({ relativePath: 'generated.txt', content: 'stale\n', sourceInputs: [failingInput] }),
+      ]),
+      refreshCompositeProfile() {
+        throw new Error('regeneration failed');
+      },
+      onRefreshError: (error) => refreshErrors.push(error),
+      warn: (message) => warnings.push(message),
+    });
+
+    try {
+      await new Promise((resolve) => setTimeout(resolve, 25));
+      writeFileSync(failingInput, 'changed\n');
+      await waitForWarningContaining(warnings, 'Could not safely update compositeProfile');
+    } finally {
+      failingHandle.close();
+    }
+
+    expect(refreshErrors).toHaveLength(1);
+    expect(warnings.at(-1)).toContain('regeneration failed');
   });
 });

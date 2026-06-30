@@ -165,7 +165,7 @@ describe('run command', () => {
     expect(result.launchPlan.env.TEST_ENV).toBe('yes');
     expect(result.launchPlan.env.PI_CODING_AGENT_DIR).toBe(result.compositeProfileDirectory);
     expect(result.warnings).toEqual(["pi adapter cannot translate requested control 'unsupported_feature'."]);
-    expect(warnings).toEqual(result.warnings);
+    expect(warnings).toEqual([...result.warnings, ...result.warnings]);
     expect(launches).toHaveLength(1);
 
     await executeRunCommand(
@@ -232,6 +232,123 @@ describe('run command', () => {
     expect(syncedSources).toEqual([{ github: 'ai-outfitter/default-profiles', path: 'profiles' }]);
     expect(result.profileId).toBe('outfitter-bootstrap');
     expect(existsSync(join(homeDirectory, '.outfitter', 'settings.yml'))).toBe(false);
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-006.8).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('wires discovered generated agent profiles into the Pi composite profile', async () => {
+    const root = createTemporaryRoot();
+    const homeDirectory = join(root, 'home');
+    const projectDirectory = join(root, 'project');
+    const profilesDirectory = join(homeDirectory, '.outfitter', 'profiles');
+    writeSettings(homeDirectory, 'default_profile: leader\nprofile_sources:\n  - path: ./profiles\n');
+    writeProfile(
+      profilesDirectory,
+      'shared',
+      'id: shared\ntemplate: true\ncontrols:\n  pi:\n    append_system_prompt:\n      - shared.md\n',
+    );
+    writeProfile(profilesDirectory, 'leader', 'id: leader\ncontrols: {}\n');
+    writeProfile(
+      profilesDirectory,
+      'engineer',
+      [
+        'id: engineer',
+        'inherits: [shared]',
+        'agent_generation: true',
+        'label: Engineer',
+        'description: Focused implementation work.',
+        'controls:',
+        '  pi:',
+        '    model: claude-sonnet-4-5',
+        '',
+      ].join('\n'),
+    );
+
+    const result = await executeRunCommand(
+      { homeDirectory, projectDirectory },
+      {
+        writeLine: () => undefined,
+        launcher: {
+          launch() {
+            return Promise.resolve(0);
+          },
+        },
+      },
+    );
+
+    const generatedAgentPath = join(result.compositeProfileDirectory, 'agents', 'engineer.md');
+    expect(existsSync(generatedAgentPath)).toBe(true);
+    const generatedAgent = readFileSync(generatedAgentPath, 'utf8');
+    expect(generatedAgent).toContain('name: "engineer"');
+    expect(generatedAgent).toContain('description: "Focused implementation work."');
+    expect(generatedAgent).toContain('model: "claude-sonnet-4-5"');
+    expect(generatedAgent).toContain('- shared.md');
+    expect(existsSync(join(result.compositeProfileDirectory, 'agents', 'shared.md'))).toBe(false);
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-006.8).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('warns and skips malformed unselected generated agent profiles in non-strict runs', async () => {
+    const root = createTemporaryRoot();
+    const homeDirectory = join(root, 'home');
+    const projectDirectory = join(root, 'project');
+    const profilesDirectory = join(homeDirectory, '.outfitter', 'profiles');
+    const warnings: string[] = [];
+    writeSettings(homeDirectory, 'default_profile: leader\nprofile_sources:\n  - path: ./profiles\n');
+    writeProfile(profilesDirectory, 'leader', 'id: leader\ncontrols: {}\n');
+    writeProfile(
+      profilesDirectory,
+      'broken-agent',
+      'id: broken-agent\nagent_generation: true\ninherits: [missing-parent]\ncontrols: {}\n',
+    );
+
+    const result = await executeRunCommand(
+      { homeDirectory, projectDirectory },
+      {
+        writeError: (message) => warnings.push(message),
+        writeLine: () => undefined,
+        launcher: {
+          launch() {
+            return Promise.resolve(0);
+          },
+        },
+      },
+    );
+
+    expect(result.profileId).toBe('leader');
+    expect(result.warnings).toEqual([expect.stringContaining("Cannot resolve generated agent profile 'broken-agent'")]);
+    expect(warnings).toEqual(result.warnings);
+    expect(existsSync(join(result.compositeProfileDirectory, 'agents', 'broken-agent.md'))).toBe(false);
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-006.8).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('fails malformed generated agent profiles in strict runs', async () => {
+    const root = createTemporaryRoot();
+    const homeDirectory = join(root, 'home');
+    const projectDirectory = join(root, 'project');
+    const profilesDirectory = join(homeDirectory, '.outfitter', 'profiles');
+    writeSettings(homeDirectory, 'default_profile: leader\nprofile_sources:\n  - path: ./profiles\n');
+    writeProfile(profilesDirectory, 'leader', 'id: leader\ncontrols: {}\n');
+    writeProfile(
+      profilesDirectory,
+      'broken-agent',
+      'id: broken-agent\nagent_generation: true\ninherits: [missing-parent]\ncontrols: {}\n',
+    );
+
+    await expect(
+      executeRunCommand(
+        { homeDirectory, projectDirectory, strict: true },
+        {
+          writeLine: () => undefined,
+          launcher: {
+            launch() {
+              return Promise.resolve(0);
+            },
+          },
+        },
+      ),
+    ).rejects.toThrow("Cannot resolve generated agent profile 'broken-agent'");
   });
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-010.4).
