@@ -17,33 +17,68 @@ if (version === undefined) {
   throw new Error('Usage: node scripts/sync-release-version.mjs <version|vversion> [--root=<path>]');
 }
 
-const packageJsonPath = path.join(projectRoot, 'package.json');
+const rootPackageJsonPath = path.join(projectRoot, 'package.json');
 const packageLockPath = path.join(projectRoot, 'package-lock.json');
-const packageJson = await readJson(packageJsonPath);
+const rootPackageJson = await readJson(rootPackageJsonPath);
 const lockfile = await readJson(packageLockPath);
+const cliPackageJsonPath = await findCliPackageJsonPath(projectRoot, rootPackageJson);
+const cliPackageJson =
+  cliPackageJsonPath === rootPackageJsonPath ? rootPackageJson : await readJson(cliPackageJsonPath);
+const cliLockfileKey = path.relative(projectRoot, path.dirname(cliPackageJsonPath)).replaceAll(path.sep, '/') || '';
 
-assertPackageName(packageJson);
-assertRepositoryUrl(packageJson);
-assertPackageName(lockfile);
+assertPackageName(cliPackageJson);
+assertRepositoryUrl(cliPackageJson);
 
 if (lockfile.packages?.[''] === undefined) {
   throw new Error("Expected package-lock.json to include packages[''] root package metadata.");
 }
 
-assertPackageName(lockfile.packages['']);
-assertRepositoryUrl(lockfile.packages['']);
+const cliLockfilePackage = lockfile.packages?.[cliLockfileKey];
 
-packageJson.version = version;
+if (cliLockfilePackage === undefined) {
+  throw new Error(`Expected package-lock.json to include packages['${cliLockfileKey}'] CLI package metadata.`);
+}
+
+assertPackageName(cliLockfilePackage);
+assertRepositoryUrl(cliLockfilePackage);
+
+rootPackageJson.version = version;
+cliPackageJson.version = version;
 lockfile.version = version;
 lockfile.packages[''].version = version;
+cliLockfilePackage.version = version;
 
 await writeJson(packageLockPath, lockfile);
-await writeJson(packageJsonPath, packageJson);
+if (cliPackageJsonPath !== rootPackageJsonPath) {
+  await writeJson(rootPackageJsonPath, rootPackageJson);
+}
+await writeJson(cliPackageJsonPath, cliPackageJson);
 
 console.log(`Synchronized Outfitter release metadata to ${version}.`);
 
 function dirnameFromImportMeta(importMetaUrl) {
   return path.dirname(fileURLToPath(importMetaUrl));
+}
+
+async function findCliPackageJsonPath(root, packageJson) {
+  if (packageJson.name === '@ai-outfitter/outfitter') {
+    return path.join(root, 'package.json');
+  }
+
+  const workspacePath = path.join(root, 'code', 'cli', 'package.json');
+
+  try {
+    const workspacePackageJson = await readJson(workspacePath);
+    assertPackageName(workspacePackageJson);
+    return workspacePath;
+  } catch (error) {
+    if (error?.code !== 'ENOENT') {
+      throw error;
+    }
+  }
+
+  assertPackageName(packageJson);
+  return path.join(root, 'package.json');
 }
 
 function normalizeVersion(rawVersion) {

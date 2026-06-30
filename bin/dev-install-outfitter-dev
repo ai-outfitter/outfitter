@@ -23,7 +23,7 @@ cd "$PROJECT_ROOT"
 
 npm run build
 
-TARGET="$PROJECT_ROOT/dist/cli.js"
+TARGET="$PROJECT_ROOT/code/cli/dist/cli.js"
 if [[ ! -f "$TARGET" ]]; then
   echo "Expected build to create $TARGET" >&2
   exit 1
@@ -59,4 +59,4 @@ ln -s "$TARGET" "$ALIAS_PATH"
 echo
 echo "$ALIAS_NAME is installed at $ALIAS_PATH."
 echo "$ALIAS_NAME points at $TARGET."
-echo 'After source changes, rerun this script or `npm run build` to refresh dist/ output.'
+echo 'After source changes, rerun this script or `npm run build` to refresh code/cli/dist/ output.'

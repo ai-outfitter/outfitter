@@ -36,7 +36,7 @@ jobs:
         run: node scripts/sync-release-version.mjs "${GITHUB_REF_NAME}"
 
       - name: Format synchronized release metadata
-        run: npm exec -- prettier --write package.json package-lock.json
+        run: npm exec -- prettier --write package.json package-lock.json code/cli/package.json code/pi-extension/package.json
 
       - name: Run CI checks
         run: npm run check-ci
@@ -45,7 +45,7 @@ jobs:
         run: npm run build
 
       - name: Publish package to npm
-        run: npm publish --access public --provenance
+        run: npm publish --workspace @ai-outfitter/outfitter --access public --provenance
 
       - name: Prepare container image metadata
         id: container

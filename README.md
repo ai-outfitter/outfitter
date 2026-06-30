@@ -42,8 +42,8 @@ controls:
 | [Documentation](./docs/documentation/README.md) | User-facing setup, profile, and profile-repository docs. |
 | [Architecture](./docs/archtecture/README.md)    | Architecture, runtime design, and internal conventions.  |
 | [Requirements](./docs/requirements/)            | Formal OFTR requirements.                                |
-| [Source](./src/)                                | TypeScript implementation.                               |
-| [Tests](./tests/)                               | Unit, scenario, and integration tests.                   |
+| [CLI package](./code/cli/)                      | Published CLI package source, tests, skills, and config. |
+| [Pi extension](./code/pi-extension/)            | Future Pi extension package boundary.                    |
 | [Contributing](./CONTRIBUTING.md)               | Local development and release workflow.                  |
 | [Changelog](./CHANGELOG.md)                     | Release history.                                         |
 | [License](./LICENSE.md)                         | License terms.                                           |

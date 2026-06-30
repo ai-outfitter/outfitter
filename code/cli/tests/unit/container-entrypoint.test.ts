@@ -7,7 +7,7 @@ import { delimiter, join, resolve } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 
 const temporaryRoots: string[] = [];
-const entrypointPath = resolve('bin/outfitter-docker-entrypoint');
+const entrypointPath = resolve('../../bin/outfitter-docker-entrypoint');
 
 interface EntrypointRunResult {
   readonly outfitterLog: string;

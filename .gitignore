@@ -39,6 +39,9 @@ temp/
 
 # Package manager / publish artifacts
 *.tgz
+code/cli/README.md
+code/cli/LICENSE.md
+code/cli/code/enterprise/
 
 # OS and editor files
 .DS_Store

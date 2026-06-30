@@ -26,4 +26,4 @@ fi
 npm --prefix "$REPO_ROOT" run build
 
 echo "Outfitter dev HOME: $DEV_HOME"
-HOME="$DEV_HOME" node "$REPO_ROOT/dist/cli.js" setup "$DEFAULT_PROFILES_SOURCE"
+HOME="$DEV_HOME" node "$REPO_ROOT/code/cli/dist/cli.js" setup "$DEFAULT_PROFILES_SOURCE"

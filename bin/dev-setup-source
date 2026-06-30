@@ -57,4 +57,4 @@ Setup source:   $SETUP_SOURCE
 HOME:           ${HOME:-}
 SUMMARY
 
-node "$REPO_ROOT/dist/cli.js" setup "$SETUP_SOURCE"
+node "$REPO_ROOT/code/cli/dist/cli.js" setup "$SETUP_SOURCE"

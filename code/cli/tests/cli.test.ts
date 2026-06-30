@@ -35,7 +35,7 @@ const readJson = <T>(relativePath: string): T =>
   JSON.parse(readFileSync(new URL(relativePath, import.meta.url), 'utf8')) as T;
 
 const packageJson = readJson<PackageJson>('../package.json');
-const packageLockJson = readJson<PackageLockJson>('../package-lock.json');
+const packageLockJson = readJson<PackageLockJson>('../../../package-lock.json');
 const tsconfig = readJson<TypeScriptConfig>('../tsconfig.json');
 const buildTsconfig = readJson<TypeScriptConfig>('../tsconfig.build.json');
 const eslintConfigSource = readFileSync(new URL('../eslint.config.js', import.meta.url), 'utf8');
@@ -48,6 +48,7 @@ describe('project foundation', () => {
     expect(packageJson.engines.node).toBe('>=22.19.0');
     expect(packageLockJson.lockfileVersion).toBeGreaterThanOrEqual(3);
     expect(packageLockJson.packages).toHaveProperty('');
+    expect(packageLockJson.packages).toHaveProperty('code/cli');
     expect(tsconfig.compilerOptions.strict).toBe(true);
     expect(buildTsconfig.compilerOptions.rootDir).toBe('src');
     expect(buildTsconfig.compilerOptions.outDir).toBe('dist');

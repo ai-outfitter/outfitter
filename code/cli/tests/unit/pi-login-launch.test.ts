@@ -74,6 +74,7 @@ type MockEvent = {
   readonly cwd?: string;
   readonly input?: { readonly command?: string };
   readonly messages?: readonly MockMessage[];
+  readonly reason?: string;
   readonly toolName?: string;
 };
 type MockContext = ReturnType<typeof createMockContext>;

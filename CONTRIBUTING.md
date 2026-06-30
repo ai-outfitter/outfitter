@@ -28,12 +28,12 @@ npm run dev_install
 
 This script:
 
-1. Builds the current checkout into `dist/`.
-2. Runs `npm link` so the global `outfitter` package points at this working tree.
+1. Builds the CLI workspace into `code/cli/dist/`.
+2. Runs `npm link` so the global `outfitter` package points at `code/cli`.
 3. Verifies the global package symlink resolves to this checkout.
 4. Smoke-tests `outfitter --version` and `outfitter --help` through the global bin.
 
-Because the global package is linked to this checkout, rebuilding `dist/` updates the installed command:
+Because the global package is linked to the CLI workspace, rebuilding `code/cli/dist/` updates the installed command:
 
 ```sh
 npm run build
@@ -124,7 +124,7 @@ npm run check-ci
 
 Both commands run the coverage suite.
 Coverage thresholds are intentionally set to 100% for statements, branches, functions, and lines.
-Coverage includes all `src/**/*.ts` files, so new source files need tests even if they are only scaffolding.
+Coverage includes all `code/cli/src/**/*.ts` files through the CLI workspace Vitest configuration, so new source files need tests even if they are only scaffolding.
 
 ## Commit and release workflow
 

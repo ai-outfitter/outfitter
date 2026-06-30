@@ -9,17 +9,20 @@ RUN apt-get update \
 WORKDIR /opt/outfitter
 
 COPY package.json package-lock.json ./
+COPY code/cli/package.json ./code/cli/package.json
+COPY code/pi-extension/package.json ./code/pi-extension/package.json
+COPY doc_site/package.json doc_site/package-lock.json ./doc_site/
 RUN npm pkg delete scripts.prepare \
   && npm ci
 
-COPY package.json tsconfig.json tsconfig.build.json ./
+COPY code/cli/package.json code/cli/tsconfig.json code/cli/tsconfig.build.json ./code/cli/
 COPY bin/outfitter-docker-entrypoint ./bin/outfitter-docker-entrypoint
-COPY skills ./skills
-COPY src ./src
+COPY code/cli/skills ./code/cli/skills
+COPY code/cli/src ./code/cli/src
 
 RUN npm run build \
   && npm prune --omit=dev \
-  && ln -sf /opt/outfitter/dist/cli.js /usr/local/bin/outfitter \
+  && ln -sf /opt/outfitter/code/cli/dist/cli.js /usr/local/bin/outfitter \
   && ln -sf /opt/outfitter/node_modules/.bin/pi /usr/local/bin/pi
 
 RUN mkdir -p /home/node/.pi/agent /home/node/repos \

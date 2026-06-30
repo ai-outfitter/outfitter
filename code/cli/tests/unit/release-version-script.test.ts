@@ -7,7 +7,7 @@ import { join, resolve } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 
 const temporaryRoots: string[] = [];
-const scriptPath = resolve('scripts/sync-release-version.mjs');
+const scriptPath = resolve('../../scripts/sync-release-version.mjs');
 const repository = { type: 'git', url: 'https://github.com/ai-outfitter/outfitter.git' } as const;
 
 const createTemporaryPackageRoot = (

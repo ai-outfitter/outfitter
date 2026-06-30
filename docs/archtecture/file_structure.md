@@ -5,7 +5,7 @@ See [`./README.md`](./README.md) for runtime file conventions such as `.outfitte
 
 ## Repository Layout
 
-Outfitter is organized around clear TypeScript source boundaries, requirement documents, and scenario-based tests.
+Outfitter is organized around a private npm workspace root, clear TypeScript package boundaries, requirement documents, and scenario-based tests.
 
 ```text
 .                                      # repository root
@@ -18,124 +18,60 @@ Outfitter is organized around clear TypeScript source boundaries, requirement do
 │   └── workflows/                     # GitHub Actions workflows and local .deepreview rules
 ├── docs/                              # documentation, architecture, requirements, plans, and specs
 │   ├── archtecture/                   # architecture and internal design docs
-│   │   ├── README.md                  # architectural rationale and runtime file conventions
-│   │   ├── controllable-elements.md   # controllable element terminology and support matrix
-│   │   ├── file_structure.md          # repository file structure overview
-│   │   ├── integration_test_system.md # fixture-backed integration test design
-│   │   ├── onboarding.md              # Pi-native first-run onboarding and setup flow
-│   │   └── state_writeback_strategy.md # composite profile state persistence and writeback design
 │   ├── documentation/                 # user-facing Outfitter docs
 │   ├── requirements/                  # formal OUTFITTER requirement documents
 │   └── specs/                         # detailed supporting specs
-├── doc_site/                          # Nextra/Next.js documentation website
-│   ├── app/                           # App Router pages, layout, and site styles
-│   ├── eslint.config.js               # documentation site ESLint configuration
-│   ├── mdx-components.tsx             # Nextra MDX component bridge
-│   ├── next.config.mjs                # Next.js configuration wrapped by Nextra
-│   ├── package.json                   # documentation site package scripts and dependencies
-│   └── tsconfig.json                  # documentation site TypeScript configuration
+├── doc_site/                          # Nextra/Next.js documentation website with separate npm lockfile
 ├── .prettierignore                    # Prettier ignore rules
 ├── .prettierrc.json                   # Prettier formatting configuration
 ├── .snapperrc.toml                    # Snapper Markdown formatting configuration
 ├── CONTRIBUTING.md                    # local install and contributor workflow guide
-├── code/                              # code with license boundaries that differ from root terms
-│   └── enterprise/                    # enterprise/business licensed code; see code/enterprise/LICENSE
+├── code/                              # npm workspace packages and license-separated code areas
+│   ├── cli/                           # @ai-outfitter/outfitter npm package root
+│   │   ├── eslint.config.js           # CLI package ESLint configuration
+│   │   ├── package.json               # published package metadata, bin, files, and package-local scripts
+│   │   ├── scripts/                   # package-local helper scripts
+│   │   │   ├── dev-install.mjs        # npm-link installer for local CLI development
+│   │   │   └── sync-package-assets.mjs # prepack staging for root README/license and enterprise notices
+│   │   ├── skills/                    # Pi package skills published with Outfitter
+│   │   ├── src/                       # production TypeScript source
+│   │   │   ├── cli.ts                 # executable CLI entry point
+│   │   │   ├── cli/                   # CLI parser construction and command objects
+│   │   │   ├── settings/              # settings loading and merging
+│   │   │   ├── profiles/              # profile loading, validation, resolution, and merging
+│   │   │   ├── merge/                 # deterministic value and array merge policy helpers
+│   │   │   ├── compositeProfile/      # generated runtime composite profile assembly and watching
+│   │   │   ├── agents/                # agent adapter boundary and CLI-specific adapters
+│   │   │   ├── schemas/               # JSON Schema artifacts for persisted formats
+│   │   │   └── validation/            # shared validation helpers
+│   │   ├── tests/                     # automated CLI package tests and fixtures
+│   │   ├── tsconfig.json              # strict package typecheck configuration
+│   │   ├── tsconfig.build.json        # production emission from src/ to dist/
+│   │   └── vitest.config.ts           # package test and coverage configuration
+│   ├── enterprise/                    # enterprise/business licensed code; see code/enterprise/LICENSE
+│   └── pi-extension/                  # private workspace boundary for future Pi extension source/assets
 ├── bin/                               # local executable development helpers
-│   ├── dev-container-setup            # clean container helper for setup smoke tests
-│   ├── dev-setup-source               # local build helper for real setup-source targets
-│   ├── dev-tmp-home                   # isolated temporary HOME launch helper
-│   └── outfitter-docker-entrypoint     # release container entrypoint that adapts to bind-mount ownership
-├── src/                               # production TypeScript source
-│   ├── cli.ts                         # executable CLI entry point
-│   ├── cli/                           # CLI parser construction and command registration
-│   │   ├── OutfitterCli.ts
-│   │   └── commands/                  # command objects for non-trivial CLI behavior
-│   │       ├── CommandObject.ts
-│   │       ├── FirstRunWelcomeProfile.ts
-│   │       ├── PiLoginLaunch.ts
-│   │       ├── RunCommand.ts
-│   │       ├── SetupCommand.ts
-│   │       ├── SyncCommand.ts
-│   │       ├── WelcomeCommand.ts
-│   │       ├── assets/                # static command assets copied into dist, including startup ASCII art
-│   │       │   └── outfitter-ascii.txt
-│   │       └── profile/               # profile command namespace and subcommands
-│   │           ├── Command.ts
-│   │           ├── CreateCommand.ts
-│   │           ├── ListCommand.ts
-│   │           └── Shared.ts
-│   ├── settings/                      # settings loading and merging
-│   │   ├── Settings.ts
-│   │   ├── SettingsLoader.ts
-│   │   └── SettingsMerger.ts
-│   ├── profiles/                      # profile loading, validation, resolution, and merging
-│   │   ├── Profile.ts
-│   │   ├── ProfileCache.ts
-│   │   ├── ProfileLoader.ts
-│   │   ├── ProfileMerger.ts
-│   │   └── ProfileSource.ts
-│   ├── merge/                         # reusable deterministic value and array merge policy helpers
-│   │   ├── ArrayMergePolicy.ts
-│   │   └── SettingsValueMerger.ts
-│   ├── compositeProfile/              # generated runtime composite profile assembly and watching
-│   │   ├── CompositeProfile.ts
-│   │   ├── CompositeProfileAssembler.ts
-│   │   ├── CompositeProfileFile.ts
-│   │   ├── CompositeProfileTemplate.ts
-│   │   ├── CompositeProfileWatcher.ts
-│   │   └── StatePersistence.ts
-│   ├── agents/                        # agent adapter boundary and CLI-specific adapters
-│   │   ├── AdapterProfileControls.ts
-│   │   ├── AdapterStatePaths.ts
-│   │   ├── AgentAdapter.ts
-│   │   ├── AgentRegistry.ts
-│   │   ├── LaunchResources.ts
-│   │   ├── ResourceIdentity.ts
-│   │   ├── pi/                        # pi-specific adapter implementation
-│   │   │   ├── PiAdapter.ts
-│   │   │   ├── PiMcpConfig.ts
-│   │   │   ├── PiSettingsMergePolicy.ts
-│   │   │   └── PiCompositeProfileWriter.ts
-│   │   └── claude/                    # Claude Code-specific adapter implementation
-│   │       ├── ClaudeAdapter.ts
-│   │       └── ClaudeCompositeProfileWriter.ts
-│   ├── schemas/                       # JSON Schema artifacts for persisted formats
-│   │   ├── settings.schema.json
-│   │   ├── profile.schema.json
-│   │   ├── profile-source.schema.json
-│   │   └── SchemaDocument.ts
-│   └── validation/                    # shared validation helpers
-│       ├── SchemaValidator.ts
-│       └── YamlDocument.ts
-├── scripts/                           # local development and formatting helper scripts
-│   ├── .deepreview                    # script-specific DeepWork review rules
-│   └── run-snapper.mjs                # pinned Snapper binary downloader/runner
-├── skills/                            # Pi package skills published with Outfitter
-│   └── outfitter/                     # default /outfitter setup guidance skill
-│       └── SKILL.md
-├── tests/                             # automated tests
-│   ├── fixtures/                      # reusable test fixtures
-│   │   ├── integration/               # fixture-backed integration scenarios, catalog, and local .deepreview
-│   │   └── scenarios/                 # compact profile-resolution scenarios and expected outputs
-│   ├── integration/                   # fixture-backed integration tests and harness helpers
-│   ├── setup.ts                       # Vitest global setup for quiet test-output guards
-│   ├── test-console.ts                # shared console-output guard helpers for tests
-│   └── unit/                          # unit tests grouped by functionality under test, including welcome and first-run tests
-├── package-lock.json                  # locked npm dependency graph
-└── package.json                       # npm package metadata and scripts
+├── scripts/                           # repository-level development, release, and formatting helper scripts
+├── LICENSE.md                         # root source-available license notice
+├── package-lock.json                  # locked npm workspace dependency graph
+└── package.json                       # private npm workspace root and delegating scripts
 ```
 
-The exact layout may evolve, but these boundaries should stay recognizable.
+The exact layout may evolve, but these boundaries should stay recognizable. Root scripts delegate to the `@ai-outfitter/outfitter` workspace so commands such as `npm run check-ci` continue to work from the repository root.
+
+## Published Package Assets
+
+The CLI package root is `code/cli`, but the npm package must still include repository-level notices. The CLI package `prepack` script runs `code/cli/scripts/sync-package-assets.mjs`, which stages `README.md`, `LICENSE.md`, `code/enterprise/LICENSE`, and `code/enterprise/README.md` inside `code/cli` before `npm pack` or `npm publish`.
 
 ## Test Fixtures
 
-Integration fixtures should live under `tests/fixtures/integration/` with full `home/`, `project/`, and optional `expected/` trees.
-Fixture-backed integration tests and shared harness helpers should live under `tests/integration/`.
+Integration fixtures should live under `code/cli/tests/fixtures/integration/` with full `home/`, `project/`, and optional `expected/` trees.
+Fixture-backed integration tests and shared harness helpers should live under `code/cli/tests/integration/`.
 
-Scenario fixtures should live under `tests/fixtures/scenarios/`, for example:
+Scenario fixtures should live under `code/cli/tests/fixtures/scenarios/`, for example:
 
 ```text
-tests/fixtures/scenarios/
+code/cli/tests/fixtures/scenarios/
   profile-cycle/
   profile-inheritance-chain/
   profile-missing-inheritance/

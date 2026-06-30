@@ -11,10 +11,10 @@ Outfitter release publishing prepares package metadata from Conventional Commit 
 1. The release metadata synchronization script MUST accept a release version from an explicit argument, `OUTFITTER_RELEASE_VERSION`, or `GITHUB_REF_NAME`, in that precedence order.
 2. The release metadata synchronization script MUST normalize a leading `v` from release tags before writing package metadata.
 3. The release metadata synchronization script MUST reject invalid Semantic Versioning values before mutating package metadata.
-4. The release metadata synchronization script MUST update the root `package.json` version, root `package-lock.json` version, and `package-lock.json` root package entry version to the same normalized release version.
-5. The release metadata synchronization script MUST verify that the root package metadata it prepares belongs to the `@ai-outfitter/outfitter` npm package.
-6. The release metadata synchronization script MUST verify that `package.json` and the package-lock root metadata declare `repository.url` as `https://github.com/ai-outfitter/outfitter.git` so npm provenance validation can match the publishing repository.
-7. The release metadata synchronization script MUST fail with an actionable error when required package-lock root package metadata is missing.
+4. The release metadata synchronization script MUST update the root `package.json` version, CLI workspace `package.json` version, root `package-lock.json` version, package-lock root entry version, and package-lock CLI workspace entry version to the same normalized release version.
+5. The release metadata synchronization script MUST verify that the package metadata it prepares for publishing belongs to the `@ai-outfitter/outfitter` npm package.
+6. The release metadata synchronization script MUST verify that published package metadata and the corresponding package-lock metadata declare `repository.url` as `https://github.com/ai-outfitter/outfitter.git` so npm provenance validation can match the publishing repository.
+7. The release metadata synchronization script MUST fail with an actionable error when required package-lock root or CLI workspace package metadata is missing.
 
 ### OFTR-009.2: Npm Release Workflow
 
@@ -29,7 +29,7 @@ Outfitter release publishing prepares package metadata from Conventional Commit 
 
 1. The Release Please workflow MUST run on pushes to `main`.
 2. The Release Please workflow MUST use `googleapis/release-please-action@v4` with the upstream example-style token input from `secrets.RELEASE_PLEASE_TOKEN`.
-3. The Release Please workflow MUST use `release-type: node` for the root `@ai-outfitter/outfitter` npm package.
+3. The Release Please workflow MUST use `release-type: node` for Outfitter release metadata until a dedicated workspace manifest configuration replaces it.
 4. The Release Please workflow MUST derive version bumps from Conventional Commits.
 5. The Release Please workflow MUST update npm package metadata and changelog through a release PR before publishing.
 6. The Release Please workflow MUST use GitHub repository write auth capable of triggering release PR CI and the release-published npm workflow, not the default `GITHUB_TOKEN`.
