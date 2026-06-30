@@ -118,7 +118,7 @@ The install target prompt SHOULD also use `selectDescribedOption`, because the d
 Variation A keeps the same inline-description pattern as the profile picker and emphasizes the selected row only:
 
 ```text
-Where SHOULD Outfitter install these settings?
+Where should Outfitter install these settings?
 
   Home folder (~/.outfitter)
 → Current project directory (.outfitter)  These profiles will only be available in the current project directory and will compose the profiles of the same name in the home folder.
@@ -127,7 +127,7 @@ Where SHOULD Outfitter install these settings?
 Variation B uses a wider label column so the explanatory text starts at a stable position:
 
 ```text
-Where SHOULD Outfitter install these settings?
+Where should Outfitter install these settings?
 
   Home folder (~/.outfitter)
 → Current project directory (.outfitter)    These profiles will only be available in the current project directory and will compose the profiles of the same name in the home folder.
@@ -136,7 +136,7 @@ Where SHOULD Outfitter install these settings?
 Variation C adds one line of neutral guidance above the selector while still keeping descriptions tied to the highlighted row:
 
 ```text
-Where SHOULD Outfitter install these settings?
+Where should Outfitter install these settings?
 Choose the scope for the settings.yml written by this setup flow.
 
 → Home folder (~/.outfitter)              These profiles will be available anywhere you start outfitter.
@@ -146,7 +146,7 @@ Choose the scope for the settings.yml written by this setup flow.
 Variation D favors a compact two-column layout and is the preferred architecture target when terminal width allows it:
 
 ```text
-Where SHOULD Outfitter install these settings?
+Where should Outfitter install these settings?
 
   Home folder (~/.outfitter)
 → Current project directory (.outfitter)  These profiles will only be available in the current project directory and will compose the profiles of the same name in the home folder.

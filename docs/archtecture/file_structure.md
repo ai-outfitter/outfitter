@@ -22,6 +22,7 @@ Outfitter is organized around clear TypeScript source boundaries, requirement do
 │   │   ├── controllable-elements.md   # controllable element terminology and support matrix
 │   │   ├── file_structure.md          # repository file structure overview
 │   │   ├── integration_test_system.md # fixture-backed integration test design
+│   │   ├── onboarding.md              # Pi-native first-run onboarding and setup flow
 │   │   └── state_writeback_strategy.md # composite profile state persistence and writeback design
 │   ├── documentation/                 # user-facing Outfitter docs
 │   ├── requirements/                  # formal OUTFITTER requirement documents
@@ -54,6 +55,8 @@ Outfitter is organized around clear TypeScript source boundaries, requirement do
 │   │       ├── SetupCommand.ts
 │   │       ├── SyncCommand.ts
 │   │       ├── WelcomeCommand.ts
+│   │       ├── assets/                # static command assets copied into dist, including startup ASCII art
+│   │       │   └── outfitter-ascii.txt
 │   │       └── profile/               # profile command namespace and subcommands
 │   │           ├── Command.ts
 │   │           ├── CreateCommand.ts
