@@ -16,6 +16,7 @@ as `outfitter setup` and `outfitter welcome` MAY still provide their documented 
 3. `/outfitter` MUST complete its onboarding UI without sending an agent/model message and MUST NOT require an available model.
 4. Extension-command dispatch SHOULD take precedence over the published fallback `skills/outfitter` guidance where Pi command dispatch supports extension commands before skills.
 5. Non-interactive Pi launches MUST NOT show onboarding UI, auto-submit onboarding commands, sync onboarding sources, or mutate Outfitter settings.
+6. First-run Pi-native onboarding SHOULD automatically trust the exact project folder for Pi project-local resources without prompting the user, and MUST NOT automatically trust a parent folder.
 
 ### OFTR-010.2: Profile Source and Default Profile Setup
 

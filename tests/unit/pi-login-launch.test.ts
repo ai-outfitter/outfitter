@@ -2,7 +2,7 @@
 // Tests pi launch-plan preparation: Outfitter bootstrap UX, native setup, and login kickoff.
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { Script, createContext } from 'node:vm';
 
 import { afterEach, describe, expect, it } from 'vitest';
@@ -68,6 +68,7 @@ type MockMessage = {
   readonly role?: string;
 };
 type MockEvent = {
+  readonly cwd?: string;
   readonly input?: { readonly command?: string };
   readonly messages?: readonly MockMessage[];
   readonly toolName?: string;
@@ -244,6 +245,16 @@ const runMockBashToolCall = (pi: ReturnType<typeof createMockPi>, context: MockC
   }
 
   return handler({ toolName: 'bash', input: { command } }, context);
+};
+
+const runMockProjectTrust = (pi: ReturnType<typeof createMockPi>, context: MockContext, cwd: string): unknown => {
+  const handler = pi.handlers.project_trust?.[0];
+
+  if (handler === undefined) {
+    throw new Error('project_trust handler was not registered.');
+  }
+
+  return handler({ cwd }, context);
 };
 
 const runMockContextFilter = (
@@ -647,6 +658,29 @@ describe('preparePiLoginLaunchPlan', () => {
         writeLine: () => undefined,
       }),
     ).toThrow(`Could not read pi login state file '${join(agentDir, 'models.json')}'`);
+  });
+
+  it('auto-trusts the exact project folder during first-run runtime onboarding', async () => {
+    const agentDir = createAgentDir();
+    const projectDirectory = join(agentDir, 'project');
+    const plan = preparePiLoginLaunchPlan({
+      adapterId: 'pi',
+      homeDirectory: agentDir,
+      launchPlan: createLaunchPlan(agentDir),
+      runtimeOnboarding: { autoOpenOutfitter: true, projectDirectory },
+      writeLine: () => undefined,
+    });
+    const extension = evaluateOutfitterExtension(readExtension(plan, 'outfitter-extension.js'));
+    const pi = createMockPi();
+    const context = createMockContext();
+
+    extension(pi);
+
+    await expect(runMockProjectTrust(pi, context, resolve(projectDirectory))).resolves.toEqual({
+      trusted: 'yes',
+      remember: true,
+    });
+    await expect(runMockProjectTrust(pi, context, dirname(projectDirectory))).resolves.toEqual({ trusted: 'undecided' });
   });
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-010.1).

@@ -1,7 +1,7 @@
 /* eslint-disable max-lines, complexity */
 // Prepares Pi launch-time bootstrap extensions for Outfitter UX, login, and setup handoffs.
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 
 import type { AgentLaunchPlan } from '../../agents/AgentAdapter.js';
 import { createDefaultSettingsContent as createSetupDefaultSettingsContent } from './SetupCommand.js';
@@ -57,7 +57,7 @@ export const preparePiLoginLaunchPlan = (input: PiLoginLaunchPlanInput): AgentLa
       autoOpenOutfitter: input.runtimeOnboarding?.autoOpenOutfitter === true,
       defaultProfilesPath: input.runtimeOnboarding?.defaultProfilesPath,
       homeDirectory: input.homeDirectory,
-      projectDirectory: input.runtimeOnboarding?.projectDirectory ?? process.cwd(),
+      projectDirectory: resolve(input.runtimeOnboarding?.projectDirectory ?? process.cwd()),
       startupAsciiArt: input.startupAsciiArt ?? true,
     }),
   );
@@ -181,6 +181,14 @@ export default function outfitter(pi) {
 
     enterPlanMode(ctx);
   };
+
+  pi.on("project_trust", async (event) => {
+    if (!OUTFITTER_AUTO_OPEN || event.cwd !== OUTFITTER_PROJECT) {
+      return { trusted: "undecided" };
+    }
+
+    return { trusted: "yes", remember: true };
+  });
 
   const exportRuntimeSystemPrompt = async (ctx) => {
     const outputPath = typeof process === "undefined" ? undefined : process.env.OUTFITTER_SYSTEM_PROMPT_EXPORT_PATH;
