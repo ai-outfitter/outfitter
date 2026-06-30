@@ -20,6 +20,7 @@ Outfitter is organized around clear TypeScript source boundaries, requirement do
 │   ├── archtecture/                   # architecture and internal design docs
 │   │   ├── README.md                  # architectural rationale and runtime file conventions
 │   │   ├── controllable-elements.md   # controllable element terminology and support matrix
+│   │   ├── enterprise-private-catalog-boundary.md # enterprise/private catalog boundary
 │   │   ├── file_structure.md          # repository file structure overview
 │   │   ├── integration_test_system.md # fixture-backed integration test design
 │   │   ├── onboarding.md              # Pi-native first-run onboarding and setup flow
@@ -43,6 +44,8 @@ Outfitter is organized around clear TypeScript source boundaries, requirement do
 │   ├── dev-setup-source               # local build helper for real setup-source targets
 │   ├── dev-tmp-home                   # isolated temporary HOME launch helper
 │   └── outfitter-docker-entrypoint     # release container entrypoint that adapts to bind-mount ownership
+├── code/                              # non-runtime implementation boundaries outside the public CLI build
+│   └── enterprise/                    # enterprise-only skeletons and types, including private catalog boundary types
 ├── src/                               # production TypeScript source
 │   ├── cli.ts                         # executable CLI entry point
 │   ├── cli/                           # CLI parser construction and command registration
