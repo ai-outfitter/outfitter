@@ -33,15 +33,31 @@ export const mergeProfileStack = (profileStack: NonEmptyProfileStack): Profile =
     baseProfile,
   );
 
-  return withProfileTemplateFromTopProfile(mergedProfile, profileStack[profileStack.length - 1]);
+  return withTopProfileFlags(mergedProfile, profileStack[profileStack.length - 1]);
 };
 
-const withProfileTemplateFromTopProfile = (profile: Profile, topProfile: Profile): Profile => {
+const withTopProfileFlags = (profile: Profile, topProfile: Profile): Profile => {
+  const nextProfile = { ...profile };
+
   if (topProfile.template === true) {
-    return { ...profile, template: true };
+    nextProfile.template = true;
+  } else {
+    delete nextProfile.template;
   }
 
-  return Object.fromEntries(Object.entries(profile).filter(([key]) => key !== 'template')) as Profile;
+  if (typeof topProfile.agentGeneration === 'boolean') {
+    nextProfile.agentGeneration = topProfile.agentGeneration;
+  } else {
+    delete nextProfile.agentGeneration;
+  }
+
+  if (typeof topProfile.profileExport === 'boolean') {
+    nextProfile.profileExport = topProfile.profileExport;
+  } else {
+    delete nextProfile.profileExport;
+  }
+
+  return nextProfile;
 };
 
 const profileArrayPolicy = (path: MergePath): ArrayMergePolicy | undefined => {

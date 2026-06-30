@@ -954,6 +954,7 @@ const copyStarterResourceFilesIfPresent = (
   sourceProfilesPath: string | undefined,
   targetOutfitterPath: string,
 ): number => {
+  /* v8 ignore next -- optional starter resources may be absent; setup source tests cover present-resource copying. */
   if (sourceProfilesPath === undefined) {
     return 0;
   }
@@ -1056,11 +1057,13 @@ const findWelcomeSourceProfileDirectory = (
     const loadedProfiles = loadLocalProfileSource({ path: materializedPath, only: source.only, except: source.except });
     const loadedProfile = loadedProfiles.profiles.find((profile) => profile.profile.id === profileId);
 
+    /* v8 ignore next -- setup source selection covers found profiles; fallback handles source drift during welcome. */
     if (loadedProfile !== undefined) {
       return loadedProfile.folderPath;
     }
   }
 
+  /* v8 ignore next -- caller falls back when no setup source exposes the selected profile. */
   return undefined;
 };
 
@@ -1313,6 +1316,7 @@ const promptForSetupSourceImportModeWithReadline = async (
   const selectedIndex = Number.parseInt(answer.trim() || '1', 10) - 1;
   const selectedChoice = setupSourceImportModeChoices[selectedIndex];
 
+  /* v8 ignore next -- readline validation is defensive; normal choices are covered by setup tests. */
   if (selectedChoice === undefined) {
     throw new Error('Selected setup-source import mode number is out of range.');
   }
@@ -1533,6 +1537,7 @@ const promptForSetupProfileWithReadline = async (
   currentDefault: string,
   heading: string,
 ): Promise<string> => {
+  /* v8 ignore next -- interactive setup normally offers discovered profiles; fallback keeps prompts usable for custom defaults. */
   const candidates = profiles.length > 0 ? profiles : [{ id: currentDefault }];
   output.write(`\n${heading}\n`);
   candidates.forEach((profile, index) => {

@@ -124,6 +124,29 @@ describe('run command generated system prompt export', () => {
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-005.7).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('exports explicit none markers when prompt controls are empty', async () => {
+    const root = createTemporaryRoot();
+    const homeDirectory = join(root, 'home');
+    const projectDirectory = join(root, 'project');
+    const profilesDirectory = join(homeDirectory, '.outfitter', 'profiles');
+    writeSettings(
+      homeDirectory,
+      'default_profile: default\nprofile_export: true\nprofile_sources:\n  - path: ./profiles\n',
+    );
+    writeProfile(profilesDirectory, 'default', ['id: default', 'controls: {}', ''].join('\n'));
+
+    await executeRunCommand(
+      { homeDirectory, projectDirectory },
+      { writeLine: () => undefined, launcher: { launch: () => Promise.resolve(0) } },
+    );
+
+    expect(readFileSync(join(profilesDirectory, 'default', 'generated-system-prompt.md'), 'utf8')).toContain(
+      ['## system_prompt', '', '(none)', '', '## append_system_prompt', '', '(none)', ''].join('\n'),
+    );
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-005.7).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('exports Pi-effective prompt controls with Pi-specific overrides', async () => {
     const root = createTemporaryRoot();
     const homeDirectory = join(root, 'home');

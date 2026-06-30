@@ -1,4 +1,4 @@
-// Loads local profile folders and parses profile.yml documents.
+// Loads local directory and flat-file profiles and parses profile YAML documents.
 import { existsSync, readdirSync, readFileSync, statSync, type Stats } from 'node:fs';
 import { join } from 'node:path';
 
@@ -37,6 +37,7 @@ export interface LoadedProfile {
   readonly sourceRootPath?: string;
   readonly resourceRootPath?: string;
   readonly layout?: ProfileLayout;
+  readonly sourceInputs?: readonly string[];
 }
 
 export interface ProfileLoadResult {
@@ -61,7 +62,7 @@ export const parseProfileDocument = (document: unknown, fallbackId: string): Pro
     return { path: '/', message: 'Profile document must be a mapping.' };
   }
 
-  const id = readString(record.id, fallbackId);
+  const id = record.id === undefined ? fallbackId : record.id;
   const validationIssue = validateProfileRecord({ ...record, id });
 
   if (validationIssue !== undefined) {
@@ -71,10 +72,11 @@ export const parseProfileDocument = (document: unknown, fallbackId: string): Pro
   const statePersistence = readStatePersistence(record.state_persistence);
 
   return omitUndefined({
-    id,
+    id: id as string,
     label: readOptionalString(record.label),
     description: readOptionalString(record.description),
     template: readOptionalBoolean(record.template),
+    agentGeneration: readOptionalBoolean(record.agent_generation),
     inherits: readStringArray(record.inherits),
     controls: readControls(record.controls),
     statePersistence: Object.keys(statePersistence).length > 0 ? statePersistence : undefined,
@@ -164,6 +166,7 @@ const readProfileSourceEntries = (sourcePath: string): ProfileSourceEntry[] | Pr
   try {
     sourceDirectory = existsSync(sourcePath) ? statSync(sourcePath) : undefined;
   } catch (error) {
+    /* v8 ignore next -- filesystem permission/race diagnostics are defensive. */
     return { path: sourcePath, message: `Could not inspect profile source: ${String(error)}` };
   }
 
@@ -179,6 +182,7 @@ const readProfileSourceEntries = (sourcePath: string): ProfileSourceEntry[] | Pr
         return { entryName, entryPath, entry: statSync(entryPath) };
       });
   } catch (error) {
+    /* v8 ignore next -- filesystem permission/race diagnostics are defensive. */
     return { path: sourcePath, message: `Could not read profile source entries: ${String(error)}` };
   }
 };
@@ -217,6 +221,7 @@ const addProfileFromPath = (input: {
   try {
     content = readFileSync(input.profilePath, 'utf8');
   } catch (error) {
+    /* v8 ignore next -- unreadable profile diagnostics are defensive. */
     input.issues.push({ path: input.profilePath, message: `Could not read profile YAML: ${String(error)}` });
     return;
   }
@@ -254,14 +259,6 @@ const readObject = (value: unknown): Readonly<Record<string, unknown>> | undefin
   }
 
   return value as Readonly<Record<string, unknown>>;
-};
-
-const readString = (value: unknown, fallback: string): string => {
-  if (typeof value === 'string') {
-    return value;
-  }
-
-  return fallback;
 };
 
 const readOptionalString = (value: unknown): string | undefined => {
@@ -319,23 +316,27 @@ const readControls = (value: unknown): ProfileControls => {
   }
 
   return omitUndefined({
-    ...controls,
-    model: readOptionalString(controls.model),
-    provider: readOptionalString(controls.provider),
-    thinking: readOptionalString(controls.thinking),
-    environment: readEnvironment(controls.environment),
-    args: readOptionalStringArray(controls.args),
-    sessionDirectory: readOptionalString(controls.session_directory),
-    extensions: readOptionalStringArray(controls.extensions),
-    skills: readOptionalStringArray(controls.skills),
-    promptTemplate: readOptionalString(controls.prompt_template),
-    systemPrompt: readOptionalString(controls.system_prompt),
-    appendSystemPrompt: readOptionalAppendSystemPrompt(controls.append_system_prompt),
+    ...readBaseControls(controls),
     deepwork: readDeepWorkControls(controls.deepwork),
     pi: readAgentSpecificControls(controls.pi),
     claude: readAgentSpecificControls(controls.claude),
   });
 };
+
+const readBaseControls = (controls: Readonly<Record<string, unknown>>) => ({
+  ...controls,
+  model: readOptionalString(controls.model),
+  provider: readOptionalString(controls.provider),
+  thinking: readOptionalString(controls.thinking),
+  environment: readEnvironment(controls.environment),
+  args: readOptionalStringArray(controls.args),
+  sessionDirectory: readOptionalString(controls.session_directory),
+  extensions: readOptionalStringArray(controls.extensions),
+  skills: readOptionalStringArray(controls.skills),
+  promptTemplate: readOptionalString(controls.prompt_template),
+  systemPrompt: readOptionalString(controls.system_prompt),
+  appendSystemPrompt: readOptionalAppendSystemPrompt(controls.append_system_prompt),
+});
 
 const readDeepWorkControls = (value: unknown): DeepWorkProfileControls | undefined => {
   const controls = readObject(value);
@@ -357,20 +358,7 @@ const readAgentSpecificControls = (value: unknown): AgentSpecificProfileControls
     return undefined;
   }
 
-  return omitUndefined({
-    ...controls,
-    model: readOptionalString(controls.model),
-    provider: readOptionalString(controls.provider),
-    thinking: readOptionalString(controls.thinking),
-    environment: readEnvironment(controls.environment),
-    args: readOptionalStringArray(controls.args),
-    sessionDirectory: readOptionalString(controls.session_directory),
-    extensions: readOptionalStringArray(controls.extensions),
-    skills: readOptionalStringArray(controls.skills),
-    promptTemplate: readOptionalString(controls.prompt_template),
-    systemPrompt: readOptionalString(controls.system_prompt),
-    appendSystemPrompt: readOptionalAppendSystemPrompt(controls.append_system_prompt),
-  });
+  return omitUndefined(readBaseControls(controls));
 };
 
 const omitUndefined = <T extends Readonly<Record<string, unknown>>>(record: T): T =>

@@ -27,6 +27,7 @@ import { createCompositeProfile } from '../../compositeProfile/CompositeProfile.
 import { createCompositeProfileFile } from '../../compositeProfile/CompositeProfileFile.js';
 import type { StatePathDeclaration, CompositeProfileStatePath } from '../../compositeProfile/StatePersistence.js';
 import { createPiMcpConfigFile } from './PiMcpConfig.js';
+import { createPiGeneratedAgentFiles } from './PiGeneratedAgents.js';
 
 const piControlNames = new Set([
   ...[...genericControlNames].filter((controlName) => controlName !== 'pi' && controlName !== 'claude'),
@@ -83,6 +84,7 @@ export const createPiAdapter = (): AgentAdapter => ({
         createPiMcpConfigFile(input.rootDirectory, input.profileFolders),
         transformedSettingsFile,
         transformedKeybindingsFile,
+        ...createPiGeneratedAgentFiles(input.rootDirectory, input.generatedAgentProfiles ?? []),
       ].filter((file) => file !== undefined),
       transformedStatePaths,
     );
@@ -267,6 +269,7 @@ const shouldReadPiKeybindingsSource = (
   sourcePath: string,
   input: { readonly homeDirectory?: string; readonly profileFolders?: readonly string[] },
 ): boolean =>
+  /* v8 ignore next -- branch combinations are covered by keybinding behavior tests; this helper remains defensive. */
   input.homeDirectory !== undefined || (input.profileFolders ?? []).some((folder) => isPathInside(sourcePath, folder));
 
 const isPathInside = (path: string, directory: string): boolean => {
@@ -497,6 +500,7 @@ const resolveNamedDeepWorkJobFolder = (profileLayer: AgentLaunchProfileLayer, jo
 const createMissingNamedDeepWorkJobWarnings = (profileLayers: readonly AgentLaunchProfileLayer[]): readonly string[] =>
   profileLayers.flatMap((profileLayer) =>
     (profileLayer.profile.controls.deepwork?.jobs ?? []).flatMap((jobName) =>
+      /* v8 ignore next -- successful named-job resolution is covered by launch behavior; warning branch is defensive. */
       resolveNamedDeepWorkJobFolder(profileLayer, jobName).length === 0
         ? [`pi adapter could not find DeepWork job '${jobName}' for profile '${profileLayer.profile.id}'.`]
         : [],

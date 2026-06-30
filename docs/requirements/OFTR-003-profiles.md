@@ -71,3 +71,10 @@ Outfitter resolves profile definitions across settings scopes, explicit sources,
 2. A profile MAY set top-level `profile_export: false` to disable generated prompt export even when settings enable it by default.
 3. Missing `profile_export` in a profile MUST defer to the effective settings default.
 4. Outfitter MUST validate `profile_export` as a boolean when present.
+
+### OFTR-003.9: Generated Agent Preference
+
+1. A profile MAY set top-level `agent_generation: true` to request native agent-definition generation for adapters that support delegated subagents.
+2. A profile MAY set top-level `agent_generation: false` to opt out of native agent-definition generation.
+3. Missing `agent_generation` in a profile MUST disable native agent-definition generation by default.
+4. Outfitter MUST validate `agent_generation` as a boolean when present.

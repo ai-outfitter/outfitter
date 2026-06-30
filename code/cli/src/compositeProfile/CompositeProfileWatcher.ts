@@ -19,6 +19,7 @@ export interface WatchCompositeProfileInput {
   readonly warn: (message: string) => void;
   readonly refreshCompositeProfile?: () => CompositeProfile;
   readonly onCompositeProfileWritten?: (compositeProfile: CompositeProfile) => void;
+  readonly onRefreshError?: (error: unknown) => void;
 }
 
 export const createCompositeProfileWatchPlan = (paths: readonly string[]): CompositeProfileWatchPlan => ({
@@ -70,6 +71,7 @@ const updateCompositeProfileFromWatchedInput = (input: WatchCompositeProfileInpu
     writeCompositeProfile(compositeProfile, { materializeStatePaths: false });
     input.onCompositeProfileWritten?.(compositeProfile);
   } catch (error) {
+    input.onRefreshError?.(error);
     /* v8 ignore next -- unsafe live-update failures are reported defensively; normal refresh behavior is covered. */
     input.warn(`Could not safely update compositeProfile from ${watchPath}: ${formatError(error)}`);
   }

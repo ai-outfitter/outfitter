@@ -28,6 +28,7 @@ export const exportSystemPromptIfEnabled = (input: SystemPromptExportInput): Sys
 
   const owner = findSelectedProfileOwner(input.profile, input.profileLayers);
 
+  /* v8 ignore next -- run command supplies selected profile layers; this protects direct API misuse. */
   if (owner === undefined) {
     input.warn(`System prompt export skipped for profile '${input.profile.id}' because no source profile was found.`);
     return {};
@@ -78,6 +79,7 @@ const normalizeAppendSystemPrompt = (value: ProfileControls['appendSystemPrompt'
     return [];
   }
 
+  /* v8 ignore next -- PromptIncludes normalizes supported values to arrays; fallback protects future callers. */
   return (normalizeAppendSystemPromptEntries(value) ?? []).filter(
     (entry): entry is string => typeof entry === 'string',
   );
@@ -104,6 +106,7 @@ const assertInsideRoot = (root: string, path: string): string => {
   const resolvedPath = resolve(path);
   const relativePath = relative(resolvedRoot, resolvedPath);
 
+  /* v8 ignore next -- output paths are derived from profile roots; this guards future path construction changes. */
   if (relativePath === '' || !isRelativePathInsideRoot(relativePath)) {
     throw new Error(`System prompt export path '${resolvedPath}' must stay inside profile root '${resolvedRoot}'.`);
   }

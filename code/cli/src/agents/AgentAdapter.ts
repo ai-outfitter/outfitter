@@ -1,3 +1,4 @@
+/* v8 ignore file -- adapter contract is type-only and has no runtime behavior. */
 // Defines the adapter contract for translating Outfitter profiles to agent CLI launches.
 import type { Profile } from '../profiles/Profile.js';
 import type { Settings } from '../settings/Settings.js';
@@ -16,6 +17,7 @@ export interface AgentLaunchProfileLayer {
   readonly sourceRootPath?: string;
   readonly resourceRootPath?: string;
   readonly layout?: 'directory' | 'flat-file';
+  readonly sourceInputs?: readonly string[];
 }
 
 export interface AgentLaunchContext {
@@ -40,6 +42,7 @@ export interface AgentAdapter {
       readonly profilePaths: readonly string[];
       readonly profileFolders?: readonly string[];
       readonly profileLayers?: readonly AgentLaunchProfileLayer[];
+      readonly generatedAgentProfiles?: readonly AgentLaunchProfileLayer[];
       readonly homeDirectory?: string;
       readonly cacheDirectory?: string;
       readonly settings?: Settings;

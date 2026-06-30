@@ -11,6 +11,7 @@
     "label": { "type": "string" },
     "description": { "type": "string" },
     "template": { "type": "boolean" },
+    "agent_generation": { "type": "boolean" },
     "inherits": {
       "type": "array",
       "items": {

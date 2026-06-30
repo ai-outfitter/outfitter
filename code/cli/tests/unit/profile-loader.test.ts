@@ -81,6 +81,8 @@ describe('profile loading', () => {
     });
   });
 
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-003.1).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('parses flat profile YAML files with fallback filename identities and no resource root', () => {
     const root = createProfileSourceRoot();
     writeFileSync(join(root, 'engineer.yml'), 'label: Engineer\ncontrols: {}\n');
@@ -101,6 +103,8 @@ describe('profile loading', () => {
     expect(result.profiles.map((loadedProfile) => loadedProfile.layout)).toEqual(['flat-file', 'flat-file']);
   });
 
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-003.2).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('reports invalid discovered profile slugs before loading flat files or profile folders', () => {
     const root = createProfileSourceRoot();
     mkdirSync(join(root, 'Bad Folder'));
@@ -132,9 +136,11 @@ describe('profile loading', () => {
       message: 'Profile document must be a mapping.',
     });
     const invalidIdResult = parseProfileYaml('id: Engineering Default\n', 'fallback');
+    const nonStringIdResult = parseProfileYaml('id: 123\ncontrols: {}\n', 'fallback');
 
     expect('message' in invalidIdResult && invalidIdResult.path).toBe('/id');
     expect('message' in invalidIdResult && invalidIdResult.message).toContain('must match pattern');
+    expect(nonStringIdResult).toEqual({ path: '/id', message: 'must be string' });
   });
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-003.7).
@@ -158,6 +164,47 @@ describe('profile loading', () => {
     });
   });
 
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-003.9).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('parses agent generation profile markers and validates their type', () => {
+    expect(parseProfileYaml('id: engineer\nagent_generation: true\ncontrols: {}\n', 'fallback')).toEqual({
+      id: 'engineer',
+      agentGeneration: true,
+      inherits: [],
+      controls: {},
+    });
+    expect(parseProfileYaml('id: reviewer\nagent_generation: false\ncontrols: {}\n', 'fallback')).toEqual({
+      id: 'reviewer',
+      agentGeneration: false,
+      inherits: [],
+      controls: {},
+    });
+    expect(parseProfileYaml('id: default\ncontrols: {}\n', 'fallback')).toEqual({
+      id: 'default',
+      inherits: [],
+      controls: {},
+    });
+    expect(parseProfileYaml('id: invalid\nagent_generation: yes\ncontrols: {}\n', 'fallback')).toEqual({
+      path: '/agent_generation',
+      message: 'must be boolean',
+    });
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-003.8).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('parses profile export markers and validates their type', () => {
+    expect(parseProfileYaml('id: exported\nprofile_export: false\ncontrols: {}\n', 'fallback')).toEqual({
+      id: 'exported',
+      profileExport: false,
+      inherits: [],
+      controls: {},
+    });
+    expect(parseProfileYaml('id: invalid\nprofile_export: yes\ncontrols: {}\n', 'fallback')).toEqual({
+      path: '/profile_export',
+      message: 'must be boolean',
+    });
+  });
+
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-003.1).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('reports profile.yml schema validation diagnostics with field pointers', () => {
@@ -177,6 +224,8 @@ describe('profile loading', () => {
     ]);
   });
 
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-002.5, OFTR-003.1).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('reports non-local, missing, and malformed profile sources as load issues', () => {
     const missingRoot = join(createProfileSourceRoot(), 'missing-profile-source');
     const root = createProfileSourceRoot();
