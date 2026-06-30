@@ -21,9 +21,6 @@ export interface PiLoginLaunchPlanInput {
   readonly writeLine?: (message: string) => void;
 }
 
-const outfitterCommandMessage =
-  'Outfitter will open `/outfitter` inside Pi so you can choose the default profile for future launches.';
-
 const runtimeLoginMessage =
   'Outfitter will ask Pi to open `/login` automatically if Pi reports no available models after startup.';
 
@@ -47,6 +44,11 @@ export const preparePiLoginLaunchPlan = (input: PiLoginLaunchPlanInput): AgentLa
     return launchPlan;
   }
 
+  if (input.runtimeOnboarding?.autoOpenOutfitter === true) {
+    writeQuietPiStartupSettings(piConfigDirectory);
+    launchPlan = addFirstRunBootstrapModelIfNeeded(launchPlan);
+  }
+
   launchPlan = addExtension(
     launchPlan,
     piConfigDirectory,
@@ -60,15 +62,41 @@ export const preparePiLoginLaunchPlan = (input: PiLoginLaunchPlanInput): AgentLa
     }),
   );
 
-  if (input.runtimeOnboarding?.autoOpenOutfitter === true) {
-    writePiLaunchMessage(input.writeLine, outfitterCommandMessage);
-  }
-
   if (!hasConfiguredPiLoginState(piConfigDirectory)) {
     writePiLaunchMessage(input.writeLine, runtimeLoginMessage);
   }
 
   return launchPlan;
+};
+
+const addFirstRunBootstrapModelIfNeeded = (launchPlan: AgentLaunchPlan): AgentLaunchPlan => {
+  if (hasPiModelArg(launchPlan.args)) {
+    return launchPlan;
+  }
+
+  return { ...launchPlan, args: ['--model', 'google/gemini-3.1-pro-preview', ...launchPlan.args] };
+};
+
+const hasPiModelArg = (args: readonly string[]): boolean =>
+  args.some((arg) => arg === '--model' || arg.startsWith('--model='));
+
+const writeQuietPiStartupSettings = (piConfigDirectory: string): void => {
+  const settingsPath = join(piConfigDirectory, 'settings.json');
+  mkdirSync(dirname(settingsPath), { recursive: true });
+  let settings: Record<string, unknown> = {};
+
+  if (existsSync(settingsPath)) {
+    try {
+      const parsed: unknown = JSON.parse(readFileSync(settingsPath, 'utf8'));
+      settings = parsed !== null && typeof parsed === 'object' && !Array.isArray(parsed)
+        ? (parsed as Record<string, unknown>)
+        : {};
+    } catch {
+      settings = {};
+    }
+  }
+
+  writeFileSync(settingsPath, `${JSON.stringify({ ...settings, quietStartup: true }, null, 2)}\n`);
 };
 
 const addExtension = (
@@ -175,7 +203,7 @@ export default function outfitter(pi) {
   const submitSlashCommand = async (ctx, command, notification) => {
     if (ctx.mode !== "tui") return false;
     ctx.ui.setEditorText(command);
-    ctx.ui.notify(notification, "info");
+    if (notification !== undefined) ctx.ui.notify(notification, "info");
     await ctx.ui.custom((tui, _theme, _keybindings, done) => {
       setTimeout(() => {
         tui.focusedComponent?.handleInput?.("\r");
@@ -335,7 +363,7 @@ export default function outfitter(pi) {
     });
 
     if (event.reason === "startup" && OUTFITTER_AUTO_OPEN) {
-      await submitSlashCommand(ctx, "/outfitter", "Outfitter is opening /outfitter to finish first-time setup inside Pi.");
+      await submitSlashCommand(ctx, "/outfitter");
       return;
     }
 
@@ -399,8 +427,6 @@ const createStartupHeaderLines = (theme, firstRun) => {
       theme.fg("dim", "• profiles define model, tools, prompts, skills, and extensions"),
       theme.fg("dim", "• settings can live in your home folder or this project"),
       theme.fg("dim", "• catalogs let teams share setups through GitHub"),
-      "",
-      theme.fg("dim", "/outfitter will help you choose a profile catalog and install location."),
     );
     return lines;
   }

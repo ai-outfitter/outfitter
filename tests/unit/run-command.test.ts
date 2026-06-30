@@ -210,6 +210,10 @@ describe('run command', () => {
           launch(plan) {
             expect(existsSync(join(homeDirectory, '.outfitter', 'settings.yml'))).toBe(false);
             expect(plan.args).toContain('--extension');
+            expect(plan.args).toContain('google/gemini-3.1-pro-preview');
+            expect(readFileSync(join(plan.env.PI_CODING_AGENT_DIR, 'settings.json'), 'utf8')).toContain(
+              '"quietStartup": true',
+            );
             return Promise.resolve(0);
           },
         },
@@ -218,7 +222,6 @@ describe('run command', () => {
 
     expect(messages).toEqual(
       expect.arrayContaining([
-        'Outfitter will open `/outfitter` inside Pi so you can choose the default profile for future launches.',
         'Outfitter will ask Pi to open `/login` automatically if Pi reports no available models after startup.',
         '→ resolving profile outfitter-bootstrap',
         '✓ merged controls',

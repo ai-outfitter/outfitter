@@ -338,9 +338,9 @@ describe('preparePiLoginLaunchPlan', () => {
     const header = context.headerRenders[0]?.join('\n') ?? '';
     expect(header).toContain('Outfitter turns Pi into a configured working environment:');
     expect(header).toContain('profiles define model, tools, prompts, skills, and extensions');
-    expect(header).toContain('/outfitter will help you choose a profile catalog and install location.');
+    expect(header).not.toContain('/outfitter will help you choose a profile catalog and install location.');
     expect(header).not.toContain('____');
-    expect(context.notifications.join('\n')).toContain('finish first-time setup inside Pi');
+    expect(context.notifications.join('\n')).not.toContain('/outfitter');
   });
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-006.7).
@@ -668,6 +668,13 @@ describe('preparePiLoginLaunchPlan', () => {
 
     expect(context.editorText).toBe('/outfitter');
     expect(context.submittedInputs).toEqual(['\r']);
-    expect(messages.some((message) => message.includes('/outfitter'))).toBe(true);
+    expect(messages.some((message) => message.includes('/outfitter'))).toBe(false);
+    expect(readFileSync(join(agentDir, 'settings.json'), 'utf8')).toContain('"quietStartup": true');
+    expect(plan.args).toEqual([
+      '--extension',
+      expect.stringContaining('outfitter-extension.js'),
+      '--model',
+      'google/gemini-3.1-pro-preview',
+    ]);
   });
 });
