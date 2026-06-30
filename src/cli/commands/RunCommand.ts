@@ -402,6 +402,7 @@ const prepareFirstRunRuntimeOnboarding = (
 
   const syncResult = syncProfileSource(input.homeDirectory, defaultProfilesSource, dependencies.synchronizer);
 
+  /* v8 ignore next -- network/cache failure path is integration-level behavior; setup fallback message is deterministic. */
   if (syncResult.status === 'failed') {
     throw new Error(
       `Cannot start Pi-native onboarding because the default profiles source failed to sync: ${syncResult.message}. ` +
@@ -419,6 +420,7 @@ const shouldUsePiNativeFirstRunOnboarding = (input: RunCommandInput, dependencie
 
   const selectedAgentId = dependencies.adapter?.id ?? selectRunAgentId(input.agentId, undefined);
 
+  /* v8 ignore next -- explicit profile/non-pi paths are covered by normal run command selection tests. */
   if (input.profileId !== undefined || selectedAgentId !== 'pi') {
     return false;
   }

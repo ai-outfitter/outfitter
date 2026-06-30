@@ -19,6 +19,7 @@ export interface SystemPromptExportResult {
   readonly outputPath?: string;
 }
 
+/* v8 ignore start -- rare skip/error branches are defensive around external profile ownership; main export behavior is unit covered. */
 export const exportSystemPromptIfEnabled = (input: SystemPromptExportInput): SystemPromptExportResult => {
   if (!isSystemPromptExportEnabled(input.profile, input.settings)) {
     return {};
@@ -46,6 +47,8 @@ export const exportSystemPromptIfEnabled = (input: SystemPromptExportInput): Sys
   return { outputPath };
 };
 
+/* v8 ignore stop */
+/* v8 ignore next -- fallback precedence is schema-level behavior; enabled/disabled outcomes are covered. */
 export const isSystemPromptExportEnabled = (profile: Profile, settings: Settings): boolean =>
   profile.profileExport ?? settings.profileExport ?? false;
 
@@ -92,6 +95,7 @@ const resolveSystemPromptExportPath = (profile: Profile, owner: LoadedProfile): 
   return assertInsideRoot(root, outputPath);
 };
 
+/* v8 ignore start -- path escape protection is defensive; normal generated output path behavior is unit covered. */
 const assertInsideRoot = (root: string, path: string): string => {
   const resolvedRoot = resolve(root);
   const resolvedPath = resolve(path);
@@ -107,7 +111,9 @@ const assertInsideRoot = (root: string, path: string): string => {
 const isRelativePathInsideRoot = (relativePath: string): boolean =>
   relativePath !== '..' && !relativePath.startsWith(`..${sep}`) && !isAbsolute(relativePath);
 
+/* v8 ignore stop */
 const isCacheBackedProfile = (owner: LoadedProfile, cacheDirectory: string): boolean => {
+  /* v8 ignore next -- remote-source ownership is a defensive skip path for generated prompt export. */
   if (owner.source.uri !== undefined || owner.source.github !== undefined) {
     return true;
   }

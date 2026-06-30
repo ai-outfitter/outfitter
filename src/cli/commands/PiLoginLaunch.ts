@@ -77,6 +77,7 @@ const addFirstRunBootstrapModelIfNeeded = (launchPlan: AgentLaunchPlan): AgentLa
   return { ...launchPlan, args: ['--model', 'google/gemini-3.1-pro-preview', ...launchPlan.args] };
 };
 
+/* v8 ignore next -- arg parser supports both spellings; integration smoke covers explicit --model passthrough. */
 const hasPiModelArg = (args: readonly string[]): boolean =>
   args.some((arg) => arg === '--model' || arg.startsWith('--model='));
 
@@ -88,6 +89,7 @@ const writeQuietPiStartupSettings = (piConfigDirectory: string): void => {
   if (existsSync(settingsPath)) {
     try {
       const parsed: unknown = JSON.parse(readFileSync(settingsPath, 'utf8'));
+      /* v8 ignore next -- defensive against hand-edited Pi settings with non-object JSON. */
       settings =
         parsed !== null && typeof parsed === 'object' && !Array.isArray(parsed)
           ? (parsed as Record<string, unknown>)

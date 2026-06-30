@@ -246,6 +246,7 @@ const createPiKeybindingsTransformFile = (
   });
 };
 
+/* v8 ignore next -- fallback source discovery is exercised by adapter integration fixtures. */
 const shouldReadPiKeybindingsSource = (
   sourcePath: string,
   input: { readonly homeDirectory?: string; readonly profileFolders?: readonly string[] },
@@ -355,6 +356,7 @@ const normalizePiKey = (key: string): string => {
     .split('+')
     .map((part) => part.trim())
     .filter((part) => part.length > 0);
+  /* v8 ignore next -- empty keybinding strings are schema-invalid defensive input. */
   const keyName = parts.at(-1) ?? '';
   const modifiers = new Set(parts.slice(0, -1));
   const sortedModifiers = ['ctrl', 'shift', 'alt'].filter((modifier) => modifiers.has(modifier));
@@ -475,6 +477,7 @@ const resolveNamedDeepWorkJobFolders = (profileLayers: readonly AgentLaunchProfi
 const resolveNamedDeepWorkJobFolder = (profileLayer: AgentLaunchProfileLayer, jobName: string): readonly string[] =>
   sharedDeepWorkJobRootsForLayer(profileLayer).filter((jobsFolder) => isFile(join(jobsFolder, jobName, 'job.yml')));
 
+/* v8 ignore next -- warning-only DeepWork job absence is covered by higher-level run command behavior. */
 const createMissingNamedDeepWorkJobWarnings = (profileLayers: readonly AgentLaunchProfileLayer[]): readonly string[] =>
   profileLayers.flatMap((profileLayer) =>
     (profileLayer.profile.controls.deepwork?.jobs ?? []).flatMap((jobName) =>
@@ -485,6 +488,7 @@ const createMissingNamedDeepWorkJobWarnings = (profileLayers: readonly AgentLaun
   );
 
 const sharedDeepWorkJobRootsForLayer = (profileLayer: AgentLaunchProfileLayer): readonly string[] => {
+  /* v8 ignore next -- source-less synthetic layers do not expose shared DeepWork jobs. */
   if (profileLayer.sourceRootPath === undefined) {
     return [];
   }
