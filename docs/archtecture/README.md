@@ -386,7 +386,8 @@ inherits:
 controls:
   model: anthropic/claude-sonnet-4
   system_prompt: ./prompts/system.md
-  append_system_prompt: ./prompts/company-policy.md
+  append_system_prompt:
+    - file: ./prompts/company-policy.md
   skills:
     - ./skills/debugging
   extensions:
@@ -411,7 +412,7 @@ Rules:
 - `cli_specific/<cli-name>/` contains files copied or translated directly into the generated composite profile for that CLI, plus resources that intentionally apply only to one adapter.
 - Pi profiles may provide `cli_specific/pi/.mcp.json`; Outfitter merges contributing profile fragments into the composite profile with unique array entries by identity and last writer wins for duplicate identities.
 - Pi-specific skills and DeepWork jobs may also live under `cli_specific/pi/skills/` and `cli_specific/pi/deepwork/jobs/` when they should not be exposed to other adapters.
-- `append_system_prompt` accepts a string or an ordered string array. When multiple resolved profile layers provide it, Outfitter composes the values into repeated agent append-prompt inputs in profile precedence order so shared prompt profiles do not need to use raw CLI `args`.
+- `append_system_prompt` accepts literal strings, multiline strings, `{ file: string }` profile-source includes, `{ repo_file: string }` active-project includes, or an ordered list mixing those entry types. `{ text: ... }` is intentionally unsupported. `file` includes resolve from the declaring profile layer's source root (`~/.outfitter` for home profiles, the repository root for project/catalog `.outfitter/` and catalog `outfitter/` sources, or the explicit source path otherwise). `repo_file` includes resolve from the active project directory so reusable profiles can request project docs such as `docs/mission.md`. When multiple resolved profile layers provide append prompts, Outfitter composes the values into repeated agent append-prompt inputs in profile precedence order so shared prompt profiles do not need to use raw CLI `args`.
 - Top-level `profile_export: true` on settings enables generated Pi prompt export by default for selected local profiles. Top-level `profile_export: true|false` on a profile overrides the settings default for that resolved profile.
 - Generated Pi prompt exports are seeded before launch and overwritten by Outfitter's Pi runtime extension from `ctx.getSystemPrompt()`, the same Pi primitive used by `pi-inspect`. Directory profiles write `generated-system-prompt.md`; flat profiles write `<profile-id>.generated-system-prompt.md` beside the flat YAML file so teams can commit or git-ignore the fully built runtime prompt artifact.
 - CLI-specific configuration wins over generic controls when both apply to the same generated artifact.
@@ -456,7 +457,8 @@ label: Shared Prose
 template: true
 
 controls:
-  append_system_prompt: ./prompts/prose.md
+  append_system_prompt:
+    - file: ./prompts/prose.md
 ```
 
 ```yaml
@@ -468,7 +470,8 @@ inherits:
   - shared-prose
 
 controls:
-  append_system_prompt: ./prompts/system.md
+  append_system_prompt:
+    - file: ./prompts/system.md
   skills:
     - ./skills/debugging
   pi:
@@ -507,7 +510,8 @@ inherits:
 
 controls:
   system_prompt: ./prompts/system.md
-  append_system_prompt: ./prompts/review.md
+  append_system_prompt:
+    - file: ./prompts/review.md
   extensions:
     - ./extensions/project-bootstrap
   session_directory: ./.outfitter/sessions/project-engineering

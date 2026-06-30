@@ -21,6 +21,7 @@ import {
 import { createDeclaredStatePaths, findProfileStateSource } from '../AdapterStatePaths.js';
 import { filterPiSettingsPackagesDuplicatingExtensions } from './PiSettingsMergePolicy.js';
 import type { PiProfileControls, Profile, ProfileControls } from '../../profiles/Profile.js';
+import { resolveAppendSystemPromptControl } from '../../profiles/PromptIncludes.js';
 import type { CompositeProfile } from '../../compositeProfile/CompositeProfile.js';
 import { createCompositeProfile } from '../../compositeProfile/CompositeProfile.js';
 import { createCompositeProfileFile } from '../../compositeProfile/CompositeProfileFile.js';
@@ -93,6 +94,12 @@ export const createPiAdapter = (): AgentAdapter => ({
           (controlName) => `pi adapter cannot translate requested control '${controlName}'.`,
         ),
         ...createMissingNamedDeepWorkJobWarnings(input.profileLayers ?? []),
+        ...resolveAppendSystemPromptControl({
+          fallback: mergePiControls(profile.controls).appendSystemPrompt,
+          profileLayers: input.profileLayers,
+          agentKey: 'pi',
+          projectDirectory: input.projectDirectory,
+        }).diagnostics.map((diagnostic) => `pi ${diagnostic.message} (${diagnostic.path})`),
       ],
     };
   },
@@ -110,10 +117,19 @@ export const createPiAdapter = (): AgentAdapter => ({
       context.profileLayers ?? [],
     );
     const skillSources = createPiSkillSources(controls, profileFolders);
+    const appendPrompt = resolveAppendSystemPromptControl({
+      fallback: controls.appendSystemPrompt,
+      profileLayers: context.profileLayers,
+      agentKey: 'pi',
+      projectDirectory: context.projectDirectory,
+    });
 
     return {
       command: 'pi',
-      args: [...createPiArgs({ ...controls, skills: skillSources }), ...passThroughArgs],
+      args: [
+        ...createPiArgs({ ...controls, skills: skillSources, appendSystemPrompt: appendPrompt.prompts }),
+        ...passThroughArgs,
+      ],
       env: {
         ...controls.environment,
         ...(deepWorkJobsFolders === undefined ? {} : { DEEPWORK_ADDITIONAL_JOBS_FOLDERS: deepWorkJobsFolders }),

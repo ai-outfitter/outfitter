@@ -21,7 +21,7 @@ For the full walkthrough, see [Getting started](./docs/documentation/getting-sta
 [Profiles](./docs/documentation/profiles.md) compose the context, tools, prompts, skills, extensions, subagents, and DeepWork workflows that shape an agent. Profiles can be shared using [Profile Catalog Repos](./docs/documentation/profile-repository.md).
 
 ```yaml
-# ~/.outfitter/profiles/home-default/profile.yml
+# ~/.outfitter/profiles/home-default.yml
 id: home-default
 label: Home Default
 description: Reusable personal defaults for Outfitter-managed Pi runs.
@@ -29,10 +29,12 @@ controls:
   provider: openai-codex
   model: gpt-5.5
   thinking: high
-  append_system_prompt: |
-    Use concise, evidence-backed engineering prose.
-    Prefer small, reviewable changes.
-    Keep durable decisions in repo files.
+  append_system_prompt:
+    - |
+      Use concise, evidence-backed engineering prose.
+      Prefer small, reviewable changes.
+      Keep durable decisions in repo files.
+    - repo_file: docs/architecture.md
 ```
 
 ## Repository map

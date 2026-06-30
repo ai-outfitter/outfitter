@@ -1,5 +1,5 @@
 // Shared helpers for adapter profile controls and argv construction.
-import type { ProfileControls } from '../profiles/Profile.js';
+import type { AppendSystemPromptControl, ProfileControls } from '../profiles/Profile.js';
 import { mergeLaunchResourceSources } from './LaunchResources.js';
 
 export const genericControlNames = new Set([
@@ -55,12 +55,23 @@ export const flagValue = (flag: string, value: string | undefined): readonly str
 export const repeatFlag = (flag: string, values: readonly string[] | undefined): readonly string[] =>
   values === undefined ? [] : values.flatMap((value) => [flag, value]);
 
-export const repeatFlagValue = (flag: string, value: string | readonly string[] | undefined): readonly string[] => {
+export const repeatFlagValue = (flag: string, value: AppendSystemPromptControl | undefined): readonly string[] => {
   if (value === undefined) {
     return [];
   }
 
-  return typeof value === 'string' ? [flag, value] : repeatFlag(flag, value);
+  if (typeof value === 'string') {
+    return [flag, value];
+  }
+
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return repeatFlag(
+    flag,
+    value.filter((entry): entry is string => typeof entry === 'string'),
+  );
 };
 
 export const findUnsupportedControlNames = (

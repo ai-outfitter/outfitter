@@ -5,8 +5,11 @@ import { join } from 'node:path';
 import type { ValidationIssue } from '../validation/SchemaValidator.js';
 import { validateSchema } from '../validation/SchemaValidator.js';
 import { parseYamlDocument } from '../validation/YamlDocument.js';
+import { isPromptFileInclude, isPromptRepoFileInclude } from './PromptIncludes.js';
 import type {
   AgentSpecificProfileControls,
+  AppendSystemPromptControl,
+  AppendSystemPromptEntry,
   DeepWorkProfileControls,
   Profile,
   ProfileControls,
@@ -293,12 +296,19 @@ const readOptionalStringArray = (value: unknown): readonly string[] | undefined 
   return undefined;
 };
 
-const readOptionalStringOrStringArray = (value: unknown): string | readonly string[] | undefined => {
-  if (typeof value === 'string') {
+const readOptionalAppendSystemPrompt = (value: unknown): AppendSystemPromptControl | undefined => {
+  if (typeof value === 'string' || isPromptFileInclude(value) || isPromptRepoFileInclude(value)) {
     return value;
   }
 
-  return readOptionalStringArray(value);
+  if (Array.isArray(value)) {
+    return value.filter(
+      (item): item is AppendSystemPromptEntry =>
+        typeof item === 'string' || isPromptFileInclude(item) || isPromptRepoFileInclude(item),
+    );
+  }
+
+  return undefined;
 };
 
 const readControls = (value: unknown): ProfileControls => {
@@ -320,7 +330,7 @@ const readControls = (value: unknown): ProfileControls => {
     skills: readOptionalStringArray(controls.skills),
     promptTemplate: readOptionalString(controls.prompt_template),
     systemPrompt: readOptionalString(controls.system_prompt),
-    appendSystemPrompt: readOptionalStringOrStringArray(controls.append_system_prompt),
+    appendSystemPrompt: readOptionalAppendSystemPrompt(controls.append_system_prompt),
     deepwork: readDeepWorkControls(controls.deepwork),
     pi: readAgentSpecificControls(controls.pi),
     claude: readAgentSpecificControls(controls.claude),
@@ -359,7 +369,7 @@ const readAgentSpecificControls = (value: unknown): AgentSpecificProfileControls
     skills: readOptionalStringArray(controls.skills),
     promptTemplate: readOptionalString(controls.prompt_template),
     systemPrompt: readOptionalString(controls.system_prompt),
-    appendSystemPrompt: readOptionalStringOrStringArray(controls.append_system_prompt),
+    appendSystemPrompt: readOptionalAppendSystemPrompt(controls.append_system_prompt),
   });
 };
 

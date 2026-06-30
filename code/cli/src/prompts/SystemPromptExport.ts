@@ -4,6 +4,7 @@ import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 
 import { mergeAgentSpecificControls } from '../agents/AdapterProfileControls.js';
 import type { Profile, ProfileControls } from '../profiles/Profile.js';
+import { normalizeAppendSystemPromptEntries } from '../profiles/PromptIncludes.js';
 import type { LoadedProfile } from '../profiles/ProfileLoader.js';
 import type { Settings } from '../settings/Settings.js';
 
@@ -77,7 +78,9 @@ const normalizeAppendSystemPrompt = (value: ProfileControls['appendSystemPrompt'
     return [];
   }
 
-  return typeof value === 'string' ? [value] : value;
+  return (normalizeAppendSystemPromptEntries(value) ?? []).filter(
+    (entry): entry is string => typeof entry === 'string',
+  );
 };
 
 const findSelectedProfileOwner = (

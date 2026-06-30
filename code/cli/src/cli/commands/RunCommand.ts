@@ -117,6 +117,7 @@ export const executeRunCommand = async (
         {
           profileFolders: resolvedProfile.profileFolders,
           profileLayers: createLaunchProfileLayers(resolvedProfile.profileLayers),
+          projectDirectory: input.projectDirectory,
         },
       ),
       systemPromptExport.outputPath,
@@ -540,7 +541,7 @@ const findContributingProfileFolders = (
     loadedProfile.resourceRootPath === undefined ? [] : [loadedProfile.resourceRootPath],
   );
 
-const createLaunchProfileLayers = (loadedProfiles: readonly LoadedProfile[]) =>
+export const createLaunchProfileLayers = (loadedProfiles: readonly LoadedProfile[]) =>
   loadedProfiles.map((loadedProfile) => ({
     profile: loadedProfile.profile,
     profilePath: loadedProfile.profilePath,
@@ -555,7 +556,7 @@ const findContributingLoadedProfiles = (
 ): readonly LoadedProfile[] =>
   profileStack.flatMap((profile) => loadedProfiles.filter((loadedProfile) => loadedProfile.profile.id === profile.id));
 
-const loadProfileSources = (
+export const loadProfileSources = (
   homeDirectory: string,
   sources: readonly ProfileSourceReference[],
 ): {
