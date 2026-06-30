@@ -58,5 +58,5 @@ requirements:
     the test after the change.
 
 references:
-  - path: "../../../doc/specs/validating_requirements_with_rules.md"
+  - path: "../../../docs/specs/validating_requirements_with_rules.md"
     description: "Traceability comment format and validation mechanism guidance."

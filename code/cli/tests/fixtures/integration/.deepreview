@@ -19,9 +19,9 @@ integration_fixture_consistency:
       - mutation/write-back behavior that tests are expected to exercise.
 
       Check catalog consistency:
-      - every fixture set under tests/fixtures/integration/ is represented in
-        tests/fixtures/integration/INTEGRATION_TEST_FIXTURES.md unless it is an intentionally shared helper
-        directory documented in tests/fixtures/integration/README.md;
+      - every fixture set under code/cli/tests/fixtures/integration/ is represented in
+        code/cli/tests/fixtures/integration/INTEGRATION_TEST_FIXTURES.md unless it is an intentionally shared helper
+        directory documented in code/cli/tests/fixtures/integration/README.md;
       - catalog entries describe scenarios rather than adapter-only mechanics;
       - adapter-specific expectations are described as adapter-specific details,
         not as the fixture's primary identity;

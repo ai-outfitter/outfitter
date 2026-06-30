@@ -5,11 +5,11 @@ instructions: |
   so tests can discover home, project, README, and optional expected outputs.
 
   This schema validates the structural contract documented in
-  tests/fixtures/integration/README.md. Judgment-based README freshness is
+  code/cli/tests/fixtures/integration/README.md. Judgment-based README freshness is
   handled by the integration_fixture_readme DeepReview rule.
 
 matchers:
-  - "tests/fixtures/integration/*/README.md"
+  - "code/cli/tests/fixtures/integration/*/README.md"
 
 requirements:
   fixture-readme-required: >
@@ -33,7 +33,7 @@ verification_bash_command:
   - "root=$(dirname \"$1\"); name=$(basename \"$root\"); case \"$name\" in pi_*|claude_*) echo \"FAIL: fixture name should not start with adapter prefix: $name\"; exit 1;; esac"
 
 references:
-  - path: "../../../tests/fixtures/integration/README.md"
+  - path: "../../../code/cli/tests/fixtures/integration/README.md"
     description: "Integration fixture directory contract and authoring rules."
-  - path: "../../../tests/fixtures/integration/INTEGRATION_TEST_FIXTURES.md"
+  - path: "../../../code/cli/tests/fixtures/integration/INTEGRATION_TEST_FIXTURES.md"
     description: "Scenario catalog for existing and proposed fixture sets."

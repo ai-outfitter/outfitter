@@ -58,5 +58,5 @@ verification_bash_command:
   - "base=$(basename \"$1\" .md); prefix=$(printf '%s\\n' \"$base\" | grep -Eo '^OFTR-[0-9]{3}'); awk -v prefix=\"$prefix\" '/^### OFTR-[0-9]{3}\\.[0-9]+: / { split($2, parts, /\\./); n=parts[2]+0; expected++; if (n != expected) { printf \"FAIL: requirement section numbering gap at line %d: expected %s.%d, got %s\\n\", NR, prefix, expected, $2; exit 1 } } END { if (expected == 0) { print \"FAIL: no requirement sections found\"; exit 1 } }' \"$1\""
 
 references:
-  - path: "../../../doc/specs/validating_requirements_with_rules.md"
+  - path: "../../../docs/specs/validating_requirements_with_rules.md"
     description: "Guidance for choosing tests, DeepSchemas, or DeepReview rules for requirements validation."

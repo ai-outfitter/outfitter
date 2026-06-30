@@ -80,7 +80,7 @@ requirements_traceability:
       Produce a structured review with Coverage Gaps, Mechanism Mismatches,
       Traceability Comment Issues, and a PASS/FAIL summary.
 
-      See doc/specs/validating_requirements_with_rules.md for project guidance.
+      See docs/specs/validating_requirements_with_rules.md for project guidance.
 
    
 integration_fixture_requirement_coverage:
@@ -101,8 +101,8 @@ integration_fixture_requirement_coverage:
       changes / additions that alter observable profile, composite profile, adapter, or state behavior.
 
       If a changed requirement affects any of these areas, the PR MUST update
-      fixture-backed integration coverage under tests/integration/ and
-      tests/fixtures/integration/:
+      fixture-backed integration coverage under code/cli/tests/integration/ and
+      code/cli/tests/fixtures/integration/:
       - profile selection, inheritance, source precedence, or merging;
       - settings precedence or profile source resolution;
       - composite profile directory assembly or generated adapter config files;
