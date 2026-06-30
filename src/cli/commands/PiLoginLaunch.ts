@@ -129,7 +129,7 @@ const createPiOutfitterExtensionContent = (input: {
   const defaultSettingsTemplate = createSetupDefaultSettingsContent('__OUTFITTER_PROFILE_ID__');
   const startupAsciiArt = readFileSync(new URL('./assets/outfitter-ascii.txt', import.meta.url), 'utf8').trimEnd();
 
-  return String.raw`import { matchesKey } from "@earendil-works/pi-tui";
+  return String.raw`import { matchesKey, truncateToWidth, visibleWidth, wrapTextWithAnsi } from "@earendil-works/pi-tui";
 
 const OUTFITTER_PLAN_TOOLS = ["read", "grep", "find", "ls"];
 const OUTFITTER_DEFAULT_TOOLS = ["read", "bash", "edit", "write"];
@@ -679,20 +679,45 @@ const selectDescribedOption = (ctx, titleLines, items, initialValue) =>
 
     return {
       outfitterOptions: items.map((item) => item.label),
-      render: () => [
-        ...titleLines.map((line, index) => index === 0 ? theme.fg("accent", theme.bold(line)) : theme.fg("dim", line)),
-        "",
-        ...items.map((item, index) => {
-          const selected = index === selectedIndex;
-          const prefix = selected ? theme.fg("accent", "→ ") : "  ";
-          const paddedLabel = item.label.padEnd(labelWidth);
-          const label = selected ? theme.fg("accent", paddedLabel) : paddedLabel;
-          const description = selected && item.description ? "  " + theme.fg("muted", item.description) : "";
-          return prefix + label + description;
-        }),
-        "",
-        theme.fg("dim", "↑↓ navigate  enter select  escape/ctrl+c cancel"),
-      ],
+      render: (width = 120) => {
+        const maxWidth = typeof width === "number" && width > 0 ? width : 120;
+        const fitLine = (line) => visibleWidth(line) > maxWidth ? truncateToWidth(line, maxWidth) : line;
+        const renderSelectedItem = (prefix, label, description) => {
+          const baseLine = prefix + label;
+          if (!description) return [fitLine(baseLine)];
+
+          const inlineDescriptionWidth = maxWidth - visibleWidth(baseLine) - 2;
+          const descriptionText = theme.fg("muted", description);
+          if (inlineDescriptionWidth >= 30) {
+            const [firstDescriptionLine = "", ...remainingDescriptionLines] = wrapTextWithAnsi(descriptionText, inlineDescriptionWidth);
+            const continuationPrefix = " ".repeat(Math.min(maxWidth, visibleWidth(baseLine) + 2));
+            return [
+              fitLine(baseLine + "  " + firstDescriptionLine),
+              ...remainingDescriptionLines.map((line) => fitLine(continuationPrefix + line)),
+            ];
+          }
+
+          return [
+            fitLine(baseLine),
+            ...wrapTextWithAnsi(descriptionText, Math.max(1, maxWidth - 2)).map((line) => fitLine("  " + line)),
+          ];
+        };
+
+        return [
+          ...titleLines.flatMap((line, index) => wrapTextWithAnsi(index === 0 ? theme.fg("accent", theme.bold(line)) : theme.fg("dim", line), maxWidth)),
+          "",
+          ...items.flatMap((item, index) => {
+            const selected = index === selectedIndex;
+            const prefix = selected ? theme.fg("accent", "→ ") : "  ";
+            const paddedLabel = item.label.padEnd(labelWidth);
+            const label = selected ? theme.fg("accent", paddedLabel) : paddedLabel;
+            const description = selected ? item.description : undefined;
+            return renderSelectedItem(prefix, label, description);
+          }),
+          "",
+          fitLine(theme.fg("dim", "↑↓ navigate  enter select  escape/ctrl+c cancel")),
+        ];
+      },
       invalidate: () => undefined,
       handleInput: (data) => {
         if (data === "\x1b[A") move(-1);

@@ -86,7 +86,26 @@ type OutfitterExtension = (pi: ReturnType<typeof createMockPi>) => void;
 
 const evaluateOutfitterExtension = (content: string): OutfitterExtension => {
   const executableContent = content
-    .replace('import { matchesKey } from "@earendil-works/pi-tui";', 'const matchesKey = (data, key) => data === key;')
+    .replace(
+      'import { matchesKey, truncateToWidth, visibleWidth, wrapTextWithAnsi } from "@earendil-works/pi-tui";',
+      [
+        'const matchesKey = (data, key) => data === key;',
+        'const visibleWidth = (text) => String(text).replace(/\\u001b\\[[0-9;]*m/gu, "").length;',
+        'const truncateToWidth = (text, width) => visibleWidth(text) > width ? String(text).slice(0, Math.max(0, width - 3)) + "..." : text;',
+        'const wrapTextWithAnsi = (text, width) => {',
+        '  const words = String(text).split(" ");',
+        '  const lines = [];',
+        '  let line = "";',
+        '  for (const word of words) {',
+        '    const next = line ? line + " " + word : word;',
+        '    if (visibleWidth(next) > width && line) { lines.push(line); line = word; }',
+        '    else line = next;',
+        '  }',
+        '  if (line) lines.push(line);',
+        '  return lines.length > 0 ? lines : [""];',
+        '};',
+      ].join("\n"),
+    )
     .replaceAll('import("node:fs")', 'globalThis.__import("node:fs")')
     .replaceAll('import("node:path")', 'globalThis.__import("node:path")')
     .replace('export default function outfitter', 'function outfitter');
@@ -204,13 +223,13 @@ const createMockContext = (
             const selector = component as {
               outfitterOptions: readonly string[];
               handleInput(input: string): void;
-              render?(): string[];
+              render?(width?: number): string[];
             };
-            customRenders.push(selector.render?.() ?? []);
+            customRenders.push(selector.render?.(117) ?? []);
             const selected = selectedOptions.shift() ?? options.selectedOption ?? selector.outfitterOptions[0];
             const selectedIndex = Math.max(0, selector.outfitterOptions.indexOf(selected));
             for (let index = 0; index < selectedIndex; index += 1) selector.handleInput('\x1b[B');
-            customRenders.push(selector.render?.() ?? []);
+            customRenders.push(selector.render?.(117) ?? []);
             selector.handleInput('\r');
           }
         }),
@@ -712,9 +731,9 @@ describe('preparePiLoginLaunchPlan', () => {
     );
     expect(existsSync(join(homeDirectory, '.outfitter', 'settings.yml'))).toBe(false);
     expect(context.customRenders[1]?.join('\n')).toContain('→ Current project directory (.outfitter)');
-    expect(context.customRenders[1]?.join('\n')).toContain(
-      'These profiles will only be available in the current project directory and will compose the profiles of the same name in the home folder.',
-    );
+    expect(context.customRenders[1]?.join('\n')).toContain('These profiles will only be available in the current project directory and');
+    expect(context.customRenders[1]?.join('\n')).toContain('will compose the profiles of the same name in the home folder.');
+    expect(context.customRenders[1]?.every((line) => line.length <= 117)).toBe(true);
   });
 
   it('reports unreadable non-json pi login state files', () => {
