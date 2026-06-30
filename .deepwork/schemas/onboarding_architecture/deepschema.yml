@@ -47,8 +47,9 @@ requirements:
     profile when present and no current default profile exists.
   login-credential-boundary: >
     The document MUST state that /login is opened through Pi when no models are
-    available, that Outfitter explains Pi has no connected model provider, and
-    that Outfitter does not collect or store provider credentials.
+    available, that Outfitter explains Pi has no connected model provider in a
+    question box rather than a main-body notification, and that Outfitter does
+    not collect or store provider credentials.
   install-target-writes: >
     The document MUST describe both home and project settings write targets and
     the restart boundary for selected profile changes.

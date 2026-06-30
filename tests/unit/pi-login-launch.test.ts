@@ -545,9 +545,11 @@ describe('preparePiLoginLaunchPlan', () => {
 
     expect(context.editorText).toBe('/login');
     expect(context.submittedInputs).toEqual(['\r']);
-    expect(context.notifications.join('\n')).toContain(
-      'Pi does not have a model provider connected yet. Connect one now so Outfitter can use Pi. Credentials stay inside Pi.',
-    );
+    expect(context.notifications.join('\n')).not.toContain('Pi does not have a model provider connected yet');
+    expect(context.customRenders[0]?.join('\n')).toContain('Pi does not have a model provider connected yet.');
+    expect(context.customRenders[0]?.join('\n')).toContain('Connect one now so Outfitter can use Pi.');
+    expect(context.customRenders[0]?.join('\n')).toContain('Credentials stay inside Pi.');
+    expect(context.customRenders[0]?.join('\n')).toContain('→ Connect a model provider');
     expect(messages).toContain(
       'Outfitter will ask Pi to open `/login` automatically if Pi reports no available models after startup.',
     );

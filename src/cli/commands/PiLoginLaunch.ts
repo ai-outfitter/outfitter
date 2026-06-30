@@ -242,15 +242,27 @@ export default function outfitter(pi) {
     }
   };
 
+  const confirmModelProviderConnection = async (ctx) => {
+    if (typeof ctx.ui.custom !== "function") return true;
+    const selected = await selectDescribedOption(
+      ctx,
+      [
+        "Pi does not have a model provider connected yet.",
+        "Connect one now so Outfitter can use Pi.",
+        "Credentials stay inside Pi.",
+      ],
+      [{ value: "connect", label: "Connect a model provider" }],
+      "connect",
+    );
+    return selected === "connect";
+  };
+
   const openLoginIfNoModels = async (ctx) => {
     if (loginSubmitted || ctx.mode !== "tui") return;
     const availableModelCount = await getAvailableModelCount(ctx);
     if (availableModelCount > 0) return;
-    loginSubmitted = await submitSlashCommand(
-      ctx,
-      "/login",
-      "Pi does not have a model provider connected yet. Connect one now so Outfitter can use Pi. Credentials stay inside Pi.",
-    );
+    if (!(await confirmModelProviderConnection(ctx))) return;
+    loginSubmitted = await submitSlashCommand(ctx, "/login");
   };
 
   const createQuestionUi = (ctx) => ({
