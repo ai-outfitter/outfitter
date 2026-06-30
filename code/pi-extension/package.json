@@ -1,0 +1,12 @@
+{
+  "name": "@ai-outfitter/pi-extension",
+  "version": "0.6.1",
+  "private": true,
+  "description": "Workspace boundary for future Outfitter Pi extension source and assets.",
+  "type": "module",
+  "scripts": {
+    "build": "node -e \"console.log('pi-extension workspace has no build step yet')\"",
+    "lint": "node -e \"console.log('pi-extension workspace has no lintable sources yet')\"",
+    "test": "node -e \"console.log('pi-extension workspace has no tests yet')\""
+  }
+}
