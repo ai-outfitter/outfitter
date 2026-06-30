@@ -41,6 +41,8 @@ import type {
   CompositeProfileStateWriteIssue,
 } from '../../compositeProfile/StatePersistence.js';
 import { watchCompositeProfileInputs } from '../../compositeProfile/CompositeProfileWatcher.js';
+import type { AgentProcessLauncher } from '../../agents/AgentLaunch.js';
+import { launchAgentProcess, resolveAgentLaunchExecutable } from '../../agents/AgentLaunch.js';
 import type { CommandObject } from './CommandObject.js';
 import { isNonInteractivePiLaunch, preparePiLoginLaunchPlan } from './PiLoginLaunch.js';
 import type { SetupCommandDependencies } from './SetupCommand.js';
@@ -64,9 +66,8 @@ export interface RunCommandResult {
   readonly exitCode: number;
 }
 
-export interface AgentProcessLauncher {
-  launch(plan: AgentLaunchPlan): Promise<number>;
-}
+export type { AgentProcessLauncher } from '../../agents/AgentLaunch.js';
+export { resolveAgentLaunchExecutable } from '../../agents/AgentLaunch.js';
 
 export interface RunCommandDependencies extends SetupCommandDependencies {
   readonly adapter?: AgentAdapter;
@@ -167,7 +168,7 @@ export const executeRunCommand = async (
     const launcher =
       dependencies.launcher ??
       /* v8 ignore next -- tests inject launchers instead of spawning pi. */ createSpawnLauncher();
-    const exitCode = await launcher.launch(launchPlan);
+    const exitCode = await launchAgentProcess(launcher, launchPlan, adapter.id);
     const stateWriteWarnings = handleCompositeProfileStateWrites(
       adapter.id,
       compositeProfilePlan.compositeProfile.rootDirectory,
@@ -593,9 +594,11 @@ const materializeSource = (homeDirectory: string, source: ProfileSourceReference
 /* v8 ignore start -- the real child-process launcher is direct runtime behavior; tests inject a launcher. */
 const createSpawnLauncher = (): AgentProcessLauncher => ({
   launch(plan) {
+    const resolvedPlan = resolveAgentLaunchExecutable(plan);
+
     return new Promise((resolve, reject) => {
-      const child: ChildProcess = spawn(plan.command, plan.args, {
-        env: { ...process.env, ...plan.env },
+      const child: ChildProcess = spawn(resolvedPlan.command, resolvedPlan.args, {
+        env: { ...process.env, ...resolvedPlan.env },
         stdio: 'inherit',
       });
 
