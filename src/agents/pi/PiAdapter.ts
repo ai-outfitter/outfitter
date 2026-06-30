@@ -104,7 +104,11 @@ export const createPiAdapter = (): AgentAdapter => ({
   ): AgentLaunchPlan {
     const controls = mergePiControls(profile?.controls ?? {});
     const profileFolders = context.profileFolders ?? [];
-    const deepWorkJobsFolders = createDeepWorkAdditionalJobsFolders(controls, profileFolders, context.profileLayers ?? []);
+    const deepWorkJobsFolders = createDeepWorkAdditionalJobsFolders(
+      controls,
+      profileFolders,
+      context.profileLayers ?? [],
+    );
     const skillSources = createPiSkillSources(controls, profileFolders);
 
     return {
@@ -468,10 +472,7 @@ const resolveNamedDeepWorkJobFolders = (profileLayers: readonly AgentLaunchProfi
   ),
 ];
 
-const resolveNamedDeepWorkJobFolder = (
-  profileLayer: AgentLaunchProfileLayer,
-  jobName: string,
-): readonly string[] =>
+const resolveNamedDeepWorkJobFolder = (profileLayer: AgentLaunchProfileLayer, jobName: string): readonly string[] =>
   sharedDeepWorkJobRootsForLayer(profileLayer).filter((jobsFolder) => isFile(join(jobsFolder, jobName, 'job.yml')));
 
 const createMissingNamedDeepWorkJobWarnings = (profileLayers: readonly AgentLaunchProfileLayer[]): readonly string[] =>

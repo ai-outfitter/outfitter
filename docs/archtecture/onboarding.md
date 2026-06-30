@@ -129,7 +129,7 @@ Variation B uses a wider label column so the explanatory text starts at a stable
 ```text
 Where SHOULD Outfitter install these settings?
 
-  Home folder (~/.outfitter)                
+  Home folder (~/.outfitter)
 → Current project directory (.outfitter)    These profiles will only be available in the current project directory and will compose the profiles of the same name in the home folder.
 ```
 

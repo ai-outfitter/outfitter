@@ -107,7 +107,6 @@ export const loadLocalProfileSource = (source: ProfileSourceReference): ProfileL
   const issues: ProfileLoadIssue[] = [];
 
   for (const { entryName, entryPath, entry } of sourceEntries) {
-
     if (entry.isDirectory()) {
       const profilePath = join(entryPath, directoryProfileFileName);
 

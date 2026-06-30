@@ -39,8 +39,10 @@ export const mergeSettingsStack = (settingsStack: readonly Settings[]): Settings
   };
 };
 
-const mergeOptionalBoolean = (lowerPrecedence: boolean | undefined, higherPrecedence: boolean | undefined): boolean | undefined =>
-  higherPrecedence ?? lowerPrecedence;
+const mergeOptionalBoolean = (
+  lowerPrecedence: boolean | undefined,
+  higherPrecedence: boolean | undefined,
+): boolean | undefined => higherPrecedence ?? lowerPrecedence;
 
 const mergeOptionalCustomSettings = (
   lowerPrecedence: CustomSettings | undefined,

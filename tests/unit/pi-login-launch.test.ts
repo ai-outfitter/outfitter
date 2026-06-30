@@ -105,7 +105,7 @@ const evaluateOutfitterExtension = (content: string): OutfitterExtension => {
         '  if (line) lines.push(line);',
         '  return lines.length > 0 ? lines : [""];',
         '};',
-      ].join("\n"),
+      ].join('\n'),
     )
     .replaceAll('import("node:fs")', 'globalThis.__import("node:fs")')
     .replaceAll('import("node:path")', 'globalThis.__import("node:path")')
@@ -252,11 +252,21 @@ const createMockContext = (
       setEditorText: (text: string) => {
         editorText = text;
       },
-      setHeader: (factory: (_tui: unknown, theme: { bold(text: string): string; fg(_color: string, text: string): string }) => { render(): string[] }) => {
-        headerRenders.push(factory({}, {
-          bold: (text: string) => text,
-          fg: (_color: string, text: string) => text,
-        }).render());
+      setHeader: (
+        factory: (
+          _tui: unknown,
+          theme: { bold(text: string): string; fg(_color: string, text: string): string },
+        ) => { render(): string[] },
+      ) => {
+        headerRenders.push(
+          factory(
+            {},
+            {
+              bold: (text: string) => text,
+              fg: (_color: string, text: string) => text,
+            },
+          ).render(),
+        );
       },
       setStatus: () => undefined,
       theme: {
@@ -626,7 +636,9 @@ describe('preparePiLoginLaunchPlan', () => {
     expect(context.customRenders[2]?.at(-1)).toMatch(/^─+$/u);
     expect(context.customRenders[2]?.join('\n')).toContain('Where should Outfitter install these settings?');
     expect(context.customRenders[2]?.join('\n')).toContain('→ Home folder (~/.outfitter)');
-    expect(context.customRenders[2]?.join('\n')).toContain('These profiles will be available anywhere you start outfitter.');
+    expect(context.customRenders[2]?.join('\n')).toContain(
+      'These profiles will be available anywhere you start outfitter.',
+    );
     expect(readFileSync(settingsPath, 'utf8')).toBe(
       [
         'default_profile: data_analyst',
@@ -665,7 +677,9 @@ describe('preparePiLoginLaunchPlan', () => {
     await runOutfitterCommand(pi, context);
 
     expect(context.customRenders[0]?.join('\n')).toContain('→ founder — Founder (Recommended)');
-    expect(readFileSync(join(homeDirectory, '.outfitter', 'settings.yml'), 'utf8')).toContain('default_profile: founder');
+    expect(readFileSync(join(homeDirectory, '.outfitter', 'settings.yml'), 'utf8')).toContain(
+      'default_profile: founder',
+    );
   });
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-010.2).
@@ -734,8 +748,12 @@ describe('preparePiLoginLaunchPlan', () => {
     );
     expect(existsSync(join(homeDirectory, '.outfitter', 'settings.yml'))).toBe(false);
     expect(context.customRenders[1]?.join('\n')).toContain('→ Current project directory (.outfitter)');
-    expect(context.customRenders[1]?.join('\n')).toContain('These profiles will only be available in the current project directory and');
-    expect(context.customRenders[1]?.join('\n')).toContain('will compose the profiles of the same name in the home folder.');
+    expect(context.customRenders[1]?.join('\n')).toContain(
+      'These profiles will only be available in the current project directory and',
+    );
+    expect(context.customRenders[1]?.join('\n')).toContain(
+      'will compose the profiles of the same name in the home folder.',
+    );
     expect(context.customRenders[1]?.every((line) => line.length <= 117)).toBe(true);
   });
 
@@ -773,7 +791,9 @@ describe('preparePiLoginLaunchPlan', () => {
       trusted: 'yes',
       remember: true,
     });
-    await expect(runMockProjectTrust(pi, context, dirname(projectDirectory))).resolves.toEqual({ trusted: 'undecided' });
+    await expect(runMockProjectTrust(pi, context, dirname(projectDirectory))).resolves.toEqual({
+      trusted: 'undecided',
+    });
   });
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-010.1).

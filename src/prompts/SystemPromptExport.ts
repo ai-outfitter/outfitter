@@ -77,8 +77,10 @@ const normalizeAppendSystemPrompt = (value: ProfileControls['appendSystemPrompt'
   return typeof value === 'string' ? [value] : value;
 };
 
-const findSelectedProfileOwner = (profile: Profile, profileLayers: readonly LoadedProfile[]): LoadedProfile | undefined =>
-  profileLayers.filter((layer) => layer.profile.id === profile.id).at(-1);
+const findSelectedProfileOwner = (
+  profile: Profile,
+  profileLayers: readonly LoadedProfile[],
+): LoadedProfile | undefined => profileLayers.filter((layer) => layer.profile.id === profile.id).at(-1);
 
 const resolveSystemPromptExportPath = (profile: Profile, owner: LoadedProfile): string => {
   const root = owner.resourceRootPath ?? dirname(owner.profilePath);

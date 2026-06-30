@@ -155,11 +155,7 @@ describe('profile resolution', () => {
     });
 
     expect(result.issues).toEqual([]);
-    expect(result.profile?.controls.deepwork?.jobs).toEqual([
-      'project_governance',
-      'project_kpi',
-      'project_milestone',
-    ]);
+    expect(result.profile?.controls.deepwork?.jobs).toEqual(['project_governance', 'project_kpi', 'project_milestone']);
   });
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-003.7).

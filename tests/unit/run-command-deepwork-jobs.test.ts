@@ -147,7 +147,10 @@ describe('run command profile-bundled Pi resource exposure', () => {
     );
     writeFileSync(join(jobsFolder, 'project_milestone', 'job.yml'), 'name: project_milestone\nsummary: Milestone\n');
     writeFileSync(join(jobsFolder, 'unselected_job', 'job.yml'), 'name: unselected_job\nsummary: Extra\n');
-    writeSettings(homeDirectory, 'default_profile: founder\nprofile_sources:\n  - path: ../../project/.outfitter/profiles\n');
+    writeSettings(
+      homeDirectory,
+      'default_profile: founder\nprofile_sources:\n  - path: ../../project/.outfitter/profiles\n',
+    );
 
     const result = await executeRunCommand(
       { homeDirectory, projectDirectory },

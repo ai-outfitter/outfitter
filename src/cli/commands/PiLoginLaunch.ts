@@ -88,9 +88,10 @@ const writeQuietPiStartupSettings = (piConfigDirectory: string): void => {
   if (existsSync(settingsPath)) {
     try {
       const parsed: unknown = JSON.parse(readFileSync(settingsPath, 'utf8'));
-      settings = parsed !== null && typeof parsed === 'object' && !Array.isArray(parsed)
-        ? (parsed as Record<string, unknown>)
-        : {};
+      settings =
+        parsed !== null && typeof parsed === 'object' && !Array.isArray(parsed)
+          ? (parsed as Record<string, unknown>)
+          : {};
     } catch {
       settings = {};
     }

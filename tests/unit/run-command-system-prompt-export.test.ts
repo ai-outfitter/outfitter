@@ -54,7 +54,11 @@ describe('run command generated system prompt export', () => {
     const projectDirectory = join(root, 'project');
     const profilesDirectory = join(homeDirectory, '.outfitter', 'profiles');
     writeSettings(homeDirectory, 'default_profile: default\nprofile_sources:\n  - path: ./profiles\n');
-    writeProfile(profilesDirectory, 'default', ['id: default', 'controls:', '  system_prompt: Primary prompt', ''].join('\n'));
+    writeProfile(
+      profilesDirectory,
+      'default',
+      ['id: default', 'controls:', '  system_prompt: Primary prompt', ''].join('\n'),
+    );
 
     await executeRunCommand(
       { homeDirectory, projectDirectory },
@@ -71,7 +75,10 @@ describe('run command generated system prompt export', () => {
     const homeDirectory = join(root, 'home');
     const projectDirectory = join(root, 'project');
     const profilesDirectory = join(homeDirectory, '.outfitter', 'profiles');
-    writeSettings(homeDirectory, 'default_profile: default\nprofile_export: true\nprofile_sources:\n  - path: ./profiles\n');
+    writeSettings(
+      homeDirectory,
+      'default_profile: default\nprofile_export: true\nprofile_sources:\n  - path: ./profiles\n',
+    );
     writeProfile(
       profilesDirectory,
       'default',
@@ -122,7 +129,10 @@ describe('run command generated system prompt export', () => {
     const homeDirectory = join(root, 'home');
     const projectDirectory = join(root, 'project');
     const profilesDirectory = join(homeDirectory, '.outfitter', 'profiles');
-    writeSettings(homeDirectory, 'default_profile: default\nprofile_export: true\nprofile_sources:\n  - path: ./profiles\n');
+    writeSettings(
+      homeDirectory,
+      'default_profile: default\nprofile_export: true\nprofile_sources:\n  - path: ./profiles\n',
+    );
     writeProfile(
       profilesDirectory,
       'default',
@@ -159,7 +169,10 @@ describe('run command generated system prompt export', () => {
     const homeDirectory = join(root, 'home');
     const projectDirectory = join(root, 'project');
     const profilesDirectory = join(homeDirectory, '.outfitter', 'profiles');
-    writeSettings(homeDirectory, 'default_profile: default\nprofile_export: true\nprofile_sources:\n  - path: ./profiles\n');
+    writeSettings(
+      homeDirectory,
+      'default_profile: default\nprofile_export: true\nprofile_sources:\n  - path: ./profiles\n',
+    );
     writeProfile(
       profilesDirectory,
       'default',
@@ -183,7 +196,10 @@ describe('run command generated system prompt export', () => {
     const profilesDirectory = join(homeDirectory, '.outfitter', 'profiles');
     mkdirSync(profilesDirectory, { recursive: true });
     writeSettings(homeDirectory, 'default_profile: a..b\nprofile_sources:\n  - path: ./profiles\n');
-    writeFileSync(join(profilesDirectory, 'a..b.yml'), ['profile_export: true', 'controls:', '  system_prompt: Flat prompt', ''].join('\n'));
+    writeFileSync(
+      join(profilesDirectory, 'a..b.yml'),
+      ['profile_export: true', 'controls:', '  system_prompt: Flat prompt', ''].join('\n'),
+    );
 
     await executeRunCommand(
       { homeDirectory, projectDirectory },
@@ -200,7 +216,10 @@ describe('run command generated system prompt export', () => {
     const homeDirectory = join(root, 'home');
     const projectDirectory = join(root, 'project');
     const profilesDirectory = join(homeDirectory, '.outfitter', 'profiles');
-    writeSettings(homeDirectory, 'default_profile: default\nprofile_export: true\nprofile_sources:\n  - path: ./profiles\n');
+    writeSettings(
+      homeDirectory,
+      'default_profile: default\nprofile_export: true\nprofile_sources:\n  - path: ./profiles\n',
+    );
     writeProfile(
       profilesDirectory,
       'default',
@@ -242,7 +261,9 @@ describe('run command generated system prompt export', () => {
     expect(readFileSync(join(result.compositeProfileDirectory, 'outfitter', 'profile.json'), 'utf8')).toContain(
       'test-model',
     );
-    expect(result.warnings).toContain("pi wrote 'settings.json' with state_persistence 'warn' and it was not persisted.");
+    expect(result.warnings).toContain(
+      "pi wrote 'settings.json' with state_persistence 'warn' and it was not persisted.",
+    );
     expect(warnings).toEqual(result.warnings);
   });
 
@@ -253,7 +274,10 @@ describe('run command generated system prompt export', () => {
     const homeDirectory = join(root, 'home');
     const projectDirectory = join(root, 'project');
     const profilesDirectory = join(homeDirectory, '.outfitter', 'profiles');
-    writeSettings(homeDirectory, 'default_profile: default\nprofile_export: true\nprofile_sources:\n  - path: ./profiles\n');
+    writeSettings(
+      homeDirectory,
+      'default_profile: default\nprofile_export: true\nprofile_sources:\n  - path: ./profiles\n',
+    );
     const profilePath = writeProfile(
       profilesDirectory,
       'default',
@@ -267,7 +291,10 @@ describe('run command generated system prompt export', () => {
         writeLine: () => undefined,
         launcher: {
           launch() {
-            writeFileSync(profilePath, ['id: default', 'controls:', '  system_prompt: Refreshed prompt', ''].join('\n'));
+            writeFileSync(
+              profilePath,
+              ['id: default', 'controls:', '  system_prompt: Refreshed prompt', ''].join('\n'),
+            );
             return waitForFileContaining(exportPath, 'Refreshed prompt').then(() => 0);
           },
         },
@@ -286,7 +313,11 @@ describe('run command generated system prompt export', () => {
     const uri = 'git+https://example.test/profiles.git';
     const cacheDirectory = createProfileSourceCachePath(homeDirectory, uri);
     writeSettings(homeDirectory, `default_profile: cached\nprofile_export: true\nprofile_sources:\n  - uri: ${uri}\n`);
-    writeProfile(cacheDirectory, 'cached', ['id: cached', 'controls:', '  system_prompt: Cached prompt', ''].join('\n'));
+    writeProfile(
+      cacheDirectory,
+      'cached',
+      ['id: cached', 'controls:', '  system_prompt: Cached prompt', ''].join('\n'),
+    );
     const warnings: string[] = [];
 
     await executeRunCommand(
