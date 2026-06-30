@@ -315,7 +315,7 @@ describe('preparePiLoginLaunchPlan', () => {
     await startMockSession(pi, context);
 
     expect(readExtension(plan, 'outfitter-extension.js')).toContain(
-      'const OUTFITTER_ASCII_GRADIENT = ["dim", "muted", "text", "accent", "success"]',
+      'const OUTFITTER_ASCII_GRADIENT = ["success", "accent", "text", "muted", "dim"]',
     );
     expect(context.headerRenders[0]?.slice(0, 5)).toEqual(expectedOutfitterAsciiArt);
   });

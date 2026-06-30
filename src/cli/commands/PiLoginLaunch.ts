@@ -140,7 +140,7 @@ const OUTFITTER_AUTO_OPEN = ${JSON.stringify(input.autoOpenOutfitter)};
 const OUTFITTER_DEFAULT_SETTINGS_TEMPLATE = ${JSON.stringify(defaultSettingsTemplate)};
 const OUTFITTER_STARTUP_ASCII_ART = ${JSON.stringify(input.startupAsciiArt)};
 const OUTFITTER_ASCII_ART = ${JSON.stringify(startupAsciiArt)};
-const OUTFITTER_ASCII_GRADIENT = ["dim", "muted", "text", "accent", "success"];
+const OUTFITTER_ASCII_GRADIENT = ["success", "accent", "text", "muted", "dim"];
 const OUTFITTER_PROFILE_ID_PATTERN = /^[a-z0-9][a-z0-9._-]*[a-z0-9]$|^[a-z0-9]$/u;
 
 export default function outfitter(pi) {
