@@ -20,6 +20,8 @@
     "requirements",
     "src/schemas",
     "doc",
+    "code/enterprise/LICENSE",
+    "code/enterprise/README.md",
     "README.md",
     "LICENSE.md"
   ],
@@ -81,7 +83,7 @@
       "./skills"
     ]
   },
-  "license": "BUSL-1.1",
+  "license": "SEE LICENSE IN LICENSE.md",
   "publishConfig": {
     "access": "public"
   }

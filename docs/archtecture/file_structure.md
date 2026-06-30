@@ -38,6 +38,8 @@ Outfitter is organized around clear TypeScript source boundaries, requirement do
 ├── .prettierrc.json                   # Prettier formatting configuration
 ├── .snapperrc.toml                    # Snapper Markdown formatting configuration
 ├── CONTRIBUTING.md                    # local install and contributor workflow guide
+├── code/                              # code with license boundaries that differ from root terms
+│   └── enterprise/                    # enterprise/business licensed code; see code/enterprise/LICENSE
 ├── bin/                               # local executable development helpers
 │   ├── dev-container-setup            # clean container helper for setup smoke tests
 │   ├── dev-setup-source               # local build helper for real setup-source targets
