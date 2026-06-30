@@ -1,7 +1,7 @@
 Portions of this software are licensed as follows:
 
-* All content that resides under the `code/enterprise/` directory of this repository, if that directory exists, is licensed under the license defined in `code/enterprise/LICENSE`.
-* Content outside of the above mentioned directory or restrictions above is available under the MIT license as defined below.
+- All content that resides under the `code/enterprise/` directory of this repository, if that directory exists, is licensed under the license defined in `code/enterprise/LICENSE`.
+- Content outside of the above mentioned directory or restrictions above is available under the MIT license as defined below.
 
 ---
 
