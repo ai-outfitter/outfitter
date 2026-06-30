@@ -1,7 +1,7 @@
 // Provides the Claude Code adapter for composite profile generation and native launch plans.
 import { join } from 'node:path';
 
-import type { AgentAdapter, AgentLaunchPlan, AgentCompositeProfilePlan } from '../AgentAdapter.js';
+import type { AgentAdapter, AgentLaunchContext, AgentLaunchPlan, AgentCompositeProfilePlan } from '../AgentAdapter.js';
 import {
   findUnsupportedControlNames,
   flagValue,
@@ -12,6 +12,7 @@ import {
 } from '../AdapterProfileControls.js';
 import { createDeclaredStatePaths, findProfileStateSource } from '../AdapterStatePaths.js';
 import type { ClaudeProfileControls, Profile, ProfileControls } from '../../profiles/Profile.js';
+import { resolveAppendSystemPromptControl } from '../../profiles/PromptIncludes.js';
 import type { StatePathDeclaration, CompositeProfileStatePath } from '../../compositeProfile/StatePersistence.js';
 import type { CompositeProfile } from '../../compositeProfile/CompositeProfile.js';
 import { createCompositeProfile } from '../../compositeProfile/CompositeProfile.js';
@@ -79,21 +80,36 @@ export const createClaudeAdapter = (): AgentAdapter => ({
 
     return {
       compositeProfile,
-      warnings: this.getUnsupportedControls(profile).map(
-        (controlName) => `claude adapter cannot translate requested control '${controlName}'.`,
-      ),
+      warnings: [
+        ...this.getUnsupportedControls(profile).map(
+          (controlName) => `claude adapter cannot translate requested control '${controlName}'.`,
+        ),
+        ...resolveAppendSystemPromptControl({
+          fallback: mergeClaudeControls(profile.controls).appendSystemPrompt,
+          profileLayers: input.profileLayers,
+          agentKey: 'claude',
+          projectDirectory: input.projectDirectory,
+        }).diagnostics.map((diagnostic) => `claude ${diagnostic.message} (${diagnostic.path})`),
+      ],
     };
   },
   createLaunchPlan(
     compositeProfile: CompositeProfile,
     profile?: Profile,
     passThroughArgs: readonly string[] = [],
+    context: AgentLaunchContext = {},
   ): AgentLaunchPlan {
     const controls = mergeClaudeControls(profile?.controls ?? {});
+    const appendPrompt = resolveAppendSystemPromptControl({
+      fallback: controls.appendSystemPrompt,
+      profileLayers: context.profileLayers,
+      agentKey: 'claude',
+      projectDirectory: context.projectDirectory,
+    });
 
     return {
       command: 'claude',
-      args: [...createClaudeArgs(controls), ...passThroughArgs],
+      args: [...createClaudeArgs({ ...controls, appendSystemPrompt: appendPrompt.prompts }), ...passThroughArgs],
       env: {
         ...controls.environment,
         CLAUDE_CONFIG_DIR: compositeProfile.rootDirectory,

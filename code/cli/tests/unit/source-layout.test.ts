@@ -62,9 +62,10 @@ describe('source layout scaffolding', () => {
       'profile',
       'profile list',
       'profile create',
+      'profile lint',
     ]);
     expect(program.commands.map((command) => command.name())).toEqual(['run', 'setup', 'sync', 'welcome', 'profile']);
-    expect(program.commands.at(4)?.commands.map((command) => command.name())).toEqual(['list', 'create']);
+    expect(program.commands.at(4)?.commands.map((command) => command.name())).toEqual(['list', 'create', 'lint']);
     expect(describeCommandObject(createRunCommand())).toEqual({
       name: 'run',
       description: 'Assemble a profile compositeProfile and launch the selected agent CLI.',
@@ -84,7 +85,11 @@ describe('source layout scaffolding', () => {
       'welcome',
       'profile',
     ]);
-    expect(standaloneProgram.commands.at(3)?.commands.map((command) => command.name())).toEqual(['list', 'create']);
+    expect(standaloneProgram.commands.at(3)?.commands.map((command) => command.name())).toEqual([
+      'list',
+      'create',
+      'lint',
+    ]);
   });
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-002.5).

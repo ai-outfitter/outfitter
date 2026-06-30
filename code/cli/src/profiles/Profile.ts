@@ -2,7 +2,14 @@
 import type { StatePersistenceStrategy } from '../compositeProfile/StatePersistence.js';
 
 export type StatePersistenceOverrides = Readonly<Record<string, StatePersistenceStrategy>>;
-export type AppendSystemPromptControl = string | readonly string[];
+export interface PromptFileInclude {
+  readonly file: string;
+}
+export interface PromptRepoFileInclude {
+  readonly repo_file: string;
+}
+export type AppendSystemPromptEntry = string | PromptFileInclude | PromptRepoFileInclude;
+export type AppendSystemPromptControl = AppendSystemPromptEntry | readonly AppendSystemPromptEntry[];
 
 export interface DeepWorkProfileControls {
   readonly jobs?: readonly string[];

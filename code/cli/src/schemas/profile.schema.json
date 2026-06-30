@@ -129,12 +129,33 @@
   },
   "additionalProperties": true,
   "$defs": {
-    "appendSystemPrompt": {
+    "appendSystemPromptEntry": {
       "oneOf": [
         { "type": "string" },
         {
+          "type": "object",
+          "required": ["file"],
+          "properties": {
+            "file": { "type": "string" }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["repo_file"],
+          "properties": {
+            "repo_file": { "type": "string" }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "appendSystemPrompt": {
+      "oneOf": [
+        { "$ref": "#/$defs/appendSystemPromptEntry" },
+        {
           "type": "array",
-          "items": { "type": "string" }
+          "items": { "$ref": "#/$defs/appendSystemPromptEntry" }
         }
       ]
     }

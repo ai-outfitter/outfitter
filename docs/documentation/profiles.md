@@ -28,7 +28,7 @@ profile_sources:
   - path: ./profiles
 
 ---
-# ~/.outfitter/profiles/home-default/profile.yml
+# ~/.outfitter/profiles/home-default.yml
 id: home-default
 label: Home Default
 description: Reusable personal defaults for Outfitter-managed Pi runs.
@@ -36,10 +36,13 @@ controls:
   provider: openai-codex
   model: gpt-5.5
   thinking: high
-  append_system_prompt: |
-    Use concise, evidence-backed engineering prose.
-    Prefer small, reviewable changes.
-    Keep durable decisions in repo files.
+  append_system_prompt:
+    - |
+      Use concise, evidence-backed engineering prose.
+      Prefer small, reviewable changes.
+      Keep durable decisions in repo files.
+    - file: prompts/personal-policy.md
+    - repo_file: docs/mission.md
 
 ---
 # ~/repos/acme/example/.outfitter/settings.yml
@@ -61,10 +64,12 @@ inherits:
   - home-default
 controls:
   thinking: xhigh
-  append_system_prompt: |
-    You are working in ~/repos/acme/example.
-    Honor the project test contract before calling work complete.
-    Prefer repository-local conventions over personal defaults.
+  append_system_prompt:
+    - |
+      You are working in ~/repos/acme/example.
+      Honor the project test contract before calling work complete.
+      Prefer repository-local conventions over personal defaults.
+    - file: .outfitter/prompts/review-policy.md
   environment:
     ACME_PROJECT: example
 ```
@@ -73,6 +78,25 @@ controls:
 `acme-example` is the project profile: it inherits those defaults, then overrides the thinking level and adds project-specific prompt and environment settings.
 When a project `settings.yml` declares `profile_sources`, it SHOULD include any home profile source that project profiles inherit from.
 Because `append_system_prompt` composes instead of replacing, the higher-precedence project prompt is passed first and the inherited home prompt follows.
+Typed prompt includes read `{ file: string }` entries before launch and pass the file contents as repeated append-prompt text. Raw strings remain literal prompt text; if a raw string looks like a whole file path, Outfitter warns so the profile can be migrated to `{ file: ... }`.
+
+### Append prompt file includes
+
+`append_system_prompt` accepts a literal string, a multiline string, `{ file: string }`, `{ repo_file: string }`, or an ordered list mixing those entry types. Outfitter does not support `{ text: ... }`; use raw YAML strings for inline prompt text, `{ file: ... }` for maintained profile/catalog files, and `{ repo_file: ... }` for files that should come from the active project.
+
+Profile-owned file includes resolve from the source root of the profile layer that declares the entry, including inherited layers:
+
+| Declaring profile location                                                         | Include root               |
+| ---------------------------------------------------------------------------------- | -------------------------- |
+| `~/.outfitter/profiles/<id>/profile.yml` or `~/.outfitter/profiles/<id>.yml`       | `~/.outfitter`             |
+| `<project>/.outfitter/profiles/<id>/profile.yml`                                   | `<project>`                |
+| Catalog repo `outfitter/profiles/<id>/profile.yml`                                 | Catalog repository root    |
+| Explicit `profile_sources[].path` without `.outfitter/` or `outfitter/` convention | The configured source path |
+
+`repo_file:` resolves from the active project directory where Outfitter launches the agent. This lets a reusable catalog or home profile request project-local governance context such as `docs/mission.md` without copying those docs into the catalog.
+
+Run `outfitter profile lint` to report schema and inheritance errors, missing typed include files, and raw string append-prompt entries that look like file paths. Add `--strict` to exit non-zero for warnings, and `--json` for machine-readable diagnostics.
+
 With `profile_export: true`, the selected project directory profile can write `generated-system-prompt.md` beside `profile.yml`.
 For this example, the generated prompt fallback would show the composed prompt inputs like this:
 

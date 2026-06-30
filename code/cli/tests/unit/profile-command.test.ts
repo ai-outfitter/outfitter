@@ -10,6 +10,7 @@ import {
   createProfileCommands,
   executeCreateProfileCommand,
   executeListProfilesCommand,
+  executeProfileLintCommand,
 } from '../../src/cli/commands/profile/Command.js';
 import { createSetupCommand } from '../../src/cli/commands/SetupCommand.js';
 import { createSyncCommand } from '../../src/cli/commands/SyncCommand.js';
@@ -253,6 +254,200 @@ describe('profile command', () => {
     });
     await allProgram.parseAsync(['node', 'outfitter', 'profile', 'list', '--all']);
     expect(allMessages).toContain('shared-prose (template)');
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-003.1, OFTR-003.4, OFTR-003.6).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('lints profile schema, inheritance, and prompt include diagnostics with strict warnings', () => {
+    const root = createTemporaryRoot();
+    const homeDirectory = join(root, 'home');
+    const projectDirectory = join(root, 'project');
+    const profilesRoot = join(homeDirectory, '.outfitter', 'profiles');
+    writeSettings(homeDirectory, 'profile_sources:\n  - path: ./profiles\n');
+    writeProfile(
+      profilesRoot,
+      'engineer',
+      'id: engineer\ninherits:\n  - missing\ncontrols:\n  append_system_prompt:\n    - file: prompts/missing.md\n    - ./prompts/raw.md\n',
+    );
+
+    const result = executeProfileLintCommand({ homeDirectory, projectDirectory, strict: true });
+
+    expect(result.exitCode).toBe(1);
+    expect(result.diagnostics.map((diagnostic) => diagnostic.message)).toEqual(
+      expect.arrayContaining([
+        "Profile 'missing' was not found.",
+        "Prompt file include 'prompts/missing.md' was not found.",
+        "Raw append_system_prompt entry looks like a file path; use { file: './prompts/raw.md' }.",
+      ]),
+    );
+    expect(
+      result.diagnostics.filter((diagnostic) =>
+        diagnostic.message.includes("Prompt file include 'prompts/missing.md' was not found."),
+      ),
+    ).toHaveLength(1);
+  });
+
+  it('lints prompt includes once when adapter-specific controls are present', () => {
+    const root = createTemporaryRoot();
+    const homeDirectory = join(root, 'home');
+    const projectDirectory = join(root, 'project');
+    const profilesRoot = join(homeDirectory, '.outfitter', 'profiles');
+    writeSettings(homeDirectory, 'profile_sources:\n  - path: ./profiles\n');
+    writeProfile(
+      profilesRoot,
+      'engineer',
+      [
+        'id: engineer',
+        'controls:',
+        '  append_system_prompt:',
+        '    file: prompts/missing.md',
+        '  pi:',
+        '    append_system_prompt:',
+        '      file: prompts/pi-missing.md',
+        '  claude:',
+        '    append_system_prompt:',
+        '      file: prompts/claude-missing.md',
+        '',
+      ].join('\n'),
+    );
+
+    const result = executeProfileLintCommand({ homeDirectory, projectDirectory });
+
+    expect(result.diagnostics.map((diagnostic) => diagnostic.message)).toEqual([
+      "Prompt file include 'prompts/missing.md' was not found.",
+      "Prompt file include 'prompts/pi-missing.md' was not found.",
+      "Prompt file include 'prompts/claude-missing.md' was not found.",
+    ]);
+  });
+
+  it('exits non-zero for warning-only profile lint diagnostics in strict mode', () => {
+    const root = createTemporaryRoot();
+    const homeDirectory = join(root, 'home');
+    const projectDirectory = join(root, 'project');
+    const profilesRoot = join(homeDirectory, '.outfitter', 'profiles');
+    writeSettings(homeDirectory, 'profile_sources:\n  - path: ./profiles\n');
+    writeProfile(
+      profilesRoot,
+      'engineer',
+      'id: engineer\ncontrols:\n  append_system_prompt:\n    - ./prompts/raw.md\n',
+    );
+
+    const result = executeProfileLintCommand({ homeDirectory, projectDirectory, strict: true });
+
+    expect(result.exitCode).toBe(1);
+    expect(result.diagnostics).toEqual(
+      expect.arrayContaining([
+        {
+          severity: 'warning',
+          path: join(profilesRoot, 'engineer', 'profile.yml') + '#/controls/append_system_prompt/0',
+          message: "Raw append_system_prompt entry looks like a file path; use { file: './prompts/raw.md' }.",
+        },
+      ]),
+    );
+  });
+
+  it('prints profile lint diagnostics in human and JSON formats', async () => {
+    const root = createTemporaryRoot();
+    const homeDirectory = join(root, 'home');
+    const projectDirectory = join(root, 'project');
+    const profilesRoot = join(homeDirectory, '.outfitter', 'profiles');
+    const messages: string[] = [];
+    writeSettings(homeDirectory, 'profile_sources:\n  - path: ./profiles\n');
+    writeProfile(profilesRoot, 'engineer', 'id: engineer\ncontrols:\n  unsupported_control: true\n');
+
+    const program = new Command();
+    registerProfileCommands(program, {
+      homeDirectory,
+      projectDirectory,
+      writeLine: (message) => messages.push(message),
+    });
+    await program.parseAsync(['node', 'outfitter', 'profile', 'lint', '--json']);
+
+    expect(JSON.parse(messages[0] ?? '[]')).toEqual([
+      {
+        severity: 'warning',
+        path: '/profiles/engineer',
+        message: "pi adapter cannot translate requested control 'unsupported_control'.",
+      },
+    ]);
+
+    const humanMessages: string[] = [];
+    const humanProgram = new Command();
+    registerProfileCommands(humanProgram, {
+      homeDirectory,
+      projectDirectory,
+      writeLine: (message) => humanMessages.push(message),
+    });
+    await humanProgram.parseAsync(['node', 'outfitter', 'profile', 'lint']);
+    expect(humanMessages).toEqual([
+      "warning: /profiles/engineer pi adapter cannot translate requested control 'unsupported_control'.",
+    ]);
+
+    const consoleMessages: string[] = [];
+    const originalCwd = process.cwd();
+    const originalConsoleLog = console.log;
+    const defaultProjectDirectory = join(root, 'default-project');
+    mkdirSync(defaultProjectDirectory, { recursive: true });
+    console.log = (message?: unknown) => consoleMessages.push(String(message));
+    try {
+      process.chdir(defaultProjectDirectory);
+      const defaultWriterProgram = new Command();
+      registerProfileCommands(defaultWriterProgram, { homeDirectory });
+      await defaultWriterProgram.parseAsync(['node', 'outfitter', 'profile', 'lint']);
+    } finally {
+      process.chdir(originalCwd);
+      console.log = originalConsoleLog;
+    }
+    expect(consoleMessages).toEqual([
+      "warning: /profiles/engineer pi adapter cannot translate requested control 'unsupported_control'.",
+    ]);
+
+    const cleanMessages: string[] = [];
+    const cleanHomeDirectory = join(root, 'clean-home');
+    const cleanProfilesRoot = join(cleanHomeDirectory, '.outfitter', 'profiles');
+    writeSettings(cleanHomeDirectory, 'profile_sources:\n  - path: ./profiles\n');
+    writeProfile(cleanProfilesRoot, 'engineer');
+    const cleanProgram = new Command();
+    registerProfileCommands(cleanProgram, {
+      homeDirectory: cleanHomeDirectory,
+      projectDirectory,
+      writeLine: (message) => cleanMessages.push(message),
+    });
+    await cleanProgram.parseAsync(['node', 'outfitter', 'profile', 'lint']);
+
+    expect(cleanMessages).toEqual(['No profile lint diagnostics.']);
+  });
+
+  it('lints flat profiles without profile resource roots', () => {
+    const root = createTemporaryRoot();
+    const homeDirectory = join(root, 'home');
+    const projectDirectory = join(root, 'project');
+    const profilesRoot = join(homeDirectory, '.outfitter', 'profiles');
+    mkdirSync(profilesRoot, { recursive: true });
+    writeSettings(homeDirectory, 'profile_sources:\n  - path: ./profiles\n');
+    writeFileSync(join(profilesRoot, 'engineer.yml'), 'id: engineer\ncontrols:\n  unsupported_control: true\n');
+
+    const result = executeProfileLintCommand({ homeDirectory, projectDirectory });
+
+    expect(result.diagnostics).toEqual([
+      {
+        severity: 'warning',
+        path: '/profiles/engineer',
+        message: "pi adapter cannot translate requested control 'unsupported_control'.",
+      },
+    ]);
+  });
+
+  it('reports settings errors from profile lint', () => {
+    const root = createTemporaryRoot();
+    const homeDirectory = join(root, 'home');
+    const projectDirectory = join(root, 'project');
+    writeSettings(homeDirectory, 'profile_sources:\n  - only: [bad]\n');
+
+    const result = executeProfileLintCommand({ homeDirectory, projectDirectory });
+
+    expect(result.exitCode).toBe(1);
+    expect(result.diagnostics[0]?.severity).toBe('error');
   });
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-004.5).

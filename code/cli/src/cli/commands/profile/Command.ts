@@ -4,6 +4,7 @@ import type { Command } from 'commander';
 import type { CommandObject } from '../CommandObject.js';
 import { createProfileCreateCommand } from './CreateCommand.js';
 import { createProfileListCommand } from './ListCommand.js';
+import { createProfileLintCommand } from './LintCommand.js';
 import type { ProfileCommandDependencies } from './Shared.js';
 import { getOrCreateProfileCommander, profileCommandDescription, profileCommandName } from './Shared.js';
 
@@ -11,6 +12,7 @@ export const createProfileCommands = (dependencies: ProfileCommandDependencies =
   createProfileCommand(),
   createProfileListCommand(dependencies),
   createProfileCreateCommand(dependencies),
+  createProfileLintCommand(dependencies),
 ];
 
 export const createProfileCommand = (): CommandObject => {
@@ -27,3 +29,4 @@ export const createProfileCommand = (): CommandObject => {
 
 export { executeCreateProfileCommand } from './CreateCommand.js';
 export { executeListProfilesCommand } from './ListCommand.js';
+export { executeProfileLintCommand } from './LintCommand.js';
