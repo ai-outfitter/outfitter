@@ -87,8 +87,9 @@ type OutfitterExtension = (pi: ReturnType<typeof createMockPi>) => void;
 const evaluateOutfitterExtension = (content: string): OutfitterExtension => {
   const executableContent = content
     .replace(
-      'import { matchesKey, truncateToWidth, visibleWidth, wrapTextWithAnsi } from "@earendil-works/pi-tui";',
+      'import { Key, matchesKey, truncateToWidth, visibleWidth, wrapTextWithAnsi } from "@earendil-works/pi-tui";',
       [
+        'const Key = { up: "\\x1b[A", down: "\\x1b[B", enter: "\\r", escape: "\\x1b", ctrl: (key) => key === "c" ? "\\u0003" : "ctrl+" + key };',
         'const matchesKey = (data, key) => data === key;',
         'const visibleWidth = (text) => String(text).replace(/\\u001b\\[[0-9;]*m/gu, "").length;',
         'const truncateToWidth = (text, width) => visibleWidth(text) > width ? String(text).slice(0, Math.max(0, width - 3)) + "..." : text;',
@@ -621,6 +622,8 @@ describe('preparePiLoginLaunchPlan', () => {
     expect(context.customRenders[1]?.find((line) => line.includes('engineer — Engineer'))?.trimEnd()).toBe(
       '  engineer — Engineer',
     );
+    expect(context.customRenders[2]?.[0]).toMatch(/^─+$/u);
+    expect(context.customRenders[2]?.at(-1)).toMatch(/^─+$/u);
     expect(context.customRenders[2]?.join('\n')).toContain('Where should Outfitter install these settings?');
     expect(context.customRenders[2]?.join('\n')).toContain('→ Home folder (~/.outfitter)');
     expect(context.customRenders[2]?.join('\n')).toContain('These profiles will be available anywhere you start outfitter.');

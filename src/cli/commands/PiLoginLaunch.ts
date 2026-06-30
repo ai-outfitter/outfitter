@@ -129,7 +129,7 @@ const createPiOutfitterExtensionContent = (input: {
   const defaultSettingsTemplate = createSetupDefaultSettingsContent('__OUTFITTER_PROFILE_ID__');
   const startupAsciiArt = readFileSync(new URL('./assets/outfitter-ascii.txt', import.meta.url), 'utf8').trimEnd();
 
-  return String.raw`import { matchesKey, truncateToWidth, visibleWidth, wrapTextWithAnsi } from "@earendil-works/pi-tui";
+  return String.raw`import { Key, matchesKey, truncateToWidth, visibleWidth, wrapTextWithAnsi } from "@earendil-works/pi-tui";
 
 const OUTFITTER_PLAN_TOOLS = ["read", "grep", "find", "ls"];
 const OUTFITTER_DEFAULT_TOOLS = ["read", "bash", "edit", "write"];
@@ -670,60 +670,82 @@ const selectDescribedOption = (ctx, titleLines, items, initialValue) =>
   ctx.ui.custom((tui, theme, _keybindings, done) => {
     let selectedIndex = Math.max(0, items.findIndex((item) => item.value === initialValue));
     const labelWidth = Math.max(...items.map((item) => item.label.length));
+    let cachedWidth;
+    let cachedLines;
 
     const finish = (value) => done(value);
+    const refresh = () => {
+      cachedWidth = undefined;
+      cachedLines = undefined;
+      tui.requestRender?.();
+    };
     const move = (delta) => {
       selectedIndex = Math.max(0, Math.min(items.length - 1, selectedIndex + delta));
-      tui.requestRender?.();
+      refresh();
+    };
+
+    const render = (width) => {
+      const maxWidth = typeof width === "number" && width > 0 ? width : 120;
+      if (cachedLines && cachedWidth === maxWidth) return cachedLines;
+
+      const lines = [];
+      const add = (line) => lines.push(visibleWidth(line) > maxWidth ? truncateToWidth(line, maxWidth) : line);
+      const addWrapped = (line, widthForWrap = maxWidth, prefix = "") => {
+        for (const wrappedLine of wrapTextWithAnsi(line, Math.max(1, widthForWrap))) {
+          add(prefix + wrappedLine);
+        }
+      };
+      const renderSelectedItem = (prefix, label, description) => {
+        const baseLine = prefix + label;
+        if (!description) {
+          add(baseLine);
+          return;
+        }
+
+        const inlineDescriptionWidth = maxWidth - visibleWidth(baseLine) - 2;
+        const descriptionText = theme.fg("muted", description);
+        if (inlineDescriptionWidth >= 30) {
+          const [firstLine = "", ...remainingLines] = wrapTextWithAnsi(descriptionText, inlineDescriptionWidth);
+          add(baseLine + "  " + firstLine);
+          const continuationPrefix = " ".repeat(Math.min(maxWidth, visibleWidth(baseLine) + 2));
+          for (const line of remainingLines) add(continuationPrefix + line);
+          return;
+        }
+
+        add(baseLine);
+        addWrapped(descriptionText, maxWidth - 2, "  ");
+      };
+
+      add(theme.fg("accent", "─".repeat(maxWidth)));
+      titleLines.forEach((line, index) => addWrapped(index === 0 ? theme.fg("text", " " + line) : theme.fg("dim", " " + line)));
+      lines.push("");
+
+      items.forEach((item, index) => {
+        const selected = index === selectedIndex;
+        const prefix = selected ? theme.fg("accent", "→ ") : "  ";
+        const paddedLabel = item.label.padEnd(labelWidth);
+        const label = selected ? theme.fg("accent", paddedLabel) : paddedLabel;
+        renderSelectedItem(prefix, label, selected ? item.description : undefined);
+      });
+
+      lines.push("");
+      add(theme.fg("dim", "↑↓ navigate  enter select  escape/ctrl+c cancel"));
+      add(theme.fg("accent", "─".repeat(maxWidth)));
+
+      cachedWidth = maxWidth;
+      cachedLines = lines;
+      return lines;
     };
 
     return {
       outfitterOptions: items.map((item) => item.label),
-      render: (width = 120) => {
-        const maxWidth = typeof width === "number" && width > 0 ? width : 120;
-        const fitLine = (line) => visibleWidth(line) > maxWidth ? truncateToWidth(line, maxWidth) : line;
-        const renderSelectedItem = (prefix, label, description) => {
-          const baseLine = prefix + label;
-          if (!description) return [fitLine(baseLine)];
-
-          const inlineDescriptionWidth = maxWidth - visibleWidth(baseLine) - 2;
-          const descriptionText = theme.fg("muted", description);
-          if (inlineDescriptionWidth >= 30) {
-            const [firstDescriptionLine = "", ...remainingDescriptionLines] = wrapTextWithAnsi(descriptionText, inlineDescriptionWidth);
-            const continuationPrefix = " ".repeat(Math.min(maxWidth, visibleWidth(baseLine) + 2));
-            return [
-              fitLine(baseLine + "  " + firstDescriptionLine),
-              ...remainingDescriptionLines.map((line) => fitLine(continuationPrefix + line)),
-            ];
-          }
-
-          return [
-            fitLine(baseLine),
-            ...wrapTextWithAnsi(descriptionText, Math.max(1, maxWidth - 2)).map((line) => fitLine("  " + line)),
-          ];
-        };
-
-        return [
-          ...titleLines.flatMap((line, index) => wrapTextWithAnsi(index === 0 ? theme.fg("accent", theme.bold(line)) : theme.fg("dim", line), maxWidth)),
-          "",
-          ...items.flatMap((item, index) => {
-            const selected = index === selectedIndex;
-            const prefix = selected ? theme.fg("accent", "→ ") : "  ";
-            const paddedLabel = item.label.padEnd(labelWidth);
-            const label = selected ? theme.fg("accent", paddedLabel) : paddedLabel;
-            const description = selected ? item.description : undefined;
-            return renderSelectedItem(prefix, label, description);
-          }),
-          "",
-          fitLine(theme.fg("dim", "↑↓ navigate  enter select  escape/ctrl+c cancel")),
-        ];
-      },
-      invalidate: () => undefined,
+      render,
+      invalidate: refresh,
       handleInput: (data) => {
-        if (data === "\x1b[A") move(-1);
-        else if (data === "\x1b[B") move(1);
-        else if (data === "\r" || data === "\n") finish(items[selectedIndex]?.value);
-        else if (data === "\x1b" || data === "\u0003") finish(undefined);
+        if (matchesKey(data, Key.up)) move(-1);
+        else if (matchesKey(data, Key.down)) move(1);
+        else if (matchesKey(data, Key.enter)) finish(items[selectedIndex]?.value);
+        else if (matchesKey(data, Key.escape) || matchesKey(data, Key.ctrl("c"))) finish(undefined);
       },
     };
   });
