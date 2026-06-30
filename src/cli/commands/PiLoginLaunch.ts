@@ -276,18 +276,22 @@ export default function outfitter(pi) {
         : { id: "home", settingsPath: paths.homeSettingsPath, profilesPath: paths.homeProfilesPath };
     },
     async selectProfile(profiles, currentDefault) {
-      const labels = profiles.map((profile) => formatProfileOption(profile, currentDefault));
-      const selectedLabel = await ctx.ui.select(
-        [
-          "Outfitter profile setup",
-          "",
-          "Choose the default profile from the selected catalog for future 'outfitter' launches.",
-          "The current Pi process keeps the profile it started with; this setting applies on the next launch.",
-        ].join("\n"),
-        labels,
-      );
-      if (selectedLabel === undefined) return undefined;
-      return profiles[labels.indexOf(selectedLabel)];
+      const items = profiles.map((profile) => ({
+        value: profile.id,
+        label: formatProfileLabel(profile, currentDefault),
+        description: profile.description,
+      }));
+      const title = [
+        "Outfitter profile setup",
+        "",
+        "Choose the default profile from the selected catalog for future 'outfitter' launches.",
+        "The current Pi process keeps the profile it started with; this setting applies on the next launch.",
+      ];
+      const selectedId = typeof ctx.ui.custom === "function"
+        ? await selectProfileWithDescription(ctx, title, items)
+        : await ctx.ui.select(title.join("\n"), items.map((item) => item.label));
+      if (selectedId === undefined) return undefined;
+      return profiles.find((profile) => profile.id === selectedId) ?? profiles[items.findIndex((item) => item.label === selectedId)];
     },
     async input(message, defaultValue) {
       if (typeof ctx.ui.input === "function") {
@@ -635,12 +639,48 @@ const compareProfiles = (left, right, currentDefault) => {
   return left.id.localeCompare(right.id);
 };
 
-const formatProfileOption = (profile, currentDefault) => {
+const selectProfileWithDescription = (ctx, titleLines, items) =>
+  ctx.ui.custom((tui, theme, _keybindings, done) => {
+    let selectedIndex = 0;
+    const labelWidth = Math.max(...items.map((item) => item.label.length));
+
+    const finish = (value) => done(value);
+    const move = (delta) => {
+      selectedIndex = Math.max(0, Math.min(items.length - 1, selectedIndex + delta));
+      tui.requestRender?.();
+    };
+
+    return {
+      outfitterOptions: items.map((item) => item.label),
+      render: () => [
+        ...titleLines.map((line, index) => index === 0 ? theme.fg("accent", theme.bold(line)) : theme.fg("dim", line)),
+        "",
+        ...items.map((item, index) => {
+          const selected = index === selectedIndex;
+          const prefix = selected ? theme.fg("accent", "→ ") : "  ";
+          const paddedLabel = item.label.padEnd(labelWidth);
+          const label = selected ? theme.fg("accent", paddedLabel) : paddedLabel;
+          const description = selected && item.description ? "  " + theme.fg("muted", item.description) : "";
+          return prefix + label + description;
+        }),
+        "",
+        theme.fg("dim", "↑↓ navigate  enter select  escape/ctrl+c cancel"),
+      ],
+      invalidate: () => undefined,
+      handleInput: (data) => {
+        if (data === "\x1b[A") move(-1);
+        else if (data === "\x1b[B") move(1);
+        else if (data === "\r" || data === "\n") finish(items[selectedIndex]?.value);
+        else if (data === "\x1b" || data === "\u0003") finish(undefined);
+      },
+    };
+  });
+
+const formatProfileLabel = (profile, currentDefault) => {
   const current = profile.id === currentDefault ? " (current)" : "";
   const recommended = currentDefault === undefined && profile.id === "founder" ? " (Recommended)" : "";
   const label = profile.label ? " — " + profile.label : "";
-  const description = profile.description ? ": " + profile.description : "";
-  return profile.id + label + description + current + recommended;
+  return profile.id + label + current + recommended;
 };
 
 const createDefaultSettingsContent = (profileId) =>

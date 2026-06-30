@@ -1,4 +1,4 @@
-/* eslint-disable max-lines */
+/* eslint-disable max-lines, complexity */
 // Tests pi launch-plan preparation: Outfitter bootstrap UX, native setup, and login kickoff.
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -145,6 +145,7 @@ const createMockContext = (
   const selectCalls: Array<{ readonly title: string; readonly options: readonly string[] }> = [];
   const inputCalls: Array<{ readonly message: string; readonly defaultValue?: string }> = [];
   const headerRenders: string[][] = [];
+  const customRenders: string[][] = [];
   const submittedInputs: string[] = [];
   const selectedOptions = [...(options.selectedOptions ?? [])];
   const inputValues = [...(options.inputValues ?? [])];
@@ -160,6 +161,7 @@ const createMockContext = (
     },
     notifications,
     headerRenders,
+    customRenders,
     inputCalls,
     selectCalls,
     submittedInputs,
@@ -169,25 +171,48 @@ const createMockContext = (
     ui: {
       custom: <T>(
         factory: (
-          tui: { focusedComponent?: { handleInput(input: string): void } },
-          theme: unknown,
+          tui: { focusedComponent?: { handleInput(input: string): void }; requestRender?: () => void },
+          theme: { bold(text: string): string; fg(_color: string, text: string): string },
           keybindings: unknown,
           done: (result: T) => void,
         ) => unknown,
       ) =>
         new Promise<T>((resolve) => {
-          factory(
+          const theme = {
+            bold: (text: string) => text,
+            fg: (_color: string, text: string) => text,
+          };
+          const component = factory(
             {
               focusedComponent: {
                 handleInput(input: string) {
                   submittedInputs.push(input);
                 },
               },
+              requestRender: () => undefined,
             },
-            {},
+            theme,
             {},
             resolve,
           );
+          if (
+            component !== null &&
+            typeof component === 'object' &&
+            'outfitterOptions' in component &&
+            'handleInput' in component
+          ) {
+            const selector = component as {
+              outfitterOptions: readonly string[];
+              handleInput(input: string): void;
+              render?(): string[];
+            };
+            customRenders.push(selector.render?.() ?? []);
+            const selected = selectedOptions.shift() ?? options.selectedOption ?? selector.outfitterOptions[0];
+            const selectedIndex = Math.max(0, selector.outfitterOptions.indexOf(selected));
+            for (let index = 0; index < selectedIndex; index += 1) selector.handleInput('\x1b[B');
+            customRenders.push(selector.render?.() ?? []);
+            selector.handleInput('\r');
+          }
         }),
       input: (message: string, inputOptions?: { readonly defaultValue?: string }) => {
         inputCalls.push({ message, defaultValue: inputOptions?.defaultValue });
@@ -544,7 +569,7 @@ describe('preparePiLoginLaunchPlan', () => {
     const context = createMockContext({
       selectedOptions: [
         'Use the default Outfitter profile catalog',
-        'data_analyst — Data Analyst: Analysis profile for data questions and structured research',
+        'data_analyst — Data Analyst',
         'Home folder (~/.outfitter)',
       ],
     });
@@ -562,14 +587,18 @@ describe('preparePiLoginLaunchPlan', () => {
         'Provide a different catalog to import',
       ],
     });
-    expect(context.selectCalls[1]?.title).not.toContain('• founder');
-    expect(context.selectCalls[1]?.title).not.toContain('Founder/operator profile');
-    expect(context.selectCalls[1]?.options).toEqual([
-      'founder — Founder: Founder/operator profile for product, planning, and execution (Recommended)',
-      'data_analyst — Data Analyst: Analysis profile for data questions and structured research',
-      'engineer — Engineer',
-    ]);
-    expect(context.selectCalls[2]?.options).toEqual(['Home folder (~/.outfitter)', 'Current project directory (.outfitter)']);
+    expect(context.customRenders[0]?.join('\n')).not.toContain('• founder');
+    expect(context.customRenders[0]?.join('\n')).toContain('founder — Founder (Recommended)');
+    expect(context.customRenders[0]?.join('\n')).toContain(
+      'Founder/operator profile for product, planning, and execution',
+    );
+    expect(context.customRenders[1]?.join('\n')).toMatch(
+      /data_analyst — Data Analyst\s+Analysis profile for data questions and structured research/u,
+    );
+    expect(context.customRenders[1]?.find((line) => line.includes('engineer — Engineer'))?.trimEnd()).toBe(
+      '  engineer — Engineer',
+    );
+    expect(context.selectCalls[1]?.options).toEqual(['Home folder (~/.outfitter)', 'Current project directory (.outfitter)']);
     expect(readFileSync(settingsPath, 'utf8')).toBe(
       [
         'default_profile: data_analyst',
