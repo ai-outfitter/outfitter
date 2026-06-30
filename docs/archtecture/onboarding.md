@@ -73,7 +73,9 @@ ctx.ui.select(title: string, options: string[]): Promise<string | undefined>
 
 That API can show a shared title and a flat list of strings, but it cannot attach a per-option description that updates beside the highlighted row. Outfitter therefore uses `ctx.ui.custom(...)` only for the profile picker.
 
-The custom picker renders:
+The custom picker uses a purpose-specific custom UI helper named `selectDescribedOption`. The name intentionally avoids a generic `customSelect` label: this component exists for option lists where the highlighted row owns a secondary description. It should be reused for onboarding choices that need per-option explanatory text, including the install-target screen.
+
+The described-option selector renders:
 
 - the fixed profile-setup title and guidance;
 - one selectable row per synced catalog profile;
@@ -105,6 +107,52 @@ The first onboarding question chooses one setup mode:
 3. **Provide a different catalog to import** writes `remote_settings` pointing at the user-provided `owner/repo`, `ref`, and settings path.
 
 The final install target question writes either `~/.outfitter/settings.yml` or `<project>/.outfitter/settings.yml`. Profile changes selected after Pi has already started apply to the next `outfitter` launch, so onboarding must communicate that restart boundary.
+
+The install target prompt SHOULD also use `selectDescribedOption`, because the distinction between user-wide and project-local settings is semantic, not just locational. Required copy:
+
+- Home folder: "These profiles will be available anywhere you start outfitter."
+- Current project directory: "These profiles will only be available in the current project directory and will compose the profiles of the same name in the home folder."
+
+### Install Target Screen Variations
+
+Variation A keeps the same inline-description pattern as the profile picker and emphasizes the selected row only:
+
+```text
+Where SHOULD Outfitter install these settings?
+
+  Home folder (~/.outfitter)
+→ Current project directory (.outfitter)  These profiles will only be available in the current project directory and will compose the profiles of the same name in the home folder.
+```
+
+Variation B uses a wider label column so the explanatory text starts at a stable position:
+
+```text
+Where SHOULD Outfitter install these settings?
+
+  Home folder (~/.outfitter)                
+→ Current project directory (.outfitter)    These profiles will only be available in the current project directory and will compose the profiles of the same name in the home folder.
+```
+
+Variation C adds one line of neutral guidance above the selector while still keeping descriptions tied to the highlighted row:
+
+```text
+Where SHOULD Outfitter install these settings?
+Choose the scope for the settings.yml written by this setup flow.
+
+→ Home folder (~/.outfitter)              These profiles will be available anywhere you start outfitter.
+  Current project directory (.outfitter)
+```
+
+Variation D favors a compact two-column layout and is the preferred architecture target when terminal width allows it:
+
+```text
+Where SHOULD Outfitter install these settings?
+
+  Home folder (~/.outfitter)
+→ Current project directory (.outfitter)  These profiles will only be available in the current project directory and will compose the profiles of the same name in the home folder.
+```
+
+If terminal width is too narrow, the selected description SHOULD wrap below the highlighted row rather than truncating the scope explanation.
 
 ## Cache and Staleness Implications
 

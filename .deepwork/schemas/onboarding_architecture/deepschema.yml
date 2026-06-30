@@ -35,6 +35,13 @@ requirements:
     The document MUST explain why ctx.ui.select is insufficient for per-profile
     descriptions and how ctx.ui.custom renders the selected profile description
     to the right of the highlighted row.
+  described-option-selector-name: >
+    The document SHOULD name the purpose-specific custom UI selector
+    selectDescribedOption or an equally explicit name that communicates it is
+    for options with selected-row descriptions, not generic custom UI.
+  install-target-description-selector: >
+    The document SHOULD describe the install-target screen as a described-option
+    selector and include the user-wide and project-local explanatory copy.
   founder-default-selection: >
     The document MUST state that founder is the initial highlighted/default
     profile when present and no current default profile exists.
@@ -51,5 +58,6 @@ requirements:
 verification_bash_command:
   - "grep -qx '# Onboarding Architecture' \"$1\" || { echo 'FAIL: missing top-level Onboarding Architecture heading'; exit 1; }"
   - "grep -q '^```mermaid$' \"$1\" && grep -q '^flowchart TD$' \"$1\" || { echo 'FAIL: missing Mermaid flowchart TD block'; exit 1; }"
-  - "for heading in '## Current First-Run Flow' '## Mermaid Flowchart' '## Native Command and Agent-Turn Boundary' '## Custom Profile Picker Nuance' '## Setup Modes and Writes' '## Cache and Staleness Implications'; do grep -qx \"$heading\" \"$1\" || { echo \"FAIL: missing section $heading\"; exit 1; }; done"
-  - "for text in 'ctx.ui.select' 'ctx.ui.custom' 'ai-outfitter/default-profiles' 'quietStartup' 'project_trust' '/outfitter' '/login' 'founder' 'settings.yml'; do grep -q \"$text\" \"$1\" || { echo \"FAIL: missing onboarding architecture term $text\"; exit 1; }; done"
+  - "for heading in '## Current First-Run Flow' '## Mermaid Flowchart' '## Native Command and Agent-Turn Boundary' '## Custom Profile Picker Nuance' '## Setup Modes and Writes' '### Install Target Screen Variations' '## Cache and Staleness Implications'; do grep -qx \"$heading\" \"$1\" || { echo \"FAIL: missing section $heading\"; exit 1; }; done"
+  - "for text in 'ctx.ui.select' 'ctx.ui.custom' 'selectDescribedOption' 'ai-outfitter/default-profiles' 'quietStartup' 'project_trust' '/outfitter' '/login' 'founder' 'settings.yml'; do grep -q \"$text\" \"$1\" || { echo \"FAIL: missing onboarding architecture term $text\"; exit 1; }; done"
+  - "grep -q 'These profiles will be available anywhere you start outfitter[.]' \"$1\" && grep -q 'These profiles will only be available in the current project directory and will compose the profiles of the same name in the home folder[.]' \"$1\" || { echo 'FAIL: missing install-target explanatory copy'; exit 1; }"
