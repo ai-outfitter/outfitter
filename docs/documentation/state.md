@@ -89,6 +89,12 @@ Outfitter watches the composite profile while the agent runs and prints a near-r
 
 Each session also keeps a lightweight journal (baseline fingerprint plus observed undeclared writes) under `~/.outfitter/state/session-journals/`. On a clean exit the journal is removed; if the session crashes or is killed, the next `outfitter` invocation reports the prior session's undeclared writes once and clears the journal. Because journals live under `~/.outfitter/state` rather than the temporary directory, they survive composite-directory cleanup.
 
+## Temporary directory cleanup
+
+Composite profile directories are created under the system temporary directory and removed automatically when the Outfitter process exits or receives a handled signal. Removal deletes symlink entries without following them, so the durable auth/settings state the links point at is never touched. Pass `--debug` to keep the directory for inspection; Outfitter prints its path.
+
+Each startup also reports any leftover crash journals first and then best-effort sweeps `outfitter-*` directories older than seven days from the temporary root. The sweep never follows symlinks, so a stale directory's links are removed while their targets survive.
+
 ## User stories
 
 ### Keep login working
