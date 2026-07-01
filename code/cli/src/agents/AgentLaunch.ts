@@ -38,7 +38,6 @@ export const resolveAgentLaunchExecutable = (launchPlan: AgentLaunchPlan): Agent
 
   const bundledPiLaunch = resolveBundledPiLaunch();
 
-  /* v8 ignore next 3 -- defensive: pi is a bundled dependency, so resolution succeeds in practice. */
   if (bundledPiLaunch === undefined) {
     return launchPlan;
   }
@@ -75,7 +74,6 @@ const piPackageName = '@earendil-works/pi-coding-agent';
 const resolveBundledPiLaunch = (): BundledPiLaunch | undefined => {
   const binPath = resolveBundledPiBinPath();
 
-  /* v8 ignore next 3 -- defensive: pi is a bundled dependency, so its bin resolves in practice. */
   if (binPath === undefined) {
     return undefined;
   }
@@ -95,14 +93,12 @@ const resolveBundledPiBinPath = (): string | undefined => {
     };
     const binPath = join(packageRoot, manifest.bin.pi);
 
-    /* v8 ignore next 3 -- defensive: a resolved pi bin path exists on disk. */
     if (!existsSync(binPath)) {
       throw new Error(`Bundled pi bin '${binPath}' is missing.`);
     }
 
     return binPath;
   } catch {
-    /* v8 ignore next -- defensive: resolution falls back to a PATH lookup when pi cannot be located. */
     return undefined;
   }
 };
@@ -114,7 +110,6 @@ const findPiPackageRoot = (resolvedEntryPath: string): string => {
   while (!existsSync(join(directory, 'package.json'))) {
     const parentDirectory = dirname(directory);
 
-    /* v8 ignore next 3 -- defensive: a resolved entry always has an ancestor package.json. */
     if (parentDirectory === directory) {
       throw new Error('Could not locate the bundled pi package root.');
     }

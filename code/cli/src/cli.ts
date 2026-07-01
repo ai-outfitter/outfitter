@@ -20,7 +20,6 @@ export const isDirectCliExecution = (moduleUrl: string, argvPath: string | undef
   }
 };
 
-/* v8 ignore next 8 -- direct bin execution is covered by local install smoke tests. */
 if (isDirectCliExecution(import.meta.url, process.argv[1])) {
   try {
     await createProgram().parseAsync(process.argv);

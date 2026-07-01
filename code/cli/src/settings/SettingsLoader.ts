@@ -161,7 +161,6 @@ const discoverRemoteSettingsLocations = (
 };
 
 const formatRemoteSettingsPathError = (error: unknown): string => {
-  /* v8 ignore next -- repository subpath validation throws Error instances. */
   if (!(error instanceof Error)) {
     return String(error);
   }

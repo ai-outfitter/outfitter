@@ -164,14 +164,12 @@ export const executeRunCommand = async (
         compositeProfile.files.map((file) => file.outputPath),
       );
     },
-    /* v8 ignore next -- watcher warnings are covered in CompositeProfileWatcher tests; this adapter passes the stderr writer through. */
+
     warn: (message) => (dependencies.writeError ?? console.error)(message),
   });
 
   try {
-    const launcher =
-      dependencies.launcher ??
-      /* v8 ignore next -- tests inject launchers instead of spawning pi. */ createSpawnLauncher();
+    const launcher = dependencies.launcher ?? createSpawnLauncher();
     const exitCode = await launchAgentProcess(launcher, launchPlan, adapter.id);
     const stateWriteWarnings = handleCompositeProfileStateWrites(
       adapter.id,
@@ -196,7 +194,6 @@ export const executeRunCommand = async (
   }
 };
 
-/* v8 ignore start -- Commander registration is exercised through CLI integration, while command behavior is unit-tested through executeRunCommand. */
 export const createRunCommand = (dependencies: RunCommandDependencies = {}): CommandObject => {
   const command: CommandObject = {
     name: 'run',
@@ -246,8 +243,6 @@ const configureRunCommander = (
     .allowExcessArguments(true)
     .action(action);
 };
-
-/* v8 ignore stop */
 
 interface ResolvedRunProfile {
   readonly profile: Profile;
@@ -407,7 +402,6 @@ const prepareFirstRunRuntimeOnboarding = (
 
   const syncResult = syncProfileSource(input.homeDirectory, defaultProfilesSource, dependencies.synchronizer);
 
-  /* v8 ignore next -- network/cache failure path is integration-level behavior; setup fallback message is deterministic. */
   if (syncResult.status === 'failed') {
     throw new Error(
       `Cannot start Pi-native onboarding because the default profiles source failed to sync: ${syncResult.message}. ` +
@@ -425,7 +419,6 @@ const shouldUsePiNativeFirstRunOnboarding = (input: RunCommandInput, dependencie
 
   const selectedAgentId = dependencies.adapter?.id ?? selectRunAgentId(input.agentId, undefined);
 
-  /* v8 ignore next -- explicit profile/non-pi paths are covered by normal run command selection tests. */
   if (input.profileId !== undefined || selectedAgentId !== 'pi') {
     return false;
   }
@@ -442,9 +435,8 @@ const isInteractiveRunLaunch = (dependencies: RunCommandDependencies): boolean =
     return dependencies.interactive;
   }
 
-  /* v8 ignore next -- default process streams are direct terminal behavior; tests inject streams. */
   const inputIsTty = (dependencies.input ?? process.stdin).isTTY === true;
-  /* v8 ignore next -- default process streams are direct terminal behavior; tests inject streams. */
+
   const outputIsTty = (dependencies.output ?? process.stdout).isTTY === true;
 
   return inputIsTty && outputIsTty;
@@ -595,7 +587,6 @@ const materializeSource = (homeDirectory: string, source: ProfileSourceReference
   };
 };
 
-/* v8 ignore start -- the real child-process launcher is direct runtime behavior; tests inject a launcher. */
 const createSpawnLauncher = (): AgentProcessLauncher => ({
   launch(plan) {
     const resolvedPlan = resolveAgentLaunchExecutable(plan);
@@ -611,7 +602,6 @@ const createSpawnLauncher = (): AgentProcessLauncher => ({
     });
   },
 });
-/* v8 ignore stop */
 
 export const resolveChildExitCode = (code: number | null, signal: NodeJS.Signals | null): number => {
   if (code !== null) {

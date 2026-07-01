@@ -296,7 +296,7 @@ const executeInteractiveSetupSourceCommand = async ({
 }: InteractiveSetupSourceCommandInput): Promise<SetupCommandResult> => {
   const onboarding = await runSetupSourceOnboarding(input, dependencies, starterLayout, currentDefaultProfileId);
   const appliedImport = applySetupSourceImport(input, starterLayout, onboarding);
-  /* v8 ignore next -- setup-source rollback only runs when a home import creates settings and default-profile sync fails. */
+
   const rollbackCreatedSettings = appliedImport.createdSettings
     ? () => rmSync(appliedImport.settingsPath, { force: true })
     : () => undefined;
@@ -447,7 +447,6 @@ const formatRunProfileExample = (profileId: string): string =>
 
 const formatRunDefaultProfileExample = (): string => `Start the current default profile:\n  outfitter`;
 
-/* v8 ignore start -- setup-source launch visibility fallbacks are exercised through integration-style CLI flows; unit tests cover the primary imported-profile outcomes. */
 const formatSetupSourceExitMessages = (
   input: SetupCommandInput,
   importTarget: SetupSourceImportTarget,
@@ -545,7 +544,6 @@ const selectSetupSourceLaunchAction = async (
   return promptForSetupSourceLaunchAction(profileId, launchTarget, dependencies);
 };
 
-/* v8 ignore stop */
 const capitalize = (value: string): string => `${value.slice(0, 1).toUpperCase()}${value.slice(1)}`;
 
 export const createSetupCommand = (dependencies: SetupCommandDependencies = {}): CommandObject => {
@@ -558,9 +556,8 @@ export const createSetupCommand = (dependencies: SetupCommandDependencies = {}):
         .description(command.description)
         .action(async (source?: string) => {
           const input = {
-            /* v8 ignore next -- default process home is exercised by the direct CLI entrypoint, not unit tests. */
             homeDirectory: dependencies.homeDirectory ?? homedir(),
-            /* v8 ignore next -- default process cwd is exercised by the direct CLI entrypoint, not unit tests. */
+
             projectDirectory: dependencies.projectDirectory ?? process.cwd(),
             setupSourceUri: source,
           };
@@ -656,7 +653,6 @@ const runGit = (args: readonly string[], sensitiveUri: string): void => {
   const result = spawn.sync('git', args, { stdio: 'pipe', encoding: 'utf8' });
 
   if (result.status !== 0) {
-    /* v8 ignore next -- the final fallback only applies if git emits no stdout or stderr. */
     throw new Error(
       redactSensitiveText((result.stderr || result.stdout || `git ${args.join(' ')} failed`).trim(), sensitiveUri),
     );
@@ -767,7 +763,6 @@ const readStarterSettingsContent = (starterSettingsPath: string): string => {
   return `default_profile: engineer\n${content}`;
 };
 
-/* v8 ignore start -- setup-source filesystem import variants are covered by integration-style fixtures; core settings outcomes are unit covered. */
 const applySetupSourceImport = (
   input: SetupCommandInput,
   starterLayout: StarterLayout,
@@ -852,8 +847,6 @@ const applySetupSourceCopyImport = (
   };
 };
 
-/* v8 ignore stop */
-/* v8 ignore start -- local setup-source path probing and symlink safety are covered by filesystem integration tests. */
 const resolveLocalSetupSourceOutfitterPath = (input: SetupCommandInput): string | undefined =>
   input.setupSourceUri === undefined
     ? undefined
@@ -893,7 +886,6 @@ const symlinkLocalOutfitterSource = (sourceOutfitterPath: string, targetOutfitte
   symlinkSync(sourceOutfitterPath, targetOutfitterPath, 'dir');
 };
 
-/* v8 ignore stop */
 const createSetupSourceImportTargetLayout = (
   input: SetupCommandInput,
   target: SetupSourceImportTarget,
@@ -925,7 +917,7 @@ const createImportSettingsIfMissing = (
   mkdirSync(dirname(settingsPath), { recursive: true });
   writeFileSync(
     settingsPath,
-    /* v8 ignore next -- setup-source tests exercise starter settings; missing starter settings is defensive fallback. */
+
     starterSettingsPath === undefined
       ? createLocalProfileSettingsContent(selectedProfileId)
       : readStarterSettingsContent(starterSettingsPath),
@@ -945,7 +937,7 @@ const ensureLocalProfileSource = (settingsPath: string, profilesPath: string): v
   }
 
   const document = readYamlRecord(settingsPath);
-  /* v8 ignore next -- appending to existing non-local source lists is equivalent to the covered empty-source case. */
+
   const existingSources: readonly unknown[] = Array.isArray(document.profile_sources) ? document.profile_sources : [];
   writeFileSync(
     settingsPath,
@@ -955,7 +947,7 @@ const ensureLocalProfileSource = (settingsPath: string, profilesPath: string): v
 
 const readYamlRecord = (path: string): Record<string, unknown> => {
   const parsed = parse(readFileSync(path, 'utf8')) as unknown;
-  /* v8 ignore next -- settings schema validation guarantees object documents before this helper mutates them. */
+
   return parsed !== null && typeof parsed === 'object' && !Array.isArray(parsed)
     ? { ...(parsed as Record<string, unknown>) }
     : {};
@@ -1068,7 +1060,6 @@ const findWelcomeSourceProfileDirectory = (
 
   const loadedSettings = loadSettingsWithCachedRemoteSettings(input);
 
-  /* v8 ignore next -- setup already rejected invalid settings; this fallback handles cache mutation during welcome. */
   if (loadedSettings.issues.length > 0) {
     return undefined;
   }
@@ -1106,9 +1097,8 @@ const requireInteractiveTerminalIfNeeded = (dependencies: SetupCommandDependenci
     return;
   }
 
-  /* v8 ignore next -- default process streams are direct terminal behavior; tests inject streams. */
   const inputIsTty = (dependencies.input ?? process.stdin).isTTY === true;
-  /* v8 ignore next -- default process streams are direct terminal behavior; tests inject streams. */
+
   const outputIsTty = (dependencies.output ?? process.stdout).isTTY === true;
 
   if (!inputIsTty || !outputIsTty) {
@@ -1121,7 +1111,6 @@ const shouldSkipInitialDefaultProfilePrompt = (
   dependencies: SetupCommandDependencies,
 ): boolean => initialSettingsMissing && dependencies.interactive === true;
 
-/* v8 ignore next -- default process stdout is direct terminal behavior; tests inject writable streams. */
 const resolveReadlineOutput = (dependencies: SetupCommandDependencies): NodeJS.WritableStream =>
   typeof dependencies.output?.write === 'function' ? dependencies.output : process.stdout;
 
@@ -1139,7 +1128,6 @@ const resolvePromptOutput = (dependencies: SetupCommandDependencies): Pick<NodeJ
     };
   }
 
-  /* v8 ignore next 7 -- defensive non-writable injected output fallback; normal tests inject writeLine or writable output. */
   if (dependencies.output !== undefined) {
     return {
       write() {
@@ -1180,7 +1168,6 @@ const runSetupSourceOnboarding = async (
   return { importTarget, selectedProfileId, importMode };
 };
 
-/* v8 ignore start -- readline fallback is smoke-tested through terminal streams; injected selector paths carry deterministic setup-source coverage. */
 const promptForSetupSourceOnboarding = async (
   input: SetupCommandInput & { readonly setupSourceUri: string },
   profiles: readonly SetupProfileChoice[],
@@ -1189,7 +1176,7 @@ const promptForSetupSourceOnboarding = async (
   dependencies: SetupCommandDependencies,
 ): Promise<SetupSourceOnboardingResult> => {
   const output = resolvePromptOutput(dependencies);
-  /* v8 ignore next -- default process streams are direct terminal behavior; tests inject streams. */
+
   const readline = createInterface({
     input: dependencies.input ?? process.stdin,
     output: resolveReadlineOutput(dependencies),
@@ -1238,7 +1225,6 @@ const writeSetupSourceWelcome = (
 };
 
 const formatSetupSourceProfileList = (profiles: readonly SetupProfileChoice[]): string => {
-  /* v8 ignore next -- setup-source profile prompts normally require discovered source profiles. */
   if (profiles.length === 0) {
     return '';
   }
@@ -1249,7 +1235,6 @@ const formatSetupSourceProfileList = (profiles: readonly SetupProfileChoice[]): 
 const selectSetupSourceImportTarget = async (
   dependencies: SetupCommandDependencies,
 ): Promise<SetupSourceImportTarget> => {
-  /* v8 ignore else -- mixed dependency injection path; the full readline path prompts with one shared readline. */
   if (dependencies.selectSetupSourceImportTarget !== undefined) {
     const selectedTarget = await dependencies.selectSetupSourceImportTarget(setupSourceImportTargetChoices, 'home');
     assertValidSetupSourceImportTarget(selectedTarget);
@@ -1283,7 +1268,6 @@ const assertValidSetupSourceImportMode = (mode: SetupSourceImportMode): void => 
 };
 
 const assertValidSetupSourceImportTarget = (target: SetupSourceImportTarget): void => {
-  /* v8 ignore next -- defensive validation for custom dependency injection. */
   if (setupSourceImportTargetChoices.every((choice) => choice.target !== target)) {
     throw new Error(`Selected setup-source import target '${target}' is not available.`);
   }
@@ -1342,7 +1326,6 @@ const promptForSetupSourceImportModeWithReadline = async (
   return selectedChoice.mode;
 };
 
-/* v8 ignore next -- covered by interactive CLI smoke tests; unit tests inject the launch choice. */
 const promptForSetupSourceLaunchAction = async (
   profileId: string,
   launchTarget: SetupSourcePostImportLaunchTarget,
@@ -1365,7 +1348,6 @@ const promptForSetupSourceLaunchAction = async (
   }
 };
 
-/* v8 ignore stop */
 const selectDefaultProfileIfInteractive = async (
   input: SetupCommandInput,
   settingsPath: string,
@@ -1529,7 +1511,7 @@ const promptForSetupProfile = async (
   dependencies: SetupCommandDependencies,
 ): Promise<string> => {
   const output = resolvePromptOutput(dependencies);
-  /* v8 ignore next -- default process streams are direct terminal behavior; tests inject streams. */
+
   const readline = createInterface({
     input: dependencies.input ?? process.stdin,
     output: resolveReadlineOutput(dependencies),

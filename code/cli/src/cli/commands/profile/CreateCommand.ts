@@ -56,9 +56,9 @@ const createProfileCreateCommander = (dependencies: ProfileCommandDependencies):
         name,
         scope: readCreateProfileScope(options.scope),
         path: options.path,
-        /* v8 ignore next -- default process home is exercised by the direct CLI entrypoint, not unit tests. */
+
         homeDirectory: dependencies.homeDirectory ?? homedir(),
-        /* v8 ignore next -- default process cwd is exercised by the direct CLI entrypoint, not unit tests. */
+
         projectDirectory: dependencies.projectDirectory ?? process.cwd(),
       });
 
@@ -113,7 +113,6 @@ export const executeCreateProfileCommand = (input: CreateProfileInput): CreatePr
 
 const emitMessages = (messages: readonly string[], writeLine: ((message: string) => void) | undefined): void => {
   for (const message of messages) {
-    /* v8 ignore next -- console fallback is direct CLI behavior; tests inject a writer. */
     (writeLine ?? console.log)(message);
   }
 };
@@ -143,7 +142,7 @@ const resolveProfileRoot = (input: CreateProfileInput): string => {
       return join(input.projectDirectory, '.outfitter', 'profiles');
     case 'project-local':
       return join(input.projectDirectory, '.outfitter', 'local', 'profiles');
-    /* v8 ignore next 2 -- assertValidCreateProfileInput rejects missing scopes before this exhaustive guard. */
+
     default:
       throw new Error('Create profile requires exactly one destination: --scope or --path.');
   }

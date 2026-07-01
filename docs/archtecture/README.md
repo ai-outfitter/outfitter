@@ -17,7 +17,7 @@ Formal implementation requirements live in [`../requirements/`](../requirements/
 6. **JSON Schema for validation**: every YAML file format has a corresponding JSON Schema used wherever the file is read.
 7. **Deterministic merging**: settings and profile layers merge predictably using normal precedence: project-local, project, then user.
 8. **Warn on partial support**: if a profile asks for a control an agent adapter cannot support, Outfitter warns to stderr; `--strict` makes unsupported controls fatal.
-9. **Complete test coverage early**: the project starts with a test framework and a 100% global coverage requirement.
+9. **Coverage debt stays fixed**: the project starts with a test framework and global uncovered-item budgets for all source files.
 10. **Complexity limits early**: ESLint is configured immediately with maximum complexity `10`.
 
 ## Runtime and Tooling Baseline
@@ -30,7 +30,7 @@ Formal implementation requirements live in [`../requirements/`](../requirements/
   Commander is the initial choice because it supports default commands, command aliases, `allowUnknownOption`, pass-through argument collection, and testable parser construction without spawning child processes.
 - Test framework: Vitest `^4` with `@vitest/coverage-v8`.
   Pi currently uses Vitest, and Vitest is well suited to TypeScript unit tests around command objects and generated launch plans.
-- Coverage: 100% global threshold for statements, branches, functions, and lines from the first implementation.
+- Coverage: global uncovered-item budgets for statements, branches, functions, and lines across all CLI source files.
 - Linting: ESLint `^10`, `@eslint/js`, and `typescript-eslint`, with `complexity: ["error", 10]`.
 - Schema and validation: TypeBox for schema authoring where TypeScript-schema coupling is useful, JSON Schema artifacts for persisted format contracts, and AJV for runtime validation.
 - YAML: `yaml`, matching pi's dependency choice.
@@ -850,7 +850,7 @@ The test suite should be created before feature implementation becomes large.
 
 Requirements:
 
-- global coverage threshold: 100% for statements, branches, functions, and lines;
+- global uncovered-item coverage budgets for statements, branches, functions, and lines;
 - deterministic tests for settings precedence;
 - deterministic tests for profile inheritance and cycle detection;
 - deterministic tests for URI cache path encoding;

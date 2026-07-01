@@ -194,8 +194,9 @@ npm run check-ci
 ```
 
 Both commands run the coverage suite.
-Coverage thresholds are intentionally set to 100% for statements, branches, functions, and lines.
 Coverage includes all `code/cli/src/**/*.ts` files through the CLI workspace Vitest configuration, so new source files need tests even if they are only scaffolding.
+Coverage thresholds use Vitest's absolute uncovered-item budget mode, which keeps existing uncovered debt fixed without requiring routine `v8 ignore` annotations.
+Adding uncovered statements, branches, functions, or lines fails the coverage gate unless the added behavior is tested or the project intentionally updates the budget.
 
 ## Commit and release workflow
 

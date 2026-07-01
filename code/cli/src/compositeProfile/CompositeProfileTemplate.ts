@@ -84,7 +84,6 @@ const renderCompositeProfileFile = (
 const renderTemplateContent = (content: string, context: Readonly<Record<string, unknown>>): string => {
   const renderedContent: unknown = outfitterTemplateEngine.parseAndRenderSync(content, context);
 
-  /* v8 ignore next -- LiquidJS renders string content to strings; this guards future API regressions. */
   if (typeof renderedContent !== 'string') {
     throw new Error('LiquidJS returned non-string template output.');
   }

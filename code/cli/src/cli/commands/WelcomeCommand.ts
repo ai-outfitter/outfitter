@@ -212,16 +212,14 @@ export const createWelcomeCommand = (dependencies: WelcomeCommandDependencies = 
         .action(async () => {
           const result = await executeWelcomeCommand(
             {
-              /* v8 ignore next -- default process home is exercised by the direct CLI entrypoint, not unit tests. */
               homeDirectory: dependencies.homeDirectory ?? homedir(),
-              /* v8 ignore next -- default process cwd is exercised by the direct CLI entrypoint, not unit tests. */
+
               projectDirectory: dependencies.projectDirectory ?? process.cwd(),
             },
             { ...dependencies, interactive: true },
           );
 
           for (const message of result.messages) {
-            /* v8 ignore next -- console fallback is direct CLI behavior; tests inject a writer. */
             (dependencies.writeLine ?? console.log)(message);
           }
         });
@@ -243,9 +241,8 @@ const selectWelcomePlan = async (
 };
 
 const promptForWelcomePlan = async (dependencies: WelcomeCommandDependencies): Promise<WelcomePlan> => {
-  /* v8 ignore next -- default process streams are direct terminal behavior; tests inject streams. */
   const output = dependencies.output ?? process.stdout;
-  /* v8 ignore next -- default process streams are direct terminal behavior; tests inject streams. */
+
   const readline = createInterface({ input: dependencies.input ?? process.stdin, output });
 
   try {
@@ -316,9 +313,8 @@ const requireInteractiveTerminalIfNeeded = (dependencies: WelcomeCommandDependen
     return;
   }
 
-  /* v8 ignore next -- default process streams are direct terminal behavior; tests inject streams. */
   const inputIsTty = (dependencies.input ?? process.stdin).isTTY === true;
-  /* v8 ignore next -- default process streams are direct terminal behavior; tests inject streams. */
+
   const outputIsTty = (dependencies.output ?? process.stdout).isTTY === true;
 
   if (!inputIsTty || !outputIsTty) {
