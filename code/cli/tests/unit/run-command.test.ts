@@ -211,7 +211,7 @@ describe('run command', () => {
           launch(plan) {
             expect(existsSync(join(homeDirectory, '.outfitter', 'settings.yml'))).toBe(false);
             expect(plan.args).toContain('--extension');
-            expect(plan.args).toContain('google/gemini-3.1-pro-preview');
+            expect(plan.args).not.toContain('--model');
             expect(readFileSync(join(plan.env.PI_CODING_AGENT_DIR, 'settings.json'), 'utf8')).toContain(
               '"quietStartup": true',
             );

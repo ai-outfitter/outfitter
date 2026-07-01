@@ -973,11 +973,7 @@ describe('preparePiLoginLaunchPlan', () => {
     expect(context.submittedInputs).toEqual(['\r']);
     expect(messages.some((message) => message.includes('/outfitter'))).toBe(false);
     expect(readFileSync(join(agentDir, 'settings.json'), 'utf8')).toContain('"quietStartup": true');
-    expect(plan.args).toEqual([
-      '--extension',
-      expect.stringContaining('outfitter-extension.js'),
-      '--model',
-      'google/gemini-3.1-pro-preview',
-    ]);
+    expect(plan.args).toEqual(['--extension', expect.stringContaining('outfitter-extension.js')]);
+    expect(plan.args).not.toContain('--model');
   });
 });
