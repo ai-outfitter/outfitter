@@ -55,9 +55,13 @@ The `run` command assembles a temporary agent-specific configuration directory c
 6. For `symlink` strategy paths, Outfitter MUST materialize the composite profile path as a symlink to the resolved profile or native CLI source path.
 7. For non-persistent strategies, Outfitter MUST materialize normal temporary composite profile paths and detect writes after the child agent exits.
 8. Unknown writes MUST be governed by the adapter's `unknown` pseudo-path strategy and MUST NOT be persisted by symlink.
-9. Outfitter MUST warn for `warn`, `prompt`, and symlink-replacement state write issues, fail for `error` state write issues, and ignore `discard` state writes.
+9. Outfitter MUST warn for `warn`, non-interactive `prompt`, and symlink-replacement state write issues, fail for `error` state write issues, and ignore `discard` state writes.
 10. State path materialization MUST reject paths that escape the composite profile root.
 11. During live composite profile updates, Outfitter MUST update generated composite profile files without re-materializing declared state paths so post-launch write detection can still observe agent changes to those paths.
+12. When a declared `prompt` strategy path changed and the session is interactive (stdin and stdout are terminals), Outfitter MUST prompt after the agent exits with persist, discard, and always-persist-for-this-profile choices.
+13. The persist choice MUST copy the composite profile change to the path's resolved durable source; the always choice MUST additionally record a `symlink` override in the selected local profile's `state_persistence`, and Outfitter MUST persist once and warn when the choice cannot be recorded (non-local selected profile or `symlink` not allowed for the path).
+14. When the session is not interactive, changed `prompt` strategy paths MUST fall back to `warn` behavior with an explicit "prompt skipped: non-interactive" notice.
+15. Undeclared writes governed by an `unknown: prompt` strategy MUST be reported as warnings with an explicit notice that undeclared writes cannot be persisted.
 
 ### OFTR-005.7: Generated Pi Prompt Export
 
