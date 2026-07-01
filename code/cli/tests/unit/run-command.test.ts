@@ -235,6 +235,48 @@ describe('run command', () => {
     expect(existsSync(join(homeDirectory, '.outfitter', 'settings.yml'))).toBe(false);
   });
 
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-010.6).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('falls back to the built-in starter profile when the default profiles catalog cannot sync', async () => {
+    const root = createTemporaryRoot();
+    const homeDirectory = join(root, 'home');
+    const projectDirectory = join(root, 'project');
+    const builtinProfilesPath = join(homeDirectory, '.outfitter', 'cache', 'builtin-profiles');
+    const warnings: string[] = [];
+
+    const result = await executeRunCommand(
+      { homeDirectory, projectDirectory },
+      {
+        interactive: true,
+        writeLine: () => undefined,
+        writeError: (message) => warnings.push(message),
+        synchronizer: {
+          sync() {
+            throw new Error('network blocked');
+          },
+        },
+        launcher: {
+          launch(plan) {
+            const extensionPath = plan.args[plan.args.indexOf('--extension') + 1] ?? '';
+            expect(readFileSync(extensionPath, 'utf8')).toContain(JSON.stringify(builtinProfilesPath));
+            return Promise.resolve(0);
+          },
+        },
+      },
+    );
+
+    expect(result.profileId).toBe('outfitter-bootstrap');
+    expect(readFileSync(join(builtinProfilesPath, 'starter', 'profile.yml'), 'utf8')).toContain('id: starter');
+    expect(
+      warnings.some(
+        (message) =>
+          message.includes('github:ai-outfitter/default-profiles') &&
+          message.includes('network blocked') &&
+          message.includes('`outfitter sync`'),
+      ),
+    ).toBe(true);
+  });
+
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-010.4).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('emits runtime login kickoff guidance when no native login state is configured', async () => {
