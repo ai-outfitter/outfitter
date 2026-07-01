@@ -172,10 +172,19 @@ The container starts in `/home/node/repos`; without extra mounts, each run gets 
 
 ## Validate changes before opening or updating a PR
 
+Run formatting from the repository root.
+The CI formatting gate is `prettier --check .`; package-local checks from `code/cli` and touched-file-only Prettier runs are not equivalent because this repository also includes root scripts, docs, and `code/enterprise`.
+
 Use the mutating local check when formatting or lint auto-fixes may be needed:
 
 ```sh
 npm run check
+```
+
+To check formatting without changing files, run this from the repository root:
+
+```sh
+npx prettier --check .
 ```
 
 Use the CI-equivalent non-mutating check before final review:
