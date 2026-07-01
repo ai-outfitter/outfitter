@@ -1,0 +1,10 @@
+{
+  "profileId": "resource-review",
+  "agentId": "claude",
+  "skillsDirectoryEntries": ["changelog-writer", "personal-notes", "release-notes"],
+  "skillTargets": {
+    "changelog-writer": "<project>/.outfitter/profiles/resource-review/skills/changelog-writer",
+    "personal-notes": "<home>/.claude/skills/personal-notes",
+    "release-notes": "<project>/.outfitter/profiles/resource-base/skills/release-notes"
+  }
+}
