@@ -35,7 +35,7 @@ Controls are the generic, agent-neutral knobs a profile sets: `model`, `provider
 
 ## Adapters
 
-An adapter translates generic controls into one agent CLI's native configuration — files, command-line flags, and environment variables. Pi is the primary and most complete adapter; a Claude Code adapter is supported with gaps. When an adapter cannot honor a control it warns to stderr, or fails when `--strict` is set.
+An adapter translates generic controls into one agent CLI's native configuration — files, command-line flags, and environment variables. Pi is the primary and most complete adapter; a Claude Code adapter is supported with gaps. When an adapter cannot honor a control it warns to stderr, or fails when `--strict` is set. See the [adapter support matrix](./support-matrix.md) for per-adapter coverage.
 
 ## State persistence
 
