@@ -131,6 +131,43 @@ export const detectCompositeProfileStateWrites = (
   return [...issues.values()].sort((left, right) => left.relativePath.localeCompare(right.relativePath));
 };
 
+// Classifies a composite profile relative path observed during a live session: a path is an
+// undeclared write when it is a user write outside every declared state path, is not an
+// ancestor of a declared state path (parent directories are expected to appear), and is not
+// one of the generated composite profile files that Outfitter itself rewrites.
+export const isUndeclaredCompositeProfileWritePath = (
+  relativePath: string,
+  statePaths: readonly CompositeProfileStatePath[],
+  generatedFilePaths: readonly string[] = [],
+): boolean => {
+  const normalizedPath = relativePath.split(sep).join(posixSeparator);
+
+  if (normalizedPath === '' || !isUserWritePath(normalizedPath)) {
+    return false;
+  }
+
+  const withinDeclaredPath = statePaths
+    .filter((statePath) => statePath.relativePath !== 'unknown')
+    .some(
+      (statePath) =>
+        isWithinStatePath(normalizedPath, statePath) ||
+        isAncestorPath(normalizedPath, normalizeStateRelativePath(statePath.relativePath)),
+    );
+
+  if (withinDeclaredPath) {
+    return false;
+  }
+
+  return !generatedFilePaths.some(
+    (generatedPath) =>
+      normalizedPath === generatedPath ||
+      isAncestorPath(normalizedPath, generatedPath) ||
+      isAncestorPath(generatedPath, normalizedPath),
+  );
+};
+
+const isAncestorPath = (candidate: string, path: string): boolean => path.startsWith(`${candidate}${posixSeparator}`);
+
 export type CompositeProfileStateWritePromptChoice = 'persist' | 'discard' | 'always';
 
 export interface CompositeProfileStateWritePromptRequest {
