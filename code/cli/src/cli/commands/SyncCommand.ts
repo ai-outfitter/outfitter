@@ -1,7 +1,7 @@
 // Provides the command object for synchronizing URI-backed profile and settings sources.
 import { existsSync, mkdirSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { dirname } from 'node:path';
+import { dirname, join } from 'node:path';
 
 import type { Command } from 'commander';
 import spawn from 'cross-spawn';
@@ -19,6 +19,7 @@ import {
   type ProfileSourceReference,
   type RemoteSourceReference,
 } from '../../profiles/ProfileSource.js';
+import { enablePrivateProfileCatalogs, isPrivateProfileCatalogsEnabled } from '../../settings/EnterpriseSettings.js';
 import type { RemoteSettingsReference } from '../../settings/Settings.js';
 import {
   discoverSettingsLoadPlan,
@@ -56,9 +57,15 @@ export interface GitHubRepositoryVisibilityClassifier {
   classify(repository: string): GitHubRepositoryVisibility;
 }
 
+export interface PrivateCatalogPrompt {
+  readonly interactive: boolean;
+  confirm(repository: string): boolean;
+}
+
 export interface SyncCommandDependencies {
   readonly synchronizer?: UriProfileSourceSynchronizer;
   readonly repositoryVisibilityClassifier?: GitHubRepositoryVisibilityClassifier;
+  readonly privateCatalogPrompt?: PrivateCatalogPrompt;
   readonly homeDirectory?: string;
   readonly projectDirectory?: string;
   readonly writeLine?: (message: string) => void;
@@ -77,15 +84,17 @@ export const executeSyncCommand = (
   const synchronizer = dependencies.synchronizer ?? createGitSynchronizer();
   const repositoryVisibilityClassifier =
     dependencies.repositoryVisibilityClassifier ?? createGitHubRepositoryVisibilityClassifier();
-  const remoteSettingsSources = localSettings.settings.remoteSettings!;
-  const remoteSettingsInfoMessages = createPrivateCatalogInfoMessages(
-    remoteSettingsSources,
+  const privateCatalogGate = createPrivateCatalogGate(
+    input.homeDirectory,
     repositoryVisibilityClassifier,
+    dependencies,
   );
-  const remoteSettingsResults = remoteSettingsSources.map((source) =>
+  const remoteSettingsSources = localSettings.settings.remoteSettings!;
+  const remoteSettingsGateResults = gatePrivateCatalogSources(remoteSettingsSources, privateCatalogGate);
+  const remoteSettingsResults = remoteSettingsGateResults.allowedSources.map((source) =>
     syncRemoteSettingsSource(input.homeDirectory, source, synchronizer),
   );
-  const syncedRemoteSettingsSources = remoteSettingsSources.filter(
+  const syncedRemoteSettingsSources = remoteSettingsGateResults.allowedSources.filter(
     (_source, index) => remoteSettingsResults[index]?.status !== 'failed',
   );
   const loadedSettings = loadSettingsWithCachedRemoteSettings(input, syncedRemoteSettingsSources);
@@ -95,10 +104,17 @@ export const executeSyncCommand = (
   }
 
   const uriSources = loadedSettings.settings.profileSources!.filter(isRemoteProfileSource);
-  const profileSourceInfoMessages = createPrivateCatalogInfoMessages(uriSources, repositoryVisibilityClassifier);
-  const profileSourceResults = uriSources.map((source) => syncUriSource(input.homeDirectory, source, synchronizer));
-  const sourceResults = [...remoteSettingsResults, ...profileSourceResults];
-  const infoMessages = [...remoteSettingsInfoMessages, ...profileSourceInfoMessages];
+  const profileSourceGateResults = gatePrivateCatalogSources(uriSources, privateCatalogGate);
+  const profileSourceResults = profileSourceGateResults.allowedSources.map((source) =>
+    syncUriSource(input.homeDirectory, source, synchronizer),
+  );
+  const sourceResults = [
+    ...remoteSettingsResults,
+    ...remoteSettingsGateResults.skippedResults,
+    ...profileSourceResults,
+    ...profileSourceGateResults.skippedResults,
+  ];
+  const infoMessages = [...remoteSettingsGateResults.messages, ...profileSourceGateResults.messages];
 
   return {
     sources: sourceResults,
@@ -107,7 +123,9 @@ export const executeSyncCommand = (
         ? ['No URI profile or remote settings sources configured; nothing to sync.']
         : [
             ...infoMessages,
-            ...sourceResults.map((result) => `${result.status}: ${result.uri} -> ${result.cachePath} (${result.message})`),
+            ...sourceResults.map(
+              (result) => `${result.status}: ${result.uri} -> ${result.cachePath} (${result.message})`,
+            ),
           ],
   };
 };
@@ -271,23 +289,104 @@ export const syncProfileSource = (
 const isRemoteProfileSource = (source: ProfileSourceReference): source is RemoteProfileSource =>
   source.uri !== undefined || source.github !== undefined;
 
-const createPrivateCatalogInfoMessages = (
-  sources: readonly RemoteSourceReference[],
+interface PrivateCatalogGate {
+  readonly settingsPath: string;
+  readonly classifier: GitHubRepositoryVisibilityClassifier;
+  readonly prompt: PrivateCatalogPrompt;
+  enabled: boolean;
+}
+
+interface PrivateCatalogGateResults<Source extends RemoteSourceReference> {
+  readonly allowedSources: readonly Source[];
+  readonly skippedResults: readonly SyncSourceResult[];
+  readonly messages: readonly string[];
+}
+
+const createPrivateCatalogGate = (
+  homeDirectory: string,
   classifier: GitHubRepositoryVisibilityClassifier,
-): readonly string[] => {
-  const privateRepositories = new Set<string>();
+  dependencies: SyncCommandDependencies,
+): PrivateCatalogGate => {
+  const homeSettingsPath = join(homeDirectory, '.outfitter', 'settings.yml');
+
+  return {
+    settingsPath: homeSettingsPath,
+    classifier,
+    prompt: dependencies.privateCatalogPrompt ?? createTtyPrivateCatalogPrompt(),
+    enabled: isPrivateProfileCatalogsEnabled(homeSettingsPath),
+  };
+};
+
+const gatePrivateCatalogSources = <Source extends RemoteSourceReference>(
+  sources: readonly Source[],
+  gate: PrivateCatalogGate,
+): PrivateCatalogGateResults<Source> => {
+  const allowedSources: Source[] = [];
+  const skippedResults: SyncSourceResult[] = [];
+  const messages: string[] = [];
+  const promptedRepositories = new Set<string>();
 
   for (const source of sources) {
-    if (source.github !== undefined && classifier.classify(source.github) === 'private') {
-      privateRepositories.add(source.github);
+    const repository = source.github;
+    if (repository === undefined || gate.enabled || gate.classifier.classify(repository) !== 'private') {
+      allowedSources.push(source);
+      continue;
     }
+
+    if (!promptedRepositories.has(repository) && gate.prompt.interactive && gate.prompt.confirm(repository)) {
+      enablePrivateProfileCatalogs(gate.settingsPath);
+      gate.enabled = true;
+      messages.push('info: Enabled private profile catalogs in ~/.outfitter/settings.yml.');
+      allowedSources.push(source);
+      continue;
+    }
+
+    promptedRepositories.add(repository);
+    messages.push(formatPrivateCatalogSkippedMessage(repository, gate.prompt.interactive));
+    skippedResults.push({
+      uri: formatDisplayUri(source),
+      cachePath: remoteCachePathForPrivateCatalogSkip(gate.settingsPath, source),
+      status: 'skipped',
+      message: `Private profile catalog setup was skipped for ${repository}; no settings were changed.`,
+    });
   }
 
-  return [...privateRepositories].map(
-    (repository) =>
-      `info: Private GitHub profile catalog detected: ${repository}. Private catalog support is covered by the Outfitter Enterprise license; review code/enterprise/LICENSE or your enterprise agreement.`,
-  );
+  return { allowedSources, skippedResults, messages };
 };
+
+const createTtyPrivateCatalogPrompt = (): PrivateCatalogPrompt => ({
+  interactive: process.stdin.isTTY === true && process.stdout.isTTY === true,
+  confirm(repository) {
+    const prompt = formatPrivateCatalogPrompt(repository);
+    const result = spawn.sync(
+      'sh',
+      [
+        '-c',
+        'printf "%s" "$OUTFITTER_PRIVATE_CATALOG_PROMPT" > /dev/tty && IFS= read -r answer < /dev/tty && case "$answer" in y|Y|yes|YES) exit 0 ;; *) exit 1 ;; esac',
+      ],
+      { env: { ...process.env, OUTFITTER_PRIVATE_CATALOG_PROMPT: prompt }, stdio: 'inherit' },
+    );
+    return result.status === 0;
+  },
+});
+
+const formatPrivateCatalogPrompt = (repository: string): string =>
+  [
+    `Private GitHub profile catalog detected: ${repository}.`,
+    '',
+    'Private profile catalog support is covered by the Outfitter Enterprise license.',
+    'Review code/enterprise/LICENSE or your enterprise agreement before enabling.',
+    '',
+    'Enable private profile catalogs in ~/.outfitter/settings.yml? [y/N] ',
+  ].join('\n');
+
+const formatPrivateCatalogSkippedMessage = (repository: string, interactive: boolean): string =>
+  interactive
+    ? `info: Private profile catalog setup was skipped for ${repository}; no settings were changed.`
+    : `info: Private GitHub profile catalog detected: ${repository}. Enable enterprise.private_profile_catalogs in ~/.outfitter/settings.yml after reviewing code/enterprise/LICENSE or your enterprise agreement.`;
+
+const remoteCachePathForPrivateCatalogSkip = (settingsPath: string, source: RemoteSourceReference): string =>
+  createRemoteRepositoryCachePath(dirname(dirname(settingsPath)), source);
 
 export const createGitHubRepositoryVisibilityClassifier = (): GitHubRepositoryVisibilityClassifier => ({
   classify(repository) {

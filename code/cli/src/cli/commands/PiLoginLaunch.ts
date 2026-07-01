@@ -331,6 +331,24 @@ export default function outfitter(pi) {
       const selected = await ctx.ui.select(message + suffix, [defaultValue ?? ""]);
       return selected;
     },
+    async confirmPrivateCatalog(repository) {
+      const items = [
+        { value: "enable", label: "Enable and continue", description: "Write enterprise.private_profile_catalogs: true to ~/.outfitter/settings.yml and save this catalog." },
+        { value: "cancel", label: "Cancel private catalog setup", description: "Leave settings unchanged and do not save this private catalog." },
+      ];
+      const title = [
+        "Private GitHub profile catalog detected: " + repository + ".",
+        "",
+        "Private profile catalog support is covered by the Outfitter Enterprise license.",
+        "Review code/enterprise/LICENSE or your enterprise agreement before enabling.",
+        "",
+        "Enable private profile catalogs in ~/.outfitter/settings.yml and use this catalog?",
+      ];
+      const selected = typeof ctx.ui.custom === "function"
+        ? await selectDescribedOption(ctx, title, items, "enable")
+        : await ctx.ui.select(title.join("\n"), items.map((item) => item.label));
+      return selected === "enable" || selected === "Enable and continue";
+    },
     notify: (message, type = "info") => ctx.ui.notify(message, type),
   });
 
@@ -577,6 +595,21 @@ const runRemoteSettingsOnboarding = async (fs, paths, questionUi) => {
     questionUi.notify("Catalog settings path must stay inside the repository; no settings were changed.", "error");
     return;
   }
+
+  let privateCatalogsEnabled = readPrivateProfileCatalogsEnabled(fs, paths.homeSettingsPath);
+  let privateCatalogAccepted = false;
+  if (!privateCatalogsEnabled && await classifyGitHubRepositoryVisibility(github) === "private") {
+    const accepted = await questionUi.confirmPrivateCatalog(github);
+    if (!accepted) {
+      questionUi.notify("Private catalog setup was cancelled; no settings were changed.", "warning");
+      return;
+    }
+
+    writePrivateProfileCatalogsEnabled(fs, paths.homeSettingsPath);
+    privateCatalogsEnabled = true;
+    privateCatalogAccepted = true;
+  }
+
   const installTarget = await questionUi.selectInstallTarget(paths);
   if (installTarget === undefined) {
     questionUi.notify("Outfitter setup cancelled; no settings were changed.", "warning");
@@ -584,12 +617,14 @@ const runRemoteSettingsOnboarding = async (fs, paths, questionUi) => {
   }
 
   fs.mkdirSync(fs.dirname(installTarget.settingsPath), { recursive: true });
-  fs.writeFileSync(installTarget.settingsPath, createRemoteSettingsContent(github, ref, settingsPath));
+  fs.writeFileSync(installTarget.settingsPath, createRemoteSettingsContent(github, ref, settingsPath, privateCatalogsEnabled && installTarget.settingsPath === paths.homeSettingsPath));
   questionUi.notify(
-    [
-      "Outfitter saved remote settings catalog to " + installTarget.settingsPath + ".",
-      "Run 'outfitter sync' or restart Outfitter after the catalog is reachable.",
-    ].join("\n"),
+    privateCatalogAccepted
+      ? "Outfitter enabled private profile catalogs in ~/.outfitter/settings.yml and saved this catalog."
+      : [
+          "Outfitter saved remote settings catalog to " + installTarget.settingsPath + ".",
+          "Run 'outfitter sync' or restart Outfitter after the catalog is reachable.",
+        ].join("\n"),
     "info",
   );
 };
@@ -766,8 +801,72 @@ const createDefaultSettingsContent = (profileId) =>
 const createLocalProfileSettingsContent = (profileId) =>
   ["default_profile: " + profileId, "profile_sources:", "  - path: ./profiles", ""].join("\n");
 
-const createRemoteSettingsContent = (github, ref, path) =>
-  ["remote_settings:", "  - github: " + github, "    ref: " + ref, "    path: " + path, ""].join("\n");
+const createRemoteSettingsContent = (github, ref, path, privateCatalogsEnabled = false) =>
+  [
+    ...(privateCatalogsEnabled ? ["enterprise:", "  private_profile_catalogs: true"] : []),
+    "remote_settings:",
+    "  - github: " + github,
+    "    ref: " + ref,
+    "    path: " + path,
+    "",
+  ].join("\n");
+
+const readPrivateProfileCatalogsEnabled = (fs, settingsPath) => {
+  if (!fs.existsSync(settingsPath)) return false;
+  const content = fs.readFileSync(settingsPath, "utf8");
+  return /^enterprise:\s*(?:\n\s+[A-Za-z0-9_-]+:\s*[^\n]*)*\n\s+private_profile_catalogs:\s*true\s*$/mu.test(content);
+};
+
+const writePrivateProfileCatalogsEnabled = (fs, settingsPath) => {
+  fs.mkdirSync(fs.dirname(settingsPath), { recursive: true });
+  const content = fs.existsSync(settingsPath) ? fs.readFileSync(settingsPath, "utf8") : "";
+  if (/^\s*private_profile_catalogs:\s*(?:true|false)\s*$/mu.test(content)) {
+    fs.writeFileSync(settingsPath, content.replace(/^\s*private_profile_catalogs:\s*(?:true|false)\s*$/gmu, "  private_profile_catalogs: true"));
+    return;
+  }
+  if (/^enterprise:\s*$/mu.test(content)) {
+    fs.writeFileSync(settingsPath, content.replace(/^enterprise:\s*$/mu, "enterprise:\n  private_profile_catalogs: true"));
+    return;
+  }
+  fs.writeFileSync(settingsPath, content.replace(/\s*$/u, "\n") + "enterprise:\n  private_profile_catalogs: true\n");
+};
+
+const classifyGitHubRepositoryVisibility = async (repository) => {
+  const [owner, repo] = repository.split("/");
+  if (!owner || !repo) return "unknown";
+  try {
+    const { request } = await import("node:https");
+    return await new Promise((resolve) => {
+      const req = request({
+        hostname: "api.github.com",
+        path: "/repos/" + encodeURIComponent(owner) + "/" + encodeURIComponent(repo),
+        headers: { Accept: "application/vnd.github+json", "User-Agent": "ai-outfitter-pi" },
+        timeout: 2000,
+      }, (response) => {
+        let body = "";
+        response.setEncoding("utf8");
+        response.on("data", (chunk) => { body += chunk; });
+        response.on("end", () => {
+          if (response.statusCode !== 200) {
+            resolve("unknown");
+            return;
+          }
+          try {
+            const document = JSON.parse(body);
+            resolve(document.private === true ? "private" : document.private === false ? "public" : "unknown");
+          } catch {
+            resolve("unknown");
+          }
+        });
+      });
+      req.on("timeout", () => { req.destroy(); resolve("unknown"); });
+      req.on("error", () => resolve("unknown"));
+      req.end();
+    });
+  } catch {
+    return "unknown";
+  }
+};
 
 const updateExistingSettingsDefaultProfile = (settingsPath, profileId, readFileSync, writeFileSync) => {
   const content = readFileSync(settingsPath, "utf8");

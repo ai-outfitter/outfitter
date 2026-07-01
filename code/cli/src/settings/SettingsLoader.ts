@@ -46,6 +46,11 @@ interface SettingsDocument {
   readonly custom_settings?: CustomSettings;
   readonly profile_export?: boolean;
   readonly startup?: StartupSettingsDocument;
+  readonly enterprise?: EnterpriseSettingsDocument;
+}
+
+interface EnterpriseSettingsDocument {
+  readonly private_profile_catalogs?: boolean;
 }
 
 interface StartupSettingsDocument {
@@ -211,10 +216,14 @@ const convertSettingsDocument = (document: SettingsDocument, settingsDirectory: 
   customSettings: document.custom_settings,
   profileExport: document.profile_export,
   startup: convertStartupSettings(document.startup),
+  enterprise: convertEnterpriseSettings(document.enterprise),
 });
 
 const convertStartupSettings = (startup: StartupSettingsDocument | undefined): Settings['startup'] =>
   startup === undefined ? undefined : { asciiArt: startup.ascii_art };
+
+const convertEnterpriseSettings = (enterprise: EnterpriseSettingsDocument | undefined): Settings['enterprise'] =>
+  enterprise === undefined ? undefined : { privateProfileCatalogs: enterprise.private_profile_catalogs };
 
 const convertRemoteSettingsSource = (source: RemoteSettingsDocument): RemoteSettingsReference => {
   if (source.uri !== undefined) {

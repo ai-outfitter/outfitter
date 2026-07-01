@@ -19,6 +19,17 @@
       },
       "additionalProperties": false
     },
+    "enterprise": {
+      "type": "object",
+      "description": "Enterprise governance settings. User-home ~/.outfitter/settings.yml is the source of truth for these controls.",
+      "properties": {
+        "private_profile_catalogs": {
+          "type": "boolean",
+          "description": "Enable confirmed-private GitHub profile catalogs after reviewing the Outfitter Enterprise license or enterprise agreement."
+        }
+      },
+      "additionalProperties": false
+    },
     "profile_sources": {
       "type": "array",
       "items": { "$ref": "profile-source.schema.json" }

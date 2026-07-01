@@ -13,6 +13,7 @@ export const mergeSettingsStack = (settingsStack: readonly Settings[]): Settings
   let customSettings: CustomSettings | undefined;
   let profileExport: boolean | undefined;
   let startup: Settings['startup'];
+  let enterprise: Settings['enterprise'];
 
   for (const settings of settingsStack) {
     defaultProfile = settings.defaultProfile ?? defaultProfile;
@@ -24,6 +25,7 @@ export const mergeSettingsStack = (settingsStack: readonly Settings[]): Settings
     customSettings = mergeOptionalCustomSettings(customSettings, settings.customSettings);
     profileExport = mergeOptionalBoolean(profileExport, settings.profileExport);
     startup = settings.startup === undefined ? startup : { ...startup, ...settings.startup };
+    enterprise = settings.enterprise === undefined ? enterprise : { ...enterprise, ...settings.enterprise };
   }
 
   return {
@@ -36,6 +38,7 @@ export const mergeSettingsStack = (settingsStack: readonly Settings[]): Settings
     customSettings: customSettings ?? {},
     profileExport,
     startup: startup ?? {},
+    enterprise: enterprise ?? {},
   };
 };
 
