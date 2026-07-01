@@ -19,6 +19,19 @@ fail() {
   exit 1
 }
 
+# Millisecond timestamps without spawning a Node process, so measured durations
+# do not include interpreter startup cost. EPOCHREALTIME is bash>=5; fall back to
+# date +%s%3N (GNU) or python3 for portability.
+now_ms() {
+  if [ -n "${EPOCHREALTIME:-}" ]; then
+    echo $(( ${EPOCHREALTIME/./} / 1000 ))
+  elif date +%s%3N 2>/dev/null | grep -qv N; then
+    date +%s%3N
+  else
+    python3 -c 'import time; print(int(time.time()*1000))'
+  fi
+}
+
 expected_version="$(node -p "require('$repo_root/code/cli/package.json').version")"
 
 log "Packing @ai-outfitter/outfitter v$expected_version"
@@ -63,15 +76,15 @@ run_outfitter() {
 }
 
 log 'Checking `outfitter --version` (cold start)'
-cold_start=$(node -p 'Date.now()')
+cold_start=$(now_ms)
 version_output="$(run_outfitter --version)"
-cold_duration=$(( $(node -p 'Date.now()') - cold_start ))
+cold_duration=$(( $(now_ms) - cold_start ))
 [ "$version_output" = "$expected_version" ] || fail "--version printed '$version_output', expected '$expected_version'"
 log "--version OK ($version_output, cold ${cold_duration}ms)"
 
-warm_start=$(node -p 'Date.now()')
+warm_start=$(now_ms)
 run_outfitter --version >/dev/null
-warm_duration=$(( $(node -p 'Date.now()') - warm_start ))
+warm_duration=$(( $(now_ms) - warm_start ))
 log "--version warm rerun OK (${warm_duration}ms)"
 
 log 'Checking `outfitter --help`'
