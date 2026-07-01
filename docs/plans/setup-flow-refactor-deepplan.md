@@ -1,5 +1,11 @@
 # DeepPlan: Refactor Outfitter setup flows
 
+> **SUPERSEDED**: OFTR-010 replaced the terminal-driven setup flow described in
+> this plan with pi-native onboarding (the branded welcome and profile
+> selection now run inside the agent session). This document is retained as
+> historical planning context only; consult `docs/requirements/OFTR-010-onboarding-welcome.md`
+> and `docs/architecture/onboarding.md` for current behavior.
+
 > **Execution**: Before starting implementation, complete the DeepPlan
 > workflow by calling `deepwork_finished_step` on the `present_plan` step, then
 > call `deepwork_start_workflow` with job_name=`outfitter_setup_flow_refactor_plan`, workflow_name=`main`.
@@ -24,10 +30,10 @@ Refactor Outfitter setup so the standard development workflow is predictable:
 `src/cli/commands/SetupCommand.ts` currently prepares setup sources through `prepareStarterLayout(...)`, which creates a setup-source cache path and synchronizes via the setup-source synchronizer. That means a local command such as:
 
 ```sh
-outfitter-dev setup ~/repos/unsupervised/link
+outfitter-dev setup ~/repos/example-org/profile-catalog
 ```
 
-can prompt from cached/stale source contents instead of the live `~/repos/unsupervised/link/.outfitter` tree. This explains stale choices such as `project-lead` after the live Link source moved to flat `leader.yml` / `platform.yml` profiles.
+can prompt from cached/stale source contents instead of the live `~/repos/example-org/profile-catalog/.outfitter` tree. This explains stale choices such as `project-lead` after the live catalog source moved to flat `leader.yml` / `platform.yml` profiles.
 
 ### Symlink mode mixes source-of-truths
 
@@ -87,7 +93,7 @@ Behavior:
 
 Acceptance criteria:
 
-- `setup ~/repos/unsupervised/link` reads live `link/.outfitter/profiles`.
+- `setup ~/repos/example-org/profile-catalog` reads live `profile-catalog/.outfitter/profiles`.
 - Stale setup cache cannot cause local setup-source prompts to offer `project-lead` when live source only contains `leader`/`platform`.
 - Existing remote setup-source tests still pass.
 
@@ -265,17 +271,17 @@ Target: `tests/integration/setup-source-symlink.test.ts`
 
 Add/update tests:
 
-1. Link-like flat-profile source symlinks cleanly.
+1. catalog-like flat-profile source symlinks cleanly.
 2. Symlinked target resolves `leader` and `platform` from source.
 3. Source settings remain unchanged after symlink setup.
 
 ### Manual validation
 
-From `/home/ncrmro/repos/unsupervised`:
+From `/home/user/repos/example-org`:
 
 ```sh
 rm -rf .outfitter
-outfitter-dev setup ~/repos/unsupervised/link
+outfitter-dev setup ~/repos/example-org/profile-catalog
 ```
 
 Expected:
@@ -283,10 +289,10 @@ Expected:
 - ASCII banner appears.
 - Local setup source detected.
 - Symlink option is offered.
-- Profile choices come from live `link/.outfitter/profiles`.
-- Choices include `leader - Project Leader` and `platform - Platform Engineer` when those files exist in Link.
+- Profile choices come from live `profile-catalog/.outfitter/profiles`.
+- Choices include `leader - Project Leader` and `platform - Platform Engineer` when those files exist in the catalog source.
 - Choices do not include stale `project-lead`.
-- Choosing project target + symlink creates `/home/ncrmro/repos/unsupervised/.outfitter` as a symlink to `/home/ncrmro/repos/unsupervised/link/.outfitter`.
+- Choosing project target + symlink creates `/home/user/repos/example-org/.outfitter` as a symlink to `/home/user/repos/example-org/profile-catalog/.outfitter`.
 
 Then:
 
@@ -303,7 +309,7 @@ Expected:
 
 ### CI validation
 
-From `/home/ncrmro/repos/unsupervised/outfitter`:
+From `/home/user/repos/example-org/outfitter`:
 
 ```sh
 npm test -- tests/unit/setup-command.test.ts
@@ -321,7 +327,7 @@ npm run check-ci
 
 ## Expected commits by repo
 
-### `/home/ncrmro/repos/unsupervised/outfitter`
+### `/home/user/repos/example-org/outfitter`
 
 Commit 1:
 
@@ -370,7 +376,7 @@ Contents:
 
 - Ensure copy mode preserves flat profile files.
 - Ensure shared resources are copied.
-- Add Link-like flat-profile copy tests.
+- Add catalog-like flat-profile copy tests.
 
 Commit 5:
 
@@ -385,7 +391,7 @@ Contents:
 - Implement source/default-first prompt behavior.
 - Add `analysis`/`data_analyst` regression tests proving setup does not invent profile IDs.
 
-### `/home/ncrmro/repos/unsupervised/link`
+### `/home/user/repos/example-org/profile-catalog`
 
 Commit:
 
@@ -398,9 +404,9 @@ Contents:
 - Ensure `.outfitter/profiles/leader.yml` exists with `id: leader` and `label: Project Leader`.
 - Ensure `.outfitter/profiles/platform.yml` exists with `id: platform` and `label: Platform Engineer`.
 - Ensure `.outfitter/settings.yml` uses the intended source default.
-- Ensure no directory profile layout is used for Link setup profiles.
+- Ensure no directory profile layout is used for catalog setup profiles.
 
-### `/home/ncrmro/repos/unsupervised`
+### `/home/user/repos/example-org`
 
 Commit only if this root repo tracks `.outfitter`:
 
@@ -411,7 +417,7 @@ chore: link root outfitter setup to link profiles
 Contents:
 
 - Remove accidental generated/copy root `.outfitter` files.
-- Replace root `.outfitter` with a symlink to `link/.outfitter` if the root repo intentionally tracks that symlink.
+- Replace root `.outfitter` with a symlink to `profile-catalog/.outfitter` if the root repo intentionally tracks that symlink.
 
 If root `.outfitter` is local machine state and not tracked, do not commit it; just validate manual setup creates the intended symlink.
 
@@ -426,6 +432,6 @@ If root `.outfitter` is local machine state and not tracked, do not commit it; j
 ## Non-goals
 
 - Do not publish, tag, merge, or deploy.
-- Do not mutate `/home/ncrmro/repos/unsupervised/.outfitter` during implementation except as a manual validation step after explicit approval.
+- Do not mutate `/home/user/repos/example-org/.outfitter` during implementation except as a manual validation step after explicit approval.
 - Do not remove legacy root-level setup-source compatibility in this plan.
 - Do not decide default profile repo contents inside setup code.
