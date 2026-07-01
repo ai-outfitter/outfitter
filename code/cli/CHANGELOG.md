@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.7.1](https://github.com/ai-outfitter/outfitter/compare/v0.7.0...v0.7.1) (2026-07-01)
+
+
+### Bug Fixes
+
+* **setup:** launch pi-native onboarding ([d3d920b](https://github.com/ai-outfitter/outfitter/commit/d3d920b44439b59374d41bb0c534958f3a74e3bc))
+
+
+### Performance Improvements
+
+* **pi:** cache git extensions before launch ([4f1b2bb](https://github.com/ai-outfitter/outfitter/commit/4f1b2bbac2f757358300ef0f0f04b488a842ecca))
+
 ## [0.7.0](https://github.com/ai-outfitter/outfitter/compare/v0.6.1...v0.7.0) (2026-06-30)
 
 
