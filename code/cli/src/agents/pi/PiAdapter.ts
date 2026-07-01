@@ -118,7 +118,10 @@ export const createPiAdapter = (): AgentAdapter => ({
       args: [
         ...createPiArgs({
           ...controls,
-          extensions: materializePiExtensionSources(controls.extensions, { cacheDirectory: context.cacheDirectory }),
+          extensions: materializePiExtensionSources(controls.extensions, {
+            cacheDirectory: context.cacheDirectory,
+            onProgress: context.onProgress,
+          }),
           skills: skillSources,
           appendSystemPrompt: appendPrompt.prompts,
         }),

@@ -51,7 +51,7 @@ import { launchAgentProcess, resolveAgentLaunchExecutable } from '../../agents/A
 import type { CommandObject } from './CommandObject.js';
 import { isNonInteractivePiLaunch, preparePiLoginLaunchPlan } from './PiLoginLaunch.js';
 import type { SetupCommandDependencies } from './SetupCommand.js';
-import { syncProfileSource, type RemoteProfileSource } from './SyncCommand.js';
+import { createGitSynchronizer, syncProfileSource, type RemoteProfileSource } from './SyncCommand.js';
 
 export interface RunCommandInput {
   readonly homeDirectory: string;
@@ -126,6 +126,7 @@ export const executeRunCommand = async (
           profileLayers: createLaunchProfileLayers(resolvedProfile.profileLayers),
           projectDirectory: input.projectDirectory,
           cacheDirectory: resolvedProfile.cacheDirectory,
+          onProgress: resolveRunProgressWriter(dependencies),
         },
       ),
       systemPromptExport.outputPath,
@@ -411,7 +412,11 @@ const prepareFirstRunRuntimeOnboarding = (
     return undefined;
   }
 
-  const syncResult = syncProfileSource(input.homeDirectory, defaultProfilesSource, dependencies.synchronizer);
+  const syncResult = syncProfileSource(
+    input.homeDirectory,
+    defaultProfilesSource,
+    dependencies.synchronizer ?? createGitSynchronizer(resolveRunProgressWriter(dependencies)),
+  );
 
   if (syncResult.status === 'failed') {
     (dependencies.writeError ?? console.error)(formatDegradedOnboardingWarning(syncResult.message));
@@ -446,6 +451,12 @@ const shouldUsePiNativeFirstRunOnboarding = (input: RunCommandInput, dependencie
 
   return isInteractiveRunLaunch(dependencies);
 };
+
+// Network/build steps (catalog clones, extension caching) report per-source progress through this
+// writer so first boot never stalls silently before launch.
+const resolveRunProgressWriter = (dependencies: RunCommandDependencies): ((message: string) => void) =>
+  /* v8 ignore next -- console fallback is direct CLI behavior; tests inject writeLine. */
+  dependencies.writeLine ?? console.log;
 
 const isInteractiveRunLaunch = (dependencies: RunCommandDependencies): boolean => {
   if (dependencies.interactive !== undefined) {

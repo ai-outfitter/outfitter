@@ -1,11 +1,12 @@
 // Tests sync command and profile source cache behavior.
-import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
+import { materializePiExtensionSources } from '../../src/agents/pi/PiExtensionCache.js';
 import { executeSyncCommand } from '../../src/cli/commands/SyncCommand.js';
 import {
   createProfileSourceCachePath,
@@ -389,5 +390,79 @@ describe('sync command', () => {
     expect(executeSyncCommand({ homeDirectory, projectDirectory }).messages).toEqual([
       'No URI profile or remote settings sources configured; nothing to sync.',
     ]);
+  });
+
+  it('creates shallow single-branch catalog caches and reports per-source progress', () => {
+    const root = createTemporaryRoot();
+    const homeDirectory = join(root, 'home');
+    const projectDirectory = join(root, 'project');
+    const repositoryPath = createGitProfileRepository(root);
+    const uri = `git+file://${repositoryPath}`;
+    writeSettings(homeDirectory, `profile_sources:\n  - uri: ${uri}\n`);
+    const progressLines: string[] = [];
+    const writeLine = (message: string): void => {
+      progressLines.push(message);
+    };
+
+    const firstResult = executeSyncCommand({ homeDirectory, projectDirectory }, { writeLine });
+    const cachePath = createProfileSourceCachePath(homeDirectory, uri);
+
+    expect(firstResult.sources[0]?.status).toBe('updated');
+    expect(existsSync(join(cachePath, '.git', 'shallow'))).toBe(true);
+    expect(progressLines.some((line) => line.startsWith('outfitter: cloning catalog '))).toBe(true);
+
+    progressLines.length = 0;
+    const secondResult = executeSyncCommand({ homeDirectory, projectDirectory }, { writeLine });
+
+    expect(secondResult.sources[0]?.status).toBe('updated');
+    expect(progressLines.some((line) => line.startsWith('outfitter: updating catalog '))).toBe(true);
+
+    execFileSync('git', ['checkout', '-b', 'feature'], { cwd: repositoryPath, stdio: 'pipe' });
+    writeFileSync(join(repositoryPath, 'remote', 'profile.yml'), 'id: remote\nlabel: Feature\ncontrols: {}\n');
+    execFileSync('git', ['add', '.'], { cwd: repositoryPath, stdio: 'pipe' });
+    execFileSync(
+      'git',
+      ['-c', 'user.name=Outfitter Test', '-c', 'user.email=outfitter@example.test', 'commit', '-m', 'feature'],
+      { cwd: repositoryPath, stdio: 'pipe' },
+    );
+    writeSettings(homeDirectory, `profile_sources:\n  - uri: ${uri}\n    ref: feature\n    path: .\n`);
+
+    const branchRefResult = executeSyncCommand({ homeDirectory, projectDirectory }, { writeLine });
+    const branchCachePath = createRemoteRepositoryCachePath(homeDirectory, { uri, ref: 'feature' });
+
+    expect(branchRefResult.sources[0]?.status).toBe('updated');
+    expect(existsSync(join(branchCachePath, '.git', 'shallow'))).toBe(true);
+    expect(readFileSync(join(branchCachePath, 'remote', 'profile.yml'), 'utf8')).toContain('label: Feature');
+  });
+
+  it('refreshes branch-tracking pi extension caches during sync and reports the outcome', () => {
+    const root = createTemporaryRoot();
+    const homeDirectory = join(root, 'home');
+    const projectDirectory = join(root, 'project');
+    const extensionRepository = createGitProfileRepository(root, 'extension-source');
+    const cacheDirectory = join(homeDirectory, '.outfitter', 'cache');
+    writeSettings(homeDirectory, 'default_profile: default\n');
+    materializePiExtensionSources([`git+file://${extensionRepository}`], { cacheDirectory });
+
+    writeFileSync(join(extensionRepository, 'extension.txt'), 'updated extension\n');
+    execFileSync('git', ['add', '.'], { cwd: extensionRepository, stdio: 'pipe' });
+    execFileSync(
+      'git',
+      ['-c', 'user.name=Outfitter Test', '-c', 'user.email=outfitter@example.test', 'commit', '-m', 'update'],
+      { cwd: extensionRepository, stdio: 'pipe' },
+    );
+
+    const progressLines: string[] = [];
+    const result = executeSyncCommand(
+      { homeDirectory, projectDirectory },
+      {
+        writeLine: (message) => {
+          progressLines.push(message);
+        },
+      },
+    );
+
+    expect(result.messages.some((message) => message.startsWith('refreshed: pi extension '))).toBe(true);
+    expect(progressLines.some((line) => line.startsWith('outfitter: refreshing extension '))).toBe(true);
   });
 });
