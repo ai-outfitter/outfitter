@@ -1,7 +1,7 @@
 {
   "name": "@ai-outfitter/outfitter",
   "version": "0.8.0",
-  "description": "Profile-oriented wrapper for launching pi, Claude Code, and future agent CLIs with reproducible configuration.",
+  "description": "Make, share, and switch the profiles your coding agents use — manually or programmatically.",
   "type": "module",
   "repository": {
     "type": "git",
@@ -71,7 +71,14 @@
     "cli",
     "pi-package",
     "pi",
-    "profiles"
+    "profiles",
+    "agent-profiles",
+    "agent-configuration",
+    "coding-agents",
+    "claude-code",
+    "mcp",
+    "ai-agents",
+    "developer-tools"
   ],
   "pi": {
     "skills": [
