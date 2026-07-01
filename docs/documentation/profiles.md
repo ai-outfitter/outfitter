@@ -14,6 +14,62 @@ A profile can compose:
 
 Profiles can be local to a user or project, inherited from other profiles, or loaded from a shared profile repository. See [Profile repositories](./profile-repository.md) for shared setup sources.
 
+## Profile layouts
+
+Outfitter supports two profile layouts inside any configured `profile_sources` directory.
+
+### Flat profile layout
+
+Use the flat layout for small profile catalogs where each profile is mostly YAML and does not need its own resource folder. Each `*.yml` or `*.yaml` file directly under the profile source is a profile. If the file omits `id`, Outfitter uses the filename stem as the profile id.
+
+```text
+~/.outfitter/profiles/
+  founder.yml
+  engineer.yml
+  data-analyst.yaml
+```
+
+```yaml
+# ~/.outfitter/profiles/founder.yml
+label: Founder
+description: Founder-operator defaults for product, engineering, research, and prose.
+controls:
+  append_system_prompt: |
+    Think like a founder-operator: connect product judgment, implementation, and evidence.
+```
+
+Flat profiles are easy to scan, diff, and copy between setup repositories. Generated Pi prompt exports for flat profiles are written beside the flat file as `<profile-id>.generated-system-prompt.md` when `profile_export` is enabled.
+
+### Directory profile layout
+
+The original layout is one folder per profile with a required `profile.yml`. Use it when a profile owns prompts, skills, extensions, DeepWork jobs, or CLI-specific files that should travel with that profile.
+
+```text
+~/.outfitter/profiles/
+  home-default/
+    profile.yml
+    prompts/
+      system.md
+    skills/
+    extensions/
+    deepwork/
+      jobs/
+    cli_specific/
+      pi/
+```
+
+```yaml
+# ~/.outfitter/profiles/home-default/profile.yml
+id: home-default
+label: Home Default
+controls:
+  system_prompt: ./prompts/system.md
+  skills:
+    - ./skills/review
+```
+
+Directory profiles keep bundled resources close to the profile that references them. Generated Pi prompt exports for directory profiles are written as `generated-system-prompt.md` inside the profile directory when `profile_export` is enabled.
+
 ## Home and project example
 
 A home profile SHOULD hold reusable defaults for one developer.
