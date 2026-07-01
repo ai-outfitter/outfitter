@@ -54,7 +54,6 @@ export const resolveStateStrategy = (
 ): StatePersistenceStrategy => {
   const strategy = profile.statePersistence?.[relativePath] ?? declaration.defaultStrategy;
 
-  /* v8 ignore next -- Adapter declarations define defaults; this guards future declaration regressions. */
   if (strategy === undefined) {
     throw new Error(`missing state_persistence strategy for "${relativePath}"`);
   }

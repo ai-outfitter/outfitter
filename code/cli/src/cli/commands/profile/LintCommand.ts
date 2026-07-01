@@ -53,19 +53,15 @@ export const createProfileLintCommand = (dependencies: ProfileCommandDependencie
       .option('--json', 'Print diagnostics as JSON')
       .action((options: { strict?: boolean; json?: boolean }) => {
         const result = executeProfileLintCommand({
-          homeDirectory:
-            /* v8 ignore next -- CLI defaults are exercised manually; tests inject stable temp roots. */
-            dependencies.homeDirectory ?? homedir(),
-          projectDirectory:
-            /* v8 ignore next -- CLI defaults are exercised manually; tests inject stable temp roots. */
-            dependencies.projectDirectory ?? process.cwd(),
+          homeDirectory: dependencies.homeDirectory ?? homedir(),
+          projectDirectory: dependencies.projectDirectory ?? process.cwd(),
           strict: options.strict,
           json: options.json,
         });
         writeLintResult(
           result,
           options.json === true,
-          /* v8 ignore next -- CLI default writer is console.log; tests inject a collector. */
+
           dependencies.writeLine ?? console.log,
         );
         process.exitCode = result.exitCode;

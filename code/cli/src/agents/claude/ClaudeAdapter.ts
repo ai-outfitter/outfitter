@@ -164,12 +164,7 @@ const resolveClaudeStateSourcePath = (
     return profileSource;
   }
 
-  return join(
-    /* v8 ignore next -- run command always passes homeDirectory; environment fallbacks are defensive. */
-    homeDirectory ?? process.env.HOME ?? '.',
-    '.claude',
-    normalizedRelativePath,
-  );
+  return join(homeDirectory ?? process.env.HOME ?? '.', '.claude', normalizedRelativePath);
 };
 
 const mergeClaudeControls = (controls: ProfileControls): ClaudeProfileControls =>

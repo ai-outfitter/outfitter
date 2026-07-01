@@ -19,6 +19,7 @@ Outfitter is organized around a private npm workspace root, clear TypeScript pac
 ├── docs/                              # documentation, architecture, requirements, plans, and specs
 │   ├── archtecture/                   # architecture and internal design docs
 │   ├── documentation/                 # user-facing Outfitter docs
+│   ├── plans/                         # implementation plans and work breakdowns
 │   ├── requirements/                  # formal OUTFITTER requirement documents
 │   └── specs/                         # detailed supporting specs
 ├── .prettierignore                    # Prettier ignore rules

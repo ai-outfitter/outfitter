@@ -7,10 +7,11 @@ const coverage = {
   provider: 'v8' as const,
   reporter: ['text-summary', 'html'],
   thresholds: {
-    statements: 98,
-    branches: 98,
-    functions: 98,
-    lines: 98,
+    // Negative thresholds cap uncovered item counts, avoiding routine source-level coverage ignores.
+    statements: -72,
+    branches: -108,
+    functions: -12,
+    lines: -69,
   },
 };
 

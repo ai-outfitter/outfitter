@@ -186,12 +186,10 @@ const getExistingSourceType = (sourcePath: string): 'file' | 'directory' | undef
     const stat = statSync(sourcePath);
     return stat.isDirectory() ? 'directory' : 'file';
   } catch (error) {
-    /* v8 ignore next -- non-ENOENT stat failures should surface as actionable filesystem errors. */
     if (isNodeError(error) && error.code === 'ENOENT') {
       return undefined;
     }
 
-    /* v8 ignore next -- non-ENOENT stat failures should surface as actionable filesystem errors. */
     throw error;
   }
 };
@@ -218,12 +216,10 @@ const pathLexicallyExists = (path: string): boolean => {
     lstatSync(path);
     return true;
   } catch (error) {
-    /* v8 ignore next -- non-ENOENT lstat failures should surface as actionable filesystem errors. */
     if (isNodeError(error) && error.code === 'ENOENT') {
       return false;
     }
 
-    /* v8 ignore next -- non-ENOENT lstat failures should surface as actionable filesystem errors. */
     throw error;
   }
 };

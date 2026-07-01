@@ -52,9 +52,8 @@ const createProfileListCommander = (dependencies: ProfileCommandDependencies): C
     .option('--all', 'Include template profiles that are intended only for inheritance.')
     .action((options: { all?: boolean }) => {
       const result = executeListProfilesCommand({
-        /* v8 ignore next -- default process home is exercised by the direct CLI entrypoint, not unit tests. */
         homeDirectory: dependencies.homeDirectory ?? homedir(),
-        /* v8 ignore next -- default process cwd is exercised by the direct CLI entrypoint, not unit tests. */
+
         projectDirectory: dependencies.projectDirectory ?? process.cwd(),
         includeTemplates: options.all,
       });
@@ -91,7 +90,6 @@ export const executeListProfilesCommand = (input: ListProfilesInput): ListProfil
 
 const emitMessages = (messages: readonly string[], writeLine: ((message: string) => void) | undefined): void => {
   for (const message of messages) {
-    /* v8 ignore next -- console fallback is direct CLI behavior; tests inject a writer. */
     (writeLine ?? console.log)(message);
   }
 };

@@ -142,16 +142,14 @@ export const createSyncCommand = (dependencies: SyncCommandDependencies = {}): C
         .action(() => {
           const result = executeSyncCommand(
             {
-              /* v8 ignore next -- default process home is exercised by the direct CLI entrypoint, not unit tests. */
               homeDirectory: dependencies.homeDirectory ?? homedir(),
-              /* v8 ignore next -- default process cwd is exercised by the direct CLI entrypoint, not unit tests. */
+
               projectDirectory: dependencies.projectDirectory ?? process.cwd(),
             },
             dependencies,
           );
 
           for (const message of result.messages) {
-            /* v8 ignore next -- console fallback is direct CLI behavior; tests inject a writer. */
             (dependencies.writeLine ?? console.log)(message);
           }
         });
@@ -274,7 +272,6 @@ const runGit = (args: readonly string[]): void => {
   const result = spawn.sync('git', args, { stdio: 'pipe', encoding: 'utf8' });
 
   if (result.status !== 0) {
-    /* v8 ignore next -- the final fallback only applies if git emits no stdout or stderr. */
     throw new Error((result.stderr || result.stdout || `git ${args.join(' ')} failed`).trim());
   }
 };

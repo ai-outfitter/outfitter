@@ -13,7 +13,6 @@ import { createWelcomeCommand } from './commands/WelcomeCommand.js';
 export const createDefaultCommands = (): CommandObject[] => [
   createRunCommand(),
   createSetupCommand({
-    /* v8 ignore next -- covered by end-to-end CLI smoke usage; unit tests inject this dependency. */
     async launchSetupSourceProfile(input) {
       await executeRunCommand({ ...input, profileId: input.profileId });
     },
