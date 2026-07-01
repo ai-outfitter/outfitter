@@ -1,0 +1,4 @@
+# Federated-context example catalog. Import it with:
+#   outfitter setup ./examples/federated-context
+profile_sources:
+  - path: ./profiles

@@ -1,0 +1,14 @@
+id: inventory-forecasting
+label: Inventory Forecasting (supply chain)
+description: Forecast pipeline and library work in inventory-python under supply-chain rules.
+controls:
+  thinking: medium
+  append_system_prompt:
+    - |
+      You are working in the inventory-python data platform. Forecast
+      correctness outranks pipeline convenience; every output-changing edit
+      needs a linked backtest report.
+    - file: prompts/codebases/inventory-python.md
+    - file: prompts/teams/supply-chain.md
+    - file: prompts/tools/approved-toolchain.md
+    - file: prompts/models/model-policy.md

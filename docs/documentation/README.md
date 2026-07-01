@@ -10,6 +10,7 @@ User-facing Outfitter documentation.
 - [Profiles](./profiles.md)
 - [Profile repositories](./profile-repository.md)
 - [Iterating on local and worktree profiles](./iterating-on-profiles.md)
+- [Federated context](./federated-context.md)
 - [Adapter support matrix](./support-matrix.md)
 - [State persistence](./state.md)
 - [Philosophy](../philosophy.md)
