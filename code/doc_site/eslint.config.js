@@ -8,7 +8,7 @@ const typedTypeScriptConfigs = tseslint.configs.recommendedTypeChecked.map((conf
 
 export default tseslint.config(
   {
-    ignores: ['**/.next/**', '**/node_modules/**', 'next-env.d.ts'],
+    ignores: ['**/.next/**', '**/node_modules/**', 'next-env.d.ts', 'app/docs/**'],
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,
@@ -19,6 +19,15 @@ export default tseslint.config(
       parserOptions: {
         project: './tsconfig.json',
         tsconfigRootDir: import.meta.dirname,
+      },
+    },
+  },
+  {
+    files: ['scripts/**/*.mjs'],
+    languageOptions: {
+      globals: {
+        process: 'readonly',
+        console: 'readonly',
       },
     },
   },
