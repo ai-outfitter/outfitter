@@ -19,6 +19,7 @@ import type { StatePathDeclaration, CompositeProfileStatePath } from '../../comp
 import type { CompositeProfile } from '../../compositeProfile/CompositeProfile.js';
 import { createCompositeProfile } from '../../compositeProfile/CompositeProfile.js';
 import { createCompositeProfileFile } from '../../compositeProfile/CompositeProfileFile.js';
+import { createClaudeMcpConfigArgs, createClaudeMcpConfigFile } from './ClaudeMcpConfig.js';
 
 const supportedClaudeGenericControls = new Set([
   'model',
@@ -76,7 +77,8 @@ export const createClaudeAdapter = (): AgentAdapter => ({
           sourceInputs: input.profilePaths,
           strategy: 'transform',
         }),
-      ],
+        createClaudeMcpConfigFile(input.rootDirectory, input.profileFolders),
+      ].filter((file) => file !== undefined),
       createClaudeStatePaths(profile, input),
     );
 
@@ -111,7 +113,13 @@ export const createClaudeAdapter = (): AgentAdapter => ({
 
     return {
       command: 'claude',
-      args: [...createClaudeArgs({ ...controls, appendSystemPrompt: appendPrompt.prompts }), ...passThroughArgs],
+      args: [
+        ...createClaudeArgs(
+          { ...controls, appendSystemPrompt: appendPrompt.prompts },
+          createClaudeMcpConfigArgs(compositeProfile),
+        ),
+        ...passThroughArgs,
+      ],
       env: {
         ...controls.environment,
         CLAUDE_CONFIG_DIR: compositeProfile.rootDirectory,
@@ -177,12 +185,16 @@ const resolveClaudeStateSourcePath = (
 const mergeClaudeControls = (controls: ProfileControls): ClaudeProfileControls =>
   mergeAgentSpecificControls<ClaudeProfileControls>(controls, 'claude');
 
-const createClaudeArgs = (controls: ClaudeProfileControls): readonly string[] => [
+const createClaudeArgs = (
+  controls: ClaudeProfileControls,
+  mcpConfigArgs: readonly string[] = [],
+): readonly string[] => [
   ...flagValue('--model', controls.model),
   ...flagValue('--effort', controls.thinking),
   ...flagValue('--system-prompt', controls.systemPrompt),
   ...repeatFlagValue('--append-system-prompt', controls.appendSystemPrompt),
   ...repeatFlag('--plugin-dir', controls.extensions),
+  ...mcpConfigArgs,
   ...(controls.args ?? []),
 ];
 

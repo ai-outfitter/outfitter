@@ -1,0 +1,9 @@
+id: resource-review
+label: Bundled Resource Review
+inherits:
+  - resource-base
+controls:
+  model: bundled-review-model
+  environment:
+    SELECTED_PROFILE: resource-review
+    SHARED_LAYER: resource-review

@@ -1,0 +1,6 @@
+id: resource-base
+label: Resource Base Controls
+controls:
+  environment:
+    RESOURCE_BASE: 'enabled'
+    SHARED_LAYER: resource-base
