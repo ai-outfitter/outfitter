@@ -1,5 +1,5 @@
 // Tests profile-bundled launch resource integration fixture behavior for the claude adapter.
-import { readFileSync } from 'node:fs';
+import { lstatSync, mkdirSync, readdirSync, readFileSync, readlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
@@ -59,5 +59,54 @@ describe('profile-bundled agent resource integration fixture composite profile g
     expect(result.agentId).toBe('claude');
     expect(result.warnings).toEqual(readExpectedJson(fixture, 'claude/warnings.json'));
     expect(warnings).toEqual(result.warnings);
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-006.5).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('materializes inherited, selected, and personal skills into the claude composite skills directory', async () => {
+    const fixture = copyFixtureToTemp('profile_bundled_agent_resources');
+    const warnings: string[] = [];
+    let skillsSummary: unknown;
+
+    const result = await runFixture(fixture, {
+      profileId: 'resource-review',
+      agentId: 'claude',
+      warnings,
+      launcher: {
+        launch(plan) {
+          const compositeProfileRoot = compositeProfileRootFromLaunchPlan(plan);
+          const skillsDirectory = join(compositeProfileRoot, 'skills');
+          const skillEntries = readdirSync(skillsDirectory).sort();
+
+          expect(lstatSync(skillsDirectory).isSymbolicLink()).toBe(false);
+          skillsSummary = {
+            profileId: 'resource-review',
+            agentId: 'claude',
+            skillsDirectoryEntries: skillEntries,
+            skillTargets: Object.fromEntries(
+              skillEntries.map((skillName) => [
+                skillName,
+                tokenizeFixturePath(fixture, readlinkSync(join(skillsDirectory, skillName)), compositeProfileRoot),
+              ]),
+            ),
+          };
+
+          mkdirSync(join(skillsDirectory, 'session-created-skill'));
+          writeFileSync(join(skillsDirectory, 'session-created-skill', 'SKILL.md'), '# Session skill\n');
+
+          return Promise.resolve(0);
+        },
+      },
+    });
+
+    expect(skillsSummary).toEqual(readExpectedJson(fixture, 'claude/skills-summary.json'));
+    expect(result.warnings).toEqual(readExpectedJson(fixture, 'claude/skills-warnings.json'));
+    expect(warnings).toEqual(result.warnings);
+    expect(
+      readFileSync(
+        join(fixture.project, '.outfitter', 'profiles', 'resource-review', 'skills', 'changelog-writer', 'SKILL.md'),
+        'utf8',
+      ),
+    ).toContain('Selected changelog writing guidance.');
   });
 });

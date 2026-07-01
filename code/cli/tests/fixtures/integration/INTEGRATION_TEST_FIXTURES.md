@@ -204,11 +204,11 @@ Generic generated composite profile content remains non-write-back unless explic
 
 Location: `tests/fixtures/integration/profile_bundled_agent_resources/`
 
-This fixture models a repository profile stack that bundles launch resources: an inherited base layer and a selected profile that both contribute `cli_specific/claude/.mcp.json` MCP fragments.
+This fixture models a repository profile stack that bundles launch resources: an inherited base layer and a selected profile that contribute `cli_specific/claude/.mcp.json` MCP fragments and directory-layout `skills/`, plus a personal native Claude skill in the synthetic home.
 
-Use it to verify that the claude adapter merges MCP fragments across contributing profile folders with layer precedence and loads the generated composite `.mcp.json` through `--mcp-config`.
+Use it to verify that the claude adapter merges MCP fragments across contributing profile folders with layer precedence, loads the generated composite `.mcp.json` through `--mcp-config`, and materializes inherited, selected, and personal skills as per-skill symlinks with name shadowing.
 
-Write-back focus: the generated `.mcp.json` is a merge transform, not durable symlinked state; the fixture launcher performs no writes.
+Write-back focus: the generated `.mcp.json` is a merge transform, not durable symlinked state; new top-level entries created inside the materialized `skills/` directory are diagnosed as non-persisted `warn` writes.
 
 ### `state_path_replaced_by_agent`
 

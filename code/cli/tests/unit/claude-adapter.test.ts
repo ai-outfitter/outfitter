@@ -80,14 +80,13 @@ describe('Claude Code adapter support', () => {
     expect(adapter.getUnsupportedControls(profile)).toEqual([
       'promptTemplate',
       'provider',
-      'skills',
       'claude.unsupportedClaudeControl',
     ]);
     expect(compositeProfilePlan.warnings).toEqual([
       "claude adapter cannot translate requested control 'promptTemplate'.",
       "claude adapter cannot translate requested control 'provider'.",
-      "claude adapter cannot translate requested control 'skills'.",
       "claude adapter cannot translate requested control 'claude.unsupportedClaudeControl'.",
+      "claude adapter could not find skill 'unsupported-skill' for profile 'engineering'.",
     ]);
     expect(compositeProfilePlan.compositeProfile.rootDirectory).toBe('/tmp/outfitter-engineering-claude-123');
     expect(compositeProfilePlan.compositeProfile.files[0]?.sourceInputs).toEqual(['/profiles/engineering/profile.yml']);

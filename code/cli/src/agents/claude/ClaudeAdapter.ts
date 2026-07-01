@@ -20,6 +20,7 @@ import type { CompositeProfile } from '../../compositeProfile/CompositeProfile.j
 import { createCompositeProfile } from '../../compositeProfile/CompositeProfile.js';
 import { createCompositeProfileFile } from '../../compositeProfile/CompositeProfileFile.js';
 import { createClaudeMcpConfigArgs, createClaudeMcpConfigFile } from './ClaudeMcpConfig.js';
+import { materializeClaudeSkills } from './ClaudeSkills.js';
 
 const supportedClaudeGenericControls = new Set([
   'model',
@@ -29,6 +30,7 @@ const supportedClaudeGenericControls = new Set([
   'sessionDirectory',
   'session_directory',
   'extensions',
+  'skills',
   'systemPrompt',
   'system_prompt',
   'appendSystemPrompt',
@@ -45,6 +47,7 @@ const claudeControlNames = new Set([
   'sessionDirectory',
   'session_directory',
   'extensions',
+  'skills',
   'systemPrompt',
   'system_prompt',
   'appendSystemPrompt',
@@ -67,6 +70,8 @@ export const createClaudeAdapter = (): AgentAdapter => ({
   supportedControls: supportedControlNames(supportedClaudeGenericControls),
   statePaths: claudeStatePathDeclarations,
   createCompositeProfile(profile: Profile, input): AgentCompositeProfilePlan {
+    const statePaths = createClaudeStatePaths(profile, input);
+    const skillMaterialization = createClaudeSkillMaterialization(profile, input, statePaths);
     const compositeProfile = createCompositeProfile(
       input.rootDirectory,
       [
@@ -79,7 +84,7 @@ export const createClaudeAdapter = (): AgentAdapter => ({
         }),
         createClaudeMcpConfigFile(input.rootDirectory, input.profileFolders),
       ].filter((file) => file !== undefined),
-      createClaudeStatePaths(profile, input),
+      withClaudeSkillStatePaths(statePaths, skillMaterialization.statePaths),
     );
 
     return {
@@ -88,6 +93,7 @@ export const createClaudeAdapter = (): AgentAdapter => ({
         ...this.getUnsupportedControls(profile).map(
           (controlName) => `claude adapter cannot translate requested control '${controlName}'.`,
         ),
+        ...skillMaterialization.warnings,
         ...resolveAppendSystemPromptControl({
           fallback: mergeClaudeControls(profile.controls).appendSystemPrompt,
           profileLayers: input.profileLayers,
@@ -130,6 +136,43 @@ export const createClaudeAdapter = (): AgentAdapter => ({
     return findUnsupportedControls(profile.controls);
   },
 });
+
+const createClaudeSkillMaterialization = (
+  profile: Profile,
+  input: {
+    readonly profileFolders?: readonly string[];
+    readonly projectDirectory?: string;
+  },
+  statePaths: readonly CompositeProfileStatePath[],
+): ReturnType<typeof materializeClaudeSkills> =>
+  materializeClaudeSkills({
+    profileId: profile.id,
+    skills: mergeClaudeControls(profile.controls).skills,
+    profileFolders: input.profileFolders,
+    projectDirectory: input.projectDirectory,
+    nativeSkillsSourcePath: statePaths.find((statePath) => statePath.relativePath === 'skills/')?.sourcePath,
+  });
+
+// Profile skills are materialized as one symlink per skill inside `skills/`,
+// so the whole-directory `skills/` symlink becomes a real directory whose
+// undeclared writes warn instead of silently landing in a symlinked source.
+const withClaudeSkillStatePaths = (
+  statePaths: readonly CompositeProfileStatePath[],
+  skillStatePaths: readonly CompositeProfileStatePath[],
+): readonly CompositeProfileStatePath[] => {
+  if (skillStatePaths.length === 0) {
+    return statePaths;
+  }
+
+  return [
+    ...statePaths.map((statePath) =>
+      statePath.relativePath === 'skills/' && statePath.strategy === 'symlink'
+        ? { relativePath: 'skills/', strategy: 'warn' as const, directory: true }
+        : statePath,
+    ),
+    ...skillStatePaths,
+  ];
+};
 
 const createClaudeStatePaths = (
   profile: Profile,
