@@ -45,6 +45,7 @@ controls:
 - [What works today: adapter support matrix](./docs/documentation/support-matrix.md)
 - [Profiles](./docs/documentation/profiles.md)
 - [Profile repositories](./docs/documentation/profile-repository.md)
+- [Federated context](./docs/documentation/federated-context.md)
 - [State persistence](./docs/documentation/state.md)
 - [First-time CLI agent users](./docs/documentation/first-time-cli-agent-users.md)
 - [Switching to Outfitter](./docs/documentation/switching-to-outfitter.md)

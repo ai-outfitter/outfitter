@@ -1,0 +1,19 @@
+id: java-modernization
+label: Java Modernization (payments)
+description: Strangler-fig migration work moving billing-java invoice endpoints into checkout-node.
+controls:
+  thinking: high
+  append_system_prompt:
+    - |
+      You are working on the billing-java to checkout-node migration. Preserve
+      billing behavior exactly unless the migration ledger says otherwise, and
+      prove equivalence with contract tests before retiring any legacy path.
+    # Profile-owned includes resolve from this catalog's root (the directory
+    # containing .outfitter/), so the whole prompts/ library is addressable.
+    - file: prompts/codebases/billing-java.md
+    - file: prompts/codebases/checkout-node.md
+    - file: prompts/teams/payments.md
+    - file: prompts/tools/approved-toolchain.md
+    # To pull governed context from the project the agent is launched in
+    # (instead of from this catalog), use repo_file:
+    #   - repo_file: docs/architecture.md
