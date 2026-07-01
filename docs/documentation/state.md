@@ -83,6 +83,12 @@ In non-interactive sessions (CI, scripts, piped stdio), `prompt` falls back to `
 
 Undeclared writes governed by `unknown: prompt` cannot be persisted because they have no durable destination; Outfitter reports them as warnings and says so.
 
+## Temporary directory cleanup
+
+Composite profile directories are created under the system temporary directory and removed automatically when the Outfitter process exits or receives a handled signal. Removal deletes symlink entries without following them, so the durable auth/settings state the links point at is never touched. Pass `--debug` to keep the directory for inspection; Outfitter prints its path.
+
+Each startup also best-effort sweeps `outfitter-*` directories older than seven days from the temporary root. The sweep never follows symlinks, so a stale directory's links are removed while their targets survive.
+
 ## User stories
 
 ### Keep login working
