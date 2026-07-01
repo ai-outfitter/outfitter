@@ -28,10 +28,11 @@ Learn how shared setup sources work in [Profile repositories](./profile-reposito
 outfitter run --profile engineering-default
 outfitter run --agent claude --profile support
 outfitter sync
-outfitter welcome
 outfitter profile list
 outfitter profile create regulated --scope user
 ```
+
+See the [CLI reference](./cli.md) for every command and flag, and [Concepts](./concepts.md) for how settings, profiles, and adapters fit together. (`outfitter welcome` also exists as a legacy compatibility command for the older terminal onboarding prompts; current onboarding runs inside Pi via `outfitter setup`.)
 
 ## Other install options
 

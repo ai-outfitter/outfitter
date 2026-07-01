@@ -3,6 +3,8 @@
 User-facing Outfitter documentation.
 
 - [Getting started](./getting-started.md)
+- [Concepts](./concepts.md)
+- [CLI reference](./cli.md)
 - [First-time CLI agent users](./first-time-cli-agent-users.md)
 - [Switching to Outfitter](./switching-to-outfitter.md)
 - [Profiles](./profiles.md)
