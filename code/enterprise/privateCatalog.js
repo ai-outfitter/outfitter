@@ -1,4 +1,7 @@
-export const ENTERPRISE_PRIVATE_CATALOG_FEATURE_ID = 'enterprise-private-profile-catalog';
+import privateCatalogPolicy from './shared/privateCatalogPolicy.cjs';
+
+export const ENTERPRISE_PRIVATE_CATALOG_FEATURE_ID =
+  privateCatalogPolicy.ENTERPRISE_PRIVATE_CATALOG_FEATURE_ID;
 
 /**
  * Enterprise/private catalog capability policy.
@@ -8,14 +11,7 @@ export const ENTERPRISE_PRIVATE_CATALOG_FEATURE_ID = 'enterprise-private-profile
  * ambient git configuration; this object defines the commercial boundary for
  * private-catalog support without adding runtime credential enforcement.
  */
-export const enterprisePrivateCatalogBoundary = Object.freeze({
-  featureId: ENTERPRISE_PRIVATE_CATALOG_FEATURE_ID,
-  visibility: 'private',
-  credentialPolicy: 'ambient-git-only',
-  runtimeSupport: 'license-boundary-info-notice-no-credential-enforcement',
-  strictPrivateRepositoryBlocking: false,
-  privateCatalogInfoSeverity: 'info',
-});
+export const enterprisePrivateCatalogBoundary = privateCatalogPolicy.enterprisePrivateCatalogBoundary;
 
 /**
  * Returns true when a profile catalog capability belongs to the enterprise
@@ -26,4 +22,5 @@ export const enterprisePrivateCatalogBoundary = Object.freeze({
  *
  * @param {{ readonly visibility?: 'public' | 'private' | 'unknown' }} catalog
  */
-export const requiresEnterprisePrivateCatalogLicense = (catalog) => catalog.visibility !== 'public';
+export const requiresEnterprisePrivateCatalogLicense =
+  privateCatalogPolicy.requiresEnterprisePrivateCatalogLicense;

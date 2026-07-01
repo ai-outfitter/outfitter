@@ -2,6 +2,7 @@
 // Prepares Pi launch-time bootstrap extensions for Outfitter UX, login, and setup handoffs.
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import type { AgentLaunchPlan } from '../../agents/AgentAdapter.js';
 import { createDefaultSettingsContent as createSetupDefaultSettingsContent } from './SetupCommand.js';
@@ -48,6 +49,8 @@ export const preparePiLoginLaunchPlan = (input: PiLoginLaunchPlanInput): AgentLa
     writeQuietPiStartupSettings(piConfigDirectory);
     launchPlan = addFirstRunBootstrapModelIfNeeded(launchPlan);
   }
+
+  writePiOutfitterEnterpriseSupportFiles(piConfigDirectory);
 
   launchPlan = addExtension(
     launchPlan,
@@ -119,6 +122,35 @@ const addExtension = (
   };
 };
 
+const writePiOutfitterEnterpriseSupportFiles = (piConfigDirectory: string): void => {
+  const extensionDirectory = join(piConfigDirectory, 'outfitter');
+  const supportFiles = [
+    ['pi-extension/privateCatalogOnboarding.js', 'pi-extension/privateCatalogOnboarding.js'],
+    ['shared/privateCatalogPolicy.cjs', 'shared/privateCatalogPolicy.cjs'],
+  ] as const;
+
+  for (const [from, to] of supportFiles) {
+    const destination = join(extensionDirectory, to);
+    mkdirSync(dirname(destination), { recursive: true });
+    writeFileSync(destination, readEnterpriseSupportFile(from));
+  }
+};
+
+const readEnterpriseSupportFile = (relativePath: string): string => {
+  const sourcePath = fileURLToPath(new URL(`../../../../enterprise/${relativePath}`, import.meta.url));
+  const packagePath = fileURLToPath(new URL(`../../../code/enterprise/${relativePath}`, import.meta.url));
+
+  if (existsSync(sourcePath)) {
+    return readFileSync(sourcePath, 'utf8');
+  }
+
+  if (existsSync(packagePath)) {
+    return readFileSync(packagePath, 'utf8');
+  }
+
+  throw new Error(`Outfitter enterprise support file '${relativePath}' was not found.`);
+};
+
 // The general Outfitter pi extension. It brands the startup header, owns
 // Outfitter-specific interactive shortcuts, registers native /outfitter, and
 // keeps credential entry delegated to Pi's native /login command.
@@ -145,6 +177,7 @@ const OUTFITTER_STARTUP_ASCII_ART = ${JSON.stringify(input.startupAsciiArt)};
 const OUTFITTER_ASCII_ART = ${JSON.stringify(startupAsciiArt)};
 const OUTFITTER_ASCII_GRADIENT = ["success", "accent", "text", "muted", "dim"];
 const OUTFITTER_PROFILE_ID_PATTERN = /^[a-z0-9][a-z0-9._-]*[a-z0-9]$|^[a-z0-9]$/u;
+const loadPrivateCatalogOnboarding = () => import("./pi-extension/privateCatalogOnboarding.js");
 
 export default function outfitter(pi) {
   let mode = "build";
@@ -332,22 +365,8 @@ export default function outfitter(pi) {
       return selected;
     },
     async confirmPrivateCatalog(repository) {
-      const items = [
-        { value: "enable", label: "Enable and continue", description: "Write enterprise.private_profile_catalogs: true to ~/.outfitter/settings.yml and save this catalog." },
-        { value: "cancel", label: "Cancel private catalog setup", description: "Leave settings unchanged and do not save this private catalog." },
-      ];
-      const title = [
-        "Private GitHub profile catalog detected: " + repository + ".",
-        "",
-        "Private profile catalog support is covered by the Outfitter Enterprise license.",
-        "Review code/enterprise/LICENSE or your enterprise agreement before enabling.",
-        "",
-        "Enable private profile catalogs in ~/.outfitter/settings.yml and use this catalog?",
-      ];
-      const selected = typeof ctx.ui.custom === "function"
-        ? await selectDescribedOption(ctx, title, items, "enable")
-        : await ctx.ui.select(title.join("\n"), items.map((item) => item.label));
-      return selected === "enable" || selected === "Enable and continue";
+      const { confirmPrivateCatalog } = await loadPrivateCatalogOnboarding();
+      return confirmPrivateCatalog(ctx, selectDescribedOption, repository);
     },
     notify: (message, type = "info") => ctx.ui.notify(message, type),
   });
@@ -596,16 +615,17 @@ const runRemoteSettingsOnboarding = async (fs, paths, questionUi) => {
     return;
   }
 
-  let privateCatalogsEnabled = readPrivateProfileCatalogsEnabled(fs, paths.homeSettingsPath);
+  const privateCatalogOnboarding = await loadPrivateCatalogOnboarding();
+  let privateCatalogsEnabled = privateCatalogOnboarding.readPrivateProfileCatalogsEnabled(fs, paths.homeSettingsPath);
   let privateCatalogAccepted = false;
-  if (!privateCatalogsEnabled && await classifyGitHubRepositoryVisibility(github) === "private") {
+  if (!privateCatalogsEnabled && await privateCatalogOnboarding.classifyGitHubRepositoryVisibility(github) === "private") {
     const accepted = await questionUi.confirmPrivateCatalog(github);
     if (!accepted) {
       questionUi.notify("Private catalog setup was cancelled; no settings were changed.", "warning");
       return;
     }
 
-    writePrivateProfileCatalogsEnabled(fs, paths.homeSettingsPath);
+    privateCatalogOnboarding.writePrivateProfileCatalogsEnabled(fs, paths.homeSettingsPath);
     privateCatalogsEnabled = true;
     privateCatalogAccepted = true;
   }
@@ -810,63 +830,6 @@ const createRemoteSettingsContent = (github, ref, path, privateCatalogsEnabled =
     "    path: " + path,
     "",
   ].join("\n");
-
-const readPrivateProfileCatalogsEnabled = (fs, settingsPath) => {
-  if (!fs.existsSync(settingsPath)) return false;
-  const content = fs.readFileSync(settingsPath, "utf8");
-  return /^enterprise:\s*(?:\n\s+[A-Za-z0-9_-]+:\s*[^\n]*)*\n\s+private_profile_catalogs:\s*true\s*$/mu.test(content);
-};
-
-const writePrivateProfileCatalogsEnabled = (fs, settingsPath) => {
-  fs.mkdirSync(fs.dirname(settingsPath), { recursive: true });
-  const content = fs.existsSync(settingsPath) ? fs.readFileSync(settingsPath, "utf8") : "";
-  if (/^\s*private_profile_catalogs:\s*(?:true|false)\s*$/mu.test(content)) {
-    fs.writeFileSync(settingsPath, content.replace(/^\s*private_profile_catalogs:\s*(?:true|false)\s*$/gmu, "  private_profile_catalogs: true"));
-    return;
-  }
-  if (/^enterprise:\s*$/mu.test(content)) {
-    fs.writeFileSync(settingsPath, content.replace(/^enterprise:\s*$/mu, "enterprise:\n  private_profile_catalogs: true"));
-    return;
-  }
-  fs.writeFileSync(settingsPath, content.replace(/\s*$/u, "\n") + "enterprise:\n  private_profile_catalogs: true\n");
-};
-
-const classifyGitHubRepositoryVisibility = async (repository) => {
-  const [owner, repo] = repository.split("/");
-  if (!owner || !repo) return "unknown";
-  try {
-    const { request } = await import("node:https");
-    return await new Promise((resolve) => {
-      const req = request({
-        hostname: "api.github.com",
-        path: "/repos/" + encodeURIComponent(owner) + "/" + encodeURIComponent(repo),
-        headers: { Accept: "application/vnd.github+json", "User-Agent": "ai-outfitter-pi" },
-        timeout: 2000,
-      }, (response) => {
-        let body = "";
-        response.setEncoding("utf8");
-        response.on("data", (chunk) => { body += chunk; });
-        response.on("end", () => {
-          if (response.statusCode !== 200) {
-            resolve("unknown");
-            return;
-          }
-          try {
-            const document = JSON.parse(body);
-            resolve(document.private === true ? "private" : document.private === false ? "public" : "unknown");
-          } catch {
-            resolve("unknown");
-          }
-        });
-      });
-      req.on("timeout", () => { req.destroy(); resolve("unknown"); });
-      req.on("error", () => resolve("unknown"));
-      req.end();
-    });
-  } catch {
-    return "unknown";
-  }
-};
 
 const updateExistingSettingsDefaultProfile = (settingsPath, profileId, readFileSync, writeFileSync) => {
   const content = readFileSync(settingsPath, "utf8");

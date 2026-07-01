@@ -83,6 +83,23 @@ const createMockHttpsModule = (response: { readonly statusCode: number; readonly
   },
 });
 
+const privateCatalogOnboardingModuleUrl = new URL(
+  '../../../enterprise/pi-extension/privateCatalogOnboarding.js',
+  import.meta.url,
+).href;
+
+type OutfitterImportGlobal = typeof globalThis & {
+  __outfitterImport?: (specifier: string) => Promise<unknown>;
+};
+
+const importPrivateCatalogOnboardingModule = (
+  importOverrides: Readonly<Record<string, () => Promise<unknown>>>,
+): Promise<unknown> => {
+  (globalThis as OutfitterImportGlobal).__outfitterImport = (specifier: string) =>
+    importOverrides[specifier]?.() ?? import(specifier);
+  return import(privateCatalogOnboardingModuleUrl);
+};
+
 type MockMessage = {
   readonly content?: string;
   readonly customType?: string;
@@ -133,10 +150,17 @@ const evaluateOutfitterExtension = (
     .replaceAll('import("node:fs")', 'globalThis.__import("node:fs")')
     .replaceAll('import("node:path")', 'globalThis.__import("node:path")')
     .replaceAll('import("node:https")', 'globalThis.__import("node:https")')
+    .replaceAll(
+      'import("./pi-extension/privateCatalogOnboarding.js")',
+      'globalThis.__import("./pi-extension/privateCatalogOnboarding.js")',
+    )
     .replace('export default function outfitter', 'function outfitter');
   const sandbox = {
     globalThis: {
-      __import: (specifier: string) => importOverrides[specifier]?.() ?? import(specifier),
+      __import: (specifier: string) =>
+        specifier === './pi-extension/privateCatalogOnboarding.js'
+          ? importPrivateCatalogOnboardingModule(importOverrides)
+          : importOverrides[specifier]?.() ?? import(specifier),
     } as { __import: (specifier: string) => Promise<unknown>; outfitter?: OutfitterExtension },
     setTimeout,
   };

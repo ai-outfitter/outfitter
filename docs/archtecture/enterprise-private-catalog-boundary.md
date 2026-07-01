@@ -11,9 +11,9 @@ This document defines the enterprise/private profile catalog boundary for Outfit
 
 ## Enterprise-only scope
 
-Private profile catalog repository support is an enterprise capability boundary. The policy artifact lives in `code/enterprise/privateCatalog.js` and is executed by package asset staging so the published package carries an explicit private-catalog enterprise policy artifact. Shared CLI code owns the user-home setting, prompt, and source-skipping mechanics because those behaviors are part of setup, sync, and Pi-native onboarding.
+Private profile catalog repository support is an enterprise capability boundary. Enterprise policy and private-catalog behavior live under `code/enterprise/**`: shared policy in `code/enterprise/shared/privateCatalogPolicy.cjs`, CLI sync gating/settings mutation in `code/enterprise/cli/**`, Pi-native onboarding helpers in `code/enterprise/pi-extension/**`, and the package policy marker in `code/enterprise/privateCatalog.js`. Package asset staging copies that tree so the published package carries the same enterprise boundary modules.
 
-The boundary may include enterprise-only policy descriptions and tests. Public CLI commands in `code/cli/src/**` must not collect or validate credentials and must keep private-catalog handling informational rather than DRM.
+The boundary may include enterprise-only policy descriptions and tests. Public CLI commands in `code/cli/src/**` import enterprise helpers for private-catalog policy, prompts, and source gating; public CLI code must not collect or validate credentials and must keep private-catalog handling informational rather than DRM.
 
 ## Credential policy
 
@@ -70,7 +70,7 @@ This boundary does not add strict runtime blocking or detection of ambient Git c
 
 ## Implementation guardrails
 
-- Keep the enterprise policy artifact staged from `code/enterprise/privateCatalog.js` while shared CLI code owns settings reads, prompts, and source skipping needed for user-facing setup/sync behavior.
+- Keep enterprise private-catalog policy, prompt copy, visibility classification, settings mutation, and source gating staged from `code/enterprise/**`; public CLI code may orchestrate those helpers but must not re-own the commercial policy.
 - Keep public/default catalog tests passing unchanged.
 - Keep all URI/error reporting credential-redacted where existing sync/setup code returns messages.
 - Treat any future runtime behavior change as a separate requirements-backed feature, not as part of this boundary document.
