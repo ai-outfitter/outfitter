@@ -18,6 +18,8 @@ outfitter setup
 outfitter
 ```
 
+If you are new to Claude Code, Codex, Pi, and agent CLIs, start with [First-time CLI agent users](./first-time-cli-agent-users.md) for YOLO mode, permissions, context engineering, planning mode, subagents, skills, and extension basics. If you already have an agent workflow, use [Switching to Outfitter](./switching-to-outfitter.md) to migrate the smallest durable set of habits first.
+
 Learn how shared setup sources work in [Profile repositories](./profile-repository.md), then see [Profiles](./profiles.md) for profile composition, inheritance, and prompt examples.
 
 ## Common commands
