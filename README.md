@@ -56,4 +56,13 @@ Use cases:
 - [Engineering profile catalog](./docs/documentation/usecases/engineering.md) — Package coding, platform, and review profiles for repeatable engineering workflows.
 - [Persona reviews](./docs/documentation/usecases/persona-reviews.md) — Create customer personas to get feedback on ideas, documentation, and designs.
 
+## Licensing
+
+Outfitter is free for individual and team use, and that stays true.
+
+- **MIT** — the CLI (`code/cli`) and everything else outside `code/enterprise/` is MIT-licensed. See [LICENSE.md](./LICENSE.md), which defines the boundary: only content under `code/enterprise/` carries a different license.
+- **Enterprise** — `code/enterprise/` is licensed under the [Unsupervised Enterprise License](./code/enterprise/LICENSE), a Business Source-style license (free to modify and test; production use requires an enterprise agreement). It holds org-scale features: private GitHub profile catalogs are gated there today, and future organization governance and audit tooling — policy enforcement, audit collectors, retention, and reporting — will live there too (see the [org-catalog governance design spec](./docs/specs/org-catalog-governance.md)).
+
+In practice: making, sharing, switching, and syncing profiles — everything in the documentation above, including public catalogs — is free. Monetization is enterprise licenses for org-scale features plus paid training and support.
+
 For local development, repository structure, and release workflow details, see [Contributing](./CONTRIBUTING.md).
