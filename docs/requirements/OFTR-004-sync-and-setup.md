@@ -2,45 +2,17 @@
 
 ## Overview
 
-Outfitter provides setup and maintenance commands that create initial configuration, synchronize remote profile sources, and generate placeholder profile folders.
+Outfitter provides setup and maintenance commands that launch Pi-native onboarding, synchronize remote profile sources, and generate placeholder profile folders.
 
 ## Requirements
 
 ### OFTR-004.1: Setup Command
 
 1. Outfitter MUST provide a `setup` command.
-2. The `setup` command MUST create `~/.outfitter/settings.yml` when it does not exist.
-3. The `setup` command MUST create a default user profile when no user default profile exists.
-4. The `setup` command MUST validate discovered settings files.
-5. The `setup` command MUST run sync behavior for URI-based profile sources.
-6. The `setup` command SHOULD avoid overwriting existing user files unless a future explicit force option authorizes replacement.
-7. When provided a setup source URI, the `setup` command MUST use that source repository's Outfitter `settings.yml` and profiles as the initial setup starting point for the selected import target.
-8. When provided a local setup source path, the `setup` command MUST discover profiles and settings from the live local source `.outfitter` rather than from a setup-source cache.
-9. The interactive `setup` command MUST require interactive TTY streams on both stdin and stdout before prompting.
-10. The interactive `setup` command MUST synchronize remote profile sources before any setup profile choice prompt.
-11. Initial interactive first-run setup MUST NOT ask a separate default-profile choice before welcome onboarding; the welcome role selection determines the generated local default profile.
-12. Interactive setup MUST render the shared Outfitter branded ASCII welcome before setup prompts.
-13. When the interactive `setup` command presents setup profile choices outside the initial welcome handoff, it MUST present discovered profile IDs as default-profile choices and preserve available display labels and descriptions in the prompt choices.
-14. Interactive setup profile choices MUST come from loaded profile sources and MUST NOT hardcode profile-repository IDs, labels, or descriptions in setup code.
-15. When the interactive `setup` command presents setup profile choices outside the initial welcome handoff, it MUST validate the selected default profile ID before writing it to `settings.yml`.
-16. After the interactive `setup` command writes a selected default profile, any newly-created fallback default profile file MUST correspond to the final selected default profile.
-17. When interactive `setup <source>` presents setup profile choices, it MUST limit those choices to profiles from the passed setup source and MUST NOT include default profile sources from pre-existing effective settings.
-18. When interactive `setup <source>` presents setup profile choices and the setup source declares an explicit `default_profile` that exists among those source choices, it MUST make that profile the prompt default and first displayed choice; pre-existing user defaults MUST NOT override that source default for the setup-source prompt.
-19. When interactive `setup <source>` presents setup profile choices and no source `default_profile` resolves, it SHOULD use the first loaded source profile as the prompt default.
-20. Interactive `setup <source>` MUST NOT present a default-profile choice before the setup-source welcome/import explanation.
-21. Interactive `setup <source>` MUST explain which setup source is being imported and MUST let the user choose whether to install profiles into user home or the current project before writing setup-source profiles/settings.
-22. Interactive `setup <source>` MUST present exactly one setup-source profile/default choice after the import target choice when setup-source profiles are available.
-23. When the interactive setup-source import target is user home, setup MUST copy missing source profiles into `~/.outfitter/profiles`, write the selected default profile to `~/.outfitter/settings.yml`, and preserve non-overwrite copy behavior.
-24. When the interactive setup-source import target is the current project, setup MUST copy missing source profiles into `<project>/.outfitter/profiles`, write the selected default profile to `<project>/.outfitter/settings.yml`, ensure that project settings expose `./profiles`, and preserve any existing user default profile.
-25. Setup-source copy mode MUST preserve flat profile files and shared setup resources required by those profiles.
-26. After interactive `setup <source>` imports the selected default profile, setup MUST offer to start Outfitter with that selected profile.
-27. When the user declines the post-import start offer, setup MUST exit without launching and show both `outfitter` for starting the configured default profile and `outfitter --profile <selected-profile>` for starting it explicitly.
-28. Non-interactive `setup <source>` completion MUST NOT launch Outfitter and MUST show the same default and explicit start command guidance.
-29. Interactive `setup <local-path>` MUST keep copy/import snapshot setup as the default behavior.
-30. Interactive `setup <local-path>` SHOULD offer an explicit symlink mode when the local source contains a `.outfitter` directory.
-31. When symlink mode is available, setup MUST explain that copy/import is an isolated snapshot while symlink mode links the target `.outfitter` to the local source `.outfitter` so shared-profile edits apply immediately during development.
-32. Symlink setup MUST NOT replace a non-empty target `.outfitter` directory without explicit user confirmation.
-33. Symlink setup MUST symlink the target `.outfitter` to the local source `.outfitter` and MUST NOT copy source files, create fallback profile directories, or mutate source settings unless a future explicit option authorizes source mutation.
+2. The `setup` command MUST launch Pi with Outfitter runtime onboarding and MUST NOT run terminal setup prompts.
+3. The `setup` command MUST force Pi-native onboarding even when existing Outfitter settings are present.
+4. The `setup <source>` command MUST preserve the provided source and hand it to Pi-native onboarding.
+5. Setup writes MUST happen from the Pi-native `/outfitter` flow after Pi starts.
 
 ### OFTR-004.2: Sync Command
 

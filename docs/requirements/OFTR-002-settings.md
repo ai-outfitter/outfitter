@@ -31,7 +31,7 @@ The internal Settings object is the single source of resolved configuration for 
 
 ### OFTR-002.4: Default Profile
 
-1. The user settings file `~/.outfitter/settings.yml` MUST declare a default profile after `outfitter setup` completes.
+1. The user settings file `~/.outfitter/settings.yml` MUST declare a default profile after the Pi-native setup flow writes home settings.
 2. `outfitter run` MUST use the resolved default profile when no profile is selected with `-p` or `--profile`.
 3. Outfitter MUST report an actionable error when no selected profile and no default profile are available.
 

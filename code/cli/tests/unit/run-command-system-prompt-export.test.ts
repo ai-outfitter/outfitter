@@ -22,13 +22,15 @@ const writeSettings = (homeDirectory: string, content: string): void => {
 };
 
 const waitForFileContaining = async (path: string, content: string): Promise<void> => {
-  for (let attempt = 0; attempt < 20; attempt += 1) {
+  for (let attempt = 0; attempt < 80; attempt += 1) {
     if (existsSync(path) && readFileSync(path, 'utf8').includes(content)) {
       return;
     }
 
-    await new Promise((resolve) => setTimeout(resolve, 25));
+    await new Promise((resolve) => setTimeout(resolve, 50));
   }
+
+  throw new Error(`Timed out waiting for ${path} to contain ${content}.`);
 };
 
 const writeProfile = (root: string, id: string, content: string): string => {
@@ -290,19 +292,21 @@ describe('run command generated system prompt export', () => {
       {
         writeLine: () => undefined,
         launcher: {
-          launch() {
+          async launch() {
+            await new Promise((resolve) => setTimeout(resolve, 50));
             writeFileSync(
               profilePath,
               ['id: default', 'controls:', '  system_prompt: Refreshed prompt', ''].join('\n'),
             );
-            return waitForFileContaining(exportPath, 'Refreshed prompt').then(() => 0);
+            await waitForFileContaining(exportPath, 'Refreshed prompt');
+            return 0;
           },
         },
       },
     );
 
     expect(readFileSync(exportPath, 'utf8')).toContain('Refreshed prompt');
-  });
+  }, 10000);
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-005.7).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.

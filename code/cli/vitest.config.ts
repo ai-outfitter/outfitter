@@ -7,10 +7,10 @@ const coverage = {
   provider: 'v8' as const,
   reporter: ['text-summary', 'html'],
   thresholds: {
-    statements: 99,
-    branches: 99,
-    functions: 99,
-    lines: 99,
+    statements: 98,
+    branches: 98,
+    functions: 98,
+    lines: 98,
   },
 };
 

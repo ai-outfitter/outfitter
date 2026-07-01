@@ -55,6 +55,8 @@ export interface RunCommandInput {
   readonly agentId?: string;
   readonly strict?: boolean;
   readonly passThroughArgs?: readonly string[];
+  readonly forceRuntimeOnboarding?: boolean;
+  readonly setupSourceUri?: string;
 }
 
 export interface RunCommandResult {
@@ -129,6 +131,7 @@ export const executeRunCommand = async (
             autoOpenOutfitter: true,
             defaultProfilesPath: runtimeOnboarding.defaultProfilesPath,
             projectDirectory: input.projectDirectory,
+            setupSourceUri: input.setupSourceUri,
           },
     startupAsciiArt: resolvedProfile.settings.startup?.asciiArt,
     writeLine: dependencies.writeLine,
@@ -416,7 +419,7 @@ const prepareFirstRunRuntimeOnboarding = (
 };
 
 const shouldUsePiNativeFirstRunOnboarding = (input: RunCommandInput, dependencies: RunCommandDependencies): boolean => {
-  if (existsSync(join(input.homeDirectory, '.outfitter', 'settings.yml'))) {
+  if (input.forceRuntimeOnboarding !== true && existsSync(join(input.homeDirectory, '.outfitter', 'settings.yml'))) {
     return false;
   }
 

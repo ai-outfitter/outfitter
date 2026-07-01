@@ -2,10 +2,9 @@
 
 ## Overview
 
-Outfitter onboarding gets a new user to a productive Pi session without a terminal readline
-welcome flow. The default `outfitter` launch MUST start Pi first, then finish profile setup inside
-Pi through a native Outfitter extension command named `/outfitter`. Explicit terminal commands such
-as `outfitter setup` and `outfitter welcome` MAY still provide their documented direct CLI behavior.
+Outfitter onboarding gets a user to a productive Pi session without a terminal readline welcome
+flow. The default `outfitter` launch and every explicit `outfitter setup` form MUST start Pi first,
+then finish profile setup inside Pi through a native Outfitter extension command named `/outfitter`.
 
 ## Requirements
 
@@ -56,8 +55,8 @@ as `outfitter setup` and `outfitter welcome` MAY still provide their documented 
 4. Non-interactive Pi launches MUST NOT auto-open `/login` or emit login guidance into the launch output stream.
 5. Filesystem checks for Pi `auth.json` or `models.json` MAY be used as pre-start guidance, but they MUST NOT be the only signal used to decide whether login should open.
 
-### OFTR-010.5: Explicit Terminal Setup Compatibility
+### OFTR-010.5: Explicit Setup Entry
 
-1. Explicit `outfitter setup` behavior MUST remain available for users who choose terminal setup directly.
-2. Explicit `outfitter welcome` behavior MAY remain available as a compatibility command, but the default first-run `outfitter` path MUST use Pi-native onboarding.
+1. Explicit `outfitter setup` MUST launch Pi-native onboarding rather than terminal setup prompts.
+2. `outfitter setup <source>` MUST pass the provided source into Pi-native onboarding so setup writes happen from inside Pi.
 3. The published `skills/outfitter` fallback MUST remain available as documentation/guidance for environments where the native command is unavailable.

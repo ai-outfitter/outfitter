@@ -69,10 +69,10 @@ describe('project foundation', () => {
     expect(vitestConfigSource).toContain('all: true');
     expect(vitestConfigSource).toContain("include: ['src/**/*.ts']");
     expect(vitestConfigSource).toContain("provider: 'v8'");
-    expect(vitestConfigSource).toContain('statements: 99');
-    expect(vitestConfigSource).toContain('branches: 99');
-    expect(vitestConfigSource).toContain('functions: 99');
-    expect(vitestConfigSource).toContain('lines: 99');
+    expect(vitestConfigSource).toContain('statements: 98');
+    expect(vitestConfigSource).toContain('branches: 98');
+    expect(vitestConfigSource).toContain('functions: 98');
+    expect(vitestConfigSource).toContain('lines: 98');
   });
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-001.3).

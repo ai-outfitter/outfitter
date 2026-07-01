@@ -148,7 +148,7 @@ describe('profile command', () => {
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-004.4).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
-  it('wires setup and sync command actions to command object executors', async () => {
+  it('wires setup to Pi-native onboarding and sync to the sync executor', async () => {
     const root = createTemporaryRoot();
     const homeDirectory = join(root, 'home');
     const projectDirectory = join(root, 'project');
@@ -162,6 +162,7 @@ describe('profile command', () => {
     expect(syncMessages).toEqual(['No URI profile or remote settings sources configured; nothing to sync.']);
 
     const setupMessages: string[] = [];
+    const setupLaunches: unknown[] = [];
     const setupProgram = new Command();
     createSetupCommand({
       homeDirectory: join(root, 'setup-home'),
@@ -169,23 +170,20 @@ describe('profile command', () => {
       input: { isTTY: true } as NodeJS.ReadableStream & { isTTY: true },
       output: { isTTY: true } as NodeJS.WritableStream & { isTTY: true },
       writeLine: (message) => setupMessages.push(message),
-      synchronizer: {
-        sync(_source, cachePath) {
-          mkdirSync(join(cachePath, 'profiles', 'engineer'), { recursive: true });
-          writeFileSync(join(cachePath, 'profiles', 'engineer', 'profile.yml'), 'id: engineer\ncontrols: {}\n');
-          return 'updated';
-        },
-      },
-      selectDefaultProfile() {
-        return Promise.resolve('engineer');
-      },
-      selectWelcomePlan() {
-        return Promise.resolve({ answerQuestions: false });
+      launchPiOnboarding(input) {
+        setupLaunches.push(input);
+        return Promise.resolve({ exitCode: 0 });
       },
     }).register(setupProgram);
-    await setupProgram.parseAsync(['node', 'outfitter', 'setup']);
+    await setupProgram.parseAsync(['node', 'outfitter', 'setup', 'https://example.test/catalog.git']);
     expect(setupMessages).not.toContain('Welcome to Outfitter. Outfitter is the easiest way to run Pi.');
-    expect(setupMessages).toContainEqual(expect.stringContaining('Created user settings'));
+    expect(setupLaunches).toEqual([
+      {
+        homeDirectory: join(root, 'setup-home'),
+        projectDirectory,
+        setupSourceUri: 'https://example.test/catalog.git',
+      },
+    ]);
   });
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-003.7, OFTR-004.5).
