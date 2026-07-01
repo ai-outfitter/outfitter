@@ -1,5 +1,6 @@
 // Defines composite profile state persistence declarations, strategies, and write detection helpers.
 import {
+  cpSync,
   existsSync,
   lstatSync,
   mkdirSync,
@@ -13,6 +14,8 @@ import {
 } from 'node:fs';
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { sep as posixSeparator } from 'node:path/posix';
+
+import { parseDocument } from 'yaml';
 
 import { createSafeSymlink } from '../fs/SafeSymlink.js';
 
@@ -126,6 +129,52 @@ export const detectCompositeProfileStateWrites = (
   }
 
   return [...issues.values()].sort((left, right) => left.relativePath.localeCompare(right.relativePath));
+};
+
+export type CompositeProfileStateWritePromptChoice = 'persist' | 'discard' | 'always';
+
+export interface CompositeProfileStateWritePromptRequest {
+  readonly agentId: string;
+  readonly relativePath: string;
+  readonly sourcePath?: string;
+}
+
+export type CompositeProfileStateWritePrompt = (
+  request: CompositeProfileStateWritePromptRequest,
+) => Promise<CompositeProfileStateWritePromptChoice>;
+
+// Copies an agent's change to a prompt-strategy state path from the composite profile back
+// to the durable source path, so an interactive "persist" choice survives the run.
+export const persistCompositeProfileStateWrite = (
+  rootDirectory: string,
+  statePath: CompositeProfileStatePath,
+): void => {
+  if (statePath.sourcePath === undefined) {
+    throw new Error(`State path '${statePath.relativePath}' cannot be persisted without a durable source path.`);
+  }
+
+  const outputPath = resolveCompositeProfileStateOutputPath(rootDirectory, statePath.relativePath);
+
+  if (!pathLexicallyExists(outputPath)) {
+    throw new Error(
+      `State path '${statePath.relativePath}' no longer exists in the composite profile, so it cannot be persisted.`,
+    );
+  }
+
+  ensureStateSourcePath(statePath.sourcePath, statePath.directory);
+  cpSync(outputPath, statePath.sourcePath, { recursive: true, force: true });
+};
+
+// Records a durable state_persistence override in a profile YAML file, preserving the
+// existing document structure and comments.
+export const recordProfileStatePersistenceOverride = (
+  profilePath: string,
+  relativePath: string,
+  strategy: StatePersistenceStrategy,
+): void => {
+  const profileDocument = parseDocument(readFileSync(profilePath, 'utf8'));
+  profileDocument.setIn(['state_persistence', relativePath], strategy);
+  writeFileSync(profilePath, profileDocument.toString());
 };
 
 export const ensureStateSourcePath = (sourcePath: string, directory: boolean): string => {
