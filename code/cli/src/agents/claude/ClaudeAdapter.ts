@@ -1,6 +1,7 @@
 // Provides the Claude Code adapter for composite profile generation and native launch plans.
-import { homedir } from 'node:os';
 import { join } from 'node:path';
+
+import { safeHomedir } from '../../fs/SafeHomedir.js';
 
 import type { AgentAdapter, AgentLaunchContext, AgentLaunchPlan, AgentCompositeProfilePlan } from '../AgentAdapter.js';
 import {
@@ -18,6 +19,8 @@ import type { StatePathDeclaration, CompositeProfileStatePath } from '../../comp
 import type { CompositeProfile } from '../../compositeProfile/CompositeProfile.js';
 import { createCompositeProfile } from '../../compositeProfile/CompositeProfile.js';
 import { createCompositeProfileFile } from '../../compositeProfile/CompositeProfileFile.js';
+import { createClaudeMcpConfigArgs, createClaudeMcpConfigFile } from './ClaudeMcpConfig.js';
+import { materializeClaudeSkills } from './ClaudeSkills.js';
 
 const supportedClaudeGenericControls = new Set([
   'model',
@@ -27,6 +30,7 @@ const supportedClaudeGenericControls = new Set([
   'sessionDirectory',
   'session_directory',
   'extensions',
+  'skills',
   'systemPrompt',
   'system_prompt',
   'appendSystemPrompt',
@@ -43,6 +47,7 @@ const claudeControlNames = new Set([
   'sessionDirectory',
   'session_directory',
   'extensions',
+  'skills',
   'systemPrompt',
   'system_prompt',
   'appendSystemPrompt',
@@ -65,6 +70,8 @@ export const createClaudeAdapter = (): AgentAdapter => ({
   supportedControls: supportedControlNames(supportedClaudeGenericControls),
   statePaths: claudeStatePathDeclarations,
   createCompositeProfile(profile: Profile, input): AgentCompositeProfilePlan {
+    const statePaths = createClaudeStatePaths(profile, input);
+    const skillMaterialization = createClaudeSkillMaterialization(profile, input, statePaths);
     const compositeProfile = createCompositeProfile(
       input.rootDirectory,
       [
@@ -75,8 +82,9 @@ export const createClaudeAdapter = (): AgentAdapter => ({
           sourceInputs: input.profilePaths,
           strategy: 'transform',
         }),
-      ],
-      createClaudeStatePaths(profile, input),
+        createClaudeMcpConfigFile(input.rootDirectory, input.profileFolders),
+      ].filter((file) => file !== undefined),
+      withClaudeSkillStatePaths(statePaths, skillMaterialization.statePaths),
     );
 
     return {
@@ -85,6 +93,7 @@ export const createClaudeAdapter = (): AgentAdapter => ({
         ...this.getUnsupportedControls(profile).map(
           (controlName) => `claude adapter cannot translate requested control '${controlName}'.`,
         ),
+        ...skillMaterialization.warnings,
         ...resolveAppendSystemPromptControl({
           fallback: mergeClaudeControls(profile.controls).appendSystemPrompt,
           profileLayers: input.profileLayers,
@@ -110,7 +119,13 @@ export const createClaudeAdapter = (): AgentAdapter => ({
 
     return {
       command: 'claude',
-      args: [...createClaudeArgs({ ...controls, appendSystemPrompt: appendPrompt.prompts }), ...passThroughArgs],
+      args: [
+        ...createClaudeArgs(
+          { ...controls, appendSystemPrompt: appendPrompt.prompts },
+          createClaudeMcpConfigArgs(compositeProfile),
+        ),
+        ...passThroughArgs,
+      ],
       env: {
         ...controls.environment,
         CLAUDE_CONFIG_DIR: compositeProfile.rootDirectory,
@@ -121,6 +136,43 @@ export const createClaudeAdapter = (): AgentAdapter => ({
     return findUnsupportedControls(profile.controls);
   },
 });
+
+const createClaudeSkillMaterialization = (
+  profile: Profile,
+  input: {
+    readonly profileFolders?: readonly string[];
+    readonly projectDirectory?: string;
+  },
+  statePaths: readonly CompositeProfileStatePath[],
+): ReturnType<typeof materializeClaudeSkills> =>
+  materializeClaudeSkills({
+    profileId: profile.id,
+    skills: mergeClaudeControls(profile.controls).skills,
+    profileFolders: input.profileFolders,
+    projectDirectory: input.projectDirectory,
+    nativeSkillsSourcePath: statePaths.find((statePath) => statePath.relativePath === 'skills/')?.sourcePath,
+  });
+
+// Profile skills are materialized as one symlink per skill inside `skills/`,
+// so the whole-directory `skills/` symlink becomes a real directory whose
+// undeclared writes warn instead of silently landing in a symlinked source.
+const withClaudeSkillStatePaths = (
+  statePaths: readonly CompositeProfileStatePath[],
+  skillStatePaths: readonly CompositeProfileStatePath[],
+): readonly CompositeProfileStatePath[] => {
+  if (skillStatePaths.length === 0) {
+    return statePaths;
+  }
+
+  return [
+    ...statePaths.map((statePath) =>
+      statePath.relativePath === 'skills/' && statePath.strategy === 'symlink'
+        ? { relativePath: 'skills/', strategy: 'warn' as const, directory: true }
+        : statePath,
+    ),
+    ...skillStatePaths,
+  ];
+};
 
 const createClaudeStatePaths = (
   profile: Profile,
@@ -167,7 +219,7 @@ const resolveClaudeStateSourcePath = (
 
   return join(
     /* v8 ignore next -- run command always passes homeDirectory; the os fallback is defensive. */
-    homeDirectory ?? homedir(),
+    homeDirectory ?? safeHomedir(),
     '.claude',
     normalizedRelativePath,
   );
@@ -176,12 +228,34 @@ const resolveClaudeStateSourcePath = (
 const mergeClaudeControls = (controls: ProfileControls): ClaudeProfileControls =>
   mergeAgentSpecificControls<ClaudeProfileControls>(controls, 'claude');
 
-const createClaudeArgs = (controls: ClaudeProfileControls): readonly string[] => [
+// Maps generic thinking levels (pi accepts off, minimal, low, medium, high,
+// xhigh) onto Claude Code --effort levels (low, medium, high, xhigh, max).
+// `off` and `minimal` approximate to `low` because Claude Code has no effort
+// level that disables reasoning. Unknown values pass through unchanged so
+// Claude-native levels and future additions keep working.
+const claudeEffortByThinkingLevel: Readonly<Record<string, string>> = {
+  off: 'low',
+  minimal: 'low',
+  low: 'low',
+  medium: 'medium',
+  high: 'high',
+  xhigh: 'xhigh',
+  max: 'max',
+};
+
+const mapThinkingToClaudeEffort = (thinking: string | undefined): string | undefined =>
+  thinking === undefined ? undefined : (claudeEffortByThinkingLevel[thinking] ?? thinking);
+
+const createClaudeArgs = (
+  controls: ClaudeProfileControls,
+  mcpConfigArgs: readonly string[] = [],
+): readonly string[] => [
   ...flagValue('--model', controls.model),
-  ...flagValue('--effort', controls.thinking),
+  ...flagValue('--effort', mapThinkingToClaudeEffort(controls.thinking)),
   ...flagValue('--system-prompt', controls.systemPrompt),
   ...repeatFlagValue('--append-system-prompt', controls.appendSystemPrompt),
   ...repeatFlag('--plugin-dir', controls.extensions),
+  ...mcpConfigArgs,
   ...(controls.args ?? []),
 ];
 
