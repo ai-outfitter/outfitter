@@ -19,6 +19,8 @@ The boundary may include enterprise-only types, adapters, policy descriptions, a
 
 Outfitter does not collect, echo, persist, synthesize, or validate credentials for private profile catalogs. Future private repository access may rely on the user's existing local Git configuration, such as SSH agents, credential helpers, netrc, or CI-provided Git configuration, because current repository access delegates to `git`.
 
+For GitHub profile catalog sources declared with `github: owner/repo`, Outfitter may query `https://api.github.com/repos/{owner}/{repo}` before sync. A confirmed `private: true` response produces an `info:` message that points users to `code/enterprise/LICENSE` or their enterprise agreement. Public responses, HTTP failures, rate limits, 403/404 responses, and malformed responses are treated as `unknown` and do not produce warnings, errors, or blocking behavior.
+
 This boundary does not add strict runtime blocking or detection of ambient Git credentials. If strict private repository blocking is desired later, it should be designed as a separate feature with explicit requirements, user-facing behavior, and tests.
 
 ## Non-goals for this boundary
@@ -27,6 +29,7 @@ This boundary does not add strict runtime blocking or detection of ambient Git c
 - No credential prompts, storage, generated tokens, or mocked real credentials.
 - No change to default public catalog selection.
 - No strict blocking of private repository URIs or ambient Git credentials.
+- No warning/error output for private repository usage; confirmed private GitHub catalogs receive informational license guidance only.
 - No change to profile resolution, settings merge precedence, or composite profile assembly.
 
 ## Implementation guardrails

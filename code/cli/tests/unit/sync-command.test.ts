@@ -90,6 +90,50 @@ describe('sync command', () => {
     expect(result.messages[0]).toContain(`${firstUri} -> ${createProfileSourceCachePath(homeDirectory, firstUri)}`);
   });
 
+  it('shows an informational enterprise license notice for confirmed private GitHub catalogs only', () => {
+    const root = createTemporaryRoot();
+    const homeDirectory = join(root, 'home');
+    const projectDirectory = join(root, 'project');
+    writeSettings(
+      homeDirectory,
+      `profile_sources:\n  - github: company/private-profiles\n  - github: company/public-profiles\n  - github: company/unknown-profiles\n`,
+    );
+
+    const result = executeSyncCommand(
+      { homeDirectory, projectDirectory },
+      {
+        repositoryVisibilityClassifier: {
+          classify(repository) {
+            if (repository === 'company/private-profiles') {
+              return 'private';
+            }
+
+            if (repository === 'company/public-profiles') {
+              return 'public';
+            }
+
+            return 'unknown';
+          },
+        },
+        synchronizer: {
+          sync(_source, cachePath) {
+            writeCachedProfile(cachePath);
+            return 'updated';
+          },
+        },
+      },
+    );
+
+    expect(result.messages[0]).toBe(
+      'info: Private GitHub profile catalog detected: company/private-profiles. Private catalog support is covered by the Outfitter Enterprise license; review code/enterprise/LICENSE or your enterprise agreement.',
+    );
+    expect(result.messages.join('\n')).not.toContain('warning:');
+    expect(result.messages.join('\n')).not.toContain('error:');
+    expect(result.messages.join('\n')).not.toContain('company/public-profiles. Private catalog support');
+    expect(result.messages.join('\n')).not.toContain('company/unknown-profiles. Private catalog support');
+    expect(result.sources.map((source) => source.status)).toEqual(['updated', 'updated', 'updated']);
+  });
+
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-004.2).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('redacts URI credentials from sync results and messages', () => {

@@ -12,14 +12,17 @@ export const enterprisePrivateCatalogBoundary = Object.freeze({
   featureId: ENTERPRISE_PRIVATE_CATALOG_FEATURE_ID,
   visibility: 'private',
   credentialPolicy: 'ambient-git-only',
-  runtimeSupport: 'license-boundary-no-credential-enforcement',
+  runtimeSupport: 'license-boundary-info-notice-no-credential-enforcement',
   strictPrivateRepositoryBlocking: false,
+  privateCatalogInfoSeverity: 'info',
 });
 
 /**
  * Returns true when a profile catalog capability belongs to the enterprise
  * licensing boundary. This is a policy marker, not a runtime access check: git
- * may still succeed or fail according to the user's local credentials.
+ * may still succeed or fail according to the user's local credentials. A
+ * confirmed private GitHub catalog should receive informational license
+ * guidance, never warning/error output or blocking behavior.
  *
  * @param {{ readonly visibility?: 'public' | 'private' | 'unknown' }} catalog
  */
