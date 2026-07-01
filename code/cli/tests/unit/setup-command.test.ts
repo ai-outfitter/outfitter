@@ -168,12 +168,14 @@ describe('setup command', () => {
     expect(readFileSync(defaultProfilePath, 'utf8')).toBe('id: default\nlabel: Custom\n');
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-004.1).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-004.1, OFTR-010.6).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
-  it('fails first-run setup when the default profile source cannot sync', async () => {
+  it('falls back to the built-in starter profile when the default profile source cannot sync on first run', async () => {
     const root = createTemporaryRoot();
     const homeDirectory = join(root, 'home');
     const projectDirectory = join(root, 'project');
+    const settingsPath = join(homeDirectory, '.outfitter', 'settings.yml');
+    const starterProfilePath = join(homeDirectory, '.outfitter', 'profiles', 'starter', 'profile.yml');
 
     const failingDependencies = {
       synchronizer: {
@@ -183,16 +185,23 @@ describe('setup command', () => {
       },
     };
 
-    await expect(executeSetupCommand({ homeDirectory, projectDirectory }, failingDependencies)).rejects.toThrow(
-      'Cannot complete first-run setup because the default profiles source failed to sync',
-    );
-    expect(existsSync(join(homeDirectory, '.outfitter', 'settings.yml'))).toBe(false);
-    await expect(executeSetupCommand({ homeDirectory, projectDirectory }, failingDependencies)).rejects.toThrow(
-      'Cannot complete first-run setup because the default profiles source failed to sync',
-    );
+    const result = await executeSetupCommand({ homeDirectory, projectDirectory }, failingDependencies);
+
+    expect(result.createdSettings).toBe(true);
+    expect(readFileSync(settingsPath, 'utf8')).toContain('default_profile: starter');
+    expect(readFileSync(starterProfilePath, 'utf8')).toContain('id: starter');
+    expect(result.defaultProfilePath).toBe(starterProfilePath);
+    expect(
+      result.messages.some((message) => message.includes('failed to sync') && message.includes('`outfitter sync`')),
+    ).toBe(true);
+
+    const secondResult = await executeSetupCommand({ homeDirectory, projectDirectory }, failingDependencies);
+
+    expect(secondResult.createdSettings).toBe(false);
+    expect(readFileSync(settingsPath, 'utf8')).toContain('default_profile: starter');
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-004.1).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-004.1, OFTR-010.6).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('does not delete settings created during setup-source synchronization when first-run sync fails', async () => {
     const root = createTemporaryRoot();
@@ -207,27 +216,28 @@ describe('setup command', () => {
       '',
     ].join('\n');
 
-    await expect(
-      executeSetupCommand(
-        { homeDirectory, projectDirectory, setupSourceUri: 'https://example.test/outfitter-config.git' },
-        {
-          setupSourceSynchronizer: {
-            sync(_uri, cachePath) {
-              mkdirSync(cachePath, { recursive: true });
-              mkdirSync(dirname(settingsPath), { recursive: true });
-              writeFileSync(settingsPath, settingsContent);
-            },
-          },
-          synchronizer: {
-            sync() {
-              return 'failed' as const;
-            },
+    const result = await executeSetupCommand(
+      { homeDirectory, projectDirectory, setupSourceUri: 'https://example.test/outfitter-config.git' },
+      {
+        setupSourceSynchronizer: {
+          sync(_uri, cachePath) {
+            mkdirSync(cachePath, { recursive: true });
+            mkdirSync(dirname(settingsPath), { recursive: true });
+            writeFileSync(settingsPath, settingsContent);
           },
         },
-      ),
-    ).rejects.toThrow('Cannot complete first-run setup because the default profiles source failed to sync');
+        synchronizer: {
+          sync() {
+            return 'failed' as const;
+          },
+        },
+      },
+    );
 
     expect(readFileSync(settingsPath, 'utf8')).toBe(settingsContent);
+    expect(
+      result.messages.some((message) => message.includes('failed to sync') && message.includes('`outfitter sync`')),
+    ).toBe(true);
   });
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-004.1).

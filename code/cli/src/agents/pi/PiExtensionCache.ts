@@ -1,12 +1,18 @@
 // Caches remote Pi extension packages as local directories before launch.
+//
+// Refresh policy: caches for `#ref`-pinned sources are immutable once created. Caches for
+// branch-tracking (ref-less) sources are refreshed by `outfitter sync` through
+// refreshPiExtensionCaches, which fast-forwards the shallow clone and reinstalls dependencies
+// when the tip moved. Launch-time materialization never refreshes an existing cache.
 import { createHash } from 'node:crypto';
-import { existsSync, mkdirSync, rmSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
 import spawn from 'cross-spawn';
 
 export interface PiExtensionCacheOptions {
   readonly cacheDirectory?: string;
+  readonly onProgress?: (message: string) => void;
 }
 
 interface GitExtensionSource {
@@ -23,10 +29,14 @@ export const materializePiExtensionSources = (
   }
 
   const { cacheDirectory } = options;
-  return sources.map((source) => materializePiExtensionSource(source, cacheDirectory));
+  return sources.map((source) => materializePiExtensionSource(source, cacheDirectory, options.onProgress));
 };
 
-const materializePiExtensionSource = (source: string, cacheDirectory: string): string => {
+const materializePiExtensionSource = (
+  source: string,
+  cacheDirectory: string,
+  onProgress?: (message: string) => void,
+): string => {
   const gitSource = parseGitExtensionSource(source);
 
   if (gitSource === undefined) {
@@ -37,15 +47,139 @@ const materializePiExtensionSource = (source: string, cacheDirectory: string): s
 
   if (!existsSync(cachePath)) {
     try {
+      onProgress?.(`outfitter: caching extension ${source}…`);
       cloneGitExtension(gitSource, cachePath);
-      installGitExtensionDependencies(cachePath);
+      installGitExtensionDependencies(cachePath, source, onProgress);
+      writeCacheSourceMetadata(cachePath, source, gitSource.ref);
     } catch (error) {
       rmSync(cachePath, { recursive: true, force: true });
+      rmSync(cacheSourceMetadataPath(cachePath), { force: true });
       throw error;
     }
   }
 
   return cachePath;
+};
+
+export interface PiExtensionCacheRefreshResult {
+  readonly source: string;
+  readonly cachePath: string;
+  readonly status: 'refreshed' | 'unchanged' | 'pinned' | 'failed';
+  readonly message: string;
+}
+
+// Refreshes branch-tracking git-extension caches under `<cacheDirectory>/extensions/git`.
+// `#ref`-pinned entries are reported as pinned and left untouched. Entries without source
+// metadata (created before metadata existed) are skipped silently.
+export const refreshPiExtensionCaches = (
+  cacheDirectory: string,
+  options: Pick<PiExtensionCacheOptions, 'onProgress'> = {},
+): readonly PiExtensionCacheRefreshResult[] => {
+  const gitCacheRoot = join(cacheDirectory, 'extensions', 'git');
+
+  if (!existsSync(gitCacheRoot)) {
+    return [];
+  }
+
+  return readdirSync(gitCacheRoot)
+    .filter((entryName) => entryName.endsWith(cacheSourceMetadataSuffix))
+    .sort()
+    .flatMap((entryName) => {
+      const result = refreshPiExtensionCache(gitCacheRoot, entryName, options.onProgress);
+      return result === undefined ? [] : [result];
+    });
+};
+
+const refreshPiExtensionCache = (
+  gitCacheRoot: string,
+  metadataFileName: string,
+  onProgress?: (message: string) => void,
+): PiExtensionCacheRefreshResult | undefined => {
+  const cachePath = join(gitCacheRoot, metadataFileName.slice(0, -cacheSourceMetadataSuffix.length));
+  const metadata = readCacheSourceMetadata(join(gitCacheRoot, metadataFileName));
+
+  if (metadata === undefined || !existsSync(cachePath)) {
+    return undefined;
+  }
+
+  if (metadata.ref !== undefined) {
+    return {
+      source: metadata.source,
+      cachePath,
+      status: 'pinned',
+      message: `pinned to #${metadata.ref}; cache left unchanged`,
+    };
+  }
+
+  onProgress?.(`outfitter: refreshing extension ${metadata.source}…`);
+  return pullBranchTrackingExtensionCache(metadata.source, cachePath, onProgress);
+};
+
+const pullBranchTrackingExtensionCache = (
+  source: string,
+  cachePath: string,
+  onProgress?: (message: string) => void,
+): PiExtensionCacheRefreshResult => {
+  const headBeforePull = readCacheHead(cachePath);
+  const pullResult = runCommand('git', ['pull', '--ff-only'], cachePath);
+
+  if (pullResult.status !== 0) {
+    return {
+      source,
+      cachePath,
+      status: 'failed',
+      message: commandError('git', ['pull', '--ff-only'], pullResult).message,
+    };
+  }
+
+  const headAfterPull = readCacheHead(cachePath);
+
+  if (headAfterPull === headBeforePull) {
+    return { source, cachePath, status: 'unchanged', message: 'already up to date' };
+  }
+
+  try {
+    installGitExtensionDependencies(cachePath, source, onProgress);
+  } catch (error) {
+    return { source, cachePath, status: 'failed', message: error instanceof Error ? error.message : String(error) };
+  }
+
+  return { source, cachePath, status: 'refreshed', message: `updated to ${headAfterPull}` };
+};
+
+const cacheSourceMetadataSuffix = '.source.json';
+
+const cacheSourceMetadataPath = (cachePath: string): string => `${cachePath}${cacheSourceMetadataSuffix}`;
+
+const writeCacheSourceMetadata = (cachePath: string, source: string, ref: string | undefined): void => {
+  writeFileSync(cacheSourceMetadataPath(cachePath), `${JSON.stringify({ source, ref }, null, 2)}\n`);
+};
+
+const readCacheSourceMetadata = (
+  metadataPath: string,
+): { readonly source: string; readonly ref?: string } | undefined => {
+  try {
+    const parsed: unknown = JSON.parse(readFileSync(metadataPath, 'utf8'));
+
+    if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      return undefined;
+    }
+
+    const record = parsed as { readonly source?: unknown; readonly ref?: unknown };
+
+    if (typeof record.source !== 'string') {
+      return undefined;
+    }
+
+    return { source: record.source, ref: typeof record.ref === 'string' ? record.ref : undefined };
+  } catch {
+    return undefined;
+  }
+};
+
+const readCacheHead = (cachePath: string): string => {
+  const result = runCommand('git', ['rev-parse', 'HEAD'], cachePath);
+  return result.status === 0 ? String(result.stdout).trim() : '';
 };
 
 const parseGitExtensionSource = (source: string): GitExtensionSource | undefined => {
@@ -133,11 +267,16 @@ const cloneGitExtension = (source: GitExtensionSource, cachePath: string): void 
   }
 };
 
-const installGitExtensionDependencies = (cachePath: string): void => {
+const installGitExtensionDependencies = (
+  cachePath: string,
+  source: string,
+  onProgress?: (message: string) => void,
+): void => {
   if (!existsSync(join(cachePath, 'package.json'))) {
     return;
   }
 
+  onProgress?.(`outfitter: installing dependencies for extension ${source}…`);
   const npmArgs = existsSync(join(cachePath, 'package-lock.json')) ? ['ci', '--omit=dev'] : ['install', '--omit=dev'];
   const result = runCommand('npm', npmArgs, cachePath);
 

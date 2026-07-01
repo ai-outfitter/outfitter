@@ -17,6 +17,11 @@ import {
   redactProfileSourceUriCredentials,
   resolveRemoteRepositorySubpath,
 } from '../../profiles/ProfileCache.js';
+import {
+  builtinStarterProfileId,
+  createBuiltinProfilesCachePath,
+  materializeBuiltinProfiles,
+} from '../../profiles/BuiltinProfiles.js';
 import { loadLocalProfileSource } from '../../profiles/ProfileLoader.js';
 import type { LoadedProfile } from '../../profiles/ProfileLoader.js';
 import { createEmptyProfile, type Profile } from '../../profiles/Profile.js';
@@ -46,7 +51,7 @@ import { launchAgentProcess, resolveAgentLaunchExecutable } from '../../agents/A
 import type { CommandObject } from './CommandObject.js';
 import { isNonInteractivePiLaunch, preparePiLoginLaunchPlan } from './PiLoginLaunch.js';
 import type { SetupCommandDependencies } from './SetupCommand.js';
-import { syncProfileSource, type RemoteProfileSource } from './SyncCommand.js';
+import { createGitSynchronizer, syncProfileSource, type RemoteProfileSource } from './SyncCommand.js';
 
 export interface RunCommandInput {
   readonly homeDirectory: string;
@@ -121,6 +126,7 @@ export const executeRunCommand = async (
           profileLayers: createLaunchProfileLayers(resolvedProfile.profileLayers),
           projectDirectory: input.projectDirectory,
           cacheDirectory: resolvedProfile.cacheDirectory,
+          onProgress: resolveRunProgressWriter(dependencies),
         },
       ),
       systemPromptExport.outputPath,
@@ -406,18 +412,26 @@ const prepareFirstRunRuntimeOnboarding = (
     return undefined;
   }
 
-  const syncResult = syncProfileSource(input.homeDirectory, defaultProfilesSource, dependencies.synchronizer);
+  const syncResult = syncProfileSource(
+    input.homeDirectory,
+    defaultProfilesSource,
+    dependencies.synchronizer ?? createGitSynchronizer(resolveRunProgressWriter(dependencies)),
+  );
 
-  /* v8 ignore next -- network/cache failure path is integration-level behavior; setup fallback message is deterministic. */
   if (syncResult.status === 'failed') {
-    throw new Error(
-      `Cannot start Pi-native onboarding because the default profiles source failed to sync: ${syncResult.message}. ` +
-        'Fix the network/git issue or run `outfitter setup` once the source is reachable.',
-    );
+    (dependencies.writeError ?? console.error)(formatDegradedOnboardingWarning(syncResult.message));
+    const builtinProfilesPath = createBuiltinProfilesCachePath(input.homeDirectory);
+    materializeBuiltinProfiles(builtinProfilesPath);
+
+    return { defaultProfilesPath: builtinProfilesPath };
   }
 
   return { defaultProfilesPath: join(syncResult.cachePath, defaultProfilesSource.path) };
 };
+
+const formatDegradedOnboardingWarning = (failureMessage: string): string =>
+  `Warning: could not sync the default profiles source github:${defaultProfilesSource.github} (${failureMessage}). ` +
+  `Continuing with the built-in '${builtinStarterProfileId}' profile; run \`outfitter sync\` to fetch the full catalog once the source is reachable.`;
 
 const shouldUsePiNativeFirstRunOnboarding = (input: RunCommandInput, dependencies: RunCommandDependencies): boolean => {
   if (input.forceRuntimeOnboarding !== true && existsSync(join(input.homeDirectory, '.outfitter', 'settings.yml'))) {
@@ -437,6 +451,12 @@ const shouldUsePiNativeFirstRunOnboarding = (input: RunCommandInput, dependencie
 
   return isInteractiveRunLaunch(dependencies);
 };
+
+// Network/build steps (catalog clones, extension caching) report per-source progress through this
+// writer so first boot never stalls silently before launch.
+const resolveRunProgressWriter = (dependencies: RunCommandDependencies): ((message: string) => void) =>
+  /* v8 ignore next -- console fallback is direct CLI behavior; tests inject writeLine. */
+  dependencies.writeLine ?? console.log;
 
 const isInteractiveRunLaunch = (dependencies: RunCommandDependencies): boolean => {
   if (dependencies.interactive !== undefined) {
