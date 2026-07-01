@@ -1,5 +1,5 @@
 // Tests Pi git extension materialization into the Outfitter cache.
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -7,6 +7,7 @@ import spawn from 'cross-spawn';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { createPiAdapter } from '../../src/agents/pi/PiAdapter.js';
+import { materializePiExtensionSources, refreshPiExtensionCaches } from '../../src/agents/pi/PiExtensionCache.js';
 
 const temporaryPiExtensionCacheTestRoots: string[] = [];
 
@@ -91,6 +92,107 @@ describe('pi extension cache', () => {
 
     expect(() => materializedExtensionPath(`git+file://${remoteRepository}#main`, cacheRoot)).toThrow();
     expect(listCachedExtensions(cacheRoot)).toEqual([]);
+  });
+
+  it('reports per-extension progress while materializing git extensions', () => {
+    const root = createTemporaryRoot();
+    const remoteRepository = createLocalGitExtensionRepository(root, { packageJson: true });
+    const source = `git+file://${remoteRepository}`;
+    const progressLines: string[] = [];
+
+    materializePiExtensionSources([source], {
+      cacheDirectory: join(root, 'cache'),
+      onProgress: (message) => {
+        progressLines.push(message);
+      },
+    });
+
+    expect(progressLines).toEqual([
+      `outfitter: caching extension ${source}…`,
+      `outfitter: installing dependencies for extension ${source}…`,
+    ]);
+  });
+});
+
+describe('pi extension cache refresh', () => {
+  it('refreshes branch-tracking caches and leaves ref-pinned caches immutable', () => {
+    const root = createTemporaryRoot();
+    const remoteRepository = createLocalGitExtensionRepository(root);
+    const cacheDirectory = join(root, 'cache');
+    const branchSource = `git+file://${remoteRepository}`;
+    const pinnedSource = `git+file://${remoteRepository}#main`;
+    const [branchPath] = materializePiExtensionSources([branchSource], { cacheDirectory }) ?? [];
+    const [pinnedPath] = materializePiExtensionSources([pinnedSource], { cacheDirectory }) ?? [];
+
+    const unchangedResults = refreshPiExtensionCaches(cacheDirectory);
+
+    expect(unchangedResults.find((result) => result.cachePath === branchPath)?.status).toBe('unchanged');
+
+    writeFileSync(join(remoteRepository, 'index.ts'), 'export default function updated() {}\n');
+    runGit(['add', 'index.ts'], remoteRepository);
+    runGit(
+      ['-c', 'user.email=test@example.test', '-c', 'user.name=Test User', 'commit', '-m', 'update'],
+      remoteRepository,
+    );
+
+    const progressLines: string[] = [];
+    const refreshedResults = refreshPiExtensionCaches(cacheDirectory, {
+      onProgress: (message) => {
+        progressLines.push(message);
+      },
+    });
+    const branchResult = refreshedResults.find((result) => result.cachePath === branchPath);
+    const pinnedResult = refreshedResults.find((result) => result.cachePath === pinnedPath);
+
+    expect(branchResult?.status).toBe('refreshed');
+    expect(readFileSync(join(branchPath ?? '', 'index.ts'), 'utf8')).toContain('updated');
+    expect(pinnedResult?.status).toBe('pinned');
+    expect(readFileSync(join(pinnedPath ?? '', 'index.ts'), 'utf8')).not.toContain('updated');
+    expect(progressLines.some((line) => line.startsWith('outfitter: refreshing extension '))).toBe(true);
+  });
+
+  it('reports refresh failures without discarding caches and skips unknown entries', () => {
+    const root = createTemporaryRoot();
+    const remoteRepository = createLocalGitExtensionRepository(root);
+    const cacheDirectory = join(root, 'cache');
+    const source = `git+file://${remoteRepository}`;
+    const [cachePath] = materializePiExtensionSources([source], { cacheDirectory }) ?? [];
+    rmSync(remoteRepository, { recursive: true, force: true });
+
+    const gitCacheRoot = join(cacheDirectory, 'extensions', 'git');
+    mkdirSync(join(gitCacheRoot, 'legacy-cache-without-metadata'), { recursive: true });
+    writeFileSync(join(gitCacheRoot, 'broken.source.json'), 'not json\n');
+    writeFileSync(join(gitCacheRoot, 'array.source.json'), '[]\n');
+    writeFileSync(join(gitCacheRoot, 'missing-source-field.source.json'), '{"ref":"main"}\n');
+    writeFileSync(join(gitCacheRoot, 'ghost.source.json'), '{"source":"git+file:///removed"}\n');
+    mkdirSync(join(gitCacheRoot, 'not-a-git-repo'), { recursive: true });
+    writeFileSync(join(gitCacheRoot, 'not-a-git-repo.source.json'), '{"source":"git+file:///not-a-repo"}\n');
+
+    const results = refreshPiExtensionCaches(cacheDirectory);
+
+    expect(results.map((result) => result.status).sort()).toEqual(['failed', 'failed']);
+    expect(results.find((result) => result.cachePath === cachePath)?.status).toBe('failed');
+    expect(existsSync(join(cachePath ?? '', 'index.ts'))).toBe(true);
+    expect(refreshPiExtensionCaches(join(root, 'missing-cache-directory'))).toEqual([]);
+  });
+
+  it('reports dependency install failures after a refreshed cache tip moves', () => {
+    const root = createTemporaryRoot();
+    const remoteRepository = createLocalGitExtensionRepository(root);
+    const cacheDirectory = join(root, 'cache');
+    const source = `git+file://${remoteRepository}`;
+    const [cachePath] = materializePiExtensionSources([source], { cacheDirectory }) ?? [];
+
+    writeFileSync(join(remoteRepository, 'package.json'), '{invalid json}\n');
+    runGit(['add', 'package.json'], remoteRepository);
+    runGit(
+      ['-c', 'user.email=test@example.test', '-c', 'user.name=Test User', 'commit', '-m', 'break package json'],
+      remoteRepository,
+    );
+
+    const results = refreshPiExtensionCaches(cacheDirectory);
+
+    expect(results.find((result) => result.cachePath === cachePath)?.status).toBe('failed');
   });
 });
 

@@ -1,8 +1,8 @@
 // Provides the command object for synchronizing URI-backed profile and settings sources.
-import { existsSync, mkdirSync } from 'node:fs';
+import { existsSync, mkdirSync, rmSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { homedir } from 'node:os';
-import { dirname } from 'node:path';
+import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import type { Command } from 'commander';
@@ -21,6 +21,7 @@ import {
   type ProfileSourceReference,
   type RemoteSourceReference,
 } from '../../profiles/ProfileSource.js';
+import { refreshPiExtensionCaches } from '../../agents/pi/PiExtensionCache.js';
 import type { RemoteSettingsReference } from '../../settings/Settings.js';
 import {
   discoverSettingsLoadPlan,
@@ -82,7 +83,7 @@ export const executeSyncCommand = (
     throw new Error(`Cannot sync with invalid settings: ${localSettings.issues.map(formatSettingsIssue).join('; ')}`);
   }
 
-  const synchronizer = dependencies.synchronizer ?? createGitSynchronizer();
+  const synchronizer = dependencies.synchronizer ?? createGitSynchronizer(dependencies.writeLine);
   const repositoryVisibilityClassifier =
     dependencies.repositoryVisibilityClassifier ?? createGitHubRepositoryVisibilityClassifier();
   const privateCatalogGate = createPrivateCatalogGate(
@@ -116,17 +117,22 @@ export const executeSyncCommand = (
     ...profileSourceGateResults.skippedResults,
   ];
   const infoMessages = [...remoteSettingsGateResults.messages, ...profileSourceGateResults.messages];
+  const extensionRefreshMessages = refreshPiExtensionCaches(
+    loadedSettings.settings.cacheDirectory ?? join(input.homeDirectory, '.outfitter', 'cache'),
+    { onProgress: dependencies.writeLine },
+  ).map((result) => `${result.status}: pi extension ${result.source} (${result.message})`);
 
   return {
     sources: sourceResults,
     messages:
-      sourceResults.length === 0
+      sourceResults.length === 0 && extensionRefreshMessages.length === 0
         ? ['No URI profile or remote settings sources configured; nothing to sync.']
         : [
             ...infoMessages,
             ...sourceResults.map(
               (result) => `${result.status}: ${result.uri} -> ${result.cachePath} (${result.message})`,
             ),
+            ...extensionRefreshMessages,
           ],
   };
 };
@@ -140,6 +146,8 @@ export const createSyncCommand = (dependencies: SyncCommandDependencies = {}): C
         .command(command.name)
         .description(command.description)
         .action(() => {
+          /* v8 ignore next -- console fallback is direct CLI behavior; tests inject a writer. */
+          const writeLine = dependencies.writeLine ?? console.log;
           const result = executeSyncCommand(
             {
               /* v8 ignore next -- default process home is exercised by the direct CLI entrypoint, not unit tests. */
@@ -147,12 +155,11 @@ export const createSyncCommand = (dependencies: SyncCommandDependencies = {}): C
               /* v8 ignore next -- default process cwd is exercised by the direct CLI entrypoint, not unit tests. */
               projectDirectory: dependencies.projectDirectory ?? process.cwd(),
             },
-            dependencies,
+            { ...dependencies, writeLine },
           );
 
           for (const message of result.messages) {
-            /* v8 ignore next -- console fallback is direct CLI behavior; tests inject a writer. */
-            (dependencies.writeLine ?? console.log)(message);
+            writeLine(message);
           }
         });
     },
@@ -226,11 +233,12 @@ const syncUriSource = (
   }
 };
 
-export const createGitSynchronizer = (): UriProfileSourceSynchronizer => ({
+export const createGitSynchronizer = (progress?: (message: string) => void): UriProfileSourceSynchronizer => ({
   sync(source, cachePath) {
     mkdirSync(dirname(cachePath), { recursive: true });
 
     if (existsSync(cachePath)) {
+      progress?.(`outfitter: updating catalog ${formatDisplayUri(source)}…`);
       runGit(['-C', cachePath, 'fetch', '--all', '--tags']);
       if (source.ref === undefined) {
         runGit(['-C', cachePath, 'pull', '--ff-only']);
@@ -240,11 +248,33 @@ export const createGitSynchronizer = (): UriProfileSourceSynchronizer => ({
       return 'updated';
     }
 
-    runGit(['clone', '--', normalizeGitUri(normalizeRemoteSourceUri(source)), cachePath]);
-    checkoutRefIfPresent(cachePath, source.ref);
+    progress?.(`outfitter: cloning catalog ${formatDisplayUri(source)}…`);
+    cloneCatalogSource(source, cachePath);
     return 'updated';
   },
 });
+
+// Catalog caches are shallow single-branch clones to keep first boot fast on large org catalogs.
+// A ref names the branch or tag to shallow-clone directly; refs that are not remote branch/tag
+// names (for example commit SHAs) fall back to a full clone plus checkout.
+const cloneCatalogSource = (source: RemoteSourceReference, cachePath: string): void => {
+  const cloneUri = normalizeGitUri(normalizeRemoteSourceUri(source));
+
+  if (source.ref === undefined) {
+    runGit(['clone', '--depth', '1', '--single-branch', '--', cloneUri, cachePath]);
+    return;
+  }
+
+  assertSafeGitRef(source.ref);
+
+  if (gitSucceeds(['clone', '--depth', '1', '--single-branch', '--branch', source.ref, '--', cloneUri, cachePath])) {
+    return;
+  }
+
+  rmSync(cachePath, { recursive: true, force: true });
+  runGit(['clone', '--', cloneUri, cachePath]);
+  checkoutRefIfPresent(cachePath, source.ref);
+};
 
 const checkoutRefIfPresent = (cachePath: string, ref: string | undefined): void => {
   if (ref === undefined) {
