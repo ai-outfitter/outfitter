@@ -59,3 +59,7 @@ Milestone labels: `m1-ship-blockers`, `m2-hardening`, `m3-claude-parity`, `m4-do
 | 32     | Org-catalog governance features: design spec                                                                                                              | M5        | M    |
 | 33     | Persona-profiles showcase                                                                                                                                 | M5        | M    |
 | 34     | Federated-context pattern: worked example                                                                                                                 | M5        | M    |
+
+## Filed (2026-07-01, fork tylerwillis/outfitter)
+
+All 32 drafts filed. Mapping (draft → fork issue): 01→#1, 02→#2, 05→#3, 06→#4, 07→#5, 08→#6, 09→#7, 10→#8, 11→#9, 12→#10, 13→#11, 14→#12, 15→#13, 16→#14, 17→#15, 18→#16, 19→#17, 20→#18, 21→#19, 22→#20, 23→#21, 24→#22, 25→#23, 26→#24, 27→#25, 28→#26, 29→#27, 30→#28, 31→#29, 32→#30, 33→#31, 34→#32.
