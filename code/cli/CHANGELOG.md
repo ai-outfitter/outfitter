@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.2](https://github.com/ai-outfitter/outfitter/compare/v0.7.1...v0.7.2) (2026-07-01)
+
+
+### Bug Fixes
+
+* **onboarding:** create local profile source directory ([a380826](https://github.com/ai-outfitter/outfitter/commit/a38082658e02dde0ff7dca58fe26adf49171892d))
+
 ## [0.7.1](https://github.com/ai-outfitter/outfitter/compare/v0.7.0...v0.7.1) (2026-07-01)
 
 
