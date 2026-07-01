@@ -9,6 +9,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import { executeRunCommand, resolveChildExitCode } from '../../src/cli/commands/RunCommand.js';
 import { createCompositeProfile } from '../../src/compositeProfile/CompositeProfile.js';
+import { createRemoteRepositoryCachePath } from '../../src/profiles/ProfileCache.js';
 import { allowTestConsoleOutput } from '../test-console.js';
 
 const temporaryRoots: string[] = [];
@@ -485,6 +486,43 @@ describe('run command', () => {
       },
     );
     expect(result.exitCode).toBe(7);
+
+    const defaultCatalogHome = join(root, 'default-catalog-home');
+    writeSettings(
+      defaultCatalogHome,
+      [
+        'default_profile: founder',
+        'profile_sources:',
+        '  - github: ai-outfitter/default-profiles',
+        '    path: profiles',
+        '  - path: ./profiles',
+        '',
+      ].join('\n'),
+    );
+    writeProfile(
+      join(
+        createRemoteRepositoryCachePath(defaultCatalogHome, {
+          github: 'ai-outfitter/default-profiles',
+          path: 'profiles',
+        }),
+        'profiles',
+      ),
+      'founder',
+      'id: founder\ncontrols: {}\n',
+    );
+    const defaultCatalogResult = await executeRunCommand(
+      { homeDirectory: defaultCatalogHome, projectDirectory },
+      {
+        launcher: {
+          launch() {
+            return Promise.resolve(0);
+          },
+        },
+        writeLine: () => undefined,
+      },
+    );
+    expect(defaultCatalogResult.profileId).toBe('founder');
+    expect(existsSync(join(defaultCatalogHome, '.outfitter', 'profiles'))).toBe(true);
 
     const fallbackHome = join(root, 'fallback-home');
     writeSettings(fallbackHome, 'profile_sources:\n  - path: ./profiles\n');

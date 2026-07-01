@@ -563,6 +563,7 @@ const runDefaultCatalogOnboarding = async (fs, paths, questionUi) => {
   }
 
   fs.mkdirSync(fs.dirname(installTarget.settingsPath), { recursive: true });
+  fs.mkdirSync(installTarget.profilesPath, { recursive: true });
   const settingsExisted = fs.existsSync(installTarget.settingsPath);
   if (settingsExisted) {
     updateExistingSettingsDefaultProfile(installTarget.settingsPath, selectedProfile.id, fs.readFileSync, fs.writeFileSync);

@@ -703,6 +703,7 @@ describe('preparePiLoginLaunchPlan', () => {
         '',
       ].join('\n'),
     );
+    expect(existsSync(join(homeDirectory, '.outfitter', 'profiles'))).toBe(true);
     expect(context.notifications.join('\n')).toContain("applies on the next 'outfitter' launch");
   });
 

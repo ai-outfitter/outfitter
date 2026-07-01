@@ -1,8 +1,8 @@
 /* eslint-disable max-lines */
 // Provides the command object for launching selected profiles.
-import { existsSync } from 'node:fs';
+import { existsSync, mkdirSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 
 import type { ChildProcess } from 'node:child_process';
 import chalk from 'chalk';
@@ -474,6 +474,7 @@ const loadResolvedProfile = (input: RunCommandInput): ResolvedRunProfile => {
     throw new Error(`Cannot run with invalid settings: ${loadedSettings.issues.map(formatSettingsIssue).join('; ')}`);
   }
 
+  ensureConventionalLocalProfileSourceDirectories(loadedSettings.files);
   const loadedProfiles = loadProfileSources(input.homeDirectory, loadedSettings.settings.profileSources!);
 
   if (loadedProfiles.issues.length > 0) {
@@ -508,6 +509,21 @@ const loadResolvedProfile = (input: RunCommandInput): ResolvedRunProfile => {
     settingsPaths: loadedSettings.files.map((file) => file.location.path),
   };
 };
+
+const ensureConventionalLocalProfileSourceDirectories = (files: readonly ResolvedRunProfileSettingsFile[]): void => {
+  for (const file of files) {
+    const settingsProfilesPath = join(dirname(file.location.path), 'profiles');
+    const hasConventionalLocalSource = file.settings.profileSources?.some(
+      (source) => source.uri === undefined && source.github === undefined && source.path === settingsProfilesPath,
+    );
+
+    if (hasConventionalLocalSource === true) {
+      mkdirSync(settingsProfilesPath, { recursive: true });
+    }
+  }
+};
+
+type ResolvedRunProfileSettingsFile = ReturnType<typeof loadSettingsWithCachedRemoteSettings>['files'][number];
 
 const withSystemPromptExportPath = (launchPlan: AgentLaunchPlan, outputPath: string | undefined): AgentLaunchPlan =>
   outputPath === undefined
