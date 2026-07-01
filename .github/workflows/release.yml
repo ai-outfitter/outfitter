@@ -45,3 +45,65 @@ jobs:
 
       - name: Publish package to npm
         run: npm publish --workspace @ai-outfitter/outfitter --access public --provenance
+
+  # Builds the repository Dockerfile and publishes it to GHCR on every published
+  # release, tagged with the release version and `latest`. The image is linux/amd64
+  # only for now; multi-arch (adding linux/arm64 via QEMU or native arm runners) is a
+  # follow-up once release-path build time has been evaluated.
+  publish-docker:
+    name: Publish Docker image to GHCR
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Sync release version
+        run: node scripts/sync-release-version.mjs "${GITHUB_REF_NAME}"
+
+      - name: Resolve image name
+        run: echo "IMAGE=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/outfitter" >> "$GITHUB_ENV"
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Resolve image metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=raw,value=latest
+
+      - name: Build image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          load: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+
+      # Runs the shipped entrypoint (including its UID remap for the mounted workdir
+      # owner) and verifies the CLI reports the release version before pushing.
+      - name: Smoke test image
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          output="$(docker run --rm "$IMAGE:$version" --version)"
+          if [ "$output" != "$version" ]; then
+            echo "Expected outfitter --version to print '$version' but got '$output'." >&2
+            exit 1
+          fi
+
+      - name: Push image
+        run: docker image push --all-tags "$IMAGE"
