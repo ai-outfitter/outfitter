@@ -11,8 +11,8 @@ WORKDIR /opt/outfitter
 COPY package.json package-lock.json ./
 COPY code/cli/package.json ./code/cli/package.json
 COPY code/pi-extension/package.json ./code/pi-extension/package.json
-COPY doc_site/package.json doc_site/package-lock.json ./doc_site/
 RUN npm pkg delete scripts.prepare \
+  && npm pkg delete scripts.prepare --workspace @ai-outfitter/outfitter \
   && npm ci
 
 COPY code/cli/package.json code/cli/tsconfig.json code/cli/tsconfig.build.json ./code/cli/

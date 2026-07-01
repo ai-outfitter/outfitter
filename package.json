@@ -5,17 +5,18 @@
   "description": "Workspace root for Outfitter packages.",
   "type": "module",
   "workspaces": [
-    "code/*"
+    "code/cli",
+    "code/pi-extension"
   ],
   "scripts": {
     "build": "npm run build --workspace @ai-outfitter/outfitter",
     "prepare": "npm run build --workspace @ai-outfitter/outfitter",
     "dev_install": "npm run dev_install --workspace @ai-outfitter/outfitter",
-    "docs:dev": "npm --prefix doc_site run dev --",
-    "docs:build": "npm --prefix doc_site run build",
-    "docs:start": "npm --prefix doc_site run start --",
-    "docs:lint": "eslint doc_site --config doc_site/eslint.config.js",
-    "docs:ci": "npm --prefix doc_site ci && npm run docs:lint && npm run docs:build",
+    "docs:dev": "npm --prefix code/doc_site run dev --",
+    "docs:build": "npm --prefix code/doc_site run build",
+    "docs:start": "npm --prefix code/doc_site run start --",
+    "docs:lint": "npm --prefix code/doc_site run lint",
+    "docs:ci": "npm --prefix code/doc_site ci && npm run docs:lint && npm run docs:build",
     "typecheck": "npm run typecheck --workspace @ai-outfitter/outfitter",
     "lint": "npm run lint --workspace @ai-outfitter/outfitter",
     "lint:fix": "npm run lint:fix --workspace @ai-outfitter/outfitter",

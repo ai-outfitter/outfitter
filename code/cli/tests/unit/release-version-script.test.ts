@@ -36,7 +36,7 @@ const createTemporaryWorkspaceRoot = (): string => {
     name: '@ai-outfitter/root',
     version: '0.1.0',
     private: true,
-    workspaces: ['code/*'],
+    workspaces: ['code/cli', 'code/pi-extension'],
   });
   writeJson(join(root, 'code/cli/package.json'), {
     name: '@ai-outfitter/outfitter',

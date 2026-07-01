@@ -27,7 +27,7 @@ export default async function RootLayout({ children }: { children: ReactNode }):
         <Layout
           navbar={navbar}
           pageMap={await getPageMap('/')}
-          docsRepositoryBase="https://github.com/ai-outfitter/outfitter/tree/main/doc_site/app"
+          docsRepositoryBase="https://github.com/ai-outfitter/outfitter/tree/main/code/doc_site/app"
           footer={footer}
           nextThemes={{ forcedTheme: 'dark' }}
           sidebar={{ defaultMenuCollapseLevel: 1 }}

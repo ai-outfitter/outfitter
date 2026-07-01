@@ -21,7 +21,6 @@ Outfitter is organized around a private npm workspace root, clear TypeScript pac
 │   ├── documentation/                 # user-facing Outfitter docs
 │   ├── requirements/                  # formal OUTFITTER requirement documents
 │   └── specs/                         # detailed supporting specs
-├── doc_site/                          # Nextra/Next.js documentation website with separate npm lockfile
 ├── .prettierignore                    # Prettier ignore rules
 ├── .prettierrc.json                   # Prettier formatting configuration
 ├── .snapperrc.toml                    # Snapper Markdown formatting configuration
@@ -50,6 +49,7 @@ Outfitter is organized around a private npm workspace root, clear TypeScript pac
 │   │   ├── tsconfig.json              # strict package typecheck configuration
 │   │   ├── tsconfig.build.json        # production emission from code/cli/src/ to code/cli/dist/
 │   │   └── vitest.config.ts           # package test and coverage configuration
+│   ├── doc_site/                      # Nextra/Next.js documentation website with separate npm lockfile
 │   ├── enterprise/                    # enterprise/business licensed code; see code/enterprise/LICENSE
 │   └── pi-extension/                  # private workspace boundary for future Pi extension source/assets
 ├── bin/                               # local executable development helpers
