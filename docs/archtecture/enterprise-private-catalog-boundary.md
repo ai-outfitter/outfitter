@@ -11,9 +11,9 @@ This document defines the enterprise/private profile catalog boundary for future
 
 ## Enterprise-only scope
 
-Private profile catalog repository support is an enterprise capability boundary. Any future private-catalog enablement code must live under `code/enterprise/**` unless a later architecture decision deliberately promotes a shared primitive into `src/**`.
+Private profile catalog repository support is an enterprise capability boundary. Any future private-catalog enablement code must live under `code/enterprise/**` unless a later architecture decision deliberately promotes a shared primitive into `code/cli/src/**`.
 
-The boundary may include enterprise-only types, adapters, policy descriptions, and tests that do not alter public runtime behavior. Public CLI commands in `src/**` must not import enterprise private-catalog modules unless a future feature explicitly changes the product boundary and updates the relevant docs, requirements, and tests.
+The boundary may include enterprise-only types, adapters, policy descriptions, and tests that do not alter public runtime behavior. Public CLI commands in `code/cli/src/**` must not import enterprise private-catalog modules unless a future feature explicitly changes the product boundary and updates the relevant docs, requirements, and tests.
 
 ## Credential policy
 
