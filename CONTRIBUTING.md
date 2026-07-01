@@ -15,7 +15,7 @@ For normal usage, install Outfitter from npm with `npm install -g @ai-outfitter/
 | Path                                            | Use it for                                               |
 | ----------------------------------------------- | -------------------------------------------------------- |
 | [Documentation](./docs/documentation/README.md) | User-facing setup, profile, and profile-repository docs. |
-| [Architecture](./docs/archtecture/README.md)    | Architecture, runtime design, and internal conventions.  |
+| [Architecture](./docs/architecture/README.md)   | Architecture, runtime design, and internal conventions.  |
 | [Requirements](./docs/requirements/)            | Formal OFTR requirements.                                |
 | [CLI package](./code/cli/)                      | Published CLI package source, tests, skills, and config. |
 | [Pi extension](./code/pi-extension/)            | Future Pi extension package boundary.                    |

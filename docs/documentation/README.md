@@ -12,6 +12,6 @@ User-facing Outfitter documentation.
 
 ## Use cases
 
-- [Organization profile catalog](./usecases/orginization-profile-catalog.md) — Publish shared team roles so new users can start with organization-approved defaults.
+- [Organization profile catalog](./usecases/organization-profile-catalog.md) — Publish shared team roles so new users can start with organization-approved defaults.
 - [Engineering profile catalog](./usecases/engineering.md) — Package coding, platform, and review profiles for repeatable engineering workflows.
 - [Persona reviews](./usecases/persona-reviews.md) — Create customer personas to get feedback on ideas, documentation, and designs.

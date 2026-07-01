@@ -17,7 +17,7 @@ Outfitter is organized around a private npm workspace root, clear TypeScript pac
 ├── .github/                           # GitHub automation configuration
 │   └── workflows/                     # GitHub Actions workflows and local .deepreview rules
 ├── docs/                              # documentation, architecture, requirements, plans, and specs
-│   ├── archtecture/                   # architecture and internal design docs
+│   ├── architecture/                   # architecture and internal design docs
 │   ├── documentation/                 # user-facing Outfitter docs
 │   ├── requirements/                  # formal OUTFITTER requirement documents
 │   └── specs/                         # detailed supporting specs
