@@ -1,5 +1,6 @@
 // Defines composite profile state persistence declarations, strategies, and write detection helpers.
 import {
+  copyFileSync,
   existsSync,
   lstatSync,
   mkdirSync,
@@ -38,16 +39,22 @@ export interface CompositeProfileStateWriteIssue {
   readonly unknown: boolean;
 }
 
+export interface StateMaterializationDependencies {
+  readonly symlink?: typeof symlinkSync;
+  readonly warn?: (message: string) => void;
+}
+
 export const materializeCompositeProfileStatePath = (
   rootDirectory: string,
   statePath: CompositeProfileStatePath,
+  dependencies: StateMaterializationDependencies = {},
 ): void => {
   if (statePath.strategy === 'symlink') {
     if (statePath.sourcePath === undefined) {
       throw new Error(`State path '${statePath.relativePath}' uses symlink without a source path.`);
     }
 
-    materializeSymlink(rootDirectory, statePath.relativePath, statePath.sourcePath, statePath.directory);
+    materializeSymlink(rootDirectory, statePath.relativePath, statePath.sourcePath, statePath.directory, dependencies);
     return;
   }
 
@@ -201,6 +208,7 @@ const materializeSymlink = (
   relativePath: string,
   sourcePath: string,
   directory: boolean,
+  dependencies: StateMaterializationDependencies,
 ): void => {
   const outputPath = resolveCompositeProfileStateOutputPath(rootDirectory, relativePath);
   mkdirSync(dirname(outputPath), { recursive: true });
@@ -210,8 +218,46 @@ const materializeSymlink = (
   }
 
   ensureStateSourcePath(sourcePath, directory);
-  symlinkSync(sourcePath, outputPath, directory ? 'dir' : 'file');
+  const symlink = dependencies.symlink ?? symlinkSync;
+
+  try {
+    symlink(sourcePath, outputPath, directory ? 'dir' : 'file');
+  } catch (error) {
+    if (!isSymlinkPermissionError(error)) {
+      throw error;
+    }
+
+    materializeSymlinkFallback(symlink, relativePath, sourcePath, outputPath, directory, dependencies.warn);
+  }
 };
+
+// Windows without Developer Mode (and some filesystems) rejects symlink creation with
+// EPERM. Directories fall back to junctions, which need no privilege but require an
+// absolute target; files fall back to a one-way copy with a warning because agent writes
+// to the copy cannot persist back to the source.
+const materializeSymlinkFallback = (
+  symlink: typeof symlinkSync,
+  relativePath: string,
+  sourcePath: string,
+  outputPath: string,
+  directory: boolean,
+  warn: ((message: string) => void) | undefined,
+): void => {
+  if (directory) {
+    symlink(resolve(sourcePath), outputPath, 'junction');
+    return;
+  }
+
+  copyFileSync(sourcePath, outputPath);
+  /* v8 ignore next -- console fallback is direct CLI behavior; tests inject a warn writer. */
+  (warn ?? console.error)(
+    `State path '${relativePath}' could not be symlinked (symlinks are unavailable on this platform); ` +
+      `copied '${sourcePath}' instead, so writes to it will not persist back.`,
+  );
+};
+
+const isSymlinkPermissionError = (error: unknown): boolean =>
+  isNodeError(error) && (error.code === 'EPERM' || error.code === 'EACCES');
 
 const pathLexicallyExists = (path: string): boolean => {
   try {

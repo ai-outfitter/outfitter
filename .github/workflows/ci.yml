@@ -7,9 +7,25 @@ on:
       - main
 
 jobs:
+  # The ubuntu leg runs the full check-ci gate (prettier, lint, coverage, docs); the
+  # macos and windows legs run the test suite to enforce cross-platform compatibility.
+  # Windows is experimental: the runtime is symlink-centric and Windows support has not
+  # been verified end to end, so its leg reports failures without blocking the suite.
   check:
-    name: Check
-    runs-on: ubuntu-latest
+    name: Check (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    continue-on-error: ${{ matrix.experimental }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            experimental: false
+          - os: macos-latest
+            experimental: false
+          - os: windows-latest
+            experimental: true
 
     steps:
       - name: Checkout
@@ -25,4 +41,31 @@ jobs:
         run: npm ci
 
       - name: Run CI checks
+        if: matrix.os == 'ubuntu-latest'
         run: npm run check-ci
+
+      - name: Run test suite
+        if: matrix.os != 'ubuntu-latest'
+        run: npm test
+
+  # Exercises the shipped artifact (npm pack → global install → run the bin) so
+  # packaging regressions fail CI even when all in-process tests pass.
+  packaged-smoke:
+    name: Packaged E2E smoke
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22.19.0'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run packaged E2E smoke test
+        run: bash scripts/e2e-smoke.sh
