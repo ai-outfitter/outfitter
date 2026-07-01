@@ -43,7 +43,7 @@ Setup-source onboarding can discover profiles from the starter/cache layout, whi
 
 ### Plain setup bypasses ASCII welcome
 
-`src/cli/commands/WelcomeCommand.ts` owns `writeWelcomeIntro(...)`, including the required ASCII welcome. Setup-source onboarding uses it. Plain interactive setup still prints a short hardcoded two-line intro in `selectDefaultProfileIfInteractive(...)` and loses the ASCII requirement.
+`src/cli/commands/WelcomeIntro.ts` owns `writeWelcomeIntro(...)`, including the required ASCII welcome. Setup-source onboarding uses it. Plain interactive setup still prints a short hardcoded two-line intro in `selectDefaultProfileIfInteractive(...)` and loses the ASCII requirement.
 
 ### Setup contains hardcoded prompt choices
 
@@ -143,7 +143,7 @@ Acceptance criteria:
 
 ### Phase 4 — Centralize the ASCII welcome
 
-Use `writeWelcomeIntro(...)` from `WelcomeCommand.ts` for every interactive setup prompt path.
+Use `writeWelcomeIntro(...)` from `WelcomeIntro.ts` for every interactive setup prompt path.
 
 Changes:
 

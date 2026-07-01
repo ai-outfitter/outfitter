@@ -703,7 +703,9 @@ describe('preparePiLoginLaunchPlan', () => {
         '',
       ].join('\n'),
     );
-    expect(context.notifications.join('\n')).toContain("applies on the next 'outfitter' launch");
+    expect(context.notifications.join('\n')).toContain('Outfitter will restart now to load the selected profile.');
+    expect(context.editorText).toBe('/restart');
+    expect(context.submittedInputs).toEqual(['\r']);
   });
 
   it('defaults the profile picker to founder when founder is available', async () => {
@@ -734,6 +736,7 @@ describe('preparePiLoginLaunchPlan', () => {
     expect(readFileSync(join(homeDirectory, '.outfitter', 'settings.yml'), 'utf8')).toContain(
       'default_profile: founder',
     );
+    expect(context.editorText).toBe('/restart');
   });
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-010.2).
@@ -766,6 +769,7 @@ describe('preparePiLoginLaunchPlan', () => {
     expect(readFileSync(join(homeDirectory, '.outfitter', 'settings.yml'), 'utf8')).toContain(
       'default_profile: founder',
     );
+    expect(context.editorText).toBe('/restart');
   });
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-010.2).
