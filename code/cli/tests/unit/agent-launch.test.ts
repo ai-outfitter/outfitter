@@ -21,7 +21,21 @@ describe('agent launch', () => {
     expect(resolved.command).toBe(process.execPath);
     expect(resolved.args[0]).toMatch(/[\\/]@earendil-works[\\/]pi-coding-agent[\\/].*cli\.js$/u);
     expect(resolved.args.slice(1)).toEqual(piPlan.args);
-    expect(resolved.env).toEqual(piPlan.env);
+    expect(resolved.env).toEqual({ ...piPlan.env, PI_SKIP_VERSION_CHECK: '1' });
+  });
+
+  it('suppresses the bundled pi self-update notice while letting plans override the setting', () => {
+    const resolved = resolveAgentLaunchExecutable(createPiPlan());
+
+    expect(resolved.env.PI_SKIP_VERSION_CHECK).toBe('1');
+
+    const overriddenPlan: AgentLaunchPlan = {
+      command: 'pi',
+      args: [],
+      env: { PI_SKIP_VERSION_CHECK: '' },
+    };
+
+    expect(resolveAgentLaunchExecutable(overriddenPlan).env.PI_SKIP_VERSION_CHECK).toBe('');
   });
 
   it('leaves non-pi launch plans untouched so they resolve from PATH', () => {

@@ -47,6 +47,11 @@ export const resolveAgentLaunchExecutable = (launchPlan: AgentLaunchPlan): Agent
     ...launchPlan,
     command: bundledPiLaunch.command,
     args: [...bundledPiLaunch.prefixArgs, ...launchPlan.args],
+    // The bundled pi is version-pinned by Outfitter's own dependency, so pi's startup self-update
+    // notice ("Update Available … run pi update") is misleading here: `pi update` cannot update the
+    // bundled copy, and right after updating Outfitter the pinned pi can still lag pi.dev's latest.
+    // Skip pi's self-version check for bundled launches; profiles may override via environment.
+    env: { PI_SKIP_VERSION_CHECK: '1', ...launchPlan.env },
   };
 };
 
