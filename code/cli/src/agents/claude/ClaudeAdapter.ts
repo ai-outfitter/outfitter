@@ -1,6 +1,7 @@
 // Provides the Claude Code adapter for composite profile generation and native launch plans.
-import { homedir } from 'node:os';
 import { join } from 'node:path';
+
+import { safeHomedir } from '../../fs/SafeHomedir.js';
 
 import type { AgentAdapter, AgentLaunchContext, AgentLaunchPlan, AgentCompositeProfilePlan } from '../AgentAdapter.js';
 import {
@@ -167,7 +168,7 @@ const resolveClaudeStateSourcePath = (
 
   return join(
     /* v8 ignore next -- run command always passes homeDirectory; the os fallback is defensive. */
-    homeDirectory ?? homedir(),
+    homeDirectory ?? safeHomedir(),
     '.claude',
     normalizedRelativePath,
   );
