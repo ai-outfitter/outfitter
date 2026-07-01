@@ -60,6 +60,7 @@ Pi is the default and primary supported adapter; Claude Code is also supported t
 5. The Claude Code adapter SHOULD support `--model`, `--effort`, `--system-prompt`, `--append-system-prompt`, and `--plugin-dir` where native Claude Code flags exist.
 6. The Claude Code adapter SHOULD support `controls.session_directory` and `controls.claude.session_directory` by routing Claude `projects/` session state through Outfitter state persistence.
 7. The Claude Code adapter MUST return unsupported-control warnings for requested generic or `controls.claude` controls that it cannot translate.
+8. The Claude Code adapter MUST merge `.mcp.json` files from contributing `cli_specific/claude/` profile folders into the composite profile with the same fragment precedence and identity rules as the pi adapter, and MUST load the merged config through Claude Code's `--mcp-config` flag.
 
 ### OFTR-006.6: Pi Settings Reconciliation
 

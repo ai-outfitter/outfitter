@@ -1,0 +1,38 @@
+{
+  "profileId": "resource-review",
+  "agentId": "claude",
+  "launchCommand": "claude",
+  "launchArgs": ["--model", "bundled-review-model", "--mcp-config", "<composite-profile>/.mcp.json"],
+  "launchEnv": {
+    "CLAUDE_CONFIG_DIR": "<composite-profile>",
+    "RESOURCE_BASE": "enabled",
+    "SELECTED_PROFILE": "resource-review",
+    "SHARED_LAYER": "resource-review"
+  },
+  "generatedProfile": {
+    "id": "resource-review",
+    "label": "Bundled Resource Review",
+    "controls": {
+      "environment": {
+        "RESOURCE_BASE": "enabled",
+        "SHARED_LAYER": "resource-review",
+        "SELECTED_PROFILE": "resource-review"
+      },
+      "model": "bundled-review-model"
+    }
+  },
+  "mcpConfig": {
+    "mcpServers": {
+      "shared-tracker": {
+        "type": "http",
+        "url": "https://tracker.example.com/mcp"
+      },
+      "docs-search": {
+        "command": "docs-search-command"
+      },
+      "review-db": {
+        "command": "review-db-command"
+      }
+    }
+  }
+}

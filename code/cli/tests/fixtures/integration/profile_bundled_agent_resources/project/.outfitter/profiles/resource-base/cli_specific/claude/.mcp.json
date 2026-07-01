@@ -1,0 +1,6 @@
+{
+  "mcpServers": {
+    "shared-tracker": { "command": "base-tracker-command", "args": ["--base"] },
+    "docs-search": { "command": "docs-search-command" }
+  }
+}
