@@ -25,7 +25,9 @@ export const metadata: Metadata = {
 };
 
 const navbar = <Navbar logo={<strong>Outfitter</strong>} projectLink="https://github.com/ai-outfitter/outfitter" />;
-const footer = <Footer>BUSL-1.1 {new Date().getFullYear()} © Outfitter.</Footer>;
+const footer = (
+  <Footer>MIT {new Date().getFullYear()} © Outfitter. Enterprise components are licensed separately.</Footer>
+);
 
 export default async function RootLayout({ children }: { children: ReactNode }): Promise<ReactNode> {
   return (
