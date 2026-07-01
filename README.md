@@ -37,15 +37,19 @@ controls:
     - repo_file: docs/architecture.md
 ```
 
-## Repository map
+## Documentation
 
-| Path                                            | Use it for                                               |
-| ----------------------------------------------- | -------------------------------------------------------- |
-| [Documentation](./docs/documentation/README.md) | User-facing setup, profile, and profile-repository docs. |
-| [Architecture](./docs/archtecture/README.md)    | Architecture, runtime design, and internal conventions.  |
-| [Requirements](./docs/requirements/)            | Formal OFTR requirements.                                |
-| [CLI package](./code/cli/)                      | Published CLI package source, tests, skills, and config. |
-| [Pi extension](./code/pi-extension/)            | Future Pi extension package boundary.                    |
-| [Contributing](./CONTRIBUTING.md)               | Local development and release workflow.                  |
-| [Changelog](./CHANGELOG.md)                     | Release history.                                         |
-| [License](./LICENSE.md)                         | License terms.                                           |
+- [Getting started](./docs/documentation/getting-started.md)
+- [Profiles](./docs/documentation/profiles.md)
+- [Profile repositories](./docs/documentation/profile-repository.md)
+- [First-time CLI agent users](./docs/documentation/first-time-cli-agent-users.md)
+- [Switching to Outfitter](./docs/documentation/switching-to-outfitter.md)
+- [Documentation index](./docs/documentation/README.md)
+
+Use cases:
+
+- [Organization profile catalog](./docs/documentation/usecases/orginization-profile-catalog.md) — Publish shared team roles so new users can start with organization-approved defaults.
+- [Engineering profile catalog](./docs/documentation/usecases/engineering.md) — Package coding, platform, and review profiles for repeatable engineering workflows.
+- [Persona reviews](./docs/documentation/usecases/persona-reviews.md) — Create customer personas to get feedback on ideas, documentation, and designs.
+
+For local development, repository structure, and release workflow details, see [Contributing](./CONTRIBUTING.md).
