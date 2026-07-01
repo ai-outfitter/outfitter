@@ -26,15 +26,9 @@ import {
   loadSettingsWithCachedRemoteSettings,
 } from '../../settings/SettingsLoader.js';
 import type { CommandObject } from './CommandObject.js';
-import {
-  persistFirstRunWelcomeProfile,
-  updateSettingsDefaultProfile,
-  type PersistedFirstRunWelcomeProfile,
-} from './FirstRunWelcomeProfile.js';
 import type { SyncCommandDependencies, SyncCommandResult } from './SyncCommand.js';
 import { executeSyncCommand } from './SyncCommand.js';
-import { executeWelcomeCommand, writeWelcomeIntro } from './WelcomeCommand.js';
-import type { WelcomeCommandDependencies, WelcomeCommandResult } from './WelcomeCommand.js';
+import { writeWelcomeIntro } from './WelcomeIntro.js';
 
 export interface SetupCommandInput {
   readonly homeDirectory: string;
@@ -49,7 +43,6 @@ export interface SetupCommandResult {
   readonly copiedStarterProfileFiles: number;
   readonly createdDefaultProfile: boolean;
   readonly syncResult: SyncCommandResult;
-  readonly welcomeResult?: WelcomeCommandResult;
   readonly messages: readonly string[];
 }
 
@@ -71,32 +64,27 @@ export interface SetupPiOnboardingLaunchInput {
 
 export type SetupSourcePostImportAction = 'start' | 'exit';
 
-export type SetupCommandDependencies = SyncCommandDependencies &
-  WelcomeCommandDependencies & {
-    readonly setupSourceSynchronizer?: SetupSourceSynchronizer;
-    readonly selectDefaultProfile?: (
-      profiles: readonly SetupProfileChoice[],
-      currentDefault: string,
-    ) => Promise<string>;
-    readonly selectSetupSourceImportTarget?: (
-      choices: readonly SetupSourceImportTargetChoice[],
-      defaultTarget: SetupSourceImportTarget,
-    ) => Promise<SetupSourceImportTarget>;
-    readonly selectSetupSourceLaunchAction?: (
-      profileId: string,
-      launchTarget: SetupSourcePostImportLaunchTarget,
-    ) => Promise<SetupSourcePostImportAction>;
-    readonly selectSetupSourceImportMode?: (
-      choices: readonly SetupSourceImportModeChoice[],
-      defaultMode: SetupSourceImportMode,
-    ) => Promise<SetupSourceImportMode>;
-    readonly launchSetupSourceProfile?: (input: SetupSourceLaunchInput) => Promise<void>;
-    readonly launchPiOnboarding?: (input: SetupPiOnboardingLaunchInput) => Promise<{ readonly exitCode: number }>;
-    readonly runWelcome?: (
-      input: SetupCommandInput,
-      dependencies: SetupCommandDependencies,
-    ) => Promise<WelcomeCommandResult | undefined>;
-  };
+export type SetupCommandDependencies = SyncCommandDependencies & {
+  readonly input?: { readonly isTTY?: boolean } & NodeJS.ReadableStream;
+  readonly output?: { readonly isTTY?: boolean } & NodeJS.WritableStream;
+  readonly interactive?: boolean;
+  readonly setupSourceSynchronizer?: SetupSourceSynchronizer;
+  readonly selectDefaultProfile?: (profiles: readonly SetupProfileChoice[], currentDefault: string) => Promise<string>;
+  readonly selectSetupSourceImportTarget?: (
+    choices: readonly SetupSourceImportTargetChoice[],
+    defaultTarget: SetupSourceImportTarget,
+  ) => Promise<SetupSourceImportTarget>;
+  readonly selectSetupSourceLaunchAction?: (
+    profileId: string,
+    launchTarget: SetupSourcePostImportLaunchTarget,
+  ) => Promise<SetupSourcePostImportAction>;
+  readonly selectSetupSourceImportMode?: (
+    choices: readonly SetupSourceImportModeChoice[],
+    defaultMode: SetupSourceImportMode,
+  ) => Promise<SetupSourceImportMode>;
+  readonly launchSetupSourceProfile?: (input: SetupSourceLaunchInput) => Promise<void>;
+  readonly launchPiOnboarding?: (input: SetupPiOnboardingLaunchInput) => Promise<{ readonly exitCode: number }>;
+};
 
 export interface SetupProfileChoice {
   readonly id: string;
@@ -153,7 +141,7 @@ interface StarterLayout {
   readonly sourceOutfitterPath?: string;
 }
 
-/* eslint-disable complexity -- setup orchestration coordinates settings, sync, prompts, and welcome persistence. */
+/* eslint-disable complexity -- setup orchestration coordinates settings, sync, and prompts. */
 export const executeSetupCommand = async (
   input: SetupCommandInput,
   dependencies: SetupCommandDependencies = {},
@@ -203,9 +191,7 @@ export const executeSetupCommand = async (
   const selectedDefaultProfileId = shouldSkipInitialDefaultProfilePrompt(initialSettingsMissing, dependencies)
     ? defaultProfileId
     : await selectDefaultProfileIfInteractive(input, settingsPath, defaultProfileId, dependencies, starterLayout);
-  const welcomeResult = await runWelcomeAfterInteractiveSetup(input, dependencies);
-  const welcomeProfile = persistWelcomeProfileForSetup(input, settingsPath, welcomeResult);
-  const finalDefaultProfile = prepareFinalDefaultProfile(input.homeDirectory, selectedDefaultProfileId, welcomeProfile);
+  const finalDefaultProfile = prepareFinalDefaultProfile(input.homeDirectory, selectedDefaultProfileId);
 
   return {
     settingsPath,
@@ -214,7 +200,6 @@ export const executeSetupCommand = async (
     copiedStarterProfileFiles,
     createdDefaultProfile: finalDefaultProfile.created,
     syncResult,
-    welcomeResult,
     messages: buildSetupMessages({
       input,
       starterLayout,
@@ -225,7 +210,6 @@ export const executeSetupCommand = async (
       defaultProfilePath: finalDefaultProfile.path,
       createdDefaultProfile: finalDefaultProfile.created,
       syncResult,
-      welcomeProfileMessages: welcomeProfile?.messages ?? [],
       runExampleMessages: input.setupSourceUri === undefined ? [] : [formatRunProfileExample(finalDefaultProfile.id)],
     }),
   };
@@ -340,7 +324,7 @@ const executeInteractiveSetupSourceCommand = async ({
       defaultProfilePath,
       createdDefaultProfile,
       syncResult,
-      welcomeProfileMessages:
+      profileStatusMessages:
         appliedImport.selectedProfileConflictMessage === undefined
           ? []
           : [appliedImport.selectedProfileConflictMessage],
@@ -363,15 +347,10 @@ interface FinalDefaultProfile {
   readonly created: boolean;
 }
 
-const prepareFinalDefaultProfile = (
-  homeDirectory: string,
-  selectedDefaultProfileId: string,
-  welcomeProfile: PersistedFirstRunWelcomeProfile | undefined,
-): FinalDefaultProfile => {
-  const finalDefaultProfileId = welcomeProfile?.profileId ?? selectedDefaultProfileId;
+const prepareFinalDefaultProfile = (homeDirectory: string, selectedDefaultProfileId: string): FinalDefaultProfile => {
+  const finalDefaultProfileId = selectedDefaultProfileId;
   const finalDefaultProfilePath = join(homeDirectory, '.outfitter', 'profiles', finalDefaultProfileId, 'profile.yml');
-  const createdDefaultProfile =
-    welcomeProfile?.createdProfile ?? createDefaultProfileIfMissing(finalDefaultProfilePath, finalDefaultProfileId);
+  const createdDefaultProfile = createDefaultProfileIfMissing(finalDefaultProfilePath, finalDefaultProfileId);
 
   return { id: finalDefaultProfileId, path: finalDefaultProfilePath, created: createdDefaultProfile };
 };
@@ -388,48 +367,63 @@ interface SetupMessageInput {
   readonly defaultProfilePath: string;
   readonly createdDefaultProfile: boolean;
   readonly syncResult: SyncCommandResult;
-  readonly welcomeProfileMessages: readonly string[];
+  readonly profileStatusMessages?: readonly string[];
   readonly runExampleMessages: readonly string[];
 }
 
 const buildSetupMessages = (input: SetupMessageInput): readonly string[] => {
-  const messages: string[] = [];
-
-  if (input.input.setupSourceUri !== undefined && input.starterLayout !== undefined) {
-    messages.push(
-      `Prepared setup source ${redactProfileSourceUriCredentials(input.input.setupSourceUri)} at ${input.starterLayout.cachePath}.`,
-    );
-  }
-
   const settingsDescription = input.settingsDescription ?? 'user';
-  const profileTargetPath = input.profileTargetPath ?? join(input.input.homeDirectory, '.outfitter', 'profiles');
 
-  messages.push(
-    input.createdSettings
-      ? `Created ${settingsDescription} settings at ${input.settingsPath}.`
-      : `${capitalize(settingsDescription)} settings already exist at ${input.settingsPath}; left unchanged.`,
-  );
-
-  if (input.starterLayout?.profilesPath !== undefined) {
-    messages.push(`Copied ${input.copiedStarterProfileFiles} starter profile file(s) into ${profileTargetPath}.`);
-  }
-
-  if (shouldReportDefaultProfileStatus(input)) {
-    messages.push(
-      input.createdDefaultProfile
-        ? `Created default user profile at ${input.defaultProfilePath}.`
-        : `Default user profile at ${input.defaultProfilePath} already exists; left unchanged.`,
-    );
-  }
-
-  messages.push(
+  return [
+    ...formatPreparedSetupSourceMessages(input),
+    formatSettingsStatusMessage(input, settingsDescription),
+    ...formatStarterProfileCopyMessages(input),
+    ...formatDefaultProfileStatusMessages(input),
+    ...(input.profileStatusMessages ?? []),
     `Selected default profile '${input.defaultProfileId}'.`,
-    ...input.welcomeProfileMessages,
     ...input.runExampleMessages,
     ...input.syncResult.messages,
-  );
+  ];
+};
 
-  return messages;
+const formatPreparedSetupSourceMessages = (input: SetupMessageInput): readonly string[] => {
+  if (input.input.setupSourceUri === undefined || input.starterLayout === undefined) {
+    return [];
+  }
+
+  return [
+    `Prepared setup source ${redactProfileSourceUriCredentials(input.input.setupSourceUri)} at ${input.starterLayout.cachePath}.`,
+  ];
+};
+
+const formatSettingsStatusMessage = (input: SetupMessageInput, settingsDescription: string): string => {
+  if (input.createdSettings) {
+    return `Created ${settingsDescription} settings at ${input.settingsPath}.`;
+  }
+
+  return `${capitalize(settingsDescription)} settings already exist at ${input.settingsPath}; left unchanged.`;
+};
+
+const formatStarterProfileCopyMessages = (input: SetupMessageInput): readonly string[] => {
+  if (input.starterLayout?.profilesPath === undefined) {
+    return [];
+  }
+
+  const profileTargetPath = input.profileTargetPath ?? join(input.input.homeDirectory, '.outfitter', 'profiles');
+
+  return [`Copied ${input.copiedStarterProfileFiles} starter profile file(s) into ${profileTargetPath}.`];
+};
+
+const formatDefaultProfileStatusMessages = (input: SetupMessageInput): readonly string[] => {
+  if (!shouldReportDefaultProfileStatus(input)) {
+    return [];
+  }
+
+  return [
+    input.createdDefaultProfile
+      ? `Created default user profile at ${input.defaultProfilePath}.`
+      : `Default user profile at ${input.defaultProfilePath} already exists; left unchanged.`,
+  ];
 };
 
 const shouldReportDefaultProfileStatus = (input: SetupMessageInput): boolean => {
@@ -741,6 +735,15 @@ export const createDefaultSettingsContent = (defaultProfileId = 'engineer'): str
     '',
   ].join('\n');
 
+export const updateSettingsDefaultProfile = (settingsPath: string, profileId: string): void => {
+  const content = readFileSync(settingsPath, 'utf8');
+  const updatedContent = /^default_profile:.*$/gmu.test(content)
+    ? content.replace(/^default_profile:.*$/gmu, `default_profile: ${profileId}`)
+    : `${content.replace(/\s*$/u, '\n')}default_profile: ${profileId}\n`;
+
+  writeFileSync(settingsPath, updatedContent);
+};
+
 const createInitialSettingsIfMissing = (settingsPath: string, starterSettingsPath?: string): boolean => {
   if (existsSync(settingsPath)) {
     return false;
@@ -1047,58 +1050,6 @@ const createDefaultProfileIfMissing = (profilePath: string, profileId: string): 
   mkdirSync(dirname(profilePath), { recursive: true });
   writeFileSync(profilePath, `id: ${profileId}\nlabel: Default\ncontrols: {}\n`);
   return true;
-};
-
-const persistWelcomeProfileForSetup = (
-  input: SetupCommandInput,
-  settingsPath: string,
-  welcomeResult: WelcomeCommandResult | undefined,
-): PersistedFirstRunWelcomeProfile | undefined =>
-  persistFirstRunWelcomeProfile(input.homeDirectory, settingsPath, welcomeResult, {
-    sourceProfileDirectory: findWelcomeSourceProfileDirectory(input, welcomeResult?.selectedRole?.id),
-  });
-
-const findWelcomeSourceProfileDirectory = (
-  input: SetupCommandInput,
-  profileId: string | undefined,
-): string | undefined => {
-  if (profileId === undefined) {
-    return undefined;
-  }
-
-  const loadedSettings = loadSettingsWithCachedRemoteSettings(input);
-
-  /* v8 ignore next -- setup already rejected invalid settings; this fallback handles cache mutation during welcome. */
-  if (loadedSettings.issues.length > 0) {
-    return undefined;
-  }
-
-  for (const source of loadedSettings.settings.profileSources!) {
-    const materializedPath = materializeSetupProfileSource(input.homeDirectory, source);
-    const loadedProfiles = loadLocalProfileSource({ path: materializedPath, only: source.only, except: source.except });
-    const loadedProfile = loadedProfiles.profiles.find((profile) => profile.profile.id === profileId);
-
-    if (loadedProfile !== undefined) {
-      return loadedProfile.folderPath;
-    }
-  }
-
-  return undefined;
-};
-
-const runWelcomeAfterInteractiveSetup = async (
-  input: SetupCommandInput,
-  dependencies: SetupCommandDependencies,
-): Promise<WelcomeCommandResult | undefined> => {
-  if (dependencies.interactive !== true) {
-    return undefined;
-  }
-
-  if (dependencies.runWelcome !== undefined) {
-    return dependencies.runWelcome(input, dependencies);
-  }
-
-  return executeWelcomeCommand(input, dependencies);
 };
 
 const requireInteractiveTerminalIfNeeded = (dependencies: SetupCommandDependencies): void => {
@@ -1580,8 +1531,6 @@ const promptForSetupProfileWithReadline = async (
 
   return selectedProfile.id;
 };
-
-export { updateSettingsDefaultProfile };
 
 const formatSettingsIssue = (issue: {
   readonly filePath: string;

@@ -354,7 +354,7 @@ export default function outfitter(pi) {
         "Outfitter profile setup",
         "",
         "Choose the default profile from the selected catalog for future 'outfitter' launches.",
-        "The current Pi process keeps the profile it started with; this setting applies on the next launch.",
+        "Outfitter will restart after setup so Pi loads the selected profile.",
       ];
       const initialProfileId = currentDefault ?? (profiles.some((profile) => profile.id === "founder") ? "founder" : profiles[0]?.id);
       const selectedId = typeof ctx.ui.custom === "function"
@@ -375,6 +375,8 @@ export default function outfitter(pi) {
       const { confirmPrivateCatalog } = await loadPrivateCatalogOnboarding();
       return confirmPrivateCatalog(ctx, selectDescribedOption, repository);
     },
+    restartAfterProfileSetup: () =>
+      submitSlashCommand(ctx, "/restart", "Restarting Outfitter to load the selected profile."),
     notify: (message, type = "info") => ctx.ui.notify(message, type),
   });
 
@@ -406,17 +408,17 @@ export default function outfitter(pi) {
     }
 
     if (setupMode === "create") {
-      await runCreateProfileOnboarding({ existsSync, mkdirSync, readFileSync, writeFileSync, dirname, join }, paths, questionUi);
-      await openLoginIfNoModels(ctx);
+      const restarted = await runCreateProfileOnboarding({ existsSync, mkdirSync, readFileSync, writeFileSync, dirname, join }, paths, questionUi);
+      if (!restarted) await openLoginIfNoModels(ctx);
       return;
     }
 
-    await runDefaultCatalogOnboarding(
+    const restarted = await runDefaultCatalogOnboarding(
       { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync, dirname, join },
       paths,
       questionUi,
     );
-    await openLoginIfNoModels(ctx);
+    if (!restarted) await openLoginIfNoModels(ctx);
   };
 
   pi.registerCommand("outfitter", {
@@ -542,24 +544,24 @@ const runDefaultCatalogOnboarding = async (fs, paths, questionUi) => {
       "No profiles were found in the default Outfitter profile catalog. Fix the catalog sync or provide a different catalog.",
       "error",
     );
-    return;
+    return false;
   }
 
   const selectedProfile = await questionUi.selectProfile(profiles, currentDefault);
   if (selectedProfile === undefined) {
     questionUi.notify("Outfitter setup cancelled; no settings were changed.", "warning");
-    return;
+    return false;
   }
 
   if (!OUTFITTER_PROFILE_ID_PATTERN.test(selectedProfile.id)) {
     questionUi.notify("Selected profile id is not filesystem-safe; no settings were changed.", "error");
-    return;
+    return false;
   }
 
   const installTarget = await questionUi.selectInstallTarget(paths);
   if (installTarget === undefined) {
     questionUi.notify("Outfitter setup cancelled; no settings were changed.", "warning");
-    return;
+    return false;
   }
 
   fs.mkdirSync(fs.dirname(installTarget.settingsPath), { recursive: true });
@@ -574,23 +576,24 @@ const runDefaultCatalogOnboarding = async (fs, paths, questionUi) => {
     [
       "Outfitter saved default profile '" + selectedProfile.id + "' to " + installTarget.settingsPath + ".",
       "Profile choices were loaded from the default Outfitter profile catalog, not generated locally.",
-      "It applies on the next 'outfitter' launch; restart Outfitter to load the selected profile.",
+      "Outfitter will restart now to load the selected profile.",
     ].join("\n"),
     "info",
   );
+  return questionUi.restartAfterProfileSetup();
 };
 
 const runCreateProfileOnboarding = async (fs, paths, questionUi) => {
   const profileId = normalizeInputValue(await questionUi.input("Profile id", "my_profile"));
   if (!profileId || !OUTFITTER_PROFILE_ID_PATTERN.test(profileId)) {
     questionUi.notify("Profile id is not filesystem-safe; no settings were changed.", "error");
-    return;
+    return false;
   }
   const label = normalizeInputValue(await questionUi.input("Profile label", profileId));
   const installTarget = await questionUi.selectInstallTarget(paths);
   if (installTarget === undefined) {
     questionUi.notify("Outfitter setup cancelled; no settings were changed.", "warning");
-    return;
+    return false;
   }
 
   fs.mkdirSync(fs.dirname(installTarget.settingsPath), { recursive: true });
@@ -610,10 +613,11 @@ const runCreateProfileOnboarding = async (fs, paths, questionUi) => {
     [
       "Outfitter created profile '" + profileId + "' at " + profilePath + ".",
       "Outfitter saved settings to " + installTarget.settingsPath + ".",
-      "It applies on the next 'outfitter' launch; restart Outfitter to load the selected profile.",
+      "Outfitter will restart now to load the selected profile.",
     ].join("\n"),
     "info",
   );
+  return questionUi.restartAfterProfileSetup();
 };
 
 const runRemoteSettingsOnboarding = async (fs, paths, questionUi) => {
