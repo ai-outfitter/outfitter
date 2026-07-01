@@ -53,6 +53,9 @@ jobs:
   publish-docker:
     name: Publish Docker image to GHCR
     runs-on: ubuntu-latest
+    # Docker publishes only after the npm leg validates and ships, so the two
+    # release channels cannot diverge on a failed release.
+    needs: publish-npm
 
     permissions:
       contents: read
@@ -68,7 +71,9 @@ jobs:
         run: node scripts/sync-release-version.mjs "${GITHUB_REF_NAME}"
 
       - name: Resolve image name
-        run: echo "IMAGE=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/outfitter" >> "$GITHUB_ENV"
+        run: |
+          echo "IMAGE=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/outfitter" >> "$GITHUB_ENV"
+          echo "VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
 
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v3
@@ -77,14 +82,16 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      # The version tag comes straight from the release ref so prereleases are
+      # tagged too; `latest` only moves on stable (non-prerelease) releases.
       - name: Resolve image metadata
         id: meta
         uses: docker/metadata-action@v5
         with:
           images: ${{ env.IMAGE }}
           tags: |
-            type=semver,pattern={{version}}
-            type=raw,value=latest
+            type=raw,value=${{ env.VERSION }}
+            type=raw,value=latest,enable=${{ github.event.release.prerelease == false }}
 
       - name: Build image
         uses: docker/build-push-action@v6
@@ -98,10 +105,9 @@ jobs:
       # owner) and verifies the CLI reports the release version before pushing.
       - name: Smoke test image
         run: |
-          version="${GITHUB_REF_NAME#v}"
-          output="$(docker run --rm "$IMAGE:$version" --version)"
-          if [ "$output" != "$version" ]; then
-            echo "Expected outfitter --version to print '$version' but got '$output'." >&2
+          output="$(docker run --rm "$IMAGE:$VERSION" --version)"
+          if [ "$output" != "$VERSION" ]; then
+            echo "Expected outfitter --version to print '$VERSION' but got '$output'." >&2
             exit 1
           fi
 

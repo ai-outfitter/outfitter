@@ -10,11 +10,12 @@ jobs:
   # The ubuntu leg runs the full check-ci gate (prettier, lint, coverage, docs); the
   # macos and windows legs run the test suite to enforce cross-platform compatibility.
   # Windows is experimental: the runtime is symlink-centric and Windows support has not
-  # been verified end to end, so its leg reports failures without blocking the suite.
+  # been verified end to end. Its test step continues on error so the suite is not
+  # blocked, but a failure is surfaced as a job-level warning annotation instead of
+  # being silently swallowed by a job-level continue-on-error.
   check:
     name: Check (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
-    continue-on-error: ${{ matrix.experimental }}
 
     strategy:
       fail-fast: false
@@ -45,8 +46,18 @@ jobs:
         run: npm run check-ci
 
       - name: Run test suite
-        if: matrix.os != 'ubuntu-latest'
+        if: matrix.os != 'ubuntu-latest' && !matrix.experimental
         run: npm test
+
+      - name: Run test suite (experimental platform)
+        id: experimental-tests
+        if: matrix.experimental
+        continue-on-error: true
+        run: npm test
+
+      - name: Surface experimental platform failure
+        if: matrix.experimental && steps.experimental-tests.outcome == 'failure'
+        run: echo "::warning title=Windows test suite failed::The experimental ${{ matrix.os }} leg failed; see the 'Run test suite (experimental platform)' step. This does not block the suite but should be triaged."
 
   # Exercises the shipped artifact (npm pack → global install → run the bin) so
   # packaging regressions fail CI even when all in-process tests pass.
