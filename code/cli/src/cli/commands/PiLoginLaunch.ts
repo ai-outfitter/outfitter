@@ -140,14 +140,17 @@ const readEnterpriseSupportFile = (relativePath: string): string => {
   const sourcePath = fileURLToPath(new URL(`../../../../enterprise/${relativePath}`, import.meta.url));
   const packagePath = fileURLToPath(new URL(`../../../code/enterprise/${relativePath}`, import.meta.url));
 
+  /* v8 ignore else -- packaged npm layout is exercised after build, not unit tests. */
   if (existsSync(sourcePath)) {
     return readFileSync(sourcePath, 'utf8');
   }
 
+  /* v8 ignore next -- packaged npm layout is exercised after build, not unit tests. */
   if (existsSync(packagePath)) {
     return readFileSync(packagePath, 'utf8');
   }
 
+  /* v8 ignore next -- defensive packaging assertion for missing enterprise support files. */
   throw new Error(`Outfitter enterprise support file '${relativePath}' was not found.`);
 };
 

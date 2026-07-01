@@ -7,9 +7,7 @@ import { fileURLToPath } from 'node:url';
 
 const packageRoot = dirname(dirname(fileURLToPath(import.meta.url)));
 const repositoryRoot = join(packageRoot, '..', '..');
-const enterprisePrivateCatalogModule = await import(
-  new URL('../../enterprise/privateCatalog.js', import.meta.url)
-);
+const enterprisePrivateCatalogModule = await import(new URL('../../enterprise/privateCatalog.js', import.meta.url));
 
 const privateCatalogRequiresEnterpriseLicense = enterprisePrivateCatalogModule.requiresEnterprisePrivateCatalogLicense({
   visibility: 'private',

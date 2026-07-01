@@ -139,6 +139,37 @@ describe('sync command', () => {
     expect(result.sources.map((source) => source.status)).toEqual(['updated', 'updated', 'skipped']);
   });
 
+  it('deduplicates private catalog skip info while preserving per-source skip results', () => {
+    const root = createTemporaryRoot();
+    const homeDirectory = join(root, 'home');
+    const projectDirectory = join(root, 'project');
+    writeSettings(
+      homeDirectory,
+      [
+        'remote_settings:',
+        '  - github: company/private-profiles',
+        '    path: settings.yml',
+        'profile_sources:',
+        '  - github: company/private-profiles',
+        '  - github: company/private-profiles',
+        '',
+      ].join('\n'),
+    );
+
+    const result = executeSyncCommand(
+      { homeDirectory, projectDirectory },
+      {
+        privateCatalogPrompt: { interactive: false, confirm: () => false },
+        repositoryVisibilityClassifier: { classify: () => 'private' },
+      },
+    );
+
+    expect(
+      result.messages.filter((message) => message.startsWith('info: Private GitHub profile catalog detected')),
+    ).toHaveLength(1);
+    expect(result.sources.map((source) => source.status)).toEqual(['skipped', 'skipped', 'skipped']);
+  });
+
   it('writes the home enterprise setting after interactive private catalog consent', () => {
     const root = createTemporaryRoot();
     const homeDirectory = join(root, 'home');

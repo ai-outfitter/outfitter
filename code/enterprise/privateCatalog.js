@@ -1,7 +1,6 @@
 import privateCatalogPolicy from './shared/privateCatalogPolicy.cjs';
 
-export const ENTERPRISE_PRIVATE_CATALOG_FEATURE_ID =
-  privateCatalogPolicy.ENTERPRISE_PRIVATE_CATALOG_FEATURE_ID;
+export const ENTERPRISE_PRIVATE_CATALOG_FEATURE_ID = privateCatalogPolicy.ENTERPRISE_PRIVATE_CATALOG_FEATURE_ID;
 
 /**
  * Enterprise/private catalog capability policy.
@@ -22,5 +21,4 @@ export const enterprisePrivateCatalogBoundary = privateCatalogPolicy.enterpriseP
  *
  * @param {{ readonly visibility?: 'public' | 'private' | 'unknown' }} catalog
  */
-export const requiresEnterprisePrivateCatalogLicense =
-  privateCatalogPolicy.requiresEnterprisePrivateCatalogLicense;
+export const requiresEnterprisePrivateCatalogLicense = privateCatalogPolicy.requiresEnterprisePrivateCatalogLicense;

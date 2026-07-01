@@ -44,15 +44,14 @@ const privateCatalogPiPromptItems = Object.freeze([
   }),
 ]);
 
-const formatPrivateCatalogPiPromptTitle = (repository) =>
-  [
-    `Private GitHub profile catalog detected: ${repository}.`,
-    '',
-    'Private profile catalog support is covered by the Outfitter Enterprise license.',
-    'Review code/enterprise/LICENSE or your enterprise agreement before enabling.',
-    '',
-    'Enable private profile catalogs in ~/.outfitter/settings.yml and use this catalog?',
-  ];
+const formatPrivateCatalogPiPromptTitle = (repository) => [
+  `Private GitHub profile catalog detected: ${repository}.`,
+  '',
+  'Private profile catalog support is covered by the Outfitter Enterprise license.',
+  'Review code/enterprise/LICENSE or your enterprise agreement before enabling.',
+  '',
+  'Enable private profile catalogs in ~/.outfitter/settings.yml and use this catalog?',
+];
 
 module.exports = {
   ENTERPRISE_PRIVATE_CATALOG_FEATURE_ID,

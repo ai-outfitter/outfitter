@@ -85,7 +85,11 @@ export const executeSyncCommand = (
   const synchronizer = dependencies.synchronizer ?? createGitSynchronizer();
   const repositoryVisibilityClassifier =
     dependencies.repositoryVisibilityClassifier ?? createGitHubRepositoryVisibilityClassifier();
-  const privateCatalogGate = createPrivateCatalogGate(input.homeDirectory, repositoryVisibilityClassifier, dependencies);
+  const privateCatalogGate = createPrivateCatalogGate(
+    input.homeDirectory,
+    repositoryVisibilityClassifier,
+    dependencies,
+  );
   const remoteSettingsSources = localSettings.settings.remoteSettings!;
   const remoteSettingsGateResults = gatePrivateCatalogSources(remoteSettingsSources, privateCatalogGate);
   const remoteSettingsResults = remoteSettingsGateResults.allowedSources.map((source) =>
@@ -291,7 +295,9 @@ interface PrivateCatalogGate {
   enabled: boolean;
   readonly homeDirectory: string;
   readonly prompt: PrivateCatalogPrompt;
+  readonly promptedRepositories: Set<string>;
   readonly settingsPath: string;
+  readonly skippedRepositories: Set<string>;
 }
 
 interface PrivateCatalogGateResults<Source extends RemoteSourceReference> {
@@ -349,11 +355,13 @@ function loadEnterprisePrivateCatalogs(): EnterprisePrivateCatalogGateModule {
 
   for (const moduleUrl of [sourceModule, packageModule]) {
     const modulePath = fileURLToPath(moduleUrl);
+    /* v8 ignore next -- packaged npm layout is exercised after build, not unit tests. */
     if (existsSync(modulePath)) {
       return enterpriseRequire(modulePath) as EnterprisePrivateCatalogGateModule;
     }
   }
 
+  /* v8 ignore next -- defensive packaging assertion for missing enterprise gate module. */
   throw new Error('Outfitter enterprise private catalog gate module was not found.');
 }
 

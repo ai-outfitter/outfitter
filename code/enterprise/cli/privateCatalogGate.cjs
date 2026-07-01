@@ -17,7 +17,9 @@ const createPrivateCatalogGate = ({ homeDirectory, classifier, prompt }) => {
     enabled: isPrivateProfileCatalogsEnabled(settingsPath),
     homeDirectory,
     prompt: prompt ?? createTtyPrivateCatalogPrompt(),
+    promptedRepositories: new Set(),
     settingsPath,
+    skippedRepositories: new Set(),
   };
 };
 
@@ -25,7 +27,6 @@ const gatePrivateCatalogSources = (sources, gate, helpers) => {
   const allowedSources = [];
   const skippedResults = [];
   const messages = [];
-  const promptedRepositories = new Set();
 
   for (const source of sources) {
     const repository = source.github;
@@ -34,7 +35,7 @@ const gatePrivateCatalogSources = (sources, gate, helpers) => {
       continue;
     }
 
-    if (!promptedRepositories.has(repository) && gate.prompt.interactive && gate.prompt.confirm(repository)) {
+    if (!gate.promptedRepositories.has(repository) && gate.prompt.interactive && gate.prompt.confirm(repository)) {
       enablePrivateProfileCatalogs(gate.settingsPath);
       gate.enabled = true;
       messages.push(privateCatalogEnabledMessage);
@@ -42,8 +43,11 @@ const gatePrivateCatalogSources = (sources, gate, helpers) => {
       continue;
     }
 
-    promptedRepositories.add(repository);
-    messages.push(formatPrivateCatalogSkippedMessage(repository, gate.prompt.interactive));
+    gate.promptedRepositories.add(repository);
+    if (!gate.skippedRepositories.has(repository)) {
+      messages.push(formatPrivateCatalogSkippedMessage(repository, gate.prompt.interactive));
+      gate.skippedRepositories.add(repository);
+    }
     skippedResults.push({
       uri: helpers.formatDisplayUri(source),
       cachePath: helpers.createRemoteRepositoryCachePath(dirname(dirname(gate.settingsPath)), source),
