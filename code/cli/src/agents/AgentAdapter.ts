@@ -22,6 +22,7 @@ export interface AgentLaunchContext {
   readonly profileFolders?: readonly string[];
   readonly profileLayers?: readonly AgentLaunchProfileLayer[];
   readonly projectDirectory?: string;
+  readonly cacheDirectory?: string;
 }
 
 export interface AgentCompositeProfilePlan {

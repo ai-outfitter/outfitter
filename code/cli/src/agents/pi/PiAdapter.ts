@@ -10,14 +10,7 @@ import type {
   AgentLaunchContext,
   AgentLaunchProfileLayer,
 } from '../AgentAdapter.js';
-import {
-  flagValue,
-  genericControlNames,
-  mergeAgentSpecificControls,
-  repeatFlag,
-  repeatFlagValue,
-  supportedControlNames,
-} from '../AdapterProfileControls.js';
+import { genericControlNames, mergeAgentSpecificControls, supportedControlNames } from '../AdapterProfileControls.js';
 import { createDeclaredStatePaths, findProfileStateSource } from '../AdapterStatePaths.js';
 import { filterPiSettingsPackagesDuplicatingExtensions } from './PiSettingsMergePolicy.js';
 import type { PiProfileControls, Profile, ProfileControls } from '../../profiles/Profile.js';
@@ -26,7 +19,9 @@ import type { CompositeProfile } from '../../compositeProfile/CompositeProfile.j
 import { createCompositeProfile } from '../../compositeProfile/CompositeProfile.js';
 import { createCompositeProfileFile } from '../../compositeProfile/CompositeProfileFile.js';
 import type { StatePathDeclaration, CompositeProfileStatePath } from '../../compositeProfile/StatePersistence.js';
+import { createPiArgs } from './PiArgs.js';
 import { createPiMcpConfigFile } from './PiMcpConfig.js';
+import { materializePiExtensionSources } from './PiExtensionCache.js';
 
 const piControlNames = new Set([
   ...[...genericControlNames].filter((controlName) => controlName !== 'pi' && controlName !== 'claude'),
@@ -44,14 +39,8 @@ const piStatePathDeclarations = {
   'plugins/': { defaultStrategy: 'symlink', allowedStrategies: ['symlink', 'discard', 'warn', 'error', 'prompt'] },
   'cache/': { defaultStrategy: 'symlink', allowedStrategies: ['symlink', 'discard', 'warn', 'error'] },
   'sessions/': { defaultStrategy: 'symlink', allowedStrategies: ['symlink', 'discard', 'warn', 'error'] },
-  // Pi installs npm-sourced packages here for user-scoped `pi install npm:...` entries.
-  // Persisting it keeps package updates across Outfitter's temporary composite profile directories.
   'npm/': { defaultStrategy: 'symlink', allowedStrategies: ['symlink', 'discard', 'warn', 'error'] },
-  // Pi clones git-sourced packages here for user-scoped `pi install git:...` entries.
-  // Persisting it prevents every Outfitter run from re-cloning or using stale temporary checkouts.
   'git/': { defaultStrategy: 'symlink', allowedStrategies: ['symlink', 'discard', 'warn', 'error'] },
-  // Pi expands git-sourced extensions and other temporary runtime artifacts here.
-  // Persisting it avoids noisy unknown-write diagnostics and lets pi reuse the native tmp tree.
   'tmp/': { defaultStrategy: 'symlink', allowedStrategies: ['symlink', 'discard'] },
   'utilities/': { defaultStrategy: 'symlink', allowedStrategies: ['symlink', 'discard', 'warn', 'error'] },
   'bin/': { defaultStrategy: 'symlink', allowedStrategies: ['symlink', 'discard', 'warn', 'error'] },
@@ -127,7 +116,12 @@ export const createPiAdapter = (): AgentAdapter => ({
     return {
       command: 'pi',
       args: [
-        ...createPiArgs({ ...controls, skills: skillSources, appendSystemPrompt: appendPrompt.prompts }),
+        ...createPiArgs({
+          ...controls,
+          extensions: materializePiExtensionSources(controls.extensions, { cacheDirectory: context.cacheDirectory }),
+          skills: skillSources,
+          appendSystemPrompt: appendPrompt.prompts,
+        }),
         ...passThroughArgs,
       ],
       env: {
@@ -568,19 +562,6 @@ const splitPathList = (value: string | undefined): readonly string[] =>
 
 const mergePiControls = (controls: ProfileControls): PiProfileControls =>
   mergeAgentSpecificControls<PiProfileControls>(controls, 'pi');
-
-const createPiArgs = (controls: PiProfileControls): readonly string[] => [
-  ...flagValue('--model', controls.model),
-  ...flagValue('--provider', controls.provider),
-  ...flagValue('--thinking', controls.thinking),
-  ...flagValue('--session-dir', controls.sessionDirectory),
-  ...flagValue('--prompt-template', controls.promptTemplate),
-  ...flagValue('--system-prompt', controls.systemPrompt),
-  ...repeatFlagValue('--append-system-prompt', controls.appendSystemPrompt),
-  ...repeatFlag('--extension', controls.extensions),
-  ...repeatFlag('--skill', controls.skills),
-  ...(controls.args ?? []),
-];
 
 const findUnsupportedControls = (controls: ProfileControls): readonly string[] => {
   const unsupported = Object.keys(controls).filter((controlName) => !genericControlNames.has(controlName));

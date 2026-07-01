@@ -120,6 +120,7 @@ export const executeRunCommand = async (
           profileFolders: resolvedProfile.profileFolders,
           profileLayers: createLaunchProfileLayers(resolvedProfile.profileLayers),
           projectDirectory: input.projectDirectory,
+          cacheDirectory: resolvedProfile.cacheDirectory,
         },
       ),
       systemPromptExport.outputPath,
