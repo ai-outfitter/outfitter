@@ -25,6 +25,39 @@ Outfitter provides setup and maintenance commands that launch Pi-native onboardi
 7. The `sync` command SHOULD report whether each source was updated, unchanged, skipped, or failed.
 8. The first version of `sync` MUST NOT require lockfile-based profile source reproducibility.
 9. The `sync` command MUST redact credentials embedded in source URIs from user-facing output.
+10. `~/.outfitter/settings.yml` MUST be the source of truth for private GitHub profile catalog enablement, using `enterprise.private_profile_catalogs: true`.
+11. If `enterprise.private_profile_catalogs` is already true in `~/.outfitter/settings.yml`, setup and sync MUST NOT show private-catalog enterprise information or prompts.
+12. If setup or sync detects a confirmed-private GitHub catalog while the home setting is not enabled, interactive flows SHOULD ask whether to enable it and MUST include this prompt text:
+
+    ```text
+    Private GitHub profile catalog detected: OWNER/REPO.
+
+    Private profile catalog support is covered by the Outfitter Enterprise license.
+    Review code/enterprise/LICENSE or your enterprise agreement before enabling.
+
+    Enable private profile catalogs in ~/.outfitter/settings.yml? [y/N]
+    ```
+
+13. If the user accepts, setup or sync MUST write `enterprise.private_profile_catalogs: true` to `~/.outfitter/settings.yml` and show:
+
+    ```text
+    info: Enabled private profile catalogs in ~/.outfitter/settings.yml.
+    ```
+
+14. If the user declines, setup or sync MUST skip that private catalog without changing settings and show:
+
+    ```text
+    info: Private profile catalog setup was skipped for OWNER/REPO; no settings were changed.
+    ```
+
+15. Non-interactive setup and sync SHOULD skip confirmed-private GitHub catalogs without warning, error, or blocking public/unknown sources, and SHOULD show:
+
+    ```text
+    info: Private GitHub profile catalog detected: OWNER/REPO. Enable enterprise.private_profile_catalogs in ~/.outfitter/settings.yml after reviewing code/enterprise/LICENSE or your enterprise agreement.
+    ```
+
+16. GitHub privacy detection MUST only treat an HTTP 200 GitHub API response with JSON `private: true` as private. Public responses, unknown responses, HTTP 403/404, network failures, malformed responses, and non-GitHub sources MUST NOT warn, error, or block.
+17. Private catalog enablement MUST remain informational commercial governance and MUST NOT collect, echo, persist, synthesize, or validate provider credentials.
 
 ### OFTR-004.3: Create Profile Command
 

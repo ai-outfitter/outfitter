@@ -37,6 +37,39 @@ then finish profile setup inside Pi through a native Outfitter extension command
 8. The final onboarding question MUST choose whether to install settings in the home folder or current project directory.
 9. The Pi-native onboarding flow MUST persist selected home settings to `~/.outfitter/settings.yml` and selected project settings to `<project>/.outfitter/settings.yml`.
 10. The onboarding UI MUST clearly communicate that profile/loadout changes made after Pi starts apply to the next `outfitter` launch.
+11. When Pi-native onboarding imports a GitHub catalog and detects an HTTP 200 GitHub API response with `private: true`, it SHOULD ask before saving the catalog unless `enterprise.private_profile_catalogs: true` is already enabled in `~/.outfitter/settings.yml`.
+12. The Pi-native private catalog prompt MUST use this text:
+
+    ```text
+    Private GitHub profile catalog detected: OWNER/REPO.
+
+    Private profile catalog support is covered by the Outfitter Enterprise license.
+    Review code/enterprise/LICENSE or your enterprise agreement before enabling.
+
+    Enable private profile catalogs in ~/.outfitter/settings.yml and use this catalog?
+    ```
+
+13. The Pi-native choices MUST be:
+
+    ```text
+    Enable and continue
+    Cancel private catalog setup
+    ```
+
+14. If the user accepts, Pi-native onboarding MUST write `enterprise.private_profile_catalogs: true` to `~/.outfitter/settings.yml`, save the catalog, and show:
+
+    ```text
+    Outfitter enabled private profile catalogs in ~/.outfitter/settings.yml and saved this catalog.
+    ```
+
+15. If the user declines, Pi-native onboarding MUST leave settings unchanged, not save the catalog, and show:
+
+    ```text
+    Private catalog setup was cancelled; no settings were changed.
+    ```
+
+16. If `enterprise.private_profile_catalogs: true` is already enabled in `~/.outfitter/settings.yml`, Pi-native onboarding MUST NOT show private-catalog enterprise information or prompts.
+17. Pi-native onboarding MUST NOT collect, echo, persist, synthesize, or validate provider credentials for private catalogs.
 
 ### OFTR-010.3: Onboarding UI Surface
 

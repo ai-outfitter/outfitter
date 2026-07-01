@@ -1,7 +1,9 @@
 // Provides the command object for synchronizing URI-backed profile and settings sources.
 import { existsSync, mkdirSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import { homedir } from 'node:os';
 import { dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import type { Command } from 'commander';
 import spawn from 'cross-spawn';
@@ -50,8 +52,21 @@ export interface UriProfileSourceSynchronizer {
   sync(source: RemoteSourceReference, cachePath: string): SyncSourceStatus;
 }
 
+export type GitHubRepositoryVisibility = 'public' | 'private' | 'unknown';
+
+export interface GitHubRepositoryVisibilityClassifier {
+  classify(repository: string): GitHubRepositoryVisibility;
+}
+
+export interface PrivateCatalogPrompt {
+  readonly interactive: boolean;
+  confirm(repository: string): boolean;
+}
+
 export interface SyncCommandDependencies {
   readonly synchronizer?: UriProfileSourceSynchronizer;
+  readonly repositoryVisibilityClassifier?: GitHubRepositoryVisibilityClassifier;
+  readonly privateCatalogPrompt?: PrivateCatalogPrompt;
   readonly homeDirectory?: string;
   readonly projectDirectory?: string;
   readonly writeLine?: (message: string) => void;
@@ -68,11 +83,19 @@ export const executeSyncCommand = (
   }
 
   const synchronizer = dependencies.synchronizer ?? createGitSynchronizer();
+  const repositoryVisibilityClassifier =
+    dependencies.repositoryVisibilityClassifier ?? createGitHubRepositoryVisibilityClassifier();
+  const privateCatalogGate = createPrivateCatalogGate(
+    input.homeDirectory,
+    repositoryVisibilityClassifier,
+    dependencies,
+  );
   const remoteSettingsSources = localSettings.settings.remoteSettings!;
-  const remoteSettingsResults = remoteSettingsSources.map((source) =>
+  const remoteSettingsGateResults = gatePrivateCatalogSources(remoteSettingsSources, privateCatalogGate);
+  const remoteSettingsResults = remoteSettingsGateResults.allowedSources.map((source) =>
     syncRemoteSettingsSource(input.homeDirectory, source, synchronizer),
   );
-  const syncedRemoteSettingsSources = remoteSettingsSources.filter(
+  const syncedRemoteSettingsSources = remoteSettingsGateResults.allowedSources.filter(
     (_source, index) => remoteSettingsResults[index]?.status !== 'failed',
   );
   const loadedSettings = loadSettingsWithCachedRemoteSettings(input, syncedRemoteSettingsSources);
@@ -82,15 +105,29 @@ export const executeSyncCommand = (
   }
 
   const uriSources = loadedSettings.settings.profileSources!.filter(isRemoteProfileSource);
-  const profileSourceResults = uriSources.map((source) => syncUriSource(input.homeDirectory, source, synchronizer));
-  const sourceResults = [...remoteSettingsResults, ...profileSourceResults];
+  const profileSourceGateResults = gatePrivateCatalogSources(uriSources, privateCatalogGate);
+  const profileSourceResults = profileSourceGateResults.allowedSources.map((source) =>
+    syncUriSource(input.homeDirectory, source, synchronizer),
+  );
+  const sourceResults = [
+    ...remoteSettingsResults,
+    ...remoteSettingsGateResults.skippedResults,
+    ...profileSourceResults,
+    ...profileSourceGateResults.skippedResults,
+  ];
+  const infoMessages = [...remoteSettingsGateResults.messages, ...profileSourceGateResults.messages];
 
   return {
     sources: sourceResults,
     messages:
       sourceResults.length === 0
         ? ['No URI profile or remote settings sources configured; nothing to sync.']
-        : sourceResults.map((result) => `${result.status}: ${result.uri} -> ${result.cachePath} (${result.message})`),
+        : [
+            ...infoMessages,
+            ...sourceResults.map(
+              (result) => `${result.status}: ${result.uri} -> ${result.cachePath} (${result.message})`,
+            ),
+          ],
   };
 };
 
@@ -252,6 +289,81 @@ export const syncProfileSource = (
 
 const isRemoteProfileSource = (source: ProfileSourceReference): source is RemoteProfileSource =>
   source.uri !== undefined || source.github !== undefined;
+
+interface PrivateCatalogGate {
+  readonly classifier: GitHubRepositoryVisibilityClassifier;
+  enabled: boolean;
+  readonly homeDirectory: string;
+  readonly prompt: PrivateCatalogPrompt;
+  readonly promptedRepositories: Set<string>;
+  readonly settingsPath: string;
+  readonly skippedRepositories: Set<string>;
+}
+
+interface PrivateCatalogGateResults<Source extends RemoteSourceReference> {
+  readonly allowedSources: readonly Source[];
+  readonly skippedResults: readonly SyncSourceResult[];
+  readonly messages: readonly string[];
+}
+
+interface EnterprisePrivateCatalogGateModule {
+  createGitHubRepositoryVisibilityClassifier(): GitHubRepositoryVisibilityClassifier;
+  createPrivateCatalogGate(input: {
+    readonly homeDirectory: string;
+    readonly classifier: GitHubRepositoryVisibilityClassifier;
+    readonly prompt?: PrivateCatalogPrompt;
+  }): PrivateCatalogGate;
+  gatePrivateCatalogSources<Source extends RemoteSourceReference>(
+    sources: readonly Source[],
+    gate: PrivateCatalogGate,
+    helpers: {
+      readonly formatDisplayUri: (source: RemoteSourceReference) => string;
+      readonly createRemoteRepositoryCachePath: (homeDirectory: string, source: RemoteSourceReference) => string;
+    },
+  ): PrivateCatalogGateResults<Source>;
+}
+
+const enterprisePrivateCatalogs = loadEnterprisePrivateCatalogs();
+
+const createPrivateCatalogGate = (
+  homeDirectory: string,
+  classifier: GitHubRepositoryVisibilityClassifier,
+  dependencies: SyncCommandDependencies,
+): PrivateCatalogGate =>
+  enterprisePrivateCatalogs.createPrivateCatalogGate({
+    homeDirectory,
+    classifier,
+    prompt: dependencies.privateCatalogPrompt,
+  });
+
+const gatePrivateCatalogSources = <Source extends RemoteSourceReference>(
+  sources: readonly Source[],
+  gate: PrivateCatalogGate,
+): PrivateCatalogGateResults<Source> =>
+  enterprisePrivateCatalogs.gatePrivateCatalogSources(sources, gate, {
+    formatDisplayUri,
+    createRemoteRepositoryCachePath,
+  });
+
+export const createGitHubRepositoryVisibilityClassifier = (): GitHubRepositoryVisibilityClassifier =>
+  enterprisePrivateCatalogs.createGitHubRepositoryVisibilityClassifier();
+
+function loadEnterprisePrivateCatalogs(): EnterprisePrivateCatalogGateModule {
+  const enterpriseRequire = createRequire(import.meta.url);
+  const sourceModule = new URL('../../../../enterprise/cli/privateCatalogGate.cjs', import.meta.url);
+  const packageModule = new URL('../../../code/enterprise/cli/privateCatalogGate.cjs', import.meta.url);
+
+  for (const moduleUrl of [sourceModule, packageModule]) {
+    const modulePath = fileURLToPath(moduleUrl);
+    /* v8 ignore next -- packaged npm layout is exercised after build, not unit tests. */
+    if (existsSync(modulePath)) {
+      return enterpriseRequire(modulePath) as EnterprisePrivateCatalogGateModule;
+    }
+  }
+
+  /* v8 ignore next -- defensive packaging assertion for missing enterprise gate module. */
+  throw new Error('Outfitter enterprise private catalog gate module was not found.');
+}
 
 const remoteCachePathForProfileSource = (homeDirectory: string, source: RemoteProfileSource): string => {
   if (source.ref === undefined && source.path === undefined && source.uri !== undefined) {

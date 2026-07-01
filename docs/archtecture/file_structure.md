@@ -51,6 +51,7 @@ Outfitter is organized around a private npm workspace root, clear TypeScript pac
 │   │   └── vitest.config.ts           # package test and coverage configuration
 │   ├── doc_site/                      # Nextra/Next.js documentation website with separate npm lockfile
 │   ├── enterprise/                    # enterprise/business licensed code; see code/enterprise/LICENSE
+│   │   └── privateCatalog.js          # enterprise private profile catalog policy module used during package staging
 │   └── pi-extension/                  # private workspace boundary for future Pi extension source/assets
 ├── bin/                               # local executable development helpers
 ├── scripts/                           # repository-level development, release, and formatting helper scripts

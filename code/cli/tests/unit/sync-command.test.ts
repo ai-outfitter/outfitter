@@ -90,6 +90,148 @@ describe('sync command', () => {
     expect(result.messages[0]).toContain(`${firstUri} -> ${createProfileSourceCachePath(homeDirectory, firstUri)}`);
   });
 
+  it('skips confirmed private GitHub catalogs unless the home enterprise setting is enabled', () => {
+    const root = createTemporaryRoot();
+    const homeDirectory = join(root, 'home');
+    const projectDirectory = join(root, 'project');
+    writeSettings(
+      homeDirectory,
+      `profile_sources:\n  - github: company/private-profiles\n  - github: company/public-profiles\n  - github: company/unknown-profiles\n`,
+    );
+
+    const result = executeSyncCommand(
+      { homeDirectory, projectDirectory },
+      {
+        privateCatalogPrompt: { interactive: false, confirm: () => false },
+        repositoryVisibilityClassifier: {
+          classify(repository) {
+            if (repository === 'company/private-profiles') {
+              return 'private';
+            }
+
+            if (repository === 'company/public-profiles') {
+              return 'public';
+            }
+
+            return 'unknown';
+          },
+        },
+        synchronizer: {
+          sync(_source, cachePath) {
+            writeCachedProfile(cachePath);
+            return 'updated';
+          },
+        },
+      },
+    );
+
+    expect(result.messages[0]).toBe(
+      'info: Private GitHub profile catalog detected: company/private-profiles. Enable enterprise.private_profile_catalogs in ~/.outfitter/settings.yml after reviewing code/enterprise/LICENSE or your enterprise agreement.',
+    );
+    expect(result.messages.join('\n')).not.toContain('warning:');
+    expect(result.messages.join('\n')).not.toContain('error:');
+    expect(result.messages.join('\n')).not.toContain(
+      'company/public-profiles. Enable enterprise.private_profile_catalogs',
+    );
+    expect(result.messages.join('\n')).not.toContain(
+      'company/unknown-profiles. Enable enterprise.private_profile_catalogs',
+    );
+    expect(result.sources.map((source) => source.status)).toEqual(['updated', 'updated', 'skipped']);
+  });
+
+  it('deduplicates private catalog skip info while preserving per-source skip results', () => {
+    const root = createTemporaryRoot();
+    const homeDirectory = join(root, 'home');
+    const projectDirectory = join(root, 'project');
+    writeSettings(
+      homeDirectory,
+      [
+        'remote_settings:',
+        '  - github: company/private-profiles',
+        '    path: settings.yml',
+        'profile_sources:',
+        '  - github: company/private-profiles',
+        '  - github: company/private-profiles',
+        '',
+      ].join('\n'),
+    );
+
+    const result = executeSyncCommand(
+      { homeDirectory, projectDirectory },
+      {
+        privateCatalogPrompt: { interactive: false, confirm: () => false },
+        repositoryVisibilityClassifier: { classify: () => 'private' },
+      },
+    );
+
+    expect(
+      result.messages.filter((message) => message.startsWith('info: Private GitHub profile catalog detected')),
+    ).toHaveLength(1);
+    expect(result.sources.map((source) => source.status)).toEqual(['skipped', 'skipped', 'skipped']);
+  });
+
+  it('writes the home enterprise setting after interactive private catalog consent', () => {
+    const root = createTemporaryRoot();
+    const homeDirectory = join(root, 'home');
+    const projectDirectory = join(root, 'project');
+    writeSettings(homeDirectory, 'profile_sources:\n  - github: company/private-profiles\n');
+
+    const result = executeSyncCommand(
+      { homeDirectory, projectDirectory },
+      {
+        privateCatalogPrompt: { interactive: true, confirm: () => true },
+        repositoryVisibilityClassifier: { classify: () => 'private' },
+        synchronizer: {
+          sync(_source, cachePath) {
+            writeCachedProfile(cachePath);
+            return 'updated';
+          },
+        },
+      },
+    );
+
+    expect(result.messages[0]).toBe('info: Enabled private profile catalogs in ~/.outfitter/settings.yml.');
+    expect(readFileSync(join(homeDirectory, '.outfitter', 'settings.yml'), 'utf8')).toContain(
+      'private_profile_catalogs: true',
+    );
+    expect(result.sources.map((source) => source.status)).toEqual(['updated']);
+  });
+
+  it('does not prompt or show enterprise info when the home enterprise setting is already enabled', () => {
+    const root = createTemporaryRoot();
+    const homeDirectory = join(root, 'home');
+    const projectDirectory = join(root, 'project');
+    writeSettings(
+      homeDirectory,
+      'enterprise:\n  private_profile_catalogs: true\nprofile_sources:\n  - github: company/private-profiles\n',
+    );
+    let promptCount = 0;
+
+    const result = executeSyncCommand(
+      { homeDirectory, projectDirectory },
+      {
+        privateCatalogPrompt: {
+          interactive: true,
+          confirm: () => {
+            promptCount += 1;
+            return false;
+          },
+        },
+        repositoryVisibilityClassifier: { classify: () => 'private' },
+        synchronizer: {
+          sync(_source, cachePath) {
+            writeCachedProfile(cachePath);
+            return 'updated';
+          },
+        },
+      },
+    );
+
+    expect(promptCount).toBe(0);
+    expect(result.messages.join('\n')).not.toContain('Private GitHub profile catalog detected');
+    expect(result.sources.map((source) => source.status)).toEqual(['updated']);
+  });
+
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-004.2).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('redacts URI credentials from sync results and messages', () => {

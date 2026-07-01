@@ -5,7 +5,15 @@ export default tseslint.config(
   js.configs.recommended,
   ...tseslint.configs.recommendedTypeChecked,
   {
-    ignores: ['dist/**', 'coverage/**', 'node_modules/**', 'eslint.config.js', 'scripts/**/*.mjs'],
+    ignores: [
+      'dist/**',
+      'coverage/**',
+      'node_modules/**',
+      'doc_site/**',
+      'eslint.config.js',
+      'scripts/**/*.mjs',
+      'code/enterprise/**',
+    ],
   },
   {
     languageOptions: {

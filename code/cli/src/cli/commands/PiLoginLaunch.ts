@@ -2,6 +2,7 @@
 // Prepares Pi launch-time bootstrap extensions for Outfitter UX, login, and setup handoffs.
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import type { AgentLaunchPlan } from '../../agents/AgentAdapter.js';
 import { createDefaultSettingsContent as createSetupDefaultSettingsContent } from './SetupCommand.js';
@@ -49,6 +50,8 @@ export const preparePiLoginLaunchPlan = (input: PiLoginLaunchPlanInput): AgentLa
     writeQuietPiStartupSettings(piConfigDirectory);
     launchPlan = addFirstRunBootstrapModelIfNeeded(launchPlan);
   }
+
+  writePiOutfitterEnterpriseSupportFiles(piConfigDirectory);
 
   launchPlan = addExtension(
     launchPlan,
@@ -121,6 +124,38 @@ const addExtension = (
   };
 };
 
+const writePiOutfitterEnterpriseSupportFiles = (piConfigDirectory: string): void => {
+  const extensionDirectory = join(piConfigDirectory, 'outfitter');
+  const supportFiles = [
+    ['pi-extension/privateCatalogOnboarding.js', 'pi-extension/privateCatalogOnboarding.js'],
+    ['shared/privateCatalogPolicy.cjs', 'shared/privateCatalogPolicy.cjs'],
+  ] as const;
+
+  for (const [from, to] of supportFiles) {
+    const destination = join(extensionDirectory, to);
+    mkdirSync(dirname(destination), { recursive: true });
+    writeFileSync(destination, readEnterpriseSupportFile(from));
+  }
+};
+
+const readEnterpriseSupportFile = (relativePath: string): string => {
+  const sourcePath = fileURLToPath(new URL(`../../../../enterprise/${relativePath}`, import.meta.url));
+  const packagePath = fileURLToPath(new URL(`../../../code/enterprise/${relativePath}`, import.meta.url));
+
+  /* v8 ignore else -- packaged npm layout is exercised after build, not unit tests. */
+  if (existsSync(sourcePath)) {
+    return readFileSync(sourcePath, 'utf8');
+  }
+
+  /* v8 ignore next -- packaged npm layout is exercised after build, not unit tests. */
+  if (existsSync(packagePath)) {
+    return readFileSync(packagePath, 'utf8');
+  }
+
+  /* v8 ignore next -- defensive packaging assertion for missing enterprise support files. */
+  throw new Error(`Outfitter enterprise support file '${relativePath}' was not found.`);
+};
+
 // The general Outfitter pi extension. It brands the startup header, owns
 // Outfitter-specific interactive shortcuts, registers native /outfitter, and
 // keeps credential entry delegated to Pi's native /login command.
@@ -149,6 +184,7 @@ const OUTFITTER_STARTUP_ASCII_ART = ${JSON.stringify(input.startupAsciiArt)};
 const OUTFITTER_ASCII_ART = ${JSON.stringify(startupAsciiArt)};
 const OUTFITTER_ASCII_GRADIENT = ["success", "accent", "text", "muted", "dim"];
 const OUTFITTER_PROFILE_ID_PATTERN = /^[a-z0-9][a-z0-9._-]*[a-z0-9]$|^[a-z0-9]$/u;
+const loadPrivateCatalogOnboarding = () => import("./pi-extension/privateCatalogOnboarding.js");
 
 export default function outfitter(pi) {
   let mode = "build";
@@ -334,6 +370,10 @@ export default function outfitter(pi) {
       const suffix = defaultValue === undefined ? "" : " [" + defaultValue + "]";
       const selected = await ctx.ui.select(message + suffix, [defaultValue ?? ""]);
       return selected;
+    },
+    async confirmPrivateCatalog(repository) {
+      const { confirmPrivateCatalog } = await loadPrivateCatalogOnboarding();
+      return confirmPrivateCatalog(ctx, selectDescribedOption, repository);
     },
     notify: (message, type = "info") => ctx.ui.notify(message, type),
   });
@@ -588,19 +628,40 @@ const runRemoteSettingsOnboarding = async (fs, paths, questionUi) => {
     questionUi.notify("Catalog settings path must stay inside the repository; no settings were changed.", "error");
     return;
   }
+
+  const privateCatalogOnboarding = await loadPrivateCatalogOnboarding();
+  const privateCatalogsAlreadyEnabled = privateCatalogOnboarding.readPrivateProfileCatalogsEnabled(fs, paths.homeSettingsPath);
+  let privateCatalogAccepted = false;
+  if (!privateCatalogsAlreadyEnabled && await privateCatalogOnboarding.classifyGitHubRepositoryVisibility(github) === "private") {
+    const accepted = await questionUi.confirmPrivateCatalog(github);
+    if (!accepted) {
+      questionUi.notify("Private catalog setup was cancelled; no settings were changed.", "warning");
+      return;
+    }
+
+    privateCatalogAccepted = true;
+  }
+
   const installTarget = await questionUi.selectInstallTarget(paths);
   if (installTarget === undefined) {
     questionUi.notify("Outfitter setup cancelled; no settings were changed.", "warning");
     return;
   }
 
+  if (privateCatalogAccepted) {
+    privateCatalogOnboarding.writePrivateProfileCatalogsEnabled(fs, paths.homeSettingsPath);
+  }
+
+  const privateCatalogsEnabled = privateCatalogsAlreadyEnabled || privateCatalogAccepted;
   fs.mkdirSync(fs.dirname(installTarget.settingsPath), { recursive: true });
-  fs.writeFileSync(installTarget.settingsPath, createRemoteSettingsContent(github, ref, settingsPath));
+  fs.writeFileSync(installTarget.settingsPath, createRemoteSettingsContent(github, ref, settingsPath, privateCatalogsEnabled && installTarget.settingsPath === paths.homeSettingsPath));
   questionUi.notify(
-    [
-      "Outfitter saved remote settings catalog to " + installTarget.settingsPath + ".",
-      "Run 'outfitter sync' or restart Outfitter after the catalog is reachable.",
-    ].join("\n"),
+    privateCatalogAccepted
+      ? "Outfitter enabled private profile catalogs in ~/.outfitter/settings.yml and saved this catalog."
+      : [
+          "Outfitter saved remote settings catalog to " + installTarget.settingsPath + ".",
+          "Run 'outfitter sync' or restart Outfitter after the catalog is reachable.",
+        ].join("\n"),
     "info",
   );
 };
@@ -798,8 +859,15 @@ const createDefaultSettingsContent = (profileId) =>
 const createLocalProfileSettingsContent = (profileId) =>
   ["default_profile: " + profileId, "profile_sources:", "  - path: ./profiles", ""].join("\n");
 
-const createRemoteSettingsContent = (github, ref, path) =>
-  ["remote_settings:", "  - github: " + github, "    ref: " + ref, "    path: " + path, ""].join("\n");
+const createRemoteSettingsContent = (github, ref, path, privateCatalogsEnabled = false) =>
+  [
+    ...(privateCatalogsEnabled ? ["enterprise:", "  private_profile_catalogs: true"] : []),
+    "remote_settings:",
+    "  - github: " + github,
+    "    ref: " + ref,
+    "    path: " + path,
+    "",
+  ].join("\n");
 
 const updateExistingSettingsDefaultProfile = (settingsPath, profileId, readFileSync, writeFileSync) => {
   const content = readFileSync(settingsPath, "utf8");
