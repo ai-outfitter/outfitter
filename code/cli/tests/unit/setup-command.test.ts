@@ -544,9 +544,6 @@ describe('setup command', () => {
           expect(profiles.map((profile) => profile.label)).toEqual(['Operations', 'Project Lead']);
           return Promise.resolve('project-lead');
         },
-        selectWelcomePlan() {
-          return Promise.resolve({ answerQuestions: false });
-        },
       },
     );
 
@@ -680,9 +677,6 @@ describe('setup command', () => {
               );
             }
           },
-        },
-        selectWelcomePlan() {
-          return Promise.resolve({ answerQuestions: false });
         },
       },
     );
@@ -829,9 +823,6 @@ describe('setup command', () => {
           expect(currentDefault).toBe('engineer');
           expect(profiles.map((profile) => profile.id)).toEqual(['engineer', 'project-lead']);
           return Promise.resolve('project-lead');
-        },
-        selectWelcomePlan() {
-          throw new Error('source import onboarding should not run the generic welcome role prompt');
         },
       },
     );
@@ -1045,9 +1036,6 @@ describe('setup command', () => {
         synchronizer: defaultProfileSynchronizer,
         selectSetupSourceImportTarget() {
           throw new Error('default setup should not ask for a setup-source import target');
-        },
-        selectWelcomePlan() {
-          return Promise.resolve({ answerQuestions: false });
         },
       },
     );
@@ -1284,9 +1272,6 @@ describe('setup command', () => {
           expect(profiles.map((profile) => profile.id)).toEqual(['engineer', 'project-lead']);
           return Promise.resolve('engineer');
         },
-        selectWelcomePlan() {
-          return Promise.resolve({ answerQuestions: false });
-        },
       },
     );
 
@@ -1458,9 +1443,6 @@ describe('setup command', () => {
           expect(profiles.map((profile) => profile.id)).toEqual(['data_analyst']);
           return Promise.resolve('data_analyst');
         },
-        selectWelcomePlan() {
-          return Promise.resolve({ answerQuestions: false });
-        },
       },
     );
 
@@ -1475,90 +1457,6 @@ describe('setup command', () => {
     expect(readFileSync(join(homeDirectory, '.outfitter', 'settings.yml'), 'utf8')).toContain(
       'default_profile: data_analyst',
     );
-  });
-
-  it('uses an injected welcome runner after interactive setup completes', async () => {
-    const root = createTemporaryRoot();
-    const homeDirectory = join(root, 'home');
-    const projectDirectory = join(root, 'project');
-
-    const result = await executeSetupCommand(
-      { homeDirectory, projectDirectory },
-      {
-        interactive: true,
-        input: { isTTY: true } as NodeJS.ReadableStream & { isTTY: true },
-        output: { isTTY: true } as NodeJS.WritableStream & { isTTY: true },
-        writeLine: () => undefined,
-        synchronizer: defaultProfileSynchronizer,
-        selectDefaultProfile() {
-          return Promise.resolve('engineer');
-        },
-        runWelcome(input) {
-          expect(input.projectDirectory).toBe(projectDirectory);
-          return Promise.resolve({
-            answered: false,
-            warnings: [],
-            messages: ['custom welcome runner'],
-          });
-        },
-      },
-    );
-
-    expect(result.welcomeResult?.messages).toEqual(['custom welcome runner']);
-  });
-
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-010.2, OFTR-010.3).
-  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
-  it('runs welcome onboarding after interactive setup completes', async () => {
-    const root = createTemporaryRoot();
-    const homeDirectory = join(root, 'home');
-    const projectDirectory = join(root, 'project');
-
-    const result = await executeSetupCommand(
-      { homeDirectory, projectDirectory },
-      {
-        interactive: true,
-        input: { isTTY: true } as NodeJS.ReadableStream & { isTTY: true },
-        output: { isTTY: true } as NodeJS.WritableStream & { isTTY: true },
-        writeLine: () => undefined,
-        synchronizer: defaultProfileSynchronizer,
-        selectDefaultProfile() {
-          return Promise.resolve('engineer');
-        },
-        selectWelcomePlan() {
-          return Promise.resolve({
-            answerQuestions: true,
-            selectedRoleId: 'engineer',
-            loadoutItemIds: ['deepwork'],
-          });
-        },
-      },
-    );
-
-    expect(result.welcomeResult).toEqual({
-      answered: true,
-      selectedRole: {
-        id: 'engineer',
-        label: 'Engineer',
-        description: 'Engineering setup for repository navigation, maintainable code changes, tests, and reviews.',
-      },
-      selectedLoadout: {
-        id: 'recommended-pi',
-        label: 'Recommended Pi productivity loadout',
-        selectedItems: [
-          {
-            id: 'deepwork',
-            label: 'DeepWork',
-            kind: 'extension',
-            source: 'git:github.com/ai-outfitter/deepwork',
-          },
-        ],
-      },
-      warnings: [],
-      messages: [
-        'Installed the founder profile. Use /outfitter inside Pi or run `outfitter profile list` to manage profiles.',
-      ],
-    });
   });
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-004.1).
@@ -1629,9 +1527,6 @@ describe('setup command', () => {
           expect(profiles.find((profile) => profile.id === 'repository')?.label).toBe('Repository');
           return Promise.resolve('repository');
         },
-        selectWelcomePlan() {
-          return Promise.resolve({ answerQuestions: false });
-        },
       },
     );
 
@@ -1680,9 +1575,6 @@ describe('setup command', () => {
         interactive: true,
         input,
         output,
-        selectWelcomePlan() {
-          return Promise.resolve({ answerQuestions: false });
-        },
       },
     );
 

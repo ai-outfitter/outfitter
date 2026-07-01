@@ -1,6 +1,5 @@
 // Shared types, choice catalogs, and small helpers for the Outfitter setup command modules.
 import type { SyncCommandDependencies, SyncCommandResult } from '../SyncCommand.js';
-import type { WelcomeCommandDependencies, WelcomeCommandResult } from '../WelcomeCommand.js';
 
 export interface SetupCommandInput {
   readonly homeDirectory: string;
@@ -15,7 +14,6 @@ export interface SetupCommandResult {
   readonly copiedStarterProfileFiles: number;
   readonly createdDefaultProfile: boolean;
   readonly syncResult: SyncCommandResult;
-  readonly welcomeResult?: WelcomeCommandResult;
   readonly messages: readonly string[];
 }
 
@@ -39,32 +37,28 @@ export type SetupSourcePostImportAction = 'start' | 'exit';
 
 export type SetupSourcePostImportLaunchTarget = 'selected' | 'default';
 
-export type SetupCommandDependencies = SyncCommandDependencies &
-  WelcomeCommandDependencies & {
-    readonly setupSourceSynchronizer?: SetupSourceSynchronizer;
-    readonly selectDefaultProfile?: (
-      profiles: readonly SetupProfileChoice[],
-      currentDefault: string,
-    ) => Promise<string>;
-    readonly selectSetupSourceImportTarget?: (
-      choices: readonly SetupSourceImportTargetChoice[],
-      defaultTarget: SetupSourceImportTarget,
-    ) => Promise<SetupSourceImportTarget>;
-    readonly selectSetupSourceLaunchAction?: (
-      profileId: string,
-      launchTarget: SetupSourcePostImportLaunchTarget,
-    ) => Promise<SetupSourcePostImportAction>;
-    readonly selectSetupSourceImportMode?: (
-      choices: readonly SetupSourceImportModeChoice[],
-      defaultMode: SetupSourceImportMode,
-    ) => Promise<SetupSourceImportMode>;
-    readonly launchSetupSourceProfile?: (input: SetupSourceLaunchInput) => Promise<void>;
-    readonly launchPiOnboarding?: (input: SetupPiOnboardingLaunchInput) => Promise<{ readonly exitCode: number }>;
-    readonly runWelcome?: (
-      input: SetupCommandInput,
-      dependencies: SetupCommandDependencies,
-    ) => Promise<WelcomeCommandResult | undefined>;
-  };
+export type SetupCommandDependencies = SyncCommandDependencies & {
+  readonly input?: { readonly isTTY?: boolean } & NodeJS.ReadableStream;
+  readonly output?: { readonly isTTY?: boolean } & NodeJS.WritableStream;
+  readonly interactive?: boolean;
+} & {
+  readonly setupSourceSynchronizer?: SetupSourceSynchronizer;
+  readonly selectDefaultProfile?: (profiles: readonly SetupProfileChoice[], currentDefault: string) => Promise<string>;
+  readonly selectSetupSourceImportTarget?: (
+    choices: readonly SetupSourceImportTargetChoice[],
+    defaultTarget: SetupSourceImportTarget,
+  ) => Promise<SetupSourceImportTarget>;
+  readonly selectSetupSourceLaunchAction?: (
+    profileId: string,
+    launchTarget: SetupSourcePostImportLaunchTarget,
+  ) => Promise<SetupSourcePostImportAction>;
+  readonly selectSetupSourceImportMode?: (
+    choices: readonly SetupSourceImportModeChoice[],
+    defaultMode: SetupSourceImportMode,
+  ) => Promise<SetupSourceImportMode>;
+  readonly launchSetupSourceProfile?: (input: SetupSourceLaunchInput) => Promise<void>;
+  readonly launchPiOnboarding?: (input: SetupPiOnboardingLaunchInput) => Promise<{ readonly exitCode: number }>;
+};
 
 export interface SetupProfileChoice {
   readonly id: string;

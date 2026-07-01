@@ -5,7 +5,7 @@ import { dirname, join } from 'node:path';
 import { parse, stringify } from 'yaml';
 
 import { createSettingsLoadPlan, loadSettingsFiles } from '../../../settings/SettingsLoader.js';
-import { updateSettingsDefaultProfile } from '../FirstRunWelcomeProfile.js';
+import { updateSettingsDefaultProfile } from './SetupStarterSource.js';
 import {
   readStarterSettingsContent,
   resolveLocalSetupSourceOutfitterPath,

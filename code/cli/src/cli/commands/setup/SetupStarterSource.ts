@@ -165,6 +165,15 @@ export const createDefaultSettingsContent = (defaultProfileId = 'engineer'): str
     '',
   ].join('\n');
 
+export const updateSettingsDefaultProfile = (settingsPath: string, profileId: string): void => {
+  const content = readFileSync(settingsPath, 'utf8');
+  const updatedContent = /^default_profile:.*$/gmu.test(content)
+    ? content.replace(/^default_profile:.*$/gmu, `default_profile: ${profileId}`)
+    : `${content.replace(/\s*$/u, '\n')}default_profile: ${profileId}\n`;
+
+  writeFileSync(settingsPath, updatedContent);
+};
+
 export const createInitialSettingsIfMissing = (settingsPath: string, starterSettingsPath?: string): boolean => {
   if (existsSync(settingsPath)) {
     return false;

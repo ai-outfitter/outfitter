@@ -9,8 +9,8 @@ import {
 } from '../../../profiles/ProfileCache.js';
 import { loadLocalProfileSource } from '../../../profiles/ProfileLoader.js';
 import { loadSettingsWithCachedRemoteSettings } from '../../../settings/SettingsLoader.js';
-import { updateSettingsDefaultProfile } from '../FirstRunWelcomeProfile.js';
-import { writeWelcomeIntro } from '../WelcomeCommand.js';
+import { writeWelcomeIntro } from '../WelcomeIntro.js';
+import { updateSettingsDefaultProfile } from './SetupStarterSource.js';
 import {
   assertValidDefaultProfileId,
   readStarterExplicitDefaultProfileId,

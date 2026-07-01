@@ -6,27 +6,11 @@ import { join } from 'node:path';
 import type { Command } from 'commander';
 
 import { redactProfileSourceUriCredentials } from '../../profiles/ProfileCache.js';
-import { loadLocalProfileSource } from '../../profiles/ProfileLoader.js';
-import {
-  discoverSettingsLoadPlan,
-  loadSettings,
-  loadSettingsWithCachedRemoteSettings,
-} from '../../settings/SettingsLoader.js';
+import { discoverSettingsLoadPlan, loadSettings } from '../../settings/SettingsLoader.js';
 import type { CommandObject } from './CommandObject.js';
-import {
-  persistFirstRunWelcomeProfile,
-  updateSettingsDefaultProfile,
-  type PersistedFirstRunWelcomeProfile,
-} from './FirstRunWelcomeProfile.js';
 import { executeSyncCommand } from './SyncCommand.js';
 import type { SyncCommandResult } from './SyncCommand.js';
-import { executeWelcomeCommand } from './WelcomeCommand.js';
-import type { WelcomeCommandResult } from './WelcomeCommand.js';
-import {
-  materializeSetupProfileSource,
-  runSetupSourceOnboarding,
-  selectDefaultProfileIfInteractive,
-} from './setup/SetupPrompts.js';
+import { runSetupSourceOnboarding, selectDefaultProfileIfInteractive } from './setup/SetupPrompts.js';
 import {
   applySetupSourceImport,
   copyStarterProfileFilesIfPresent,
@@ -45,6 +29,7 @@ import {
   prepareStarterLayout,
   readStarterDefaultProfileId,
   readUserDefaultProfileId,
+  updateSettingsDefaultProfile,
 } from './setup/SetupStarterSource.js';
 import { formatSettingsIssue } from './setup/SetupTypes.js';
 import type {
@@ -124,9 +109,7 @@ export const executeSetupCommand = async (
   const selectedDefaultProfileId = shouldSkipInitialDefaultProfilePrompt(initialSettingsMissing, dependencies)
     ? defaultProfileId
     : await selectDefaultProfileIfInteractive(input, settingsPath, defaultProfileId, dependencies, starterLayout);
-  const welcomeResult = await runWelcomeAfterInteractiveSetup(input, dependencies);
-  const welcomeProfile = persistWelcomeProfileForSetup(input, settingsPath, welcomeResult);
-  const finalDefaultProfile = prepareFinalDefaultProfile(input.homeDirectory, selectedDefaultProfileId, welcomeProfile);
+  const finalDefaultProfile = prepareFinalDefaultProfile(input.homeDirectory, selectedDefaultProfileId);
 
   return {
     settingsPath,
@@ -135,7 +118,6 @@ export const executeSetupCommand = async (
     copiedStarterProfileFiles,
     createdDefaultProfile: finalDefaultProfile.created,
     syncResult,
-    welcomeResult,
     messages: buildSetupMessages({
       input,
       starterLayout,
@@ -146,7 +128,7 @@ export const executeSetupCommand = async (
       defaultProfilePath: finalDefaultProfile.path,
       createdDefaultProfile: finalDefaultProfile.created,
       syncResult,
-      welcomeProfileMessages: welcomeProfile?.messages ?? [],
+      welcomeProfileMessages: [],
       runExampleMessages: input.setupSourceUri === undefined ? [] : [formatRunProfileExample(finalDefaultProfile.id)],
     }),
   };
@@ -266,15 +248,10 @@ interface FinalDefaultProfile {
   readonly created: boolean;
 }
 
-const prepareFinalDefaultProfile = (
-  homeDirectory: string,
-  selectedDefaultProfileId: string,
-  welcomeProfile: PersistedFirstRunWelcomeProfile | undefined,
-): FinalDefaultProfile => {
-  const finalDefaultProfileId = welcomeProfile?.profileId ?? selectedDefaultProfileId;
+const prepareFinalDefaultProfile = (homeDirectory: string, selectedDefaultProfileId: string): FinalDefaultProfile => {
+  const finalDefaultProfileId = selectedDefaultProfileId;
   const finalDefaultProfilePath = join(homeDirectory, '.outfitter', 'profiles', finalDefaultProfileId, 'profile.yml');
-  const createdDefaultProfile =
-    welcomeProfile?.createdProfile ?? createDefaultProfileIfMissing(finalDefaultProfilePath, finalDefaultProfileId);
+  const createdDefaultProfile = createDefaultProfileIfMissing(finalDefaultProfilePath, finalDefaultProfileId);
 
   return { id: finalDefaultProfileId, path: finalDefaultProfilePath, created: createdDefaultProfile };
 };
@@ -389,58 +366,6 @@ const launchPiOnboardingWithRunCommand = async (
     },
     { ...dependencies, interactive: true },
   );
-};
-
-const persistWelcomeProfileForSetup = (
-  input: SetupCommandInput,
-  settingsPath: string,
-  welcomeResult: WelcomeCommandResult | undefined,
-): PersistedFirstRunWelcomeProfile | undefined =>
-  persistFirstRunWelcomeProfile(input.homeDirectory, settingsPath, welcomeResult, {
-    sourceProfileDirectory: findWelcomeSourceProfileDirectory(input, welcomeResult?.selectedRole?.id),
-  });
-
-const findWelcomeSourceProfileDirectory = (
-  input: SetupCommandInput,
-  profileId: string | undefined,
-): string | undefined => {
-  if (profileId === undefined) {
-    return undefined;
-  }
-
-  const loadedSettings = loadSettingsWithCachedRemoteSettings(input);
-
-  /* v8 ignore next -- setup already rejected invalid settings; this fallback handles cache mutation during welcome. */
-  if (loadedSettings.issues.length > 0) {
-    return undefined;
-  }
-
-  for (const source of loadedSettings.settings.profileSources!) {
-    const materializedPath = materializeSetupProfileSource(input.homeDirectory, source);
-    const loadedProfiles = loadLocalProfileSource({ path: materializedPath, only: source.only, except: source.except });
-    const loadedProfile = loadedProfiles.profiles.find((profile) => profile.profile.id === profileId);
-
-    if (loadedProfile !== undefined) {
-      return loadedProfile.folderPath;
-    }
-  }
-
-  return undefined;
-};
-
-const runWelcomeAfterInteractiveSetup = async (
-  input: SetupCommandInput,
-  dependencies: SetupCommandDependencies,
-): Promise<WelcomeCommandResult | undefined> => {
-  if (dependencies.interactive !== true) {
-    return undefined;
-  }
-
-  if (dependencies.runWelcome !== undefined) {
-    return dependencies.runWelcome(input, dependencies);
-  }
-
-  return executeWelcomeCommand(input, dependencies);
 };
 
 const requireInteractiveTerminalIfNeeded = (dependencies: SetupCommandDependencies): void => {

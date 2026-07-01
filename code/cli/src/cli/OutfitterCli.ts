@@ -9,7 +9,6 @@ import { createProfileCommands } from './commands/profile/Command.js';
 import { createRunCommand, executeRunCommand } from './commands/RunCommand.js';
 import { createSetupCommand } from './commands/SetupCommand.js';
 import { createSyncCommand } from './commands/SyncCommand.js';
-import { createWelcomeCommand } from './commands/WelcomeCommand.js';
 
 export const createDefaultCommands = (): CommandObject[] => [
   createRunCommand(),
@@ -24,7 +23,6 @@ export const createDefaultCommands = (): CommandObject[] => [
     },
   }),
   createSyncCommand(),
-  createWelcomeCommand(),
   ...createProfileCommands(),
 ];
 
