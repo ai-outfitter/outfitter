@@ -33,23 +33,27 @@ export const createCompositeProfileWatchPlanForCompositeProfile = (
 export const watchCompositeProfileInputs = (input: WatchCompositeProfileInput): CompositeProfileWatcherHandle => {
   const watchPaths = createCompositeProfileWatchPlanForCompositeProfile(input.compositeProfile).paths;
   const watchers: FSWatcher[] = [];
+  let closed = false;
 
   for (const watchPath of watchPaths) {
     try {
-      watchers.push(
-        watch(
-          watchPath,
-          /* v8 ignore next -- fs.watch delivery is platform-timed; the static watch plan is covered deterministically. */
-          () => updateCompositeProfileFromWatchedInput(input, watchPath),
-        ),
-      );
+      watchers.push(watch(watchPath, () => updateCompositeProfileFromWatchedInput(input, watchPath)));
     } catch (error) {
       input.warn(`Could not watch composite profile input ${watchPath}: ${formatError(error)}`);
     }
   }
 
+  if (watchPaths.length > 0) {
+    setImmediate(() => {
+      if (!closed) {
+        updateCompositeProfileFromWatchedInput(input, watchPaths[0]);
+      }
+    });
+  }
+
   return {
     close() {
+      closed = true;
       for (const watcher of watchers) {
         watcher.close();
       }
@@ -70,7 +74,6 @@ const updateCompositeProfileFromWatchedInput = (input: WatchCompositeProfileInpu
     writeCompositeProfile(compositeProfile, { materializeStatePaths: false });
     input.onCompositeProfileWritten?.(compositeProfile);
   } catch (error) {
-    /* v8 ignore next -- unsafe live-update failures are reported defensively; normal refresh behavior is covered. */
     input.warn(`Could not safely update compositeProfile from ${watchPath}: ${formatError(error)}`);
   }
 };
