@@ -201,4 +201,4 @@ state_persistence:
   auth.json: symlink # Intentional durable setup.
 ```
 
-For the complete adapter contract and rationale, see [State writeback strategy](../archtecture/state_writeback_strategy.md).
+For the complete adapter contract and rationale, see [State writeback strategy](../architecture/state_writeback_strategy.md).

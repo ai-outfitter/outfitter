@@ -40,6 +40,7 @@ controls:
 ## Documentation
 
 - [Getting started](./docs/documentation/getting-started.md)
+- [What works today: adapter support matrix](./docs/documentation/support-matrix.md)
 - [Profiles](./docs/documentation/profiles.md)
 - [Profile repositories](./docs/documentation/profile-repository.md)
 - [State persistence](./docs/documentation/state.md)
@@ -49,7 +50,7 @@ controls:
 
 Use cases:
 
-- [Organization profile catalog](./docs/documentation/usecases/orginization-profile-catalog.md) — Publish shared team roles so new users can start with organization-approved defaults.
+- [Organization profile catalog](./docs/documentation/usecases/organization-profile-catalog.md) — Publish shared team roles so new users can start with organization-approved defaults.
 - [Engineering profile catalog](./docs/documentation/usecases/engineering.md) — Package coding, platform, and review profiles for repeatable engineering workflows.
 - [Persona reviews](./docs/documentation/usecases/persona-reviews.md) — Create customer personas to get feedback on ideas, documentation, and designs.
 
