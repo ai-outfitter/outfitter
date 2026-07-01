@@ -93,3 +93,11 @@ then finish profile setup inside Pi through a native Outfitter extension command
 1. Explicit `outfitter setup` MUST launch Pi-native onboarding rather than terminal setup prompts.
 2. `outfitter setup <source>` MUST pass the provided source into Pi-native onboarding so setup writes happen from inside Pi.
 3. The published `skills/outfitter` fallback MUST remain available as documentation/guidance for environments where the native command is unavailable.
+
+### OFTR-010.6: Degraded Offline Onboarding
+
+1. The npm package MUST bundle a minimal built-in profile with id `starter` that uses sane engineering defaults and requires no network access or remote extensions.
+2. When the first-run sync of the default profile catalog (`ai-outfitter/default-profiles`) fails, onboarding MUST NOT fail. It MUST warn — naming the failed source and explaining that `outfitter sync` retries the catalog once the source is reachable — and MUST fall back to the built-in `starter` profile so the user still reaches a working Pi session (degraded mode).
+3. Degraded-mode fallback applies to both the interactive default `outfitter` launch and setup flows that create initial settings.
+4. When the default catalog sync succeeds, onboarding behavior MUST be identical to non-degraded behavior; the built-in profile MUST NOT shadow or replace catalog profiles.
+5. A later successful `outfitter sync` MUST upgrade a degraded environment to the full default catalog without requiring re-onboarding.

@@ -17,6 +17,11 @@ import {
   redactProfileSourceUriCredentials,
   resolveRemoteRepositorySubpath,
 } from '../../profiles/ProfileCache.js';
+import {
+  builtinStarterProfileId,
+  createBuiltinProfilesCachePath,
+  materializeBuiltinProfiles,
+} from '../../profiles/BuiltinProfiles.js';
 import { loadLocalProfileSource } from '../../profiles/ProfileLoader.js';
 import type { LoadedProfile } from '../../profiles/ProfileLoader.js';
 import { createEmptyProfile, type Profile } from '../../profiles/Profile.js';
@@ -408,16 +413,20 @@ const prepareFirstRunRuntimeOnboarding = (
 
   const syncResult = syncProfileSource(input.homeDirectory, defaultProfilesSource, dependencies.synchronizer);
 
-  /* v8 ignore next -- network/cache failure path is integration-level behavior; setup fallback message is deterministic. */
   if (syncResult.status === 'failed') {
-    throw new Error(
-      `Cannot start Pi-native onboarding because the default profiles source failed to sync: ${syncResult.message}. ` +
-        'Fix the network/git issue or run `outfitter setup` once the source is reachable.',
-    );
+    (dependencies.writeError ?? console.error)(formatDegradedOnboardingWarning(syncResult.message));
+    const builtinProfilesPath = createBuiltinProfilesCachePath(input.homeDirectory);
+    materializeBuiltinProfiles(builtinProfilesPath);
+
+    return { defaultProfilesPath: builtinProfilesPath };
   }
 
   return { defaultProfilesPath: join(syncResult.cachePath, defaultProfilesSource.path) };
 };
+
+const formatDegradedOnboardingWarning = (failureMessage: string): string =>
+  `Warning: could not sync the default profiles source github:${defaultProfilesSource.github} (${failureMessage}). ` +
+  `Continuing with the built-in '${builtinStarterProfileId}' profile; run \`outfitter sync\` to fetch the full catalog once the source is reachable.`;
 
 const shouldUsePiNativeFirstRunOnboarding = (input: RunCommandInput, dependencies: RunCommandDependencies): boolean => {
   if (input.forceRuntimeOnboarding !== true && existsSync(join(input.homeDirectory, '.outfitter', 'settings.yml'))) {
