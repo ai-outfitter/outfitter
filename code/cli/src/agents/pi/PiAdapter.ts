@@ -1,6 +1,5 @@
 // Provides the pi adapter for composite profile generation and native pi launch plans.
 import { existsSync, readdirSync, readFileSync, statSync, type Dirent } from 'node:fs';
-import { homedir } from 'node:os';
 import { delimiter, dirname, isAbsolute, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -14,6 +13,7 @@ import type {
 import { genericControlNames, mergeAgentSpecificControls, supportedControlNames } from '../AdapterProfileControls.js';
 import { createOutfitterDocsSystemPrompt } from '../OutfitterDocs.js';
 import { createDeclaredStatePaths, findProfileStateSource } from '../AdapterStatePaths.js';
+import { safeHomedir } from '../../fs/SafeHomedir.js';
 import { filterPiSettingsPackagesDuplicatingExtensions } from './PiSettingsMergePolicy.js';
 import type { PiProfileControls, Profile, ProfileControls } from '../../profiles/Profile.js';
 import { resolveAppendSystemPromptControl } from '../../profiles/PromptIncludes.js';
@@ -425,7 +425,7 @@ const resolvePiStateSourcePath = (
     cacheDirectory ??
     join(
       /* v8 ignore next -- run command always passes homeDirectory; the os fallback is defensive. */
-      homeDirectory ?? homedir(),
+      homeDirectory ?? safeHomedir(),
       '.outfitter',
       'cache',
     );
@@ -442,7 +442,7 @@ const resolvePiStateSourcePath = (
 
   return join(
     /* v8 ignore next -- run command always passes homeDirectory; the os fallback is defensive. */
-    homeDirectory ?? homedir(),
+    homeDirectory ?? safeHomedir(),
     '.pi',
     'agent',
     normalizedRelativePath,
