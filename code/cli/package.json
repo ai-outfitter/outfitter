@@ -22,6 +22,8 @@
     "doc",
     "code/enterprise/LICENSE",
     "code/enterprise/README.md",
+    "code/enterprise/privateCatalog.js",
+    "code/enterprise/private-catalog-boundary.json",
     "README.md",
     "LICENSE.md"
   ],

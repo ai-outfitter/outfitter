@@ -11,7 +11,7 @@ This document defines the enterprise/private profile catalog boundary for future
 
 ## Enterprise-only scope
 
-Private profile catalog repository support is an enterprise capability boundary. Any future private-catalog enablement code must live under `code/enterprise/**` unless a later architecture decision deliberately promotes a shared primitive into `code/cli/src/**`.
+Private profile catalog repository support is an enterprise capability boundary. The current boundary code lives in `code/enterprise/privateCatalog.js` and is executed by package asset staging so the published package carries an explicit private-catalog enterprise policy artifact. Any future private-catalog enablement code must live under `code/enterprise/**` unless a later architecture decision deliberately promotes a shared primitive into `code/cli/src/**`.
 
 The boundary may include enterprise-only types, adapters, policy descriptions, and tests that do not alter public runtime behavior. Public CLI commands in `code/cli/src/**` must not import enterprise private-catalog modules unless a future feature explicitly changes the product boundary and updates the relevant docs, requirements, and tests.
 
@@ -32,6 +32,7 @@ This boundary does not add strict runtime blocking or detection of ambient Git c
 ## Implementation guardrails
 
 - Keep private-catalog enablement behind enterprise-only files under `code/enterprise/**`.
+- Keep package staging wired to `code/enterprise/privateCatalog.js` so enterprise policy code remains present, executed, and packaged without changing public sync/setup behavior.
 - Keep public/default catalog tests passing unchanged.
 - Keep all URI/error reporting credential-redacted where existing sync/setup code returns messages.
 - Treat any future runtime behavior change as a separate requirements-backed feature, not as part of this boundary document.

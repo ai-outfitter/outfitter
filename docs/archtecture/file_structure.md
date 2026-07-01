@@ -51,7 +51,7 @@ Outfitter is organized around a private npm workspace root, clear TypeScript pac
 │   │   ├── tsconfig.build.json        # production emission from code/cli/src/ to code/cli/dist/
 │   │   └── vitest.config.ts           # package test and coverage configuration
 │   ├── enterprise/                    # enterprise/business licensed code; see code/enterprise/LICENSE
-│   │   └── privateCatalog.ts          # private profile catalog boundary marker/types
+│   │   └── privateCatalog.js          # enterprise private profile catalog policy module used during package staging
 │   └── pi-extension/                  # private workspace boundary for future Pi extension source/assets
 ├── bin/                               # local executable development helpers
 ├── scripts/                           # repository-level development, release, and formatting helper scripts
