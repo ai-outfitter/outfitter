@@ -3,12 +3,7 @@ import type { ProfileSourceReference, RemoteSourceReference } from '../profiles/
 
 export type RemoteSettingsReference = RemoteSourceReference & { readonly path: string };
 export type SettingsValue =
-  | string
-  | number
-  | boolean
-  | null
-  | readonly SettingsValue[]
-  | { readonly [key: string]: SettingsValue };
+  string | number | boolean | null | readonly SettingsValue[] | { readonly [key: string]: SettingsValue };
 export type CustomSettings = Readonly<Record<string, SettingsValue>>;
 
 export interface StartupSettings {

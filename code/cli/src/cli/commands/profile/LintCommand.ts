@@ -75,26 +75,22 @@ export const createProfileLintCommand = (dependencies: ProfileCommandDependencie
 
 const collectProfileLintDiagnostics = (input: ProfileLintCommandInput): readonly ProfileLintDiagnostic[] => {
   const settings = loadSettingsWithCachedRemoteSettings(input);
-  const settingsDiagnostics = settings.issues.map(
-    (issue): ProfileLintDiagnostic => ({
-      severity: 'error',
-      path: `${issue.filePath}#${issue.path}`,
-      message: issue.message,
-    }),
-  );
+  const settingsDiagnostics = settings.issues.map((issue): ProfileLintDiagnostic => ({
+    severity: 'error',
+    path: `${issue.filePath}#${issue.path}`,
+    message: issue.message,
+  }));
 
   if (settingsDiagnostics.length > 0) {
     return settingsDiagnostics;
   }
 
   const loadedProfiles = loadProfileSources(input.homeDirectory, settings.settings.profileSources!);
-  const loadDiagnostics = loadedProfiles.issues.map(
-    (issue): ProfileLintDiagnostic => ({
-      severity: 'error',
-      path: issue.path,
-      message: issue.message,
-    }),
-  );
+  const loadDiagnostics = loadedProfiles.issues.map((issue): ProfileLintDiagnostic => ({
+    severity: 'error',
+    path: issue.path,
+    message: issue.message,
+  }));
   const inheritanceDiagnostics = lintProfileInheritance(loadedProfiles.profiles);
   const promptDiagnostics = createPromptIncludeDiagnostics(loadedProfiles.profiles, input.projectDirectory).map(
     (diagnostic) => ({
