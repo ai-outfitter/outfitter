@@ -160,7 +160,7 @@ const evaluateOutfitterExtension = (
       __import: (specifier: string) =>
         specifier === './pi-extension/privateCatalogOnboarding.js'
           ? importPrivateCatalogOnboardingModule(importOverrides)
-          : importOverrides[specifier]?.() ?? import(specifier),
+          : (importOverrides[specifier]?.() ?? import(specifier)),
     } as { __import: (specifier: string) => Promise<unknown>; outfitter?: OutfitterExtension },
     setTimeout,
   };
@@ -204,7 +204,7 @@ const createMockContext = (
     readonly availableModels?: readonly unknown[];
     readonly inputValues?: readonly string[];
     readonly selectedOption?: string;
-    readonly selectedOptions?: readonly string[];
+    readonly selectedOptions?: readonly (string | undefined)[];
   } = {},
 ) => {
   let editorText = '';
@@ -217,6 +217,8 @@ const createMockContext = (
   const submittedInputs: string[] = [];
   const selectedOptions = [...(options.selectedOptions ?? [])];
   const inputValues = [...(options.inputValues ?? [])];
+  const nextSelectedOption = (fallback: string): string | undefined =>
+    selectedOptions.length > 0 ? selectedOptions.shift() : (options.selectedOption ?? fallback);
 
   return {
     hasUI: true,
@@ -275,7 +277,11 @@ const createMockContext = (
               render?(width?: number): string[];
             };
             customRenders.push(selector.render?.(117) ?? []);
-            const selected = selectedOptions.shift() ?? options.selectedOption ?? selector.outfitterOptions[0];
+            const selected = nextSelectedOption(selector.outfitterOptions[0] ?? '');
+            if (selected === undefined) {
+              selector.handleInput('\x1b');
+              return;
+            }
             const selectedIndex = Math.max(0, selector.outfitterOptions.indexOf(selected));
             for (let index = 0; index < selectedIndex; index += 1) selector.handleInput('\x1b[B');
             customRenders.push(selector.render?.(117) ?? []);
@@ -295,7 +301,7 @@ const createMockContext = (
       },
       select: (title: string, selectOptions: readonly string[]) => {
         selectCalls.push({ title, options: selectOptions });
-        return Promise.resolve(selectedOptions.shift() ?? options.selectedOption ?? selectOptions[0]);
+        return Promise.resolve(nextSelectedOption(selectOptions[0] ?? ''));
       },
       setEditorText: (text: string) => {
         editorText = text;
@@ -844,6 +850,34 @@ describe('preparePiLoginLaunchPlan', () => {
     expect(context.customRenders.flat().join('\n')).toContain(
       'Enable private profile catalogs in ~/.outfitter/settings.yml and use this catalog?',
     );
+  });
+
+  it('leaves settings unchanged when private catalog install target selection is cancelled', async () => {
+    const homeDirectory = createAgentDir();
+    const projectDirectory = createAgentDir();
+    const agentDir = createAgentDir();
+    const plan = preparePiLoginLaunchPlan({
+      adapterId: 'pi',
+      homeDirectory,
+      launchPlan: createLaunchPlan(agentDir),
+      runtimeOnboarding: { projectDirectory },
+      writeLine: () => undefined,
+    });
+    const extension = evaluateOutfitterExtension(readExtension(plan, 'outfitter-extension.js'), {
+      'node:https': () => Promise.resolve(createMockHttpsModule({ statusCode: 200, body: '{"private":true}' })),
+    });
+    const pi = createMockPi();
+    const context = createMockContext({
+      inputValues: ['company/private-profiles', 'main', 'settings.yml'],
+      selectedOptions: ['Provide a different catalog to import', 'Enable and continue', undefined],
+    });
+
+    extension(pi);
+    await runOutfitterCommand(pi, context);
+
+    expect(existsSync(join(homeDirectory, '.outfitter', 'settings.yml'))).toBe(false);
+    expect(existsSync(join(projectDirectory, '.outfitter', 'settings.yml'))).toBe(false);
+    expect(context.notifications).toContain('Outfitter setup cancelled; no settings were changed.');
   });
 
   it('skips the private-catalog prompt when the home enterprise setting is already enabled', async () => {

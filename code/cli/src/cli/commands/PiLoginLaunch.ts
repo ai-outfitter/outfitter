@@ -616,17 +616,15 @@ const runRemoteSettingsOnboarding = async (fs, paths, questionUi) => {
   }
 
   const privateCatalogOnboarding = await loadPrivateCatalogOnboarding();
-  let privateCatalogsEnabled = privateCatalogOnboarding.readPrivateProfileCatalogsEnabled(fs, paths.homeSettingsPath);
+  const privateCatalogsAlreadyEnabled = privateCatalogOnboarding.readPrivateProfileCatalogsEnabled(fs, paths.homeSettingsPath);
   let privateCatalogAccepted = false;
-  if (!privateCatalogsEnabled && await privateCatalogOnboarding.classifyGitHubRepositoryVisibility(github) === "private") {
+  if (!privateCatalogsAlreadyEnabled && await privateCatalogOnboarding.classifyGitHubRepositoryVisibility(github) === "private") {
     const accepted = await questionUi.confirmPrivateCatalog(github);
     if (!accepted) {
       questionUi.notify("Private catalog setup was cancelled; no settings were changed.", "warning");
       return;
     }
 
-    privateCatalogOnboarding.writePrivateProfileCatalogsEnabled(fs, paths.homeSettingsPath);
-    privateCatalogsEnabled = true;
     privateCatalogAccepted = true;
   }
 
@@ -636,6 +634,11 @@ const runRemoteSettingsOnboarding = async (fs, paths, questionUi) => {
     return;
   }
 
+  if (privateCatalogAccepted) {
+    privateCatalogOnboarding.writePrivateProfileCatalogsEnabled(fs, paths.homeSettingsPath);
+  }
+
+  const privateCatalogsEnabled = privateCatalogsAlreadyEnabled || privateCatalogAccepted;
   fs.mkdirSync(fs.dirname(installTarget.settingsPath), { recursive: true });
   fs.writeFileSync(installTarget.settingsPath, createRemoteSettingsContent(github, ref, settingsPath, privateCatalogsEnabled && installTarget.settingsPath === paths.homeSettingsPath));
   questionUi.notify(
