@@ -10,6 +10,18 @@ For normal usage, install Outfitter from npm with `npm install -g @ai-outfitter/
 - Git
 - Optional for end-to-end `outfitter run` testing: the `pi` CLI available on your `PATH`
 
+## Repository structure
+
+| Path                                            | Use it for                                               |
+| ----------------------------------------------- | -------------------------------------------------------- |
+| [Documentation](./docs/documentation/README.md) | User-facing setup, profile, and profile-repository docs. |
+| [Architecture](./docs/archtecture/README.md)    | Architecture, runtime design, and internal conventions.  |
+| [Requirements](./docs/requirements/)            | Formal OFTR requirements.                                |
+| [CLI package](./code/cli/)                      | Published CLI package source, tests, skills, and config. |
+| [Pi extension](./code/pi-extension/)            | Future Pi extension package boundary.                    |
+| [Changelog](./CHANGELOG.md)                     | Release history.                                         |
+| [License](./LICENSE.md)                         | License terms.                                           |
+
 ## Install dependencies
 
 From the repository root:
@@ -60,6 +72,57 @@ You can inspect the generated user config at:
 
 ```sh
 find "$OUTFITTER_TEST_HOME/.outfitter" -maxdepth 4 -type f -print
+```
+
+For source-checkout smoke tests, prefer the helper scripts in `bin/` so agents and humans exercise the current worktree instead of an older global install.
+
+### Install this checkout as `outfitter-dev`
+
+Use `bin/dev-install-outfitter-dev` when you want a stable global command that points at this checkout without replacing the normal `outfitter` command:
+
+```sh
+bin/dev-install-outfitter-dev --force
+outfitter-dev --version
+outfitter-dev --help
+```
+
+After source changes, rerun the script or `npm run build` so `dist/` reflects the worktree.
+
+### Run an isolated first-run/setup smoke test
+
+Use `bin/dev-tmp-home` to build the current checkout, create a temporary `HOME`, copy existing Pi auth into that temporary home if present, run setup against the adjacent `outfitter-default-profiles` checkout, and remove the temporary home on exit:
+
+```sh
+bin/dev-tmp-home
+```
+
+This is the safest local smoke test for onboarding and setup changes because it does not write to your real `~/.outfitter` state.
+
+### Run setup against a specific source
+
+Use `bin/dev-setup-source` when you intentionally want to preserve the caller's `HOME` and current working directory while running this checkout's build against a real setup source:
+
+```sh
+bin/dev-setup-source /path/to/setup-source
+bin/dev-setup-source https://github.com/ai-outfitter/default-profiles
+```
+
+Because this command writes to the active home or project target, use it only when that mutation is intended.
+
+### Run the local container smoke test
+
+Use `bin/dev-container-setup` to build the local development image and run Outfitter in a container. Pi credentials and settings are stored in the named container volume `outfitter-pi-agent`, not copied from the host:
+
+```sh
+bin/dev-container-setup
+bin/dev-container-setup https://github.com/ai-outfitter/default-profiles
+bin/dev-container-setup ../outfitter-default-profiles
+```
+
+Pass `--skip-build` to reuse an existing `outfitter-dev:local` image:
+
+```sh
+bin/dev-container-setup --skip-build
 ```
 
 ## Try the run command
