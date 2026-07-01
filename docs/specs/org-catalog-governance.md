@@ -271,6 +271,6 @@ Dependencies: 1 → 2 → {4, 8}; 5 → {6, 10, 12}; 7 → 8 → 9; 3 alongside 
 
 - `docs/requirements/OFTR-002-settings.md` (settings precedence, profile sources, remote settings)
 - `docs/requirements/OFTR-004-sync-and-setup.md` (sync caching, private-catalog enterprise precedent)
-- `docs/documentation/usecases/orginization-profile-catalog.md` (role catalog + budget annotation pattern)
+- `docs/documentation/usecases/organization-profile-catalog.md` (role catalog + budget annotation pattern)
 - `docs/plans/2026-07-01-comprehensive-assessment.md` §5–6 (market, enterprise wedge)
 - `docs/plans/2026-07-01-update-plan.md` issues 24, 31, 32, 34

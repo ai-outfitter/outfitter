@@ -12,7 +12,7 @@ const selfPath = fileURLToPath(import.meta.url);
 
 // Directories that must not be scanned: dependencies, git internals, build
 // artifacts, and docs/plans (which intentionally records historical typos).
-const excludedDirectories = new Set(['node_modules', '.git', 'dist', 'coverage']);
+const excludedDirectories = new Set(['node_modules', '.git', '.claude', 'dist', 'coverage']);
 const excludedRelativePaths = new Set(['docs/plans']);
 
 function collectFiles(directory: string, results: string[]): string[] {
