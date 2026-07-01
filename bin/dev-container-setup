@@ -19,8 +19,8 @@ usage() {
 Usage: bin/dev-container-setup [options] [setup-source] [-- <outfitter setup args>]
 
 Build the local Outfitter Docker image, start in ~/repos, and run Outfitter.
-With no setup-source, this opens `outfitter`. With setup-source, it runs
-`outfitter setup <setup-source>`.
+With no setup-source, this opens `outfitter`. With setup-source, it opens
+Pi-native setup through `outfitter setup <setup-source>`.
 
 Pi credentials and settings are stored in a named container volume mounted at
 ~/.pi/agent. They are not copied from the host.

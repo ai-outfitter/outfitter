@@ -10,6 +10,7 @@ export interface PiRuntimeOnboardingLaunchInput {
   readonly autoOpenOutfitter?: boolean;
   readonly defaultProfilesPath?: string;
   readonly projectDirectory?: string;
+  readonly setupSourceUri?: string;
 }
 
 export interface PiLoginLaunchPlanInput {
@@ -58,6 +59,7 @@ export const preparePiLoginLaunchPlan = (input: PiLoginLaunchPlanInput): AgentLa
       defaultProfilesPath: input.runtimeOnboarding?.defaultProfilesPath,
       homeDirectory: input.homeDirectory,
       projectDirectory: resolve(input.runtimeOnboarding?.projectDirectory ?? process.cwd()),
+      setupSourceUri: input.runtimeOnboarding?.setupSourceUri,
       startupAsciiArt: input.startupAsciiArt ?? true,
     }),
   );
@@ -127,6 +129,7 @@ const createPiOutfitterExtensionContent = (input: {
   readonly defaultProfilesPath?: string;
   readonly homeDirectory: string;
   readonly projectDirectory: string;
+  readonly setupSourceUri?: string;
   readonly startupAsciiArt: boolean;
 }): string => {
   const defaultSettingsTemplate = createSetupDefaultSettingsContent('__OUTFITTER_PROFILE_ID__');
@@ -139,6 +142,7 @@ const OUTFITTER_DEFAULT_TOOLS = ["read", "bash", "edit", "write"];
 const OUTFITTER_HOME = ${JSON.stringify(input.homeDirectory)};
 const OUTFITTER_PROJECT = ${JSON.stringify(input.projectDirectory)};
 const OUTFITTER_DEFAULT_PROFILES_PATH = ${JSON.stringify(input.defaultProfilesPath)};
+const OUTFITTER_SETUP_SOURCE_URI = ${JSON.stringify(input.setupSourceUri)};
 const OUTFITTER_AUTO_OPEN = ${JSON.stringify(input.autoOpenOutfitter)};
 const OUTFITTER_DEFAULT_SETTINGS_TEMPLATE = ${JSON.stringify(defaultSettingsTemplate)};
 const OUTFITTER_STARTUP_ASCII_ART = ${JSON.stringify(input.startupAsciiArt)};
@@ -340,6 +344,13 @@ export default function outfitter(pi) {
       await Promise.all([import("node:fs"), import("node:path")]);
     const paths = createOutfitterPaths(join);
     const questionUi = createQuestionUi(ctx);
+
+    if (OUTFITTER_SETUP_SOURCE_URI !== undefined) {
+      await runProvidedSourceOnboarding({ mkdirSync, writeFileSync, dirname }, paths, questionUi, OUTFITTER_SETUP_SOURCE_URI);
+      await openLoginIfNoModels(ctx);
+      return;
+    }
+
     const setupMode = await questionUi.selectSetupMode();
 
     if (setupMode === undefined) {
@@ -594,7 +605,28 @@ const runRemoteSettingsOnboarding = async (fs, paths, questionUi) => {
   );
 };
 
+const runProvidedSourceOnboarding = async (fs, paths, questionUi, sourceUri) => {
+  const installTarget = await questionUi.selectInstallTarget(paths);
+  if (installTarget === undefined) {
+    questionUi.notify("Outfitter setup cancelled; no settings were changed.", "warning");
+    return;
+  }
+
+  fs.mkdirSync(fs.dirname(installTarget.settingsPath), { recursive: true });
+  fs.writeFileSync(installTarget.settingsPath, createProvidedSourceSettingsContent(sourceUri));
+  questionUi.notify(
+    [
+      "Outfitter saved setup source to " + installTarget.settingsPath + ".",
+      "Run 'outfitter sync' or restart Outfitter after the source is reachable.",
+    ].join("\n"),
+    "info",
+  );
+};
+
 const normalizeInputValue = (value) => typeof value === "string" ? value.trim() : undefined;
+
+const createProvidedSourceSettingsContent = (sourceUri) =>
+  ["remote_settings:", "  - uri: " + JSON.stringify(sourceUri), "    path: settings.yml", ""].join("\n");
 
 const readCurrentDefaultProfile = (settingsPath, existsSync, readFileSync) => {
   if (!existsSync(settingsPath)) return undefined;

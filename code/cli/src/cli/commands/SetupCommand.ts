@@ -63,6 +63,12 @@ export interface SetupSourceLaunchInput {
   readonly profileId?: string;
 }
 
+export interface SetupPiOnboardingLaunchInput {
+  readonly homeDirectory: string;
+  readonly projectDirectory: string;
+  readonly setupSourceUri?: string;
+}
+
 export type SetupSourcePostImportAction = 'start' | 'exit';
 
 export type SetupCommandDependencies = SyncCommandDependencies &
@@ -85,6 +91,7 @@ export type SetupCommandDependencies = SyncCommandDependencies &
       defaultMode: SetupSourceImportMode,
     ) => Promise<SetupSourceImportMode>;
     readonly launchSetupSourceProfile?: (input: SetupSourceLaunchInput) => Promise<void>;
+    readonly launchPiOnboarding?: (input: SetupPiOnboardingLaunchInput) => Promise<{ readonly exitCode: number }>;
     readonly runWelcome?: (
       input: SetupCommandInput,
       dependencies: SetupCommandDependencies,
@@ -550,26 +557,41 @@ export const createSetupCommand = (dependencies: SetupCommandDependencies = {}):
         .command(`${command.name} [source]`)
         .description(command.description)
         .action(async (source?: string) => {
-          const result = await executeSetupCommand(
-            {
-              /* v8 ignore next -- default process home is exercised by the direct CLI entrypoint, not unit tests. */
-              homeDirectory: dependencies.homeDirectory ?? homedir(),
-              /* v8 ignore next -- default process cwd is exercised by the direct CLI entrypoint, not unit tests. */
-              projectDirectory: dependencies.projectDirectory ?? process.cwd(),
-              setupSourceUri: source,
-            },
-            { ...dependencies, interactive: true },
-          );
+          const input = {
+            /* v8 ignore next -- default process home is exercised by the direct CLI entrypoint, not unit tests. */
+            homeDirectory: dependencies.homeDirectory ?? homedir(),
+            /* v8 ignore next -- default process cwd is exercised by the direct CLI entrypoint, not unit tests. */
+            projectDirectory: dependencies.projectDirectory ?? process.cwd(),
+            setupSourceUri: source,
+          };
+          const result =
+            dependencies.launchPiOnboarding === undefined
+              ? await launchPiOnboardingWithRunCommand(input, dependencies)
+              : await dependencies.launchPiOnboarding(input);
 
-          for (const message of result.messages) {
-            /* v8 ignore next -- console fallback is direct CLI behavior; tests inject a writer. */
-            (dependencies.writeLine ?? console.log)(message);
+          if (result.exitCode !== 0) {
+            process.exitCode = result.exitCode;
           }
         });
     },
   };
 
   return command;
+};
+
+const launchPiOnboardingWithRunCommand = async (
+  input: SetupPiOnboardingLaunchInput,
+  dependencies: SetupCommandDependencies,
+): Promise<{ readonly exitCode: number }> => {
+  const { executeRunCommand } = await import('./RunCommand.js');
+  return executeRunCommand(
+    {
+      ...input,
+      agentId: 'pi',
+      forceRuntimeOnboarding: true,
+    },
+    { ...dependencies, interactive: true },
+  );
 };
 
 const prepareStarterLayout = (

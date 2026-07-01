@@ -728,21 +728,11 @@ Requirements:
 
 Responsibilities:
 
-- create `~/.outfitter/settings.yml` when missing;
-- accept an optional setup source URI, for example `outfitter setup https://github.com/example/outfitter-config`, and clone/update it under `~/.outfitter/cache/repos/<encoded-uri-and-ref>/`;
-
-- when a setup source is provided, use its root `settings.yml` or `.outfitter/settings.yml` and `profiles/` or `.outfitter/profiles/` as the initial non-overwriting setup starting point for the selected import target;
-- keep copy/cache setup-source import as the default behavior; when interactive setup receives a local path whose source contains `.outfitter/`, optionally offer symlink mode for rapid shared-profile development;
-- explain that symlink mode links the selected target `.outfitter` to the local source `.outfitter`, so source edits affect later runs immediately, and refuse to replace a non-empty target `.outfitter` without explicit user action;
-- during interactive setup-source onboarding, show the Outfitter welcome first, explain the source being imported, ask whether to install into user home or the current project, then ask exactly one source-profile/default prompt;
-- require an interactive TTY on both stdin and stdout before running setup prompts;
-- create a default profile when missing;
-- validate all discovered settings files and any starter settings file;
-- run `outfitter sync` behavior for URI profile sources before profile selection;
-
-- outside that initial welcome handoff and outside setup-source import onboarding, show a setup wizard with synced profile choices, preserve display labels where available, validate the selected profile ID, and write the selected default profile to user settings;
-- create any missing fallback default profile file for the final selected default profile;
-- report actionable next steps.
+- force Pi-native onboarding even when Outfitter settings already exist;
+- start Pi with the bootstrap Outfitter extension and auto-submit `/outfitter`;
+- accept an optional setup source URI, for example `outfitter setup https://github.com/example/outfitter-config`, and pass it into the generated Pi extension;
+- keep setup writes inside the native `/outfitter` flow after Pi starts;
+- set the process exit code from the launched Pi process.
 
 ### Pi-native `/outfitter` onboarding
 
@@ -751,6 +741,7 @@ Responsibilities:
 - register `/outfitter` from the bootstrap extension with `pi.registerCommand("outfitter", ...)` so it executes as a native command before skill fallback dispatch;
 - run without a model turn, using Pi `ctx.ui.*` through a small question abstraction because source inspection found the installed ask-user-question package exports tool registration but no supported direct questionnaire API for other extensions;
 - list loaded default-profile choices from the synced `github: ai-outfitter/default-profiles`, `path: profiles` source and include `founder`, `engineer`, and `data_analyst` when that source is available;
+- when launched from `outfitter setup <source>`, write the provided setup source from inside Pi after the user chooses an install target;
 - write `~/.outfitter/settings.yml` with the shared default profile source and selected `default_profile` when settings are missing;
 - update `default_profile` without overwriting existing user profile files when settings already exist;
 - explain that selected profile/loadout changes apply on the next `outfitter` launch because Pi startup-sensitive state has already been chosen for the running process;

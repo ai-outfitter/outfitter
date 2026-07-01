@@ -144,6 +144,44 @@ describe('first-run onboarding profile persistence', () => {
     expect(existsSync(join(homeDirectory, '.outfitter', 'profiles', 'engineer', 'profile.yml'))).toBe(false);
   });
 
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-010.1, OFTR-010.5).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('forces Pi-native onboarding for setup launches even when settings already exist', async () => {
+    const root = createTemporaryRoot();
+    const homeDirectory = join(root, 'home');
+    const projectDirectory = join(root, 'project');
+    const setupSourceUri = 'https://example.test/catalog.git';
+    mkdirSync(join(homeDirectory, '.outfitter'), { recursive: true });
+    writeFileSync(join(homeDirectory, '.outfitter', 'settings.yml'), 'default_profile: engineer\n');
+
+    const result = await executeRunCommand(
+      { homeDirectory, projectDirectory, agentId: 'pi', forceRuntimeOnboarding: true, setupSourceUri },
+      {
+        interactive: true,
+        input: { isTTY: true } as NodeJS.ReadableStream & { isTTY: true },
+        output: { isTTY: true } as NodeJS.WritableStream & { isTTY: true },
+        synchronizer: defaultProfileSynchronizer,
+        writeLine: () => undefined,
+        selectDefaultProfile() {
+          throw new Error('setup runtime onboarding should not ask terminal setup questions');
+        },
+        selectWelcomePlan() {
+          throw new Error('setup runtime onboarding should not run terminal welcome questions');
+        },
+        launcher: {
+          launch() {
+            return Promise.resolve(0);
+          },
+        },
+      },
+    );
+
+    expect(result.profileId).toBe('outfitter-bootstrap');
+    expect(result.launchPlan.args[0]).toBe('--extension');
+    expect(readFileSync(result.launchPlan.args[1] ?? '', 'utf8')).toContain(JSON.stringify(setupSourceUri));
+    expect(readFileSync(join(homeDirectory, '.outfitter', 'settings.yml'), 'utf8')).toBe('default_profile: engineer\n');
+  });
+
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-010.4).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('opens Pi login automatically during first-run bootstrap when Pi is not logged in', async () => {

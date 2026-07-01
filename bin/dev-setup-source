@@ -13,8 +13,8 @@ Usage: bin/dev-setup-source <setup-source>
 Run this Outfitter checkout's local build against a real setup-source target.
 
 This helper preserves the caller's HOME and current working directory so
-`outfitter setup <setup-source>` initializes or updates the intended org/project
-`.outfitter` state. Use a remote Git URL such as
+`outfitter setup <setup-source>` opens Pi-native setup for the intended
+org/project `.outfitter` state. Use a remote Git URL such as
 `https://github.com/ai-outfitter/link` or a local Git repository path.
 
 For isolated first-run smoke tests with a temporary HOME and project directory,
