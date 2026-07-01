@@ -1,6 +1,6 @@
 // Defines composite profile state persistence declarations, strategies, and write detection helpers.
 import {
-  copyFileSync,
+  cpSync,
   existsSync,
   lstatSync,
   mkdirSync,
@@ -14,6 +14,10 @@ import {
 } from 'node:fs';
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { sep as posixSeparator } from 'node:path/posix';
+
+import { parseDocument } from 'yaml';
+
+import { createSafeSymlink } from '../fs/SafeSymlink.js';
 
 export type StatePersistenceStrategy = 'symlink' | 'discard' | 'warn' | 'error' | 'prompt';
 
@@ -42,6 +46,7 @@ export interface CompositeProfileStateWriteIssue {
 export interface StateMaterializationDependencies {
   readonly symlink?: typeof symlinkSync;
   readonly warn?: (message: string) => void;
+  readonly platform?: NodeJS.Platform;
 }
 
 export const materializeCompositeProfileStatePath = (
@@ -124,6 +129,89 @@ export const detectCompositeProfileStateWrites = (
   }
 
   return [...issues.values()].sort((left, right) => left.relativePath.localeCompare(right.relativePath));
+};
+
+// Classifies a composite profile relative path observed during a live session: a path is an
+// undeclared write when it is a user write outside every declared state path, is not an
+// ancestor of a declared state path (parent directories are expected to appear), and is not
+// one of the generated composite profile files that Outfitter itself rewrites.
+export const isUndeclaredCompositeProfileWritePath = (
+  relativePath: string,
+  statePaths: readonly CompositeProfileStatePath[],
+  generatedFilePaths: readonly string[] = [],
+): boolean => {
+  const normalizedPath = relativePath.split(sep).join(posixSeparator);
+
+  if (normalizedPath === '' || !isUserWritePath(normalizedPath)) {
+    return false;
+  }
+
+  const withinDeclaredPath = statePaths
+    .filter((statePath) => statePath.relativePath !== 'unknown')
+    .some(
+      (statePath) =>
+        isWithinStatePath(normalizedPath, statePath) ||
+        isAncestorPath(normalizedPath, normalizeStateRelativePath(statePath.relativePath)),
+    );
+
+  if (withinDeclaredPath) {
+    return false;
+  }
+
+  return !generatedFilePaths.some(
+    (generatedPath) =>
+      normalizedPath === generatedPath ||
+      isAncestorPath(normalizedPath, generatedPath) ||
+      isAncestorPath(generatedPath, normalizedPath),
+  );
+};
+
+const isAncestorPath = (candidate: string, path: string): boolean => path.startsWith(`${candidate}${posixSeparator}`);
+
+export type CompositeProfileStateWritePromptChoice = 'persist' | 'discard' | 'always';
+
+export interface CompositeProfileStateWritePromptRequest {
+  readonly agentId: string;
+  readonly relativePath: string;
+  readonly sourcePath?: string;
+}
+
+export type CompositeProfileStateWritePrompt = (
+  request: CompositeProfileStateWritePromptRequest,
+) => Promise<CompositeProfileStateWritePromptChoice>;
+
+// Copies an agent's change to a prompt-strategy state path from the composite profile back
+// to the durable source path, so an interactive "persist" choice survives the run.
+export const persistCompositeProfileStateWrite = (
+  rootDirectory: string,
+  statePath: CompositeProfileStatePath,
+): void => {
+  if (statePath.sourcePath === undefined) {
+    throw new Error(`State path '${statePath.relativePath}' cannot be persisted without a durable source path.`);
+  }
+
+  const outputPath = resolveCompositeProfileStateOutputPath(rootDirectory, statePath.relativePath);
+
+  if (!pathLexicallyExists(outputPath)) {
+    throw new Error(
+      `State path '${statePath.relativePath}' no longer exists in the composite profile, so it cannot be persisted.`,
+    );
+  }
+
+  ensureStateSourcePath(statePath.sourcePath, statePath.directory);
+  cpSync(outputPath, statePath.sourcePath, { recursive: true, force: true });
+};
+
+// Records a durable state_persistence override in a profile YAML file, preserving the
+// existing document structure and comments.
+export const recordProfileStatePersistenceOverride = (
+  profilePath: string,
+  relativePath: string,
+  strategy: StatePersistenceStrategy,
+): void => {
+  const profileDocument = parseDocument(readFileSync(profilePath, 'utf8'));
+  profileDocument.setIn(['state_persistence', relativePath], strategy);
+  writeFileSync(profilePath, profileDocument.toString());
 };
 
 export const ensureStateSourcePath = (sourcePath: string, directory: boolean): string => {
@@ -218,46 +306,8 @@ const materializeSymlink = (
   }
 
   ensureStateSourcePath(sourcePath, directory);
-  const symlink = dependencies.symlink ?? symlinkSync;
-
-  try {
-    symlink(sourcePath, outputPath, directory ? 'dir' : 'file');
-  } catch (error) {
-    if (!isSymlinkPermissionError(error)) {
-      throw error;
-    }
-
-    materializeSymlinkFallback(symlink, relativePath, sourcePath, outputPath, directory, dependencies.warn);
-  }
+  createSafeSymlink({ sourcePath, outputPath, directory, label: `State path '${relativePath}'` }, dependencies);
 };
-
-// Windows without Developer Mode (and some filesystems) rejects symlink creation with
-// EPERM. Directories fall back to junctions, which need no privilege but require an
-// absolute target; files fall back to a one-way copy with a warning because agent writes
-// to the copy cannot persist back to the source.
-const materializeSymlinkFallback = (
-  symlink: typeof symlinkSync,
-  relativePath: string,
-  sourcePath: string,
-  outputPath: string,
-  directory: boolean,
-  warn: ((message: string) => void) | undefined,
-): void => {
-  if (directory) {
-    symlink(resolve(sourcePath), outputPath, 'junction');
-    return;
-  }
-
-  copyFileSync(sourcePath, outputPath);
-  /* v8 ignore next -- console fallback is direct CLI behavior; tests inject a warn writer. */
-  (warn ?? console.error)(
-    `State path '${relativePath}' could not be symlinked (symlinks are unavailable on this platform); ` +
-      `copied '${sourcePath}' instead, so writes to it will not persist back.`,
-  );
-};
-
-const isSymlinkPermissionError = (error: unknown): boolean =>
-  isNodeError(error) && (error.code === 'EPERM' || error.code === 'EACCES');
 
 const pathLexicallyExists = (path: string): boolean => {
   try {

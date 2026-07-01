@@ -64,10 +64,36 @@ state_persistence:
   cache/: discard # Allow writes, then throw them away when the run ends.
   plugins/: warn # Allow writes, discard them, and report them after the run.
   settings.json: error # Allow the run, then fail if this path changed.
-  mcp.json: prompt # Reserved for future interactive handling; currently diagnostic where allowed.
+  mcp.json: prompt # Ask after the run: persist, discard, or always persist for this profile.
 ```
 
-Use `symlink` for state you want to keep, such as login state, durable settings, MCP config, or plugin installs. Use `discard`, `warn`, or `error` for state that should not become part of the durable profile.
+Use `symlink` for state you want to keep, such as login state, durable settings, MCP config, or plugin installs. Use `discard`, `warn`, or `error` for state that should not become part of the durable profile. Use `prompt` when you want to decide interactively after each run.
+
+## Prompt strategy
+
+When a `prompt` path changed during a run and both stdin and stdout are interactive terminals, Outfitter asks what to do with the change after the agent exits:
+
+- **persist** — copy the change to the path's durable source (the profile-managed file or the native CLI location) for this run only.
+- **discard** — throw the change away with the rest of the composite profile.
+- **always** — persist the change and record a `state_persistence: <path>: symlink` override in the selected profile's own YAML file, so future runs persist writes to that path automatically.
+
+The "always" choice is written into the selected profile's `profile.yml` because profiles are the single source of truth for `state_persistence` policy. If the selected profile comes from a remote or cached source, Outfitter never mutates the cache: the change is persisted once and a warning explains that the choice could not be recorded.
+
+In non-interactive sessions (CI, scripts, piped stdio), `prompt` falls back to `warn` and Outfitter prints an explicit `prompt skipped: non-interactive` notice.
+
+Undeclared writes governed by `unknown: prompt` cannot be persisted because they have no durable destination; Outfitter reports them as warnings and says so.
+
+## Live detection and crash coverage
+
+Outfitter watches the composite profile while the agent runs and prints a near-real-time notice (deduplicated per path and throttled) when the agent writes an undeclared path, so long sessions get feedback before exit. The exit-time diff remains the authoritative final pass.
+
+Each session also keeps a lightweight journal (baseline fingerprint plus observed undeclared writes) under `~/.outfitter/state/session-journals/`. On a clean exit the journal is removed; if the session crashes or is killed, the next `outfitter` invocation reports the prior session's undeclared writes once and clears the journal. Because journals live under `~/.outfitter/state` rather than the temporary directory, they survive composite-directory cleanup.
+
+## Temporary directory cleanup
+
+Composite profile directories are created under the system temporary directory and removed automatically when the Outfitter process exits or receives a handled signal. Removal deletes symlink entries without following them, so the durable auth/settings state the links point at is never touched. Pass `--debug` to keep the directory for inspection; Outfitter prints its path.
+
+Each startup also reports any leftover crash journals first and then best-effort sweeps `outfitter-*` directories older than seven days from the temporary root. The sweep never follows symlinks, so a stale directory's links are removed while their targets survive.
 
 ## User stories
 
