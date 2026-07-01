@@ -1,5 +1,6 @@
 // Provides the pi adapter for composite profile generation and native pi launch plans.
 import { existsSync, readdirSync, readFileSync, statSync, type Dirent } from 'node:fs';
+import { homedir } from 'node:os';
 import { delimiter, dirname, isAbsolute, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -420,8 +421,8 @@ const resolvePiStateSourcePath = (
   const configuredCacheDirectory =
     cacheDirectory ??
     join(
-      /* v8 ignore next -- run command always passes homeDirectory; environment fallbacks are defensive. */
-      homeDirectory ?? process.env.HOME ?? '.',
+      /* v8 ignore next -- run command always passes homeDirectory; the os fallback is defensive. */
+      homeDirectory ?? homedir(),
       '.outfitter',
       'cache',
     );
@@ -437,8 +438,8 @@ const resolvePiStateSourcePath = (
   }
 
   return join(
-    /* v8 ignore next -- run command always passes homeDirectory; environment fallbacks are defensive. */
-    homeDirectory ?? process.env.HOME ?? '.',
+    /* v8 ignore next -- run command always passes homeDirectory; the os fallback is defensive. */
+    homeDirectory ?? homedir(),
     '.pi',
     'agent',
     normalizedRelativePath,
