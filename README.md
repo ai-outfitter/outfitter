@@ -42,6 +42,7 @@ controls:
 - [Getting started](./docs/documentation/getting-started.md)
 - [Profiles](./docs/documentation/profiles.md)
 - [Profile repositories](./docs/documentation/profile-repository.md)
+- [State persistence](./docs/documentation/state.md)
 - [First-time CLI agent users](./docs/documentation/first-time-cli-agent-users.md)
 - [Switching to Outfitter](./docs/documentation/switching-to-outfitter.md)
 - [Documentation index](./docs/documentation/README.md)

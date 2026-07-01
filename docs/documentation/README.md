@@ -7,6 +7,7 @@ User-facing Outfitter documentation.
 - [Switching to Outfitter](./switching-to-outfitter.md)
 - [Profiles](./profiles.md)
 - [Profile repositories](./profile-repository.md)
+- [State persistence](./state.md)
 - [Philosophy](../philosophy.md)
 
 ## Use cases
