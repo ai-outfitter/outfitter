@@ -44,7 +44,14 @@ import type {
   CompositeProfileStateWriteIssue,
   CompositeProfileStateWritePrompt,
 } from '../../compositeProfile/StatePersistence.js';
-import { watchCompositeProfileInputs } from '../../compositeProfile/CompositeProfileWatcher.js';
+import {
+  watchCompositeProfileInputs,
+  watchCompositeProfileStateWrites,
+} from '../../compositeProfile/CompositeProfileWatcher.js';
+import {
+  createCompositeProfileSessionJournal,
+  reportAndClearCompositeProfileSessionJournals,
+} from '../../compositeProfile/CompositeProfileSessionJournal.js';
 import type { AgentProcessLauncher } from '../../agents/AgentLaunch.js';
 import { launchAgentProcess, resolveAgentLaunchExecutable } from '../../agents/AgentLaunch.js';
 import type { CommandObject } from './CommandObject.js';
@@ -86,6 +93,8 @@ export const executeRunCommand = async (
   input: RunCommandInput,
   dependencies: RunCommandDependencies = {},
 ): Promise<RunCommandResult> => {
+  const sessionJournalDirectory = join(input.homeDirectory, '.outfitter', 'state', 'session-journals');
+  reportPreviousSessionJournals(sessionJournalDirectory, dependencies);
   const runtimeOnboarding = prepareFirstRunRuntimeOnboarding(input, dependencies);
   const resolvedProfile =
     runtimeOnboarding === undefined ? loadResolvedProfile(input) : createFirstRunBootstrapProfile(input);
@@ -173,6 +182,21 @@ export const executeRunCommand = async (
     /* v8 ignore next -- watcher warnings are covered in CompositeProfileWatcher tests; this adapter passes the stderr writer through. */
     warn: (message) => (dependencies.writeError ?? console.error)(message),
   });
+  const sessionJournal = createCompositeProfileSessionJournal({
+    journalDirectory: sessionJournalDirectory,
+    agentId: adapter.id,
+    profileId: resolvedProfile.profile.id,
+    compositeProfileDirectory: compositeProfilePlan.compositeProfile.rootDirectory,
+    baseline: stateBaseline,
+  });
+  const stateWriteWatcher = watchCompositeProfileStateWrites({
+    compositeProfile: compositeProfilePlan.compositeProfile,
+    agentId: adapter.id,
+    journal: sessionJournal,
+    /* v8 ignore next 2 -- console fallbacks are direct CLI behavior; tests inject writers. */
+    notify: (message) => (dependencies.writeError ?? console.error)(message),
+    warn: (message) => (dependencies.writeError ?? console.error)(message),
+  });
 
   try {
     const launcher =
@@ -202,7 +226,11 @@ export const executeRunCommand = async (
       exitCode,
     };
   } finally {
+    stateWriteWatcher.close();
     watcher.close();
+    // The journal only outlives sessions that never reach this point (crash, SIGKILL, or a
+    // handled signal); any in-process completion has run the authoritative exit-time diff.
+    sessionJournal.discard();
   }
 };
 
@@ -366,6 +394,13 @@ const createAdapterCompositeProfilePlan = (
     }),
   };
 };
+
+const reportPreviousSessionJournals = (sessionJournalDirectory: string, dependencies: RunCommandDependencies): void =>
+  reportAndClearCompositeProfileSessionJournals(
+    sessionJournalDirectory,
+    /* v8 ignore next -- console fallback is direct CLI behavior; tests inject an error writer. */
+    dependencies.writeError ?? console.error,
+  );
 
 interface CompositeProfileStateWriteHandlingInput {
   readonly adapterId: string;

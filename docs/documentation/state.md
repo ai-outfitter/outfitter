@@ -83,6 +83,12 @@ In non-interactive sessions (CI, scripts, piped stdio), `prompt` falls back to `
 
 Undeclared writes governed by `unknown: prompt` cannot be persisted because they have no durable destination; Outfitter reports them as warnings and says so.
 
+## Live detection and crash coverage
+
+Outfitter watches the composite profile while the agent runs and prints a near-real-time notice (deduplicated per path and throttled) when the agent writes an undeclared path, so long sessions get feedback before exit. The exit-time diff remains the authoritative final pass.
+
+Each session also keeps a lightweight journal (baseline fingerprint plus observed undeclared writes) under `~/.outfitter/state/session-journals/`. On a clean exit the journal is removed; if the session crashes or is killed, the next `outfitter` invocation reports the prior session's undeclared writes once and clears the journal. Because journals live under `~/.outfitter/state` rather than the temporary directory, they survive composite-directory cleanup.
+
 ## User stories
 
 ### Keep login working
