@@ -50,8 +50,15 @@ export interface UriProfileSourceSynchronizer {
   sync(source: RemoteSourceReference, cachePath: string): SyncSourceStatus;
 }
 
+export type GitHubRepositoryVisibility = 'public' | 'private' | 'unknown';
+
+export interface GitHubRepositoryVisibilityClassifier {
+  classify(repository: string): GitHubRepositoryVisibility;
+}
+
 export interface SyncCommandDependencies {
   readonly synchronizer?: UriProfileSourceSynchronizer;
+  readonly repositoryVisibilityClassifier?: GitHubRepositoryVisibilityClassifier;
   readonly homeDirectory?: string;
   readonly projectDirectory?: string;
   readonly writeLine?: (message: string) => void;
@@ -68,7 +75,13 @@ export const executeSyncCommand = (
   }
 
   const synchronizer = dependencies.synchronizer ?? createGitSynchronizer();
+  const repositoryVisibilityClassifier =
+    dependencies.repositoryVisibilityClassifier ?? createGitHubRepositoryVisibilityClassifier();
   const remoteSettingsSources = localSettings.settings.remoteSettings!;
+  const remoteSettingsInfoMessages = createPrivateCatalogInfoMessages(
+    remoteSettingsSources,
+    repositoryVisibilityClassifier,
+  );
   const remoteSettingsResults = remoteSettingsSources.map((source) =>
     syncRemoteSettingsSource(input.homeDirectory, source, synchronizer),
   );
@@ -82,15 +95,20 @@ export const executeSyncCommand = (
   }
 
   const uriSources = loadedSettings.settings.profileSources!.filter(isRemoteProfileSource);
+  const profileSourceInfoMessages = createPrivateCatalogInfoMessages(uriSources, repositoryVisibilityClassifier);
   const profileSourceResults = uriSources.map((source) => syncUriSource(input.homeDirectory, source, synchronizer));
   const sourceResults = [...remoteSettingsResults, ...profileSourceResults];
+  const infoMessages = [...remoteSettingsInfoMessages, ...profileSourceInfoMessages];
 
   return {
     sources: sourceResults,
     messages:
       sourceResults.length === 0
         ? ['No URI profile or remote settings sources configured; nothing to sync.']
-        : sourceResults.map((result) => `${result.status}: ${result.uri} -> ${result.cachePath} (${result.message})`),
+        : [
+            ...infoMessages,
+            ...sourceResults.map((result) => `${result.status}: ${result.uri} -> ${result.cachePath} (${result.message})`),
+          ],
   };
 };
 
@@ -252,6 +270,75 @@ export const syncProfileSource = (
 
 const isRemoteProfileSource = (source: ProfileSourceReference): source is RemoteProfileSource =>
   source.uri !== undefined || source.github !== undefined;
+
+const createPrivateCatalogInfoMessages = (
+  sources: readonly RemoteSourceReference[],
+  classifier: GitHubRepositoryVisibilityClassifier,
+): readonly string[] => {
+  const privateRepositories = new Set<string>();
+
+  for (const source of sources) {
+    if (source.github !== undefined && classifier.classify(source.github) === 'private') {
+      privateRepositories.add(source.github);
+    }
+  }
+
+  return [...privateRepositories].map(
+    (repository) =>
+      `info: Private GitHub profile catalog detected: ${repository}. Private catalog support is covered by the Outfitter Enterprise license; review code/enterprise/LICENSE or your enterprise agreement.`,
+  );
+};
+
+export const createGitHubRepositoryVisibilityClassifier = (): GitHubRepositoryVisibilityClassifier => ({
+  classify(repository) {
+    if (process.env.VITEST !== undefined) {
+      return 'unknown';
+    }
+
+    const [owner, repo] = repository.split('/');
+
+    if (!owner || !repo) {
+      return 'unknown';
+    }
+
+    const script = `
+      import https from 'node:https';
+      const [owner, repo] = process.argv.slice(1);
+      const request = https.get({
+        hostname: 'api.github.com',
+        path: '/repos/' + encodeURIComponent(owner) + '/' + encodeURIComponent(repo),
+        headers: { 'Accept': 'application/vnd.github+json', 'User-Agent': 'ai-outfitter-cli' },
+        timeout: 2000,
+      }, (response) => {
+        let body = '';
+        response.setEncoding('utf8');
+        response.on('data', (chunk) => { body += chunk; });
+        response.on('end', () => {
+          if (response.statusCode !== 200) {
+            console.log('unknown');
+            return;
+          }
+          try {
+            const document = JSON.parse(body);
+            console.log(document.private === true ? 'private' : document.private === false ? 'public' : 'unknown');
+          } catch {
+            console.log('unknown');
+          }
+        });
+      });
+      request.on('timeout', () => request.destroy());
+      request.on('error', () => console.log('unknown'));
+    `;
+    const result = spawn.sync(process.execPath, ['--input-type=module', '--eval', script, owner, repo], {
+      encoding: 'utf8',
+      stdio: 'pipe',
+      timeout: 3000,
+    });
+    const visibility = result.stdout.trim();
+
+    return visibility === 'private' || visibility === 'public' ? visibility : 'unknown';
+  },
+});
 
 const remoteCachePathForProfileSource = (homeDirectory: string, source: RemoteProfileSource): string => {
   if (source.ref === undefined && source.path === undefined && source.uri !== undefined) {
