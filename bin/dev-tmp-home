@@ -4,12 +4,6 @@ set -Eeuo pipefail
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd -- "$SCRIPT_DIR/.." && pwd)"
 
-DEFAULT_PROFILES_SOURCE="$REPO_ROOT/../outfitter-default-profiles"
-[[ -d "$DEFAULT_PROFILES_SOURCE" ]] || {
-  echo "error: could not find outfitter-default-profiles at $DEFAULT_PROFILES_SOURCE" >&2
-  exit 1
-}
-
 DEV_HOME="$(mktemp -d -t outfitter-dev-home.XXXXXX)"
 
 cleanup() {
@@ -26,4 +20,4 @@ fi
 npm --prefix "$REPO_ROOT" run build
 
 echo "Outfitter dev HOME: $DEV_HOME"
-HOME="$DEV_HOME" node "$REPO_ROOT/code/cli/dist/cli.js" setup "$DEFAULT_PROFILES_SOURCE"
+HOME="$DEV_HOME" node "$REPO_ROOT/code/cli/dist/cli.js" setup

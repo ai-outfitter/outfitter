@@ -90,7 +90,7 @@ After source changes, rerun the script or `npm run build` so `dist/` reflects th
 
 ### Run an isolated first-run/setup smoke test
 
-Use `bin/dev-tmp-home` to build the current checkout, create a temporary `HOME`, copy existing Pi auth into that temporary home if present, run setup against the adjacent `outfitter-default-profiles` checkout, and remove the temporary home on exit:
+Use `bin/dev-tmp-home` to build the current checkout, create a temporary `HOME`, copy existing Pi auth into that temporary home if present, run first-run setup with the built-in default profile source, and remove the temporary home on exit:
 
 ```sh
 bin/dev-tmp-home
