@@ -1,5 +1,7 @@
 # Outfitter
 
+Make, share, and switch the profiles your coding agents use — manually or programmatically.
+
 Outfitter builds effective agent profiles and launches them through wrapped agent CLIs like [`pi`](https://github.com/earendil-works/pi-coding-agent), Claude Code, and future adapters. Individuals, teams, and organizations can share and compose repeatable agent profiles.
 
 If you have not tried [Pi](https://pi.dev) yet, Outfitter is the quickest path to a recommended Pi loadout for engineering work.

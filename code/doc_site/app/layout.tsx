@@ -8,12 +8,20 @@ import type { ReactNode } from 'react';
 import 'nextra-theme-docs/style.css';
 import './globals.css';
 
+const tagline = 'Make, share, and switch the profiles your coding agents use — manually or programmatically.';
+
 export const metadata: Metadata = {
   title: {
-    default: 'Outfitter Documentation',
+    default: 'Outfitter — Coding Agent Profiles',
     template: '%s | Outfitter',
   },
-  description: 'Outfitter profiles make agent harness configuration consistent, customizable, and reusable.',
+  description: tagline,
+  openGraph: {
+    siteName: 'Outfitter',
+    title: 'Outfitter — Coding Agent Profiles',
+    description: tagline,
+    type: 'website',
+  },
 };
 
 const navbar = <Navbar logo={<strong>Outfitter</strong>} projectLink="https://github.com/ai-outfitter/outfitter" />;
