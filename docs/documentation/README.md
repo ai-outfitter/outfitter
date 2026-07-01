@@ -14,4 +14,5 @@ User-facing Outfitter documentation.
 
 - [Organization profile catalog](./usecases/orginization-profile-catalog.md) — Publish shared team roles so new users can start with organization-approved defaults.
 - [Engineering profile catalog](./usecases/engineering.md) — Package coding, platform, and review profiles for repeatable engineering workflows.
+- [Local inference profile overrides](./usecases/local-inference-overrides.md) — Switch between local and cloud Pi inference defaults with profile controls.
 - [Persona reviews](./usecases/persona-reviews.md) — Create customer personas to get feedback on ideas, documentation, and designs.
