@@ -228,12 +228,30 @@ const resolveClaudeStateSourcePath = (
 const mergeClaudeControls = (controls: ProfileControls): ClaudeProfileControls =>
   mergeAgentSpecificControls<ClaudeProfileControls>(controls, 'claude');
 
+// Maps generic thinking levels (pi accepts off, minimal, low, medium, high,
+// xhigh) onto Claude Code --effort levels (low, medium, high, xhigh, max).
+// `off` and `minimal` approximate to `low` because Claude Code has no effort
+// level that disables reasoning. Unknown values pass through unchanged so
+// Claude-native levels and future additions keep working.
+const claudeEffortByThinkingLevel: Readonly<Record<string, string>> = {
+  off: 'low',
+  minimal: 'low',
+  low: 'low',
+  medium: 'medium',
+  high: 'high',
+  xhigh: 'xhigh',
+  max: 'max',
+};
+
+const mapThinkingToClaudeEffort = (thinking: string | undefined): string | undefined =>
+  thinking === undefined ? undefined : (claudeEffortByThinkingLevel[thinking] ?? thinking);
+
 const createClaudeArgs = (
   controls: ClaudeProfileControls,
   mcpConfigArgs: readonly string[] = [],
 ): readonly string[] => [
   ...flagValue('--model', controls.model),
-  ...flagValue('--effort', controls.thinking),
+  ...flagValue('--effort', mapThinkingToClaudeEffort(controls.thinking)),
   ...flagValue('--system-prompt', controls.systemPrompt),
   ...repeatFlagValue('--append-system-prompt', controls.appendSystemPrompt),
   ...repeatFlag('--plugin-dir', controls.extensions),

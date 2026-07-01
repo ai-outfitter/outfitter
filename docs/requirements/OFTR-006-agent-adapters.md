@@ -62,6 +62,7 @@ Pi is the default and primary supported adapter; Claude Code is also supported t
 7. The Claude Code adapter MUST return unsupported-control warnings for requested generic or `controls.claude` controls that it cannot translate.
 8. The Claude Code adapter MUST merge `.mcp.json` files from contributing `cli_specific/claude/` profile folders into the composite profile with the same fragment precedence and identity rules as the pi adapter, and MUST load the merged config through Claude Code's `--mcp-config` flag.
 9. The Claude Code adapter MUST materialize valid Agent Skills from generic `skills` controls, contributing profile `skills/` folders, and `cli_specific/claude/skills/` folders into the composite profile `skills/` directory, deduplicated by normalized resource identity, and MUST warn for requested skills it cannot resolve to a `SKILL.md` directory.
+10. The Claude Code adapter MUST map generic `thinking` levels onto Claude Code `--effort` levels as `off`/`minimal`/`low` → `low`, `medium` → `medium`, `high` → `high`, `xhigh` → `xhigh`, and `max` → `max`, and MUST pass unknown values through unchanged.
 
 ### OFTR-006.6: Pi Settings Reconciliation
 

@@ -17,7 +17,7 @@ It does not always mean there is a one-to-one native CLI flag or that every gene
 
 For example, Claude Code session/project state lives under Claude's config home rather than a standalone `--session-dir` flag.
 Outfitter supports that session-directory concept for Claude by setting `CLAUDE_CONFIG_DIR` to the composite profile root, declaring Claude `projects/` state for persistence, and allowing `controls.session_directory` or `controls.claude.session_directory` to choose where that state is symlinked from.
-Likewise, Claude skills and commands are supported as native directories under the profiled `CLAUDE_CONFIG_DIR`, even though the generic `controls.skills` and `controls.prompt_template` selectors are not yet translated into Claude-specific selection flags.
+Likewise, Claude skills are supported by materializing generic `controls.skills` selections and profile `skills/` folders into the profiled `CLAUDE_CONFIG_DIR/skills` directory, and commands remain supported as native directories under the profiled `CLAUDE_CONFIG_DIR` even though the generic `controls.prompt_template` selector is not yet translated into a Claude-specific selection flag.
 
 ## Defined Terms
 
@@ -47,7 +47,7 @@ Executable/plugin modules that add tools, providers, hooks, or runtime behavior.
 Reusable task instructions, workflows, or resource bundles exposed to the agent.
 
 - Pi name: skills, `--skill`
-- Claude name: skills under the Claude config directory; Outfitter can profile native Claude skills through `cli_specific/claude/skills`, but generic `skills` selection is not mapped yet
+- Claude name: skills under the Claude config directory; Outfitter materializes generic `controls.skills` selections, profile `skills/` folders, and `cli_specific/claude/skills` into per-skill entries inside the profiled `CLAUDE_CONFIG_DIR/skills`, deduplicated by normalized identity
 
 ### Prompt Templates
 
@@ -75,7 +75,7 @@ Additional instruction text layered onto the primary system prompt.
 The selected provider/model and related inference options.
 
 - Pi name: `--provider`, `--model`, `--models`, `--thinking`
-- Claude name: `--model`, `--effort`
+- Claude name: `--model`, `--effort`; generic `thinking` levels map onto `--effort` as `off`/`minimal`/`low` → `low`, `medium` → `medium`, `high` → `high`, `xhigh` → `xhigh`, `max` → `max`, with unknown values passed through unchanged; generic `provider` is not translated and warns
 
 ### Credentials and Environment
 
@@ -159,4 +159,4 @@ An early-startup customization used to register providers, tools, hooks, or addi
 For v1, a Outfitter profile may describe all defined terms generically.
 The Pi adapter is the first implementation, and pi remains the default adapter.
 Adapter-specific overrides live under `controls.pi` and `controls.claude`; unsupported controls warn at runtime, and `--strict` makes those warnings fatal.
-For Claude Code, `skills/` and `commands/` are supported as native configuration directories inside the profiled `CLAUDE_CONFIG_DIR`; the generic `controls.skills` and `controls.prompt_template` selectors remain unmapped and warn if requested.
+For Claude Code, generic `controls.skills` selections and profile `skills/` folders are materialized into the profiled `CLAUDE_CONFIG_DIR/skills`, `cli_specific/claude/.mcp.json` fragments are merged and loaded through `--mcp-config`, and `commands/` remains supported as a native configuration directory inside the profiled `CLAUDE_CONFIG_DIR`; the generic `controls.provider`, `controls.prompt_template`, and `controls.deepwork` selectors remain unmapped for Claude and warn if requested.
