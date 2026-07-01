@@ -7,9 +7,7 @@ import { fileURLToPath } from 'node:url';
 
 const packageRoot = dirname(dirname(fileURLToPath(import.meta.url)));
 const repositoryRoot = join(packageRoot, '..', '..');
-const enterprisePrivateCatalogModule = await import(
-  new URL('../../enterprise/privateCatalog.js', import.meta.url)
-);
+const enterprisePrivateCatalogModule = await import(new URL('../../enterprise/privateCatalog.js', import.meta.url));
 
 const privateCatalogRequiresEnterpriseLicense = enterprisePrivateCatalogModule.requiresEnterprisePrivateCatalogLicense({
   visibility: 'private',
@@ -24,17 +22,15 @@ if (enterprisePrivateCatalogModule.enterprisePrivateCatalogBoundary.strictPrivat
 }
 
 const copies = [
-  ['README.md', 'README.md'],
-  ['LICENSE.md', 'LICENSE.md'],
-  [join('code', 'enterprise', 'LICENSE'), join('code', 'enterprise', 'LICENSE')],
-  [join('code', 'enterprise', 'README.md'), join('code', 'enterprise', 'README.md')],
-  [join('code', 'enterprise', 'privateCatalog.js'), join('code', 'enterprise', 'privateCatalog.js')],
+  ['README.md', 'README.md', false],
+  ['LICENSE.md', 'LICENSE.md', false],
+  [join('code', 'enterprise'), join('code', 'enterprise'), true],
 ];
 
-for (const [from, to] of copies) {
+for (const [from, to, recursive] of copies) {
   const destination = join(packageRoot, to);
   await mkdir(dirname(destination), { recursive: true });
-  await cp(join(repositoryRoot, from), destination);
+  await cp(join(repositoryRoot, from), destination, { recursive, force: true });
 }
 
 await writeFile(

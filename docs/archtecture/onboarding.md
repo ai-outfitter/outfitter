@@ -104,7 +104,46 @@ The first onboarding question chooses one setup mode:
 
 1. **Use the default Outfitter profile catalog** reads profile choices from the synced `ai-outfitter/default-profiles` cache, then writes `default_profile` and default `profile_sources` to the selected install target.
 2. **Create your own profile** asks for a profile id and label, writes settings for a local profile source, and creates `<install-target>/.outfitter/profiles/<profile>/profile.yml` only if that file does not already exist.
-3. **Provide a different catalog to import** writes `remote_settings` pointing at the user-provided `owner/repo`, `ref`, and settings path.
+3. **Provide a different catalog to import** writes `remote_settings` pointing at the user-provided `owner/repo`, `ref`, and settings path. Before writing, the extension checks GitHub repository metadata. Only HTTP 200 with JSON `private: true` is treated as confirmed private; public, unknown, 403/404, network, malformed, and non-GitHub outcomes do not warn, error, or block.
+
+Private catalog enablement is sourced only from `~/.outfitter/settings.yml`:
+
+```yaml
+enterprise:
+  private_profile_catalogs: true
+```
+
+If that setting is absent and an imported GitHub catalog is confirmed private, Pi-native onboarding asks:
+
+```text
+Private GitHub profile catalog detected: OWNER/REPO.
+
+Private profile catalog support is covered by the Outfitter Enterprise license.
+Review code/enterprise/LICENSE or your enterprise agreement before enabling.
+
+Enable private profile catalogs in ~/.outfitter/settings.yml and use this catalog?
+```
+
+The choices are:
+
+```text
+Enable and continue
+Cancel private catalog setup
+```
+
+Accepting writes the home setting and notifies:
+
+```text
+Outfitter enabled private profile catalogs in ~/.outfitter/settings.yml and saved this catalog.
+```
+
+Declining leaves all settings unchanged and notifies:
+
+```text
+Private catalog setup was cancelled; no settings were changed.
+```
+
+If the home setting is already enabled, onboarding skips the private-catalog enterprise prompt and saves the catalog normally. Outfitter does not collect, echo, persist, synthesize, or validate provider credentials.
 
 The final install target question writes either `~/.outfitter/settings.yml` or `<project>/.outfitter/settings.yml`. Profile changes selected after Pi has already started apply to the next `outfitter` launch, so onboarding must communicate that restart boundary.
 

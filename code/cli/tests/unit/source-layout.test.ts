@@ -142,6 +142,7 @@ describe('source layout scaffolding', () => {
       defaultAgent: undefined,
       cacheDirectory: undefined,
       customSettings: {},
+      enterprise: {},
       profileExport: undefined,
       startup: {},
     });

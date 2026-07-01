@@ -64,6 +64,42 @@ const readExtension = (plan: AgentLaunchPlan, fileName: string): string => {
   return readFileSync(path, 'utf8');
 };
 
+const createMockHttpsModule = (response: { readonly statusCode: number; readonly body: string }) => ({
+  request(_options: unknown, callback: (value: unknown) => void) {
+    return {
+      on: () => undefined,
+      destroy: () => undefined,
+      end: () => {
+        callback({
+          statusCode: response.statusCode,
+          setEncoding: () => undefined,
+          on(eventName: string, handler: (chunk?: string) => void) {
+            if (eventName === 'data') setTimeout(() => handler(response.body), 0);
+            if (eventName === 'end') setTimeout(() => handler(), 0);
+          },
+        });
+      },
+    };
+  },
+});
+
+const privateCatalogOnboardingModuleUrl = new URL(
+  '../../../enterprise/pi-extension/privateCatalogOnboarding.js',
+  import.meta.url,
+).href;
+
+type OutfitterImportGlobal = typeof globalThis & {
+  __outfitterImport?: (specifier: string) => Promise<unknown>;
+};
+
+const importPrivateCatalogOnboardingModule = (
+  importOverrides: Readonly<Record<string, () => Promise<unknown>>>,
+): Promise<unknown> => {
+  (globalThis as OutfitterImportGlobal).__outfitterImport = (specifier: string) =>
+    importOverrides[specifier]?.() ?? import(specifier);
+  return import(privateCatalogOnboardingModuleUrl);
+};
+
 type MockMessage = {
   readonly content?: string;
   readonly customType?: string;
@@ -85,7 +121,10 @@ type MockCommand = {
 };
 type OutfitterExtension = (pi: ReturnType<typeof createMockPi>) => void;
 
-const evaluateOutfitterExtension = (content: string): OutfitterExtension => {
+const evaluateOutfitterExtension = (
+  content: string,
+  importOverrides: Readonly<Record<string, () => Promise<unknown>>> = {},
+): OutfitterExtension => {
   const executableContent = content
     .replace(
       'import { Key, matchesKey, truncateToWidth, visibleWidth, wrapTextWithAnsi } from "@earendil-works/pi-tui";',
@@ -110,10 +149,18 @@ const evaluateOutfitterExtension = (content: string): OutfitterExtension => {
     )
     .replaceAll('import("node:fs")', 'globalThis.__import("node:fs")')
     .replaceAll('import("node:path")', 'globalThis.__import("node:path")')
+    .replaceAll('import("node:https")', 'globalThis.__import("node:https")')
+    .replaceAll(
+      'import("./pi-extension/privateCatalogOnboarding.js")',
+      'globalThis.__import("./pi-extension/privateCatalogOnboarding.js")',
+    )
     .replace('export default function outfitter', 'function outfitter');
   const sandbox = {
     globalThis: {
-      __import: (specifier: string) => import(specifier),
+      __import: (specifier: string) =>
+        specifier === './pi-extension/privateCatalogOnboarding.js'
+          ? importPrivateCatalogOnboardingModule(importOverrides)
+          : (importOverrides[specifier]?.() ?? import(specifier)),
     } as { __import: (specifier: string) => Promise<unknown>; outfitter?: OutfitterExtension },
     setTimeout,
   };
@@ -157,7 +204,7 @@ const createMockContext = (
     readonly availableModels?: readonly unknown[];
     readonly inputValues?: readonly string[];
     readonly selectedOption?: string;
-    readonly selectedOptions?: readonly string[];
+    readonly selectedOptions?: readonly (string | undefined)[];
   } = {},
 ) => {
   let editorText = '';
@@ -170,6 +217,8 @@ const createMockContext = (
   const submittedInputs: string[] = [];
   const selectedOptions = [...(options.selectedOptions ?? [])];
   const inputValues = [...(options.inputValues ?? [])];
+  const nextSelectedOption = (fallback: string): string | undefined =>
+    selectedOptions.length > 0 ? selectedOptions.shift() : (options.selectedOption ?? fallback);
 
   return {
     hasUI: true,
@@ -228,7 +277,11 @@ const createMockContext = (
               render?(width?: number): string[];
             };
             customRenders.push(selector.render?.(117) ?? []);
-            const selected = selectedOptions.shift() ?? options.selectedOption ?? selector.outfitterOptions[0];
+            const selected = nextSelectedOption(selector.outfitterOptions[0] ?? '');
+            if (selected === undefined) {
+              selector.handleInput('\x1b');
+              return;
+            }
             const selectedIndex = Math.max(0, selector.outfitterOptions.indexOf(selected));
             for (let index = 0; index < selectedIndex; index += 1) selector.handleInput('\x1b[B');
             customRenders.push(selector.render?.(117) ?? []);
@@ -248,7 +301,7 @@ const createMockContext = (
       },
       select: (title: string, selectOptions: readonly string[]) => {
         selectCalls.push({ title, options: selectOptions });
-        return Promise.resolve(selectedOptions.shift() ?? options.selectedOption ?? selectOptions[0]);
+        return Promise.resolve(nextSelectedOption(selectOptions[0] ?? ''));
       },
       setEditorText: (text: string) => {
         editorText = text;
@@ -756,6 +809,104 @@ describe('preparePiLoginLaunchPlan', () => {
       'will compose the profiles of the same name in the home folder.',
     );
     expect(context.customRenders[1]?.every((line) => line.length <= 117)).toBe(true);
+  });
+
+  it('asks before importing a confirmed-private GitHub catalog and writes the home enterprise setting', async () => {
+    const homeDirectory = createAgentDir();
+    const projectDirectory = createAgentDir();
+    const agentDir = createAgentDir();
+    const plan = preparePiLoginLaunchPlan({
+      adapterId: 'pi',
+      homeDirectory,
+      launchPlan: createLaunchPlan(agentDir),
+      runtimeOnboarding: { projectDirectory },
+      writeLine: () => undefined,
+    });
+    const extension = evaluateOutfitterExtension(readExtension(plan, 'outfitter-extension.js'), {
+      'node:https': () => Promise.resolve(createMockHttpsModule({ statusCode: 200, body: '{"private":true}' })),
+    });
+    const pi = createMockPi();
+    const context = createMockContext({
+      inputValues: ['company/private-profiles', 'main', 'settings.yml'],
+      selectedOptions: [
+        'Provide a different catalog to import',
+        'Enable and continue',
+        'Current project directory (.outfitter)',
+      ],
+    });
+
+    extension(pi);
+    await runOutfitterCommand(pi, context);
+
+    expect(readFileSync(join(homeDirectory, '.outfitter', 'settings.yml'), 'utf8')).toContain(
+      'private_profile_catalogs: true',
+    );
+    expect(readFileSync(join(projectDirectory, '.outfitter', 'settings.yml'), 'utf8')).toContain(
+      'github: company/private-profiles',
+    );
+    expect(context.notifications).toContain(
+      'Outfitter enabled private profile catalogs in ~/.outfitter/settings.yml and saved this catalog.',
+    );
+    expect(context.customRenders.flat().join('\n')).toContain(
+      'Enable private profile catalogs in ~/.outfitter/settings.yml and use this catalog?',
+    );
+  });
+
+  it('leaves settings unchanged when private catalog install target selection is cancelled', async () => {
+    const homeDirectory = createAgentDir();
+    const projectDirectory = createAgentDir();
+    const agentDir = createAgentDir();
+    const plan = preparePiLoginLaunchPlan({
+      adapterId: 'pi',
+      homeDirectory,
+      launchPlan: createLaunchPlan(agentDir),
+      runtimeOnboarding: { projectDirectory },
+      writeLine: () => undefined,
+    });
+    const extension = evaluateOutfitterExtension(readExtension(plan, 'outfitter-extension.js'), {
+      'node:https': () => Promise.resolve(createMockHttpsModule({ statusCode: 200, body: '{"private":true}' })),
+    });
+    const pi = createMockPi();
+    const context = createMockContext({
+      inputValues: ['company/private-profiles', 'main', 'settings.yml'],
+      selectedOptions: ['Provide a different catalog to import', 'Enable and continue', undefined],
+    });
+
+    extension(pi);
+    await runOutfitterCommand(pi, context);
+
+    expect(existsSync(join(homeDirectory, '.outfitter', 'settings.yml'))).toBe(false);
+    expect(existsSync(join(projectDirectory, '.outfitter', 'settings.yml'))).toBe(false);
+    expect(context.notifications).toContain('Outfitter setup cancelled; no settings were changed.');
+  });
+
+  it('skips the private-catalog prompt when the home enterprise setting is already enabled', async () => {
+    const homeDirectory = createAgentDir();
+    const projectDirectory = createAgentDir();
+    const agentDir = createAgentDir();
+    mkdirSync(join(homeDirectory, '.outfitter'), { recursive: true });
+    writeFileSync(join(homeDirectory, '.outfitter', 'settings.yml'), 'enterprise:\n  private_profile_catalogs: true\n');
+    const plan = preparePiLoginLaunchPlan({
+      adapterId: 'pi',
+      homeDirectory,
+      launchPlan: createLaunchPlan(agentDir),
+      runtimeOnboarding: { projectDirectory },
+      writeLine: () => undefined,
+    });
+    const extension = evaluateOutfitterExtension(readExtension(plan, 'outfitter-extension.js'));
+    const pi = createMockPi();
+    const context = createMockContext({
+      inputValues: ['company/private-profiles', 'main', 'settings.yml'],
+      selectedOptions: ['Provide a different catalog to import', 'Current project directory (.outfitter)'],
+    });
+
+    extension(pi);
+    await runOutfitterCommand(pi, context);
+
+    expect(readFileSync(join(projectDirectory, '.outfitter', 'settings.yml'), 'utf8')).toContain(
+      'github: company/private-profiles',
+    );
+    expect(context.customRenders.flat().join('\n')).not.toContain('Enable private profile catalogs');
   });
 
   it('reports unreadable non-json pi login state files', () => {

@@ -83,17 +83,24 @@ describe('settings loading', () => {
     expect(loaded.settings.profileExport).toBe(true);
   });
 
-  it('loads and merges startup display settings', () => {
+  it('loads and merges startup display and enterprise settings', () => {
     const root = createTemporaryRoot();
     const homeDirectory = join(root, 'home');
     const projectDirectory = join(root, 'project');
-    writeSettings(join(homeDirectory, '.outfitter', 'settings.yml'), 'startup:\n  ascii_art: true\n');
-    writeSettings(join(projectDirectory, '.outfitter', 'settings.yml'), 'startup:\n  ascii_art: false\n');
+    writeSettings(
+      join(homeDirectory, '.outfitter', 'settings.yml'),
+      'startup:\n  ascii_art: true\nenterprise:\n  private_profile_catalogs: false\n',
+    );
+    writeSettings(
+      join(projectDirectory, '.outfitter', 'settings.yml'),
+      'startup:\n  ascii_art: false\nenterprise:\n  private_profile_catalogs: true\n',
+    );
 
     const loaded = loadSettings(discoverSettingsLoadPlan({ homeDirectory, projectDirectory }));
 
     expect(loaded.issues).toEqual([]);
     expect(loaded.settings.startup).toEqual({ asciiArt: false });
+    expect(loaded.settings.enterprise).toEqual({ privateProfileCatalogs: true });
   });
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-002.8, OFTR-005.7).

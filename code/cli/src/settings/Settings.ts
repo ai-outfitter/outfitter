@@ -10,6 +10,10 @@ export interface StartupSettings {
   readonly asciiArt?: boolean;
 }
 
+export interface EnterpriseSettings {
+  readonly privateProfileCatalogs?: boolean;
+}
+
 export interface Settings {
   readonly defaultProfile?: string;
   readonly defaultAgent?: string;
@@ -19,6 +23,7 @@ export interface Settings {
   readonly customSettings?: CustomSettings;
   readonly profileExport?: boolean;
   readonly startup?: StartupSettings;
+  readonly enterprise?: EnterpriseSettings;
 }
 
 export const emptySettings = (): Settings => ({
