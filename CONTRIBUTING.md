@@ -135,10 +135,21 @@ HOME="$OUTFITTER_TEST_HOME" outfitter run --profile default -- --help
 
 Outfitter assembles a temporary composite profile under the system temp directory, sets `PI_CODING_AGENT_DIR` for pi, and passes arguments after the profile options through to pi.
 
+## Docker
+
+Each published release builds the repository `Dockerfile` and pushes a `linux/amd64` image to GitHub Container Registry as `ghcr.io/ai-outfitter/outfitter:<version>` and `ghcr.io/ai-outfitter/outfitter:latest` (see the `publish-docker` job in `.github/workflows/release.yml`).
+The image bundles Outfitter and pi, and its entrypoint remaps the container user to the owner of the mounted working directory.
+
+Run the published image:
+
+```sh
+docker run --rm -it ghcr.io/ai-outfitter/outfitter
+```
+
 ## Test profiles with a local container
 
-The current release workflow is CLI-only and publishes the npm package from the `code/cli` workspace.
-The Dockerfile remains useful for local smoke testing, but GitHub Container Registry image publishing is not part of the current release path.
+The release workflow publishes the npm package from the `code/cli` workspace and the container image to GHCR.
+The Dockerfile is also useful for local smoke testing.
 
 Build a local image from the repository root:
 

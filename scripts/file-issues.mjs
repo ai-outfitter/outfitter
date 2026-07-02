@@ -10,7 +10,18 @@ const ISSUES_DIR = join(dirname(fileURLToPath(import.meta.url)), '..', 'docs', '
 const args = process.argv.slice(2);
 const doFile = args.includes('--file');
 const onlyArg = args.find((a) => a.startsWith('--only'));
-const only = onlyArg ? (onlyArg.split('=')[1] ?? args[args.indexOf(onlyArg) + 1]).split(',') : null;
+let only = null;
+if (onlyArg) {
+  const rawValue = onlyArg.includes('=') ? onlyArg.split('=')[1] : args[args.indexOf(onlyArg) + 1];
+  only = (rawValue ?? '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter((s) => /^\d{2}$/.test(s));
+  if (only.length === 0) {
+    console.error('Usage: --only NN[,NN...] (two-digit draft numbers, e.g. --only 01,06)');
+    process.exit(1);
+  }
+}
 
 function parse(path) {
   const raw = readFileSync(path, 'utf8');
