@@ -1,12 +1,12 @@
 summary: "Pi-native onboarding architecture documentation."
 instructions: |
-  This DeepSchema keeps docs/archtecture/onboarding.md aligned with the
+  This DeepSchema keeps docs/architecture/onboarding.md aligned with the
   implemented first-run Outfitter onboarding flow. Review the document as an
   architecture contract for launch-time decisions, generated Pi extension
   behavior, catalog/cache source-of-truth, and the custom profile picker.
 
 matchers:
-  - "docs/archtecture/onboarding.md"
+  - "docs/architecture/onboarding.md"
 
 requirements:
   current-state-document: >

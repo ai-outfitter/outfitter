@@ -130,7 +130,7 @@ onboarding_architecture_consistency:
   description: "Verify Pi-native onboarding architecture docs stay aligned with onboarding implementation files."
   match:
     include:
-      - "docs/archtecture/onboarding.md"
+      - "docs/architecture/onboarding.md"
       - "docs/requirements/OFTR-010-onboarding-welcome.md"
       - "src/cli/commands/PiLoginLaunch.ts"
       - "src/cli/commands/RunCommand.ts"
@@ -152,7 +152,7 @@ onboarding_architecture_consistency:
       generated Pi extension code, first-run runtime launch code, setup/welcome
       compatibility code, settings schema/loading code, and related tests together.
 
-      The review MUST verify that docs/archtecture/onboarding.md remains accurate
+      The review MUST verify that docs/architecture/onboarding.md remains accurate
       when any matched implementation file changes. Check that the document:
       1. Describes the current first-run default `outfitter` path, not aspirational behavior.
       2. Keeps the Mermaid flowchart aligned with launch decisions, default catalog sync,
