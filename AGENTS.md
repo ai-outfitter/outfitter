@@ -11,8 +11,8 @@
 - Warn to stderr when an adapter cannot support a requested control; `--strict` must make unsupported controls or composite profile assembly warnings fatal.
 - Implement non-trivial CLI behavior as command objects with explicit dependencies and typed inputs/outputs, not parser callback logic.
 - A composite profile is the temporary runtime configuration directory assembled for one profile and agent CLI run; Outfitter owns the composite profile lifecycle while the child agent runs.
-- Pi is the only day-one adapter. Claude is roadmap-only unless requirements change.
-- When adding files or changing directory layout, first check `doc/file_structure.md` for the current structure and update the relevant documentation afterward.
+- Pi is the primary and most complete adapter. A Claude Code adapter ships as well (OFTR-006) and is supported with gaps; unsupported controls must warn rather than fail unless `--strict` is set.
+- When adding files or changing directory layout, first check `docs/architecture/file_structure.md` for the current structure and update the relevant documentation afterward.
 - When adding tests that validate formal requirements, include the required two-line traceability comment immediately before the relevant `it(...)` or `describe(...)` block.
 
 ## Contributor workflow
