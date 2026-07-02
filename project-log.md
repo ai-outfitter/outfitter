@@ -2,6 +2,21 @@
 
 Chronological log of development activities, changes, and lessons learned. Append new entries; never remove old ones.
 
+## 2026-07-01 (later) — Cross-adapter conformance suite (Claude session, wave2/conformance)
+
+**What was done:**
+
+- Implemented the cross-adapter conformance test suite (issue #19 / plan issue 21) under `code/cli/tests/conformance/`: a declaration module (`ConformanceSpec.ts` types + doc mapping, `ConformanceRows.ts` with 23 rows covering model, provider, thinking, environment, args, pass-through args, agent config dir, session dir, extensions, skills, prompt_template, native commands, system/append prompts, deepwork, MCP fragments, state paths, and the roadmap concepts), a registry-driven runner (`conformance.test.ts`) and a docs drift verifier (`support-matrix-drift.test.ts`).
+- Every adapter in `AgentRegistry.supportedAgentIds` must declare Supported (behavior asserted), Roadmap (exact warning text + `--strict` escalation via `executeRunCommand`), or Not Applicable (justification) for every row; a new adapter fails the suite until it declares all rows.
+- Docs drift prevention: chose a verifier over a generator — the matrices live inside hand-written prose docs, so the tests parse both tables (`docs/documentation/support-matrix.md` fine-grained with Partial; `docs/architecture/controllable-elements.md` coarse per OFTR-007.2's Supported/Roadmap/Unsupported vocabulary) and assert every row/column agrees with the aggregated conformance declarations. Added `npm run conformance` as the one-command proof.
+- Docs: added MCP servers and DeepWork job selection rows to the support matrix (previously undocumented in the table), an MCP note in the Pi notes, the conformance-suite pointer, and the new tests directory in `file_structure.md`.
+
+**Key findings / lessons:**
+
+- No genuine status mismatches existed between the current matrices and adapter behavior; the gaps were missing rows (MCP, DeepWork) rather than wrong cells.
+- OFTR-007.2.4 restricts the architecture matrix cells to `Unsupported|Supported|Roadmap`, so "Partial" must not be introduced there; the doc's own "How to Read This Matrix" prose justifies coarsening Partial→Supported for that file only.
+- The two matrices intentionally differ in vocabulary; the conformance spec encodes that with a per-file `statusVocabulary` so both stay verified without contradiction.
+
 ## 2026-07-01 (later) — Update plan drafted as local issue queue (Claude session)
 
 **What was done:**

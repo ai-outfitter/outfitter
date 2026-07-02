@@ -33,6 +33,7 @@
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "test": "vitest --run",
+    "conformance": "vitest --run tests/conformance",
     "coverage": "vitest --run --coverage",
     "check": "npm run lint:fix && npm run coverage",
     "check-ci": "prettier --check . && npm run lint && npm run coverage"

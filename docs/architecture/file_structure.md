@@ -70,6 +70,7 @@ The CLI package root is `code/cli`, but the npm package must still include repos
 
 Integration fixtures should live under `code/cli/tests/fixtures/integration/` with full `home/`, `project/`, and optional `expected/` trees.
 Fixture-backed integration tests and shared harness helpers should live under `code/cli/tests/integration/`.
+The cross-adapter conformance suite (per-control declarations, the adapter runner, and the support-matrix drift check) lives under `code/cli/tests/conformance/` and runs standalone via `npm run conformance`.
 
 Scenario fixtures should live under `code/cli/tests/fixtures/scenarios/`, for example:
 
