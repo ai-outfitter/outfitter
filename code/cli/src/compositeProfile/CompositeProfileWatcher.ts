@@ -68,9 +68,24 @@ export interface WatchCompositeProfileStateWritesInput {
   readonly journal?: Pick<CompositeProfileSessionJournal, 'recordUndeclaredWrites'>;
   readonly throttleMs?: number;
   readonly watchFactory?: typeof watch;
+  readonly timers?: StateWriteNoticeTimers;
+}
+
+// Injectable clock for the notice throttle so callers (and tests) can flush notices
+// deterministically instead of racing real timers. `setTimeout` must return a non-null
+// handle that `clearTimeout` accepts.
+export interface StateWriteNoticeTimers {
+  setTimeout(callback: () => void, delayMs: number): object;
+  clearTimeout(handle: object): void;
 }
 
 export const defaultStateWriteNoticeThrottleMs = 1000;
+
+// Real timers never keep the process alive just to print a throttled notice.
+const defaultStateWriteNoticeTimers: StateWriteNoticeTimers = {
+  setTimeout: (callback, delayMs) => setTimeout(callback, delayMs).unref(),
+  clearTimeout: (handle) => clearTimeout(handle as NodeJS.Timeout),
+};
 
 // Watches the composite profile root while the agent runs and surfaces undeclared writes in
 // near real time. Notices are deduplicated per path and flushed on a throttle interval;
@@ -110,9 +125,10 @@ export const watchCompositeProfileStateWrites = (
 
 const createStateWriteMonitor = (input: WatchCompositeProfileStateWritesInput) => {
   const generatedFilePaths = input.compositeProfile.files.map((file) => file.relativePath);
+  const timers = input.timers ?? defaultStateWriteNoticeTimers;
   const observedPaths = new Set<string>();
   const pendingNotices: string[] = [];
-  let flushTimer: NodeJS.Timeout | undefined;
+  let flushTimer: object | undefined;
   let closed = false;
 
   const flush = (): void => {
@@ -144,13 +160,13 @@ const createStateWriteMonitor = (input: WatchCompositeProfileStateWritesInput) =
       observedPaths.add(relativePath);
       input.journal?.recordUndeclaredWrites([relativePath]);
       pendingNotices.push(relativePath);
-      flushTimer ??= setTimeout(flush, input.throttleMs ?? defaultStateWriteNoticeThrottleMs).unref();
+      flushTimer ??= timers.setTimeout(flush, input.throttleMs ?? defaultStateWriteNoticeThrottleMs);
     },
     close(): void {
       closed = true;
 
       if (flushTimer !== undefined) {
-        clearTimeout(flushTimer);
+        timers.clearTimeout(flushTimer);
         flushTimer = undefined;
       }
     },
