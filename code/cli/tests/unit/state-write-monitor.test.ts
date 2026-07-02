@@ -362,22 +362,35 @@ describe('run command crash coverage', () => {
     const errors: string[] = [];
     const liveNotice =
       "pi is writing undeclared composite profile state 'unexpected.txt' (undeclared writes are not persisted).";
+    // A deterministic monitor: the fake watch delivers the event and the manual clock
+    // flushes the throttled notice, so nothing races platform fs.watch or real timers.
+    const fakeWatch = createFakeWatch();
+    const scheduledFlushes: (() => void)[] = [];
 
     const result = await executeRunCommand(
       { homeDirectory, projectDirectory },
       {
         writeError: (message) => errors.push(message),
         writeLine: () => undefined,
+        stateWriteMonitor: {
+          watchFactory: fakeWatch.factory,
+          timers: {
+            setTimeout: (callback) => {
+              scheduledFlushes.push(callback);
+              return callback;
+            },
+            clearTimeout: () => undefined,
+          },
+        },
         launcher: {
-          async launch(plan) {
+          launch(plan) {
             writeFileSync(join(plan.env.PI_CODING_AGENT_DIR, 'unexpected.txt'), 'live write\n');
+            fakeWatch.emit('unexpected.txt');
 
-            const deadline = Date.now() + 8000;
-            while (!errors.includes(liveNotice) && Date.now() < deadline) {
-              await sleep(25);
-            }
-
-            expect(errors).toContain(liveNotice);
+            // The notice is throttled until the injected clock fires; the journal
+            // record is immediate so crashes lose as little accounting as possible.
+            expect(errors).toEqual([]);
+            expect(scheduledFlushes).toHaveLength(1);
             const journalFiles = readdirSync(journalDirectory);
             expect(journalFiles).toHaveLength(1);
             const journal = JSON.parse(readFileSync(join(journalDirectory, journalFiles[0] ?? ''), 'utf8')) as Record<
@@ -385,7 +398,10 @@ describe('run command crash coverage', () => {
               unknown
             >;
             expect(journal.undeclaredWrites).toEqual(['unexpected.txt']);
-            return 0;
+
+            scheduledFlushes[0]?.();
+            expect(errors).toContain(liveNotice);
+            return Promise.resolve(0);
           },
         },
       },
@@ -397,5 +413,5 @@ describe('run command crash coverage', () => {
     );
     // The clean exit discards this session's journal.
     expect(readdirSync(journalDirectory)).toEqual([]);
-  }, 15000);
+  });
 });
