@@ -85,25 +85,20 @@ describe('project foundation', () => {
     expect(eslintConfigSource).toContain("complexity: ['error', 10]");
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-001.5).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-001.5, as amended 2026-07-01).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
-  it('declares the initial dependency set and Commander-based CLI shell', () => {
-    const requiredDependencies = [
-      'ajv',
-      'chalk',
-      'commander',
-      'cross-spawn',
-      'defu',
-      'glob',
-      'hosted-git-info',
-      'yaml',
-    ];
+  it('declares the amended dependency set and Commander-based CLI shell', () => {
+    const requiredDependencies = ['ajv', 'chalk', 'commander', 'cross-spawn', 'yaml'];
 
     for (const dependency of requiredDependencies) {
       expect(packageJson.dependencies).toHaveProperty(dependency);
     }
 
-    expect(packageJson.dependencies).toHaveProperty('typebox');
+    // The 2026-07-01 amendment to OFTR-001.5 removed the never-imported packages
+    // and requires that no unused production dependencies are declared.
+    for (const removedDependency of ['defu', 'glob', 'hosted-git-info', 'typebox']) {
+      expect(packageJson.dependencies).not.toHaveProperty(removedDependency);
+    }
 
     const program = createProgram();
 

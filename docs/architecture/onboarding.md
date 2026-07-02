@@ -2,18 +2,18 @@
 
 ## Purpose
 
-This document describes the current Pi-native Outfitter onboarding path. It is architecture documentation, not product copy: it explains the runtime decisions, generated Pi extension responsibilities, catalog source-of-truth, and custom UI behavior that keep first-run setup native to Pi without requiring an agent/model turn.
+This document describes the current Pi-native Outfitter onboarding path. It is architecture documentation, not product copy: it explains the runtime decisions, bundled Pi extension responsibilities, catalog source-of-truth, and custom UI behavior that keep first-run setup native to Pi without requiring an agent/model turn.
 
 ## Current First-Run Flow
 
 A plain interactive `outfitter` launch uses Pi-native onboarding only when Outfitter cannot find `~/.outfitter/settings.yml`. Existing settings use the normal run path. Non-interactive Pi launches (`--print`, `-p`, `--export`, `--list-models`, JSON/print/RPC modes) MUST NOT open onboarding UI, auto-submit slash commands, sync first-run sources, or mutate Outfitter settings.
 
-When first-run onboarding is active, `RunCommand` synchronizes the default profile catalog from `github: ai-outfitter/default-profiles` with `path: profiles`. The generated Pi bootstrap extension receives the synced cache path as `defaultProfilesPath`. The extension reads profile `id`, `label`, and `description` from cached catalog `profile.yml` files at runtime; profile picker entries are not hardcoded in the extension.
+When first-run onboarding is active, `RunCommand` synchronizes the default profile catalog from `github: ai-outfitter/default-profiles` with `path: profiles`. The bundled Pi bootstrap extension receives the synced cache path as `defaultProfilesPath` through its JSON runtime config. The extension reads profile `id`, `label`, and `description` from cached catalog `profile.yml` files at runtime; profile picker entries are not hardcoded in the extension.
 
-Before Pi starts, Outfitter prepares a generated CLI extension and launch environment:
+Before Pi starts, Outfitter writes the pre-built extension artifact (compiled TypeScript from `code/pi-extension`, bundled as `outfitter-extension.js`) plus an `outfitter-extension.config.json` runtime config into the Pi config directory, and prepares the launch environment:
 
-- The generated extension registers `/outfitter` with `pi.registerCommand("outfitter", ...)`.
-- The launch plan includes the generated extension with `--extension`.
+- The bundled extension registers `/outfitter` with `pi.registerCommand("outfitter", ...)`.
+- The launch plan includes the bundled extension with `--extension`, and the `OUTFITTER_PI_EXTENSION_CONFIG` environment variable points at the JSON runtime config (settings paths, catalog cache path, and onboarding flags are passed as data, not interpolated source).
 - First-run onboarding writes Pi `settings.json` with `quietStartup: true` in the bootstrap Pi config directory so Pi startup resource listings stay quiet.
 - First-run onboarding injects a temporary bootstrap model argument when needed to avoid Pi's pre-login no-model warning before the extension can open `/login`.
 - The extension handles Pi `project_trust` and remembers trust for the exact project folder only. It returns `undecided` for parent folders and all non-first-run launches.
@@ -31,7 +31,7 @@ flowchart TD
   C -- No --> D[Sync ai-outfitter/default-profiles path: profiles]
   D --> E{Sync succeeded?}
   E -- No --> E1[Fail with setup guidance]
-  E -- Yes --> F[Prepare generated Pi bootstrap extension]
+  E -- Yes --> F[Write bundled Pi bootstrap extension and runtime config]
   F --> G[Set quietStartup and first-run bootstrap launch options]
   G --> H[Launch Pi with --extension]
   H --> I[project_trust event]
@@ -195,4 +195,4 @@ If terminal width is too narrow, the selected description SHOULD wrap below the 
 
 ## Cache and Staleness Implications
 
-The default catalog is a remote source, but the profile picker reads the synchronized local cache passed to the generated extension. If the upstream default-profiles repository changes, an existing cache can remain stale until sync refreshes it. Seeing a removed profile in the picker usually means the first-run process is reading an old cache or a stuck sync process, not that the generated extension has hardcoded that profile.
+The default catalog is a remote source, but the profile picker reads the synchronized local cache passed to the bundled extension through its runtime config. If the upstream default-profiles repository changes, an existing cache can remain stale until sync refreshes it. Seeing a removed profile in the picker usually means the first-run process is reading an old cache or a stuck sync process, not that the extension has hardcoded that profile.

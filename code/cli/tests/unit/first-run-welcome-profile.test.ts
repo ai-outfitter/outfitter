@@ -178,7 +178,9 @@ describe('first-run onboarding profile persistence', () => {
 
     expect(result.profileId).toBe('outfitter-bootstrap');
     expect(result.launchPlan.args[0]).toBe('--extension');
-    expect(readFileSync(result.launchPlan.args[1] ?? '', 'utf8')).toContain(JSON.stringify(setupSourceUri));
+    expect(readFileSync(result.launchPlan.env.OUTFITTER_PI_EXTENSION_CONFIG ?? '', 'utf8')).toContain(
+      JSON.stringify(setupSourceUri),
+    );
     expect(readFileSync(join(homeDirectory, '.outfitter', 'settings.yml'), 'utf8')).toBe('default_profile: engineer\n');
   });
 

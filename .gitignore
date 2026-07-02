@@ -45,6 +45,7 @@ temp/
 code/cli/README.md
 code/cli/LICENSE.md
 code/cli/code/enterprise/
+code/cli/code/pi-extension/
 
 # OS and editor files
 .DS_Store
