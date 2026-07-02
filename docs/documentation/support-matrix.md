@@ -15,7 +15,7 @@ When a profile requests a control an adapter cannot translate, Outfitter warns t
 | Agent config directory                            | Supported | Supported   |
 | Session directory (`session_directory`)           | Supported | Supported   |
 | Extensions / plugins (`extensions`)               | Supported | Supported   |
-| Skills (`skills`)                                 | Supported | Partial     |
+| Skills (`skills`)                                 | Supported | Supported   |
 | Prompt templates / commands (`prompt_template`)   | Supported | Partial     |
 | System prompt (`system_prompt`)                   | Supported | Supported   |
 | Appended system prompt (`append_system_prompt`)   | Supported | Supported   |
@@ -32,9 +32,10 @@ When a profile requests a control an adapter cannot translate, Outfitter warns t
 ## Claude Code notes
 
 - **Config and session state** — Outfitter points `CLAUDE_CONFIG_DIR` at the composite profile, declares Claude state paths (`settings.json`, `agents/`, `skills/`, `commands/`, `plugins/`, `projects/`) for persistence, and lets `session_directory` choose where `projects/` session state is symlinked from. There is no standalone session-dir flag.
-- **Skills (Partial)** — native Claude skills work when a profile ships them as `cli_specific/claude/skills/` directories, which Outfitter places in the profiled config directory. The generic `controls.skills` selector is not translated for Claude and warns if requested.
-- **Prompt templates (Partial)** — same shape: native `cli_specific/claude/commands/` directories work, but the generic `controls.prompt_template` selector is not translated and warns.
-- **Model selection (Partial)** — `model` maps to `--model` and `thinking` maps to `--effort`, but `provider` is not translated for Claude and warns if requested.
+- **Skills** — generic `controls.skills` selections (paths or bundled skill names), profile `skills/` folders, and `cli_specific/claude/skills/` directories are materialized as per-skill symlinks inside the profiled config directory's `skills/`, deduplicated by normalized identity with higher-precedence layers winning name conflicts. Entries of the native skills source stay reachable through mirrored symlinks. A requested skill that does not resolve to a `SKILL.md` directory warns (fatal under `--strict`).
+- **MCP servers** — `cli_specific/claude/.mcp.json` fragments are merged across contributing profile layers (same precedence and identity rules as Pi) into a composite `.mcp.json` that is loaded through Claude Code's `--mcp-config` flag.
+- **Prompt templates (Partial)** — native `cli_specific/claude/commands/` directories work, but the generic `controls.prompt_template` selector is not translated and warns.
+- **Model selection (Partial)** — `model` maps to `--model`; `thinking` maps to `--effort` with the precise table `off`/`minimal`/`low` → `low`, `medium` → `medium`, `high` → `high`, `xhigh` → `xhigh`, `max` → `max`, and unknown values passed through unchanged. `provider` is not translated for Claude and warns if requested.
 - **Extensions** — `controls.extensions` entries are passed as repeated `--plugin-dir` flags.
 - **DeepWork jobs** — the `controls.deepwork` selection is Pi-only today and warns on Claude.
 

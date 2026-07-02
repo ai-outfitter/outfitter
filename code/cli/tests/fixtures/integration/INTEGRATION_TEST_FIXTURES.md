@@ -200,6 +200,16 @@ Use it to run the same profile under multiple adapters and verify that generic c
 Write-back focus: adapter-specific state writes affect only that adapter's declared state paths.
 Generic generated composite profile content remains non-write-back unless explicitly persistent.
 
+### `profile_bundled_agent_resources`
+
+Location: `tests/fixtures/integration/profile_bundled_agent_resources/`
+
+This fixture models a repository profile stack that bundles launch resources: an inherited base layer and a selected profile that contribute `cli_specific/claude/.mcp.json` MCP fragments and directory-layout `skills/`, plus a personal native Claude skill in the synthetic home.
+
+Use it to verify that the claude adapter merges MCP fragments across contributing profile folders with layer precedence, loads the generated composite `.mcp.json` through `--mcp-config`, and materializes inherited, selected, and personal skills as per-skill symlinks with name shadowing.
+
+Write-back focus: the generated `.mcp.json` is a merge transform, not durable symlinked state; new top-level entries created inside the materialized `skills/` directory are diagnosed as non-persisted `warn` writes.
+
 ### `state_path_replaced_by_agent`
 
 Location: `tests/fixtures/integration/state_path_replaced_by_agent/`
@@ -230,4 +240,5 @@ Write-back focus: replacement should be diagnosed as not persisted, and the orig
 | `native_fallback_cli_state`            | Existing | user + repo         | 1            | 0-1              | all       | native fallback | fallback writes  |
 | `cache_backed_tooling_state`           | Existing | user + repo         | 1            | none             | pi subset | cache           | cache writes     |
 | `adapter_specific_overrides`           | Existing | user + repo         | 1            | 0-1              | all       | mixed           | adapter controls |
+| `profile_bundled_agent_resources`      | Existing | user + repo         | 1            | 1                | claude    | generated merge | generated files  |
 | `state_path_replaced_by_agent`         | Existing | user + repo         | 1            | 0                | all       | profile/native  | symlink replaced |

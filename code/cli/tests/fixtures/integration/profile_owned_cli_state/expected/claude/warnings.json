@@ -1,4 +1,4 @@
 [
   "claude adapter cannot translate requested control 'provider'.",
-  "claude adapter cannot translate requested control 'skills'."
+  "claude adapter could not find skill 'repo-audit' for profile 'stateful-review'."
 ]

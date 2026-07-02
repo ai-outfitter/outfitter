@@ -1,0 +1,7 @@
+id: default
+label: Personal Resource Defaults
+controls:
+  model: personal-default-model
+  environment:
+    PERSONAL_DEFAULT: 'enabled'
+    SHARED_LAYER: personal-default
