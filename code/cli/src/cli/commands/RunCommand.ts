@@ -1,30 +1,15 @@
-/* eslint-disable max-lines */
 // Provides the command object for launching selected profiles.
-import { existsSync, mkdirSync } from 'node:fs';
+import { existsSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { dirname, join } from 'node:path';
+import { join } from 'node:path';
 
 import type { ChildProcess } from 'node:child_process';
-import chalk from 'chalk';
 import type { Command } from 'commander';
 import spawn from 'cross-spawn';
 
 import type { AgentAdapter, AgentLaunchPlan } from '../../agents/AgentAdapter.js';
-import { createAgentAdapter, defaultAgentId as registryDefaultAgentId } from '../../agents/AgentRegistry.js';
+import { createAgentAdapter } from '../../agents/AgentRegistry.js';
 import { resolveOutfitterDocsDirectory } from '../../agents/OutfitterDocs.js';
-import {
-  createProfileSourceCachePath,
-  createRemoteRepositoryCachePath,
-  redactProfileSourceUriCredentials,
-  resolveRemoteRepositorySubpath,
-} from '../../profiles/ProfileCache.js';
-import { loadLocalProfileSource } from '../../profiles/ProfileLoader.js';
-import type { LoadedProfile } from '../../profiles/ProfileLoader.js';
-import { createEmptyProfile, type Profile } from '../../profiles/Profile.js';
-import type { ProfileSourceReference } from '../../profiles/ProfileSource.js';
-import { resolveProfile } from '../../profiles/ProfileMerger.js';
-import { emptySettings, type Settings } from '../../settings/Settings.js';
-import { loadSettingsWithCachedRemoteSettings } from '../../settings/SettingsLoader.js';
 import { exportSystemPromptIfEnabled } from '../../prompts/SystemPromptExport.js';
 import {
   createCompositeProfileRootDirectory,
@@ -48,6 +33,17 @@ import type { CommandObject } from './CommandObject.js';
 import { isNonInteractivePiLaunch, preparePiLoginLaunchPlan } from './PiLoginLaunch.js';
 import type { SetupCommandDependencies } from './SetupCommand.js';
 import { syncProfileSource, type RemoteProfileSource } from './SyncCommand.js';
+import { emitLaunchSummary } from './run/RunLaunchSummary.js';
+import {
+  createFirstRunBootstrapProfile,
+  createLaunchProfileLayers,
+  loadProfileSources,
+  loadResolvedProfile,
+  selectRunAgentId,
+  type ResolvedRunProfile,
+} from './run/RunProfileResolution.js';
+
+export { createLaunchProfileLayers, loadProfileSources };
 
 export interface RunCommandInput {
   readonly homeDirectory: string;
@@ -255,18 +251,6 @@ const configureRunCommander = (
 
 /* v8 ignore stop */
 
-interface ResolvedRunProfile {
-  readonly profile: Profile;
-  readonly profilePaths: readonly string[];
-  readonly profileFolders: readonly string[];
-  readonly homeDirectory: string;
-  readonly cacheDirectory: string;
-  readonly projectDirectory: string;
-  readonly settings: Settings;
-  readonly settingsPaths: readonly string[];
-  readonly profileLayers: readonly LoadedProfile[];
-}
-
 const failStrictOnWarnings = (adapterId: string, warnings: readonly string[], strict: boolean | undefined): void => {
   if (strict === true && warnings.length > 0) {
     throw new Error(`Strict failed for ${adapterId}: ${warnings.join('; ')}`);
@@ -279,59 +263,6 @@ const emitWarnings = (warnings: readonly string[], writeError: ((message: string
   for (const warning of warnings) {
     writer(warning);
   }
-};
-
-const emitLaunchSummary = (
-  resolvedProfile: ResolvedRunProfile,
-  adapterId: string,
-  compositeProfileRootDirectory: string,
-  writeLine: ((message: string) => void) | undefined,
-): void => {
-  const writer = writeLine ?? console.log;
-  const model = selectSummaryModel(resolvedProfile.profile, adapterId);
-
-  writer(`${chalk.magenta('→')} resolving profile ${chalk.yellow(resolvedProfile.profile.id)}`);
-
-  for (const layer of resolvedProfile.profileLayers) {
-    writer(
-      `${chalk.green('✓')} profile layer ${chalk.yellow(layer.profile.id)}  ${chalk.dim(formatProfileLayerSource(layer))}`,
-    );
-  }
-
-  writer(`${chalk.green('✓')} merged controls${model === undefined ? '' : `  model=${chalk.yellow(model)}`}`);
-  writer(`${chalk.green('✓')} prepared composite profile  ${chalk.dim(compositeProfileRootDirectory)}`);
-  writer(`${chalk.blue('↳')} launching ${chalk.cyan(adapterId)} …`);
-};
-
-const selectSummaryModel = (profile: Profile, adapterId: string): string | undefined => {
-  if (adapterId === 'claude') {
-    return profile.controls.claude?.model ?? profile.controls.model;
-  }
-
-  return profile.controls.pi?.model ?? profile.controls.model;
-};
-
-const formatProfileLayerSource = (layer: LoadedProfile): string => {
-  if (layer.source.github !== undefined) {
-    return formatRemoteProfileSource(`github:${layer.source.github}`, layer.source.ref, layer.source.path);
-  }
-
-  if (layer.source.uri !== undefined) {
-    return formatRemoteProfileSource(
-      redactProfileSourceUriCredentials(layer.source.uri),
-      layer.source.ref,
-      layer.source.path,
-    );
-  }
-
-  return layer.folderPath;
-};
-
-const formatRemoteProfileSource = (source: string, ref: string | undefined, path: string | undefined): string => {
-  const refSuffix = ref === undefined ? '' : `@${ref}`;
-  const pathSuffix = path === undefined ? '' : `/${path}`;
-
-  return `${source}${refSuffix}${pathSuffix}`;
 };
 
 const createAdapterCompositeProfilePlan = (
@@ -456,166 +387,10 @@ const isInteractiveRunLaunch = (dependencies: RunCommandDependencies): boolean =
   return inputIsTty && outputIsTty;
 };
 
-const createFirstRunBootstrapProfile = (input: RunCommandInput): ResolvedRunProfile => ({
-  profile: {
-    ...createEmptyProfile('outfitter-bootstrap'),
-    label: 'Outfitter Bootstrap',
-    description: 'Temporary first-run profile that starts Pi before Outfitter settings exist.',
-  },
-  profilePaths: [],
-  profileFolders: [],
-  homeDirectory: input.homeDirectory,
-  cacheDirectory: join(input.homeDirectory, '.outfitter', 'cache'),
-  projectDirectory: input.projectDirectory,
-  settings: emptySettings(),
-  settingsPaths: [],
-  profileLayers: [],
-});
-
-const loadResolvedProfile = (input: RunCommandInput): ResolvedRunProfile => {
-  const loadedSettings = loadSettingsWithCachedRemoteSettings(input);
-
-  if (loadedSettings.issues.length > 0) {
-    throw new Error(`Cannot run with invalid settings: ${loadedSettings.issues.map(formatSettingsIssue).join('; ')}`);
-  }
-
-  ensureConventionalLocalProfileSourceDirectories(loadedSettings.files);
-  const loadedProfiles = loadProfileSources(input.homeDirectory, loadedSettings.settings.profileSources!);
-
-  if (loadedProfiles.issues.length > 0) {
-    throw new Error(`Cannot run with invalid profiles: ${loadedProfiles.issues.map(formatProfileIssue).join('; ')}`);
-  }
-
-  const profileId = selectRunProfileId(input.profileId, loadedSettings.settings.defaultProfile);
-  const resolution = resolveProfile({
-    profiles: loadedProfiles.profiles,
-    profileId,
-  });
-
-  if (resolution.profile === undefined || resolution.issues.length > 0) {
-    throw new Error(`Cannot resolve profile '${profileId}': ${resolution.issues.map(formatProfileIssue).join('; ')}`);
-  }
-
-  const selectedProfile = resolution.profileStack.find((profile) => profile.id === profileId) as Profile;
-
-  if (selectedProfile.template === true) {
-    throw new Error(`Profile '${profileId}' is a template profile and must be inherited by a runnable profile.`);
-  }
-
-  return {
-    profile: resolution.profile,
-    profileLayers: findContributingLoadedProfiles(resolution.profileStack, loadedProfiles.profiles),
-    profilePaths: findContributingProfilePaths(resolution.profileStack, loadedProfiles.profiles),
-    profileFolders: findContributingProfileFolders(resolution.profileStack, loadedProfiles.profiles),
-    homeDirectory: input.homeDirectory,
-    cacheDirectory: loadedSettings.settings.cacheDirectory ?? join(input.homeDirectory, '.outfitter', 'cache'),
-    projectDirectory: input.projectDirectory,
-    settings: loadedSettings.settings,
-    settingsPaths: loadedSettings.files.map((file) => file.location.path),
-  };
-};
-
-const ensureConventionalLocalProfileSourceDirectories = (files: readonly ResolvedRunProfileSettingsFile[]): void => {
-  for (const file of files) {
-    const settingsProfilesPath = join(dirname(file.location.path), 'profiles');
-    const hasConventionalLocalSource = file.settings.profileSources?.some(
-      (source) => source.uri === undefined && source.github === undefined && source.path === settingsProfilesPath,
-    );
-
-    if (hasConventionalLocalSource === true) {
-      mkdirSync(settingsProfilesPath, { recursive: true });
-    }
-  }
-};
-
-type ResolvedRunProfileSettingsFile = ReturnType<typeof loadSettingsWithCachedRemoteSettings>['files'][number];
-
 const withSystemPromptExportPath = (launchPlan: AgentLaunchPlan, outputPath: string | undefined): AgentLaunchPlan =>
   outputPath === undefined
     ? launchPlan
     : { ...launchPlan, env: { ...launchPlan.env, OUTFITTER_SYSTEM_PROMPT_EXPORT_PATH: outputPath } };
-
-const selectRunAgentId = (selectedAgentId: string | undefined, defaultAgentId: string | undefined): string =>
-  selectedAgentId ?? defaultAgentId ?? registryDefaultAgentId;
-
-const selectRunProfileId = (selectedProfileId: string | undefined, defaultProfileId: string | undefined): string => {
-  if (selectedProfileId !== undefined) {
-    return selectedProfileId;
-  }
-
-  if (defaultProfileId !== undefined) {
-    return defaultProfileId;
-  }
-
-  throw new Error(
-    'Cannot run without a selected profile or default_profile in settings.yml; pass --profile or run `outfitter setup`.',
-  );
-};
-
-const findContributingProfilePaths = (
-  profileStack: readonly Profile[],
-  loadedProfiles: readonly LoadedProfile[],
-): readonly string[] =>
-  findContributingLoadedProfiles(profileStack, loadedProfiles).map((loadedProfile) => loadedProfile.profilePath);
-
-const findContributingProfileFolders = (
-  profileStack: readonly Profile[],
-  loadedProfiles: readonly LoadedProfile[],
-): readonly string[] =>
-  findContributingLoadedProfiles(profileStack, loadedProfiles).flatMap((loadedProfile) =>
-    loadedProfile.resourceRootPath === undefined ? [] : [loadedProfile.resourceRootPath],
-  );
-
-export const createLaunchProfileLayers = (loadedProfiles: readonly LoadedProfile[]) =>
-  loadedProfiles.map((loadedProfile) => ({
-    profile: loadedProfile.profile,
-    profilePath: loadedProfile.profilePath,
-    sourceRootPath: loadedProfile.sourceRootPath,
-    resourceRootPath: loadedProfile.resourceRootPath,
-    layout: loadedProfile.layout,
-  }));
-
-const findContributingLoadedProfiles = (
-  profileStack: readonly Profile[],
-  loadedProfiles: readonly LoadedProfile[],
-): readonly LoadedProfile[] =>
-  profileStack.flatMap((profile) => loadedProfiles.filter((loadedProfile) => loadedProfile.profile.id === profile.id));
-
-export const loadProfileSources = (
-  homeDirectory: string,
-  sources: readonly ProfileSourceReference[],
-): {
-  readonly profiles: readonly LoadedProfile[];
-  readonly issues: readonly { readonly path: string; readonly message: string }[];
-} => {
-  const profiles: LoadedProfile[] = [];
-  const issues: { readonly path: string; readonly message: string }[] = [];
-
-  for (const source of sources) {
-    const materializedSource = materializeSource(homeDirectory, source);
-    const result = loadLocalProfileSource(materializedSource);
-    profiles.push(...result.profiles.map((profile) => ({ ...profile, source })));
-    issues.push(...result.issues);
-  }
-
-  return { profiles, issues };
-};
-
-const materializeSource = (homeDirectory: string, source: ProfileSourceReference): ProfileSourceReference => {
-  if (source.uri === undefined && source.github === undefined) {
-    return source;
-  }
-
-  if (source.uri !== undefined && source.ref === undefined && source.path === undefined) {
-    return { path: createProfileSourceCachePath(homeDirectory, source.uri), only: source.only, except: source.except };
-  }
-
-  return {
-    path: resolveRemoteRepositorySubpath(createRemoteRepositoryCachePath(homeDirectory, source), source.path),
-    only: source.only,
-    except: source.except,
-  };
-};
 
 /* v8 ignore start -- the real child-process launcher is direct runtime behavior; tests inject a launcher. */
 const createSpawnLauncher = (): AgentProcessLauncher => ({
@@ -651,12 +426,3 @@ const signalNumbers: Readonly<Partial<Record<NodeJS.Signals, number>>> = {
   SIGINT: 2,
   SIGTERM: 15,
 };
-
-const formatSettingsIssue = (issue: {
-  readonly filePath: string;
-  readonly path: string;
-  readonly message: string;
-}): string => `${issue.filePath}#${issue.path} ${issue.message}`;
-
-const formatProfileIssue = (issue: { readonly path: string; readonly message: string }): string =>
-  `${issue.path} ${issue.message}`;

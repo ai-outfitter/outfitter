@@ -36,7 +36,9 @@ Outfitter is organized around a private npm workspace root, clear TypeScript pac
 │   │   ├── src/                       # production TypeScript source
 │   │   │   ├── cli.ts                 # executable CLI entry point
 │   │   │   ├── cli/                   # CLI parser construction and command objects
-│   │   │   │   └── commands/profile/LintCommand.ts # `outfitter profile lint` implementation
+│   │   │   │   ├── commands/profile/LintCommand.ts # `outfitter profile lint` implementation
+│   │   │   │   ├── commands/run/      # run command helper modules (profile resolution, launch summary)
+│   │   │   │   └── commands/setup/    # setup command helper modules (types, starter sources, imports, prompts, launch)
 │   │   │   ├── settings/              # settings loading and merging
 │   │   │   ├── profiles/              # profile loading, validation, resolution, and merging
 │   │   │   │   └── PromptIncludes.ts  # typed append_system_prompt include resolution and diagnostics
