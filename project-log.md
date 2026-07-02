@@ -2,6 +2,21 @@
 
 Chronological log of development activities, changes, and lessons learned. Append new entries; never remove old ones.
 
+## 2026-07-01 (evening) — Fork execution sprint: 29 of 32 plan issues shipped (Claude session)
+
+**What was done:**
+
+- Forked to `tylerwillis/outfitter`, filed all 32 plan issues there (mapping in docs/plans/issues/README.md), then executed autonomously with parallel agents in git worktrees, merging in issue order with gates green at every merge.
+- **Shipped (all on fork main):** M1 ship-blockers (bundled offline `starter` profile + degraded sync, hardcoded bootstrap model removed, pi's false update notice suppressed via PI_SKIP_VERSION_CHECK for bundled launches, shallow catalog clones + extension-cache refresh policy + progress output); CI hardening (packaged E2E smoke script+job, ubuntu/macos/windows matrix with visible-warning windows leg, GHCR Docker publish gated on npm publish); docs front door (architecture/organization path typos fixed with hygiene test, philosophy rewritten, AGENTS.md reconciled, catalog trust model, concepts + CLI reference, support matrix); Claude parity (MCP composition via --mcp-config + shared McpConfigMerge, skills materialization, thinking→effort table, terminal first-run onboarding with /login hint); state persistence (interactive `prompt` strategy writing back to profile YAML, live undeclared-write notices + crash journals, composite temp-dir cleanup + sweep); tech debt (pi extension extracted to typed code/pi-extension workspace with esbuild bundle + config-file injection, SetupCommand 1612→496 and PiLoginLaunch 945→243 and RunCommand decomposed with all eslint-disable headers deleted, dead deps removed via OFTR-001.5 amendment); cross-adapter conformance suite (104 tests, registry-driven, docs drift verifier, `npm run conformance`); doc site now renders docs/documentation via sync script (fictional landing-page details replaced); SEO tagline + keywords; licensing section (MIT vs enterprise BSL); persona-reviews and federated-context example catalogs (lint clean).
+- **High-effort code review mid-sprint found 10 confirmed defects** (silent state-loss copy fallback, uncaught junction retry, ungated Docker publish, prerelease latest-tag bug, hidden windows CI failures, symlink-fragile hygiene test, --only parser crash, unguarded setup symlink, homedir() crash on passwd-less UIDs, inflated smoke timings) — all 10 fixed.
+- **Final state:** 465 CLI tests + 61 pi-extension tests + docs build + packaged smoke all green. 30/33 fork issues closed. Open: #6 (record demo video — script ready in docs/plans/demo-video-script.md), #28 (ecosystem listings — copy ready in docs/plans/launch/ecosystem-listings.md), #31 (publish personas to default-profiles — example catalog ready in examples/persona-reviews/).
+
+**Lessons:**
+
+- Agent worktrees were created from stale HEADs repeatedly; every agent needed an explicit fetch/reset-to-canonical-main instruction.
+- The requirement-pinned-test system worked as designed: agents amended requirements (OFTR-001.5, OFTR-006.5.8-10, OFTR-010.6, OFTR-005.6) before touching pinned tests, leaving a clean trace.
+- Two genuine product bugs surfaced by doc/example work: `only:` filters break profile inheritance when they exclude the base (docs now use `template: true`), and unsynced remote sources used to fail launches instead of degrading.
+
 ## 2026-07-01 (later) — Cross-adapter conformance suite (Claude session, wave2/conformance)
 
 **What was done:**
