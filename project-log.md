@@ -2,6 +2,12 @@
 
 Chronological log of development activities, changes, and lessons learned. Append new entries; never remove old ones.
 
+## 2026-07-01 (night) — Upstream PR series opened (Claude session)
+
+- Pushed the full sprint to origin as `sprint/2026-07-full` (the revertible integrated state) plus 10 checkpoint branches `sprint/01`–`sprint/10`.
+- Opened stacked PRs ai-outfitter/outfitter#109–#118 (merge in order; each targets the previous branch): 109 plans/artifacts (ready), 110 docs front door, 111 CI hardening, 112 M1 ship-blockers, 113 Claude parity, 114 state persistence, 115 polish/examples, 116 conformance suite, 117 extraction/decomposition, 118 Claude onboarding + final fixes (all drafts). PR bodies flag every requirement-pinned-test amendment for maintainer review.
+- Caveat noted: commit messages' `Closes #N` refer to fork issues; on origin they will only add "mentioned" cross-references to old closed PRs #1–#33 when merged (closing keywords act per-repo), harmless but visible.
+
 ## 2026-07-01 (evening) — Fork execution sprint: 29 of 32 plan issues shipped (Claude session)
 
 **What was done:**
