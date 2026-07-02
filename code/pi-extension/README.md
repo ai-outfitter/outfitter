@@ -1,35 +1,26 @@
 # Outfitter Pi extension
 
-This workspace holds the source of the Pi-native Outfitter bootstrap extension.
+The Pi-native Outfitter runtime extension: startup header branding, the
+Shift+Tab plan/build mode switch, and the native `/outfitter` onboarding
+command (default catalog, custom profile, and remote catalog flows) plus the
+automatic `/login` handoff when Pi has no connected model provider.
 
-`src/outfitter-extension.js` is the extension pi loads for every interactive
-Outfitter-managed session. It brands the startup header, owns the
-Outfitter-specific interactive shortcuts (Shift+Tab plan/build mode), registers
-the native `/outfitter` onboarding command, and delegates credential entry to
-Pi's native `/login` command.
+## Build and consumption
 
-## How it is loaded
+- `npm run build` type-checks against the real `@earendil-works/pi-tui` and
+  `@earendil-works/pi-coding-agent` APIs (pi upgrades that change the API fail
+  the build) and bundles `src/index.ts` into `dist/outfitter-extension.js` with
+  esbuild. `@earendil-works/pi-tui` stays external because pi provides it at
+  runtime.
+- The CLI (`code/cli/src/cli/commands/PiLoginLaunch.ts`) writes the built
+  artifact into the user's pi config directory and injects it via
+  `--extension`. The published CLI package ships the artifact under
+  `code/pi-extension/dist` (staged by `code/cli/scripts/sync-package-assets.mjs`).
+- Runtime values (settings paths, profile catalog location, onboarding flags)
+  are not interpolated into the source. The CLI writes
+  `outfitter-extension.config.json` next to the artifact and points the
+  `OUTFITTER_PI_EXTENSION_CONFIG` environment variable at it; see
+  `src/config.ts` for the contract.
 
-Pi never imports this file from the repository or the npm package directly.
-`code/cli/src/cli/commands/PiLoginLaunch.ts` reads the source at launch time,
-replaces each quoted `"__OUTFITTER_*__"` placeholder (for example
-`"__OUTFITTER_HOME__"` or `"__OUTFITTER_AUTO_OPEN__"`) with the JSON-encoded
-launch-specific value — home and project directories, onboarding flags, the
-default settings template, and ASCII art — then writes the stamped file into
-the Pi agent directory and passes it to pi via `--extension`.
-
-The `@ai-outfitter/outfitter` package ships this workspace's `src/` folder under
-`code/pi-extension/` (staged by `code/cli/scripts/sync-package-assets.mjs`) so
-the packaged CLI can resolve the same source after install.
-
-## Editing notes
-
-- Keep the file dependency-free apart from `@earendil-works/pi-tui` (provided by
-  pi at runtime) and the enterprise support modules copied next to the written
-  extension (`./pi-extension/privateCatalogOnboarding.js`).
-- Keep double quotes; the file is intentionally excluded from Prettier so the
-  written output stays byte-stable for the CLI's behavioral tests
-  (`code/cli/tests/unit/pi-login-launch.test.ts`), which evaluate the stamped
-  extension in a VM.
-- `private: true` in `package.json` is npm publish protection, not repository
-  privacy; the source is published as an asset of `@ai-outfitter/outfitter`.
+This workspace is not published independently; `private: true` in
+`package.json` is npm publish protection, not repository privacy.

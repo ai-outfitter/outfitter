@@ -1,4 +1,4 @@
-/* eslint-disable complexity */
+/* eslint-disable max-lines, complexity */
 // Prepares Pi launch-time bootstrap extensions for Outfitter UX, login, and setup handoffs.
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
@@ -21,6 +21,20 @@ export interface PiLoginLaunchPlanInput {
   readonly runtimeOnboarding?: PiRuntimeOnboardingLaunchInput;
   readonly startupAsciiArt?: boolean;
   readonly writeLine?: (message: string) => void;
+}
+
+// Runtime values handed to the bundled Pi extension. This mirrors
+// `OutfitterExtensionConfig` in `code/pi-extension/src/config.ts`, which owns the
+// consuming side of the contract; the artifact's own tests exercise both halves.
+interface PiExtensionRuntimeConfig {
+  readonly autoOpenOutfitter: boolean;
+  readonly defaultProfilesPath?: string;
+  readonly homeDirectory: string;
+  readonly projectDirectory: string;
+  readonly setupSourceUri?: string;
+  readonly startupAsciiArt: boolean;
+  readonly defaultSettingsTemplate: string;
+  readonly asciiArt: string;
 }
 
 const runtimeLoginMessage =
@@ -55,19 +69,16 @@ export const preparePiLoginLaunchPlan = (input: PiLoginLaunchPlanInput): AgentLa
 
   writePiOutfitterEnterpriseSupportFiles(piConfigDirectory);
 
-  launchPlan = addExtension(
-    launchPlan,
-    piConfigDirectory,
-    'outfitter-extension.js',
-    createPiOutfitterExtensionContent({
-      autoOpenOutfitter: input.runtimeOnboarding?.autoOpenOutfitter === true,
-      defaultProfilesPath: input.runtimeOnboarding?.defaultProfilesPath,
-      homeDirectory: input.homeDirectory,
-      projectDirectory: resolve(input.runtimeOnboarding?.projectDirectory ?? process.cwd()),
-      setupSourceUri: input.runtimeOnboarding?.setupSourceUri,
-      startupAsciiArt: input.startupAsciiArt ?? true,
-    }),
-  );
+  launchPlan = addOutfitterExtension(launchPlan, piConfigDirectory, {
+    autoOpenOutfitter: input.runtimeOnboarding?.autoOpenOutfitter === true,
+    defaultProfilesPath: input.runtimeOnboarding?.defaultProfilesPath,
+    homeDirectory: input.homeDirectory,
+    projectDirectory: resolve(input.runtimeOnboarding?.projectDirectory ?? process.cwd()),
+    setupSourceUri: input.runtimeOnboarding?.setupSourceUri,
+    startupAsciiArt: input.startupAsciiArt ?? true,
+    defaultSettingsTemplate: createSetupDefaultSettingsContent('__OUTFITTER_PROFILE_ID__'),
+    asciiArt: readFileSync(new URL('./assets/outfitter-ascii.txt', import.meta.url), 'utf8').trimEnd(),
+  });
 
   if (!hasConfiguredPiLoginState(piConfigDirectory)) {
     writePiLaunchMessage(input.writeLine, runtimeLoginMessage);
@@ -97,43 +108,60 @@ const writeQuietPiStartupSettings = (piConfigDirectory: string): void => {
   writeFileSync(settingsPath, `${JSON.stringify({ ...settings, quietStartup: true }, null, 2)}\n`);
 };
 
-const addExtension = (
+// Writes the bundled extension artifact plus its JSON runtime config, and points pi
+// at both: `--extension` loads the artifact and OUTFITTER_PI_EXTENSION_CONFIG carries
+// the runtime values (no source interpolation).
+const addOutfitterExtension = (
   launchPlan: AgentLaunchPlan,
   piConfigDirectory: string,
-  fileName: string,
-  content: string,
+  config: PiExtensionRuntimeConfig,
 ): AgentLaunchPlan => {
-  const extensionPath = join(piConfigDirectory, 'outfitter', fileName);
+  const extensionPath = join(piConfigDirectory, 'outfitter', 'outfitter-extension.js');
+  const configPath = join(piConfigDirectory, 'outfitter', 'outfitter-extension.config.json');
   mkdirSync(dirname(extensionPath), { recursive: true });
-  writeFileSync(extensionPath, content);
+  writeFileSync(extensionPath, readPiExtensionArtifact());
+  writeFileSync(configPath, `${JSON.stringify(config, null, 2)}\n`);
 
   return {
     ...launchPlan,
     args: ['--extension', extensionPath, ...launchPlan.args],
-    env: { ...launchPlan.env, PI_CODING_AGENT_DIR: piConfigDirectory },
+    env: {
+      ...launchPlan.env,
+      PI_CODING_AGENT_DIR: piConfigDirectory,
+      OUTFITTER_PI_EXTENSION_CONFIG: configPath,
+    },
   };
 };
 
 const writePiOutfitterEnterpriseSupportFiles = (piConfigDirectory: string): void => {
   const extensionDirectory = join(piConfigDirectory, 'outfitter');
   const supportFiles = [
-    ['enterprise/pi-extension/privateCatalogOnboarding.js', 'pi-extension/privateCatalogOnboarding.js'],
-    ['enterprise/shared/privateCatalogPolicy.cjs', 'shared/privateCatalogPolicy.cjs'],
+    ['pi-extension/privateCatalogOnboarding.js', 'pi-extension/privateCatalogOnboarding.js'],
+    ['shared/privateCatalogPolicy.cjs', 'shared/privateCatalogPolicy.cjs'],
   ] as const;
 
   for (const [from, to] of supportFiles) {
     const destination = join(extensionDirectory, to);
     mkdirSync(dirname(destination), { recursive: true });
-    writeFileSync(destination, readRepositoryCodeAsset(from));
+    writeFileSync(destination, readEnterpriseSupportFile(from));
   }
 };
 
-// Reads a file from a sibling workspace under code/ (e.g. code/enterprise or
-// code/pi-extension), supporting both the repository layout and the packaged npm
-// layout where prepack copies those workspaces under the package's code/ folder.
-const readRepositoryCodeAsset = (relativePath: string): string => {
-  const sourcePath = fileURLToPath(new URL(`../../../../${relativePath}`, import.meta.url));
-  const packagePath = fileURLToPath(new URL(`../../../code/${relativePath}`, import.meta.url));
+const readEnterpriseSupportFile = (relativePath: string): string =>
+  readBundledSupportFile(`enterprise/${relativePath}`, `enterprise support file '${relativePath}'`);
+
+// The compiled Pi extension ships inside the CLI package (staged by
+// scripts/sync-package-assets.mjs); in the repository it is read from the
+// pi-extension workspace build output.
+const readPiExtensionArtifact = (): string =>
+  readBundledSupportFile(
+    'pi-extension/dist/outfitter-extension.js',
+    "Pi extension artifact 'outfitter-extension.js' (run `npm run build` in code/pi-extension)",
+  );
+
+const readBundledSupportFile = (relativePathFromCode: string, description: string): string => {
+  const sourcePath = fileURLToPath(new URL(`../../../../${relativePathFromCode}`, import.meta.url));
+  const packagePath = fileURLToPath(new URL(`../../../code/${relativePathFromCode}`, import.meta.url));
 
   /* v8 ignore else -- packaged npm layout is exercised after build, not unit tests. */
   if (existsSync(sourcePath)) {
@@ -145,38 +173,8 @@ const readRepositoryCodeAsset = (relativePath: string): string => {
     return readFileSync(packagePath, 'utf8');
   }
 
-  /* v8 ignore next -- defensive packaging assertion for missing repository code assets. */
-  throw new Error(`Outfitter support file '${relativePath}' was not found.`);
-};
-
-// The general Outfitter pi extension. It brands the startup header, owns
-// Outfitter-specific interactive shortcuts, registers native /outfitter, and
-// keeps credential entry delegated to Pi's native /login command. The extension
-// source lives in the code/pi-extension workspace; the CLI stamps launch-time
-// runtime values into it before handing the file to pi via --extension.
-const createPiOutfitterExtensionContent = (input: {
-  readonly autoOpenOutfitter: boolean;
-  readonly defaultProfilesPath?: string;
-  readonly homeDirectory: string;
-  readonly projectDirectory: string;
-  readonly setupSourceUri?: string;
-  readonly startupAsciiArt: boolean;
-}): string => {
-  const runtimeValues = {
-    OUTFITTER_HOME: input.homeDirectory,
-    OUTFITTER_PROJECT: input.projectDirectory,
-    OUTFITTER_DEFAULT_PROFILES_PATH: input.defaultProfilesPath,
-    OUTFITTER_SETUP_SOURCE_URI: input.setupSourceUri,
-    OUTFITTER_AUTO_OPEN: input.autoOpenOutfitter,
-    OUTFITTER_DEFAULT_SETTINGS_TEMPLATE: createSetupDefaultSettingsContent('__OUTFITTER_PROFILE_ID__'),
-    OUTFITTER_STARTUP_ASCII_ART: input.startupAsciiArt,
-    OUTFITTER_ASCII_ART: readFileSync(new URL('./assets/outfitter-ascii.txt', import.meta.url), 'utf8').trimEnd(),
-  } as const;
-
-  return Object.entries(runtimeValues).reduce(
-    (content, [name, value]) => content.replace(`"__${name}__"`, () => String(JSON.stringify(value))),
-    readRepositoryCodeAsset('pi-extension/src/outfitter-extension.js'),
-  );
+  /* v8 ignore next -- defensive packaging assertion for missing bundled support files. */
+  throw new Error(`Outfitter ${description} was not found.`);
 };
 
 const writePiLaunchMessage = (writeLine: ((message: string) => void) | undefined, message: string): void => {

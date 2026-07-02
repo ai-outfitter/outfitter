@@ -257,8 +257,8 @@ describe('run command', () => {
         },
         launcher: {
           launch(plan) {
-            const extensionPath = plan.args[plan.args.indexOf('--extension') + 1] ?? '';
-            expect(readFileSync(extensionPath, 'utf8')).toContain(JSON.stringify(builtinProfilesPath));
+            const extensionConfigPath = plan.env.OUTFITTER_PI_EXTENSION_CONFIG ?? '';
+            expect(readFileSync(extensionConfigPath, 'utf8')).toContain(JSON.stringify(builtinProfilesPath));
             return Promise.resolve(0);
           },
         },
@@ -302,11 +302,11 @@ describe('run command', () => {
       },
     );
 
-    const extensionPath = firstResult.launchPlan.args[firstResult.launchPlan.args.indexOf('--extension') + 1];
-    if (extensionPath === undefined) {
-      throw new Error('Outfitter extension path was not injected.');
+    const extensionConfigPath = firstResult.launchPlan.env.OUTFITTER_PI_EXTENSION_CONFIG;
+    if (extensionConfigPath === undefined) {
+      throw new Error('Outfitter extension runtime config was not injected.');
     }
-    expect(readFileSync(extensionPath, 'utf8')).toContain('const OUTFITTER_STARTUP_ASCII_ART = false');
+    expect(readFileSync(extensionConfigPath, 'utf8')).toContain('"startupAsciiArt": false');
     expect(messages).toContain(
       'Outfitter will ask Pi to open `/login` automatically if Pi reports no available models after startup.',
     );

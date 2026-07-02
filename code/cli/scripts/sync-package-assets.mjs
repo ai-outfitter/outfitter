@@ -25,7 +25,9 @@ const copies = [
   ['README.md', 'README.md', false],
   ['LICENSE.md', 'LICENSE.md', false],
   [join('code', 'enterprise'), join('code', 'enterprise'), true],
-  [join('code', 'pi-extension', 'src'), join('code', 'pi-extension', 'src'), true],
+  // The compiled Pi extension artifact ships with the CLI so the published package
+  // stays self-contained (PiLoginLaunch resolves it under code/pi-extension/dist).
+  [join('code', 'pi-extension', 'dist'), join('code', 'pi-extension', 'dist'), true],
   [join('docs', 'documentation'), join('doc', 'documentation'), true],
   // Keep cross-references from the shipped documentation working in the package:
   // README.md links ../philosophy.md and state.md links ../architecture/state_writeback_strategy.md.
