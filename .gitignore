@@ -11,6 +11,9 @@ doc_site/.next/
 doc_site/out/
 *.tsbuildinfo
 
+# Doc site pages generated from docs/documentation by sync-docs.mjs
+code/doc_site/app/docs/
+
 # Test and coverage output
 coverage/
 .nyc_output/

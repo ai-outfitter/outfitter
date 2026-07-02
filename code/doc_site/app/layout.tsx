@@ -8,16 +8,26 @@ import type { ReactNode } from 'react';
 import 'nextra-theme-docs/style.css';
 import './globals.css';
 
+const tagline = 'Make, share, and switch the profiles your coding agents use — manually or programmatically.';
+
 export const metadata: Metadata = {
   title: {
-    default: 'Outfitter Documentation',
+    default: 'Outfitter — Coding Agent Profiles',
     template: '%s | Outfitter',
   },
-  description: 'Outfitter profiles make agent harness configuration consistent, customizable, and reusable.',
+  description: tagline,
+  openGraph: {
+    siteName: 'Outfitter',
+    title: 'Outfitter — Coding Agent Profiles',
+    description: tagline,
+    type: 'website',
+  },
 };
 
 const navbar = <Navbar logo={<strong>Outfitter</strong>} projectLink="https://github.com/ai-outfitter/outfitter" />;
-const footer = <Footer>BUSL-1.1 {new Date().getFullYear()} © Outfitter.</Footer>;
+const footer = (
+  <Footer>MIT {new Date().getFullYear()} © Outfitter. Enterprise components are licensed separately.</Footer>
+);
 
 export default async function RootLayout({ children }: { children: ReactNode }): Promise<ReactNode> {
   return (
@@ -28,6 +38,7 @@ export default async function RootLayout({ children }: { children: ReactNode }):
           navbar={navbar}
           pageMap={await getPageMap('/')}
           docsRepositoryBase="https://github.com/ai-outfitter/outfitter/tree/main/code/doc_site/app"
+          editLink={null}
           footer={footer}
           nextThemes={{ forcedTheme: 'dark' }}
           sidebar={{ defaultMenuCollapseLevel: 1 }}

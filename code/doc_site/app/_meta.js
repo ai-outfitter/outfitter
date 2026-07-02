@@ -2,9 +2,15 @@ export default {
   index: {
     title: 'Home',
     type: 'page',
+    theme: {
+      layout: 'full',
+      toc: false,
+      sidebar: false,
+      pagination: false,
+    },
   },
-  'state-persistence': {
-    title: 'State Persistence',
+  docs: {
+    title: 'Documentation',
     type: 'page',
   },
 };

@@ -25,12 +25,9 @@ acme-outfitter-catalog/
 # acme-outfitter-catalog/settings.yml
 profile_sources:
   - path: ./profiles
-    only:
-      - engineer
-      - platform-operator
-      - support-triage
-      - exec-briefing
 ```
+
+The base profile below is marked `template: true`, so role profiles can inherit it while it never appears as a launchable choice. Avoid `only:` filters that omit an inherited base profile — filtered-out profiles are not loaded at all, so inheritance from them fails.
 
 ## Shared base profile
 
@@ -138,3 +135,7 @@ controls:
 ```
 
 This gives the organization a publishable catalog with clear defaults: cheaper profiles for high-volume low-risk work, stronger reasoning for code and infrastructure, and role prompts that teach the agent what evidence and output shape matter for each job.
+
+## Scaling context across many codebases
+
+When the organization has many repositories and teams, keep role prompts thin and move codebase, team, and policy context into a governed prompts library that profiles compose per role. See [Federated context](../federated-context.md) for the pattern and a runnable example.
