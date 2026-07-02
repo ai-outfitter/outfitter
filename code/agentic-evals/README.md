@@ -71,6 +71,141 @@ questions:                     # graded Q&A against the run's output
     expect: "heart failure"
 ```
 
+## Profile matrix
+
+Evals are not just pass/fail gates — they are how we measure which profile
+configurations actually work better. Each eval can declare a **matrix** of
+profile variants, and the harness runs the same workflow once per variant so
+results are directly comparable: skill vs. append_system_prompt, subagents
+enabled vs. disabled, tool-call limits, different models, thinking levels
+on/off, and so on.
+
+```yaml
+# eval.yml (continued)
+matrix:
+  base_profile: engineer
+  variants:
+    - id: skill
+      overrides:
+        skills: [code-review]
+    - id: system-prompt
+      overrides:
+        skills: []
+        controls:
+          append_system_prompt:
+            - repo_file: prompts/code-review.md
+    - id: no-subagents
+      overrides:
+        controls:
+          subagents: false
+    - id: haiku-low-thinking
+      overrides:
+        controls:
+          model: claude-haiku-4-5
+          thinking: low
+    - id: thinking-off
+      overrides:
+        controls:
+          thinking: off
+  repeat: 3                    # runs per variant, for pass-rate stability
+```
+
+Each variant is the base profile plus a set of declarative overrides — the
+same control surface profiles already expose. A variant id combined with the
+eval id and run number identifies every result.
+
+## Metrics and recorded results
+
+Every run records a standard set of metrics alongside the pass/fail grading,
+and results are committed so we can track profile performance over time and
+across the matrix.
+
+Standard metrics per run:
+
+| Metric | Description |
+| --- | --- |
+| `wall_time_seconds` | Total run duration |
+| `tokens_in` / `tokens_out` | Prompt and completion tokens consumed |
+| `tool_calls` | Total tool invocations, plus a per-tool breakdown |
+| `turns` | Agent turns taken to finish |
+| `coverage_percent` | Test coverage of the produced code (only for evals that declare a coverage requirement) |
+| `lines_changed` | Lines of code added/removed vs. the fixture |
+| `assertions_passed` / `assertions_total` | Grading outcome per run |
+| `cost_usd` | Estimated spend, when the adapter exposes it |
+
+An eval opts into task-specific metrics declaratively:
+
+```yaml
+# eval.yml (continued)
+metrics:
+  coverage:
+    command: npm test -- --coverage   # run by the harness after the agent finishes
+    minimum: 80                       # optional gate: below this, the run fails
+```
+
+Results are written as one JSON file per run and committed to the repo:
+
+```
+code/agentic-evals/results/
+└── engineer-hidden-tests/
+    └── 2026-07-02T14-30-00Z/         # one directory per harness invocation
+        ├── summary.json               # matrix-wide rollup
+        ├── skill/run-1.json
+        ├── skill/run-2.json
+        ├── system-prompt/run-1.json
+        └── ...
+```
+
+```json
+// results/engineer-hidden-tests/2026-07-02T14-30-00Z/skill/run-1.json
+{
+  "eval": "engineer-hidden-tests",
+  "variant": "skill",
+  "run": 1,
+  "agent": "pi",
+  "passed": true,
+  "assertions": { "passed": 6, "total": 6 },
+  "metrics": {
+    "wall_time_seconds": 412,
+    "tokens_in": 184223,
+    "tokens_out": 22190,
+    "tool_calls": 47,
+    "turns": 19,
+    "coverage_percent": 91.4,
+    "lines_changed": 312
+  }
+}
+```
+
+## Agent-graded evaluation
+
+Mechanical assertions can't rank qualitative outputs — two variants may both
+produce a working design, an HTML report, or a refactor, and we still want to
+know which is better. For that, an eval can declare an **evaluator**: an
+agent run that receives the artifacts from two or more variants and grades
+them against a rubric.
+
+```yaml
+# eval.yml (continued)
+evaluation:
+  mode: pairwise              # pairwise | rubric | rank
+  evaluator_profile: engineer # profile used for the judging run
+  inputs:
+    - artifact: report.html   # what the judge sees from each variant
+  rubric:
+    - criterion: "Correctly identifies the top-level findings"
+      weight: 3
+    - criterion: "Design is clear and self-explanatory"
+      weight: 2
+    - criterion: "No fabricated data"
+      weight: 5
+  blind: true                 # judge MUST NOT know which variant produced which artifact
+```
+
+The judge's scores land in `summary.json` next to the mechanical metrics, so
+a matrix comparison reads as: pass rate, cost, speed, and judged quality per
+variant.
+
 ## Requirements
 
 ### Eval definitions
@@ -124,11 +259,57 @@ questions:                     # graded Q&A against the run's output
     counts as "finding" the defect precisely enough that grading is
     reproducible.
 
+### Profile matrix
+
+15. An eval **MAY** declare a matrix of profile variants; when it does, each
+    variant **MUST** be expressed as a set of declarative overrides on a base
+    profile using the same controls profiles already expose (skills,
+    `append_system_prompt`, subagents, tool-call limits, model, thinking
+    level, etc.).
+16. The harness **MUST** run every declared variant through the identical
+    workflow and fixtures, differing only in profile configuration, so
+    results are directly comparable.
+17. Every result **MUST** be attributable to a specific eval id, variant id,
+    and run number.
+18. Matrix evals **SHOULD** declare a `repeat` count; single-run comparisons
+    between variants **SHOULD NOT** be treated as significant.
+
+### Metrics and recorded results
+
+19. The harness **MUST** record wall time, token usage (in/out), tool-call
+    count, and turn count for every run, and **SHOULD** record per-tool
+    breakdowns and estimated cost when the adapter exposes them.
+20. Evals whose task produces code **MAY** declare a coverage metric; when
+    declared, the harness **MUST** run the coverage command after the agent
+    finishes and record coverage relative to the produced code, and **MAY**
+    enforce a declared minimum as a gate.
+21. Results **MUST** be written as machine-readable JSON, one file per run
+    plus a matrix-wide summary, and **MUST** be committed to the repository
+    under `code/agentic-evals/results/` so profile performance can be
+    compared over time.
+22. Result files **MUST NOT** be edited by hand; the harness is the only
+    writer.
+
+### Agent-graded evaluation
+
+23. An eval **MAY** declare an evaluator that grades or ranks variant
+    artifacts (e.g. competing designs) that mechanical assertions cannot
+    differentiate.
+24. Evaluator runs **MUST** be driven by a rubric declared in the eval's
+    YAML, with per-criterion weights, and the judge's scores **MUST** be
+    recorded in the results alongside mechanical metrics.
+25. When comparing variants, the evaluator **MUST** be blind: it **MUST
+    NOT** be told which profile variant produced which artifact.
+26. Agent-graded scores **SHOULD** complement, not replace, mechanical
+    assertions — an eval **SHOULD NOT** rely on a judge for anything a file
+    assertion or test run can check.
+
 ## Layout
 
 ```
 code/agentic-evals/
 ├── README.md                # this file
+├── results/                 # committed harness-written run results (JSON)
 └── evals/
     ├── data-analyst-healthcare-report/
     │   ├── eval.yml
