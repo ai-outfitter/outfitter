@@ -10,6 +10,8 @@ Status values:
 
 When a profile requests a control an adapter cannot translate, Outfitter warns to stderr; `--strict` makes those warnings fatal.
 
+This matrix is checked against the cross-adapter conformance suite (`code/cli/tests/conformance/`): `npm run conformance` verifies every row below against real adapter behavior and fails when the table disagrees with the code.
+
 | What you can control                              | Pi        | Claude Code |
 | ------------------------------------------------- | --------- | ----------- |
 | Agent config directory                            | Supported | Supported   |
@@ -21,6 +23,8 @@ When a profile requests a control an adapter cannot translate, Outfitter warns t
 | Appended system prompt (`append_system_prompt`)   | Supported | Supported   |
 | Model selection (`model`, `provider`, `thinking`) | Supported | Partial     |
 | Credentials and environment (`environment`)       | Supported | Supported   |
+| MCP servers (`cli_specific/<agent>/.mcp.json`)    | Supported | Supported   |
+| DeepWork job selection (`deepwork`)               | Supported | Roadmap     |
 | Tool availability                                 | Roadmap   | Roadmap     |
 | Context files                                     | Roadmap   | Roadmap     |
 | Theme / UI presentation                           | Roadmap   | Roadmap     |
@@ -42,6 +46,7 @@ When a profile requests a control an adapter cannot translate, Outfitter warns t
 ## Pi notes
 
 - Pi translates the full generic control set: `provider`, `model`, `thinking`, `system_prompt`, `append_system_prompt`, `extensions` (`--extension`), `skills` (`--skill`), `prompt_template` (`--prompt-template`), `environment`, `args`, `session_directory`, and DeepWork job selection.
+- **MCP servers** — `cli_specific/pi/.mcp.json` fragments are merged across contributing profile layers into a composite `.mcp.json` inside the profiled agent directory.
 - Bootstrap behavior (for example the onboarding flow) uses an explicit Pi bootstrap extension via `--extension`.
 
 For the architecture-level definitions behind each row, see [Controllable elements](../architecture/controllable-elements.md).

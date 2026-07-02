@@ -21,6 +21,7 @@
     "lint": "npm run lint --workspace @ai-outfitter/outfitter",
     "lint:fix": "npm run lint:fix --workspace @ai-outfitter/outfitter",
     "test": "npm test --workspace @ai-outfitter/outfitter",
+    "conformance": "npm run conformance --workspace @ai-outfitter/outfitter",
     "coverage": "npm run coverage --workspace @ai-outfitter/outfitter",
     "snapper:format": "node scripts/run-snapper.mjs --git-md -i",
     "check": "npm run snapper:format && prettier --write . && npm run lint:fix && npm run coverage",
