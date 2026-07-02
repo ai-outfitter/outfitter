@@ -56,11 +56,17 @@ const writeDefaultProfilesCache = (homeDirectory: string): string => {
 const extensionPaths = (plan: AgentLaunchPlan): string[] =>
   plan.args.filter((_arg, index) => plan.args[index - 1] === '--extension');
 
+// The bundled extension reads its runtime config from the JSON file referenced by
+// OUTFITTER_PI_EXTENSION_CONFIG; remember the launch env so the vm sandbox below can
+// expose it as `process.env`, exactly like pi does for the real extension.
+let lastPreparedLaunchEnv: Readonly<Record<string, string>> = {};
+
 const readExtension = (plan: AgentLaunchPlan, fileName: string): string => {
   const path = extensionPaths(plan).find((candidate) => candidate.endsWith(fileName));
   if (path === undefined) {
     throw new Error(`extension ${fileName} not injected`);
   }
+  lastPreparedLaunchEnv = { ...plan.env };
   return readFileSync(path, 'utf8');
 };
 
@@ -125,9 +131,13 @@ const evaluateOutfitterExtension = (
   content: string,
   importOverrides: Readonly<Record<string, () => Promise<unknown>>> = {},
 ): OutfitterExtension => {
+  // The bundled artifact is a real ES module; rewrite its module syntax so it can run
+  // inside a classic vm Script: stub the external pi-tui import, drop the node:fs
+  // import (readFileSync is injected below), route dynamic imports through the
+  // sandbox, and strip the trailing export statement.
   const executableContent = content
     .replace(
-      'import { Key, matchesKey, truncateToWidth, visibleWidth, wrapTextWithAnsi } from "@earendil-works/pi-tui";',
+      /import \{ Key, matchesKey, truncateToWidth, visibleWidth, wrapTextWithAnsi \} from "@earendil-works\/pi-tui";/u,
       [
         'const Key = { up: "\\x1b[A", down: "\\x1b[B", enter: "\\r", escape: "\\x1b", ctrl: (key) => key === "c" ? "\\u0003" : "ctrl+" + key };',
         'const matchesKey = (data, key) => data === key;',
@@ -147,21 +157,26 @@ const evaluateOutfitterExtension = (
         '};',
       ].join('\n'),
     )
+    .replace('import { readFileSync } from "node:fs";', '')
     .replaceAll('import("node:fs")', 'globalThis.__import("node:fs")')
     .replaceAll('import("node:path")', 'globalThis.__import("node:path")')
     .replaceAll('import("node:https")', 'globalThis.__import("node:https")')
-    .replaceAll(
-      'import("./pi-extension/privateCatalogOnboarding.js")',
-      'globalThis.__import("./pi-extension/privateCatalogOnboarding.js")',
-    )
-    .replace('export default function outfitter', 'function outfitter');
+    .replace(/^export \{[\s\S]*?\};\s*$/mu, '');
+  const sandboxImport = (specifier: string) =>
+    specifier === './pi-extension/privateCatalogOnboarding.js'
+      ? importPrivateCatalogOnboardingModule(importOverrides)
+      : (importOverrides[specifier]?.() ?? import(specifier));
   const sandbox = {
     globalThis: {
-      __import: (specifier: string) =>
-        specifier === './pi-extension/privateCatalogOnboarding.js'
-          ? importPrivateCatalogOnboardingModule(importOverrides)
-          : (importOverrides[specifier]?.() ?? import(specifier)),
-    } as { __import: (specifier: string) => Promise<unknown>; outfitter?: OutfitterExtension },
+      __import: sandboxImport,
+      __outfitterImport: sandboxImport,
+    } as {
+      __import: (specifier: string) => Promise<unknown>;
+      __outfitterImport: (specifier: string) => Promise<unknown>;
+      outfitter?: OutfitterExtension;
+    },
+    process: { env: { ...lastPreparedLaunchEnv } },
+    readFileSync,
     setTimeout,
   };
 
@@ -438,7 +453,7 @@ describe('preparePiLoginLaunchPlan', () => {
     await startMockSession(pi, context);
 
     expect(readExtension(plan, 'outfitter-extension.js')).toContain(
-      'const OUTFITTER_ASCII_GRADIENT = ["success", "accent", "text", "muted", "dim"]',
+      'OUTFITTER_ASCII_GRADIENT = ["success", "accent", "text", "muted", "dim"]',
     );
     expect(context.headerRenders[0]?.slice(0, 5)).toEqual(expectedOutfitterAsciiArt);
   });
