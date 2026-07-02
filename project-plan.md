@@ -23,7 +23,7 @@ Strategy stair-steps: individual → team → enterprise; TUI → GUI; open → 
 - `code/pi-extension/` — placeholder; the real Pi onboarding extension is currently a ~750-line JS string in `PiLoginLaunch.ts` (known debt).
 - `code/doc_site/` — Nextra site, 2 pages so far.
 - `docs/` — user docs (`documentation/`), architecture (`architecture/`, typo fixed 2026-07-01), formal requirements OFTR-001..010, plans, specs.
-- Testing: vitest, 254 tests, ~99% coverage with 98% thresholds enforced in CI; golden-tree integration fixtures; requirement-pinning "do not modify" tests. CI: ubuntu-only; release-please + npm publish workflows; Dockerfile exists but image not published.
+- Testing: vitest, 254 tests, ~99% coverage with 98% thresholds enforced in CI; golden-tree integration fixtures; requirement-pinning "do not modify" tests; cross-adapter conformance suite (`code/cli/tests/conformance/`, `npm run conformance`) that forces every registered adapter to declare Supported/Roadmap/N-A per generic control and verifies the docs support matrices against those declarations. CI: ubuntu-only; release-please + npm publish workflows; Dockerfile exists but image not published.
 
 ## How it works (core flow)
 
