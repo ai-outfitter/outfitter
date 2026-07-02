@@ -8,7 +8,7 @@ If you have not tried [Pi](https://pi.dev) yet, Outfitter is the quickest path t
 
 ```bash
 npm install -g @ai-outfitter/outfitter
-outfitter setup
+# First will automatically run setup
 outfitter
 ```
 
