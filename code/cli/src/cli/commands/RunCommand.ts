@@ -11,18 +11,13 @@ import type { Command } from 'commander';
 import spawn from 'cross-spawn';
 
 import type { AgentAdapter, AgentLaunchPlan } from '../../agents/AgentAdapter.js';
-import { createAgentAdapter, defaultAgentId as registryDefaultAgentId } from '../../agents/AgentRegistry.js';
+import { createAgentAdapter } from '../../agents/AgentRegistry.js';
 import {
   createProfileSourceCachePath,
   createRemoteRepositoryCachePath,
   redactProfileSourceUriCredentials,
   resolveRemoteRepositorySubpath,
 } from '../../profiles/ProfileCache.js';
-import {
-  builtinStarterProfileId,
-  createBuiltinProfilesCachePath,
-  materializeBuiltinProfiles,
-} from '../../profiles/BuiltinProfiles.js';
 import { loadLocalProfileSource } from '../../profiles/ProfileLoader.js';
 import type { LoadedProfile } from '../../profiles/ProfileLoader.js';
 import { createEmptyProfile, type Profile } from '../../profiles/Profile.js';
@@ -64,9 +59,16 @@ import {
 import type { AgentProcessLauncher } from '../../agents/AgentLaunch.js';
 import { launchAgentProcess, resolveAgentLaunchExecutable } from '../../agents/AgentLaunch.js';
 import type { CommandObject } from './CommandObject.js';
-import { isNonInteractivePiLaunch, preparePiLoginLaunchPlan } from './PiLoginLaunch.js';
+import { preparePiLoginLaunchPlan } from './PiLoginLaunch.js';
+import {
+  emitClaudeLoginHintIfNeeded,
+  isInteractiveRunLaunch,
+  prepareFirstRunRuntimeOnboarding,
+  resolveRunProgressWriter,
+  runClaudeFirstRunOnboardingIfNeeded,
+  selectRunAgentId,
+} from './run/FirstRunOnboarding.js';
 import type { SetupCommandDependencies } from './SetupCommand.js';
-import { createGitSynchronizer, syncProfileSource, type RemoteProfileSource } from './SyncCommand.js';
 
 export interface RunCommandInput {
   readonly homeDirectory: string;
@@ -107,6 +109,9 @@ export const executeRunCommand = async (
   // ~/.outfitter/state rather than the tmp root, so the sweep can never delete one.
   reportPreviousSessionJournals(sessionJournalDirectory, dependencies);
   sweepStaleCompositeProfileDirectories();
+  // First runs with `--agent claude` finish profile setup through a terminal-side picker
+  // that writes settings before the normal profile resolution below runs.
+  await runClaudeFirstRunOnboardingIfNeeded(input, dependencies);
   const runtimeOnboarding = prepareFirstRunRuntimeOnboarding(input, dependencies);
   const resolvedProfile =
     runtimeOnboarding === undefined ? loadResolvedProfile(input) : createFirstRunBootstrapProfile(input);
@@ -171,6 +176,14 @@ export const executeRunCommand = async (
     compositeProfilePlan.compositeProfile.rootDirectory,
     dependencies.writeLine,
   );
+  // Claude owns its login flow; Outfitter only hints at `/login` when no prior claude
+  // login state is cheaply detectable, and never touches credentials itself.
+  emitClaudeLoginHintIfNeeded({
+    adapterId: adapter.id,
+    homeDirectory: input.homeDirectory,
+    passThroughArgs: input.passThroughArgs,
+    dependencies,
+  });
   const watcher = watchCompositeProfileInputs({
     compositeProfile: compositeProfilePlan.compositeProfile,
     refreshCompositeProfile: () => {
@@ -636,82 +649,6 @@ const formatCompositeProfileStateWriteIssue = (adapterId: string, issue: Composi
   return `${adapterId} wrote '${issue.relativePath}' with state_persistence '${issue.strategy}' and it was not persisted.`;
 };
 
-interface FirstRunRuntimeOnboarding {
-  readonly defaultProfilesPath: string;
-}
-
-const defaultProfilesSource = {
-  github: 'ai-outfitter/default-profiles',
-  path: 'profiles',
-} as const satisfies RemoteProfileSource;
-
-const prepareFirstRunRuntimeOnboarding = (
-  input: RunCommandInput,
-  dependencies: RunCommandDependencies,
-): FirstRunRuntimeOnboarding | undefined => {
-  if (!shouldUsePiNativeFirstRunOnboarding(input, dependencies)) {
-    return undefined;
-  }
-
-  const syncResult = syncProfileSource(
-    input.homeDirectory,
-    defaultProfilesSource,
-    dependencies.synchronizer ?? createGitSynchronizer(resolveRunProgressWriter(dependencies)),
-  );
-
-  if (syncResult.status === 'failed') {
-    (dependencies.writeError ?? console.error)(formatDegradedOnboardingWarning(syncResult.message));
-    const builtinProfilesPath = createBuiltinProfilesCachePath(input.homeDirectory);
-    materializeBuiltinProfiles(builtinProfilesPath);
-
-    return { defaultProfilesPath: builtinProfilesPath };
-  }
-
-  return { defaultProfilesPath: join(syncResult.cachePath, defaultProfilesSource.path) };
-};
-
-const formatDegradedOnboardingWarning = (failureMessage: string): string =>
-  `Warning: could not sync the default profiles source github:${defaultProfilesSource.github} (${failureMessage}). ` +
-  `Continuing with the built-in '${builtinStarterProfileId}' profile; run \`outfitter sync\` to fetch the full catalog once the source is reachable.`;
-
-const shouldUsePiNativeFirstRunOnboarding = (input: RunCommandInput, dependencies: RunCommandDependencies): boolean => {
-  if (input.forceRuntimeOnboarding !== true && existsSync(join(input.homeDirectory, '.outfitter', 'settings.yml'))) {
-    return false;
-  }
-
-  const selectedAgentId = dependencies.adapter?.id ?? selectRunAgentId(input.agentId, undefined);
-
-  /* v8 ignore next -- explicit profile/non-pi paths are covered by normal run command selection tests. */
-  if (input.profileId !== undefined || selectedAgentId !== 'pi') {
-    return false;
-  }
-
-  if (isNonInteractivePiLaunch(input.passThroughArgs ?? [])) {
-    return false;
-  }
-
-  return isInteractiveRunLaunch(dependencies);
-};
-
-// Network/build steps (catalog clones, extension caching) report per-source progress through this
-// writer so first boot never stalls silently before launch.
-const resolveRunProgressWriter = (dependencies: RunCommandDependencies): ((message: string) => void) =>
-  /* v8 ignore next -- console fallback is direct CLI behavior; tests inject writeLine. */
-  dependencies.writeLine ?? console.log;
-
-const isInteractiveRunLaunch = (dependencies: RunCommandDependencies): boolean => {
-  if (dependencies.interactive !== undefined) {
-    return dependencies.interactive;
-  }
-
-  /* v8 ignore next -- default process streams are direct terminal behavior; tests inject streams. */
-  const inputIsTty = (dependencies.input ?? process.stdin).isTTY === true;
-  /* v8 ignore next -- default process streams are direct terminal behavior; tests inject streams. */
-  const outputIsTty = (dependencies.output ?? process.stdout).isTTY === true;
-
-  return inputIsTty && outputIsTty;
-};
-
 const createFirstRunBootstrapProfile = (input: RunCommandInput): ResolvedRunProfile => ({
   profile: {
     ...createEmptyProfile('outfitter-bootstrap'),
@@ -791,9 +728,6 @@ const withSystemPromptExportPath = (launchPlan: AgentLaunchPlan, outputPath: str
     ? launchPlan
     : { ...launchPlan, env: { ...launchPlan.env, OUTFITTER_SYSTEM_PROMPT_EXPORT_PATH: outputPath } };
 
-const selectRunAgentId = (selectedAgentId: string | undefined, defaultAgentId: string | undefined): string =>
-  selectedAgentId ?? defaultAgentId ?? registryDefaultAgentId;
-
 const selectRunProfileId = (selectedProfileId: string | undefined, defaultProfileId: string | undefined): string => {
   if (selectedProfileId !== undefined) {
     return selectedProfileId;
@@ -849,6 +783,14 @@ export const loadProfileSources = (
 
   for (const source of sources) {
     const materializedSource = materializeSource(homeDirectory, source);
+
+    // A remote source whose cache has never synced (degraded-offline onboarding, blocked
+    // network) contributes no profiles instead of failing the launch; a later successful
+    // `outfitter sync` upgrades it to the full catalog.
+    if (isUnsyncedRemoteProfileSource(source, materializedSource.path)) {
+      continue;
+    }
+
     const result = loadLocalProfileSource(materializedSource);
     profiles.push(...result.profiles.map((profile) => ({ ...profile, source })));
     issues.push(...result.issues);
@@ -856,6 +798,11 @@ export const loadProfileSources = (
 
   return { profiles, issues };
 };
+
+const isUnsyncedRemoteProfileSource = (source: ProfileSourceReference, materializedPath: string | undefined): boolean =>
+  (source.uri !== undefined || source.github !== undefined) &&
+  materializedPath !== undefined &&
+  !existsSync(materializedPath);
 
 const materializeSource = (homeDirectory: string, source: ProfileSourceReference): ProfileSourceReference => {
   if (source.uri === undefined && source.github === undefined) {

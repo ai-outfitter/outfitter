@@ -60,7 +60,9 @@ const isCommandNotFoundError = (error: unknown): boolean =>
 
 const agentCliInstallHints: Readonly<Record<string, string>> = {
   pi: 'Install Pi with `npm install -g @earendil-works/pi-coding-agent` (see https://pi.dev).',
-  claude: 'Install Claude Code from https://claude.com/claude-code, then rerun with `--agent claude`.',
+  claude:
+    'Install Claude Code with `npm install -g @anthropic-ai/claude-code` (macOS alternative: ' +
+    '`brew install --cask claude-code`), then rerun with `--agent claude`. See https://claude.com/claude-code.',
 };
 
 const formatMissingAgentCliMessage = (agentId: string, command: string): string => {

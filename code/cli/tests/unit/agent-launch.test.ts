@@ -77,6 +77,8 @@ describe('agent launch', () => {
     ).catch((error: unknown) => error);
 
     expect((thrownError as Error).message).toContain("Could not launch the 'claude' agent CLI");
+    expect((thrownError as Error).message).toContain('npm install -g @anthropic-ai/claude-code');
+    expect((thrownError as Error).message).toContain('brew install --cask claude-code');
     expect((thrownError as Error).message).toContain('https://claude.com/claude-code');
   });
 
