@@ -42,12 +42,15 @@ This document specifies the baseline runtime, language, test, lint, and document
 
 ### OFTR-001.5: Initial Dependency Set
 
+Amendment (2026-07-01): statements 4, 5, 7, and 8 were removed and statement 10 was added, following the amendment process in `docs/requirements/README.md`. Rationale: `typebox`, `defu`, `glob`, and `hosted-git-info` were declared but never imported by any shipped source. Settings and profile merging is implemented by purpose-built merge code with policy-specific semantics (`code/cli/src/settings/SettingsMerger.ts`), profile discovery walks directories directly, and git URI handling is implemented in `code/cli/src/profiles/ProfileCache.ts`. Keeping the unused packages pinned only shipped supply-chain surface to every install.
+
 1. The project MUST use Commander as the CLI framework.
 2. The project MUST use `yaml` for YAML parsing and serialization.
 3. The project MUST use AJV for runtime JSON Schema validation.
-4. The project SHOULD use TypeBox when TypeScript-friendly schema authoring is useful.
-5. The project MUST use `defu` for controlled settings and profile deep merging unless a documented merge-specific reason requires custom code.
+4. REQUIREMENT REMOVED (2026-07-01): TypeBox was never adopted; JSON Schemas are authored as JSON files under `code/cli/src/schemas/`.
+5. REQUIREMENT REMOVED (2026-07-01): `defu` was never adopted; controlled settings and profile deep merging use documented merge-specific custom code.
 6. The project MUST use `cross-spawn` for launching inner agent CLI processes.
-7. The project SHOULD use `glob` for profile and resource discovery.
-8. The project SHOULD use `hosted-git-info` for hosted git URI parsing when the URI format is supported by that library.
+7. REQUIREMENT REMOVED (2026-07-01): `glob` was never adopted; profile and resource discovery reads directories directly.
+8. REQUIREMENT REMOVED (2026-07-01): `hosted-git-info` was never adopted; hosted git URI parsing is implemented in `ProfileCache`.
 9. The project MAY use `chalk` for terminal diagnostics.
+10. The CLI package MUST NOT declare production dependencies that are not imported by shipped source code.
