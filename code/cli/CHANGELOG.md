@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.8.0](https://github.com/ai-outfitter/outfitter/compare/v0.7.2...v0.8.0) (2026-07-02)
+
+
+### Features
+
+* point launched agents at bundled Outfitter user docs ([#123](https://github.com/ai-outfitter/outfitter/issues/123)) ([60ed967](https://github.com/ai-outfitter/outfitter/commit/60ed967a609b76389abf004aeb95f1dffa6399d6))
+* Resolve shared profile skill paths for Pi ([#128](https://github.com/ai-outfitter/outfitter/issues/128)) ([fd1f535](https://github.com/ai-outfitter/outfitter/commit/fd1f5353a9a02f72589bb4676bea8e6a2bb094bb))
+
+
+### Bug Fixes
+
+* **launch:** suppress pi's false self-update notice for bundled launches ([#130](https://github.com/ai-outfitter/outfitter/issues/130)) ([fb2995b](https://github.com/ai-outfitter/outfitter/commit/fb2995b377a72577022043e830ef0adebfc4fe1a)), closes [#3](https://github.com/ai-outfitter/outfitter/issues/3)
+
 ## [0.7.2](https://github.com/ai-outfitter/outfitter/compare/v0.7.1...v0.7.2) (2026-07-01)
 
 
