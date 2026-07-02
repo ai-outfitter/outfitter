@@ -129,6 +129,42 @@ describe('run command profile-bundled Pi resource exposure', () => {
     expect(result.launchPlan.args).not.toContain(unrelatedSkillFolder);
   });
 
+  it('resolves profile-declared Pi skills from sibling source skills when launching pi', async () => {
+    const root = createTemporaryRoot();
+    const homeDirectory = join(root, 'home');
+    const projectDirectory = join(root, 'project');
+    const sourceRoot = join(projectDirectory, '.outfitter');
+    const profilesDirectory = join(sourceRoot, 'profiles');
+    writeProfile(
+      profilesDirectory,
+      'founder',
+      ['id: founder', 'controls:', '  pi:', '    skills:', '      - skills/pyramid-principle', ''].join('\n'),
+    );
+    const skillFolder = join(sourceRoot, 'skills', 'pyramid-principle');
+    mkdirSync(skillFolder, { recursive: true });
+    writeFileSync(join(skillFolder, 'SKILL.md'), '---\nname: pyramid-principle\ndescription: Structure prose\n---\n');
+    writeSettings(
+      homeDirectory,
+      'default_profile: founder\nprofile_sources:\n  - path: ../../project/.outfitter/profiles\n',
+    );
+
+    const result = await executeRunCommand(
+      { homeDirectory, projectDirectory },
+      {
+        launcher: {
+          launch() {
+            return Promise.resolve(0);
+          },
+        },
+        writeLine: () => undefined,
+      },
+    );
+
+    expect(result.launchPlan.args).toContain('--skill');
+    expect(result.launchPlan.args).toContain(skillFolder);
+    expect(result.launchPlan.args).not.toContain('skills/pyramid-principle');
+  });
+
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-006.3).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('resolves flat profile named DeepWork jobs from sibling source jobs without exposing flat profile resources', async () => {

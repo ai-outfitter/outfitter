@@ -23,6 +23,7 @@ import type { StatePathDeclaration, CompositeProfileStatePath } from '../../comp
 import { createPiArgs } from './PiArgs.js';
 import { createPiMcpConfigFile } from './PiMcpConfig.js';
 import { materializePiExtensionSources } from './PiExtensionCache.js';
+import { createPiSkillSources } from './PiSkillSources.js';
 
 const piControlNames = new Set([
   ...[...genericControlNames].filter((controlName) => controlName !== 'pi' && controlName !== 'claude'),
@@ -106,7 +107,12 @@ export const createPiAdapter = (): AgentAdapter => ({
       profileFolders,
       context.profileLayers ?? [],
     );
-    const skillSources = createPiSkillSources(controls, profileFolders);
+    const skillSources = createPiSkillSources({
+      builtInOutfitterSkill,
+      controls,
+      profileFolders,
+      profileLayers: context.profileLayers ?? [],
+    });
     const appendPrompt = resolveAppendSystemPromptControl({
       fallback: controls.appendSystemPrompt,
       profileLayers: context.profileLayers,
@@ -442,26 +448,6 @@ const resolvePiStateSourcePath = (
 const deepWorkAdditionalJobsFoldersEnv = 'DEEPWORK_ADDITIONAL_JOBS_FOLDERS';
 const packageRootDirectory = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 const builtInOutfitterSkill = join(packageRootDirectory, 'skills', 'outfitter');
-
-const createPiSkillSources = (controls: PiProfileControls, profileFolders: readonly string[]): readonly string[] => [
-  ...new Set([builtInOutfitterSkill, ...(controls.skills ?? []), ...profileFolders.flatMap(skillSourcesForProfile)]),
-];
-
-const skillSourcesForProfile = (profileFolder: string): readonly string[] => [
-  ...skillSourcesForFolder(join(profileFolder, 'skills'), 'profile skills folder'),
-  ...skillSourcesForFolder(join(profileFolder, 'cli_specific', 'pi', 'skills'), 'profile Pi skills folder'),
-];
-
-const skillSourcesForFolder = (skillsFolder: string, description: string): readonly string[] =>
-  readOptionalDirectoryEntries(skillsFolder, description)
-    .filter(isPiSkillEntry(skillsFolder))
-    .map((entry) => join(skillsFolder, entry.name))
-    .sort();
-
-const isPiSkillEntry =
-  (folderPath: string) =>
-  (entry: Dirent): boolean =>
-    entry.isDirectory() && isFile(join(folderPath, entry.name, 'SKILL.md'));
 
 const createDeepWorkAdditionalJobsFolders = (
   controls: PiProfileControls,

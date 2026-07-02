@@ -19,6 +19,41 @@ afterEach(() => {
 });
 
 describe('pi adapter profile resources', () => {
+  it('resolves profile-declared Pi skills from a shared profile source skills folder', () => {
+    const root = createTemporaryRoot('outfitter-pi-shared-skills-');
+    const profilesRoot = join(root, 'profiles');
+    const profileFolder = join(profilesRoot, 'founder');
+    const skillFolder = join(root, 'skills', 'pyramid-principle');
+    mkdirSync(profileFolder, { recursive: true });
+    mkdirSync(skillFolder, { recursive: true });
+    writeFileSync(join(skillFolder, 'SKILL.md'), '---\nname: pyramid-principle\ndescription: Structure prose\n---\n');
+
+    const adapter = createPiAdapter();
+    const compositeProfilePlan = adapter.createCompositeProfile(
+      { id: 'founder', inherits: [], controls: {} },
+      { rootDirectory: join(root, 'composite'), profilePaths: [], profileFolders: [profileFolder] },
+    );
+    const launchPlan = adapter.createLaunchPlan(
+      compositeProfilePlan.compositeProfile,
+      { id: 'founder', inherits: [], controls: { pi: { skills: ['skills/pyramid-principle'] } } },
+      [],
+      {
+        profileFolders: [profileFolder],
+        profileLayers: [
+          {
+            profile: { id: 'founder', inherits: [], controls: { pi: { skills: ['skills/pyramid-principle'] } } },
+            profilePath: join(profileFolder, 'profile.yml'),
+            sourceRootPath: profilesRoot,
+            resourceRootPath: profileFolder,
+            layout: 'directory',
+          },
+        ],
+      },
+    );
+
+    expect(launchPlan.args).toEqual(['--skill', builtInOutfitterSkill, '--skill', skillFolder]);
+  });
+
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-006.3).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('adds profile-bundled Pi skills to the launch args', () => {
