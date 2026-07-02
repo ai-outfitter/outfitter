@@ -4,7 +4,10 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "sync-docs": "node scripts/sync-docs.mjs",
+    "predev": "npm run sync-docs",
     "dev": "next dev",
+    "prebuild": "npm run sync-docs",
     "build": "next build",
     "start": "next start",
     "lint": "eslint . --config eslint.config.js"

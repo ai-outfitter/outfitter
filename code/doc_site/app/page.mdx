@@ -1,6 +1,6 @@
 ---
-title: Outfitter Agent Harness Manager
-description: Making your AI Harness manageable, composable and portable
+title: Outfitter — Coding Agent Profiles
+description: Make, share, and switch the profiles your coding agents use — manually or programmatically.
 theme:
   layout: full
   toc: false
@@ -22,7 +22,7 @@ theme:
         <p className="outfitter-badge"><span aria-hidden="true" /> Agent harness profiles</p>
         <h1>Your agent harness, <span>finally manageable</span></h1>
         <div className="outfitter-lede">
-          Outfitter is the pi-first control layer for AI coding agents. Define reusable profiles that travel between machines, adapt per repo, compose in layers, and launch through native pi configuration.
+          Make, share, and switch the profiles your coding agents use — manually or programmatically. Outfitter is the pi-first control layer for AI coding agents: reusable profiles that travel between machines, adapt per repo, compose in layers, and launch through native pi configuration.
         </div>
         <div className="outfitter-actions">
           <a className="outfitter-button primary" href="#get-started">Get started →</a>
@@ -32,12 +32,11 @@ theme:
       </div>
       <div className="outfitter-terminal outfitter-float">
         <div className="outfitter-termbar"><i aria-hidden="true" /><i aria-hidden="true" /><i aria-hidden="true" /><span>outfitter — run</span></div>
-        <pre>{`$ outfitter run --profile engineering-default
-→ resolving profile  engineering-default
-  ✓ user source      github:nhorton/agent-profiles@main
-  ✓ repo overlay     .outfitter/profiles/engineer
-  ✓ merged controls  model=claude-sonnet-4
-  ✓ prepared composite profile    /tmp/outfitter-engineering-default-pi-a91f
+        <pre>{`$ outfitter run --profile engineer
+→ resolving profile engineer
+✓ profile layer engineer  github:ai-outfitter/default-profiles/profiles
+✓ merged controls
+✓ prepared composite profile  /tmp/outfitter-engineer-pi-Xq3zTx
 ↳ launching pi …`}</pre>
       </div>
     </div>
@@ -115,7 +114,7 @@ theme:
           <span>1</span>
           <h3>User profile source</h3>
           <div className="outfitter-layer-copy">
-            <code>github:nhorton/agent-profiles</code> provides shared defaults and machine-independent policy.
+            <code>github:ai-outfitter/default-profiles</code> provides shared defaults and machine-independent policy.
           </div>
         </div>
         <div>
@@ -144,7 +143,7 @@ theme:
       <div className="outfitter-stack" role="img" aria-label="Profile layer stack">
         <div className="stack-card a">
           <small>User profile source</small>
-          <b>github:nhorton/agent-profiles</b>
+          <b>github:ai-outfitter/default-profiles</b>
         </div>
         <div className="stack-card b">
           <small>Organization standard</small>
@@ -157,7 +156,7 @@ theme:
         <div className="stack-plus">＋</div>
         <div className="stack-result">
           <small>Resolved profile</small>
-          <b>17 controls merged · 0 conflicts</b>
+          <b>one composite profile · deterministic merge</b>
         </div>
         <div className="stack-launch">▶ native pi launch</div>
       </div>

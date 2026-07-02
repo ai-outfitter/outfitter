@@ -1,0 +1,6 @@
+# Persona review catalog. Import it with:
+#   outfitter setup ./examples/persona-reviews
+# persona-review-base is marked `template: true`, so every persona inherits it
+# but it never appears as a launchable profile.
+profile_sources:
+  - path: ./profiles

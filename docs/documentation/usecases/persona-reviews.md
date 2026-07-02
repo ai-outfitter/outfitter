@@ -4,6 +4,28 @@ A persona review catalog is a shared setup source that publishes profiles repres
 
 The example below uses Outfitter itself as the product being reviewed, but the pattern is meant for your own product. Replace the persona files, concerns, and review prompts with the customer types you care about.
 
+## Run it now
+
+The Outfitter repository ships a runnable persona catalog in [`examples/persona-reviews`](../../../examples/persona-reviews/README.md) with four reviewer personas: `persona-founder-operator`, `persona-staff-engineer`, `persona-engineering-manager`, and `persona-platform-lead`. From a clone of the repository:
+
+```bash
+outfitter setup ./examples/persona-reviews
+outfitter run --profile persona-staff-engineer
+```
+
+Then hand the session the artifact to review:
+
+```text
+Read README.md and docs/getting-started.md for <your product>. As the
+staff-engineer persona, return the structured review.
+```
+
+Each persona returns the structured shape from [Review output pattern](#review-output-pattern) below. The personas are simulations — they are instructed to say so and to never invent customer quotes, usage data, or research findings. Treat their feedback as a cheap first pass, not a replacement for talking to real customers.
+
+## Catalog layout
+
+A persona review catalog for your own product follows the standard setup-source shape:
+
 ```text
 customer-persona-reviews/
   settings.yml
@@ -22,13 +44,9 @@ customer-persona-reviews/
 # customer-persona-reviews/settings.yml
 profile_sources:
   - path: ./personas
-    only:
-      - founder-operator
-      - staff-engineer
-      - engineering-manager
-      - platform-lead
-      - agency-consultant
 ```
+
+The base profile below is marked `template: true`, so personas can inherit it while it never appears as a launchable choice. Avoid `only:` filters that omit an inherited base profile — filtered-out profiles are not loaded at all, so inheritance from them fails.
 
 ## Shared base profile
 

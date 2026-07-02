@@ -1,5 +1,7 @@
 # Outfitter
 
+Make, share, and switch the profiles your coding agents use — manually or programmatically.
+
 Outfitter builds effective agent profiles and launches them through wrapped agent CLIs like [`pi`](https://github.com/earendil-works/pi-coding-agent), Claude Code, and future adapters. Individuals, teams, and organizations can share and compose repeatable agent profiles.
 
 If you have not tried [Pi](https://pi.dev) yet, Outfitter is the quickest path to a recommended Pi loadout for engineering work.
@@ -43,6 +45,7 @@ controls:
 - [What works today: adapter support matrix](./docs/documentation/support-matrix.md)
 - [Profiles](./docs/documentation/profiles.md)
 - [Profile repositories](./docs/documentation/profile-repository.md)
+- [Federated context](./docs/documentation/federated-context.md)
 - [State persistence](./docs/documentation/state.md)
 - [First-time CLI agent users](./docs/documentation/first-time-cli-agent-users.md)
 - [Switching to Outfitter](./docs/documentation/switching-to-outfitter.md)
@@ -53,5 +56,14 @@ Use cases:
 - [Organization profile catalog](./docs/documentation/usecases/organization-profile-catalog.md) — Publish shared team roles so new users can start with organization-approved defaults.
 - [Engineering profile catalog](./docs/documentation/usecases/engineering.md) — Package coding, platform, and review profiles for repeatable engineering workflows.
 - [Persona reviews](./docs/documentation/usecases/persona-reviews.md) — Create customer personas to get feedback on ideas, documentation, and designs.
+
+## Licensing
+
+Outfitter is free for individual and team use, and that stays true.
+
+- **MIT** — the CLI (`code/cli`) and everything else outside `code/enterprise/` is MIT-licensed. See [LICENSE.md](./LICENSE.md), which defines the boundary: only content under `code/enterprise/` carries a different license.
+- **Enterprise** — `code/enterprise/` is licensed under the [Unsupervised Enterprise License](./code/enterprise/LICENSE), a Business Source-style license (free to modify and test; production use requires an enterprise agreement). It holds org-scale features: private GitHub profile catalogs are gated there today, and future organization governance and audit tooling — policy enforcement, audit collectors, retention, and reporting — will live there too (see the [org-catalog governance design spec](./docs/specs/org-catalog-governance.md)).
+
+In practice: making, sharing, switching, and syncing profiles — everything in the documentation above, including public catalogs — is free. Monetization is enterprise licenses for org-scale features plus paid training and support.
 
 For local development, repository structure, and release workflow details, see [Contributing](./CONTRIBUTING.md).
