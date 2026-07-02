@@ -1,0 +1,51 @@
+id: engineer-hidden-tests
+profile: engineer
+agent: pi
+launcher: outfitter
+
+# HackerRank-style: the grading tests live in hidden-tests/ next to this file,
+# outside fixtures/, so the agent never sees them. TASK.md is copied into the
+# workspace at run start and is gitignored in the fixture project.
+workflow:
+  timeout_seconds: 1800
+  prompt: |
+    Read TASK.md and implement it in src/rle.js. Add your own unit tests in
+    tests/ and make `npm test` pass before you finish. Do not change the
+    exported function names.
+
+inputs:
+  - from: TASK.md
+    to: TASK.md
+
+outputs:
+  - path: src/rle.js
+    assertions:
+      - kind: matches
+        pattern: 'export function (encode|decode)'
+
+checks:
+  - name: hidden-tests
+    inject:
+      - from: hidden-tests
+        to: hidden-tests
+    command: node --test 'hidden-tests/*.test.mjs'
+
+metrics:
+  coverage:
+    command: node --experimental-test-coverage --test 'tests/*.test.*js' 2>&1 | cat
+    pattern: "all files[^|]*\\|\\s*(\\d+(?:\\.\\d+)?)"
+    minimum: 60
+
+matrix:
+  base_profile: engineer
+  repeat: 3
+  variants:
+    - id: baseline
+    - id: thinking-off
+      overrides:
+        controls:
+          thinking: off
+    - id: tool-limited
+      overrides:
+        controls:
+          max_tool_calls: 30

@@ -1,0 +1,61 @@
+patient_id,condition,age,length_of_stay_days,total_cost_usd,readmitted_within_30_days
+P1000,Heart Failure,45,6,20100,yes
+P1001,Heart Failure,52,7,21250,yes
+P1002,Heart Failure,59,8,22400,yes
+P1003,Heart Failure,66,9,23550,yes
+P1004,Heart Failure,73,6,23300,yes
+P1005,Heart Failure,80,7,20450,yes
+P1006,Heart Failure,47,8,21600,yes
+P1007,Heart Failure,54,9,22750,no
+P1008,Heart Failure,61,6,22500,no
+P1009,Heart Failure,68,7,23650,no
+P1010,Heart Failure,75,8,20800,no
+P1011,Heart Failure,82,9,21950,no
+P1012,Heart Failure,49,6,21700,no
+P1013,Heart Failure,56,7,22850,no
+P1014,Sepsis,45,9,45150,yes
+P1015,Sepsis,52,10,46300,yes
+P1016,Sepsis,59,11,47450,yes
+P1017,Sepsis,66,12,48600,no
+P1018,Sepsis,73,9,48350,no
+P1019,Sepsis,80,10,45500,no
+P1020,Sepsis,47,11,46650,no
+P1021,Sepsis,54,12,47800,no
+P1022,Sepsis,61,9,47550,no
+P1023,Sepsis,68,10,48700,no
+P1024,Pneumonia,45,5,16750,yes
+P1025,Pneumonia,52,6,17900,yes
+P1026,Pneumonia,59,7,19050,no
+P1027,Pneumonia,66,8,20200,no
+P1028,Pneumonia,73,5,19950,no
+P1029,Pneumonia,80,6,17100,no
+P1030,Pneumonia,47,7,18250,no
+P1031,Pneumonia,54,8,19400,no
+P1032,Pneumonia,61,5,19150,no
+P1033,Pneumonia,68,6,20300,no
+P1034,Pneumonia,75,7,17450,no
+P1035,Pneumonia,82,8,18600,no
+P1036,Hip Replacement,45,3,25050,yes
+P1037,Hip Replacement,52,4,26200,no
+P1038,Hip Replacement,59,5,27350,no
+P1039,Hip Replacement,66,6,28500,no
+P1040,Hip Replacement,73,3,28250,no
+P1041,Hip Replacement,80,4,25400,no
+P1042,Hip Replacement,47,5,26550,no
+P1043,Hip Replacement,54,6,27700,no
+P1044,Hip Replacement,61,3,27450,no
+P1045,Hip Replacement,68,4,28600,no
+P1046,Diabetes,45,4,10400,yes
+P1047,Diabetes,52,5,11550,yes
+P1048,Diabetes,59,6,12700,yes
+P1049,Diabetes,66,7,13850,no
+P1050,Diabetes,73,4,13600,no
+P1051,Diabetes,80,5,10750,no
+P1052,Diabetes,47,6,11900,no
+P1053,Diabetes,54,7,13050,no
+P1054,Diabetes,61,4,12800,no
+P1055,Diabetes,68,5,13950,no
+P1056,Diabetes,75,6,11100,no
+P1057,Diabetes,82,7,12250,no
+P1058,Diabetes,49,4,12000,no
+P1059,Diabetes,56,5,13150,no

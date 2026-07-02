@@ -6,7 +6,8 @@
   "type": "module",
   "workspaces": [
     "code/cli",
-    "code/pi-extension"
+    "code/pi-extension",
+    "code/agentic-evals"
   ],
   "scripts": {
     "build": "npm run build --workspace @ai-outfitter/outfitter",

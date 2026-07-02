@@ -1,0 +1,52 @@
+id: data-analyst-healthcare-report
+profile: data_analyst
+agent: pi
+launcher: outfitter
+
+workflow:
+  timeout_seconds: 1200
+  prompt: |
+    You are running through the data-analyst demo. Analyze the healthcare
+    dataset in healthcare.csv (hospital admissions with condition, length of
+    stay, readmission flag, and cost).
+
+    Produce a self-contained HTML report at report.html summarizing the data:
+    admissions per condition, average length of stay, average cost, and the
+    readmission rate per condition. Include at least one table.
+
+    Also write answers.md answering:
+    1. Which condition had the highest readmission rate?
+    2. Which condition had the highest average cost per admission?
+
+outputs:
+  - path: report.html
+    assertions:
+      - kind: exists
+      - kind: contains
+        value: '<html'
+      - kind: matches
+        pattern: '<table'
+      - kind: matches
+        pattern: 'readmission'
+
+questions:
+  answers_file: answers.md
+  items:
+    - ask: 'Which condition had the highest readmission rate?'
+      expect: 'heart failure'
+    - ask: 'Which condition had the highest average cost per admission?'
+      expect: 'sepsis'
+
+matrix:
+  base_profile: data_analyst
+  repeat: 3
+  variants:
+    - id: baseline
+    - id: thinking-off
+      overrides:
+        controls:
+          thinking: off
+    - id: haiku
+      overrides:
+        controls:
+          model: claude-haiku-4-5

@@ -23,12 +23,12 @@ document are to be interpreted as described in
 
 ## Planned evals
 
-| Eval | Profile | Workflow | Expected artifact |
-| --- | --- | --- | --- |
-| `data-analyst-healthcare-report` | `data_analyst` | Run through the data-analyst demo against a healthcare dataset | An HTML report summarizing the healthcare data |
-| `founder-demo-video` | `founder` | Feed the founder profile a recorded product demo (video/transcript) | A usable output derived from the recording (e.g. summary, launch notes, follow-ups) |
-| `engineer-code-review` | `engineer` | Run the code-review agent against an example project seeded with a known-ugly bit of code | A review finding that identifies the planted code smell |
-| `engineer-hidden-tests` | `engineer` | Implement the task described in a gitignored `TASK.md`, HackerRank-style: unit tests exist but are hidden from the agent | The hidden test suite passes after the agent's implementation |
+| Eval                             | Profile        | Workflow                                                                                                                 | Expected artifact                                                                   |
+| -------------------------------- | -------------- | ------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------- |
+| `data-analyst-healthcare-report` | `data_analyst` | Run through the data-analyst demo against a healthcare dataset                                                           | An HTML report summarizing the healthcare data                                      |
+| `founder-demo-video`             | `founder`      | Feed the founder profile a recorded product demo (video/transcript)                                                      | A usable output derived from the recording (e.g. summary, launch notes, follow-ups) |
+| `engineer-code-review`           | `engineer`     | Run the code-review agent against an example project seeded with a known-ugly bit of code                                | A review finding that identifies the planted code smell                             |
+| `engineer-hidden-tests`          | `engineer`     | Implement the task described in a gitignored `TASK.md`, HackerRank-style: unit tests exist but are hidden from the agent | The hidden test suite passes after the agent's implementation                       |
 
 Notes on the two engineer evals:
 
@@ -53,22 +53,22 @@ Illustrative shape (subject to change until the harness lands):
 ```yaml
 # code/agentic-evals/evals/data-analyst-healthcare-report/eval.yml
 id: data-analyst-healthcare-report
-profile: data_analyst          # profile under test
-agent: pi                      # pi today; claude planned
+profile: data_analyst # profile under test
+agent: pi # pi today; claude planned
 workflow:
   prompt: |
     Run through the demo using the healthcare dataset and produce a report.
 inputs:
   - path: fixtures/healthcare.csv
 outputs:
-  - path: report.html          # artifact that MUST exist after the run
+  - path: report.html # artifact that MUST exist after the run
     assertions:
       - kind: exists
       - kind: contains
-        value: "<html"
-questions:                     # graded Q&A against the run's output
-  - ask: "Which condition had the highest readmission rate?"
-    expect: "heart failure"
+        value: '<html'
+questions: # graded Q&A against the run's output
+  - ask: 'Which condition had the highest readmission rate?'
+    expect: 'heart failure'
 ```
 
 ## Profile matrix
@@ -107,7 +107,7 @@ matrix:
       overrides:
         controls:
           thinking: off
-  repeat: 3                    # runs per variant, for pass-rate stability
+  repeat: 3 # runs per variant, for pass-rate stability
 ```
 
 Each variant is the base profile plus a set of declarative overrides — the
@@ -122,16 +122,16 @@ across the matrix.
 
 Standard metrics per run:
 
-| Metric | Description |
-| --- | --- |
-| `wall_time_seconds` | Total run duration |
-| `tokens_in` / `tokens_out` | Prompt and completion tokens consumed |
-| `tool_calls` | Total tool invocations, plus a per-tool breakdown |
-| `turns` | Agent turns taken to finish |
-| `coverage_percent` | Test coverage of the produced code (only for evals that declare a coverage requirement) |
-| `lines_changed` | Lines of code added/removed vs. the fixture |
-| `assertions_passed` / `assertions_total` | Grading outcome per run |
-| `cost_usd` | Estimated spend, when the adapter exposes it |
+| Metric                                   | Description                                                                             |
+| ---------------------------------------- | --------------------------------------------------------------------------------------- |
+| `wall_time_seconds`                      | Total run duration                                                                      |
+| `tokens_in` / `tokens_out`               | Prompt and completion tokens consumed                                                   |
+| `tool_calls`                             | Total tool invocations, plus a per-tool breakdown                                       |
+| `turns`                                  | Agent turns taken to finish                                                             |
+| `coverage_percent`                       | Test coverage of the produced code (only for evals that declare a coverage requirement) |
+| `lines_changed`                          | Lines of code added/removed vs. the fixture                                             |
+| `assertions_passed` / `assertions_total` | Grading outcome per run                                                                 |
+| `cost_usd`                               | Estimated spend, when the adapter exposes it                                            |
 
 An eval opts into task-specific metrics declaratively:
 
@@ -139,8 +139,8 @@ An eval opts into task-specific metrics declaratively:
 # eval.yml (continued)
 metrics:
   coverage:
-    command: npm test -- --coverage   # run by the harness after the agent finishes
-    minimum: 80                       # optional gate: below this, the run fails
+    command: npm test -- --coverage # run by the harness after the agent finishes
+    minimum: 80 # optional gate: below this, the run fails
 ```
 
 Results are written as one JSON file per run and committed to the repo:
@@ -188,18 +188,18 @@ them against a rubric.
 ```yaml
 # eval.yml (continued)
 evaluation:
-  mode: pairwise              # pairwise | rubric | rank
+  mode: pairwise # pairwise | rubric | rank
   evaluator_profile: engineer # profile used for the judging run
   inputs:
-    - artifact: report.html   # what the judge sees from each variant
+    - artifact: report.html # what the judge sees from each variant
   rubric:
-    - criterion: "Correctly identifies the top-level findings"
+    - criterion: 'Correctly identifies the top-level findings'
       weight: 3
-    - criterion: "Design is clear and self-explanatory"
+    - criterion: 'Design is clear and self-explanatory'
       weight: 2
-    - criterion: "No fabricated data"
+    - criterion: 'No fabricated data'
       weight: 5
-  blind: true                 # judge MUST NOT know which variant produced which artifact
+  blind: true # judge MUST NOT know which variant produced which artifact
 ```
 
 The judge's scores land in `summary.json` next to the mechanical metrics, so
@@ -309,6 +309,8 @@ variant.
 ```
 code/agentic-evals/
 ├── README.md                # this file
+├── src/                     # the harness (loader, adapters, grading, runner, CLI)
+├── tests/                   # harness unit tests + mock-adapter end-to-end test
 ├── results/                 # committed harness-written run results (JSON)
 └── evals/
     ├── data-analyst-healthcare-report/
@@ -327,8 +329,39 @@ code/agentic-evals/
         └── fixtures/
 ```
 
+## Running
+
+From `code/agentic-evals/` (part of the npm workspace; `npm install` at the
+repo root first):
+
+```bash
+node src/cli.ts list
+node src/cli.ts run engineer-hidden-tests
+node src/cli.ts run engineer-code-review --variant baseline --repeat 1
+npm test        # harness unit + end-to-end tests (mock adapter, no agent needed)
+```
+
+`run` launches the eval's profile through `outfitter run --profile <id>
+--agent pi -- -p "<prompt>"` by default (`launcher: direct` in eval.yml runs
+`pi -p` / `claude -p` directly). To validate an eval's fixtures and grading
+without spending an agent run, substitute a reference solution for the agent:
+
+```bash
+node src/cli.ts run engineer-hidden-tests --agent mock \
+  --mock-command "node /path/to/reference-solution.mjs" --repeat 1
+```
+
 ## Status
 
-Only this README exists so far. The eval definitions, fixtures, and harness
-are not yet implemented — this document is the design to review before work
-starts.
+Implemented: the declarative `eval.yml` loader, the pi/claude/mock adapters
+(requirement 6), isolated per-run workspaces, matrix expansion with variant
+profiles materialized as project-local profiles, output/check/question
+grading, the coverage metric with its gate, per-run JSON results plus the
+matrix summary, and the CLI. All four eval definitions and fixtures ship, and
+`engineer-hidden-tests` is validated end-to-end against a reference solution
+(see `results/`).
+
+Not yet implemented: agent-graded evaluation (requirements 23–26), the
+`tool_calls`/`lines_changed` metrics for the pi adapter, and LLM-judge
+grading of questions (today they are case-insensitive substring matches
+against the answers file).
