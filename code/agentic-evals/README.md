@@ -206,6 +206,19 @@ The judge's scores land in `summary.json` next to the mechanical metrics, so
 a matrix comparison reads as: pass rate, cost, speed, and judged quality per
 variant.
 
+How the harness runs a judge: after the matrix completes, it copies each
+variant's declared artifacts (captured from run 1) into a fresh workspace
+under shuffled anonymous labels (`artifacts/artifact-a/`, …), generates a
+JSON schema (`scores.schema.json`) requiring a 0–10 score per rubric
+criterion per label, and prompts the evaluator profile to write a conforming
+`scores.json`. The harness validates the response, computes weighted scores,
+and maps the labels back to variants — the judge never sees variant ids.
+
+The minimal end-to-end example is [`evals/pqc-summary`](evals/pqc-summary/eval.yml):
+one paragraph ("Summarize post quantum resistant encryption"), a
+thinking-on/thinking-off matrix, and a third agent grading both paragraphs
+against a three-criterion rubric.
+
 ## Requirements
 
 ### Eval definitions
@@ -356,12 +369,14 @@ node src/cli.ts run engineer-hidden-tests --agent mock \
 Implemented: the declarative `eval.yml` loader, the pi/claude/mock adapters
 (requirement 6), isolated per-run workspaces, matrix expansion with variant
 profiles materialized as project-local profiles, output/check/question
-grading, the coverage metric with its gate, per-run JSON results plus the
-matrix summary, and the CLI. All four eval definitions and fixtures ship, and
-`engineer-hidden-tests` is validated end-to-end against a reference solution
-(see `results/`).
+grading, the coverage metric with its gate, agent-graded rubric evaluation
+with blind labels and a generated JSON schema response (requirements 23–26),
+per-run JSON results plus the matrix summary, and the CLI. Five eval
+definitions ship; `engineer-hidden-tests` and `pqc-summary` (including its
+judge) are validated end-to-end against reference solutions (see
+`results/`).
 
-Not yet implemented: agent-graded evaluation (requirements 23–26), the
+Not yet implemented: pairwise/rank evaluation modes, the
 `tool_calls`/`lines_changed` metrics for the pi adapter, and LLM-judge
 grading of questions (today they are case-insensitive substring matches
 against the answers file).

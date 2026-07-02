@@ -86,7 +86,7 @@ describe('listEvalDirectories', () => {
     expect(directories).toEqual([join(root, 'real')]);
   });
 
-  it('finds the four shipped evals', async () => {
+  it('finds the shipped evals', async () => {
     const directories = await listEvalDirectories(join(packageRoot, 'evals'));
     const names = directories.map((directory) => directory.split('/').at(-1));
     expect(names).toEqual([
@@ -94,6 +94,7 @@ describe('listEvalDirectories', () => {
       'engineer-code-review',
       'engineer-hidden-tests',
       'founder-demo-video',
+      'pqc-summary',
     ]);
     for (const directory of directories) {
       await expect(loadEvalDefinition(directory)).resolves.toBeDefined();

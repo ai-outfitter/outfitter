@@ -60,6 +60,23 @@ export interface CoverageMetricSpec {
   readonly minimum?: number;
 }
 
+export interface RubricCriterion {
+  readonly criterion: string;
+  readonly weight: number;
+}
+
+export interface EvaluationSpec {
+  readonly mode: 'rubric';
+  /** Profile used for the judging run. */
+  readonly evaluator_profile: string;
+  /** Workspace-relative artifacts from each variant that the judge sees. */
+  readonly inputs: readonly { readonly artifact: string }[];
+  readonly rubric: readonly RubricCriterion[];
+  /** The judge is never told which variant produced which artifact. */
+  readonly blind: true;
+  readonly timeout_seconds: number;
+}
+
 export interface EvalDefinition {
   readonly id: string;
   readonly profile: string;
@@ -76,6 +93,7 @@ export interface EvalDefinition {
   readonly questions?: QuestionsSpec;
   readonly matrix?: MatrixSpec;
   readonly metrics?: { readonly coverage?: CoverageMetricSpec };
+  readonly evaluation?: EvaluationSpec;
   /** Absolute path of the directory containing eval.yml. */
   readonly directory: string;
 }
@@ -122,10 +140,24 @@ export interface VariantSummary {
   readonly mean_wall_time_seconds: number;
 }
 
+export interface JudgeScore {
+  readonly variant: string;
+  readonly weighted_score: number;
+  readonly criteria: Readonly<Record<string, number>>;
+  readonly notes?: string;
+}
+
+export interface EvaluationResult {
+  readonly mode: 'rubric';
+  readonly evaluator_profile: string;
+  readonly scores: readonly JudgeScore[];
+}
+
 export interface EvalSummary {
   readonly eval: string;
   readonly started_at: string;
   readonly agent: AdapterId;
   readonly variants: readonly VariantSummary[];
   readonly passed: boolean;
+  readonly evaluation?: EvaluationResult;
 }

@@ -6,6 +6,8 @@ export interface AgentRunRequest {
   readonly profileId: string;
   readonly variantId: string;
   readonly workspace: string;
+  /** 'agent' for workflow runs, 'judge' for evaluator runs. */
+  readonly role?: 'agent' | 'judge';
 }
 
 export interface AgentRunResult {
@@ -71,10 +73,12 @@ export const runAgent = async (request: AgentRunRequest): Promise<AgentRunResult
     cwd: request.workspace,
     timeoutMs: definition.workflow.timeout_seconds * 1000,
     env: {
+      AGENTIC_EVAL_DIR: definition.directory,
       AGENTIC_EVAL_ID: definition.id,
       AGENTIC_EVAL_PROMPT: definition.workflow.prompt,
       AGENTIC_EVAL_PROFILE: request.profileId,
       AGENTIC_EVAL_VARIANT: request.variantId,
+      AGENTIC_EVAL_ROLE: request.role ?? 'agent',
     },
   });
   const wallTimeSeconds = (performance.now() - started) / 1000;

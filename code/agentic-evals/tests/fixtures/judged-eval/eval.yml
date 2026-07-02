@@ -1,0 +1,35 @@
+id: judged-eval
+profile: engineer
+agent: mock
+mock:
+  command: node "$AGENTIC_EVAL_DIR/mock-agent.mjs"
+
+workflow:
+  timeout_seconds: 30
+  prompt: |
+    Summarize post quantum resistant encryption in one paragraph in summary.md.
+
+outputs:
+  - path: summary.md
+    assertions:
+      - kind: exists
+
+matrix:
+  repeat: 1
+  variants:
+    - id: strong
+    - id: weak
+      overrides:
+        controls:
+          thinking: off
+
+evaluation:
+  mode: rubric
+  evaluator_profile: judge-profile
+  inputs:
+    - artifact: summary.md
+  rubric:
+    - criterion: accuracy
+      weight: 3
+    - criterion: clarity
+      weight: 1

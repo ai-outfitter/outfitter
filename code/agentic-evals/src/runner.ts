@@ -1,14 +1,16 @@
 import { cp, mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { stringify } from 'yaml';
 import { runAgent } from './adapters.ts';
+import { runJudge } from './evaluate.ts';
 import { gradeOutputs, gradeQuestions, measureCoverage, runChecks } from './grade.ts';
 import type {
   AssertionResult,
   EvalDefinition,
   EvalSummary,
+  EvaluationResult,
   MatrixVariant,
   RunMetrics,
   RunResult,
@@ -100,6 +102,7 @@ const executeRun = async (
   variant: MatrixVariant,
   runNumber: number,
   options: RunEvalOptions,
+  artifactCaptureDirectory?: string,
 ): Promise<RunResult> => {
   const workspace = await prepareWorkspace(definition, `${variant.id}-${String(runNumber)}`);
   try {
@@ -132,6 +135,16 @@ const executeRun = async (
 
     if (agentResult.timedOut) {
       assertions.push({ name: 'agent completed within timeout', passed: false, detail: 'run timed out' });
+    }
+
+    if (artifactCaptureDirectory !== undefined && definition.evaluation !== undefined) {
+      for (const input of definition.evaluation.inputs) {
+        const artifact = join(workspace, input.artifact);
+        if (existsSync(artifact)) {
+          await mkdir(dirname(join(artifactCaptureDirectory, input.artifact)), { recursive: true });
+          await cp(artifact, join(artifactCaptureDirectory, input.artifact), { recursive: true });
+        }
+      }
     }
 
     const passedCount = assertions.filter((assertion) => assertion.passed).length;
@@ -188,7 +201,12 @@ export const runEval = async (definition: EvalDefinition, options: RunEvalOption
     const variantRuns: RunResult[] = [];
     for (let runNumber = 1; runNumber <= repeat; runNumber += 1) {
       log(`eval ${definition.id} variant ${variant.id} run ${String(runNumber)}/${String(repeat)}…`);
-      const result = await executeRun(definition, variant, runNumber, options);
+      // The judge grades run 1's artifacts, one directory per variant.
+      const artifactCaptureDirectory =
+        definition.evaluation !== undefined && runNumber === 1
+          ? join(resultsDirectory, variant.id, 'artifacts')
+          : undefined;
+      const result = await executeRun(definition, variant, runNumber, options, artifactCaptureDirectory);
       log(
         `  ${result.passed ? 'PASS' : 'FAIL'} (${String(result.assertions.passed)}/${String(result.assertions.total)} assertions, ${String(result.metrics.wall_time_seconds)}s)`,
       );
@@ -205,12 +223,35 @@ export const runEval = async (definition: EvalDefinition, options: RunEvalOption
     variantSummaries.push(summarizeVariant(variant.id, variantRuns));
   }
 
+  let evaluation: EvaluationResult | undefined;
+  if (definition.evaluation !== undefined) {
+    const variantArtifacts = new Map<string, string>();
+    for (const variant of variants) {
+      const captured = join(resultsDirectory, variant.id, 'artifacts');
+      if (existsSync(captured)) {
+        variantArtifacts.set(variant.id, captured);
+      } else {
+        log(`  judge: variant ${variant.id} produced no artifacts to grade`);
+      }
+    }
+    if (variantArtifacts.size > 0) {
+      log(
+        `judging ${String(variantArtifacts.size)} variant artifact set(s) with profile ${definition.evaluation.evaluator_profile}…`,
+      );
+      evaluation = await runJudge(definition, variantArtifacts);
+      for (const score of evaluation.scores) {
+        log(`  ${score.variant}: ${String(score.weighted_score)}/10 weighted`);
+      }
+    }
+  }
+
   const summary: EvalSummary = {
     eval: definition.id,
     started_at: startedAt,
     agent: definition.agent,
     variants: variantSummaries,
     passed: allRuns.every((run) => run.passed),
+    evaluation,
   };
   await mkdir(resultsDirectory, { recursive: true });
   await writeFile(join(resultsDirectory, 'summary.json'), `${JSON.stringify(summary, null, 2)}\n`, 'utf8');

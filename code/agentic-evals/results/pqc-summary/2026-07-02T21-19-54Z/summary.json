@@ -1,0 +1,48 @@
+{
+  "eval": "pqc-summary",
+  "started_at": "2026-07-02T21:19:54.539Z",
+  "agent": "mock",
+  "variants": [
+    {
+      "variant": "thinking-on",
+      "runs": 1,
+      "passed": 1,
+      "pass_rate": 1,
+      "mean_wall_time_seconds": 0.039
+    },
+    {
+      "variant": "thinking-off",
+      "runs": 1,
+      "passed": 1,
+      "pass_rate": 1,
+      "mean_wall_time_seconds": 0.039
+    }
+  ],
+  "passed": true,
+  "evaluation": {
+    "mode": "rubric",
+    "evaluator_profile": "engineer",
+    "scores": [
+      {
+        "variant": "thinking-on",
+        "weighted_score": 9,
+        "criteria": {
+          "Technically accurate (lattice/hash/code-based schemes, NIST standardization, Shor threat)": 9,
+          "A single clear paragraph, no filler": 9,
+          "Useful to a technical reader deciding whether to care": 9
+        },
+        "notes": "concrete schemes and migration guidance"
+      },
+      {
+        "variant": "thinking-off",
+        "weighted_score": 4,
+        "criteria": {
+          "Technically accurate (lattice/hash/code-based schemes, NIST standardization, Shor threat)": 4,
+          "A single clear paragraph, no filler": 4,
+          "Useful to a technical reader deciding whether to care": 4
+        },
+        "notes": "vague, no specifics"
+      }
+    ]
+  }
+}

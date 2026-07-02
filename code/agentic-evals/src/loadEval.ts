@@ -6,6 +6,7 @@ import type {
   Assertion,
   CheckSpec,
   EvalDefinition,
+  EvaluationSpec,
   FileCopySpec,
   LauncherId,
   MatrixSpec,
@@ -163,6 +164,55 @@ const parseMatrix = (evalPath: string, value: unknown): MatrixSpec | undefined =
   };
 };
 
+const parseEvaluation = (evalPath: string, value: unknown): EvaluationSpec | undefined => {
+  if (value === undefined) {
+    return undefined;
+  }
+  const record = asRecord(value) ?? fail(evalPath, '"evaluation" must be a mapping');
+  const doc = record as Record<string, unknown>;
+  if ((doc['mode'] ?? 'rubric') !== 'rubric') {
+    fail(evalPath, '"evaluation.mode" only supports "rubric" for now');
+  }
+  if (doc['blind'] === false) {
+    fail(evalPath, '"evaluation.blind" must be true — judges are always blind (requirement 25)');
+  }
+  const inputsValue = doc['inputs'];
+  if (!Array.isArray(inputsValue) || inputsValue.length === 0) {
+    fail(evalPath, '"evaluation.inputs" must be a non-empty list');
+  }
+  const inputs = (inputsValue as unknown[]).map((input, index) => {
+    const inputRecord = asRecord(input) ?? fail(evalPath, `"evaluation.inputs[${index}]" must be a mapping`);
+    return { artifact: requireString(evalPath, inputRecord as Record<string, unknown>, 'artifact') };
+  });
+  const rubricValue = doc['rubric'];
+  if (!Array.isArray(rubricValue) || rubricValue.length === 0) {
+    fail(evalPath, '"evaluation.rubric" must be a non-empty list');
+  }
+  const rubric = (rubricValue as unknown[]).map((entry, index) => {
+    const entryRecord = asRecord(entry) ?? fail(evalPath, `"evaluation.rubric[${index}]" must be a mapping`);
+    const weight = (entryRecord as Record<string, unknown>)['weight'] ?? 1;
+    if (typeof weight !== 'number' || weight <= 0) {
+      fail(evalPath, `"evaluation.rubric[${index}].weight" must be a positive number`);
+    }
+    return {
+      criterion: requireString(evalPath, entryRecord as Record<string, unknown>, 'criterion'),
+      weight: weight as number,
+    };
+  });
+  const timeoutSeconds = doc['timeout_seconds'] ?? DEFAULT_TIMEOUT_SECONDS;
+  if (typeof timeoutSeconds !== 'number' || timeoutSeconds <= 0) {
+    fail(evalPath, '"evaluation.timeout_seconds" must be a positive number');
+  }
+  return {
+    mode: 'rubric',
+    evaluator_profile: requireString(evalPath, doc, 'evaluator_profile'),
+    inputs,
+    rubric,
+    blind: true,
+    timeout_seconds: timeoutSeconds as number,
+  };
+};
+
 export const loadEvalDefinition = async (evalDirectory: string): Promise<EvalDefinition> => {
   const directory = resolve(evalDirectory);
   const evalPath = join(directory, 'eval.yml');
@@ -218,6 +268,7 @@ export const loadEvalDefinition = async (evalDirectory: string): Promise<EvalDef
     checks,
     questions,
     matrix: parseMatrix(evalPath, doc['matrix']),
+    evaluation: parseEvaluation(evalPath, doc['evaluation']),
     metrics:
       coverageRecord === undefined
         ? undefined
