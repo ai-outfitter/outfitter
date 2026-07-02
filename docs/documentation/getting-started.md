@@ -22,6 +22,18 @@ If you are new to Claude Code, Codex, Pi, and agent CLIs, start with [First-time
 
 Learn how shared setup sources work in [Profile repositories](./profile-repository.md), then see [Profiles](./profiles.md) for profile composition, inheritance, and prompt examples.
 
+### Using Claude Code
+
+Claude Code is a peer adapter with its own first-run flow. On a fresh machine:
+
+```bash
+outfitter run --agent claude
+```
+
+- **First run** — with no Outfitter settings yet, a terminal-side profile picker syncs the default profile catalog, lets you choose a default profile, and writes `~/.outfitter/settings.yml` with `default_agent: claude` before launching Claude Code. If the catalog cannot be reached, onboarding continues offline with the built-in `starter` profile; `outfitter sync` upgrades to the full catalog later.
+- **Claude Code not installed** — Outfitter prints install guidance (`npm install -g @anthropic-ai/claude-code`, or `brew install --cask claude-code` on macOS) instead of a bare launch error.
+- **Login** — Claude Code owns its own login: launch it and run `/login` inside the session if it reports you are not logged in. Outfitter never reads or stores Claude credentials; it only prints a `/login` hint when no prior login state is detectable.
+
 ## Common commands
 
 ```bash
