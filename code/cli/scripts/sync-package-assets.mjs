@@ -25,6 +25,7 @@ const copies = [
   ['README.md', 'README.md', false],
   ['LICENSE.md', 'LICENSE.md', false],
   [join('code', 'enterprise'), join('code', 'enterprise'), true],
+  [join('code', 'pi-extension', 'src'), join('code', 'pi-extension', 'src'), true],
 ];
 
 for (const [from, to, recursive] of copies) {

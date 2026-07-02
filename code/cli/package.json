@@ -21,6 +21,7 @@
     "src/schemas",
     "doc",
     "code/enterprise",
+    "code/pi-extension",
     "README.md",
     "LICENSE.md"
   ],
