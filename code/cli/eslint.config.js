@@ -13,6 +13,7 @@ export default tseslint.config(
       'eslint.config.js',
       'scripts/**/*.mjs',
       'code/enterprise/**',
+      'code/pi-extension/**',
     ],
   },
   {
