@@ -8,6 +8,14 @@ If you have not tried [Pi](https://pi.dev) yet, Outfitter is the quickest path t
 
 The first time outfitter runs it will start the setup flow to choose profiles and setup a model if pi is not already configured with one.
 
+Run without installing.
+
+```bash
+npx @ai-outfitter/outfitter
+```
+
+Full install
+
 ```bash
 npm install -g @ai-outfitter/outfitter
 outfitter
