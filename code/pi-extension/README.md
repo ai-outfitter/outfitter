@@ -12,10 +12,11 @@ Pi's native `/login` command.
 
 Pi never imports this file from the repository or the npm package directly.
 `code/cli/src/cli/commands/PiLoginLaunch.ts` reads the source at launch time,
-replaces the `"__OUTFITTER_RUNTIME_VALUES__"` placeholder with a JSON object of
-launch-specific values (home and project directories, onboarding flags, the
-default settings template, and ASCII art), writes the stamped file into the Pi
-agent directory, and passes it to pi via `--extension`.
+replaces each quoted `"__OUTFITTER_*__"` placeholder (for example
+`"__OUTFITTER_HOME__"` or `"__OUTFITTER_AUTO_OPEN__"`) with the JSON-encoded
+launch-specific value — home and project directories, onboarding flags, the
+default settings template, and ASCII art — then writes the stamped file into
+the Pi agent directory and passes it to pi via `--extension`.
 
 The `@ai-outfitter/outfitter` package ships this workspace's `src/` folder under
 `code/pi-extension/` (staged by `code/cli/scripts/sync-package-assets.mjs`) so
