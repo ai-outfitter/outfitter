@@ -52,8 +52,7 @@ const sharedSkillRootsForLayer = (profileLayer: AgentLaunchProfileLayer): readon
   return roots;
 };
 
-const isPiSkillSource = (sourcePath: string): boolean =>
-  isFile(sourcePath) || isFile(join(sourcePath, 'SKILL.md'));
+const isPiSkillSource = (sourcePath: string): boolean => isFile(sourcePath) || isFile(join(sourcePath, 'SKILL.md'));
 
 const skillSourcesForProfile = (profileFolder: string): readonly string[] => [
   ...skillSourcesForFolder(join(profileFolder, 'skills'), 'profile skills folder'),
