@@ -1,6 +1,7 @@
 /* eslint-disable max-lines */
 // Provides the command object for launching selected profiles.
 import { existsSync, mkdirSync } from 'node:fs';
+import type { watch } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { createInterface } from 'node:readline/promises';
@@ -48,10 +49,13 @@ import {
   watchCompositeProfileInputs,
   watchCompositeProfileStateWrites,
 } from '../../compositeProfile/CompositeProfileWatcher.js';
+import type { StateWriteNoticeTimers } from '../../compositeProfile/CompositeProfileWatcher.js';
 import {
   createCompositeProfileSessionJournal,
   reportAndClearCompositeProfileSessionJournals,
 } from '../../compositeProfile/CompositeProfileSessionJournal.js';
+import type { CompositeProfileSessionJournal } from '../../compositeProfile/CompositeProfileSessionJournal.js';
+import type { CompositeProfile } from '../../compositeProfile/CompositeProfile.js';
 import {
   registerCompositeProfileDirectoryCleanup,
   sweepStaleCompositeProfileDirectories,
@@ -98,6 +102,12 @@ export interface RunCommandDependencies extends SetupCommandDependencies {
   readonly launcher?: AgentProcessLauncher;
   readonly writeError?: (message: string) => void;
   readonly promptStateWritePersistence?: CompositeProfileStateWritePrompt;
+  // Deterministic overrides for the live state-write monitor (tests inject a fake
+  // fs.watch and a manual notice-flush clock instead of racing platform timing).
+  readonly stateWriteMonitor?: {
+    readonly watchFactory?: typeof watch;
+    readonly timers?: StateWriteNoticeTimers;
+  };
 }
 
 export const executeRunCommand = async (
@@ -216,14 +226,12 @@ export const executeRunCommand = async (
     compositeProfileDirectory: compositeProfilePlan.compositeProfile.rootDirectory,
     baseline: stateBaseline,
   });
-  const stateWriteWatcher = watchCompositeProfileStateWrites({
-    compositeProfile: compositeProfilePlan.compositeProfile,
-    agentId: adapter.id,
-    journal: sessionJournal,
-    /* v8 ignore next 2 -- console fallbacks are direct CLI behavior; tests inject writers. */
-    notify: (message) => (dependencies.writeError ?? console.error)(message),
-    warn: (message) => (dependencies.writeError ?? console.error)(message),
-  });
+  const stateWriteWatcher = createRunStateWriteWatcher(
+    compositeProfilePlan.compositeProfile,
+    adapter.id,
+    sessionJournal,
+    dependencies,
+  );
 
   try {
     const launcher =
@@ -442,6 +450,23 @@ const prepareCompositeProfileTeardown = (
 
 const isDebugRunLaunch = (passThroughArgs: readonly string[] | undefined): boolean =>
   (passThroughArgs ?? []).includes('--debug');
+
+const createRunStateWriteWatcher = (
+  compositeProfile: CompositeProfile,
+  agentId: string,
+  journal: CompositeProfileSessionJournal,
+  dependencies: RunCommandDependencies,
+) =>
+  watchCompositeProfileStateWrites({
+    compositeProfile,
+    agentId,
+    journal,
+    watchFactory: dependencies.stateWriteMonitor?.watchFactory,
+    timers: dependencies.stateWriteMonitor?.timers,
+    /* v8 ignore next 2 -- console fallbacks are direct CLI behavior; tests inject writers. */
+    notify: (message) => (dependencies.writeError ?? console.error)(message),
+    warn: (message) => (dependencies.writeError ?? console.error)(message),
+  });
 
 const reportPreviousSessionJournals = (sessionJournalDirectory: string, dependencies: RunCommandDependencies): void =>
   reportAndClearCompositeProfileSessionJournals(
