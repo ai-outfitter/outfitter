@@ -26,6 +26,15 @@ const copies = [
   ['LICENSE.md', 'LICENSE.md', false],
   [join('code', 'enterprise'), join('code', 'enterprise'), true],
   [join('code', 'pi-extension', 'src'), join('code', 'pi-extension', 'src'), true],
+  [join('docs', 'documentation'), join('doc', 'documentation'), true],
+  // Keep cross-references from the shipped documentation working in the package:
+  // README.md links ../philosophy.md and state.md links ../architecture/state_writeback_strategy.md.
+  [join('docs', 'philosophy.md'), join('doc', 'philosophy.md'), false],
+  [
+    join('docs', 'architecture', 'state_writeback_strategy.md'),
+    join('doc', 'architecture', 'state_writeback_strategy.md'),
+    false,
+  ],
 ];
 
 for (const [from, to, recursive] of copies) {

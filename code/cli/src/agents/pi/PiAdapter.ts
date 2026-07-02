@@ -11,6 +11,7 @@ import type {
   AgentLaunchProfileLayer,
 } from '../AgentAdapter.js';
 import { genericControlNames, mergeAgentSpecificControls, supportedControlNames } from '../AdapterProfileControls.js';
+import { createOutfitterDocsSystemPrompt } from '../OutfitterDocs.js';
 import { createDeclaredStatePaths, findProfileStateSource } from '../AdapterStatePaths.js';
 import { filterPiSettingsPackagesDuplicatingExtensions } from './PiSettingsMergePolicy.js';
 import type { PiProfileControls, Profile, ProfileControls } from '../../profiles/Profile.js';
@@ -120,7 +121,12 @@ export const createPiAdapter = (): AgentAdapter => ({
           ...controls,
           extensions: materializePiExtensionSources(controls.extensions, { cacheDirectory: context.cacheDirectory }),
           skills: skillSources,
-          appendSystemPrompt: appendPrompt.prompts,
+          appendSystemPrompt: [
+            ...appendPrompt.prompts,
+            // Mirrors pi's own docs section in the default system prompt: point the
+            // agent at the bundled Outfitter user documentation by absolute path.
+            ...toOutfitterDocsPrompts(context.outfitterDocsDirectory),
+          ],
         }),
         ...passThroughArgs,
       ],
@@ -559,6 +565,9 @@ const formatFilesystemError = (error: unknown): string => String(error);
 
 const splitPathList = (value: string | undefined): readonly string[] =>
   value === undefined || value === '' ? [] : value.split(delimiter).filter((entry) => entry !== '');
+
+const toOutfitterDocsPrompts = (docsDirectory: string | undefined): readonly string[] =>
+  docsDirectory === undefined ? [] : [createOutfitterDocsSystemPrompt(docsDirectory)];
 
 const mergePiControls = (controls: ProfileControls): PiProfileControls =>
   mergeAgentSpecificControls<PiProfileControls>(controls, 'pi');

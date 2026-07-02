@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 
 import { Command } from 'commander';
 
+import { resolveOutfitterDocsDirectory } from '../agents/OutfitterDocs.js';
 import type { CommandObject } from './commands/CommandObject.js';
 import { createProfileCommands } from './commands/profile/Command.js';
 import { createRunCommand, executeRunCommand } from './commands/RunCommand.js';
@@ -13,9 +14,13 @@ import { createWelcomeCommand } from './commands/WelcomeCommand.js';
 export const createDefaultCommands = (): CommandObject[] => [
   createRunCommand(),
   createSetupCommand({
-    /* v8 ignore next -- covered by end-to-end CLI smoke usage; unit tests inject this dependency. */
+    /* v8 ignore next 2 -- covered by end-to-end CLI smoke usage; unit tests inject this dependency. */
     async launchSetupSourceProfile(input) {
-      await executeRunCommand({ ...input, profileId: input.profileId });
+      await executeRunCommand({
+        ...input,
+        profileId: input.profileId,
+        outfitterDocsDirectory: resolveOutfitterDocsDirectory(),
+      });
     },
   }),
   createSyncCommand(),
