@@ -13,7 +13,7 @@ import {
   executeProfileLintCommand,
 } from '../../src/cli/commands/profile/Command.js';
 import { createSetupCommand } from '../../src/cli/commands/SetupCommand.js';
-import { createSyncCommand } from '../../src/cli/commands/SyncCommand.js';
+import { createSyncCommand, executeSyncCommand } from '../../src/cli/commands/SyncCommand.js';
 import { createProfileSourceCachePath, createRemoteRepositoryCachePath } from '../../src/profiles/ProfileCache.js';
 
 const temporaryRoots: string[] = [];
@@ -184,6 +184,39 @@ describe('profile command', () => {
         setupSourceUri: 'https://example.test/catalog.git',
       },
     ]);
+  });
+
+  it('resolves remote settings from nested .outfitter/settings.yml when root settings.yml is absent', () => {
+    const root = createTemporaryRoot();
+    const homeDirectory = join(root, 'home');
+    const projectDirectory = join(root, 'project');
+    const setupSourceUri = join(root, 'link');
+    writeSettings(
+      homeDirectory,
+      ['remote_settings:', `  - uri: ${JSON.stringify(setupSourceUri)}`, '    path: settings.yml', ''].join('\n'),
+    );
+
+    const result = executeSyncCommand(
+      { homeDirectory, projectDirectory },
+      {
+        repositoryVisibilityClassifier: { classify: () => 'unknown' },
+        synchronizer: {
+          sync(_source, cachePath) {
+            mkdirSync(join(cachePath, '.outfitter'), { recursive: true });
+            writeFileSync(
+              join(cachePath, '.outfitter', 'settings.yml'),
+              'profile_sources:\n  - github: ai-outfitter/default-profiles\n    path: profiles\n',
+            );
+            mkdirSync(join(cachePath, 'profiles'), { recursive: true });
+            return 'updated';
+          },
+        },
+      },
+    );
+
+    expect(result.messages.join('\n')).toContain('.outfitter/settings.yml');
+    expect(result.sources[0]?.status).toBe('updated');
+    expect(result.sources[0]?.message).toContain('Remote settings file available');
   });
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-003.7, OFTR-004.5).

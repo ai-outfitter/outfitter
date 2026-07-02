@@ -94,6 +94,18 @@ export const discoverRemoteSettingsLoadPlan = (
   remoteSettings: readonly RemoteSettingsReference[],
 ): SettingsLoadPlan => discoverRemoteSettingsLocations(homeDirectory, remoteSettings).plan;
 
+export const resolveCachedRemoteSettingsPath = (homeDirectory: string, source: RemoteSettingsReference): string => {
+  const repositoryPath = createRemoteRepositoryCachePath(homeDirectory, source);
+  const configuredPath = resolveRemoteRepositorySubpath(repositoryPath, source.path);
+
+  if (existsSync(configuredPath) || source.path !== 'settings.yml') {
+    return configuredPath;
+  }
+
+  const nestedOutfitterSettingsPath = resolveRemoteRepositorySubpath(repositoryPath, '.outfitter/settings.yml');
+  return existsSync(nestedOutfitterSettingsPath) ? nestedOutfitterSettingsPath : configuredPath;
+};
+
 export const loadSettingsFiles = (plan: SettingsLoadPlan): SettingsLoadResult => {
   const files: LoadedSettingsFile[] = [];
   const issues: SettingsLoadIssue[] = [];
@@ -151,7 +163,7 @@ const discoverRemoteSettingsLocations = (
     try {
       locations.push({
         scope: 'remote',
-        path: resolveRemoteRepositorySubpath(createRemoteRepositoryCachePath(homeDirectory, source), source.path),
+        path: resolveCachedRemoteSettingsPath(homeDirectory, source),
       });
     } catch (error) {
       issues.push({

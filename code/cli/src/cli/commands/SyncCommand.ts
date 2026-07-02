@@ -26,6 +26,7 @@ import {
   discoverSettingsLoadPlan,
   loadSettings,
   loadSettingsWithCachedRemoteSettings,
+  resolveCachedRemoteSettingsPath,
 } from '../../settings/SettingsLoader.js';
 import type { CommandObject } from './CommandObject.js';
 
@@ -170,8 +171,8 @@ const syncRemoteSettingsSource = (
   const displayUri = formatDisplayUri(source);
 
   try {
-    const settingsPath = resolveRemoteRepositorySubpath(cachePath, source.path);
     const status = synchronizer.sync(source, cachePath);
+    const settingsPath = resolveCachedRemoteSettingsPath(homeDirectory, source);
 
     if (!existsSync(settingsPath)) {
       return {

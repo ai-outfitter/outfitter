@@ -235,6 +235,58 @@ describe('run command', () => {
     expect(existsSync(join(homeDirectory, '.outfitter', 'settings.yml'))).toBe(false);
   });
 
+  it('syncs configured sources and relaunches after Pi-native runtime onboarding completes', async () => {
+    const root = createTemporaryRoot();
+    const homeDirectory = join(root, 'home');
+    const projectDirectory = join(root, 'project');
+    const launches: unknown[] = [];
+    const syncedSources: unknown[] = [];
+
+    const result = await executeRunCommand(
+      { homeDirectory, projectDirectory },
+      {
+        interactive: true,
+        writeLine: () => undefined,
+        synchronizer: {
+          sync(source, cachePath) {
+            syncedSources.push(source);
+            writeProfile(join(cachePath, 'profiles'), 'founder', 'id: founder\ncontrols: {}\n');
+            return 'updated';
+          },
+        },
+        launcher: {
+          launch(plan) {
+            launches.push(plan);
+            if (launches.length === 1) {
+              mkdirSync(join(homeDirectory, '.outfitter'), { recursive: true });
+              writeFileSync(
+                join(homeDirectory, '.outfitter', 'settings.yml'),
+                [
+                  'default_profile: founder',
+                  'profile_sources:',
+                  '  - github: ai-outfitter/default-profiles',
+                  '    path: profiles',
+                  '  - path: ./profiles',
+                  '',
+                ].join('\n'),
+              );
+              writeFileSync(join(homeDirectory, '.outfitter', 'runtime-onboarding-complete.json'), '{}\n');
+            }
+            return Promise.resolve(0);
+          },
+        },
+      },
+    );
+
+    expect(launches).toHaveLength(2);
+    expect(result.profileId).toBe('founder');
+    expect(existsSync(join(homeDirectory, '.outfitter', 'runtime-onboarding-complete.json'))).toBe(false);
+    expect(syncedSources).toEqual([
+      { github: 'ai-outfitter/default-profiles', path: 'profiles' },
+      { github: 'ai-outfitter/default-profiles', path: 'profiles' },
+    ]);
+  });
+
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-010.4).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('emits runtime login kickoff guidance when no native login state is configured', async () => {

@@ -1,6 +1,6 @@
 /* eslint-disable max-lines */
 // Provides the command object for launching selected profiles.
-import { existsSync, mkdirSync } from 'node:fs';
+import { existsSync, mkdirSync, rmSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 
@@ -46,7 +46,7 @@ import { launchAgentProcess, resolveAgentLaunchExecutable } from '../../agents/A
 import type { CommandObject } from './CommandObject.js';
 import { isNonInteractivePiLaunch, preparePiLoginLaunchPlan } from './PiLoginLaunch.js';
 import type { SetupCommandDependencies } from './SetupCommand.js';
-import { syncProfileSource, type RemoteProfileSource } from './SyncCommand.js';
+import { executeSyncCommand, syncProfileSource, type RemoteProfileSource } from './SyncCommand.js';
 
 export interface RunCommandInput {
   readonly homeDirectory: string;
@@ -174,6 +174,17 @@ export const executeRunCommand = async (
       dependencies.launcher ??
       /* v8 ignore next -- tests inject launchers instead of spawning pi. */ createSpawnLauncher();
     const exitCode = await launchAgentProcess(launcher, launchPlan, adapter.id);
+
+    const restartedResult = await relaunchAfterRuntimeOnboardingIfComplete(
+      input,
+      dependencies,
+      runtimeOnboarding,
+      watcher,
+    );
+    if (restartedResult !== undefined) {
+      return restartedResult;
+    }
+
     const stateWriteWarnings = handleCompositeProfileStateWrites(
       adapter.id,
       compositeProfilePlan.compositeProfile.rootDirectory,
@@ -449,6 +460,32 @@ const isInteractiveRunLaunch = (dependencies: RunCommandDependencies): boolean =
   const outputIsTty = (dependencies.output ?? process.stdout).isTTY === true;
 
   return inputIsTty && outputIsTty;
+};
+
+const relaunchAfterRuntimeOnboardingIfComplete = async (
+  input: RunCommandInput,
+  dependencies: RunCommandDependencies,
+  runtimeOnboarding: FirstRunRuntimeOnboarding | undefined,
+  watcher: { close(): void },
+): Promise<RunCommandResult | undefined> => {
+  if (runtimeOnboarding === undefined || !consumeRuntimeOnboardingRestartMarker(input)) {
+    return undefined;
+  }
+
+  executeSyncCommand(input, dependencies);
+  watcher.close();
+  return executeRunCommand({ ...input, forceRuntimeOnboarding: false, setupSourceUri: undefined }, dependencies);
+};
+
+const consumeRuntimeOnboardingRestartMarker = (input: RunCommandInput): boolean => {
+  const markerPath = join(input.homeDirectory, '.outfitter', 'runtime-onboarding-complete.json');
+
+  if (!existsSync(markerPath)) {
+    return false;
+  }
+
+  rmSync(markerPath, { force: true });
+  return true;
 };
 
 const createFirstRunBootstrapProfile = (input: RunCommandInput): ResolvedRunProfile => ({
