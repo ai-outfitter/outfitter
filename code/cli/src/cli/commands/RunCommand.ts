@@ -11,6 +11,7 @@ import spawn from 'cross-spawn';
 
 import type { AgentAdapter, AgentLaunchPlan } from '../../agents/AgentAdapter.js';
 import { createAgentAdapter, defaultAgentId as registryDefaultAgentId } from '../../agents/AgentRegistry.js';
+import { resolveOutfitterDocsDirectory } from '../../agents/OutfitterDocs.js';
 import {
   createProfileSourceCachePath,
   createRemoteRepositoryCachePath,
@@ -57,6 +58,8 @@ export interface RunCommandInput {
   readonly passThroughArgs?: readonly string[];
   readonly forceRuntimeOnboarding?: boolean;
   readonly setupSourceUri?: string;
+  /** Bundled user-facing Outfitter docs to expose to the launched agent's system prompt. */
+  readonly outfitterDocsDirectory?: string;
 }
 
 export interface RunCommandResult {
@@ -121,6 +124,7 @@ export const executeRunCommand = async (
           profileLayers: createLaunchProfileLayers(resolvedProfile.profileLayers),
           projectDirectory: input.projectDirectory,
           cacheDirectory: resolvedProfile.cacheDirectory,
+          outfitterDocsDirectory: input.outfitterDocsDirectory,
         },
       ),
       systemPromptExport.outputPath,
@@ -215,6 +219,7 @@ export const createRunCommand = (dependencies: RunCommandDependencies = {}): Com
             agentId: options.agent,
             strict: options.strict,
             passThroughArgs: args,
+            outfitterDocsDirectory: resolveOutfitterDocsDirectory(),
           },
           dependencies,
         );

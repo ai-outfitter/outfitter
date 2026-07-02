@@ -26,6 +26,9 @@ const copies = [
   ['LICENSE.md', 'LICENSE.md', false],
   [join('code', 'enterprise'), join('code', 'enterprise'), true],
   [join('code', 'pi-extension', 'src'), join('code', 'pi-extension', 'src'), true],
+  [join('docs', 'documentation'), join('doc', 'documentation'), true],
+  // The documentation README links ../philosophy.md; keep that link working in the package.
+  [join('docs', 'philosophy.md'), join('doc', 'philosophy.md'), false],
 ];
 
 for (const [from, to, recursive] of copies) {
