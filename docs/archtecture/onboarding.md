@@ -53,8 +53,10 @@ flowchart TD
   Q --> T{Install target}
   T -- Home --> U[Write ~/.outfitter/settings.yml]
   T -- Project --> V[Write <project>/.outfitter/settings.yml]
-  U --> W[Notify restart required for selected profile]
+  U --> W[Write completion marker]
   V --> W
+  W --> X[Sync configured sources]
+  X --> Y[Restart/relaunch with installed profile]
 ```
 
 ## Native Command and Agent-Turn Boundary
@@ -145,7 +147,7 @@ Private catalog setup was cancelled; no settings were changed.
 
 If the home setting is already enabled, onboarding skips the private-catalog enterprise prompt and saves the catalog normally. Outfitter does not collect, echo, persist, synthesize, or validate provider credentials.
 
-The final install target question writes either `~/.outfitter/settings.yml` or `<project>/.outfitter/settings.yml`. Profile changes selected after Pi has already started apply to the next `outfitter` launch, so onboarding must communicate that restart boundary.
+The final install target question writes either `~/.outfitter/settings.yml` or `<project>/.outfitter/settings.yml`. If a first-run user chooses the project target while home settings are missing, onboarding also creates valid home setup state so later launches do not repeat first-run onboarding. Profile changes selected after Pi has already started apply to the next `outfitter` launch, so completed onboarding writes a restart marker, shuts down the bootstrap Pi process, lets the CLI run `outfitter sync`, and relaunches with the installed profile.
 
 The install target prompt SHOULD also use `selectDescribedOption`, because the distinction between user-wide and project-local settings is semantic, not just locational. Required copy:
 

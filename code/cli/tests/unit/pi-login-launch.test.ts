@@ -215,6 +215,7 @@ const createMockContext = (
   const headerRenders: string[][] = [];
   const customRenders: string[][] = [];
   const submittedInputs: string[] = [];
+  let shutdowns = 0;
   const selectedOptions = [...(options.selectedOptions ?? [])];
   const inputValues = [...(options.inputValues ?? [])];
   const nextSelectedOption = (fallback: string): string | undefined =>
@@ -235,6 +236,9 @@ const createMockContext = (
     inputCalls,
     selectCalls,
     submittedInputs,
+    get shutdowns() {
+      return shutdowns;
+    },
     get terminalInputHandler() {
       return terminalInputHandler;
     },
@@ -327,6 +331,9 @@ const createMockContext = (
         bold: (text: string) => text,
         fg: (_color: string, text: string) => text,
       },
+    },
+    shutdown: () => {
+      shutdowns += 1;
     },
   };
 };
@@ -801,7 +808,15 @@ describe('preparePiLoginLaunchPlan', () => {
         '',
       ].join('\n'),
     );
-    expect(existsSync(join(homeDirectory, '.outfitter', 'settings.yml'))).toBe(false);
+    expect(readFileSync(join(homeDirectory, '.outfitter', 'settings.yml'), 'utf8')).toContain(
+      'default_profile: engineer',
+    );
+    expect(readFileSync(join(homeDirectory, '.outfitter', 'settings.yml'), 'utf8')).toContain(
+      'github: ai-outfitter/default-profiles',
+    );
+    expect(existsSync(join(homeDirectory, '.outfitter', 'runtime-onboarding-complete.json'))).toBe(true);
+    expect(context.shutdowns).toBe(1);
+    expect(context.notifications.join('\n')).toContain('restart automatically');
     expect(context.customRenders[1]?.join('\n')).toContain('→ Current project directory (.outfitter)');
     expect(context.customRenders[1]?.join('\n')).toContain(
       'These profiles will only be available in the current project directory and',

@@ -296,6 +296,12 @@ const executeInteractiveSetupSourceCommand = async ({
 }: InteractiveSetupSourceCommandInput): Promise<SetupCommandResult> => {
   const onboarding = await runSetupSourceOnboarding(input, dependencies, starterLayout, currentDefaultProfileId);
   const appliedImport = applySetupSourceImport(input, starterLayout, onboarding);
+  const homeSetupMessage = ensureHomeSetupAfterProjectSetupSourceImport(
+    input,
+    homeSettingsPath,
+    initialSettingsMissing,
+    onboarding.importTarget,
+  );
   /* v8 ignore next -- setup-source rollback only runs when a home import creates settings and default-profile sync fails. */
   const rollbackCreatedSettings = appliedImport.createdSettings
     ? () => rmSync(appliedImport.settingsPath, { force: true })
@@ -340,10 +346,12 @@ const executeInteractiveSetupSourceCommand = async ({
       defaultProfilePath,
       createdDefaultProfile,
       syncResult,
-      welcomeProfileMessages:
-        appliedImport.selectedProfileConflictMessage === undefined
+      welcomeProfileMessages: [
+        ...(homeSetupMessage === undefined ? [] : [homeSetupMessage]),
+        ...(appliedImport.selectedProfileConflictMessage === undefined
           ? []
-          : [appliedImport.selectedProfileConflictMessage],
+          : [appliedImport.selectedProfileConflictMessage]),
+      ],
       runExampleMessages:
         postImportAction === 'exit'
           ? formatSetupSourceExitMessages(
@@ -355,6 +363,24 @@ const executeInteractiveSetupSourceCommand = async ({
           : [],
     }),
   };
+};
+
+const ensureHomeSetupAfterProjectSetupSourceImport = (
+  input: SetupCommandInput,
+  homeSettingsPath: string,
+  initialSettingsMissing: boolean,
+  importTarget: SetupSourceImportTarget,
+): string | undefined => {
+  if (!initialSettingsMissing || importTarget !== 'project') {
+    return undefined;
+  }
+
+  const createdHomeSettings = createInitialSettingsIfMissing(homeSettingsPath);
+  mkdirSync(join(input.homeDirectory, '.outfitter', 'profiles'), { recursive: true });
+
+  return createdHomeSettings
+    ? `Created user settings at ${homeSettingsPath} so later Outfitter launches do not repeat first-run setup.`
+    : undefined;
 };
 
 interface FinalDefaultProfile {

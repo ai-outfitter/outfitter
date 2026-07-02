@@ -791,6 +791,52 @@ describe('setup command', () => {
     }
   });
 
+  it('creates home setup state when first-run setup-source import targets the project', async () => {
+    const root = createTemporaryRoot();
+    const homeDirectory = join(root, 'home');
+    const projectDirectory = join(root, 'project');
+
+    const result = await executeSetupCommand(
+      { homeDirectory, projectDirectory, setupSourceUri: 'https://example.test/link-profiles' },
+      {
+        interactive: true,
+        input: { isTTY: true } as NodeJS.ReadableStream & { isTTY: true },
+        output: { isTTY: true } as NodeJS.WritableStream & { isTTY: true },
+        writeLine: () => undefined,
+        setupSourceSynchronizer: {
+          sync(_uri, cachePath) {
+            const outfitterDirectory = join(cachePath, '.outfitter');
+            mkdirSync(join(outfitterDirectory, 'profiles', 'founder'), { recursive: true });
+            writeFileSync(join(outfitterDirectory, 'settings.yml'), 'default_profile: founder\n');
+            writeFileSync(
+              join(outfitterDirectory, 'profiles', 'founder', 'profile.yml'),
+              'id: founder\ncontrols: {}\n',
+            );
+          },
+        },
+        selectSetupSourceImportTarget() {
+          return Promise.resolve('project');
+        },
+        selectSetupSourceImportMode() {
+          return Promise.resolve('copy');
+        },
+        selectDefaultProfile() {
+          return Promise.resolve('founder');
+        },
+        selectSetupSourceLaunchAction() {
+          return Promise.resolve('exit');
+        },
+      },
+    );
+
+    expect(result.settingsPath).toBe(join(projectDirectory, '.outfitter', 'settings.yml'));
+    expect(readFileSync(join(homeDirectory, '.outfitter', 'settings.yml'), 'utf8')).toContain(
+      'github: ai-outfitter/default-profiles',
+    );
+    expect(existsSync(join(homeDirectory, '.outfitter', 'profiles'))).toBe(true);
+    expect(result.messages.join('\n')).toContain('so later Outfitter launches do not repeat first-run setup');
+  });
+
   it('imports setup-source profiles into the project without changing the user default', async () => {
     const root = createTemporaryRoot();
     const homeDirectory = join(root, 'home');

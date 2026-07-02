@@ -13,6 +13,7 @@ Outfitter provides setup and maintenance commands that launch Pi-native onboardi
 3. The `setup` command MUST force Pi-native onboarding even when existing Outfitter settings are present.
 4. The `setup <source>` command MUST preserve the provided source and hand it to Pi-native onboarding.
 5. Setup writes MUST happen from the Pi-native `/outfitter` flow after Pi starts.
+6. When first-run `setup <source>` onboarding installs settings in the current project while `~/.outfitter/settings.yml` is missing, Outfitter SHOULD create a valid home-folder setup state so later launches do not repeat first-run onboarding.
 
 ### OFTR-004.2: Sync Command
 
@@ -58,6 +59,7 @@ Outfitter provides setup and maintenance commands that launch Pi-native onboardi
 
 16. GitHub privacy detection MUST only treat an HTTP 200 GitHub API response with JSON `private: true` as private. Public responses, unknown responses, HTTP 403/404, network failures, malformed responses, and non-GitHub sources MUST NOT warn, error, or block.
 17. Private catalog enablement MUST remain informational commercial governance and MUST NOT collect, echo, persist, synthesize, or validate provider credentials.
+18. When a cached remote settings repository is configured with `path: settings.yml` and lacks a root `settings.yml` but contains `.outfitter/settings.yml`, `sync` and cached settings loading SHOULD resolve the nested `.outfitter/settings.yml` file.
 
 ### OFTR-004.3: Create Profile Command
 
