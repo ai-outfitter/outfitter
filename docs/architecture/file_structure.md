@@ -26,6 +26,11 @@ Outfitter is organized around a private npm workspace root, clear TypeScript pac
 ├── .snapperrc.toml                    # Snapper Markdown formatting configuration
 ├── CONTRIBUTING.md                    # local install and contributor workflow guide
 ├── code/                              # npm workspace packages and license-separated code areas
+│   ├── agentic-evals/                 # @ai-outfitter/agentic-evals private workspace: profile-driven end-to-end eval harness
+│   │   ├── src/                       # harness source: eval.yml loader, adapters, grading, judge, runner, CLI
+│   │   ├── evals/                     # declarative eval definitions and fixtures, one directory per eval
+│   │   ├── results/                   # committed harness-written run results (JSON)
+│   │   └── tests/                     # harness unit tests and mock-adapter end-to-end tests
 │   ├── cli/                           # @ai-outfitter/outfitter npm package root
 │   │   ├── eslint.config.js           # CLI package ESLint configuration
 │   │   ├── package.json               # published package metadata, bin, files, and package-local scripts

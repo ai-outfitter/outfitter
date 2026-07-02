@@ -23,12 +23,12 @@ document are to be interpreted as described in
 
 ## Planned evals
 
-| Eval                             | Profile        | Workflow                                                                                                                 | Expected artifact                                                                   |
-| -------------------------------- | -------------- | ------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------- |
-| `data-analyst-healthcare-report` | `data_analyst` | Run through the data-analyst demo against a healthcare dataset                                                           | An HTML report summarizing the healthcare data                                      |
-| `founder-demo-video`             | `founder`      | Feed the founder profile a recorded product demo (video/transcript)                                                      | A usable output derived from the recording (e.g. summary, launch notes, follow-ups) |
-| `engineer-code-review`           | `engineer`     | Run the code-review agent against an example project seeded with a known-ugly bit of code                                | A review finding that identifies the planted code smell                             |
-| `engineer-hidden-tests`          | `engineer`     | Implement the task described in a gitignored `TASK.md`, HackerRank-style: unit tests exist but are hidden from the agent | The hidden test suite passes after the agent's implementation                       |
+| Eval                             | Profile        | Workflow                                                                                                                  | Expected artifact                                                                   |
+| -------------------------------- | -------------- | ------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| `data-analyst-healthcare-report` | `data_analyst` | Run through the data-analyst demo against a healthcare dataset                                                            | An HTML report summarizing the healthcare data                                      |
+| `founder-demo-video`             | `founder`      | Feed the founder profile a recorded product demo (video/transcript)                                                       | A usable output derived from the recording (e.g. summary, launch notes, follow-ups) |
+| `engineer-code-review`           | `engineer`     | Run the code-review agent against an example project seeded with a known-ugly bit of code                                 | A review finding that identifies the planted code smell                             |
+| `engineer-hidden-tests`          | `engineer`     | Implement the task described in a git-ignored `TASK.md`, HackerRank-style: unit tests exist but are hidden from the agent | The hidden test suite passes after the agent's implementation                       |
 
 Notes on the two engineer evals:
 
@@ -36,7 +36,7 @@ Notes on the two engineer evals:
   bit of code or code smell (e.g. a copy-pasted function with a subtle
   divergence, a mutable default, an N+1 query). The eval passes if the
   review output flags the planted smell.
-- **engineer-hidden-tests** ships a `TASK.md` (gitignored so it never lands
+- **engineer-hidden-tests** ships a `TASK.md` (git-ignored so it never lands
   in the example project's history) describing what to build. The unit tests
   that grade the implementation are withheld from the agent's context — the
   harness runs them only after the agent finishes, like a HackerRank hidden
@@ -239,7 +239,7 @@ against a three-criterion rubric.
 5. For hidden-test evals, the grading tests **MUST NOT** be visible to the
    agent during the run (excluded from the composite profile / working tree),
    and task files like `TASK.md` that are injected at runtime **MUST** be
-   gitignored in the example project.
+   git-ignored in the example project.
 
 ### Harness and execution
 
@@ -337,7 +337,7 @@ code/agentic-evals/
     │   └── fixtures/        # example project with the planted smell
     └── engineer-hidden-tests/
         ├── eval.yml
-        ├── TASK.md          # gitignored in the fixture project
+        ├── TASK.md          # git-ignored in the fixture project
         ├── hidden-tests/    # withheld from the agent, run by the harness
         └── fixtures/
 ```

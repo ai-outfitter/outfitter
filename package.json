@@ -23,9 +23,11 @@
     "lint:fix": "npm run lint:fix --workspace @ai-outfitter/outfitter",
     "test": "npm test --workspace @ai-outfitter/outfitter",
     "coverage": "npm run coverage --workspace @ai-outfitter/outfitter",
+    "evals:typecheck": "npm run typecheck --workspace @ai-outfitter/agentic-evals",
+    "evals:test": "npm test --workspace @ai-outfitter/agentic-evals",
     "snapper:format": "node scripts/run-snapper.mjs --git-md -i",
-    "check": "npm run snapper:format && prettier --write . && npm run lint:fix && npm run coverage",
-    "check-ci": "prettier --check . && npm run lint && npm run coverage && npm run docs:ci"
+    "check": "npm run snapper:format && prettier --write . && npm run lint:fix && npm run coverage && npm run evals:typecheck && npm run evals:test",
+    "check-ci": "prettier --check . && npm run lint && npm run coverage && npm run evals:typecheck && npm run evals:test && npm run docs:ci"
   },
   "engines": {
     "node": ">=22.19.0"

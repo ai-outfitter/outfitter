@@ -5,7 +5,7 @@ launcher: outfitter
 
 # HackerRank-style: the grading tests live in hidden-tests/ next to this file,
 # outside fixtures/, so the agent never sees them. TASK.md is copied into the
-# workspace at run start and is gitignored in the fixture project.
+# workspace at run start and is git-ignored in the fixture project.
 workflow:
   timeout_seconds: 1800
   prompt: |

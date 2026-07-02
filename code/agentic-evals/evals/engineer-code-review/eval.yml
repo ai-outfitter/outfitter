@@ -5,7 +5,8 @@ launcher: outfitter
 
 # The fixture project plants one deliberate smell: applyGuestDiscount is a
 # copy-paste of applyMemberDiscount that silently diverged — it floors the
-# discounted total instead of rounding to cents, so guests are overcharged.
+# discounted total instead of rounding to cents, so guests are undercharged
+# by up to a cent per checkout relative to the intended rounding.
 # "Finding the defect" (requirement 14) means review.md names
 # applyGuestDiscount AND mentions the duplication or the floor/rounding
 # divergence — hence the two matches assertions below.
