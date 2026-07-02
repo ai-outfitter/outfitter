@@ -45,6 +45,7 @@ export interface Profile {
   readonly label?: string;
   readonly description?: string;
   readonly template?: boolean;
+  readonly skillGeneration?: boolean;
   readonly inherits: readonly string[];
   readonly controls: ProfileControls;
   readonly statePersistence?: StatePersistenceOverrides;

@@ -15,6 +15,7 @@ export interface AgentLaunchProfileLayer {
   readonly profilePath: string;
   readonly sourceRootPath?: string;
   readonly resourceRootPath?: string;
+  readonly sourceInputs?: readonly string[];
   readonly layout?: 'directory' | 'flat-file';
 }
 
@@ -25,6 +26,7 @@ export interface AgentLaunchContext {
   readonly cacheDirectory?: string;
   /** Directory of bundled user-facing Outfitter documentation the launched agent may read. */
   readonly outfitterDocsDirectory?: string;
+  readonly generatedSkillProfiles?: readonly AgentLaunchProfileLayer[];
 }
 
 export interface AgentCompositeProfilePlan {
@@ -43,6 +45,7 @@ export interface AgentAdapter {
       readonly profilePaths: readonly string[];
       readonly profileFolders?: readonly string[];
       readonly profileLayers?: readonly AgentLaunchProfileLayer[];
+      readonly generatedSkillProfiles?: readonly AgentLaunchProfileLayer[];
       readonly homeDirectory?: string;
       readonly cacheDirectory?: string;
       readonly settings?: Settings;

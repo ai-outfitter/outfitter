@@ -8,8 +8,14 @@ import {
   createRemoteRepositoryCachePath,
   resolveRemoteRepositorySubpath,
 } from '../../../profiles/ProfileCache.js';
+import { findGeneratedSkillProfiles } from '../../../profiles/GeneratedSkillProfiles.js';
 import { loadLocalProfileSource } from '../../../profiles/ProfileLoader.js';
 import type { LoadedProfile } from '../../../profiles/ProfileLoader.js';
+import {
+  findContributingLoadedProfiles,
+  findContributingProfileFolders,
+  findContributingProfilePaths,
+} from '../../../profiles/ProfileContributors.js';
 import { resolveProfile } from '../../../profiles/ProfileMerger.js';
 import type { ProfileSourceReference } from '../../../profiles/ProfileSource.js';
 import { defaultAgentId as registryDefaultAgentId } from '../../../agents/AgentRegistry.js';
@@ -26,6 +32,8 @@ export interface ResolvedRunProfile {
   readonly settings: Settings;
   readonly settingsPaths: readonly string[];
   readonly profileLayers: readonly LoadedProfile[];
+  readonly generatedSkillProfiles: readonly LoadedProfile[];
+  readonly generatedSkillWarnings: readonly string[];
 }
 
 export interface RunProfileResolutionInput {
@@ -48,6 +56,8 @@ export const createFirstRunBootstrapProfile = (input: RunProfileResolutionInput)
   settings: emptySettings(),
   settingsPaths: [],
   profileLayers: [],
+  generatedSkillProfiles: [],
+  generatedSkillWarnings: [],
 });
 
 export const loadResolvedProfile = (input: RunProfileResolutionInput): ResolvedRunProfile => {
@@ -80,9 +90,13 @@ export const loadResolvedProfile = (input: RunProfileResolutionInput): ResolvedR
     throw new Error(`Profile '${profileId}' is a template profile and must be inherited by a runnable profile.`);
   }
 
+  const generatedSkillProfileResolution = findGeneratedSkillProfiles(loadedProfiles.profiles);
+
   return {
     profile: resolution.profile,
     profileLayers: findContributingLoadedProfiles(resolution.profileStack, loadedProfiles.profiles),
+    generatedSkillProfiles: generatedSkillProfileResolution.profiles,
+    generatedSkillWarnings: generatedSkillProfileResolution.warnings,
     profilePaths: findContributingProfilePaths(resolution.profileStack, loadedProfiles.profiles),
     profileFolders: findContributingProfileFolders(resolution.profileStack, loadedProfiles.profiles),
     homeDirectory: input.homeDirectory,
@@ -125,34 +139,15 @@ const selectRunProfileId = (selectedProfileId: string | undefined, defaultProfil
   );
 };
 
-const findContributingProfilePaths = (
-  profileStack: readonly Profile[],
-  loadedProfiles: readonly LoadedProfile[],
-): readonly string[] =>
-  findContributingLoadedProfiles(profileStack, loadedProfiles).map((loadedProfile) => loadedProfile.profilePath);
-
-const findContributingProfileFolders = (
-  profileStack: readonly Profile[],
-  loadedProfiles: readonly LoadedProfile[],
-): readonly string[] =>
-  findContributingLoadedProfiles(profileStack, loadedProfiles).flatMap((loadedProfile) =>
-    loadedProfile.resourceRootPath === undefined ? [] : [loadedProfile.resourceRootPath],
-  );
-
 export const createLaunchProfileLayers = (loadedProfiles: readonly LoadedProfile[]) =>
   loadedProfiles.map((loadedProfile) => ({
     profile: loadedProfile.profile,
     profilePath: loadedProfile.profilePath,
     sourceRootPath: loadedProfile.sourceRootPath,
     resourceRootPath: loadedProfile.resourceRootPath,
+    sourceInputs: loadedProfile.sourceInputs,
     layout: loadedProfile.layout,
   }));
-
-const findContributingLoadedProfiles = (
-  profileStack: readonly Profile[],
-  loadedProfiles: readonly LoadedProfile[],
-): readonly LoadedProfile[] =>
-  profileStack.flatMap((profile) => loadedProfiles.filter((loadedProfile) => loadedProfile.profile.id === profile.id));
 
 export const loadProfileSources = (
   homeDirectory: string,

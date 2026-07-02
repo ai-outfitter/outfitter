@@ -36,6 +36,7 @@ export interface LoadedProfile {
   readonly profile: Profile;
   readonly sourceRootPath?: string;
   readonly resourceRootPath?: string;
+  readonly sourceInputs?: readonly string[];
   readonly layout?: ProfileLayout;
 }
 
@@ -75,6 +76,7 @@ export const parseProfileDocument = (document: unknown, fallbackId: string): Pro
     label: readOptionalString(record.label),
     description: readOptionalString(record.description),
     template: readOptionalBoolean(record.template),
+    skillGeneration: readOptionalBoolean(record.skill_generation),
     inherits: readStringArray(record.inherits),
     controls: readControls(record.controls),
     statePersistence: Object.keys(statePersistence).length > 0 ? statePersistence : undefined,

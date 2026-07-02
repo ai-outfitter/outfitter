@@ -51,6 +51,65 @@ describe('pi adapter profile resources', () => {
       skillFolder,
     ]);
   });
+
+  it('generates Pi skills from skill-generation profiles and enables them for launch', () => {
+    const root = createTemporaryRoot('outfitter-pi-generated-skills-');
+    const compositeRoot = join(root, 'composite');
+    const profilePath = join(root, 'profiles', 'founder', 'profile.yml');
+    const profile = {
+      id: 'founder',
+      label: 'Founder',
+      description: 'Founder operator review profile',
+      inherits: [],
+      controls: {
+        provider: 'openai-codex',
+        model: 'gpt-5.5',
+        thinking: 'high',
+        systemPrompt: 'prompts/system.md',
+        promptTemplate: 'prompts/template.md',
+        appendSystemPrompt: ['inline guidance', { file: 'prompts/founder.md' }, { repo_file: 'docs/mission.md' }],
+      },
+      skillGeneration: true,
+    } as const;
+
+    const adapter = createPiAdapter();
+    const generatedSkillProfiles = [
+      { profile, profilePath, sourceInputs: [profilePath] },
+      {
+        profile: { id: 'minimal', inherits: [], controls: {}, skillGeneration: true },
+        profilePath: join(root, 'profiles', 'minimal', 'profile.yml'),
+      },
+    ];
+    const compositeProfilePlan = adapter.createCompositeProfile(
+      { id: 'default', inherits: [], controls: {} },
+      { rootDirectory: compositeRoot, profilePaths: [], generatedSkillProfiles },
+    );
+    const launchPlan = adapter.createLaunchPlan(
+      compositeProfilePlan.compositeProfile,
+      { id: 'default', inherits: [], controls: {} },
+      [],
+      { generatedSkillProfiles },
+    );
+
+    const generatedSkillFile = compositeProfilePlan.compositeProfile.files.find(
+      (file) => file.relativePath === 'skills/founder/SKILL.md',
+    );
+
+    expect(generatedSkillFile?.sourceInputs).toEqual([profilePath]);
+    expect(generatedSkillFile?.content).toContain('Adopt the Founder profile');
+    expect(generatedSkillFile?.content).toContain('- Provider: openai-codex');
+    expect(generatedSkillFile?.content).toContain('- inline guidance');
+    expect(generatedSkillFile?.content).toContain('- prompts/founder.md');
+    expect(generatedSkillFile?.content).toContain('- docs/mission.md');
+    expect(launchPlan.args).toEqual([
+      '--skill',
+      builtInOutfitterSkill,
+      '--skill',
+      join(compositeRoot, 'skills', 'founder'),
+      '--skill',
+      join(compositeRoot, 'skills', 'minimal'),
+    ]);
+  });
 });
 
 const createTemporaryRoot = (prefix: string): string => {
