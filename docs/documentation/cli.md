@@ -9,7 +9,7 @@ Global options:
 
 ## `outfitter run [args...]`
 
-Assemble a profile composite profile and launch the selected agent CLI. `run` is the default command, so plain `outfitter` and `outfitter run` are equivalent.
+Assemble a composite profile and launch the selected agent CLI. `run` is the default command, so plain `outfitter` and `outfitter run` are equivalent.
 
 | Option                    | Description                                                                |
 | ------------------------- | -------------------------------------------------------------------------- |
