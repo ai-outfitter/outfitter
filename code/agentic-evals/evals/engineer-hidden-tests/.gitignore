@@ -1,0 +1,2 @@
+# The eval-defining TASK.md is source, not scratch — override the repo-wide ignore.
+!TASK.md
