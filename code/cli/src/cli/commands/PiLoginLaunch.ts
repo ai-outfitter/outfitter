@@ -1,4 +1,3 @@
-/* eslint-disable max-lines, complexity */
 // Prepares Pi launch-time bootstrap extensions for Outfitter UX, login, and setup handoffs.
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
@@ -69,16 +68,7 @@ export const preparePiLoginLaunchPlan = (input: PiLoginLaunchPlanInput): AgentLa
 
   writePiOutfitterEnterpriseSupportFiles(piConfigDirectory);
 
-  launchPlan = addOutfitterExtension(launchPlan, piConfigDirectory, {
-    autoOpenOutfitter: input.runtimeOnboarding?.autoOpenOutfitter === true,
-    defaultProfilesPath: input.runtimeOnboarding?.defaultProfilesPath,
-    homeDirectory: input.homeDirectory,
-    projectDirectory: resolve(input.runtimeOnboarding?.projectDirectory ?? process.cwd()),
-    setupSourceUri: input.runtimeOnboarding?.setupSourceUri,
-    startupAsciiArt: input.startupAsciiArt ?? true,
-    defaultSettingsTemplate: createSetupDefaultSettingsContent('__OUTFITTER_PROFILE_ID__'),
-    asciiArt: readFileSync(new URL('./assets/outfitter-ascii.txt', import.meta.url), 'utf8').trimEnd(),
-  });
+  launchPlan = addOutfitterExtension(launchPlan, piConfigDirectory, createPiExtensionRuntimeConfig(input));
 
   if (!hasConfiguredPiLoginState(piConfigDirectory)) {
     writePiLaunchMessage(input.writeLine, runtimeLoginMessage);
@@ -86,6 +76,17 @@ export const preparePiLoginLaunchPlan = (input: PiLoginLaunchPlanInput): AgentLa
 
   return launchPlan;
 };
+
+const createPiExtensionRuntimeConfig = (input: PiLoginLaunchPlanInput): PiExtensionRuntimeConfig => ({
+  autoOpenOutfitter: input.runtimeOnboarding?.autoOpenOutfitter === true,
+  defaultProfilesPath: input.runtimeOnboarding?.defaultProfilesPath,
+  homeDirectory: input.homeDirectory,
+  projectDirectory: resolve(input.runtimeOnboarding?.projectDirectory ?? process.cwd()),
+  setupSourceUri: input.runtimeOnboarding?.setupSourceUri,
+  startupAsciiArt: input.startupAsciiArt ?? true,
+  defaultSettingsTemplate: createSetupDefaultSettingsContent('__OUTFITTER_PROFILE_ID__'),
+  asciiArt: readFileSync(new URL('./assets/outfitter-ascii.txt', import.meta.url), 'utf8').trimEnd(),
+});
 
 const writeQuietPiStartupSettings = (piConfigDirectory: string): void => {
   const settingsPath = join(piConfigDirectory, 'settings.json');
