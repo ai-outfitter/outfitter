@@ -25,6 +25,9 @@ const copies = [
   ['README.md', 'README.md', false],
   ['LICENSE.md', 'LICENSE.md', false],
   [join('code', 'enterprise'), join('code', 'enterprise'), true],
+  // The compiled Pi extension artifact ships with the CLI so the published package
+  // stays self-contained (PiLoginLaunch resolves it under code/pi-extension/dist).
+  [join('code', 'pi-extension', 'dist'), join('code', 'pi-extension', 'dist'), true],
 ];
 
 for (const [from, to, recursive] of copies) {

@@ -5,16 +5,7 @@ export default tseslint.config(
   js.configs.recommended,
   ...tseslint.configs.recommendedTypeChecked,
   {
-    ignores: [
-      'dist/**',
-      'coverage/**',
-      'node_modules/**',
-      'doc_site/**',
-      'eslint.config.js',
-      'scripts/**/*.mjs',
-      'code/enterprise/**',
-      'code/pi-extension/**',
-    ],
+    ignores: ['dist/**', 'coverage/**', 'node_modules/**', 'eslint.config.js', 'scripts/**/*.mjs'],
   },
   {
     languageOptions: {

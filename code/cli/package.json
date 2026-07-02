@@ -21,10 +21,12 @@
     "src/schemas",
     "doc",
     "code/enterprise",
+    "code/pi-extension",
     "README.md",
     "LICENSE.md"
   ],
   "scripts": {
+    "prebuild": "npm --prefix ../pi-extension run build",
     "build": "tsc -p tsconfig.build.json && shx rm -rf dist/schemas && shx mkdir -p dist/schemas && shx cp src/schemas/*.json dist/schemas/ && shx mkdir -p dist/cli/commands/assets && shx cp src/cli/commands/assets/*.txt dist/cli/commands/assets/ && shx chmod +x dist/cli.js",
     "prepare": "npm run build",
     "prepack": "node scripts/sync-package-assets.mjs",
@@ -44,11 +46,7 @@
     "chalk": "^5.6.2",
     "commander": "^14.0.3",
     "cross-spawn": "^7.0.6",
-    "defu": "^6.1.7",
-    "glob": "^13.0.6",
-    "hosted-git-info": "^9.0.3",
     "liquidjs": "^10.27.0",
-    "typebox": "^1.1.38",
     "yaml": "^2.9.0"
   },
   "devDependencies": {
