@@ -6,3 +6,5 @@ node_modules
 doc_site/.next
 doc_site/next-env.d.ts
 bin/dev-tmp-home
+# Written verbatim into the Pi agent dir; keep byte-stable for pi-login-launch tests.
+code/pi-extension/src/outfitter-extension.js
