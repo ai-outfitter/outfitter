@@ -81,6 +81,18 @@ describe('profile loading', () => {
     });
   });
 
+  it('parses skill generation marker from profile YAML', () => {
+    const profile = parseProfileYaml('skill_generation: true\nlabel: Reviewer\n', 'reviewer');
+
+    expect(profile).toEqual({
+      id: 'reviewer',
+      label: 'Reviewer',
+      skillGeneration: true,
+      inherits: [],
+      controls: {},
+    });
+  });
+
   it('parses flat profile YAML files with fallback filename identities and no resource root', () => {
     const root = createProfileSourceRoot();
     writeFileSync(join(root, 'engineer.yml'), 'label: Engineer\ncontrols: {}\n');

@@ -91,7 +91,7 @@ export const executeRunCommand = async (
     resolvedProfile,
     compositeProfileRootDirectory,
   );
-  const warnings = compositeProfilePlan.warnings;
+  const warnings = [...compositeProfilePlan.warnings, ...resolvedProfile.generatedSkillWarnings];
 
   failStrictOnWarnings(adapter.id, warnings, input.strict);
   emitWarnings(warnings, dependencies.writeError);
@@ -118,6 +118,7 @@ export const executeRunCommand = async (
         {
           profileFolders: resolvedProfile.profileFolders,
           profileLayers: createLaunchProfileLayers(resolvedProfile.profileLayers),
+          generatedSkillProfiles: createLaunchProfileLayers(resolvedProfile.generatedSkillProfiles),
           projectDirectory: input.projectDirectory,
           cacheDirectory: resolvedProfile.cacheDirectory,
           outfitterDocsDirectory: input.outfitterDocsDirectory,
@@ -275,6 +276,7 @@ const createAdapterCompositeProfilePlan = (
     profilePaths: resolvedProfile.profilePaths,
     profileFolders: resolvedProfile.profileFolders,
     profileLayers: createLaunchProfileLayers(resolvedProfile.profileLayers),
+    generatedSkillProfiles: createLaunchProfileLayers(resolvedProfile.generatedSkillProfiles),
     homeDirectory: resolvedProfile.homeDirectory,
     cacheDirectory: resolvedProfile.cacheDirectory,
     settings: resolvedProfile.settings,

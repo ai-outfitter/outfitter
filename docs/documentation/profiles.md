@@ -8,6 +8,7 @@ A profile can compose:
 - model and provider settings
 - Pi extensions
 - skills
+- generated skills
 - subagents
 - DeepWork workflows
 - agent-specific CLI flags and environment variables
@@ -150,6 +151,12 @@ Profile-owned file includes resolve from the source root of the profile layer th
 | Explicit `profile_sources[].path` without `.outfitter/` or `outfitter/` convention | The configured source path |
 
 `repo_file:` resolves from the active project directory where Outfitter launches the agent. This lets a reusable catalog or home profile request project-local governance context such as `docs/mission.md` without copying those docs into the catalog.
+
+### Generated Pi skills
+
+Set `skill_generation: true` on a profile to expose that profile as a generated Pi skill whenever the profile source is loaded. Outfitter resolves the profile, including inherited controls, writes `skills/<profile-id>/SKILL.md` into the temporary composite profile, and launches Pi with that generated skill enabled.
+
+Use generated skills for reusable perspectives that should be available inside another profile's session, such as a product reviewer, founder operator, or documentation editor. The generated skill asks the running agent to adopt the profile's role and honor profile prompt references and runtime preferences where possible; it does not restart the agent or change the selected launch profile.
 
 Run `outfitter profile lint` to report schema and inheritance errors, missing typed include files, and raw string append-prompt entries that look like file paths. Add `--strict` to exit non-zero for warnings, and `--json` for machine-readable diagnostics.
 
