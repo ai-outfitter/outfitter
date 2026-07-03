@@ -57,7 +57,8 @@ Outfitter is organized around a private npm workspace root, clear TypeScript pac
 ├── scripts/                           # repository-level development, release, and formatting helper scripts
 ├── LICENSE.md                         # root source-available license notice
 ├── bun.lock                           # locked bun workspace dependency graph
-└── package.json                       # private npm workspace root and delegating scripts
+├── package.json                       # private npm workspace root and delegating scripts
+└── tsconfig.json                      # root typecheck configuration for repository scripts/
 ```
 
 The exact layout may evolve, but these boundaries should stay recognizable. Root scripts delegate to the `@ai-outfitter/outfitter` workspace so commands such as `bun run check-ci` continue to work from the repository root.
