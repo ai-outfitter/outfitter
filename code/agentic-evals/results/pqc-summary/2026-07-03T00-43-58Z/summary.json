@@ -1,0 +1,48 @@
+{
+  "eval": "pqc-summary",
+  "started_at": "2026-07-03T00:43:58.962Z",
+  "agent": "pi",
+  "variants": [
+    {
+      "variant": "thinking-on",
+      "runs": 1,
+      "passed": 1,
+      "pass_rate": 1,
+      "mean_wall_time_seconds": 23.516
+    },
+    {
+      "variant": "thinking-off",
+      "runs": 1,
+      "passed": 1,
+      "pass_rate": 1,
+      "mean_wall_time_seconds": 11.181
+    }
+  ],
+  "passed": true,
+  "evaluation": {
+    "mode": "rubric",
+    "evaluator_profile": "engineer",
+    "scores": [
+      {
+        "variant": "thinking-on",
+        "weighted_score": 9.5,
+        "criteria": {
+          "Technically accurate (lattice/hash/code-based schemes, NIST standardization, Shor threat)": 9,
+          "A single clear paragraph, no filler": 10,
+          "Useful to a technical reader deciding whether to care": 10
+        },
+        "notes": "Accurate and broad; implies NIST standards via ML-KEM/ML-DSA but does not explicitly name NIST."
+      },
+      {
+        "variant": "thinking-off",
+        "weighted_score": 8.7,
+        "criteria": {
+          "Technically accurate (lattice/hash/code-based schemes, NIST standardization, Shor threat)": 8,
+          "A single clear paragraph, no filler": 10,
+          "Useful to a technical reader deciding whether to care": 9
+        },
+        "notes": "Clear and accurate, but narrower: omits code-based and hash-based PQC scheme categories."
+      }
+    ]
+  }
+}

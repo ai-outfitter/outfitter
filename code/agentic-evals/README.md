@@ -373,8 +373,10 @@ grading, the coverage metric with its gate, agent-graded rubric evaluation
 with blind labels and a generated JSON schema response (requirements 23–26),
 per-run JSON results plus the matrix summary, and the CLI. Five eval
 definitions ship; `engineer-hidden-tests` and `pqc-summary` (including its
-judge) are validated end-to-end against reference solutions (see
-`results/`).
+judge) are validated end-to-end against reference solutions, and
+`pqc-summary` has also been run for real through `outfitter run` + `pi -p`
+— both variants passed and the pi judge blind-scored thinking-on 9.5 vs
+thinking-off 8.7 (see `results/`, including per-run transcripts).
 
 Not yet implemented: pairwise/rank evaluation modes, the
 `tool_calls`/`lines_changed` metrics for the pi adapter, and LLM-judge

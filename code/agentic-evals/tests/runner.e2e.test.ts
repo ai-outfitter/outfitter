@@ -72,7 +72,12 @@ describe('runEval end-to-end (mock adapter)', () => {
       expect.objectContaining({ variant: 'good', runs: 2, passed: 2, pass_rate: 1 }),
       expect.objectContaining({ variant: 'bad', runs: 2, passed: 0, pass_rate: 0 }),
     ]);
-    expect((await readdir(join(outcome.resultsDirectory, 'good'))).sort()).toEqual(['run-1.json', 'run-2.json']);
+    expect((await readdir(join(outcome.resultsDirectory, 'good'))).sort()).toEqual([
+      'run-1.json',
+      'run-1.transcript.log',
+      'run-2.json',
+      'run-2.transcript.log',
+    ]);
     const run1 = JSON.parse(await readFile(join(outcome.resultsDirectory, 'good', 'run-1.json'), 'utf8')) as RunResult;
     expect(run1.variant).toBe('good');
     expect(run1.passed).toBe(true);
