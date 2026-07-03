@@ -1,0 +1,49 @@
+{
+  "eval": "data-analyst-healthcare-report",
+  "variant": "thinking-off",
+  "run": 3,
+  "agent": "pi",
+  "profile": "data-analyst-healthcare-report--thinking-off",
+  "passed": true,
+  "timed_out": false,
+  "exit_code": 0,
+  "assertions": {
+    "passed": 6,
+    "total": 6,
+    "results": [
+      {
+        "name": "report.html exists",
+        "passed": true
+      },
+      {
+        "name": "report.html contains \"<html\"",
+        "passed": true
+      },
+      {
+        "name": "report.html matches /<table/",
+        "passed": true
+      },
+      {
+        "name": "report.html matches /readmission/",
+        "passed": true
+      },
+      {
+        "name": "question \"Which condition had the highest readmission rate?\"",
+        "passed": true
+      },
+      {
+        "name": "question \"Which condition had the highest average cost per admission?\"",
+        "passed": true
+      }
+    ]
+  },
+  "metrics": {
+    "wall_time_seconds": 65.863,
+    "tokens_in": null,
+    "tokens_out": null,
+    "tool_calls": null,
+    "turns": null,
+    "cost_usd": null,
+    "coverage_percent": null
+  }
+}

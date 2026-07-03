@@ -25,7 +25,7 @@ document are to be interpreted as described in
 
 | Eval                             | Profile        | Workflow                                                                                                                  | Expected artifact                                                                   |
 | -------------------------------- | -------------- | ------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
-| `data-analyst-healthcare-report` | `data_analyst` | Run through the data-analyst demo against a healthcare dataset                                                            | An HTML report summarizing the healthcare data                                      |
+| `data-analyst-healthcare-report` | `data-analyst` | Run through the data-analyst demo against a healthcare dataset                                                            | An HTML report summarizing the healthcare data                                      |
 | `founder-demo-video`             | `founder`      | Feed the founder profile a recorded product demo (video/transcript)                                                       | A usable output derived from the recording (e.g. summary, launch notes, follow-ups) |
 | `engineer-code-review`           | `engineer`     | Run the code-review agent against an example project seeded with a known-ugly bit of code                                 | A review finding that identifies the planted code smell                             |
 | `engineer-hidden-tests`          | `engineer`     | Implement the task described in a git-ignored `TASK.md`, HackerRank-style: unit tests exist but are hidden from the agent | The hidden test suite passes after the agent's implementation                       |
@@ -53,7 +53,7 @@ Illustrative shape (subject to change until the harness lands):
 ```yaml
 # code/agentic-evals/evals/data-analyst-healthcare-report/eval.yml
 id: data-analyst-healthcare-report
-profile: data_analyst # profile under test
+profile: data-analyst # profile under test
 agent: pi # pi today; claude planned
 workflow:
   prompt: |

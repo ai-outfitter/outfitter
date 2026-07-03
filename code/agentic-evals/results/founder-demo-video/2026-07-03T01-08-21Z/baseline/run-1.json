@@ -1,0 +1,49 @@
+{
+  "eval": "founder-demo-video",
+  "variant": "baseline",
+  "run": 1,
+  "agent": "pi",
+  "profile": "founder",
+  "passed": true,
+  "timed_out": false,
+  "exit_code": 0,
+  "assertions": {
+    "passed": 6,
+    "total": 6,
+    "results": [
+      {
+        "name": "launch-announcement.md exists",
+        "passed": true
+      },
+      {
+        "name": "launch-announcement.md matches /slotter/",
+        "passed": true
+      },
+      {
+        "name": "launch-announcement.md matches /smart rescheduling/",
+        "passed": true
+      },
+      {
+        "name": "launch-announcement.md matches /waitlist/",
+        "passed": true
+      },
+      {
+        "name": "question \"What pricing was announced in the demo?\"",
+        "passed": true
+      },
+      {
+        "name": "question \"Which integration was demoed last?\"",
+        "passed": true
+      }
+    ]
+  },
+  "metrics": {
+    "wall_time_seconds": 42.574,
+    "tokens_in": null,
+    "tokens_out": null,
+    "tool_calls": null,
+    "turns": null,
+    "cost_usd": null,
+    "coverage_percent": null
+  }
+}

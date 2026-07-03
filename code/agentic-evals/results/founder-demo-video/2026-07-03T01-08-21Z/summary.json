@@ -1,0 +1,22 @@
+{
+  "eval": "founder-demo-video",
+  "started_at": "2026-07-03T01:08:21.973Z",
+  "agent": "pi",
+  "variants": [
+    {
+      "variant": "baseline",
+      "runs": 3,
+      "passed": 3,
+      "pass_rate": 1,
+      "mean_wall_time_seconds": 48.492
+    },
+    {
+      "variant": "thinking-low",
+      "runs": 3,
+      "passed": 3,
+      "pass_rate": 1,
+      "mean_wall_time_seconds": 32.837
+    }
+  ],
+  "passed": true
+}

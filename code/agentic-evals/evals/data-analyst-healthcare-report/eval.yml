@@ -1,5 +1,5 @@
 id: data-analyst-healthcare-report
-profile: data_analyst
+profile: data-analyst
 agent: pi
 launcher: outfitter
 
@@ -38,7 +38,7 @@ questions:
       expect: 'sepsis'
 
 matrix:
-  base_profile: data_analyst
+  base_profile: data-analyst
   repeat: 3
   variants:
     - id: baseline
