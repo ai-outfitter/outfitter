@@ -1,0 +1,5 @@
+# The task brief is injected by the eval harness per run; never commit it.
+TASK.md
+# Hidden grading tests are injected after the agent finishes.
+hidden-tests/
+node_modules/

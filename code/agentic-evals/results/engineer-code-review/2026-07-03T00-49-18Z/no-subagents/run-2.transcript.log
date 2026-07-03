@@ -1,0 +1,12 @@
+--- stdout ---
+→ resolving profile engineer-code-review--no-subagents
+✓ profile layer engineer  github:ai-outfitter/default-profiles/profiles
+✓ profile layer engineer-code-review--no-subagents  /private/var/folders/39/vwz091_d6tv5dc_25dvwkmlm0000gn/T/agentic-eval-engineer-code-review-no-subagents-2-ep2lju/.outfitter/profiles/engineer-code-review--no-subagents
+✓ merged controls
+✓ prepared composite profile  /var/folders/39/vwz091_d6tv5dc_25dvwkmlm0000gn/T/outfitter-engineer-code-review--no-subagents-pi-e1JWid
+↳ launching pi …
+Wrote the review findings to `review.md` with one finding per section, including file/function references and impact.
+
+--- stderr ---
+pi adapter cannot translate requested control 'subagents'.
+

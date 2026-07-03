@@ -1,0 +1,46 @@
+id: e2e-eval
+profile: engineer
+agent: mock
+mock:
+  command: node agent.mjs
+
+workflow:
+  timeout_seconds: 30
+  prompt: |
+    Produce report.html and answers.md describing the healthcare data.
+
+inputs:
+  - from: TASK.md
+    to: TASK.md
+
+outputs:
+  - path: report.html
+    assertions:
+      - kind: exists
+      - kind: contains
+        value: '<html'
+      - kind: matches
+        pattern: 'readmission'
+
+checks:
+  - name: hidden-tests
+    inject:
+      - from: hidden-tests
+        to: hidden-tests
+    command: node --test 'hidden-tests/*.test.mjs'
+
+questions:
+  answers_file: answers.md
+  items:
+    - ask: 'Which condition had the highest readmission rate?'
+      expect: 'heart failure'
+
+matrix:
+  base_profile: engineer
+  repeat: 2
+  variants:
+    - id: good
+    - id: bad
+      overrides:
+        controls:
+          thinking: off

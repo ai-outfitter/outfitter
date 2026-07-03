@@ -1,0 +1,29 @@
+{
+  "eval": "data-analyst-healthcare-report",
+  "started_at": "2026-07-03T00:56:29.993Z",
+  "agent": "pi",
+  "variants": [
+    {
+      "variant": "baseline",
+      "runs": 3,
+      "passed": 3,
+      "pass_rate": 1,
+      "mean_wall_time_seconds": 84.223
+    },
+    {
+      "variant": "thinking-off",
+      "runs": 3,
+      "passed": 3,
+      "pass_rate": 1,
+      "mean_wall_time_seconds": 70.03
+    },
+    {
+      "variant": "haiku",
+      "runs": 3,
+      "passed": 3,
+      "pass_rate": 1,
+      "mean_wall_time_seconds": 83.003
+    }
+  ],
+  "passed": true
+}

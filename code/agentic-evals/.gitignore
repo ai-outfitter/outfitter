@@ -1,0 +1,3 @@
+# Run transcripts are harness-written results (requirement 10/21) and must be
+# committed despite the repo-wide *.log ignore.
+!*.transcript.log

@@ -1,0 +1,33 @@
+{
+  "eval": "pqc-summary",
+  "variant": "thinking-on",
+  "run": 1,
+  "agent": "mock",
+  "profile": "engineer",
+  "passed": true,
+  "timed_out": false,
+  "exit_code": 0,
+  "assertions": {
+    "passed": 2,
+    "total": 2,
+    "results": [
+      {
+        "name": "summary.md exists",
+        "passed": true
+      },
+      {
+        "name": "summary.md matches /quantum/",
+        "passed": true
+      }
+    ]
+  },
+  "metrics": {
+    "wall_time_seconds": 0.039,
+    "tokens_in": null,
+    "tokens_out": null,
+    "tool_calls": null,
+    "turns": null,
+    "cost_usd": null,
+    "coverage_percent": null
+  }
+}

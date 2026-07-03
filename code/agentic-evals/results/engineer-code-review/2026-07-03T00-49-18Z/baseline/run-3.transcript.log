@@ -1,0 +1,10 @@
+--- stdout ---
+→ resolving profile engineer
+✓ profile layer engineer  github:ai-outfitter/default-profiles/profiles
+✓ merged controls
+✓ prepared composite profile  /var/folders/39/vwz091_d6tv5dc_25dvwkmlm0000gn/T/outfitter-engineer-pi-MvDXcy
+↳ launching pi …
+Wrote the code review findings to `review.md`.
+
+--- stderr ---
+

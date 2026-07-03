@@ -1,0 +1,29 @@
+{
+  "eval": "engineer-hidden-tests",
+  "started_at": "2026-07-03T01:12:26.106Z",
+  "agent": "pi",
+  "variants": [
+    {
+      "variant": "baseline",
+      "runs": 3,
+      "passed": 3,
+      "pass_rate": 1,
+      "mean_wall_time_seconds": 83.891
+    },
+    {
+      "variant": "thinking-off",
+      "runs": 3,
+      "passed": 3,
+      "pass_rate": 1,
+      "mean_wall_time_seconds": 45.969
+    },
+    {
+      "variant": "tool-limited",
+      "runs": 3,
+      "passed": 3,
+      "pass_rate": 1,
+      "mean_wall_time_seconds": 79.986
+    }
+  ],
+  "passed": true
+}

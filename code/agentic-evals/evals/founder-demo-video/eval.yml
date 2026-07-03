@@ -1,0 +1,49 @@
+id: founder-demo-video
+profile: founder
+agent: pi
+launcher: outfitter
+
+# The recorded demo ships as a timestamped transcript (demo-recording.md).
+# Swap in a real recording by replacing the fixture with a video file and
+# updating the prompt; the grading below is format-agnostic.
+workflow:
+  timeout_seconds: 1200
+  prompt: |
+    You are the founder. A recorded product demo of our scheduling product
+    "Slotter" is in demo-recording.md (timestamped transcript of the video).
+
+    Turn the recording into launch material:
+    1. launch-announcement.md — a customer-facing announcement covering the
+       three features shown in the demo.
+    2. answers.md answering:
+       - What pricing was announced in the demo?
+       - Which integration was demoed last?
+
+outputs:
+  - path: launch-announcement.md
+    assertions:
+      - kind: exists
+      - kind: matches
+        pattern: 'slotter'
+      - kind: matches
+        pattern: 'smart rescheduling'
+      - kind: matches
+        pattern: 'waitlist'
+
+questions:
+  answers_file: answers.md
+  items:
+    - ask: 'What pricing was announced in the demo?'
+      expect: '$12'
+    - ask: 'Which integration was demoed last?'
+      expect: 'stripe'
+
+matrix:
+  base_profile: founder
+  repeat: 3
+  variants:
+    - id: baseline
+    - id: thinking-low
+      overrides:
+        controls:
+          thinking: low

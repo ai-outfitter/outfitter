@@ -1,0 +1,29 @@
+{
+  "eval": "engineer-code-review",
+  "started_at": "2026-07-03T00:49:18.522Z",
+  "agent": "pi",
+  "variants": [
+    {
+      "variant": "baseline",
+      "runs": 3,
+      "passed": 3,
+      "pass_rate": 1,
+      "mean_wall_time_seconds": 55.039
+    },
+    {
+      "variant": "review-system-prompt",
+      "runs": 3,
+      "passed": 3,
+      "pass_rate": 1,
+      "mean_wall_time_seconds": 49.125
+    },
+    {
+      "variant": "no-subagents",
+      "runs": 3,
+      "passed": 3,
+      "pass_rate": 1,
+      "mean_wall_time_seconds": 39.606
+    }
+  ],
+  "passed": true
+}

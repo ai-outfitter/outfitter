@@ -1,0 +1,15 @@
+{
+  "eval": "engineer-hidden-tests",
+  "started_at": "2026-07-02T21:08:59.214Z",
+  "agent": "mock",
+  "variants": [
+    {
+      "variant": "baseline",
+      "runs": 1,
+      "passed": 1,
+      "pass_rate": 1,
+      "mean_wall_time_seconds": 0.044
+    }
+  ],
+  "passed": true
+}

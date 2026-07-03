@@ -1,0 +1,43 @@
+# The most minimal eval: one paragraph, thinking on vs off, then a third
+# agent (the judge) blind-grades both paragraphs against a rubric and returns
+# scores as JSON conforming to a schema the harness generates.
+id: pqc-summary
+profile: engineer
+agent: pi
+launcher: outfitter
+
+workflow:
+  timeout_seconds: 600
+  prompt: |
+    Summarize post quantum resistant encryption in a single paragraph aimed
+    at a technical reader. Write only the paragraph to summary.md.
+
+outputs:
+  - path: summary.md
+    assertions:
+      - kind: exists
+      - kind: matches
+        pattern: 'quantum'
+
+matrix:
+  base_profile: engineer
+  repeat: 1
+  variants:
+    - id: thinking-on
+    - id: thinking-off
+      overrides:
+        controls:
+          thinking: off
+
+evaluation:
+  mode: rubric
+  evaluator_profile: engineer
+  inputs:
+    - artifact: summary.md
+  rubric:
+    - criterion: 'Technically accurate (lattice/hash/code-based schemes, NIST standardization, Shor threat)'
+      weight: 5
+    - criterion: 'A single clear paragraph, no filler'
+      weight: 2
+    - criterion: 'Useful to a technical reader deciding whether to care'
+      weight: 3

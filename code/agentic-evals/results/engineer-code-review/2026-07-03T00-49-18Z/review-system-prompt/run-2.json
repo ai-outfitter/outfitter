@@ -1,0 +1,37 @@
+{
+  "eval": "engineer-code-review",
+  "variant": "review-system-prompt",
+  "run": 2,
+  "agent": "pi",
+  "profile": "engineer-code-review--review-system-prompt",
+  "passed": true,
+  "timed_out": false,
+  "exit_code": 0,
+  "assertions": {
+    "passed": 3,
+    "total": 3,
+    "results": [
+      {
+        "name": "review.md exists",
+        "passed": true
+      },
+      {
+        "name": "review.md matches /applyGuestDiscount/",
+        "passed": true
+      },
+      {
+        "name": "review.md matches /duplicat|copy.?past|floor|round/",
+        "passed": true
+      }
+    ]
+  },
+  "metrics": {
+    "wall_time_seconds": 69.7,
+    "tokens_in": null,
+    "tokens_out": null,
+    "tool_calls": null,
+    "turns": null,
+    "cost_usd": null,
+    "coverage_percent": null
+  }
+}

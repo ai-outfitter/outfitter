@@ -1,0 +1,37 @@
+{
+  "eval": "engineer-hidden-tests",
+  "variant": "tool-limited",
+  "run": 1,
+  "agent": "pi",
+  "profile": "engineer-hidden-tests--tool-limited",
+  "passed": true,
+  "timed_out": false,
+  "exit_code": 0,
+  "assertions": {
+    "passed": 3,
+    "total": 3,
+    "results": [
+      {
+        "name": "src/rle.js matches /export function (encode|decode)/",
+        "passed": true
+      },
+      {
+        "name": "check hidden-tests",
+        "passed": true
+      },
+      {
+        "name": "coverage >= 60%",
+        "passed": true
+      }
+    ]
+  },
+  "metrics": {
+    "wall_time_seconds": 57.229,
+    "tokens_in": null,
+    "tokens_out": null,
+    "tool_calls": null,
+    "turns": null,
+    "cost_usd": null,
+    "coverage_percent": 100
+  }
+}
