@@ -1,0 +1,13 @@
+--- stdout ---
+→ resolving profile engineer-code-review--review-system-prompt
+✓ profile layer engineer  github:ai-outfitter/default-profiles/profiles
+✓ profile layer engineer-code-review--review-system-prompt  /private/var/folders/39/vwz091_d6tv5dc_25dvwkmlm0000gn/T/agentic-eval-engineer-code-review-review-system-prompt-2-DFtzXN/.outfitter/profiles/engineer-code-review--review-system-prompt
+✓ merged controls
+✓ prepared composite profile  /var/folders/39/vwz091_d6tv5dc_25dvwkmlm0000gn/T/outfitter-engineer-code-review--review-system-prompt-pi-N02hb2
+↳ launching pi …
+Wrote findings to `review.md`.
+
+Verification: ran `npm test` (passes, but there are 0 tests).
+
+--- stderr ---
+

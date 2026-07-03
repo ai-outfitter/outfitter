@@ -1,0 +1,21 @@
+--- stdout ---
+→ resolving profile founder-demo-video--thinking-low
+✓ profile layer founder  github:ai-outfitter/default-profiles/profiles
+✓ profile layer founder-demo-video--thinking-low  /private/var/folders/39/vwz091_d6tv5dc_25dvwkmlm0000gn/T/agentic-eval-founder-demo-video-thinking-low-1-4Bob5H/.outfitter/profiles/founder-demo-video--thinking-low
+✓ merged controls
+✓ prepared composite profile  /var/folders/39/vwz091_d6tv5dc_25dvwkmlm0000gn/T/outfitter-founder-demo-video--thinking-low-pi-jkXPLD
+↳ launching pi …
+Created and validated:
+
+- `launch-announcement.md`
+- `answers.md`
+
+Both are based on `demo-recording.md` and cover the three demoed features, pricing, and final integration.
+
+--- stderr ---
+pi wrote undeclared composite profile state 'agents' and it was not persisted.
+pi wrote undeclared composite profile state 'agents/explorer.md' and it was not persisted.
+pi wrote undeclared composite profile state 'extensions' and it was not persisted.
+pi wrote undeclared composite profile state 'extensions/pi-must-have-extension' and it was not persisted.
+pi wrote undeclared composite profile state 'extensions/pi-must-have-extension/config.jsonc' and it was not persisted.
+

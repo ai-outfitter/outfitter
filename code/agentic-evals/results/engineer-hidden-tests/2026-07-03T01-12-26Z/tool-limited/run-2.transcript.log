@@ -1,0 +1,15 @@
+--- stdout ---
+→ resolving profile engineer-hidden-tests--tool-limited
+✓ profile layer engineer  github:ai-outfitter/default-profiles/profiles
+✓ profile layer engineer-hidden-tests--tool-limited  /private/var/folders/39/vwz091_d6tv5dc_25dvwkmlm0000gn/T/agentic-eval-engineer-hidden-tests-tool-limited-2-vGjkRo/.outfitter/profiles/engineer-hidden-tests--tool-limited
+✓ merged controls
+✓ prepared composite profile  /var/folders/39/vwz091_d6tv5dc_25dvwkmlm0000gn/T/outfitter-engineer-hidden-tests--tool-limited-pi-KYmO85
+↳ launching pi …
+Implemented `src/rle.js` and added unit tests in `tests/rle.test.js`.
+
+Verification:
+- `npm test` passes: 6/6 tests.
+
+--- stderr ---
+pi adapter cannot translate requested control 'max_tool_calls'.
+

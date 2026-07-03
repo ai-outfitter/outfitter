@@ -1,0 +1,17 @@
+--- stdout ---
+→ resolving profile data-analyst-healthcare-report--thinking-off
+✓ profile layer data-analyst  github:ai-outfitter/default-profiles/profiles
+✓ profile layer data-analyst-healthcare-report--thinking-off  /private/var/folders/39/vwz091_d6tv5dc_25dvwkmlm0000gn/T/agentic-eval-data-analyst-healthcare-report-thinking-off-1-LUCv2M/.outfitter/profiles/data-analyst-healthcare-report--thinking-off
+✓ merged controls  model=gpt-5.5
+✓ prepared composite profile  /var/folders/39/vwz091_d6tv5dc_25dvwkmlm0000gn/T/outfitter-data-analyst-healthcare-report--thinking-off-pi-3rnkyC
+↳ launching pi …
+Done.
+
+Created:
+- `report.html` — self-contained HTML report with summary cards, table, and simple charts.
+- `answers.md` — direct answers:
+  1. Heart Failure had the highest readmission rate: 50.0%.
+  2. Sepsis had the highest average cost per admission: $47,205.00.
+
+--- stderr ---
+

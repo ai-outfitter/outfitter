@@ -1,0 +1,19 @@
+--- stdout ---
+→ resolving profile data-analyst-healthcare-report--haiku
+✓ profile layer data-analyst  github:ai-outfitter/default-profiles/profiles
+✓ profile layer data-analyst-healthcare-report--haiku  /private/var/folders/39/vwz091_d6tv5dc_25dvwkmlm0000gn/T/agentic-eval-data-analyst-healthcare-report-haiku-2-kmtb1D/.outfitter/profiles/data-analyst-healthcare-report--haiku
+✓ merged controls  model=gpt-5.5
+✓ prepared composite profile  /var/folders/39/vwz091_d6tv5dc_25dvwkmlm0000gn/T/outfitter-data-analyst-healthcare-report--haiku-pi-YboQwU
+↳ launching pi …
+Done.
+
+Created:
+- `report.html` — self-contained HTML summary with condition-level table.
+- `answers.md` — answers to the two requested questions.
+
+Key results:
+- Highest readmission rate: **Heart Failure** at **50.0%**
+- Highest average cost: **Sepsis** at **$47,205.00**
+
+--- stderr ---
+

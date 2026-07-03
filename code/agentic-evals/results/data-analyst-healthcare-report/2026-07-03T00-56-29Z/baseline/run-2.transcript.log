@@ -1,0 +1,18 @@
+--- stdout ---
+→ resolving profile data-analyst
+✓ profile layer data-analyst  github:ai-outfitter/default-profiles/profiles
+✓ merged controls  model=gpt-5.5
+✓ prepared composite profile  /var/folders/39/vwz091_d6tv5dc_25dvwkmlm0000gn/T/outfitter-data-analyst-pi-Oz7DUv
+↳ launching pi …
+Done.
+
+Created:
+- `report.html` — self-contained HTML report with summary cards, condition-level table, and visual comparison.
+- `answers.md` — answers to the two requested questions.
+
+Key results:
+1. Highest readmission rate: **Heart Failure** at **50.0%**
+2. Highest average cost: **Sepsis** at **$47,205.00**
+
+--- stderr ---
+
