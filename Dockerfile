@@ -16,7 +16,7 @@ COPY package.json bun.lock ./
 COPY code/cli/package.json ./code/cli/package.json
 COPY code/pi-extension/package.json ./code/pi-extension/package.json
 RUN bun pm pkg delete scripts.prepare \
-  && bun --cwd code/cli pm pkg delete scripts.prepare \
+  && bun --cwd=code/cli pm pkg delete scripts.prepare \
   && bun install --frozen-lockfile
 
 COPY code/cli/package.json code/cli/tsconfig.json code/cli/tsconfig.build.json ./code/cli/

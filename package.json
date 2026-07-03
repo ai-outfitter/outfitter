@@ -17,7 +17,7 @@
     "docs:start": "bun --cwd=code/doc_site run start --",
     "docs:lint": "bun --cwd=code/doc_site run lint",
     "docs:ci": "cd code/doc_site && bun install --frozen-lockfile && cd ../.. && bun run docs:lint && bun run docs:build",
-    "typecheck": "bun --cwd=code/cli run typecheck",
+    "typecheck": "tsc -p tsconfig.json --noEmit && bun --cwd=code/cli run typecheck",
     "lint": "biome lint .",
     "lint:fix": "biome lint --write .",
     "format": "biome format --write .",
