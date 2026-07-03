@@ -1,13 +1,20 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 
 // Stages repository-level license and README assets inside the CLI package before packing.
 import { cp, mkdir, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+interface EnterprisePrivateCatalogModule {
+  requiresEnterprisePrivateCatalogLicense: (options: { visibility: string }) => boolean;
+  enterprisePrivateCatalogBoundary: Record<string, unknown> & { strictPrivateRepositoryBlocking?: boolean };
+}
+
 const packageRoot = dirname(dirname(fileURLToPath(import.meta.url)));
 const repositoryRoot = join(packageRoot, '..', '..');
-const enterprisePrivateCatalogModule = await import(new URL('../../enterprise/privateCatalog.js', import.meta.url));
+const enterprisePrivateCatalogModule = (await import(
+  new URL('../../enterprise/privateCatalog.js', import.meta.url).href
+)) as EnterprisePrivateCatalogModule;
 
 const privateCatalogRequiresEnterpriseLicense = enterprisePrivateCatalogModule.requiresEnterprisePrivateCatalogLicense({
   visibility: 'private',
@@ -21,7 +28,7 @@ if (enterprisePrivateCatalogModule.enterprisePrivateCatalogBoundary.strictPrivat
   throw new Error('Enterprise private catalog boundary must remain non-enforcing in package assets.');
 }
 
-const copies = [
+const copies: readonly [string, string, boolean][] = [
   ['README.md', 'README.md', false],
   ['LICENSE.md', 'LICENSE.md', false],
   [join('code', 'enterprise'), join('code', 'enterprise'), true],

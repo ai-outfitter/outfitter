@@ -20,5 +20,5 @@
 @CONTRIBUTING.md
 
 - Use Conventional Commits for every commit message because release automation uses them for versioning and changelog generation. Prefer scopes, for example `fix(setup): ...`, `feat(pi): ...`, `docs(runtime): ...`, or `chore(deepwork): ...`.
-- Before committing, run the same formatting step the pre-commit flow expects: `npx prettier --write <changed files>` for targeted changes, or `npm run snapper:format && prettier --write .` when preparing a broad commit.
-- Before pushing, run `npm run check-ci` when practical; at minimum run the focused tests plus `npm run lint` and `prettier --check .` for the files you changed.
+- Before committing, run the same formatting step the pre-commit flow expects: `bunx biome format --write <changed files>` for targeted changes, or `bun run snapper:format && bunx biome format --write .` when preparing a broad commit.
+- Before pushing, run `bun run check-ci` when practical; at minimum run the focused tests plus `bun run lint` and `bunx biome format <changed files>` for the files you changed.

@@ -170,30 +170,30 @@ describe('pi adapter', () => {
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-006.3).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
-  it.each(['models.json', 'trust.json'])(
-    'makes native pi %s available inside the composite profile',
-    (relativePath) => {
-      const { homeDirectory } = createPiSettingsTestHome();
-      const adapter = createPiAdapter();
-      const compositeProfilePlan = adapter.createCompositeProfile(
-        { id: 'engineering', inherits: [], controls: {} },
-        {
-          rootDirectory: `/tmp/outfitter-engineering-pi-${relativePath}`,
-          profilePaths: ['/profiles/engineering/profile.yml'],
-          homeDirectory,
-        },
-      );
+  it.each([
+    'models.json',
+    'trust.json',
+  ])('makes native pi %s available inside the composite profile', (relativePath) => {
+    const { homeDirectory } = createPiSettingsTestHome();
+    const adapter = createPiAdapter();
+    const compositeProfilePlan = adapter.createCompositeProfile(
+      { id: 'engineering', inherits: [], controls: {} },
+      {
+        rootDirectory: `/tmp/outfitter-engineering-pi-${relativePath}`,
+        profilePaths: ['/profiles/engineering/profile.yml'],
+        homeDirectory,
+      },
+    );
 
-      expect(
-        compositeProfilePlan.compositeProfile.statePaths.find((statePath) => statePath.relativePath === relativePath),
-      ).toEqual({
-        relativePath,
-        strategy: 'symlink',
-        directory: false,
-        sourcePath: join(homeDirectory, '.pi', 'agent', relativePath),
-      });
-    },
-  );
+    expect(
+      compositeProfilePlan.compositeProfile.statePaths.find((statePath) => statePath.relativePath === relativePath),
+    ).toEqual({
+      relativePath,
+      strategy: 'symlink',
+      directory: false,
+      sourcePath: join(homeDirectory, '.pi', 'agent', relativePath),
+    });
+  });
 
   it('initializes missing native mcp and models configs as valid empty JSON documents', () => {
     const { homeDirectory } = createPiSettingsTestHome();

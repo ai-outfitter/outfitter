@@ -21,11 +21,6 @@ interface PackageJson {
   scripts: Record<string, string>;
 }
 
-interface PackageLockJson {
-  lockfileVersion: number;
-  packages: Record<string, unknown>;
-}
-
 interface TypeScriptConfig {
   compilerOptions: Record<string, unknown>;
   include?: string[];
@@ -35,10 +30,11 @@ const readJson = <T>(relativePath: string): T =>
   JSON.parse(readFileSync(new URL(relativePath, import.meta.url), 'utf8')) as T;
 
 const packageJson = readJson<PackageJson>('../package.json');
-const packageLockJson = readJson<PackageLockJson>('../../../package-lock.json');
+const rootPackageJson = readJson<PackageJson>('../../../package.json');
+const bunLockSource = readFileSync(new URL('../../../bun.lock', import.meta.url), 'utf8');
 const tsconfig = readJson<TypeScriptConfig>('../tsconfig.json');
 const buildTsconfig = readJson<TypeScriptConfig>('../tsconfig.build.json');
-const eslintConfigSource = readFileSync(new URL('../eslint.config.js', import.meta.url), 'utf8');
+const biomeConfigSource = readFileSync(new URL('../../../biome.json', import.meta.url), 'utf8');
 const vitestConfigSource = readFileSync(new URL('../vitest.config.ts', import.meta.url), 'utf8');
 
 describe('project foundation', () => {
@@ -46,16 +42,15 @@ describe('project foundation', () => {
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('declares the runtime, package manager, and TypeScript build baseline', () => {
     expect(packageJson.engines.node).toBe('>=22.19.0');
-    expect(packageLockJson.lockfileVersion).toBeGreaterThanOrEqual(3);
-    expect(packageLockJson.packages).toHaveProperty('');
-    expect(packageLockJson.packages).toHaveProperty('code/cli');
+    expect(bunLockSource).toContain('"lockfileVersion"');
+    expect(bunLockSource).toContain('"code/cli"');
     expect(tsconfig.compilerOptions.strict).toBe(true);
     expect(buildTsconfig.compilerOptions.rootDir).toBe('src');
     expect(buildTsconfig.compilerOptions.outDir).toBe('dist');
     expect(buildTsconfig.compilerOptions.types).toEqual(['node']);
     expect(packageJson.scripts.build).toContain('shx cp src/schemas/*.json dist/schemas/');
-    expect(packageJson.scripts.prepare).toBe('npm run build');
-    expect(packageJson.scripts.dev_install).toBe('node scripts/dev-install.mjs');
+    expect(packageJson.scripts.prepare).toBe('bun run build');
+    expect(packageJson.scripts.dev_install).toBe('bun scripts/dev-install.ts');
     expect(buildTsconfig.include).toEqual(['src/**/*.ts']);
   });
 
@@ -77,12 +72,11 @@ describe('project foundation', () => {
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-001.3).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
-  it('configures ESLint with TypeScript support and complexity enforcement', () => {
-    expect(packageJson.scripts.lint).toBe('eslint .');
-    expect(packageJson.devDependencies).toHaveProperty('eslint');
-    expect(packageJson.devDependencies).toHaveProperty('@eslint/js');
-    expect(packageJson.devDependencies).toHaveProperty('typescript-eslint');
-    expect(eslintConfigSource).toContain("complexity: ['error', 10]");
+  it('configures Biome linting with complexity enforcement', () => {
+    expect(packageJson.scripts.lint).toBe('biome lint .');
+    expect(rootPackageJson.devDependencies).toHaveProperty('@biomejs/biome');
+    expect(biomeConfigSource).toContain('noExcessiveCognitiveComplexity');
+    expect(biomeConfigSource).toContain('"maxAllowedComplexity": 15');
   });
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-001.5).

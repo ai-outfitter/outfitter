@@ -1,5 +1,5 @@
 // Defines shared helpers for the profile command namespace.
-import { Command } from 'commander';
+import type { Command } from 'commander';
 
 export const profileCommandName = 'profile';
 export const profileCommandDescription = 'List and manage Outfitter profiles.';

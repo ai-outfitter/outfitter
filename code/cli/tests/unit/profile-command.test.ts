@@ -337,7 +337,7 @@ describe('profile command', () => {
       expect.arrayContaining([
         {
           severity: 'warning',
-          path: join(profilesRoot, 'engineer', 'profile.yml') + '#/controls/append_system_prompt/0',
+          path: `${join(profilesRoot, 'engineer', 'profile.yml')}#/controls/append_system_prompt/0`,
           message: "Raw append_system_prompt entry looks like a file path; use { file: './prompts/raw.md' }.",
         },
       ]),

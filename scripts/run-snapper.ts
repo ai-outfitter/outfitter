@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 import { createHash } from 'node:crypto';
 import { createWriteStream, existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { chmod, readFile, rm } from 'node:fs/promises';
@@ -7,11 +7,12 @@ import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
 import { pipeline } from 'node:stream/promises';
 import https from 'node:https';
+import type { IncomingMessage } from 'node:http';
 
 const VERSION = '0.7.7';
 const REPO = 'TurtleTech-ehf/snapper';
 
-const targets = {
+const targets: Record<string, string> = {
   'darwin-arm64': 'aarch64-apple-darwin',
   'darwin-x64': 'x86_64-apple-darwin',
   'linux-arm64': 'aarch64-unknown-linux-gnu',
@@ -21,7 +22,7 @@ const targets = {
 const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const target = targets[`${process.platform}-${process.arch}`];
 
-if (!target) {
+if (target === undefined) {
   console.error(`Unsupported snapper-fmt platform: ${process.platform}-${process.arch}`);
   process.exit(1);
 }
@@ -48,7 +49,7 @@ await ensureSnapper();
 const result = spawnSync(snapperPath, snapperArgs, { cwd: projectRoot, stdio: 'inherit' });
 process.exit(result.status ?? 1);
 
-async function ensureSnapper() {
+async function ensureSnapper(): Promise<void> {
   if (existsSync(snapperPath)) {
     return;
   }
@@ -74,16 +75,16 @@ async function ensureSnapper() {
   await rm(checksumPath, { force: true });
 }
 
-async function download(url, destination) {
+async function download(url: string, destination: string): Promise<void> {
   await pipeline(await request(url), createWriteStream(destination));
 }
 
-function request(url, redirects = 0) {
+function request(url: string, redirects = 0): Promise<IncomingMessage> {
   return new Promise((resolveStream, reject) => {
     https
       .get(url, { headers: { 'User-Agent': 'outfitter-snapper-runner' } }, (response) => {
         if ([301, 302, 303, 307, 308].includes(response.statusCode ?? 0)) {
-          if (redirects > 5 || !response.headers.location) {
+          if (redirects > 5 || response.headers.location === undefined) {
             reject(new Error(`Too many redirects while downloading ${url}`));
             return;
           }
@@ -92,7 +93,7 @@ function request(url, redirects = 0) {
         }
 
         if (response.statusCode !== 200) {
-          reject(new Error(`Failed to download ${url}: HTTP ${response.statusCode}`));
+          reject(new Error(`Failed to download ${url}: HTTP ${String(response.statusCode)}`));
           return;
         }
 
@@ -102,7 +103,7 @@ function request(url, redirects = 0) {
   });
 }
 
-async function verifyChecksum(archivePath, checksumPath) {
+async function verifyChecksum(archivePath: string, checksumPath: string): Promise<void> {
   const expected = (await readFile(checksumPath, 'utf8')).trim().split(/\s+/)[0];
   const actual = createHash('sha256').update(readFileSync(archivePath)).digest('hex');
 

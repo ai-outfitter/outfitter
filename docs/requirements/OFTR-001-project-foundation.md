@@ -13,8 +13,8 @@ This document specifies the baseline runtime, language, test, lint, and document
 2. The project MUST declare Node.js `>=22.19.0` as the supported runtime baseline for the first version.
 3. TypeScript configuration MUST enable strict type checking.
 4. The CLI workspace MUST provide a separate build TypeScript configuration that emits production files from `code/cli/src/` to `code/cli/dist/`.
-5. The project MUST use npm as its package manager for the first version.
-6. The project MUST commit `package-lock.json` after dependency installation or updates.
+5. The project MUST use Bun as its package manager and script runner.
+6. The project MUST commit `bun.lock` after dependency installation or updates.
 7. When an implementation library choice remains unclear, the project SHOULD prefer the same library or convention used by pi.dev.
 
 ### OFTR-001.2: Test Framework and Coverage
@@ -26,10 +26,10 @@ This document specifies the baseline runtime, language, test, lint, and document
 5. The coverage configuration MUST include all `code/cli/src/**/*.ts` files even when a source file is not imported by any test.
 6. Tests that validate formal requirements MUST follow the traceability format required by OFTR-008.3.
 
-### OFTR-001.3: Linting and Complexity
+### OFTR-001.3: Linting, Formatting, and Complexity
 
-1. The project MUST configure ESLint with TypeScript support using `eslint`, `@eslint/js`, and `typescript-eslint`.
-2. ESLint MUST enforce a maximum cyclomatic complexity of 10.
+1. The project MUST configure Biome (`@biomejs/biome`) as its linter and formatter with a single root `biome.json`.
+2. Biome MUST enforce a maximum cognitive complexity of 15 via `noExcessiveCognitiveComplexity`.
 3. The lint command MUST be runnable from package scripts.
 4. Production code SHOULD use small command objects and services so the complexity limit remains practical.
 

@@ -1,4 +1,8 @@
+FROM oven/bun:1.3-debian AS deps
+
 FROM node:22.19.0-bookworm
+
+COPY --from=deps /usr/local/bin/bun /usr/local/bin/bun
 
 ENV PATH="/opt/outfitter/node_modules/.bin:${PATH}"
 
@@ -8,20 +12,20 @@ RUN apt-get update \
 
 WORKDIR /opt/outfitter
 
-COPY package.json package-lock.json ./
+COPY package.json bun.lock ./
 COPY code/cli/package.json ./code/cli/package.json
 COPY code/pi-extension/package.json ./code/pi-extension/package.json
-RUN npm pkg delete scripts.prepare \
-  && npm pkg delete scripts.prepare --workspace @ai-outfitter/outfitter \
-  && npm ci
+RUN bun pm pkg delete scripts.prepare \
+  && bun --cwd code/cli pm pkg delete scripts.prepare \
+  && bun install --frozen-lockfile
 
 COPY code/cli/package.json code/cli/tsconfig.json code/cli/tsconfig.build.json ./code/cli/
 COPY bin/outfitter-docker-entrypoint ./bin/outfitter-docker-entrypoint
 COPY code/cli/skills ./code/cli/skills
 COPY code/cli/src ./code/cli/src
 
-RUN npm run build \
-  && npm prune --omit=dev \
+RUN bun run build \
+  && bun install --production \
   && ln -sf /opt/outfitter/code/cli/dist/cli.js /usr/local/bin/outfitter \
   && ln -sf /opt/outfitter/node_modules/.bin/pi /usr/local/bin/pi
 

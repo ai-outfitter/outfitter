@@ -5,8 +5,8 @@ For normal usage, install Outfitter from npm with `npm install -g @ai-outfitter/
 
 ## Prerequisites
 
-- Node.js `>=22.19.0`
-- npm, using the committed `package-lock.json`
+- Node.js `>=22.19.0` (runtime for the published package, vitest, and the doc site)
+- Bun `>=1.3.0`, using the committed `bun.lock`
 - Git
 - Optional for end-to-end `outfitter run` testing: the `pi` CLI available on your `PATH`
 
@@ -27,7 +27,7 @@ For normal usage, install Outfitter from npm with `npm install -g @ai-outfitter/
 From the repository root:
 
 ```sh
-npm install
+bun install
 ```
 
 ## Install a local `outfitter` command
@@ -35,27 +35,27 @@ npm install
 Use the development installer from the repository root:
 
 ```sh
-npm run dev_install
+bun run dev_install
 ```
 
 This script:
 
 1. Builds the CLI workspace into `code/cli/dist/`.
-2. Runs `npm link` so the global `outfitter` package points at `code/cli`.
+2. Runs `bun link` so the globally linked `outfitter` bin points at `code/cli`.
 3. Verifies the global package symlink resolves to this checkout.
 4. Smoke-tests `outfitter --version` and `outfitter --help` through the global bin.
 
 Because the global package is linked to the CLI workspace, rebuilding `code/cli/dist/` updates the installed command:
 
 ```sh
-npm run build
+bun run build
 outfitter --help
 ```
 
 To remove the linked command later:
 
 ```sh
-npm unlink -g outfitter
+bun unlink
 ```
 
 ## Smoke-test with an isolated home directory
@@ -86,7 +86,7 @@ outfitter-dev --version
 outfitter-dev --help
 ```
 
-After source changes, rerun the script or `npm run build` so `dist/` reflects the worktree.
+After source changes, rerun the script or `bun run build` so `dist/` reflects the worktree.
 
 ### Run an isolated first-run/setup smoke test
 
@@ -173,24 +173,24 @@ The container starts in `/home/node/repos`; without extra mounts, each run gets 
 ## Validate changes before opening or updating a PR
 
 Run formatting from the repository root.
-The CI formatting gate is `prettier --check .`; package-local checks from `code/cli` and touched-file-only Prettier runs are not equivalent because this repository also includes root scripts, docs, and `code/enterprise`.
+The CI formatting and lint gate is `biome ci .` from the repository root; package-local checks from `code/cli` and touched-file-only Biome runs are not equivalent because this repository also includes root scripts and docs.
 
 Use the mutating local check when formatting or lint auto-fixes may be needed:
 
 ```sh
-npm run check
+bun run check
 ```
 
 To check formatting without changing files, run this from the repository root:
 
 ```sh
-npx prettier --check .
+bunx biome ci .
 ```
 
 Use the CI-equivalent non-mutating check before final review:
 
 ```sh
-npm run check-ci
+bun run check-ci
 ```
 
 Both commands run the coverage suite.
