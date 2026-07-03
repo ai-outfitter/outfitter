@@ -1,0 +1,4 @@
+# Hoisted (npm-style) layout: code/enterprise CJS modules resolve dependencies
+# by walking up to the root node_modules, which the isolated linker breaks.
+[install]
+linker = "hoisted"

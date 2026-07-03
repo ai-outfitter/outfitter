@@ -64,12 +64,14 @@ export interface WelcomeCommandDependencies {
 }
 
 const welcomeIntroLines = [
+  // biome-ignore-start lint/complexity/noUselessStringRaw: keep the ASCII-art rows uniform
   String.raw`  ____        _    __ _ _   _            `,
   String.raw` / __ \      | |  / _(_) | | |           `,
   String.raw`| |  | |_   _| |_| |_ _| |_| |_ ___ _ __ `,
   String.raw`| |  | | | | | __|  _| | __| __/ _ \ '__|`,
   String.raw`| |__| | |_| | |_| | | | |_| ||  __/ |   `,
   String.raw` \____/ \__,_|\__|_| |_|\__|\__\___|_|   `,
+  // biome-ignore-end lint/complexity/noUselessStringRaw: keep the ASCII-art rows uniform
   '',
   'Welcome to Outfitter.',
   'Pi is a fully extensible agentic coding harness.',

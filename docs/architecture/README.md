@@ -24,8 +24,8 @@ Formal implementation requirements live in [`../requirements/`](../requirements/
 
 - Runtime: Node.js `>=22.19.0`.
 - Language: TypeScript.
-- Package manager: npm.
-  This matches the current pi-coding-agent package distribution model and gives Outfitter a conventional `package-lock.json`-based install path.
+- Package manager: Bun (published to npm for end users).
+  Users still install with `npm install -g @ai-outfitter/outfitter`; development, scripts, and CI use Bun with a committed `bun.lock`.
 - CLI framework: Commander `^14`.
   Commander is the initial choice because it supports default commands, command aliases, `allowUnknownOption`, pass-through argument collection, and testable parser construction without spawning child processes.
 - Test framework: Vitest `^4` with `@vitest/coverage-v8`.
@@ -863,7 +863,7 @@ Each scenario should include realistic `.outfitter` folders and expected resolut
 
 ## Settled Initial Decisions
 
-1. Outfitter uses npm and commits `package-lock.json`.
+1. Outfitter uses Bun for development and commits `bun.lock`; the package is published to npm.
 2. Outfitter uses Commander for CLI parsing.
 3. Outfitter uses Vitest with V8 coverage for tests.
 4. Outfitter profile IDs are filesystem-safe slugs; optional display names can carry spaces or punctuation.

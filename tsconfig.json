@@ -8,12 +8,9 @@
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
     "isolatedModules": true,
-    "noEmitOnError": true,
-    "outDir": "dist",
-    "rootDir": ".",
+    "noEmit": true,
     "skipLibCheck": true,
-    "types": ["node", "vitest"]
+    "types": ["node"]
   },
-  "include": ["src/**/*.ts", "tests/**/*.ts", "scripts/**/*.ts", "vitest.config.ts"],
-  "exclude": ["dist", "coverage", "node_modules"]
+  "include": ["scripts/**/*.ts"]
 }

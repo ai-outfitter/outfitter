@@ -165,7 +165,7 @@ const createImportSettingsIfMissing = (
 };
 
 const createLocalProfileSettingsContent = (defaultProfileId: string): string =>
-  ['default_profile: ' + defaultProfileId, 'profile_sources:', '  - path: ./profiles', ''].join('\n');
+  [`default_profile: ${defaultProfileId}`, 'profile_sources:', '  - path: ./profiles', ''].join('\n');
 
 const ensureLocalProfileSource = (settingsPath: string, profilesPath: string): void => {
   const loaded = loadSettingsFiles(createSettingsLoadPlan([{ scope: 'user', path: settingsPath }]));

@@ -21,17 +21,15 @@ Outfitter is organized around a private npm workspace root, clear TypeScript pac
 │   ├── documentation/                 # user-facing Outfitter docs
 │   ├── requirements/                  # formal OUTFITTER requirement documents
 │   └── specs/                         # detailed supporting specs
-├── .prettierignore                    # Prettier ignore rules
-├── .prettierrc.json                   # Prettier formatting configuration
+├── biome.json                         # Biome formatter and linter configuration
 ├── .snapperrc.toml                    # Snapper Markdown formatting configuration
 ├── CONTRIBUTING.md                    # local install and contributor workflow guide
 ├── code/                              # npm workspace packages and license-separated code areas
 │   ├── cli/                           # @ai-outfitter/outfitter npm package root
-│   │   ├── eslint.config.js           # CLI package ESLint configuration
 │   │   ├── package.json               # published package metadata, bin, files, and package-local scripts
 │   │   ├── scripts/                   # package-local helper scripts
-│   │   │   ├── dev-install.mjs        # npm-link installer for local CLI development
-│   │   │   └── sync-package-assets.mjs # prepack staging for root README/license and enterprise notices
+│   │   │   ├── dev-install.ts         # bun-link installer for local CLI development
+│   │   │   └── sync-package-assets.ts  # prepack staging for root README/license and enterprise notices
 │   │   ├── skills/                    # Pi package skills published with Outfitter
 │   │   ├── src/                       # production TypeScript source
 │   │   │   ├── cli.ts                 # executable CLI entry point
@@ -58,15 +56,16 @@ Outfitter is organized around a private npm workspace root, clear TypeScript pac
 ├── bin/                               # local executable development helpers
 ├── scripts/                           # repository-level development, release, and formatting helper scripts
 ├── LICENSE.md                         # root source-available license notice
-├── package-lock.json                  # locked npm workspace dependency graph
-└── package.json                       # private npm workspace root and delegating scripts
+├── bun.lock                           # locked bun workspace dependency graph
+├── package.json                       # private npm workspace root and delegating scripts
+└── tsconfig.json                      # root typecheck configuration for repository scripts/
 ```
 
-The exact layout may evolve, but these boundaries should stay recognizable. Root scripts delegate to the `@ai-outfitter/outfitter` workspace so commands such as `npm run check-ci` continue to work from the repository root.
+The exact layout may evolve, but these boundaries should stay recognizable. Root scripts delegate to the `@ai-outfitter/outfitter` workspace so commands such as `bun run check-ci` continue to work from the repository root.
 
 ## Published Package Assets
 
-The CLI package root is `code/cli`, but the npm package must still include repository-level notices. The CLI package `prepack` script runs `code/cli/scripts/sync-package-assets.mjs`, which stages `README.md`, `LICENSE.md`, `code/enterprise/LICENSE`, and `code/enterprise/README.md` inside `code/cli` before `npm pack` or `npm publish`.
+The CLI package root is `code/cli`, but the npm package must still include repository-level notices. The CLI package `prepack` script runs `code/cli/scripts/sync-package-assets.ts`, which stages `README.md`, `LICENSE.md`, `code/enterprise/LICENSE`, and `code/enterprise/README.md` inside `code/cli` before `npm pack` or `npm publish`.
 
 ## Test Fixtures
 

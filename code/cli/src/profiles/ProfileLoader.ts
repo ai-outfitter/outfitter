@@ -159,7 +159,7 @@ interface ProfileSourceEntry {
 }
 
 const readProfileSourceEntries = (sourcePath: string): ProfileSourceEntry[] | ProfileLoadIssue => {
-  let sourceDirectory;
+  let sourceDirectory: Stats | undefined;
 
   try {
     sourceDirectory = existsSync(sourcePath) ? statSync(sourcePath) : undefined;

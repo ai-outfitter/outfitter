@@ -533,25 +533,26 @@ describe('preparePiLoginLaunchPlan', () => {
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-006.7).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
-  it.each([['--print', 'hello'], ['--mode', 'rpc'], ['--mode=json']])(
-    'does not brand non-interactive pi launches: %s %s',
-    (...args) => {
-      const agentDir = createAgentDir();
-      const messages: string[] = [];
-      const plan = preparePiLoginLaunchPlan({
-        adapterId: 'pi',
-        homeDirectory: agentDir,
-        launchPlan: createLaunchPlan(
-          agentDir,
-          args.filter((arg) => arg !== undefined),
-        ),
-        writeLine: (message) => messages.push(message),
-      });
+  it.each([
+    ['--print', 'hello'],
+    ['--mode', 'rpc'],
+    ['--mode=json'],
+  ])('does not brand non-interactive pi launches: %s %s', (...args) => {
+    const agentDir = createAgentDir();
+    const messages: string[] = [];
+    const plan = preparePiLoginLaunchPlan({
+      adapterId: 'pi',
+      homeDirectory: agentDir,
+      launchPlan: createLaunchPlan(
+        agentDir,
+        args.filter((arg) => arg !== undefined),
+      ),
+      writeLine: (message) => messages.push(message),
+    });
 
-      expect(extensionPaths(plan)).toHaveLength(0);
-      expect(messages).toEqual([]);
-    },
-  );
+    expect(extensionPaths(plan)).toHaveLength(0);
+    expect(messages).toEqual([]);
+  });
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-006.7).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
