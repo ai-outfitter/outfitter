@@ -30,6 +30,10 @@ import type {
   CompositeProfileStateWritePrompt,
 } from '../../compositeProfile/StatePersistence.js';
 import { watchCompositeProfileInputs } from '../../compositeProfile/CompositeProfileWatcher.js';
+import {
+  registerCompositeProfileDirectoryCleanup,
+  sweepStaleCompositeProfileDirectories,
+} from '../../compositeProfile/CompositeProfileCleanup.js';
 import type { AgentProcessLauncher } from '../../agents/AgentLaunch.js';
 import { launchAgentProcess, resolveAgentLaunchExecutable } from '../../agents/AgentLaunch.js';
 import type { CommandObject } from './CommandObject.js';
@@ -85,12 +89,14 @@ export const executeRunCommand = async (
   input: RunCommandInput,
   dependencies: RunCommandDependencies = {},
 ): Promise<RunCommandResult> => {
+  sweepStaleCompositeProfileDirectories();
   const runtimeOnboarding = prepareFirstRunRuntimeOnboarding(input, dependencies);
   const resolvedProfile =
     runtimeOnboarding === undefined ? loadResolvedProfile(input) : createFirstRunBootstrapProfile(input);
   const adapter =
     dependencies.adapter ?? createAgentAdapter(selectRunAgentId(input.agentId, resolvedProfile.settings.defaultAgent));
   const compositeProfileRootDirectory = createCompositeProfileRootDirectory(resolvedProfile.profile.id, adapter.id);
+  prepareCompositeProfileTeardown(input, compositeProfileRootDirectory, dependencies);
   const compositeProfilePlan = createAdapterCompositeProfilePlan(
     adapter,
     resolvedProfile,
@@ -302,6 +308,27 @@ const createAdapterCompositeProfilePlan = (
     }),
   };
 };
+
+// Composite directories are removed at process exit and on handled signals. When the agent
+// is launched with --debug the directory is kept for inspection and its path is printed.
+const prepareCompositeProfileTeardown = (
+  input: RunCommandInput,
+  compositeProfileRootDirectory: string,
+  dependencies: RunCommandDependencies,
+): void => {
+  if (isDebugRunLaunch(input.passThroughArgs)) {
+    /* v8 ignore next -- console fallback is direct CLI behavior; tests inject a line writer. */
+    (dependencies.writeLine ?? console.log)(
+      `--debug: keeping composite profile directory ${compositeProfileRootDirectory}`,
+    );
+    return;
+  }
+
+  registerCompositeProfileDirectoryCleanup(compositeProfileRootDirectory);
+};
+
+const isDebugRunLaunch = (passThroughArgs: readonly string[] | undefined): boolean =>
+  (passThroughArgs ?? []).includes('--debug');
 
 interface CompositeProfileStateWriteHandlingInput {
   readonly adapterId: string;
