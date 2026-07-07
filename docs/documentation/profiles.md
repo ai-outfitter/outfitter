@@ -14,6 +14,39 @@ A profile can compose:
 
 Profiles can be local to a user or project, inherited from other profiles, or loaded from a shared profile repository. See [Profile repositories](./profile-repository.md) for shared setup sources.
 
+## The simplest profile
+
+A profile needs nothing more than a label and one control. This profile works unchanged with every supported agent CLI:
+
+```yaml
+# ~/.outfitter/profiles/reviewer.yml
+label: Reviewer
+controls:
+  append_system_prompt: |
+    Review changes for correctness first, style second.
+    Cite the file and line for every finding.
+```
+
+```bash
+outfitter run --profile reviewer                 # pi (default agent)
+outfitter run --profile reviewer --agent claude  # Claude Code
+```
+
+Generic controls translate to whichever agent launches: for Pi the appended prompt becomes `--append-system-prompt`, and for Claude Code the same flag on the `claude` CLI. Set `default_agent: claude` in `~/.outfitter/settings.yml` to make Claude Code the default. When one agent needs a different value, nest it under the agent key:
+
+```yaml
+# ~/.outfitter/profiles/reviewer.yml
+label: Reviewer
+controls:
+  append_system_prompt: |
+    Review changes for correctness first, style second.
+  pi:
+    provider: openai-codex
+    model: gpt-5.5
+  claude:
+    model: claude-sonnet-4-6
+```
+
 ## Profile layouts
 
 Outfitter supports two profile layouts inside any configured `profile_sources` directory.
@@ -51,11 +84,13 @@ The original layout is one folder per profile with a required `profile.yml`. Use
     prompts/
       system.md
     skills/
+    agents/
     extensions/
     deepwork/
       jobs/
     cli_specific/
       pi/
+      claude/
 ```
 
 ```yaml
@@ -69,6 +104,16 @@ controls:
 ```
 
 Directory profiles keep bundled resources close to the profile that references them. Generated Pi prompt exports for directory profiles are written as `generated-system-prompt.md` inside the profile directory when `profile_export` is enabled.
+
+### Skills and subagents
+
+Directory profiles ship skills and subagents as plain folders:
+
+- `skills/<name>/SKILL.md` — Agent Skills shared across agent CLIs. Pi receives each valid skill as a `--skill` argument; Claude Code sees the same skills inside its profiled config directory.
+- `agents/<name>.md` — subagent definitions. Claude Code loads them from the profiled config directory `agents/` folder; Pi does not consume them yet.
+- `cli_specific/pi/skills/` and `cli_specific/claude/{skills,agents}/` — CLI-specific variants when a skill or subagent should only apply to one agent.
+
+For Claude Code, profile-shipped skills and subagents are merged with the entries the launch would otherwise see (profile `cli_specific/claude/` state when present, else `~/.claude/skills` and `~/.claude/agents`). Profile entries win name conflicts, and each merged entry is a symlink, so editing an existing skill or subagent writes through to its source. Skills or subagents newly created during a merged session live only in the temporary composite profile; move them into a profile or `~/.claude` to keep them.
 
 ## Home and project example
 

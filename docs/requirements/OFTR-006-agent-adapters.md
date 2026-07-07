@@ -60,6 +60,10 @@ Pi is the default and primary supported adapter; Claude Code is also supported t
 5. The Claude Code adapter SHOULD support `--model`, `--effort`, `--system-prompt`, `--append-system-prompt`, and `--plugin-dir` where native Claude Code flags exist.
 6. The Claude Code adapter SHOULD support `controls.session_directory` and `controls.claude.session_directory` by routing Claude `projects/` session state through Outfitter state persistence.
 7. The Claude Code adapter MUST return unsupported-control warnings for requested generic or `controls.claude` controls that it cannot translate.
+8. The Claude Code adapter MUST expose valid Agent Skills from contributing profile `skills/` folders as entries of the composite profile `skills/` directory, and MAY also expose Claude-specific skills from `cli_specific/claude/skills/`.
+9. The Claude Code adapter MUST expose Claude subagent definitions from contributing profile `agents/` folders as entries of the composite profile `agents/` directory, and MAY also expose Claude-specific subagents from `cli_specific/claude/agents/`.
+10. When profile skills or subagents are aggregated, the Claude Code adapter MUST keep entries from the otherwise-selected state source (profile `cli_specific/claude/` state or the user's `~/.claude` state) available alongside the profile entries, and profile entries MUST take precedence on name conflicts.
+11. Aggregated `skills/` and `agents/` composite directories MUST link each entry to its source so edits to existing entries write through, and MAY treat entries newly created inside the composite directory during a session as non-durable.
 
 ### OFTR-006.6: Pi Settings Reconciliation
 

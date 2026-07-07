@@ -46,8 +46,15 @@ Executable/plugin modules that add tools, providers, hooks, or runtime behavior.
 
 Reusable task instructions, workflows, or resource bundles exposed to the agent.
 
-- Pi name: skills, `--skill`
-- Claude name: skills under the Claude config directory; Outfitter can profile native Claude skills through `cli_specific/claude/skills`, but generic `skills` selection is not mapped yet
+- Pi name: skills, `--skill`; profile `skills/<name>/SKILL.md` folders are passed automatically
+- Claude name: skills under the Claude config directory; Outfitter aggregates profile `skills/` folders and `cli_specific/claude/skills` into the profiled `skills/` directory, but the generic `controls.skills` selector is not mapped yet
+
+### Subagents
+
+Named agent definitions the primary agent can delegate focused tasks to.
+
+- Pi name: not consumed yet
+- Claude name: subagents under the Claude config directory `agents/`; Outfitter aggregates profile `agents/<name>.md` files and `cli_specific/claude/agents` into the profiled `agents/` directory
 
 ### Prompt Templates
 
@@ -141,6 +148,7 @@ An early-startup customization used to register providers, tools, hooks, or addi
 | Session Directory           | Supported | Supported |
 | Extensions                  | Supported | Supported |
 | Skills                      | Supported | Supported |
+| Subagents                   | Roadmap   | Supported |
 | Prompt Templates            | Supported | Supported |
 | System Prompt               | Supported | Supported |
 | Appended System Prompt      | Supported | Supported |
@@ -159,4 +167,4 @@ An early-startup customization used to register providers, tools, hooks, or addi
 For v1, a Outfitter profile may describe all defined terms generically.
 The Pi adapter is the first implementation, and pi remains the default adapter.
 Adapter-specific overrides live under `controls.pi` and `controls.claude`; unsupported controls warn at runtime, and `--strict` makes those warnings fatal.
-For Claude Code, `skills/` and `commands/` are supported as native configuration directories inside the profiled `CLAUDE_CONFIG_DIR`; the generic `controls.skills` and `controls.prompt_template` selectors remain unmapped and warn if requested.
+For Claude Code, `skills/`, `agents/`, and `commands/` are supported as native configuration directories inside the profiled `CLAUDE_CONFIG_DIR`, with profile `skills/` and `agents/` folders aggregated into them; the generic `controls.skills` and `controls.prompt_template` selectors remain unmapped and warn if requested.

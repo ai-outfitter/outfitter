@@ -15,7 +15,9 @@ When a profile requests a control an adapter cannot translate, Outfitter warns t
 | Agent config directory                            | Supported | Supported   |
 | Session directory (`session_directory`)           | Supported | Supported   |
 | Extensions / plugins (`extensions`)               | Supported | Supported   |
-| Skills (`skills`)                                 | Supported | Partial     |
+| Skills (profile `skills/` folders)                | Supported | Supported   |
+| Skills (`controls.skills` selector)               | Supported | Roadmap     |
+| Subagents (profile `agents/` folders)             | Roadmap   | Supported   |
 | Prompt templates / commands (`prompt_template`)   | Supported | Partial     |
 | System prompt (`system_prompt`)                   | Supported | Supported   |
 | Appended system prompt (`append_system_prompt`)   | Supported | Supported   |
@@ -32,7 +34,8 @@ When a profile requests a control an adapter cannot translate, Outfitter warns t
 ## Claude Code notes
 
 - **Config and session state** — Outfitter points `CLAUDE_CONFIG_DIR` at the composite profile, declares Claude state paths (`settings.json`, `agents/`, `skills/`, `commands/`, `plugins/`, `projects/`) for persistence, and lets `session_directory` choose where `projects/` session state is symlinked from. There is no standalone session-dir flag.
-- **Skills (Partial)** — native Claude skills work when a profile ships them as `cli_specific/claude/skills/` directories, which Outfitter places in the profiled config directory. The generic `controls.skills` selector is not translated for Claude and warns if requested.
+- **Skills** — Claude loads skills from the composite profile `skills/` directory. Profiles contribute skills two ways: shared `skills/<name>/SKILL.md` folders (the same folders Pi picks up as `--skill` arguments) and Claude-specific `cli_specific/claude/skills/` state. When any contributing profile ships shared skills, Outfitter materializes `skills/` as a merged directory of per-skill symlinks — profile skills plus the entries of the otherwise-selected skill state (profile `cli_specific/claude/skills/` if present, else `~/.claude/skills`) — with profile skills winning name conflicts. Edits to existing skills write through to their sources; skills newly created during a merged session are not persisted. The generic `controls.skills` selector is still not translated for Claude and warns if requested.
+- **Subagents** — same shape as skills: profiles contribute subagents as `agents/<name>.md` files, merged with `cli_specific/claude/agents/` state or `~/.claude/agents`. When no profile ships shared subagents, `agents/` stays a whole-directory symlink so writes persist to the owning source.
 - **Prompt templates (Partial)** — same shape: native `cli_specific/claude/commands/` directories work, but the generic `controls.prompt_template` selector is not translated and warns.
 - **Model selection (Partial)** — `model` maps to `--model` and `thinking` maps to `--effort`, but `provider` is not translated for Claude and warns if requested.
 - **Extensions** — `controls.extensions` entries are passed as repeated `--plugin-dir` flags.

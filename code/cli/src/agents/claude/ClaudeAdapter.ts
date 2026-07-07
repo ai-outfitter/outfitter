@@ -11,6 +11,11 @@ import {
   supportedControlNames,
 } from '../AdapterProfileControls.js';
 import { createDeclaredStatePaths, findProfileStateSource } from '../AdapterStatePaths.js';
+import {
+  claudeAggregatedStatePaths,
+  resolveClaudeStateEntrySources,
+  type ClaudeAggregatedStatePath,
+} from './ClaudeProfileResources.js';
 import type { ClaudeProfileControls, Profile, ProfileControls } from '../../profiles/Profile.js';
 import { resolveAppendSystemPromptControl } from '../../profiles/PromptIncludes.js';
 import type { StatePathDeclaration, CompositeProfileStatePath } from '../../compositeProfile/StatePersistence.js';
@@ -142,8 +147,32 @@ const createClaudeStatePaths = (
         directory,
         controls.sessionDirectory,
       ),
-  });
+  }).map((statePath) => withClaudeProfileEntrySources(statePath, input.profileFolders ?? []));
 };
+
+const withClaudeProfileEntrySources = (
+  statePath: CompositeProfileStatePath,
+  profileFolders: readonly string[],
+): CompositeProfileStatePath => {
+  if (
+    statePath.strategy !== 'symlink' ||
+    statePath.sourcePath === undefined ||
+    !isClaudeAggregatedStatePath(statePath.relativePath)
+  ) {
+    return statePath;
+  }
+
+  const entrySources = resolveClaudeStateEntrySources({
+    relativePath: statePath.relativePath,
+    profileFolders,
+    baseSourcePath: statePath.sourcePath,
+  });
+
+  return entrySources === undefined ? statePath : { ...statePath, sourcePath: undefined, entrySources };
+};
+
+const isClaudeAggregatedStatePath = (relativePath: string): relativePath is ClaudeAggregatedStatePath =>
+  (claudeAggregatedStatePaths as readonly string[]).includes(relativePath);
 
 const resolveClaudeStateSourcePath = (
   profileFolders: readonly string[],

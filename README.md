@@ -29,14 +29,28 @@ For the full walkthrough, see [Getting started](./docs/documentation/getting-sta
 
 [Profiles](./docs/documentation/profiles.md) compose the context, tools, prompts, skills, extensions, subagents, and DeepWork workflows that shape an agent. Profiles can be shared using [Profile Catalog Repos](./docs/documentation/profile-repository.md).
 
+The simplest useful profile is one YAML file with an appended system prompt. It works unchanged for every supported agent CLI:
+
 ```yaml
 # ~/.outfitter/profiles/home-default.yml
-id: home-default
 label: Home Default
-description: Reusable personal defaults for Outfitter-managed Pi runs.
 controls:
-  provider: openai-codex
-  model: gpt-5.5
+  append_system_prompt: |
+    Use concise, evidence-backed engineering prose.
+    Prefer small, reviewable changes.
+```
+
+```bash
+outfitter run --profile home-default                 # launches pi (default)
+outfitter run --profile home-default --agent claude  # launches Claude Code
+```
+
+Add agent-specific controls only when you need them:
+
+```yaml
+# ~/.outfitter/profiles/home-default.yml
+label: Home Default
+controls:
   thinking: high
   append_system_prompt:
     - |
@@ -44,6 +58,11 @@ controls:
       Prefer small, reviewable changes.
       Keep durable decisions in repo files.
     - repo_file: docs/architecture.md
+  pi:
+    provider: openai-codex
+    model: gpt-5.5
+  claude:
+    model: claude-sonnet-4-6
 ```
 
 ## Documentation

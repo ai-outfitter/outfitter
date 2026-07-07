@@ -312,6 +312,41 @@ describe('Claude Code adapter support', () => {
     expect(messages).toContain('↳ launching claude …');
   });
 
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-006.5.5).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('appends layered profile append_system_prompt entries as repeated Claude flags', () => {
+    const root = createTemporaryRoot();
+    const adapter = createClaudeAdapter();
+    const homeLayerProfile = {
+      id: 'home-default',
+      inherits: [],
+      controls: { appendSystemPrompt: 'Home prompt.' },
+    };
+    const projectLayerProfile = {
+      id: 'project',
+      inherits: ['home-default'],
+      controls: { claude: { appendSystemPrompt: 'Project prompt for Claude.' } },
+    };
+    const compositeProfilePlan = adapter.createCompositeProfile(projectLayerProfile, {
+      rootDirectory: join(root, 'composite'),
+      profilePaths: [],
+    });
+
+    const launchPlan = adapter.createLaunchPlan(compositeProfilePlan.compositeProfile, projectLayerProfile, [], {
+      profileLayers: [
+        { profile: homeLayerProfile, profilePath: join(root, 'profiles', 'home-default.yml') },
+        { profile: projectLayerProfile, profilePath: join(root, 'profiles', 'project.yml') },
+      ],
+    });
+
+    expect(launchPlan.args).toEqual([
+      '--append-system-prompt',
+      'Project prompt for Claude.',
+      '--append-system-prompt',
+      'Home prompt.',
+    ]);
+  });
+
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-005.5, OFTR-006.5).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('makes Claude Code unsupported control warnings fatal when strict is enabled', async () => {

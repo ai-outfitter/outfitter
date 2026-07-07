@@ -21,11 +21,19 @@ export interface StatePathDeclaration {
   readonly allowedStrategies: readonly StatePersistenceStrategy[];
 }
 
+export interface CompositeProfileStateEntrySource {
+  readonly name: string;
+  readonly sourcePath: string;
+  readonly directory: boolean;
+}
+
 export interface CompositeProfileStatePath {
   readonly relativePath: string;
   readonly strategy: StatePersistenceStrategy;
   readonly sourcePath?: string;
   readonly directory: boolean;
+  /** When set, the state directory is materialized as a real directory of per-entry symlinks. */
+  readonly entrySources?: readonly CompositeProfileStateEntrySource[];
 }
 
 export interface CompositeProfileStateBaseline {
@@ -43,6 +51,11 @@ export const materializeCompositeProfileStatePath = (
   statePath: CompositeProfileStatePath,
 ): void => {
   if (statePath.strategy === 'symlink') {
+    if (statePath.entrySources !== undefined) {
+      materializeEntrySymlinks(rootDirectory, statePath.relativePath, statePath.entrySources);
+      return;
+    }
+
     if (statePath.sourcePath === undefined) {
       throw new Error(`State path '${statePath.relativePath}' uses symlink without a source path.`);
     }
@@ -193,6 +206,29 @@ const getExistingSourceType = (sourcePath: string): 'file' | 'directory' | undef
 
     /* v8 ignore next -- non-ENOENT stat failures should surface as actionable filesystem errors. */
     throw error;
+  }
+};
+
+const materializeEntrySymlinks = (
+  rootDirectory: string,
+  relativePath: string,
+  entrySources: readonly CompositeProfileStateEntrySource[],
+): void => {
+  const outputPath = resolveCompositeProfileStateOutputPath(rootDirectory, relativePath);
+  mkdirSync(outputPath, { recursive: true });
+
+  for (const entrySource of entrySources) {
+    const entryOutputPath = resolveCompositeProfileRelativePath(
+      outputPath,
+      entrySource.name,
+      `State entry '${relativePath}${entrySource.name}'`,
+    );
+
+    if (pathLexicallyExists(entryOutputPath)) {
+      unlinkSync(entryOutputPath);
+    }
+
+    symlinkSync(entrySource.sourcePath, entryOutputPath, entrySource.directory ? 'dir' : 'file');
   }
 };
 
