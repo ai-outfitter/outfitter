@@ -14,6 +14,8 @@ import {
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { sep as posixSeparator } from 'node:path/posix';
 
+import { createSafeSymlink } from '../fs/SafeSymlink.js';
+
 export type StatePersistenceStrategy = 'symlink' | 'discard' | 'warn' | 'error' | 'prompt';
 
 export interface StatePathDeclaration {
@@ -38,16 +40,23 @@ export interface CompositeProfileStateWriteIssue {
   readonly unknown: boolean;
 }
 
+export interface StateMaterializationDependencies {
+  readonly symlink?: typeof symlinkSync;
+  readonly warn?: (message: string) => void;
+  readonly platform?: NodeJS.Platform;
+}
+
 export const materializeCompositeProfileStatePath = (
   rootDirectory: string,
   statePath: CompositeProfileStatePath,
+  dependencies: StateMaterializationDependencies = {},
 ): void => {
   if (statePath.strategy === 'symlink') {
     if (statePath.sourcePath === undefined) {
       throw new Error(`State path '${statePath.relativePath}' uses symlink without a source path.`);
     }
 
-    materializeSymlink(rootDirectory, statePath.relativePath, statePath.sourcePath, statePath.directory);
+    materializeSymlink(rootDirectory, statePath.relativePath, statePath.sourcePath, statePath.directory, dependencies);
     return;
   }
 
@@ -201,6 +210,7 @@ const materializeSymlink = (
   relativePath: string,
   sourcePath: string,
   directory: boolean,
+  dependencies: StateMaterializationDependencies,
 ): void => {
   const outputPath = resolveCompositeProfileStateOutputPath(rootDirectory, relativePath);
   mkdirSync(dirname(outputPath), { recursive: true });
@@ -210,7 +220,7 @@ const materializeSymlink = (
   }
 
   ensureStateSourcePath(sourcePath, directory);
-  symlinkSync(sourcePath, outputPath, directory ? 'dir' : 'file');
+  createSafeSymlink({ sourcePath, outputPath, directory, label: `State path '${relativePath}'` }, dependencies);
 };
 
 const pathLexicallyExists = (path: string): boolean => {
