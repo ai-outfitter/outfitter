@@ -1,7 +1,5 @@
 // Provides the command object for launching selected profiles.
-import { existsSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { join } from 'node:path';
 
 import type { ChildProcess } from 'node:child_process';
 import type { Command } from 'commander';
@@ -37,10 +35,14 @@ import {
 import type { AgentProcessLauncher } from '../../agents/AgentLaunch.js';
 import { launchAgentProcess, resolveAgentLaunchExecutable } from '../../agents/AgentLaunch.js';
 import type { CommandObject } from './CommandObject.js';
-import { isNonInteractivePiLaunch, preparePiLoginLaunchPlan } from './PiLoginLaunch.js';
+import { preparePiLoginLaunchPlan } from './PiLoginLaunch.js';
 import type { SetupCommandDependencies } from './SetupCommand.js';
-import { syncProfileSource, type RemoteProfileSource } from './SyncCommand.js';
 import { emitLaunchSummary } from './run/RunLaunchSummary.js';
+import {
+  isInteractiveRunLaunch,
+  prepareFirstRunRuntimeOnboarding,
+  resolveRunProgressWriter,
+} from './run/RunFirstRunOnboarding.js';
 import { createTerminalStateWritePrompt } from './run/RunStateWritePrompt.js';
 import {
   createFirstRunBootstrapProfile,
@@ -132,6 +134,7 @@ export const executeRunCommand = async (
           projectDirectory: input.projectDirectory,
           cacheDirectory: resolvedProfile.cacheDirectory,
           outfitterDocsDirectory: input.outfitterDocsDirectory,
+          onProgress: resolveRunProgressWriter(dependencies),
         },
       ),
       systemPromptExport.outputPath,
@@ -491,68 +494,6 @@ const formatCompositeProfileStateWriteIssue = (adapterId: string, issue: Composi
   }
 
   return `${adapterId} wrote '${issue.relativePath}' with state_persistence '${issue.strategy}' and it was not persisted.`;
-};
-
-interface FirstRunRuntimeOnboarding {
-  readonly defaultProfilesPath: string;
-}
-
-const defaultProfilesSource = {
-  github: 'ai-outfitter/default-profiles',
-  path: 'profiles',
-} as const satisfies RemoteProfileSource;
-
-const prepareFirstRunRuntimeOnboarding = (
-  input: RunCommandInput,
-  dependencies: RunCommandDependencies,
-): FirstRunRuntimeOnboarding | undefined => {
-  if (!shouldUsePiNativeFirstRunOnboarding(input, dependencies)) {
-    return undefined;
-  }
-
-  const syncResult = syncProfileSource(input.homeDirectory, defaultProfilesSource, dependencies.synchronizer);
-
-  /* v8 ignore next -- network/cache failure path is integration-level behavior; setup fallback message is deterministic. */
-  if (syncResult.status === 'failed') {
-    throw new Error(
-      `Cannot start Pi-native onboarding because the default profiles source failed to sync: ${syncResult.message}. ` +
-        'Fix the network/git issue or run `outfitter setup` once the source is reachable.',
-    );
-  }
-
-  return { defaultProfilesPath: join(syncResult.cachePath, defaultProfilesSource.path) };
-};
-
-const shouldUsePiNativeFirstRunOnboarding = (input: RunCommandInput, dependencies: RunCommandDependencies): boolean => {
-  if (input.forceRuntimeOnboarding !== true && existsSync(join(input.homeDirectory, '.outfitter', 'settings.yml'))) {
-    return false;
-  }
-
-  const selectedAgentId = dependencies.adapter?.id ?? selectRunAgentId(input.agentId, undefined);
-
-  /* v8 ignore next -- explicit profile/non-pi paths are covered by normal run command selection tests. */
-  if (input.profileId !== undefined || selectedAgentId !== 'pi') {
-    return false;
-  }
-
-  if (isNonInteractivePiLaunch(input.passThroughArgs ?? [])) {
-    return false;
-  }
-
-  return isInteractiveRunLaunch(dependencies);
-};
-
-const isInteractiveRunLaunch = (dependencies: RunCommandDependencies): boolean => {
-  if (dependencies.interactive !== undefined) {
-    return dependencies.interactive;
-  }
-
-  /* v8 ignore next -- default process streams are direct terminal behavior; tests inject streams. */
-  const inputIsTty = (dependencies.input ?? process.stdin).isTTY === true;
-  /* v8 ignore next -- default process streams are direct terminal behavior; tests inject streams. */
-  const outputIsTty = (dependencies.output ?? process.stdout).isTTY === true;
-
-  return inputIsTty && outputIsTty;
 };
 
 const withSystemPromptExportPath = (launchPlan: AgentLaunchPlan, outputPath: string | undefined): AgentLaunchPlan =>
