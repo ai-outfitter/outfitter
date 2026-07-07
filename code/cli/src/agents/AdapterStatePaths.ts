@@ -27,8 +27,10 @@ export const createDeclaredStatePaths = (input: DeclaredStatePathInput): readonl
       relativePath,
       strategy,
       directory,
+      // Prompt paths resolve a durable source too, so an interactive "persist" choice
+      // after the run has a destination to copy the change to.
       sourcePath:
-        strategy === 'symlink' && relativePath !== 'unknown'
+        (strategy === 'symlink' || strategy === 'prompt') && relativePath !== 'unknown'
           ? input.resolveSourcePath(relativePath, directory)
           : undefined,
     };

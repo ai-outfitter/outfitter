@@ -19,12 +19,15 @@ import { renderCompositeProfileTemplates } from '../../compositeProfile/Composit
 import {
   createCompositeProfileStateBaseline,
   detectCompositeProfileStateWrites,
+  persistCompositeProfileStateWrite,
+  recordProfileStatePersistenceOverride,
   updateCompositeProfileStateBaselinePaths,
 } from '../../compositeProfile/StatePersistence.js';
 import type {
   CompositeProfileStateBaseline,
   CompositeProfileStatePath,
   CompositeProfileStateWriteIssue,
+  CompositeProfileStateWritePrompt,
 } from '../../compositeProfile/StatePersistence.js';
 import { watchCompositeProfileInputs } from '../../compositeProfile/CompositeProfileWatcher.js';
 import type { AgentProcessLauncher } from '../../agents/AgentLaunch.js';
@@ -34,6 +37,7 @@ import { isNonInteractivePiLaunch, preparePiLoginLaunchPlan } from './PiLoginLau
 import type { SetupCommandDependencies } from './SetupCommand.js';
 import { syncProfileSource, type RemoteProfileSource } from './SyncCommand.js';
 import { emitLaunchSummary } from './run/RunLaunchSummary.js';
+import { createTerminalStateWritePrompt } from './run/RunStateWritePrompt.js';
 import {
   createFirstRunBootstrapProfile,
   createLaunchProfileLayers,
@@ -74,6 +78,7 @@ export interface RunCommandDependencies extends SetupCommandDependencies {
   readonly adapter?: AgentAdapter;
   readonly launcher?: AgentProcessLauncher;
   readonly writeError?: (message: string) => void;
+  readonly promptStateWritePersistence?: CompositeProfileStateWritePrompt;
 }
 
 export const executeRunCommand = async (
@@ -174,12 +179,16 @@ export const executeRunCommand = async (
       dependencies.launcher ??
       /* v8 ignore next -- tests inject launchers instead of spawning pi. */ createSpawnLauncher();
     const exitCode = await launchAgentProcess(launcher, launchPlan, adapter.id);
-    const stateWriteWarnings = handleCompositeProfileStateWrites(
-      adapter.id,
-      compositeProfilePlan.compositeProfile.rootDirectory,
-      compositeProfilePlan.compositeProfile.statePaths,
+    const stateWriteWarnings = await handleCompositeProfileStateWrites({
+      adapterId: adapter.id,
+      rootDirectory: compositeProfilePlan.compositeProfile.rootDirectory,
+      statePaths: compositeProfilePlan.compositeProfile.statePaths,
       stateBaseline,
-    );
+      prompt: resolveStateWritePrompt(dependencies),
+      recordAlwaysChoice: (relativePath) => recordAlwaysStatePersistenceChoice(adapter, resolvedProfile, relativePath),
+      /* v8 ignore next -- console fallback is direct CLI behavior; tests inject a line writer. */
+      notify: dependencies.writeLine ?? console.log,
+    });
 
     failStrictOnWarnings(adapter.id, stateWriteWarnings, input.strict);
     emitWarnings(stateWriteWarnings, dependencies.writeError);
@@ -294,23 +303,155 @@ const createAdapterCompositeProfilePlan = (
   };
 };
 
-const handleCompositeProfileStateWrites = (
-  adapterId: string,
-  compositeProfileRootDirectory: string,
-  statePaths: readonly CompositeProfileStatePath[],
-  stateBaseline: CompositeProfileStateBaseline,
-): readonly string[] => {
+interface CompositeProfileStateWriteHandlingInput {
+  readonly adapterId: string;
+  readonly rootDirectory: string;
+  readonly statePaths: readonly CompositeProfileStatePath[];
+  readonly stateBaseline: CompositeProfileStateBaseline;
+  readonly prompt?: CompositeProfileStateWritePrompt;
+  readonly recordAlwaysChoice: (relativePath: string) => string | undefined;
+  readonly notify: (message: string) => void;
+}
+
+const handleCompositeProfileStateWrites = async (
+  input: CompositeProfileStateWriteHandlingInput,
+): Promise<readonly string[]> => {
   const warnings: string[] = [];
 
-  for (const issue of detectCompositeProfileStateWrites(compositeProfileRootDirectory, statePaths, stateBaseline)) {
+  for (const issue of detectCompositeProfileStateWrites(input.rootDirectory, input.statePaths, input.stateBaseline)) {
     if (issue.strategy === 'error') {
-      throw new Error(formatCompositeProfileStateWriteIssue(adapterId, issue));
+      throw new Error(formatCompositeProfileStateWriteIssue(input.adapterId, issue));
     }
 
-    warnings.push(formatCompositeProfileStateWriteIssue(adapterId, issue));
+    if (issue.strategy === 'prompt') {
+      warnings.push(...(await handlePromptStateWriteIssue(input, issue)));
+      continue;
+    }
+
+    warnings.push(formatCompositeProfileStateWriteIssue(input.adapterId, issue));
   }
 
   return warnings;
+};
+
+const handlePromptStateWriteIssue = async (
+  input: CompositeProfileStateWriteHandlingInput,
+  issue: CompositeProfileStateWriteIssue,
+): Promise<readonly string[]> => {
+  if (issue.unknown) {
+    return [
+      formatCompositeProfileStateWriteIssue(input.adapterId, issue),
+      `state_persistence 'prompt' cannot persist undeclared writes; '${issue.relativePath}' was reported instead.`,
+    ];
+  }
+
+  if (input.prompt === undefined) {
+    return [
+      formatCompositeProfileStateWriteIssue(input.adapterId, issue),
+      `state_persistence prompt for '${issue.relativePath}' skipped: non-interactive session.`,
+    ];
+  }
+
+  const statePath = findDeclaredStatePath(input.statePaths, issue.relativePath);
+  const choice = await input.prompt({
+    agentId: input.adapterId,
+    relativePath: issue.relativePath,
+    sourcePath: statePath.sourcePath,
+  });
+
+  return applyPromptStateWriteChoice(input, statePath, choice);
+};
+
+const applyPromptStateWriteChoice = (
+  input: CompositeProfileStateWriteHandlingInput,
+  statePath: CompositeProfileStatePath,
+  choice: 'persist' | 'discard' | 'always',
+): readonly string[] => {
+  if (choice === 'discard') {
+    input.notify(`Discarded ${input.adapterId} state write to '${statePath.relativePath}'.`);
+    return [];
+  }
+
+  try {
+    persistCompositeProfileStateWrite(input.rootDirectory, statePath);
+  } catch (error) {
+    return [`Could not persist state path '${statePath.relativePath}': ${String(error)}`];
+  }
+
+  input.notify(`Persisted ${input.adapterId} state write '${statePath.relativePath}' to ${statePath.sourcePath}.`);
+
+  if (choice === 'always') {
+    const warning = input.recordAlwaysChoice(statePath.relativePath);
+    return warning === undefined ? [] : [warning];
+  }
+
+  return [];
+};
+
+const findDeclaredStatePath = (
+  statePaths: readonly CompositeProfileStatePath[],
+  relativePath: string,
+): CompositeProfileStatePath => {
+  const statePath = statePaths.find((candidate) => candidate.relativePath === relativePath);
+
+  /* v8 ignore next 3 -- declared prompt issues always originate from a declared state path. */
+  if (statePath === undefined) {
+    throw new Error(`State path '${relativePath}' is not declared by the composite profile.`);
+  }
+
+  return statePath;
+};
+
+// The "always" choice is recorded in the selected profile's own YAML file because profiles
+// are the single source of truth for state_persistence policy; a parallel settings-layer
+// override would create a second precedence system that adapter validation cannot see.
+// Remote/cached profiles are never mutated, so the choice degrades to a one-run persist
+// with an actionable warning.
+const recordAlwaysStatePersistenceChoice = (
+  adapter: AgentAdapter,
+  resolvedProfile: ResolvedRunProfile,
+  relativePath: string,
+): string | undefined => {
+  const declaration = adapter.statePaths?.[relativePath];
+
+  if (declaration === undefined || !declaration.allowedStrategies.includes('symlink')) {
+    return (
+      `Cannot always-persist '${relativePath}': the ${adapter.id} adapter does not allow 'symlink' for it; ` +
+      `the write was persisted once.`
+    );
+  }
+
+  const selectedLayer = [...resolvedProfile.profileLayers]
+    .reverse()
+    .find((layer) => layer.profile.id === resolvedProfile.profile.id);
+
+  if (
+    selectedLayer === undefined ||
+    selectedLayer.source.uri !== undefined ||
+    selectedLayer.source.github !== undefined
+  ) {
+    return (
+      `Cannot record the always-persist choice for '${relativePath}' because profile ` +
+      `'${resolvedProfile.profile.id}' is not a local profile file; the write was persisted once.`
+    );
+  }
+
+  recordProfileStatePersistenceOverride(selectedLayer.profilePath, relativePath, 'symlink');
+  return undefined;
+};
+
+const resolveStateWritePrompt = (
+  dependencies: RunCommandDependencies,
+): CompositeProfileStateWritePrompt | undefined => {
+  if (!isInteractiveRunLaunch(dependencies)) {
+    return undefined;
+  }
+
+  return (
+    dependencies.promptStateWritePersistence ??
+    /* v8 ignore next -- terminal prompting is direct CLI behavior; tests inject a prompt. */
+    createTerminalStateWritePrompt(dependencies.input ?? process.stdin, dependencies.output ?? process.stdout)
+  );
 };
 
 const formatCompositeProfileStateWriteIssue = (adapterId: string, issue: CompositeProfileStateWriteIssue): string => {

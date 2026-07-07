@@ -64,10 +64,24 @@ state_persistence:
   cache/: discard # Allow writes, then throw them away when the run ends.
   plugins/: warn # Allow writes, discard them, and report them after the run.
   settings.json: error # Allow the run, then fail if this path changed.
-  mcp.json: prompt # Reserved for future interactive handling; currently diagnostic where allowed.
+  mcp.json: prompt # Ask after the run: persist, discard, or always persist for this profile.
 ```
 
-Use `symlink` for state you want to keep, such as login state, durable settings, MCP config, or plugin installs. Use `discard`, `warn`, or `error` for state that should not become part of the durable profile.
+Use `symlink` for state you want to keep, such as login state, durable settings, MCP config, or plugin installs. Use `discard`, `warn`, or `error` for state that should not become part of the durable profile. Use `prompt` when you want to decide interactively after each run.
+
+## Prompt strategy
+
+When a `prompt` path changed during a run and both stdin and stdout are interactive terminals, Outfitter asks what to do with the change after the agent exits:
+
+- **persist** — copy the change to the path's durable source (the profile-managed file or the native CLI location) for this run only.
+- **discard** — throw the change away with the rest of the composite profile.
+- **always** — persist the change and record a `state_persistence: <path>: symlink` override in the selected profile's own YAML file, so future runs persist writes to that path automatically.
+
+The "always" choice is written into the selected profile's `profile.yml` because profiles are the single source of truth for `state_persistence` policy. If the selected profile comes from a remote or cached source, Outfitter never mutates the cache: the change is persisted once and a warning explains that the choice could not be recorded.
+
+In non-interactive sessions (CI, scripts, piped stdio), `prompt` falls back to `warn` and Outfitter prints an explicit `prompt skipped: non-interactive` notice.
+
+Undeclared writes governed by `unknown: prompt` cannot be persisted because they have no durable destination; Outfitter reports them as warnings and says so.
 
 ## User stories
 
