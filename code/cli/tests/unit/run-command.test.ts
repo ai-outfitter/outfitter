@@ -569,6 +569,43 @@ describe('run command', () => {
     expect(spawnedResult.exitCode).toBe(0);
   });
 
+  it('launches with local profiles when a remote source cache has never synced', async () => {
+    const root = createTemporaryRoot();
+    const homeDirectory = join(root, 'unsynced-remote-home');
+    const projectDirectory = join(root, 'project');
+    writeSettings(
+      homeDirectory,
+      [
+        'default_profile: local',
+        'profile_sources:',
+        '  - github: ai-outfitter/default-profiles',
+        '    path: profiles',
+        '  - path: ./profiles',
+        '',
+      ].join('\n'),
+    );
+    writeProfile(join(homeDirectory, '.outfitter', 'profiles'), 'local', 'id: local\ncontrols: {}\n');
+    allowTestConsoleOutput(
+      ({ method, text }) =>
+        method === 'log' &&
+        (isRunCommandSummaryMessage(text) || text.startsWith('Outfitter will ask Pi to open `/login` automatically')),
+    );
+
+    const result = await executeRunCommand(
+      { homeDirectory, projectDirectory, profileId: 'local' },
+      {
+        launcher: {
+          launch() {
+            return Promise.resolve(0);
+          },
+        },
+      },
+    );
+
+    expect(result.profileId).toBe('local');
+    expect(result.exitCode).toBe(0);
+  });
+
   it('maps child process exits and signals to command exit codes', () => {
     expect(resolveChildExitCode(7, null)).toBe(7);
     expect(resolveChildExitCode(null, 'SIGINT')).toBe(130);
