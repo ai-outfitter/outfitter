@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.9.0](https://github.com/ai-outfitter/outfitter/compare/v0.8.0...v0.9.0) (2026-07-07)
+
+
+### Features
+
+* **state:** implement the interactive prompt state-persistence strategy ([#134](https://github.com/ai-outfitter/outfitter/issues/134)) ([d76a085](https://github.com/ai-outfitter/outfitter/commit/d76a08593e3bf5f6038e88599bbfcf2d0fca7cd9))
+
+
+### Bug Fixes
+
+* **onboarding:** remove hardcoded bootstrap model from first-run pi launch ([#137](https://github.com/ai-outfitter/outfitter/issues/137)) ([bb1dfbd](https://github.com/ai-outfitter/outfitter/commit/bb1dfbddd88f7332060d061159c99aef5d57ee3e)), closes [#2](https://github.com/ai-outfitter/outfitter/issues/2)
+* **run:** let launches proceed when a remote profile source has never synced ([#140](https://github.com/ai-outfitter/outfitter/issues/140)) ([f3a4a7e](https://github.com/ai-outfitter/outfitter/commit/f3a4a7e6d0274699b75e3093107eccdba7ece059))
+* **state:** clean up composite temp dirs on exit, signals, and startup sweep ([#135](https://github.com/ai-outfitter/outfitter/issues/135)) ([b3f969f](https://github.com/ai-outfitter/outfitter/commit/b3f969f959c060e534ac7adeeb53e74801592b6d))
+* **state:** handle symlink permission errors with a win32-only fallback via SafeSymlink ([#133](https://github.com/ai-outfitter/outfitter/issues/133)) ([20f385a](https://github.com/ai-outfitter/outfitter/commit/20f385a6a4af466124674dfbd086784157460f87))
+* **sync:** resolve nested remote settings files ([#141](https://github.com/ai-outfitter/outfitter/issues/141)) ([68162a5](https://github.com/ai-outfitter/outfitter/commit/68162a56a74cb149e5c916748630bc6789f4101e))
+* **sync:** speed up first boot with shallow clones, cache refresh, and progress output ([#138](https://github.com/ai-outfitter/outfitter/issues/138)) ([a18c4e3](https://github.com/ai-outfitter/outfitter/commit/a18c4e3c71de69da63f8cd1e9f8cacea34f334a8)), closes [#4](https://github.com/ai-outfitter/outfitter/issues/4)
+
 ## [0.8.0](https://github.com/ai-outfitter/outfitter/compare/v0.7.2...v0.8.0) (2026-07-02)
 
 
