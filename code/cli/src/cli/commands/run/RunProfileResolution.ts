@@ -1,5 +1,5 @@
 // Resolves the effective profile, layers, and profile sources for a run command launch.
-import { mkdirSync } from 'node:fs';
+import { existsSync, mkdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
 import { createEmptyProfile, type Profile } from '../../../profiles/Profile.js';
@@ -166,6 +166,14 @@ export const loadProfileSources = (
 
   for (const source of sources) {
     const materializedSource = materializeSource(homeDirectory, source);
+
+    // A remote source whose cache has never synced (degraded-offline onboarding, blocked
+    // network) contributes no profiles instead of failing the launch; a later successful
+    // `outfitter sync` upgrades it to the full catalog.
+    if (isUnsyncedRemoteProfileSource(source, materializedSource.path)) {
+      continue;
+    }
+
     const result = loadLocalProfileSource(materializedSource);
     profiles.push(...result.profiles.map((profile) => ({ ...profile, source })));
     issues.push(...result.issues);
@@ -173,6 +181,11 @@ export const loadProfileSources = (
 
   return { profiles, issues };
 };
+
+const isUnsyncedRemoteProfileSource = (source: ProfileSourceReference, materializedPath: string | undefined): boolean =>
+  (source.uri !== undefined || source.github !== undefined) &&
+  materializedPath !== undefined &&
+  !existsSync(materializedPath);
 
 const materializeSource = (homeDirectory: string, source: ProfileSourceReference): ProfileSourceReference => {
   if (source.uri === undefined && source.github === undefined) {
