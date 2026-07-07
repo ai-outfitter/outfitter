@@ -46,9 +46,11 @@ export const preparePiLoginLaunchPlan = (input: PiLoginLaunchPlanInput): AgentLa
     return launchPlan;
   }
 
+  // First-run onboarding intentionally passes no `--model`: pi applies its own default from the
+  // models it knows about, and the runtime extension opens `/login` when no model is available.
+  // Injecting a hardcoded model ID here would break every new user when pi rotates its catalog.
   if (input.runtimeOnboarding?.autoOpenOutfitter === true) {
     writeQuietPiStartupSettings(piConfigDirectory);
-    launchPlan = addFirstRunBootstrapModelIfNeeded(launchPlan);
   }
 
   writePiOutfitterEnterpriseSupportFiles(piConfigDirectory);
@@ -73,18 +75,6 @@ export const preparePiLoginLaunchPlan = (input: PiLoginLaunchPlanInput): AgentLa
 
   return launchPlan;
 };
-
-const addFirstRunBootstrapModelIfNeeded = (launchPlan: AgentLaunchPlan): AgentLaunchPlan => {
-  if (hasPiModelArg(launchPlan.args)) {
-    return launchPlan;
-  }
-
-  return { ...launchPlan, args: ['--model', 'google/gemini-3.1-pro-preview', ...launchPlan.args] };
-};
-
-/* v8 ignore next -- arg parser supports both spellings; integration smoke covers explicit --model passthrough. */
-const hasPiModelArg = (args: readonly string[]): boolean =>
-  args.some((arg) => arg === '--model' || arg.startsWith('--model='));
 
 const writeQuietPiStartupSettings = (piConfigDirectory: string): void => {
   const settingsPath = join(piConfigDirectory, 'settings.json');
