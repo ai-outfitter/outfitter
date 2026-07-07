@@ -7,9 +7,26 @@ on:
       - main
 
 jobs:
+  # The ubuntu leg runs the full check-ci gate (prettier, lint, coverage, docs); the
+  # macos and windows legs run the test suite to enforce cross-platform compatibility.
+  # Windows is experimental: the runtime is symlink-centric and Windows support has not
+  # been verified end to end. Its test step continues on error so the suite is not
+  # blocked, but a failure is surfaced as a job-level warning annotation instead of
+  # being silently swallowed by a job-level continue-on-error.
   check:
-    name: Check
-    runs-on: ubuntu-latest
+    name: Check (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            experimental: false
+          - os: macos-latest
+            experimental: false
+          - os: windows-latest
+            experimental: true
 
     steps:
       - name: Checkout
@@ -25,4 +42,41 @@ jobs:
         run: npm ci
 
       - name: Run CI checks
+        if: matrix.os == 'ubuntu-latest'
         run: npm run check-ci
+
+      - name: Run test suite
+        if: matrix.os != 'ubuntu-latest' && !matrix.experimental
+        run: npm test
+
+      - name: Run test suite (experimental platform)
+        id: experimental-tests
+        if: matrix.experimental
+        continue-on-error: true
+        run: npm test
+
+      - name: Surface experimental platform failure
+        if: matrix.experimental && steps.experimental-tests.outcome == 'failure'
+        run: echo "::warning title=Windows test suite failed::The experimental ${{ matrix.os }} leg failed; see the 'Run test suite (experimental platform)' step. This does not block the suite but should be triaged."
+
+  # Exercises the shipped artifact (npm pack → global install → run the bin) so
+  # packaging regressions fail CI even when all in-process tests pass.
+  packaged-smoke:
+    name: Packaged E2E smoke
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22.19.0'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run packaged E2E smoke test
+        run: bash scripts/e2e-smoke.sh
