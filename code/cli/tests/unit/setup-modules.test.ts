@@ -1,29 +1,26 @@
-// Tests the extracted setup flow modules: prompts, source import, starter layout, and messages.
-import { existsSync, lstatSync, mkdirSync, mkdtempSync, readlinkSync, rmSync, writeFileSync } from 'node:fs';
+// Tests the extracted setup flow modules: prompts, source import, starter sources, and launch messages.
+import { lstatSync, mkdirSync, mkdtempSync, readlinkSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { PassThrough } from 'node:stream';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { formatSetupSourceExitMessages } from '../../src/cli/commands/setup/SetupMessages.js';
-import {
-  canResolveProfileForLaunch,
-  findWelcomeSourceProfileDirectory,
-} from '../../src/cli/commands/setup/SetupProfileDiscovery.js';
 import {
   promptForSetupProfileWithReadline,
-  promptForSetupSourceImportModeWithReadline,
-  promptForSetupSourceImportTargetWithReadline,
+  promptForSetupSourceLaunchAction,
   runSetupSourceOnboarding,
-  selectSetupSourceLaunchAction,
 } from '../../src/cli/commands/setup/SetupPrompts.js';
 import { applySetupSourceImport, symlinkLocalOutfitterSource } from '../../src/cli/commands/setup/SetupSourceImport.js';
 import {
+  formatRunProfileExample,
+  formatSetupSourceExitMessages,
+} from '../../src/cli/commands/setup/SetupSourceLaunch.js';
+import {
   prepareStarterLayout,
   resolveLocalSetupSourceOutfitterPathFromUri,
-} from '../../src/cli/commands/setup/SetupStarterLayout.js';
-import { setupSourceImportTargetChoices } from '../../src/cli/commands/setup/SetupTypes.js';
+} from '../../src/cli/commands/setup/SetupStarterSource.js';
+import type { StarterLayout } from '../../src/cli/commands/setup/SetupTypes.js';
 
 const temporaryRoots: string[] = [];
 
@@ -74,51 +71,88 @@ const writeLocalSetupSource = (root: string): string => {
   return sourceDirectory;
 };
 
-describe('setup prompt readline flows', () => {
-  it('selects import targets by number and defaults on blank answers', async () => {
-    const { output } = createSinkOutput();
-
-    await expect(
-      promptForSetupSourceImportTargetWithReadline(
-        createScriptedReadline(['']),
-        output,
-        setupSourceImportTargetChoices,
-        'home',
-      ),
-    ).resolves.toBe('home');
-    await expect(
-      promptForSetupSourceImportTargetWithReadline(
-        createScriptedReadline(['2']),
-        output,
-        setupSourceImportTargetChoices,
-        'home',
-      ),
-    ).resolves.toBe('project');
-    await expect(
-      promptForSetupSourceImportTargetWithReadline(
-        createScriptedReadline(['9']),
-        output,
-        setupSourceImportTargetChoices,
-        'home',
-      ),
-    ).rejects.toThrow('Selected setup-source import target number is out of range.');
+// Drives runSetupSourceOnboarding through real terminal streams, answering each readline
+// question as its prompt appears; pre-buffered lines are consumed all at once by readline
+// and would starve later questions.
+const startReadlineSetupSourceOnboarding = (
+  input: { homeDirectory: string; projectDirectory: string; setupSourceUri: string },
+  starterLayout: StarterLayout,
+  answers: string[],
+): { onboarding: Promise<unknown>; written: string[] } => {
+  const terminalInput = new PassThrough();
+  const written: string[] = [];
+  const terminalOutput = new PassThrough();
+  terminalOutput.on('data', (chunk: Buffer) => {
+    written.push(chunk.toString());
+    if (chunk.toString().endsWith(']: ') && answers.length > 0) {
+      setImmediate(() => terminalInput.write(`${answers.shift() ?? ''}\n`));
+    }
   });
 
-  it('selects import modes by number, defaults to copy, and skips the prompt without a local source', async () => {
-    const { output } = createSinkOutput();
+  return {
+    onboarding: runSetupSourceOnboarding(
+      input,
+      { input: terminalInput, output: terminalOutput },
+      starterLayout,
+      'founder',
+    ),
+    written,
+  };
+};
 
-    await expect(promptForSetupSourceImportModeWithReadline(createScriptedReadline([]), output, false)).resolves.toBe(
-      'copy',
+describe('setup prompt readline flows', () => {
+  it('defaults to a home-target copy import of the source default profile on blank answers', async () => {
+    const root = createTemporaryRoot();
+    const sourceDirectory = writeLocalSetupSource(root);
+    const input = { homeDirectory: join(root, 'home'), projectDirectory: root, setupSourceUri: sourceDirectory };
+    const starterLayout = prepareStarterLayout(input.homeDirectory, input.projectDirectory, sourceDirectory);
+
+    const { onboarding } = startReadlineSetupSourceOnboarding(input, starterLayout, ['', '', '']);
+
+    await expect(onboarding).resolves.toEqual({
+      importTarget: 'home',
+      importMode: 'copy',
+      selectedProfileId: 'founder',
+    });
+  });
+
+  it('rejects out-of-range import target and import mode selections', async () => {
+    const root = createTemporaryRoot();
+    const sourceDirectory = writeLocalSetupSource(root);
+    const input = { homeDirectory: join(root, 'home'), projectDirectory: root, setupSourceUri: sourceDirectory };
+    const starterLayout = prepareStarterLayout(input.homeDirectory, input.projectDirectory, sourceDirectory);
+
+    await expect(startReadlineSetupSourceOnboarding(input, starterLayout, ['9']).onboarding).rejects.toThrow(
+      'Selected setup-source import target number is out of range.',
     );
-    await expect(promptForSetupSourceImportModeWithReadline(createScriptedReadline(['']), output, true)).resolves.toBe(
-      'copy',
+    await expect(startReadlineSetupSourceOnboarding(input, starterLayout, ['1', '9']).onboarding).rejects.toThrow(
+      'Selected setup-source import mode number is out of range.',
     );
-    await expect(promptForSetupSourceImportModeWithReadline(createScriptedReadline(['2']), output, true)).resolves.toBe(
-      'symlink',
-    );
-    await expect(
-      promptForSetupSourceImportModeWithReadline(createScriptedReadline(['9']), output, true),
-    ).rejects.toThrow('Selected setup-source import mode number is out of range.');
+  });
+
+  it('skips the import mode prompt when the setup source is not a local directory', async () => {
+    const root = createTemporaryRoot();
+    const sourceDirectory = writeLocalSetupSource(root);
+    const input = {
+      homeDirectory: join(root, 'home'),
+      projectDirectory: root,
+      setupSourceUri: 'https://example.test/repo.git',
+    };
+    const starterLayout: StarterLayout = {
+      cachePath: join(sourceDirectory, '.outfitter'),
+      settingsPath: join(sourceDirectory, '.outfitter', 'settings.yml'),
+      profilesPath: join(sourceDirectory, '.outfitter', 'profiles'),
+      sourceKind: 'remote-cache',
+    };
+
+    const { onboarding, written } = startReadlineSetupSourceOnboarding(input, starterLayout, ['', '']);
+
+    await expect(onboarding).resolves.toEqual({
+      importTarget: 'home',
+      importMode: 'copy',
+      selectedProfileId: 'founder',
+    });
+    expect(written.join('')).not.toContain('Choose how to install this local setup source:');
   });
 
   it('falls back to the current default when no profiles were discovered', async () => {
@@ -139,30 +173,14 @@ describe('setup prompt readline flows', () => {
       setupSourceUri: sourceDirectory,
     };
     const starterLayout = prepareStarterLayout(input.homeDirectory, input.projectDirectory, sourceDirectory);
-    const terminalInput = new PassThrough();
-    const answers = ['2', '2', '1'];
-    const written: string[] = [];
-    const terminalOutput = new PassThrough();
-    terminalOutput.on('data', (chunk: Buffer) => {
-      written.push(chunk.toString());
-      // Answer each readline question as its prompt appears; pre-buffered lines are
-      // consumed all at once by readline and would starve later questions.
-      if (chunk.toString().endsWith(']: ') && answers.length > 0) {
-        setImmediate(() => terminalInput.write(`${answers.shift() ?? ''}\n`));
-      }
+
+    const { onboarding, written } = startReadlineSetupSourceOnboarding(input, starterLayout, ['2', '2', '1']);
+
+    await expect(onboarding).resolves.toEqual({
+      importTarget: 'project',
+      importMode: 'symlink',
+      selectedProfileId: 'founder',
     });
-
-    const onboarding = await runSetupSourceOnboarding(
-      input,
-      {
-        input: terminalInput,
-        output: terminalOutput,
-      },
-      starterLayout,
-      'founder',
-    );
-
-    expect(onboarding).toEqual({ importTarget: 'project', importMode: 'symlink', selectedProfileId: 'founder' });
     expect(written.join('')).toContain('Local setup source detected.');
     expect(written.join('')).toContain('Choose where to install these profiles:');
     expect(written.join('')).toContain('Choose how to install this local setup source:');
@@ -172,7 +190,7 @@ describe('setup prompt readline flows', () => {
     const declineInput = new PassThrough();
     declineInput.write('n\n');
     await expect(
-      selectSetupSourceLaunchAction('founder', 'selected', {
+      promptForSetupSourceLaunchAction('founder', 'selected', {
         input: declineInput,
         output: new PassThrough(),
       }),
@@ -181,7 +199,7 @@ describe('setup prompt readline flows', () => {
     const acceptInput = new PassThrough();
     acceptInput.write('\n');
     await expect(
-      selectSetupSourceLaunchAction('founder', 'default', {
+      promptForSetupSourceLaunchAction('founder', 'default', {
         input: acceptInput,
         output: new PassThrough(),
       }),
@@ -323,30 +341,15 @@ describe('setup source exit messages', () => {
     expect(messages[0]).toContain("Imported profile 'ghost-profile' into user home");
     expect(messages[0]).toContain('project overrides profile_sources');
   });
-});
 
-describe('setup profile discovery guards', () => {
   it('treats invalid settings as launchable so setup errors stay actionable elsewhere', () => {
     const root = createTemporaryRoot();
     const homeDirectory = join(root, 'home');
     mkdirSync(join(homeDirectory, '.outfitter'), { recursive: true });
     writeFileSync(join(homeDirectory, '.outfitter', 'settings.yml'), 'default_profile: [broken\n');
 
-    expect(canResolveProfileForLaunch({ homeDirectory, projectDirectory: root }, 'anything')).toBe(true);
-  });
-
-  it('locates the welcome source profile directory only for known profile ids', () => {
-    const root = createTemporaryRoot();
-    const homeDirectory = join(root, 'home');
-    const profileDirectory = join(homeDirectory, '.outfitter', 'profiles', 'founder');
-    mkdirSync(profileDirectory, { recursive: true });
-    writeFileSync(join(homeDirectory, '.outfitter', 'settings.yml'), 'profile_sources:\n  - path: ./profiles\n');
-    writeFileSync(join(profileDirectory, 'profile.yml'), 'id: founder\ncontrols: {}\n');
-    const input = { homeDirectory, projectDirectory: root };
-
-    expect(findWelcomeSourceProfileDirectory(input, undefined)).toBeUndefined();
-    expect(findWelcomeSourceProfileDirectory(input, 'founder')).toBe(profileDirectory);
-    expect(findWelcomeSourceProfileDirectory(input, 'missing')).toBeUndefined();
-    expect(existsSync(profileDirectory)).toBe(true);
+    expect(
+      formatSetupSourceExitMessages({ homeDirectory, projectDirectory: root }, 'home', 'anything', 'selected'),
+    ).toEqual([formatRunProfileExample('anything')]);
   });
 });

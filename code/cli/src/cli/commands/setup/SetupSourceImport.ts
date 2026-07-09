@@ -105,8 +105,14 @@ const applySetupSourceCopyImport = (
 };
 
 /* v8 ignore stop */
-/* v8 ignore start -- local setup-source symlink safety is covered by filesystem integration tests. */
-const symlinkLocalOutfitterSource = (sourceOutfitterPath: string, targetOutfitterPath: string): void => {
+export type SymlinkDirectory = (target: string, path: string, type: 'dir') => void;
+
+export const symlinkLocalOutfitterSource = (
+  sourceOutfitterPath: string,
+  targetOutfitterPath: string,
+  symlinkDirectory: SymlinkDirectory = symlinkSync,
+  platform: NodeJS.Platform = process.platform,
+): void => {
   if (existsSync(targetOutfitterPath)) {
     const entries = readdirSync(targetOutfitterPath);
 
@@ -121,10 +127,31 @@ const symlinkLocalOutfitterSource = (sourceOutfitterPath: string, targetOutfitte
   }
 
   mkdirSync(dirname(targetOutfitterPath), { recursive: true });
-  symlinkSync(sourceOutfitterPath, targetOutfitterPath, 'dir');
+
+  try {
+    symlinkDirectory(sourceOutfitterPath, targetOutfitterPath, 'dir');
+  } catch (error) {
+    throw translateSymlinkFailure(error, targetOutfitterPath, platform);
+  }
 };
 
-/* v8 ignore stop */
+// Windows refuses symlink creation without Developer Mode or elevation (EPERM/EACCES);
+// surface an actionable choice instead of a raw crash. Never silently fall back to copying.
+const translateSymlinkFailure = (error: unknown, targetOutfitterPath: string, platform: NodeJS.Platform): unknown => {
+  const code = (error as { readonly code?: unknown } | null)?.code;
+
+  if (platform !== 'win32' || (code !== 'EPERM' && code !== 'EACCES')) {
+    return error;
+  }
+
+  return new Error(
+    `Could not create the development symlink at '${targetOutfitterPath}' (${String(code)}). ` +
+      'Windows requires Developer Mode (Settings > System > For developers) or an elevated shell to create symlinks. ' +
+      'Enable Developer Mode and retry, or rerun setup and choose the copy snapshot import mode.',
+    { cause: error },
+  );
+};
+
 const createSetupSourceImportTargetLayout = (
   input: SetupCommandInput,
   target: SetupSourceImportTarget,
