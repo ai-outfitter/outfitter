@@ -328,7 +328,7 @@ const selectSetupPromptProfiles = (
   return prioritizeSetupProfileChoice(profiles, promptDefault);
 };
 
-const chooseSetupPromptDefault = (
+export const chooseSetupPromptDefault = (
   profiles: readonly SetupProfileChoice[],
   sourceDefault: string | undefined,
   fallbackDefault: string,
@@ -458,7 +458,7 @@ const promptForSetupProfile = async (
   }
 };
 
-const promptForSetupProfileWithReadline = async (
+export const promptForSetupProfileWithReadline = async (
   readline: { question(query: string): Promise<string> },
   output: Pick<NodeJS.WritableStream, 'write'>,
   profiles: readonly SetupProfileChoice[],

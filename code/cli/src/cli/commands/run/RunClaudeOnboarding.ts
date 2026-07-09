@@ -1,110 +1,31 @@
-// First-run onboarding for `outfitter run`: routes fresh machines into the pi-native
-// bootstrap flow or the terminal-side claude profile picker, sharing the default-catalog
-// sync and the degraded-offline builtin fallback between both paths.
+// Claude Code has no pi-tui equivalent for embedded onboarding UI, so first runs with
+// `--agent claude` finish profile setup with a terminal-side picker before launching claude.
+// Interactive launches also get a one-line `/login` hint when no prior claude login state is
+// cheaply detectable on disk; Outfitter never reads or stores Claude credentials.
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { createInterface } from 'node:readline/promises';
 import { join } from 'node:path';
 
-import { defaultAgentId as registryDefaultAgentId } from '../../../agents/AgentRegistry.js';
-import {
-  builtinStarterProfileId,
-  createBuiltinProfilesCachePath,
-  materializeBuiltinProfiles,
-} from '../../../profiles/BuiltinProfiles.js';
+import { builtinStarterProfileId, materializeBuiltinProfiles } from '../../../profiles/BuiltinProfiles.js';
 import { loadLocalProfileSource } from '../../../profiles/ProfileLoader.js';
-import { isNonInteractivePiLaunch } from '../PiLoginLaunch.js';
-import { createDefaultSettingsContent } from '../SetupCommand.js';
-import { assertValidDefaultProfileId, chooseSetupPromptDefault } from '../setup/SetupProfileDiscovery.js';
-import { promptForSetupProfileWithReadline, resolvePromptOutput } from '../setup/SetupPrompts.js';
+import {
+  chooseSetupPromptDefault,
+  promptForSetupProfileWithReadline,
+  resolvePromptOutput,
+} from '../setup/SetupPrompts.js';
+import { assertValidDefaultProfileId, createDefaultSettingsContent } from '../setup/SetupStarterSource.js';
 import type { SetupProfileChoice } from '../setup/SetupTypes.js';
-import { createGitSynchronizer, syncProfileSource, type RemoteProfileSource } from '../SyncCommand.js';
+import { createGitSynchronizer, syncProfileSource } from '../SyncCommand.js';
 import { writeWelcomeIntro } from '../WelcomeCommand.js';
 import type { RunCommandDependencies, RunCommandInput } from '../RunCommand.js';
+import {
+  defaultProfilesSource,
+  formatDegradedOnboardingWarning,
+  isInteractiveRunLaunch,
+  resolveRunProgressWriter,
+} from './RunFirstRunOnboarding.js';
+import { selectRunAgentId } from './RunProfileResolution.js';
 
-export interface FirstRunRuntimeOnboarding {
-  readonly defaultProfilesPath: string;
-}
-
-export const defaultProfilesSource = {
-  github: 'ai-outfitter/default-profiles',
-  path: 'profiles',
-} as const satisfies RemoteProfileSource;
-
-// Network/build steps (catalog clones, extension caching) report per-source progress through this
-// writer so first boot never stalls silently before launch.
-export const resolveRunProgressWriter = (dependencies: RunCommandDependencies): ((message: string) => void) =>
-  /* v8 ignore next -- console fallback is direct CLI behavior; tests inject writeLine. */
-  dependencies.writeLine ?? console.log;
-
-export const selectRunAgentId = (selectedAgentId: string | undefined, defaultAgentId: string | undefined): string =>
-  selectedAgentId ?? defaultAgentId ?? registryDefaultAgentId;
-
-export const isInteractiveRunLaunch = (dependencies: RunCommandDependencies): boolean => {
-  if (dependencies.interactive !== undefined) {
-    return dependencies.interactive;
-  }
-
-  /* v8 ignore next -- default process streams are direct terminal behavior; tests inject streams. */
-  const inputIsTty = (dependencies.input ?? process.stdin).isTTY === true;
-  /* v8 ignore next -- default process streams are direct terminal behavior; tests inject streams. */
-  const outputIsTty = (dependencies.output ?? process.stdout).isTTY === true;
-
-  return inputIsTty && outputIsTty;
-};
-
-export const prepareFirstRunRuntimeOnboarding = (
-  input: RunCommandInput,
-  dependencies: RunCommandDependencies,
-): FirstRunRuntimeOnboarding | undefined => {
-  if (!shouldUsePiNativeFirstRunOnboarding(input, dependencies)) {
-    return undefined;
-  }
-
-  const syncResult = syncProfileSource(
-    input.homeDirectory,
-    defaultProfilesSource,
-    dependencies.synchronizer ?? createGitSynchronizer(resolveRunProgressWriter(dependencies)),
-  );
-
-  if (syncResult.status === 'failed') {
-    (dependencies.writeError ?? console.error)(formatDegradedOnboardingWarning(syncResult.message));
-    const builtinProfilesPath = createBuiltinProfilesCachePath(input.homeDirectory);
-    materializeBuiltinProfiles(builtinProfilesPath);
-
-    return { defaultProfilesPath: builtinProfilesPath };
-  }
-
-  return { defaultProfilesPath: join(syncResult.cachePath, defaultProfilesSource.path) };
-};
-
-const formatDegradedOnboardingWarning = (failureMessage: string): string =>
-  `Warning: could not sync the default profiles source github:${defaultProfilesSource.github} (${failureMessage}). ` +
-  `Continuing with the built-in '${builtinStarterProfileId}' profile; run \`outfitter sync\` to fetch the full catalog once the source is reachable.`;
-
-const shouldUsePiNativeFirstRunOnboarding = (input: RunCommandInput, dependencies: RunCommandDependencies): boolean => {
-  if (input.forceRuntimeOnboarding !== true && hasUserSettings(input.homeDirectory)) {
-    return false;
-  }
-
-  const selectedAgentId = dependencies.adapter?.id ?? selectRunAgentId(input.agentId, undefined);
-
-  /* v8 ignore next -- explicit profile/non-pi paths are covered by normal run command selection tests. */
-  if (input.profileId !== undefined || selectedAgentId !== 'pi') {
-    return false;
-  }
-
-  if (isNonInteractivePiLaunch(input.passThroughArgs ?? [])) {
-    return false;
-  }
-
-  return isInteractiveRunLaunch(dependencies);
-};
-
-const hasUserSettings = (homeDirectory: string): boolean =>
-  existsSync(join(homeDirectory, '.outfitter', 'settings.yml'));
-
-// Claude Code has no pi-tui equivalent for embedded onboarding UI, so first runs with
-// `--agent claude` finish profile setup with a terminal-side picker before launching claude.
 export const runClaudeFirstRunOnboardingIfNeeded = async (
   input: RunCommandInput,
   dependencies: RunCommandDependencies,
@@ -141,6 +62,9 @@ const shouldUseClaudeFirstRunOnboarding = (input: RunCommandInput, dependencies:
 
   return isInteractiveRunLaunch(dependencies);
 };
+
+const hasUserSettings = (homeDirectory: string): boolean =>
+  existsSync(join(homeDirectory, '.outfitter', 'settings.yml'));
 
 // `--print`/`-p` launches are claude's non-interactive mode: no picker, no settings writes.
 const isNonInteractiveClaudeLaunch = (args: readonly string[]): boolean =>

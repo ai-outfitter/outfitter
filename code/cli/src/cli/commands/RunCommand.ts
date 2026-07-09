@@ -48,6 +48,7 @@ import {
   recordAlwaysStatePersistenceChoice,
   resolveStateWritePrompt,
 } from './run/RunStateWritePrompt.js';
+import { emitClaudeLoginHintIfNeeded, runClaudeFirstRunOnboardingIfNeeded } from './run/RunClaudeOnboarding.js';
 import {
   createFirstRunBootstrapProfile,
   createLaunchProfileLayers,
@@ -106,6 +107,9 @@ export const executeRunCommand = async (
   // ~/.outfitter/state rather than the tmp root, so the sweep can never delete one.
   reportPreviousSessionJournals(sessionJournalDirectory, dependencies);
   sweepStaleCompositeProfileDirectories();
+  // First runs with `--agent claude` finish profile setup through a terminal-side picker
+  // that writes settings before the normal profile resolution below runs.
+  await runClaudeFirstRunOnboardingIfNeeded(input, dependencies);
   const runtimeOnboarding = prepareFirstRunRuntimeOnboarding(input, dependencies);
   const resolvedProfile =
     runtimeOnboarding === undefined ? loadResolvedProfile(input) : createFirstRunBootstrapProfile(input);
@@ -171,6 +175,14 @@ export const executeRunCommand = async (
     compositeProfilePlan.compositeProfile.rootDirectory,
     dependencies.writeLine,
   );
+  // Claude owns its login flow; Outfitter only hints at `/login` when no prior claude
+  // login state is cheaply detectable, and never touches credentials itself.
+  emitClaudeLoginHintIfNeeded({
+    adapterId: adapter.id,
+    homeDirectory: input.homeDirectory,
+    passThroughArgs: input.passThroughArgs,
+    dependencies,
+  });
   const watcher = watchCompositeProfileInputs({
     compositeProfile: compositeProfilePlan.compositeProfile,
     refreshCompositeProfile: () => {
