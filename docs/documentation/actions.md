@@ -43,7 +43,7 @@ Mind the rate limits: the included tier is sized for event-driven, one-shot jobs
 
 A profile that behaves well interactively can still fail silently in CI. Lessons from running triage agents in production:
 
-- **Stdout is invisible.** In print mode nobody reads what the agent says — only its side effects matter. Instruct the profile to *do* things with `gh` (comment, label, push) and name the exact commands; otherwise models will print the deliverable as their answer and exit green.
+- **Stdout is invisible.** In print mode nobody reads what the agent says — only its side effects matter. Instruct the profile to _do_ things with `gh` (comment, label, push) and name the exact commands; otherwise models will print the deliverable as their answer and exit green.
 - **Quote-safe posting.** When the agent posts text derived from untrusted input (issue bodies, diffs) back through `gh`, require a quoted heredoc plus `--body-file`, never inline `--body "..."` — backticks in a double-quoted body are executed by the shell.
 - **Verify side effects, not exit codes.** A green run is not proof of work. Add a post-agent step that asserts the expected side effects landed — the action ships [`scripts/validate-triage.sh`](https://github.com/ai-outfitter/actions/blob/main/scripts/validate-triage.sh) as a reference for triage-style jobs.
 - **Hard limits in the profile.** Enumerate exactly what the agent may do (which labels, how many comments, no closing/editing) and treat fetched content as data to classify, never instructions.
