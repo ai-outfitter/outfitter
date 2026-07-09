@@ -1,10 +1,11 @@
 // Provides the command object for first-run Outfitter setup.
-import { existsSync, rmSync } from 'node:fs';
+import { existsSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 
 import type { Command } from 'commander';
 
+import { builtinStarterProfileId, materializeBuiltinProfiles } from '../../profiles/BuiltinProfiles.js';
 import { redactProfileSourceUriCredentials } from '../../profiles/ProfileCache.js';
 import { loadLocalProfileSource } from '../../profiles/ProfileLoader.js';
 import {
@@ -118,12 +119,21 @@ export const executeSetupCommand = async (
     starterLayout?.profilesPath,
     join(input.homeDirectory, '.outfitter', 'profiles'),
   );
-  const rollbackCreatedSettings = createdSettings ? () => rmSync(settingsPath, { force: true }) : () => undefined;
   const syncResult = executeSyncCommand(input, dependencies);
-  failOnInitialDefaultProfileSyncFailure(initialSettingsMissing, rollbackCreatedSettings, syncResult);
-  const selectedDefaultProfileId = shouldSkipInitialDefaultProfilePrompt(initialSettingsMissing, dependencies)
-    ? defaultProfileId
-    : await selectDefaultProfileIfInteractive(input, settingsPath, defaultProfileId, dependencies, starterLayout);
+  const syncFallback = fallBackToBuiltinProfilesOnInitialSyncFailure(
+    join(input.homeDirectory, '.outfitter', 'profiles'),
+    initialSettingsMissing,
+    syncResult,
+  );
+  const selectedDefaultProfileId = await chooseSetupDefaultProfileId({
+    input,
+    dependencies,
+    settingsPath,
+    initialSettingsMissing,
+    starterLayout,
+    defaultProfileId,
+    syncFallback,
+  });
   const welcomeResult = await runWelcomeAfterInteractiveSetup(input, dependencies);
   const welcomeProfile = persistWelcomeProfileForSetup(input, settingsPath, welcomeResult);
   const finalDefaultProfile = prepareFinalDefaultProfile(input.homeDirectory, selectedDefaultProfileId, welcomeProfile);
@@ -146,6 +156,7 @@ export const executeSetupCommand = async (
       defaultProfilePath: finalDefaultProfile.path,
       createdDefaultProfile: finalDefaultProfile.created,
       syncResult,
+      syncWarningMessages: syncFallback.warnings,
       welcomeProfileMessages: welcomeProfile?.messages ?? [],
       runExampleMessages: input.setupSourceUri === undefined ? [] : [formatRunProfileExample(finalDefaultProfile.id)],
     }),
@@ -155,13 +166,53 @@ export const executeSetupCommand = async (
 
 const defaultProfilesSourceUri = 'git+https://github.com/ai-outfitter/default-profiles.git:profiles';
 
-const failOnInitialDefaultProfileSyncFailure = (
+interface SetupDefaultProfileChoiceInput {
+  readonly input: SetupCommandInput;
+  readonly dependencies: SetupCommandDependencies;
+  readonly settingsPath: string;
+  readonly initialSettingsMissing: boolean;
+  readonly starterLayout: StarterLayout | undefined;
+  readonly defaultProfileId: string;
+  readonly syncFallback: InitialDefaultProfileSyncFallback;
+}
+
+const chooseSetupDefaultProfileId = async (state: SetupDefaultProfileChoiceInput): Promise<string> => {
+  if (state.syncFallback.degraded && state.input.setupSourceUri === undefined) {
+    return applyDegradedDefaultProfile(state.settingsPath);
+  }
+
+  if (shouldSkipInitialDefaultProfilePrompt(state.initialSettingsMissing, state.dependencies)) {
+    return state.defaultProfileId;
+  }
+
+  return selectDefaultProfileIfInteractive(
+    state.input,
+    state.settingsPath,
+    state.defaultProfileId,
+    state.dependencies,
+    state.starterLayout,
+  );
+};
+
+const applyDegradedDefaultProfile = (settingsPath: string): string => {
+  updateSettingsDefaultProfile(settingsPath, builtinStarterProfileId);
+  return builtinStarterProfileId;
+};
+
+interface InitialDefaultProfileSyncFallback {
+  readonly degraded: boolean;
+  readonly warnings: readonly string[];
+}
+
+// Degraded-mode onboarding (OFTR-010.6): when the first-run default catalog sync fails, install
+// the bundled built-in profile and warn instead of failing; `outfitter sync` upgrades later.
+const fallBackToBuiltinProfilesOnInitialSyncFailure = (
+  profilesPath: string,
   initialSettingsMissing: boolean,
-  rollbackCreatedSettings: () => void,
   syncResult: SyncCommandResult,
-): void => {
+): InitialDefaultProfileSyncFallback => {
   if (!initialSettingsMissing) {
-    return;
+    return { degraded: false, warnings: [] };
   }
 
   const failedDefaultProfilesSource = syncResult.sources.find(
@@ -169,15 +220,18 @@ const failOnInitialDefaultProfileSyncFailure = (
   );
 
   if (failedDefaultProfilesSource === undefined) {
-    return;
+    return { degraded: false, warnings: [] };
   }
 
-  rollbackCreatedSettings();
+  materializeBuiltinProfiles(profilesPath);
 
-  throw new Error(
-    `Cannot complete first-run setup because the default profiles source failed to sync: ${failedDefaultProfilesSource.message}. ` +
-      'Fix the network/git issue and rerun `outfitter setup` once the source is reachable.',
-  );
+  return {
+    degraded: true,
+    warnings: [
+      `Warning: the default profiles source ${failedDefaultProfilesSource.uri} failed to sync: ${failedDefaultProfilesSource.message}. ` +
+        `Installed the built-in '${builtinStarterProfileId}' profile instead; run \`outfitter sync\` to fetch the full catalog once the source is reachable.`,
+    ],
+  };
 };
 
 interface InteractiveSetupSourceCommandInput {
@@ -199,15 +253,10 @@ const executeInteractiveSetupSourceCommand = async ({
 }: InteractiveSetupSourceCommandInput): Promise<SetupCommandResult> => {
   const onboarding = await runSetupSourceOnboarding(input, dependencies, starterLayout, currentDefaultProfileId);
   const appliedImport: AppliedSetupSourceImport = applySetupSourceImport(input, starterLayout, onboarding);
-  /* v8 ignore next -- setup-source rollback only runs when a home import creates settings and default-profile sync fails. */
-  const rollbackCreatedSettings = appliedImport.createdSettings
-    ? () => rmSync(appliedImport.settingsPath, { force: true })
-    : () => undefined;
   const syncResult = executeSyncCommand(input, dependencies);
-
-  failOnInitialDefaultProfileSyncFailure(
+  const syncFallback = fallBackToBuiltinProfilesOnInitialSyncFailure(
+    appliedImport.profilesPath,
     initialSettingsMissing && appliedImport.settingsPath === homeSettingsPath,
-    rollbackCreatedSettings,
     syncResult,
   );
 
@@ -243,6 +292,7 @@ const executeInteractiveSetupSourceCommand = async ({
       defaultProfilePath,
       createdDefaultProfile,
       syncResult,
+      syncWarningMessages: syncFallback.warnings,
       welcomeProfileMessages:
         appliedImport.selectedProfileConflictMessage === undefined
           ? []
@@ -291,6 +341,7 @@ interface SetupMessageInput {
   readonly defaultProfilePath: string;
   readonly createdDefaultProfile: boolean;
   readonly syncResult: SyncCommandResult;
+  readonly syncWarningMessages: readonly string[];
   readonly welcomeProfileMessages: readonly string[];
   readonly runExampleMessages: readonly string[];
 }
@@ -327,6 +378,7 @@ const buildSetupMessages = (input: SetupMessageInput): readonly string[] => {
 
   messages.push(
     `Selected default profile '${input.defaultProfileId}'.`,
+    ...input.syncWarningMessages,
     ...input.welcomeProfileMessages,
     ...input.runExampleMessages,
     ...input.syncResult.messages,

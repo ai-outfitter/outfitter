@@ -2,6 +2,11 @@
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 
+import {
+  builtinStarterProfileId,
+  createBuiltinProfilesCachePath,
+  materializeBuiltinProfiles,
+} from '../../../profiles/BuiltinProfiles.js';
 import type { RunCommandDependencies, RunCommandInput } from '../RunCommand.js';
 import { isNonInteractivePiLaunch } from '../PiLoginLaunch.js';
 import { createGitSynchronizer, syncProfileSource, type RemoteProfileSource } from '../SyncCommand.js';
@@ -11,7 +16,7 @@ export interface FirstRunRuntimeOnboarding {
   readonly defaultProfilesPath: string;
 }
 
-const defaultProfilesSource = {
+export const defaultProfilesSource = {
   github: 'ai-outfitter/default-profiles',
   path: 'profiles',
 } as const satisfies RemoteProfileSource;
@@ -30,16 +35,22 @@ export const prepareFirstRunRuntimeOnboarding = (
     dependencies.synchronizer ?? createGitSynchronizer(resolveRunProgressWriter(dependencies)),
   );
 
-  /* v8 ignore next -- network/cache failure path is integration-level behavior; setup fallback message is deterministic. */
+  // Degraded-mode onboarding (OFTR-010.6): when the first-run default catalog sync fails,
+  // continue with the bundled built-in profile and warn; `outfitter sync` upgrades later.
   if (syncResult.status === 'failed') {
-    throw new Error(
-      `Cannot start Pi-native onboarding because the default profiles source failed to sync: ${syncResult.message}. ` +
-        'Fix the network/git issue or run `outfitter setup` once the source is reachable.',
-    );
+    (dependencies.writeError ?? console.error)(formatDegradedOnboardingWarning(syncResult.message));
+    const builtinProfilesPath = createBuiltinProfilesCachePath(input.homeDirectory);
+    materializeBuiltinProfiles(builtinProfilesPath);
+
+    return { defaultProfilesPath: builtinProfilesPath };
   }
 
   return { defaultProfilesPath: join(syncResult.cachePath, defaultProfilesSource.path) };
 };
+
+export const formatDegradedOnboardingWarning = (failureMessage: string): string =>
+  `Warning: could not sync the default profiles source github:${defaultProfilesSource.github} (${failureMessage}). ` +
+  `Continuing with the built-in '${builtinStarterProfileId}' profile; run \`outfitter sync\` to fetch the full catalog once the source is reachable.`;
 
 const shouldUsePiNativeFirstRunOnboarding = (input: RunCommandInput, dependencies: RunCommandDependencies): boolean => {
   if (input.forceRuntimeOnboarding !== true && existsSync(join(input.homeDirectory, '.outfitter', 'settings.yml'))) {
