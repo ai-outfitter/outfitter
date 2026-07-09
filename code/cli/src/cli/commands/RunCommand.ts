@@ -123,6 +123,7 @@ export const executeRunCommand = async (
   const launchPlan = preparePiLoginLaunchPlan({
     adapterId: adapter.id,
     homeDirectory: input.homeDirectory,
+    profile: { id: resolvedProfile.profile.id, label: resolvedProfile.profile.label },
     launchPlan: withSystemPromptExportPath(
       adapter.createLaunchPlan(
         compositeProfilePlan.compositeProfile,

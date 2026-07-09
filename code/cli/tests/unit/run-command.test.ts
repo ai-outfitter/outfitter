@@ -235,6 +235,38 @@ describe('run command', () => {
     expect(existsSync(join(homeDirectory, '.outfitter', 'settings.yml'))).toBe(false);
   });
 
+  it('stamps the resolved profile identity into the Outfitter pi extension', async () => {
+    const root = createTemporaryRoot();
+    const homeDirectory = join(root, 'home');
+    const projectDirectory = join(root, 'project');
+    writeSettings(homeDirectory, 'default_profile: engineer\nprofile_sources:\n  - path: ./profiles\n');
+    writeProfile(
+      join(homeDirectory, '.outfitter', 'profiles'),
+      'engineer',
+      'id: engineer\nlabel: Engineer\ncontrols: {}\n',
+    );
+
+    const result = await executeRunCommand(
+      { homeDirectory, projectDirectory },
+      {
+        writeLine: () => undefined,
+        launcher: {
+          launch() {
+            return Promise.resolve(0);
+          },
+        },
+      },
+    );
+
+    const extensionPath = result.launchPlan.args[result.launchPlan.args.indexOf('--extension') + 1];
+    if (extensionPath === undefined) {
+      throw new Error('Outfitter extension path was not injected.');
+    }
+    expect(readFileSync(extensionPath, 'utf8')).toContain(
+      'const OUTFITTER_ACTIVE_PROFILE = {"id":"engineer","label":"Engineer"}',
+    );
+  });
+
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-010.4).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('emits runtime login kickoff guidance when no native login state is configured', async () => {

@@ -14,10 +14,16 @@ export interface PiRuntimeOnboardingLaunchInput {
   readonly setupSourceUri?: string;
 }
 
+export interface PiLaunchProfileIdentity {
+  readonly id: string;
+  readonly label?: string;
+}
+
 export interface PiLoginLaunchPlanInput {
   readonly adapterId: string;
   readonly homeDirectory: string;
   readonly launchPlan: AgentLaunchPlan;
+  readonly profile?: PiLaunchProfileIdentity;
   readonly runtimeOnboarding?: PiRuntimeOnboardingLaunchInput;
   readonly startupAsciiArt?: boolean;
   readonly writeLine?: (message: string) => void;
@@ -63,6 +69,7 @@ export const preparePiLoginLaunchPlan = (input: PiLoginLaunchPlanInput): AgentLa
       autoOpenOutfitter: input.runtimeOnboarding?.autoOpenOutfitter === true,
       defaultProfilesPath: input.runtimeOnboarding?.defaultProfilesPath,
       homeDirectory: input.homeDirectory,
+      profile: input.profile,
       projectDirectory: resolve(input.runtimeOnboarding?.projectDirectory ?? process.cwd()),
       setupSourceUri: input.runtimeOnboarding?.setupSourceUri,
       startupAsciiArt: input.startupAsciiArt ?? true,
@@ -158,6 +165,7 @@ const createPiOutfitterExtensionContent = (input: {
   readonly autoOpenOutfitter: boolean;
   readonly defaultProfilesPath?: string;
   readonly homeDirectory: string;
+  readonly profile?: PiLaunchProfileIdentity;
   readonly projectDirectory: string;
   readonly setupSourceUri?: string;
   readonly startupAsciiArt: boolean;
@@ -168,6 +176,7 @@ const createPiOutfitterExtensionContent = (input: {
     OUTFITTER_DEFAULT_PROFILES_PATH: input.defaultProfilesPath,
     OUTFITTER_SETUP_SOURCE_URI: input.setupSourceUri,
     OUTFITTER_AUTO_OPEN: input.autoOpenOutfitter,
+    OUTFITTER_ACTIVE_PROFILE: input.profile,
     OUTFITTER_DEFAULT_SETTINGS_TEMPLATE: createSetupDefaultSettingsContent('__OUTFITTER_PROFILE_ID__'),
     OUTFITTER_STARTUP_ASCII_ART: input.startupAsciiArt,
     OUTFITTER_ASCII_ART: readFileSync(new URL('./assets/outfitter-ascii.txt', import.meta.url), 'utf8').trimEnd(),

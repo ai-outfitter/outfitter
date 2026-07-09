@@ -210,6 +210,7 @@ const createMockContext = (
   let editorText = '';
   let terminalInputHandler: ((data: string) => { readonly consume?: boolean } | undefined) | undefined;
   const notifications: string[] = [];
+  const statuses: Record<string, string> = {};
   const selectCalls: Array<{ readonly title: string; readonly options: readonly string[] }> = [];
   const inputCalls: Array<{ readonly message: string; readonly defaultValue?: string }> = [];
   const headerRenders: string[][] = [];
@@ -230,6 +231,7 @@ const createMockContext = (
       return editorText;
     },
     notifications,
+    statuses,
     headerRenders,
     customRenders,
     inputCalls,
@@ -322,7 +324,9 @@ const createMockContext = (
           ).render(),
         );
       },
-      setStatus: () => undefined,
+      setStatus: (id: string, text: string) => {
+        statuses[id] = text;
+      },
       theme: {
         bold: (text: string) => text,
         fg: (_color: string, text: string) => text,
@@ -529,6 +533,66 @@ describe('preparePiLoginLaunchPlan', () => {
     await expect(
       runMockContextFilter(pi, context, [{ customType: 'outfitter-mode-context' }, { role: 'user' }]),
     ).resolves.toEqual({ messages: [{ role: 'user' }] });
+  });
+
+  it('shows the active profile in the status line, preferring the label over the id', async () => {
+    const agentDir = createAgentDir();
+    const plan = preparePiLoginLaunchPlan({
+      adapterId: 'pi',
+      homeDirectory: agentDir,
+      launchPlan: createLaunchPlan(agentDir),
+      profile: { id: 'engineer', label: 'Engineer' },
+      writeLine: () => undefined,
+    });
+    const stamped = readExtension(plan, 'outfitter-extension.js');
+    expect(stamped).toContain('const OUTFITTER_ACTIVE_PROFILE = {"id":"engineer","label":"Engineer"}');
+
+    const extension = evaluateOutfitterExtension(stamped);
+    const pi = createMockPi();
+    const context = createMockContext();
+
+    extension(pi);
+    await startMockSession(pi, context);
+
+    expect(context.statuses['outfitter-profile']).toBe('profile: Engineer');
+  });
+
+  it('falls back to the profile id in the status line when the profile has no label', async () => {
+    const agentDir = createAgentDir();
+    const plan = preparePiLoginLaunchPlan({
+      adapterId: 'pi',
+      homeDirectory: agentDir,
+      launchPlan: createLaunchPlan(agentDir),
+      profile: { id: 'engineer' },
+      writeLine: () => undefined,
+    });
+    const extension = evaluateOutfitterExtension(readExtension(plan, 'outfitter-extension.js'));
+    const pi = createMockPi();
+    const context = createMockContext();
+
+    extension(pi);
+    await startMockSession(pi, context);
+
+    expect(context.statuses['outfitter-profile']).toBe('profile: engineer');
+  });
+
+  it('shows no profile status when the launch has no resolved profile', async () => {
+    const agentDir = createAgentDir();
+    const plan = preparePiLoginLaunchPlan({
+      adapterId: 'pi',
+      homeDirectory: agentDir,
+      launchPlan: createLaunchPlan(agentDir),
+      writeLine: () => undefined,
+    });
+    const extension = evaluateOutfitterExtension(readExtension(plan, 'outfitter-extension.js'));
+    const pi = createMockPi();
+    const context = createMockContext();
+
+    extension(pi);
+    await startMockSession(pi, context);
+
+    expect(context.statuses['outfitter-profile']).toBeUndefined();
+    expect(context.statuses['outfitter-mode']).toBe('mode: build');
   });
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-006.7).
