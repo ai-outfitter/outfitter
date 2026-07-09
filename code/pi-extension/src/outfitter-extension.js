@@ -11,6 +11,7 @@ const OUTFITTER_PROJECT = "__OUTFITTER_PROJECT__";
 const OUTFITTER_DEFAULT_PROFILES_PATH = "__OUTFITTER_DEFAULT_PROFILES_PATH__";
 const OUTFITTER_SETUP_SOURCE_URI = "__OUTFITTER_SETUP_SOURCE_URI__";
 const OUTFITTER_AUTO_OPEN = "__OUTFITTER_AUTO_OPEN__";
+const OUTFITTER_ACTIVE_PROFILE = "__OUTFITTER_ACTIVE_PROFILE__";
 const OUTFITTER_DEFAULT_SETTINGS_TEMPLATE = "__OUTFITTER_DEFAULT_SETTINGS_TEMPLATE__";
 const OUTFITTER_STARTUP_ASCII_ART = "__OUTFITTER_STARTUP_ASCII_ART__";
 const OUTFITTER_ASCII_ART = "__OUTFITTER_ASCII_ART__";
@@ -26,6 +27,15 @@ export default function outfitter(pi) {
   const updateModeStatus = (ctx) => {
     const color = mode === "plan" ? "warning" : "muted";
     ctx.ui.setStatus("outfitter-mode", ctx.ui.theme.fg(color, "mode: " + mode));
+  };
+
+  const updateProfileStatus = (ctx) => {
+    // Stays a string when the placeholder is unstamped (file loaded outside an
+    // Outfitter launch) and `undefined` when the launch had no resolved profile.
+    if (typeof OUTFITTER_ACTIVE_PROFILE !== "object" || OUTFITTER_ACTIVE_PROFILE === null) return;
+    const name = OUTFITTER_ACTIVE_PROFILE.label ?? OUTFITTER_ACTIVE_PROFILE.id;
+    if (!name) return;
+    ctx.ui.setStatus("outfitter-profile", ctx.ui.theme.fg("muted", "profile: " + name));
   };
 
   const enterPlanMode = (ctx) => {
@@ -277,6 +287,7 @@ export default function outfitter(pi) {
       };
     });
     updateModeStatus(ctx);
+    updateProfileStatus(ctx);
     ctx.ui.onTerminalInput((data) => {
       if (!matchesKey(data, "shift+tab")) return undefined;
       cycleOutfitterMode(ctx);
