@@ -1,10 +1,10 @@
 # Skills
 
-> **Status:** this page is the docs-first contract for skills, tracked in
-> [#149](https://github.com/ai-outfitter/outfitter/issues/149). Bare-ID
-> selection, reference materialization, and the lint checks described here
-> land with that implementation; the
-> [adapter support matrix](./support-matrix.md) reflects what works today.
+> **Status:** implemented for the Pi adapter
+> ([#149](https://github.com/ai-outfitter/outfitter/issues/149)): bare-ID
+> selection, materialized references, and the lint checks described here. The
+> [adapter support matrix](./support-matrix.md) reflects per-adapter behavior,
+> including the current Claude Code gap for generic `controls.skills`.
 
 Skills are focused capability packages that an agent loads progressively. A
 profile selects the skills available to a run, while each skill owns the
@@ -324,6 +324,30 @@ load its contents into model context.
 Each reference materializes as `references/<source basename>`. Two references
 whose sources share a basename fail validation; rename one of the source
 documents to resolve the collision.
+
+### Scripts and assets
+
+The `scripts` and `assets` frontmatter keys use the same entry union and
+validation rules as `references`, materializing under the generated skill's
+`scripts/` and `assets/` directories. Use them to reuse human-maintained helper
+scripts and templates without copying them into the skill folder; materialized
+scripts keep their executable mode.
+
+```yaml
+---
+name: deploy-review
+references:
+  - repo_file: docs/runbooks/deploy.md
+scripts:
+  - file: tools/smoke-test.sh # scripts/smoke-test.sh
+assets:
+  - repo_file: templates/report.json # assets/report.json
+---
+```
+
+Files already inside the skill directory (`scripts/`, `references/`, `assets/`)
+ship with the skill as before; frontmatter entries add external files beside
+them, and a destination that collides with a shipped file fails validation.
 
 ### Profile-added references
 

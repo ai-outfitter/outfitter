@@ -43,11 +43,13 @@ import {
   resolveRunProgressWriter,
 } from './run/RunFirstRunOnboarding.js';
 import { createTerminalStateWritePrompt } from './run/RunStateWritePrompt.js';
+import { resolveProfileSkillControls } from '../../skills/ProfileSkillResolution.js';
 import {
   createFirstRunBootstrapProfile,
   createLaunchProfileLayers,
   loadProfileSources,
   loadResolvedProfile,
+  materializeProfileSourcePaths,
   selectRunAgentId,
   type ResolvedRunProfile,
 } from './run/RunProfileResolution.js';
@@ -90,18 +92,19 @@ export const executeRunCommand = async (
 ): Promise<RunCommandResult> => {
   sweepStaleCompositeProfileDirectories();
   const runtimeOnboarding = prepareFirstRunRuntimeOnboarding(input, dependencies);
-  const resolvedProfile =
+  const loadedProfile =
     runtimeOnboarding === undefined ? loadResolvedProfile(input) : createFirstRunBootstrapProfile(input);
   const adapter =
-    dependencies.adapter ?? createAgentAdapter(selectRunAgentId(input.agentId, resolvedProfile.settings.defaultAgent));
-  const compositeProfileRootDirectory = createCompositeProfileRootDirectory(resolvedProfile.profile.id, adapter.id);
+    dependencies.adapter ?? createAgentAdapter(selectRunAgentId(input.agentId, loadedProfile.settings.defaultAgent));
+  const compositeProfileRootDirectory = createCompositeProfileRootDirectory(loadedProfile.profile.id, adapter.id);
   prepareCompositeProfileTeardown(input, compositeProfileRootDirectory, dependencies);
+  const resolvedProfile = resolveRunProfileSkills(loadedProfile, compositeProfileRootDirectory);
   const compositeProfilePlan = createAdapterCompositeProfilePlan(
     adapter,
     resolvedProfile,
     compositeProfileRootDirectory,
   );
-  const warnings = compositeProfilePlan.warnings;
+  const warnings = [...resolvedProfile.skillWarnings, ...compositeProfilePlan.warnings];
 
   failStrictOnWarnings(adapter.id, warnings, input.strict);
   emitWarnings(warnings, dependencies.writeError);
@@ -264,6 +267,40 @@ const configureRunCommander = (
 };
 
 /* v8 ignore stop */
+
+type SkillResolvedRunProfile = ResolvedRunProfile & { readonly skillWarnings: readonly string[] };
+
+// Catalog skill IDs are resolved to generated skill directories under the composite
+// profile root before adapters run, so adapters keep receiving plain path sources and
+// the generated skills are removed with the composite profile at exit.
+const resolveRunProfileSkills = (
+  resolvedProfile: ResolvedRunProfile,
+  compositeProfileRootDirectory: string,
+): SkillResolvedRunProfile => {
+  const resolution = resolveProfileSkillControls({
+    profile: resolvedProfile.profile,
+    profileLayers: resolvedProfile.profileLayers,
+    sourcePaths: materializeProfileSourcePaths(
+      resolvedProfile.homeDirectory,
+      resolvedProfile.settings.profileSources ?? [],
+    ),
+    projectDirectory: resolvedProfile.projectDirectory,
+    outputDirectory: compositeProfileRootDirectory,
+  });
+  const errors = resolution.diagnostics.filter((diagnostic) => diagnostic.severity === 'error');
+
+  if (errors.length > 0) {
+    throw new Error(
+      `Cannot resolve profile skills: ${errors.map((issue) => `${issue.path} ${issue.message}`).join('; ')}`,
+    );
+  }
+
+  return {
+    ...resolvedProfile,
+    profile: resolution.profile,
+    skillWarnings: resolution.diagnostics.map((diagnostic) => diagnostic.message),
+  };
+};
 
 const failStrictOnWarnings = (adapterId: string, warnings: readonly string[], strict: boolean | undefined): void => {
   if (strict === true && warnings.length > 0) {

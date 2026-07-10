@@ -1,1 +1,4 @@
-["claude wrote undeclared composite profile state 'unexpected-claude.txt' and it was not persisted."]
+[
+  "Skill 'repo-review' does not resolve in any skills directory; passing it through as a path source.",
+  "claude wrote undeclared composite profile state 'unexpected-claude.txt' and it was not persisted."
+]

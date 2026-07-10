@@ -11,6 +11,21 @@ export interface PromptRepoFileInclude {
 export type AppendSystemPromptEntry = string | PromptFileInclude | PromptRepoFileInclude;
 export type AppendSystemPromptControl = AppendSystemPromptEntry | readonly AppendSystemPromptEntry[];
 
+export interface SkillFileReference {
+  readonly file: string;
+}
+export interface SkillRepoFileReference {
+  readonly repo_file: string;
+}
+export type SkillReference = SkillFileReference | SkillRepoFileReference;
+
+/** Expanded `controls.skills` entry appending profile-owned references to a selected skill. */
+export interface SkillSelection {
+  readonly id: string;
+  readonly references?: readonly SkillReference[];
+}
+export type SkillControlEntry = string | SkillSelection;
+
 export interface DeepWorkProfileControls {
   readonly jobs?: readonly string[];
 }
@@ -24,7 +39,7 @@ interface BaseProfileControls {
   readonly args?: readonly string[];
   readonly sessionDirectory?: string;
   readonly extensions?: readonly string[];
-  readonly skills?: readonly string[];
+  readonly skills?: readonly SkillControlEntry[];
   readonly promptTemplate?: string;
   readonly systemPrompt?: string;
   readonly appendSystemPrompt?: AppendSystemPromptControl;

@@ -1,1 +1,4 @@
-["pi wrote undeclared composite profile state 'unexpected-local.txt' and it was not persisted."]
+[
+  "Skill 'code-review' does not resolve in any skills directory; passing it through as a path source.",
+  "pi wrote undeclared composite profile state 'unexpected-local.txt' and it was not persisted."
+]

@@ -1,4 +1,5 @@
 [
+  "Skill 'repo-audit' does not resolve in any skills directory; passing it through as a path source.",
   "claude adapter cannot translate requested control 'provider'.",
   "claude adapter cannot translate requested control 'skills'."
 ]

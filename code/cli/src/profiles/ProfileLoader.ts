@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import type { ValidationIssue } from '../validation/SchemaValidator.js';
 import { validateSchema } from '../validation/SchemaValidator.js';
 import { parseYamlDocument } from '../validation/YamlDocument.js';
+import { isSkillReference } from '../skills/SkillDocument.js';
 import { isPromptFileInclude, isPromptRepoFileInclude } from './PromptIncludes.js';
 import type {
   AgentSpecificProfileControls,
@@ -13,6 +14,7 @@ import type {
   DeepWorkProfileControls,
   Profile,
   ProfileControls,
+  SkillControlEntry,
   StatePersistenceOverrides,
 } from './Profile.js';
 import type { ProfileSourceReference } from './ProfileSource.js';
@@ -296,6 +298,28 @@ const readOptionalStringArray = (value: unknown): readonly string[] | undefined 
   return undefined;
 };
 
+const isSkillSelection = (value: unknown): value is Exclude<SkillControlEntry, string> => {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+    return false;
+  }
+
+  const record = value as { readonly id?: unknown; readonly references?: unknown };
+
+  return (
+    typeof record.id === 'string' &&
+    Object.keys(record).every((key) => key === 'id' || key === 'references') &&
+    (record.references === undefined || (Array.isArray(record.references) && record.references.every(isSkillReference)))
+  );
+};
+
+const readOptionalSkillControlEntries = (value: unknown): readonly SkillControlEntry[] | undefined => {
+  if (!Array.isArray(value)) {
+    return undefined;
+  }
+
+  return value.filter((item): item is SkillControlEntry => typeof item === 'string' || isSkillSelection(item));
+};
+
 const readOptionalAppendSystemPrompt = (value: unknown): AppendSystemPromptControl | undefined => {
   if (typeof value === 'string' || isPromptFileInclude(value) || isPromptRepoFileInclude(value)) {
     return value;
@@ -327,7 +351,7 @@ const readControls = (value: unknown): ProfileControls => {
     args: readOptionalStringArray(controls.args),
     sessionDirectory: readOptionalString(controls.session_directory),
     extensions: readOptionalStringArray(controls.extensions),
-    skills: readOptionalStringArray(controls.skills),
+    skills: readOptionalSkillControlEntries(controls.skills),
     promptTemplate: readOptionalString(controls.prompt_template),
     systemPrompt: readOptionalString(controls.system_prompt),
     appendSystemPrompt: readOptionalAppendSystemPrompt(controls.append_system_prompt),
@@ -366,7 +390,7 @@ const readAgentSpecificControls = (value: unknown): AgentSpecificProfileControls
     args: readOptionalStringArray(controls.args),
     sessionDirectory: readOptionalString(controls.session_directory),
     extensions: readOptionalStringArray(controls.extensions),
-    skills: readOptionalStringArray(controls.skills),
+    skills: readOptionalSkillControlEntries(controls.skills),
     promptTemplate: readOptionalString(controls.prompt_template),
     systemPrompt: readOptionalString(controls.system_prompt),
     appendSystemPrompt: readOptionalAppendSystemPrompt(controls.append_system_prompt),
