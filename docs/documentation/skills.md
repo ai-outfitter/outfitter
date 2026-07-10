@@ -325,6 +325,19 @@ Each reference materializes as `references/<source basename>`. Two references
 whose sources share a basename fail validation; rename one of the source
 documents to resolve the collision.
 
+### External assets
+
+Files the agent adapts to produce output — workflow templates, report
+skeletons, boilerplate — belong under `assets/` rather than `references/`.
+Declare external assets with the same entry contract under an `assets` key;
+each materializes as `assets/<source basename>` and follows the same source,
+validation, and trust rules as references:
+
+```yaml
+assets:
+  - file: examples/issue-triage.yml
+```
+
 ### Profile-added references
 
 A profile MUST be able to append references to a skill it selects. Expand the
@@ -373,9 +386,10 @@ For each selected skill, Outfitter:
    directories, contributing directory profiles, and catalog `skills/`
    directories — following [layer precedence](./concepts.md#layer-precedence).
 2. Validates `SKILL.md` and confirms `name` matches the directory name.
-3. Resolves `file` and `repo_file` reference entries.
+3. Resolves `file` and `repo_file` reference and asset entries.
 4. Creates a generated skill directory for the run.
-5. Materializes references under that directory's `references/` folder.
+5. Materializes references and assets under that directory's `references/`
+   and `assets/` folders.
 6. Passes the generated skill to the selected agent adapter.
 7. Removes the generated skill with the temporary composite profile.
 
