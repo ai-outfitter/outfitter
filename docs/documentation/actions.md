@@ -38,8 +38,11 @@ Profiles can come from the checked-out repository itself (a path, as above), an 
 `trigger_context` is a convention for the initial prompt passed by an
 `ai-outfitter/actions` workflow. It is not an Outfitter object and Outfitter does
 not create or parse it. GitHub Actions interpolates the selected `github`
-expression values before invoking Outfitter, and the resulting text gives the
-profile trusted metadata about this workflow run.
+expression values before invoking Outfitter, giving the profile metadata that
+the workflow — not the event author — chose to pass. That does not make every
+value trustworthy: branch and tag names, labels, titles, and logins are
+user-influenced, so route on them as opaque identifiers and never treat them
+as instructions.
 
 ```yaml
 - uses: ai-outfitter/actions@v1
@@ -51,13 +54,12 @@ profile trusted metadata about this workflow run.
       trigger_context:
         repository: ${{ github.repository }}
         event_name: ${{ github.event_name }}
-        ref_name: ${{ github.ref_name }}
         issue_number: ${{ github.event.issue.number || '' }}
 ```
 
 Include only the identifiers the profile's routing rules need for the
 workflow's declared events (for example `sha`, `issue_labels`, or a
-deployment's `environment_url` when those events are in play). Add a trusted
+deployment's `environment_url` when those events are in play). Add a
 workflow-owned discriminator, such as `report_kind: weekly-kpi`, when GitHub's
 event metadata cannot distinguish scheduled behaviors.
 

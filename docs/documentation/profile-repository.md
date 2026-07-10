@@ -78,14 +78,16 @@ controls:
     - outfitter-actions
 ```
 
-The catalog root is the directory containing `settings.yml` (or the `profiles/`
-directory) — the same root the source's `path:` points at. Outfitter discovers
-`skills/` beside `profiles/` at that root, so a catalog may publish standalone
-skills without publishing placeholder profiles.
+The catalog root is the directory containing `profiles/` (and `settings.yml`,
+when present). Outfitter discovers `skills/` beside `profiles/` at that root,
+so a catalog may publish standalone skills without publishing placeholder
+profiles. A source whose `path:` points directly at the profiles directory
+keeps working; its parent is the catalog root.
 
-Skill IDs follow configured source precedence: project, user, then cached
-remote sources in configured order. Outfitter reports shadowed IDs so consumers
-can see which catalog supplies the selected skill.
+Skill IDs follow the same [layer precedence](./concepts.md#layer-precedence) as
+profiles: project-local, project, user, then cached remote sources in
+configured order. Outfitter reports shadowed IDs so consumers can see which
+source supplies the selected skill.
 
 A published skill can reuse human-maintained catalog documentation without
 copying it into the skill folder: declare the document as a `file` reference,
@@ -121,7 +123,8 @@ Remote entries (`github`/`uri`) additionally accept:
 
 - `ref:` — a tag, branch, or commit to pin. With a `ref`, `outfitter sync` fetches and checks out exactly that ref. Without one, sync fast-forwards the repository's default branch, so you always track the catalog's latest state.
 - `path:` — the catalog root inside the repository (the directory containing
-  `profiles/` and, optionally, `skills/`).
+  `profiles/` and, optionally, `skills/`), or the profiles directory itself as
+  in existing configurations — its parent is then the catalog root.
 - `only:` / `except:` — filter which profile ids from the source are exposed. `only` is an allowlist; `except` is a blocklist.
 
 ## Remote settings

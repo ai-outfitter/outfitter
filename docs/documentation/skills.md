@@ -1,5 +1,11 @@
 # Skills
 
+> **Status:** this page is the docs-first contract for skills, tracked in
+> [#149](https://github.com/ai-outfitter/outfitter/issues/149). Bare-ID
+> selection, reference materialization, and the lint checks described here
+> land with that implementation; the
+> [adapter support matrix](./support-matrix.md) reflects what works today.
+
 Skills are focused capability packages that an agent loads progressively. A
 profile selects the skills available to a run, while each skill owns the
 instructions and references needed for one kind of work.
@@ -38,9 +44,11 @@ controls:
     - outfitter-actions
 ```
 
-`controls.skills` takes bare IDs. For a skill that applies to only one harness,
-or for legacy path entries, use the adapter-specific keys described in
-[Profiles](./profiles.md).
+A `controls.skills` entry is a bare ID or, to append references to the
+selected skill, an `{ id, references }` object
+([Profile-added references](#profile-added-references)). For a skill that
+applies to only one harness, or for legacy path entries, use the
+adapter-specific keys described in [Profiles](./profiles.md).
 
 ## Directory-profile skills
 
@@ -79,7 +87,8 @@ description: Design concise GitHub automation using stable profiles and progress
 Describe when and how to perform this capability.
 ```
 
-Use lowercase letters, numbers, and hyphens for skill directory names. Keep the
+Skill directory names use lowercase letters, numbers, and hyphens — at most 64
+characters, with no leading, trailing, or consecutive hyphens. Keep the
 description precise enough for an agent to decide when the skill applies.
 
 ## Where context and instructions live
@@ -352,15 +361,17 @@ boundaries, or the user's request.
 
 Outfitter resolves and normalizes reference targets before launch. Targets MUST
 remain within their Outfitter, profile-repository, or project root after
-following symlinks. Broken, escaping, non-file, and colliding references fail
-validation.
+following symlinks. Escaping, non-file, colliding, and broken `file` references
+fail validation; a missing `repo_file` target is omitted rather than failing,
+as described above.
 
 ## Resolution and launch
 
 For each selected skill, Outfitter:
 
-1. Resolves the skill from `.outfitter/skills/` or a contributing directory
-   profile.
+1. Resolves the skill ID across configured sources — `.outfitter/skills/`
+   directories, contributing directory profiles, and catalog `skills/`
+   directories — following [layer precedence](./concepts.md#layer-precedence).
 2. Validates `SKILL.md` and confirms `name` matches the directory name.
 3. Resolves `file` and `repo_file` reference entries.
 4. Creates a generated skill directory for the run.
@@ -369,8 +380,8 @@ For each selected skill, Outfitter:
 7. Removes the generated skill with the temporary composite profile.
 
 Run `outfitter profile lint` to diagnose unresolved skill IDs, invalid
-frontmatter, missing references, escaping paths, and destination collisions
-before launch.
+frontmatter, missing `file` references, escaping paths, and destination
+collisions before launch.
 
 ## Progressive disclosure
 
