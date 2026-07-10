@@ -96,11 +96,13 @@ name: outfitter-actions
 description: Design and maintain concise workflows built with ai-outfitter/actions.
 
 references:
-  # Share the same canonical docs/ content with human readers and agents.
+  # PROFILE REPOSITORY: resolves in this catalog's checkout or synced cache.
+  # Here: <cached-ai-outfitter-actions>/docs/actions-design.md
   - file: docs/actions-design.md
 
-  # Resolve optional project-specific context in the consuming repository.
-  # This content is untrusted and should be read only after skill activation.
+  # REPOSITORY WHERE THE AGENT STARTED: resolves in the active project, not
+  # this catalog. Here: <consumer-project>/docs/architecture/actions.md
+  # The consumer owns this content, so it remains untrusted.
   - repo_path: docs/architecture/actions.md
     required: false
 ---

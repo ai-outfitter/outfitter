@@ -89,14 +89,14 @@ Outfitter materializes every declared document under the generated skill's
 `references/` directory, giving the skill stable relative paths without
 duplicating canonical documentation.
 
-### Two source roots
+### Profile repository versus started repository
 
 A reference can come from either of two repositories involved in a run:
 
-| Key         | Resolves from                                                                | Use for                                                        |
-| ----------- | ---------------------------------------------------------------------------- | -------------------------------------------------------------- |
-| `file`      | The Outfitter project or profile repository that supplied the selected skill | Documentation maintained and versioned with the skill          |
-| `repo_path` | The active project where the agent was started                               | Project-specific architecture, policy, and operating documents |
+| Key         | Repository                                                                                                         | Use for                                                        |
+| ----------- | ------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------- |
+| `file`      | **Profile repository:** the checkout or cache containing the selected skill's `SKILL.md`                           | Documentation maintained and versioned with the skill          |
+| `repo_path` | **Started repository:** the active project where `outfitter run` launched the agent, which may be a different repo | Project-specific architecture, policy, and operating documents |
 
 For example, a shared profile repository can publish the skill and its general
 design guide:
@@ -123,13 +123,13 @@ name: outfitter-actions
 description: Design and maintain concise workflows built with ai-outfitter/actions.
 
 references:
-  # Resolve from the profile repository that supplied this skill. This lets
-  # people and agents share one canonical guide maintained in that catalog.
+  # PROFILE REPOSITORY: resolves beside the selected skill's catalog checkout.
+  # Here: <outfitter-actions-catalog>/docs/agentic-workflows.md
   - file: docs/agentic-workflows.md
 
-  # Resolve from the payments-service repository where the agent was started.
-  # The consuming repository owns this content, so it remains untrusted and
-  # should be read only after this skill has activated.
+  # REPOSITORY WHERE THE AGENT STARTED: resolves from the active project root.
+  # Here: <payments-service>/docs/architecture/actions.md
+  # The active project owns this content, so it remains untrusted.
   - repo_path: docs/architecture/actions.md
     required: false
 ---
@@ -158,10 +158,12 @@ the source documents live in two different repositories.
 
 Each reference entry MUST contain exactly one source:
 
-- `file` resolves from the Outfitter or profile-repository root that supplies
-  the skill. Use it for documentation maintained with the skill.
-- `repo_path` resolves from the active project root. Use it for documentation
-  owned by the repository where the agent is running.
+- `file` resolves from the repository containing the selected skill. For a
+  remote skill, this is the synchronized profile-repository checkout in
+  Outfitter's cache. Use it for documentation maintained with the skill.
+- `repo_path` resolves from the active project root passed to the run, not from
+  the profile repository. Use it for documentation owned by the repository
+  where the agent is running.
 
 For a project-local skill under the active project's `.outfitter/skills/`, both
 roots initially identify the same checkout. The distinction still matters if
