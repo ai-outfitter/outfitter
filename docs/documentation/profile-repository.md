@@ -1,6 +1,9 @@
 # Profile repositories
 
-A profile repository (also called a profile catalog) is a git repository that publishes Outfitter profiles so a team or organization can share them. You can bootstrap a machine or project from one, or add one as an ongoing profile source that Outfitter keeps synchronized.
+A profile repository (also called a profile catalog) is a git repository that
+publishes Outfitter profiles and skills so a team or organization can share
+them. You can bootstrap a machine or project from one, or add one as an ongoing
+source that Outfitter keeps synchronized.
 
 ```bash
 outfitter setup https://github.com/my_account/outfitter_config
@@ -15,6 +18,10 @@ outfitter_config/
   settings.yml
   profiles/
     engineering-default/profile.yml
+  skills/
+    outfitter-actions/SKILL.md
+  docs/
+    actions-design.md
 ```
 
 or a `.outfitter/` folder:
@@ -25,7 +32,11 @@ outfitter_config/
     settings.yml
     profiles/
       engineering-default/profile.yml
+    skills/
+      outfitter-actions/SKILL.md
     deepwork/jobs/
+  docs/
+    actions-design.md
 ```
 
 Inside the profiles directory, both profile layouts work:
@@ -34,6 +45,56 @@ Inside the profiles directory, both profile layouts work:
 - **Directory profiles** — one folder per profile with a required `profile.yml`, plus bundled resources such as `prompts/`, `skills/`, `extensions/`, and `deepwork/jobs/` that travel with the profile.
 
 See [Profiles](./profiles.md) for the full layout reference, inheritance, and prompt-include rules. A catalog can also publish a shared base profile marked `template: true` that role profiles inherit from without the base itself appearing as a launchable choice.
+
+## Publishing skills
+
+Publish a standalone skill under the catalog's `skills/<skill-id>/SKILL.md` or
+`.outfitter/skills/<skill-id>/SKILL.md`. The folder name is the skill ID, and the
+standard `name` in `SKILL.md` MUST match it. See [Skills](./skills.md) for the
+complete definition and reference format.
+
+Standalone catalog skills are independent of catalog profiles. A consumer can
+select one from an existing local profile without inheriting any profile from
+the publishing repository:
+
+```yaml
+# ~/.outfitter/settings.yml
+default_profile: platform
+default_agent: pi
+profile_sources:
+  - github: ai-outfitter/actions
+    ref: v1
+    path: .outfitter
+  - path: ./profiles
+```
+
+```yaml
+# ~/.outfitter/profiles/platform/profile.yml
+id: platform
+label: Platform
+
+controls:
+  skills:
+    - outfitter-actions
+```
+
+The catalog root is the directory containing `profiles/` (and `settings.yml`,
+when present). Outfitter discovers `skills/` beside `profiles/` at that root,
+so a catalog may publish standalone skills without publishing placeholder
+profiles. A source whose `path:` points directly at the profiles directory
+keeps working; its parent is the catalog root.
+
+Skill IDs follow the same [layer precedence](./concepts.md#layer-precedence) as
+profiles: project-local, project, user, then cached remote sources in
+configured order. Outfitter reports shadowed IDs so consumers can see which
+source supplies the selected skill.
+
+A published skill can reuse human-maintained catalog documentation without
+copying it into the skill folder: declare the document as a `file` reference,
+which resolves inside the catalog's checkout (including its synced cache),
+while `repo_file` references resolve inside the consumer's active project. See
+[External references](./skills.md#external-references) for the two-root model
+and trust rules.
 
 ## Consuming a catalog as a profile source
 
@@ -61,7 +122,9 @@ Each source entry is one of:
 Remote entries (`github`/`uri`) additionally accept:
 
 - `ref:` — a tag, branch, or commit to pin. With a `ref`, `outfitter sync` fetches and checks out exactly that ref. Without one, sync fast-forwards the repository's default branch, so you always track the catalog's latest state.
-- `path:` — a subdirectory inside the repository that contains the profiles.
+- `path:` — the catalog root inside the repository (the directory containing
+  `profiles/` and, optionally, `skills/`), or the profiles directory itself as
+  in existing configurations — its parent is then the catalog root.
 - `only:` / `except:` — filter which profile ids from the source are exposed. `only` is an allowlist; `except` is a blocklist.
 
 ## Remote settings
@@ -94,18 +157,23 @@ Private GitHub catalogs are an enterprise feature. When sync detects a private G
 
 ## Trust and review
 
-Adding a catalog source means trusting its authors with your agent runtime. Profiles from a catalog can:
+Adding a catalog source means trusting its authors with your agent runtime.
+Profiles and selected skills from a catalog can:
 
 - **Inject extensions** into your agent launch (`controls.extensions`). Extensions are code that runs inside the agent process with full access to your system — files, network, and shell.
 - **Add arbitrary CLI arguments** (`controls.args`) to the launched agent, which can change permission modes or other agent behavior.
 - **Set environment variables** (`controls.environment`) for the agent process.
 - **Shape prompts, skills, subagents, and DeepWork jobs** — steering what the agent does with the access it already has.
+- **Provide skill references** — catalog `file` references are trusted with the
+  selected skill; see the [trust boundary](./skills.md#trust-boundary).
 
 Before adding a source, review it:
 
 1. Read every profile's `controls` — especially `extensions`, `args`, and `environment` — and any extension code the repository ships.
-2. Check `remote_settings` targets: a settings file can add further profile sources you did not review.
-3. Confirm the repository's ownership and that its maintainers are who you expect.
-4. Prefer `only:` filters so you expose just the profiles you reviewed.
+2. Read every selected skill and its catalog-owned `file` references.
+3. Check `remote_settings` targets: a settings file can add further profile sources you did not review.
+4. Confirm the repository's ownership and that its maintainers are who you expect.
+5. Prefer `only:` filters so you expose just the profiles you reviewed, and list
+   skills explicitly by ID in `controls.skills`.
 
 For organization catalogs, pin a `ref:` (a tag or commit) rather than tracking the default branch. A pinned ref makes updates an explicit, reviewable action — bump the ref after reviewing the diff — instead of silently pulling whatever the catalog publishes next. Unpinned sources are convenient for catalogs you maintain yourself, but they mean `outfitter sync` executes-by-configuration whatever landed upstream.

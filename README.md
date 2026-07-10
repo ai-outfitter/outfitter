@@ -51,6 +51,8 @@ controls:
 - [Getting started](./docs/documentation/getting-started.md)
 - [What works today: adapter support matrix](./docs/documentation/support-matrix.md)
 - [Profiles](./docs/documentation/profiles.md)
+- [Skills](./docs/documentation/skills.md)
+- [Best practices](./docs/documentation/best-practices.md)
 - [Profile repositories](./docs/documentation/profile-repository.md)
 - [State persistence](./docs/documentation/state.md)
 - [First-time CLI agent users](./docs/documentation/first-time-cli-agent-users.md)
