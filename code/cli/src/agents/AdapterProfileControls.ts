@@ -1,6 +1,6 @@
 // Shared helpers for adapter profile controls and argv construction.
 import type { AppendSystemPromptControl, ProfileControls } from '../profiles/Profile.js';
-import { mergeLaunchResourceSources } from './LaunchResources.js';
+import { mergeLaunchResourceSources, mergeSkillControlSources } from './LaunchResources.js';
 
 export const genericControlNames = new Set([
   'model',
@@ -45,7 +45,7 @@ export const mergeAgentSpecificControls = <T extends ProfileControls>(
     environment: { ...controls.environment, ...agentControls?.environment },
     args: agentControls?.args ?? controls.args,
     extensions: mergeLaunchResourceSources('extension', controls.extensions, agentControls?.extensions),
-    skills: mergeLaunchResourceSources('skill', controls.skills, agentControls?.skills),
+    skills: mergeSkillControlSources(controls.skills, agentControls?.skills),
   } as T;
 };
 

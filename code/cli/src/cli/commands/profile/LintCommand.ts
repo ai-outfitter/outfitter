@@ -8,6 +8,8 @@ import { createCompositeProfileRootDirectory } from '../../../compositeProfile/C
 import { createPromptIncludeDiagnostics } from '../../../profiles/PromptIncludes.js';
 import { resolveProfile } from '../../../profiles/ProfileMerger.js';
 import { loadSettingsWithCachedRemoteSettings } from '../../../settings/SettingsLoader.js';
+import { resolveProfileSkillControls } from '../../../skills/ProfileSkillResolution.js';
+import { materializeProfileSourcePaths } from '../run/RunProfileResolution.js';
 import { createLaunchProfileLayers, loadProfileSources } from '../RunCommand.js';
 import type { AgentLaunchProfileLayer } from '../../../agents/AgentAdapter.js';
 import type { Profile, ProfileControls } from '../../../profiles/Profile.js';
@@ -100,8 +102,48 @@ const collectProfileLintDiagnostics = (input: ProfileLintCommandInput): readonly
     }),
   );
   const adapterDiagnostics = lintAdapterWarnings(loadedProfiles.profiles, input.projectDirectory);
+  const skillDiagnostics = lintProfileSkills(loadedProfiles.profiles, input);
 
-  return [...loadDiagnostics, ...inheritanceDiagnostics, ...promptDiagnostics, ...adapterDiagnostics];
+  return [
+    ...loadDiagnostics,
+    ...inheritanceDiagnostics,
+    ...promptDiagnostics,
+    ...adapterDiagnostics,
+    ...skillDiagnostics,
+  ];
+};
+
+// Diagnoses unresolved skill IDs, invalid SKILL.md frontmatter, missing `file`
+// references, escaping paths, and destination collisions without materializing.
+const lintProfileSkills = (
+  profiles: Parameters<typeof createPromptIncludeDiagnostics>[0],
+  input: ProfileLintCommandInput,
+): readonly ProfileLintDiagnostic[] => {
+  const settings = loadSettingsWithCachedRemoteSettings(input);
+  const sourcePaths = materializeProfileSourcePaths(input.homeDirectory, settings.settings.profileSources ?? []);
+
+  return [...new Set(profiles.map((profile) => profile.profile.id))].flatMap((profileId) => {
+    const resolution = resolveProfile({ profiles, profileId });
+
+    if (resolution.profile === undefined || resolution.issues.length > 0) {
+      return [];
+    }
+
+    const stackProfiles = profiles.filter((profile) =>
+      resolution.profileStack.some((stackProfile) => stackProfile.id === profile.profile.id),
+    );
+
+    return resolveProfileSkillControls({
+      profile: resolution.profile,
+      profileLayers: stackProfiles,
+      sourcePaths,
+      projectDirectory: input.projectDirectory,
+    }).diagnostics.map((diagnostic) => ({
+      severity: diagnostic.severity,
+      path: `/profiles/${profileId}: ${diagnostic.path}`,
+      message: diagnostic.message,
+    }));
+  });
 };
 
 const lintProfileInheritance = (

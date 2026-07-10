@@ -182,6 +182,15 @@ export const loadProfileSources = (
   return { profiles, issues };
 };
 
+/** Materialized on-disk paths for configured sources, in configured (precedence) order. */
+export const materializeProfileSourcePaths = (
+  homeDirectory: string,
+  sources: readonly ProfileSourceReference[],
+): readonly string[] =>
+  sources
+    .map((source) => materializeSource(homeDirectory, source).path)
+    .filter((path): path is string => path !== undefined && existsSync(path));
+
 const isUnsyncedRemoteProfileSource = (source: ProfileSourceReference, materializedPath: string | undefined): boolean =>
   (source.uri !== undefined || source.github !== undefined) &&
   materializedPath !== undefined &&

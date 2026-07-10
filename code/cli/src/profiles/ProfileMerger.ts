@@ -2,7 +2,8 @@
 import type { ArrayMergePolicy } from '../merge/ArrayMergePolicy.js';
 import type { MergePath } from '../merge/SettingsValueMerger.js';
 import { mergeObjectsWithPolicy } from '../merge/SettingsValueMerger.js';
-import { normalizeExtensionResourceIdentity, normalizeLaunchResourceIdentity } from '../agents/ResourceIdentity.js';
+import { normalizeExtensionResourceIdentity } from '../agents/ResourceIdentity.js';
+import { skillControlEntryIdentity } from '../agents/LaunchResources.js';
 import type { Profile } from './Profile.js';
 import type { LoadedProfile } from './ProfileLoader.js';
 
@@ -77,7 +78,7 @@ const profileArrayPolicy = (path: MergePath): ArrayMergePolicy | undefined => {
       mode: 'uniqueBy',
       order: 'prepend',
       winner: 'first',
-      key: (source: unknown) => normalizeLaunchResourceIdentity(String(source)),
+      key: (source: unknown) => skillControlEntryIdentity(source),
     };
   }
 

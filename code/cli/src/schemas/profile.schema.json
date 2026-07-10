@@ -42,7 +42,7 @@
         },
         "skills": {
           "type": "array",
-          "items": { "type": "string" }
+          "items": { "$ref": "#/$defs/skillEntry" }
         },
         "prompt_template": { "type": "string" },
         "system_prompt": { "type": "string" },
@@ -81,7 +81,7 @@
             },
             "skills": {
               "type": "array",
-              "items": { "type": "string" }
+              "items": { "$ref": "#/$defs/skillEntry" }
             },
             "prompt_template": { "type": "string" },
             "system_prompt": { "type": "string" },
@@ -111,7 +111,7 @@
             },
             "skills": {
               "type": "array",
-              "items": { "type": "string" }
+              "items": { "$ref": "#/$defs/skillEntry" }
             },
             "prompt_template": { "type": "string" },
             "system_prompt": { "type": "string" },
@@ -129,6 +129,43 @@
   },
   "additionalProperties": true,
   "$defs": {
+    "skillReference": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["file"],
+          "properties": {
+            "file": { "type": "string" }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["repo_file"],
+          "properties": {
+            "repo_file": { "type": "string" }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "skillEntry": {
+      "oneOf": [
+        { "type": "string" },
+        {
+          "type": "object",
+          "required": ["id"],
+          "properties": {
+            "id": { "type": "string" },
+            "references": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/skillReference" }
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
     "appendSystemPromptEntry": {
       "oneOf": [
         { "type": "string" },
