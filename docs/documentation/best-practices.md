@@ -32,6 +32,47 @@ not another profile. Reserve profile inheritance for genuine control and policy
 composition; do not require consumers to inherit a profile merely to access one
 of its skills.
 
+<details>
+<summary>Example: one platform profile with several capabilities</summary>
+
+An engineering platform agent uses the same identity, repository access, model,
+and safety policy for issue planning, implementation, deployment review, and
+weekly reporting. Keep those controls in one profile and expose each capability
+as a focused skill:
+
+```yaml
+# .outfitter/profiles/platform/profile.yml
+id: platform
+label: Platform
+
+controls:
+  skills:
+    - issue-planning
+    - issue-implementation
+    - deployment-review
+    - kpi-reporting
+```
+
+Adding release notes later should add a `release-notes` skill to this profile,
+not a `release-notes-agent` profile with copies of the same controls.
+
+</details>
+
+<details>
+<summary>Example: separate profiles for different policy boundaries</summary>
+
+An engineering agent may edit code, run tests, and push branches. A customer
+support agent may read customer conversations and draft replies but must not
+modify repositories. These are different identities with different data access,
+tools, and write permissions, so separate `engineering` and `support` profiles
+are appropriate.
+
+Each profile can still expose many focused skills. For example, `engineering`
+could select `incident-response` and `dependency-upgrade`, while `support`
+could select `ticket-triage` and `reply-drafting`.
+
+</details>
+
 ## Keep skills focused
 
 Give each skill one recognizable capability and a description precise enough
