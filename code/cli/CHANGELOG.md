@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.10.0](https://github.com/ai-outfitter/outfitter/compare/v0.9.0...v0.10.0) (2026-07-10)
+
+
+### Features
+
+* **run:** show the active profile in the pi TUI status line ([#145](https://github.com/ai-outfitter/outfitter/issues/145)) ([5015067](https://github.com/ai-outfitter/outfitter/commit/5015067bc8afa0ae13f1ae868018339b71f636eb))
+* **skills:** implement catalog skill selection and reference materialization ([#155](https://github.com/ai-outfitter/outfitter/issues/155)) ([e26f73c](https://github.com/ai-outfitter/outfitter/commit/e26f73ccafefc7c5f0bbad5fc09feed02e3faf52)), closes [#149](https://github.com/ai-outfitter/outfitter/issues/149)
+* **skills:** publish the bundled outfitter self-docs skill to pi and claude launches ([#154](https://github.com/ai-outfitter/outfitter/issues/154)) ([0998e14](https://github.com/ai-outfitter/outfitter/commit/0998e143e6baebcc6617860800aa32142bb63bd1))
+
 ## [0.9.0](https://github.com/ai-outfitter/outfitter/compare/v0.8.0...v0.9.0) (2026-07-07)
 
 
