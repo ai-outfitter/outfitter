@@ -8,31 +8,6 @@ Define project skills under `.outfitter/skills/` or bundle them inside a
 directory profile. See [Profile repositories](./profile-repository.md) to
 publish skills for other users and projects.
 
-## Start here
-
-- [Define a project skill](#project-skills) under `.outfitter/skills/`.
-- [Bundle a skill with a directory profile](#directory-profile-skills).
-- [Decide where context and instructions live](#where-context-and-instructions-live).
-- [Use a skill as a router](#skills-as-routers) to specialized knowledge,
-  scripts, and assets.
-- [Reference documents outside the skill folder](#external-references).
-- [Publish skills from a profile repository](./profile-repository.md#publishing-skills).
-
-## Agent Skills documentation
-
-Outfitter uses the portable `SKILL.md` model and translates selected skills for
-the active agent adapter. These agent-specific guides are useful when authoring
-skills or checking harness behavior:
-
-- [Pi skills](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/skills.md)
-- [Claude Code skills](https://code.claude.com/docs/en/skills)
-- [Gemini CLI Agent Skills](https://geminicli.com/docs/cli/using-agent-skills/)
-
-The links describe each harness's own discovery paths, frontmatter extensions,
-invocation behavior, and supporting-file conventions. They do not imply that
-every Outfitter adapter supports every harness feature. Check the
-[adapter support matrix](./support-matrix.md) for current Outfitter behavior.
-
 ## Project skills
 
 Place a project skill under `.outfitter/skills/<skill-id>/SKILL.md`. The folder
@@ -63,9 +38,9 @@ controls:
     - outfitter-actions
 ```
 
-Adapter-specific `controls.pi.skills` or `controls.claude.skills` remain useful
-when a skill applies to only one harness. Existing explicit file and directory
-paths remain supported for compatibility, but bare IDs are the portable default.
+`controls.skills` takes bare IDs. For a skill that applies to only one harness,
+or for legacy path entries, use the adapter-specific keys described in
+[Profiles](./profiles.md).
 
 ## Directory-profile skills
 
@@ -211,8 +186,8 @@ name: incident-response
 description: Investigate Kubernetes, database, and service incidents. Use when diagnosing an outage, failed health check, elevated errors, or degraded production behavior.
 
 references:
-  - repo_path: docs/runbooks/kubernetes.md
-  - repo_path: docs/runbooks/postgres.md
+  - repo_file: docs/runbooks/kubernetes.md
+  - repo_file: docs/runbooks/postgres.md
 ---
 ```
 
@@ -245,6 +220,10 @@ Outfitter materializes every declared document under the generated skill's
 `references/` directory, giving the skill stable relative paths without
 duplicating canonical documentation.
 
+Reference entries use the same two source keys as profile prompt includes
+(`file` and `repo_file` — see [Profiles](./profiles.md)), so one pair of names
+covers both features.
+
 ### Profile repository versus started repository
 
 A reference can come from either of two repositories involved in a run:
@@ -252,7 +231,7 @@ A reference can come from either of two repositories involved in a run:
 | Key         | Repository                                                                                                         | Use for                                                        |
 | ----------- | ------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------- |
 | `file`      | **Profile repository:** the checkout or cache containing the selected skill's `SKILL.md`                           | Documentation maintained and versioned with the skill          |
-| `repo_path` | **Started repository:** the active project where `outfitter run` launched the agent, which may be a different repo | Project-specific architecture, policy, and operating documents |
+| `repo_file` | **Started repository:** the active project where `outfitter run` launched the agent, which may be a different repo | Project-specific architecture, policy, and operating documents |
 
 For example, a shared profile repository can publish the skill and its general
 design guide:
@@ -286,8 +265,7 @@ references:
   # REPOSITORY WHERE THE AGENT STARTED: resolves from the active project root.
   # Here: <payments-service>/docs/architecture/actions.md
   # The active project owns this content, so it remains untrusted.
-  - repo_path: docs/architecture/actions.md
-    required: false
+  - repo_file: docs/architecture/actions.md
 ---
 # Outfitter Actions
 
@@ -304,7 +282,7 @@ file: docs/agentic-workflows.md
   -> <profile-repository>/docs/agentic-workflows.md
   -> <generated-skill>/references/agentic-workflows.md
 
-repo_path: docs/architecture/actions.md
+repo_file: docs/architecture/actions.md
   -> <active-project>/docs/architecture/actions.md
   -> <generated-skill>/references/actions.md
 ```
@@ -316,55 +294,40 @@ Each reference entry MUST contain exactly one source:
 
 - `file` resolves from the repository containing the selected skill. For a
   remote skill, this is the synchronized profile-repository checkout in
-  Outfitter's cache. Use it for documentation maintained with the skill.
-- `repo_path` resolves from the active project root passed to the run, not from
+  Outfitter's cache. Use it for documentation maintained with the skill. A
+  missing `file` target fails validation.
+- `repo_file` resolves from the active project root passed to the run, not from
   the profile repository. Use it for documentation owned by the repository
-  where the agent is running.
+  where the agent is running. A project may not contain the target, so a
+  missing `repo_file` reference is omitted from the generated skill; the skill
+  body should treat it as optional, as the example above does.
 
 For a project-local skill under the active project's `.outfitter/skills/`, both
 roots initially identify the same checkout. The distinction still matters if
 the skill is later published: `file` follows the skill into its profile
-repository, while `repo_path` continues to target whichever project consumes
+repository, while `repo_file` continues to target whichever project consumes
 the skill.
 
 References are regular files. They are not interpolated or added to the system
 prompt. Materializing a reference makes it available to the skill but does not
 load its contents into model context.
 
-### Destination names
-
-By default, Outfitter uses the source basename beneath `references/`:
-
-```yaml
-references:
-  - file: docs/agentic-workflows.md # references/agentic-workflows.md
-  - repo_path: docs/Foobar.md # references/Foobar.md
-```
-
-Use `name` when a stable name is clearer or two sources share a basename:
-
-```yaml
-references:
-  - repo_path: docs/platform/Foobar.md
-    name: platform-policy.md
-```
-
-`name` MUST be a basename, not a nested or escaping path. Duplicate destination
-names are errors. `required` defaults to `true`; a missing optional reference is
-omitted from the generated skill.
+Each reference materializes as `references/<source basename>`. Two references
+whose sources share a basename fail validation; rename one of the source
+documents to resolve the collision.
 
 ### Trust boundary
 
 Treat `file` references with the same trust as the skill that declares them.
-Treat every `repo_path` reference as untrusted repository content. A skill
+Treat every `repo_file` reference as untrusted repository content. A skill
 SHOULD select its workflow before reading repository references and MUST NOT
 allow instructions inside a reference to override its profile policy, safety
 boundaries, or the user's request.
 
 Outfitter resolves and normalizes reference targets before launch. Targets MUST
 remain within their Outfitter, profile-repository, or project root after
-following symlinks. Broken, escaping, non-file, and colliding required
-references fail validation.
+following symlinks. Broken, escaping, non-file, and colliding references fail
+validation.
 
 ## Resolution and launch
 
@@ -373,7 +336,7 @@ For each selected skill, Outfitter:
 1. Resolves the skill from `.outfitter/skills/` or a contributing directory
    profile.
 2. Validates `SKILL.md` and confirms `name` matches the directory name.
-3. Resolves `file` and `repo_path` reference entries.
+3. Resolves `file` and `repo_file` reference entries.
 4. Creates a generated skill directory for the run.
 5. Materializes references under that directory's `references/` folder.
 6. Passes the generated skill to the selected agent adapter.
@@ -400,3 +363,13 @@ loading only the branch relevant to the current incident.
 
 To distribute a skill through a shareable catalog, continue to
 [Publishing skills in a profile repository](./profile-repository.md#publishing-skills).
+
+## Harness documentation
+
+Outfitter uses the portable `SKILL.md` model and translates selected skills for
+the active agent adapter. When authoring skills or checking harness behavior,
+see the [Pi](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/skills.md),
+[Claude Code](https://code.claude.com/docs/en/skills), and
+[Gemini CLI](https://geminicli.com/docs/cli/using-agent-skills/) skill guides,
+and check the [adapter support matrix](./support-matrix.md) for what Outfitter
+currently translates for each adapter.

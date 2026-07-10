@@ -50,20 +50,14 @@ profile trusted metadata about this workflow run.
 
       trigger_context:
         repository: ${{ github.repository }}
-        workflow: ${{ github.workflow }}
-        run_id: ${{ github.run_id }}
         event_name: ${{ github.event_name }}
-        event_action: ${{ github.event.action || '' }}
         ref_name: ${{ github.ref_name }}
-        sha: ${{ github.sha }}
         issue_number: ${{ github.event.issue.number || '' }}
-        issue_labels: ${{ toJSON(github.event.issue.labels.*.name) }}
-        assignee: ${{ github.event.assignee.login || '' }}
-        deployment_status: ${{ github.event.deployment_status.state || '' }}
-        environment_url: ${{ github.event.deployment_status.environment_url || '' }}
 ```
 
-Include only fields needed by the workflow's declared events. Add a trusted
+Include only the identifiers the profile's routing rules need for the
+workflow's declared events (for example `sha`, `issue_labels`, or a
+deployment's `environment_url` when those events are in play). Add a trusted
 workflow-owned discriminator, such as `report_kind: weekly-kpi`, when GitHub's
 event metadata cannot distinguish scheduled behaviors.
 

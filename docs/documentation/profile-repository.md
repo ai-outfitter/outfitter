@@ -78,53 +78,21 @@ controls:
     - outfitter-actions
 ```
 
-Outfitter infers the catalog root from the configured source layout and
-discovers its `skills/` directory. This supports sibling `profiles/` and
-`skills/` directories as well as a source rooted directly at `.outfitter/`. A
-catalog may publish standalone skills without publishing placeholder profiles.
+The catalog root is the directory containing `settings.yml` (or the `profiles/`
+directory) — the same root the source's `path:` points at. Outfitter discovers
+`skills/` beside `profiles/` at that root, so a catalog may publish standalone
+skills without publishing placeholder profiles.
 
-Skill IDs follow configured source precedence: project-local, project, user,
-then cached remote sources in configured order. Outfitter reports shadowed IDs
-so consumers can see which catalog supplies the selected skill.
+Skill IDs follow configured source precedence: project, user, then cached
+remote sources in configured order. Outfitter reports shadowed IDs so consumers
+can see which catalog supplies the selected skill.
 
 A published skill can reuse human-maintained catalog documentation without
-copying it into the skill folder:
-
-```yaml
----
-name: outfitter-actions
-description: Design and maintain concise workflows built with ai-outfitter/actions.
-
-references:
-  # PROFILE REPOSITORY: resolves in this catalog's checkout or synced cache.
-  # Here: <cached-ai-outfitter-actions>/docs/actions-design.md
-  - file: docs/actions-design.md
-
-  # REPOSITORY WHERE THE AGENT STARTED: resolves in the active project, not
-  # this catalog. Here: <consumer-project>/docs/architecture/actions.md
-  # The consumer owns this content, so it remains untrusted.
-  - repo_path: docs/architecture/actions.md
-    required: false
----
-```
-
-For a published skill, `file` resolves inside this catalog's checkout, including
-its cached checkout after `outfitter sync`. `repo_path` does not resolve inside
-the catalog: it resolves inside the consumer's active project where the agent
-was started. In the example above:
-
-```text
-<cached-ai-outfitter-actions>/docs/actions-design.md
-  -> references/actions-design.md
-
-<consumer-project>/docs/architecture/actions.md
-  -> references/actions.md
-```
-
-Outfitter materializes both under the generated skill's `references/`
-directory without loading or interpolating their contents. See
-[External references](./skills.md#external-references) for the complete two-root
-model, destination naming, and trust rules.
+copying it into the skill folder: declare the document as a `file` reference,
+which resolves inside the catalog's checkout (including its synced cache),
+while `repo_file` references resolve inside the consumer's active project. See
+[External references](./skills.md#external-references) for the two-root model
+and trust rules.
 
 ## Consuming a catalog as a profile source
 
@@ -152,9 +120,8 @@ Each source entry is one of:
 Remote entries (`github`/`uri`) additionally accept:
 
 - `ref:` — a tag, branch, or commit to pin. With a `ref`, `outfitter sync` fetches and checks out exactly that ref. Without one, sync fast-forwards the repository's default branch, so you always track the catalog's latest state.
-- `path:` — the catalog root or a subdirectory containing profiles. Outfitter
-  infers conventional catalog roots so sibling standalone skills remain
-  discoverable.
+- `path:` — the catalog root inside the repository (the directory containing
+  `profiles/` and, optionally, `skills/`).
 - `only:` / `except:` — filter which profile ids from the source are exposed. `only` is an allowlist; `except` is a blocklist.
 
 ## Remote settings
@@ -195,8 +162,7 @@ Profiles and selected skills from a catalog can:
 - **Set environment variables** (`controls.environment`) for the agent process.
 - **Shape prompts, skills, subagents, and DeepWork jobs** — steering what the agent does with the access it already has.
 - **Provide skill references** — catalog `file` references are trusted with the
-  selected skill, while `repo_path` references remain untrusted content from the
-  active project.
+  selected skill; see the [trust boundary](./skills.md#trust-boundary).
 
 Before adding a source, review it:
 
