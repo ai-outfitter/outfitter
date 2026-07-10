@@ -316,6 +316,32 @@ Each reference materializes as `references/<source basename>`. Two references
 whose sources share a basename fail validation; rename one of the source
 documents to resolve the collision.
 
+### Profile-added references
+
+A profile MUST be able to append references to a skill it selects. Expand the
+`controls.skills` entry from a bare ID to an object with `id` and `references`:
+
+```yaml
+controls:
+  skills:
+    - outfitter-actions
+    - id: deployment-review
+      references:
+        - repo_file: docs/runbooks/deploy.md
+```
+
+Profile-added entries use the same `file` / `repo_file` sources and validation
+rules as skill-declared references, with one difference in the `file` root: it
+resolves from the repository containing the profile, not the skill's catalog.
+Outfitter materializes profile-added references into the selected skill's same
+`references/` directory; basename collisions with skill-declared references
+fail validation.
+
+This lets a profile specialize a shared skill with additional project or
+catalog documentation without forking the skill. Because the skill body cannot
+name these files in advance, a routing skill should list its `references/`
+directory rather than assume a fixed set.
+
 ### Trust boundary
 
 Treat `file` references with the same trust as the skill that declares them.

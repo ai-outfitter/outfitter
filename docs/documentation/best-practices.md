@@ -47,6 +47,14 @@ Give each skill one recognizable capability and a description precise enough
 for an agent to decide when it applies. Keep common policy in the profile
 rather than repeating it across every skill.
 
+Focused does not mean tiny. Err on the side of one larger skill that
+[routes to different references](./skills.md#skills-as-routers) over many
+near-duplicate skills: split a skill only when its description can no longer
+say when it applies. Point references at existing human-maintained
+documentation rather than writing new agent-only copies, and use
+[profile-added references](./skills.md#profile-added-references) to specialize
+a shared skill instead of forking it.
+
 ## Use references for human documentation
 
 Keep canonical architecture, policy, and operating documents in normal `docs/`
