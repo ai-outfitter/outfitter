@@ -325,6 +325,25 @@ Each reference materializes as `references/<source basename>`. Two references
 whose sources share a basename fail validation; rename one of the source
 documents to resolve the collision.
 
+### Glob targets
+
+A `file` or `repo_file` target may be a glob, expanded at resolution time
+against its root — the profile-repository checkout for `file`, the active
+project root for `repo_file`:
+
+```yaml
+references:
+  - file: docs/*.md
+```
+
+Each match materializes under `references/` by basename, exactly as if listed
+individually, and joins the same collision check. A `file` glob matching zero
+files fails validation, like a broken `file` target; a `repo_file` glob
+matching zero files is omitted, like a missing `repo_file` target. Matches
+MUST remain within their root after symlink normalization, per
+[Trust boundary](#trust-boundary); `**` is allowed under the same constraint.
+The same semantics apply to `scripts` and `assets` entries.
+
 ### Scripts and assets
 
 The `scripts` and `assets` frontmatter keys use the same entry union and
@@ -397,15 +416,15 @@ For each selected skill, Outfitter:
    directories, contributing directory profiles, and catalog `skills/`
    directories — following [layer precedence](./concepts.md#layer-precedence).
 2. Validates `SKILL.md` and confirms `name` matches the directory name.
-3. Resolves `file` and `repo_file` reference entries.
+3. Resolves `file` and `repo_file` reference entries, expanding glob targets.
 4. Creates a generated skill directory for the run.
 5. Materializes references under that directory's `references/` folder.
 6. Passes the generated skill to the selected agent adapter.
 7. Removes the generated skill with the temporary composite profile.
 
 Run `outfitter profile lint` to diagnose unresolved skill IDs, invalid
-frontmatter, missing `file` references, escaping paths, and destination
-collisions before launch.
+frontmatter, missing or zero-match `file` references, escaping paths, and
+destination collisions before launch.
 
 ## Progressive disclosure
 
