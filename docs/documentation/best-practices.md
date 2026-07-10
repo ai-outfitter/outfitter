@@ -73,6 +73,11 @@ A profile's system prompt can map stable runtime metadata to relevant skills.
 Keep this routing contract short; detailed procedures belong in the selected
 skills and their references.
 
+When a skill already defines a capability, do not repeat or include its
+instructions through the profile's `system_prompt`, `append_system_prompt`,
+`file`, or `repo_file` controls. Select the skill and state only its activation
+condition. See [Where context and instructions live](./skills.md#where-context-and-instructions-live).
+
 ```text
 Use trigger_context to select only the skill needed for this run.
 - issues/opened with fix, feat, or idea labels: use issue-planning.
