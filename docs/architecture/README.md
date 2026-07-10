@@ -745,7 +745,7 @@ Responsibilities:
 - write `~/.outfitter/settings.yml` with the shared default profile source and selected `default_profile` when settings are missing;
 - update `default_profile` without overwriting existing user profile files when settings already exist;
 - explain that selected profile/loadout changes apply on the next `outfitter` launch because Pi startup-sensitive state has already been chosen for the running process;
-- keep the published `skills/outfitter` package skill as fallback guidance for environments where the native command is unavailable.
+- keep the published `.outfitter/skills/outfitter` bundled skill as fallback guidance for environments where the native command is unavailable.
 
 ### `outfitter welcome`
 

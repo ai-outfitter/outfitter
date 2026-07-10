@@ -13,7 +13,11 @@ export const createPiSkillSources = (input: {
 }): readonly string[] => [
   ...new Set([
     input.builtInOutfitterSkill,
-    ...(input.controls.skills ?? []).map((source) => resolveProfileSkillSource(source, input.profileLayers)),
+    // Catalog-ID entries are resolved to generated skill paths before the adapter runs;
+    // any remaining object entries carry no path source and are skipped here.
+    ...(input.controls.skills ?? [])
+      .filter((source): source is string => typeof source === 'string')
+      .map((source) => resolveProfileSkillSource(source, input.profileLayers)),
     ...input.profileFolders.flatMap(skillSourcesForProfile),
   ]),
 ];

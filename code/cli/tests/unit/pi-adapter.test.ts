@@ -2,7 +2,6 @@
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
@@ -11,8 +10,8 @@ import { writeCompositeProfile } from '../../src/compositeProfile/CompositeProfi
 import { parseProfileYaml } from '../../src/profiles/ProfileLoader.js';
 
 const temporaryPiAdapterTestRoots: string[] = [];
-const repositoryRoot = fileURLToPath(new URL('../..', import.meta.url));
-const builtInOutfitterSkill = join(repositoryRoot, 'skills', 'outfitter');
+const builtInOutfitterSkill = (compositeProfileRoot: string): string =>
+  join(compositeProfileRoot, 'outfitter', 'plugin', 'skills', 'outfitter');
 
 afterEach(() => {
   for (const root of temporaryPiAdapterTestRoots.splice(0)) {
@@ -119,7 +118,7 @@ describe('pi adapter', () => {
       '--extension',
       'ext-a',
       '--skill',
-      builtInOutfitterSkill,
+      builtInOutfitterSkill('/tmp/outfitter-engineering-pi-123'),
       '--skill',
       'skill-pi',
       '--skill',
@@ -137,7 +136,7 @@ describe('pi adapter', () => {
         '--model',
         'generic-model',
         '--skill',
-        builtInOutfitterSkill,
+        builtInOutfitterSkill('/tmp/outfitter-engineering-pi-123'),
       ]);
     }
   });
@@ -164,7 +163,7 @@ describe('pi adapter', () => {
       '--append-system-prompt',
       './prompts/vcs.md',
       '--skill',
-      builtInOutfitterSkill,
+      builtInOutfitterSkill('/tmp/outfitter-engineering-pi-append-prompts'),
     ]);
   });
 

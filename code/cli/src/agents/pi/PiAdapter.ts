@@ -2,7 +2,6 @@
 import { existsSync, readdirSync, readFileSync, statSync, type Dirent } from 'node:fs';
 import { homedir } from 'node:os';
 import { delimiter, dirname, isAbsolute, join, relative } from 'node:path';
-import { fileURLToPath } from 'node:url';
 
 import type {
   AgentAdapter,
@@ -12,7 +11,7 @@ import type {
   AgentLaunchProfileLayer,
 } from '../AgentAdapter.js';
 import { genericControlNames, mergeAgentSpecificControls, supportedControlNames } from '../AdapterProfileControls.js';
-import { createOutfitterDocsSystemPrompt } from '../OutfitterDocs.js';
+import { createOutfitterPluginCompositeFiles, outfitterPluginSkillCompositeRelativePath } from '../OutfitterSkill.js';
 import { createDeclaredStatePaths, findProfileStateSource } from '../AdapterStatePaths.js';
 import { filterPiSettingsPackagesDuplicatingExtensions } from './PiSettingsMergePolicy.js';
 import type { PiProfileControls, Profile, ProfileControls } from '../../profiles/Profile.js';
@@ -75,6 +74,7 @@ export const createPiAdapter = (): AgentAdapter => ({
         createPiMcpConfigFile(input.rootDirectory, input.profileFolders),
         transformedSettingsFile,
         transformedKeybindingsFile,
+        ...createOutfitterPluginCompositeFiles(input.rootDirectory),
       ].filter((file) => file !== undefined),
       transformedStatePaths,
     );
@@ -109,7 +109,7 @@ export const createPiAdapter = (): AgentAdapter => ({
       context.profileLayers ?? [],
     );
     const skillSources = createPiSkillSources({
-      builtInOutfitterSkill,
+      builtInOutfitterSkill: join(compositeProfile.rootDirectory, outfitterPluginSkillCompositeRelativePath),
       controls,
       profileFolders,
       profileLayers: context.profileLayers ?? [],
@@ -131,12 +131,7 @@ export const createPiAdapter = (): AgentAdapter => ({
             onProgress: context.onProgress,
           }),
           skills: skillSources,
-          appendSystemPrompt: [
-            ...appendPrompt.prompts,
-            // Mirrors pi's own docs section in the default system prompt: point the
-            // agent at the bundled Outfitter user documentation by absolute path.
-            ...toOutfitterDocsPrompts(context.outfitterDocsDirectory),
-          ],
+          appendSystemPrompt: appendPrompt.prompts,
         }),
         ...passThroughArgs,
       ],
@@ -450,8 +445,6 @@ const resolvePiStateSourcePath = (
 };
 
 const deepWorkAdditionalJobsFoldersEnv = 'DEEPWORK_ADDITIONAL_JOBS_FOLDERS';
-const packageRootDirectory = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
-const builtInOutfitterSkill = join(packageRootDirectory, 'skills', 'outfitter');
 
 const createDeepWorkAdditionalJobsFolders = (
   controls: PiProfileControls,
@@ -555,9 +548,6 @@ const formatFilesystemError = (error: unknown): string => String(error);
 
 const splitPathList = (value: string | undefined): readonly string[] =>
   value === undefined || value === '' ? [] : value.split(delimiter).filter((entry) => entry !== '');
-
-const toOutfitterDocsPrompts = (docsDirectory: string | undefined): readonly string[] =>
-  docsDirectory === undefined ? [] : [createOutfitterDocsSystemPrompt(docsDirectory)];
 
 const mergePiControls = (controls: ProfileControls): PiProfileControls =>
   mergeAgentSpecificControls<PiProfileControls>(controls, 'pi');

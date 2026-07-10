@@ -20,7 +20,7 @@
     "--extension",
     "tsconfig",
     "--skill",
-    "<repo>/skills/outfitter",
+    "<composite-profile>/outfitter/plugin/skills/outfitter",
     "--skill",
     "strict-typescript",
     "--review-scope=typescript"

@@ -26,13 +26,17 @@ const copies = [
   ['LICENSE.md', 'LICENSE.md', false],
   [join('code', 'enterprise'), join('code', 'enterprise'), true],
   [join('code', 'pi-extension', 'src'), join('code', 'pi-extension', 'src'), true],
-  [join('docs', 'documentation'), join('doc', 'documentation'), true],
+  // The bundled Outfitter self-documentation skill and the docs its `file:` references
+  // resolve to keep their repository-relative paths, so the packaged layout resolves the
+  // skill exactly like the repository layout does.
+  [join('.outfitter', 'skills'), join('.outfitter', 'skills'), true],
+  [join('docs', 'documentation'), join('docs', 'documentation'), true],
   // Keep cross-references from the shipped documentation working in the package:
   // README.md links ../philosophy.md and state.md links ../architecture/state_writeback_strategy.md.
-  [join('docs', 'philosophy.md'), join('doc', 'philosophy.md'), false],
+  [join('docs', 'philosophy.md'), join('docs', 'philosophy.md'), false],
   [
     join('docs', 'architecture', 'state_writeback_strategy.md'),
-    join('doc', 'architecture', 'state_writeback_strategy.md'),
+    join('docs', 'architecture', 'state_writeback_strategy.md'),
     false,
   ],
 ];

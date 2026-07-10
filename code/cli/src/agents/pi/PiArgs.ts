@@ -11,6 +11,9 @@ export const createPiArgs = (controls: PiProfileControls): readonly string[] => 
   ...flagValue('--system-prompt', controls.systemPrompt),
   ...repeatFlagValue('--append-system-prompt', controls.appendSystemPrompt),
   ...repeatFlag('--extension', controls.extensions),
-  ...repeatFlag('--skill', controls.skills),
+  ...repeatFlag(
+    '--skill',
+    (controls.skills ?? []).filter((source): source is string => typeof source === 'string'),
+  ),
   ...(controls.args ?? []),
 ];

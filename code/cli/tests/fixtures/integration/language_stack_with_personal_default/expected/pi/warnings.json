@@ -1,1 +1,4 @@
-["pi wrote undeclared composite profile state 'scratch.log' and it was not persisted."]
+[
+  "Skill 'strict-typescript' does not resolve in any skills directory; passing it through as a path source.",
+  "pi wrote undeclared composite profile state 'scratch.log' and it was not persisted."
+]

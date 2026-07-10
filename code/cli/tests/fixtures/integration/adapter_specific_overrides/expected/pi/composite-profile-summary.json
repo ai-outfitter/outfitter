@@ -24,7 +24,7 @@
     "--extension",
     "./tools/generic-extension",
     "--skill",
-    "<repo>/skills/outfitter",
+    "<composite-profile>/outfitter/plugin/skills/outfitter",
     "--skill",
     "repo-review",
     "--pi-flag"

@@ -14,7 +14,7 @@
     "--system-prompt",
     "./prompts/sandbox.md",
     "--skill",
-    "<repo>/skills/outfitter",
+    "<composite-profile>/outfitter/plugin/skills/outfitter",
     "--sandbox-mode"
   ],
   "launchEnv": {
