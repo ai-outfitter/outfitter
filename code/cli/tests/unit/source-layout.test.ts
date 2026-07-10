@@ -1,7 +1,6 @@
 // Tests source layout, command registration, schemas, and small boundary helpers.
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
 
 import type { AnySchema } from 'ajv';
 import { Ajv2020 } from 'ajv/dist/2020.js';
@@ -44,8 +43,8 @@ import { createValidationResult } from '../../src/validation/SchemaValidator.js'
 const readJson = <T>(relativePath: string): T =>
   JSON.parse(readFileSync(new URL(relativePath, import.meta.url), 'utf8')) as T;
 
-const repositoryRoot = fileURLToPath(new URL('../..', import.meta.url));
-const builtInOutfitterSkill = join(repositoryRoot, 'skills', 'outfitter');
+const builtInOutfitterSkill = (compositeProfileRoot: string): string =>
+  join(compositeProfileRoot, 'outfitter', 'plugin', 'skills', 'outfitter');
 
 describe('source layout scaffolding', () => {
   // THIS TEST VALIDATES COMMAND-AVAILABILITY CLAUSES IN HARD REQUIREMENTS (OFTR-004.1, OFTR-004.2, OFTR-004.3, OFTR-005.1).
@@ -179,12 +178,12 @@ describe('source layout scaffolding', () => {
 
     expect(launchPlan).toEqual({
       command: 'pi',
-      args: ['--skill', builtInOutfitterSkill],
+      args: ['--skill', builtInOutfitterSkill(compositeProfileRoot)],
       env: { PI_CODING_AGENT_DIR: compositeProfileRoot },
     });
     expect(claudeLaunchPlan).toEqual({
       command: 'claude',
-      args: [],
+      args: ['--plugin-dir', join(compositeProfileRoot, 'outfitter', 'plugin')],
       env: { CLAUDE_CONFIG_DIR: compositeProfileRoot },
     });
     expect(piPaths.agentDirectory).toBe(compositeProfileRoot);

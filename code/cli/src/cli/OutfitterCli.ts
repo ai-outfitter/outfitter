@@ -3,7 +3,6 @@ import { readFileSync } from 'node:fs';
 
 import { Command } from 'commander';
 
-import { resolveOutfitterDocsDirectory } from '../agents/OutfitterDocs.js';
 import type { CommandObject } from './commands/CommandObject.js';
 import { createProfileCommands } from './commands/profile/Command.js';
 import { createRunCommand, executeRunCommand } from './commands/RunCommand.js';
@@ -19,7 +18,6 @@ export const createDefaultCommands = (): CommandObject[] => [
       await executeRunCommand({
         ...input,
         profileId: input.profileId,
-        outfitterDocsDirectory: resolveOutfitterDocsDirectory(),
       });
     },
   }),

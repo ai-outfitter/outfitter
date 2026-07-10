@@ -3,7 +3,6 @@
 import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
@@ -13,8 +12,8 @@ import { createRemoteRepositoryCachePath } from '../../src/profiles/ProfileCache
 import { allowTestConsoleOutput } from '../test-console.js';
 
 const temporaryRoots: string[] = [];
-const repositoryRoot = fileURLToPath(new URL('../..', import.meta.url));
-const builtInOutfitterSkill = join(repositoryRoot, 'skills', 'outfitter');
+const builtInOutfitterSkill = (compositeProfileRoot: string): string =>
+  join(compositeProfileRoot, 'outfitter', 'plugin', 'skills', 'outfitter');
 
 const createTemporaryRoot = (): string => {
   const root = mkdtempSync(join(tmpdir(), 'outfitter-run-command-'));
@@ -159,7 +158,7 @@ describe('run command', () => {
       '--model',
       'test-model',
       '--skill',
-      builtInOutfitterSkill,
+      builtInOutfitterSkill(result.compositeProfileDirectory),
       '--debug',
       'prompt text',
     ]);

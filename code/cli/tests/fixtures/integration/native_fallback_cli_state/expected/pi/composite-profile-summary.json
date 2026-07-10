@@ -10,7 +10,7 @@
     "--provider",
     "openai",
     "--skill",
-    "<repo>/skills/outfitter",
+    "<composite-profile>/outfitter/plugin/skills/outfitter",
     "--skill",
     "<project>/.outfitter/profiles/fallback-review/skills/review-skill",
     "--native-fallback-fixture"

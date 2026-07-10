@@ -112,6 +112,8 @@ describe('Claude Code adapter support', () => {
       'generic-plugin',
       '--permission-mode',
       'plan',
+      '--plugin-dir',
+      join('/tmp/outfitter-engineering-claude-123', 'outfitter', 'plugin'),
       '--verbose',
     ]);
 
@@ -143,6 +145,8 @@ describe('Claude Code adapter support', () => {
         'Claude-specific extra prompt',
         '--plugin-dir',
         'plugin-a',
+        '--plugin-dir',
+        join('/tmp/outfitter-engineering-claude-123', 'outfitter', 'plugin'),
       ]);
     }
 
@@ -304,6 +308,8 @@ describe('Claude Code adapter support', () => {
       'generic-model',
       '--permission-mode',
       'plan',
+      '--plugin-dir',
+      join(cliClaudeResult.compositeProfileDirectory, 'outfitter', 'plugin'),
       '--verbose',
     ]);
     expect(settingsClaudeResult.agentId).toBe('claude');
