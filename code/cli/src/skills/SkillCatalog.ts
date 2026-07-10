@@ -37,8 +37,10 @@ export interface SkillCatalogInput {
 
 /**
  * Builds the skill ID catalog following layer precedence: project-local, project,
- * bundled directory-profile skills, then configured sources in order. The first
- * root supplying an ID wins; later roots are reported as shadowed.
+ * bundled directory-profile skills (highest-precedence layer first), then
+ * configured sources (later entries outrank earlier ones, matching profile
+ * precedence). The first root supplying an ID wins; later roots are reported as
+ * shadowed.
  */
 export const discoverSkillCatalog = (input: SkillCatalogInput): SkillCatalog => {
   const entries = new Map<string, SkillCatalogEntry>();
@@ -77,7 +79,9 @@ export const createSkillCatalogRoots = (input: SkillCatalogInput): readonly Skil
     );
   }
 
-  for (const layer of input.profileLayers ?? []) {
+  // Profile layers arrive lowest-precedence first (see ProfileMerger); reverse so
+  // the selected profile's bundled skill outranks an inherited base profile's.
+  for (const layer of [...(input.profileLayers ?? [])].reverse()) {
     if (layer.resourceRootPath === undefined) {
       continue;
     }
@@ -94,7 +98,8 @@ export const createSkillCatalogRoots = (input: SkillCatalogInput): readonly Skil
     });
   }
 
-  for (const sourcePath of input.sourcePaths ?? []) {
+  // Later configured sources outrank earlier ones for profiles; mirror that here.
+  for (const sourcePath of [...(input.sourcePaths ?? [])].reverse()) {
     const catalogRoot = resolveCatalogRoot(sourcePath);
     roots.push({
       skillsDirectory: join(catalogRoot, 'skills'),

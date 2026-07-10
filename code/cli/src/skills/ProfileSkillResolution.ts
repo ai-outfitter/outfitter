@@ -6,7 +6,14 @@ import type { Profile, ProfileControls, SkillControlEntry } from '../profiles/Pr
 import { inferProfileIncludeSourceRoot } from '../profiles/PromptIncludes.js';
 import { skillControlEntryIdentity } from '../agents/LaunchResources.js';
 import { discoverSkillCatalog, type SkillCatalog } from './SkillCatalog.js';
-import { resolveSkillEntries, type SkillEntryInput, type SkillResolutionDiagnostic } from './SkillResolution.js';
+import {
+  resolveSkillEntries,
+  type SkillEntryInput,
+  type SkillMaterializationCache,
+  type SkillResolutionDiagnostic,
+} from './SkillResolution.js';
+
+type SkillControlScope = 'skills' | 'pi' | 'claude';
 
 export interface ProfileSkillResolutionInput {
   readonly profile: Profile;
@@ -36,12 +43,19 @@ export const resolveProfileSkillControls = (input: ProfileSkillResolutionInput):
   const diagnostics: SkillResolutionDiagnostic[] = [];
   const outputDirectory =
     input.outputDirectory === undefined ? undefined : join(input.outputDirectory, 'outfitter', 'skills');
-  const resolveEntries = (entries: readonly SkillControlEntry[]): readonly SkillControlEntry[] => {
+  // One skill ID materializes once; selecting it from several control scopes reuses
+  // the same generated directory, and conflicting reference sets are an error.
+  const materializationCache: SkillMaterializationCache = new Map();
+  const resolveEntries = (
+    entries: readonly SkillControlEntry[],
+    scope: SkillControlScope,
+  ): readonly SkillControlEntry[] => {
     const resolution = resolveSkillEntries({
-      entries: entries.map((entry) => toSkillEntryInput(entry, input.profileLayers)),
+      entries: entries.map((entry) => toSkillEntryInput(entry, scope, input.profileLayers)),
       catalog,
       projectDirectory: input.projectDirectory,
       outputDirectory,
+      materializationCache,
     });
     diagnostics.push(...resolution.diagnostics);
 
@@ -56,18 +70,28 @@ export const resolveProfileSkillControls = (input: ProfileSkillResolutionInput):
 
 const resolveSkillControls = (
   controls: ProfileControls,
-  resolveEntries: (entries: readonly SkillControlEntry[]) => readonly SkillControlEntry[],
+  resolveEntries: (entries: readonly SkillControlEntry[], scope: SkillControlScope) => readonly SkillControlEntry[],
 ): ProfileControls => ({
   ...controls,
-  ...(controls.skills === undefined ? {} : { skills: resolveEntries(controls.skills) }),
-  ...(controls.pi?.skills === undefined ? {} : { pi: { ...controls.pi, skills: resolveEntries(controls.pi.skills) } }),
+  ...(controls.skills === undefined ? {} : { skills: resolveEntries(controls.skills, 'skills') }),
+  ...(controls.pi?.skills === undefined
+    ? {}
+    : { pi: { ...controls.pi, skills: resolveEntries(controls.pi.skills, 'pi') } }),
   ...(controls.claude?.skills === undefined
     ? {}
-    : { claude: { ...controls.claude, skills: resolveEntries(controls.claude.skills) } }),
+    : { claude: { ...controls.claude, skills: resolveEntries(controls.claude.skills, 'claude') } }),
 });
 
-/** Profile-added `file` references resolve from the repository containing the declaring profile. */
-const toSkillEntryInput = (entry: SkillControlEntry, profileLayers: readonly LoadedProfile[]): SkillEntryInput => {
+/**
+ * Profile-added `file` references resolve from the repository containing the
+ * declaring profile. The lookup stays within the entry's own control scope so an
+ * object selection in another scope cannot supply the wrong repository root.
+ */
+const toSkillEntryInput = (
+  entry: SkillControlEntry,
+  scope: SkillControlScope,
+  profileLayers: readonly LoadedProfile[],
+): SkillEntryInput => {
   if (typeof entry === 'string') {
     return { entry };
   }
@@ -76,7 +100,7 @@ const toSkillEntryInput = (entry: SkillControlEntry, profileLayers: readonly Loa
   const declaringLayer = [...profileLayers]
     .reverse()
     .find((layer) =>
-      readLayerSkillEntries(layer.profile.controls).some(
+      readScopedSkillEntries(layer.profile.controls, scope).some(
         (layerEntry) => typeof layerEntry !== 'string' && skillControlEntryIdentity(layerEntry) === identity,
       ),
     );
@@ -92,6 +116,9 @@ const toSkillEntryInput = (entry: SkillControlEntry, profileLayers: readonly Loa
           }),
   };
 };
+
+const readScopedSkillEntries = (controls: ProfileControls, scope: SkillControlScope): readonly SkillControlEntry[] =>
+  (scope === 'skills' ? controls.skills : controls[scope]?.skills) ?? [];
 
 const readLayerSkillEntries = (controls: ProfileControls): readonly SkillControlEntry[] => [
   ...(controls.skills ?? []),

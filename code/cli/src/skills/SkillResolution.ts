@@ -1,6 +1,6 @@
 // Resolves selected skill IDs, validates references, and materializes generated skills.
 import { copyFileSync, cpSync, existsSync, mkdirSync, realpathSync, statSync } from 'node:fs';
-import { basename, isAbsolute, join, relative } from 'node:path';
+import { basename, isAbsolute, join, relative, sep } from 'node:path';
 
 import type { SkillControlEntry, SkillReference, SkillSelection } from '../profiles/Profile.js';
 import type { SkillCatalog, SkillCatalogEntry } from './SkillCatalog.js';
@@ -25,12 +25,22 @@ export interface SkillEntryInput {
   readonly profileReferenceRoot?: string;
 }
 
+/**
+ * Shared across control scopes so one skill ID materializes once; a second
+ * selection reuses the generated directory, and differing reference sets error.
+ */
+export type SkillMaterializationCache = Map<
+  string,
+  { readonly referencesKey: string; readonly generatedDirectory?: string }
+>;
+
 export interface SkillResolutionInput {
   readonly entries: readonly SkillEntryInput[];
   readonly catalog: SkillCatalog;
   readonly projectDirectory?: string;
   /** When set, resolved skills are copied here as `<id>/` with materialized references. */
   readonly outputDirectory?: string;
+  readonly materializationCache?: SkillMaterializationCache;
 }
 
 export interface SkillResolutionResult {
@@ -43,46 +53,99 @@ export const resolveSkillEntries = (input: SkillResolutionInput): SkillResolutio
   const sources: string[] = [];
   const diagnostics: SkillResolutionDiagnostic[] = [];
 
-  for (const { entry, profileReferenceRoot } of input.entries) {
-    const selection: SkillSelection = typeof entry === 'string' ? { id: entry } : entry;
-    const catalogEntry = input.catalog.entries.get(selection.id);
-
-    if (catalogEntry === undefined) {
-      if (typeof entry !== 'string') {
-        diagnostics.push({
-          severity: 'error',
-          path: `controls.skills/${selection.id}`,
-          message: `Skill ID '${selection.id}' does not resolve in any skills directory.`,
-        });
-      } else if (isValidSkillId(entry)) {
-        diagnostics.push({
-          severity: 'warning',
-          path: `controls.skills/${entry}`,
-          message: `Skill '${entry}' does not resolve in any skills directory; passing it through as a path source.`,
-        });
-        sources.push(entry);
-      } else {
-        sources.push(entry);
-      }
-
-      continue;
-    }
-
-    const resolved = resolveCatalogSkill({
-      catalogEntry,
-      references: selection.references ?? [],
-      profileReferenceRoot,
-      projectDirectory: input.projectDirectory,
-      outputDirectory: input.outputDirectory,
-    });
-    diagnostics.push(...resolved.diagnostics);
-
-    if (resolved.generatedDirectory !== undefined) {
-      sources.push(resolved.generatedDirectory);
-    }
+  for (const entryInput of input.entries) {
+    const outcome = resolveSkillEntry(input, entryInput);
+    sources.push(...outcome.sources);
+    diagnostics.push(...outcome.diagnostics);
   }
 
   return { sources, diagnostics };
+};
+
+const resolveSkillEntry = (input: SkillResolutionInput, entryInput: SkillEntryInput): SkillResolutionResult => {
+  const { entry, profileReferenceRoot } = entryInput;
+  const selection: SkillSelection = typeof entry === 'string' ? { id: entry } : entry;
+  const catalogEntry = input.catalog.entries.get(selection.id);
+
+  if (catalogEntry === undefined) {
+    return resolveUncataloguedEntry(entry, selection.id);
+  }
+
+  const references = selection.references ?? [];
+  const referencesKey = JSON.stringify(references);
+  const cached = input.materializationCache?.get(selection.id);
+
+  if (cached !== undefined) {
+    return resolveCachedEntry(cached, referencesKey, selection.id);
+  }
+
+  const resolved = resolveCatalogSkill({
+    catalogEntry,
+    references,
+    profileReferenceRoot,
+    projectDirectory: input.projectDirectory,
+    outputDirectory: input.outputDirectory,
+  });
+  input.materializationCache?.set(selection.id, {
+    referencesKey,
+    generatedDirectory: resolved.generatedDirectory,
+  });
+
+  return { sources: toEntrySources(resolved.generatedDirectory), diagnostics: resolved.diagnostics };
+};
+
+const resolveCachedEntry = (
+  cached: { readonly referencesKey: string; readonly generatedDirectory?: string },
+  referencesKey: string,
+  id: string,
+): SkillResolutionResult => {
+  if (cached.referencesKey !== referencesKey) {
+    return {
+      sources: [],
+      diagnostics: [
+        {
+          severity: 'error',
+          path: `controls.skills/${id}`,
+          message: `Skill '${id}' is selected with conflicting reference sets across control scopes.`,
+        },
+      ],
+    };
+  }
+
+  return { sources: toEntrySources(cached.generatedDirectory), diagnostics: [] };
+};
+
+const toEntrySources = (generatedDirectory: string | undefined): readonly string[] =>
+  generatedDirectory === undefined ? [] : [generatedDirectory];
+
+const resolveUncataloguedEntry = (entry: SkillControlEntry, id: string): SkillResolutionResult => {
+  if (typeof entry !== 'string') {
+    return {
+      sources: [],
+      diagnostics: [
+        {
+          severity: 'error',
+          path: `controls.skills/${id}`,
+          message: `Skill ID '${id}' does not resolve in any skills directory.`,
+        },
+      ],
+    };
+  }
+
+  if (isValidSkillId(entry)) {
+    return {
+      sources: [entry],
+      diagnostics: [
+        {
+          severity: 'warning',
+          path: `controls.skills/${entry}`,
+          message: `Skill '${entry}' does not resolve in any skills directory; passing it through as a path source.`,
+        },
+      ],
+    };
+  }
+
+  return { sources: [entry], diagnostics: [] };
 };
 
 interface CatalogSkillResolutionInput {
@@ -128,27 +191,12 @@ const resolveCatalogSkill = (
 
   for (const materialization of materializations) {
     const sectionDirectory = join(generatedDirectory, materialization.section);
-    const destination = join(sectionDirectory, materialization.destinationName);
-
-    if (existsSync(destination)) {
-      diagnostics.push({
-        severity: 'error',
-        path: catalogEntry.skillPath,
-        message:
-          `Destination '${materialization.section}/${materialization.destinationName}' collides with a file ` +
-          `already shipped by skill '${catalogEntry.id}'.`,
-      });
-      continue;
-    }
-
     mkdirSync(sectionDirectory, { recursive: true });
     // copyFileSync preserves the source mode, so materialized scripts stay executable.
-    copyFileSync(materialization.sourcePath, destination);
+    copyFileSync(materialization.sourcePath, join(sectionDirectory, materialization.destinationName));
   }
 
-  return diagnostics.some((diagnostic) => diagnostic.severity === 'error')
-    ? { diagnostics }
-    : { generatedDirectory, diagnostics };
+  return { generatedDirectory, diagnostics };
 };
 
 interface SkillMaterialization {
@@ -213,6 +261,19 @@ const planSectionMaterializations = (
         severity: 'error',
         path: input.catalogEntry.skillPath,
         message: `Destination '${section}/${resolved.destinationName}' is declared more than once.`,
+      });
+      continue;
+    }
+
+    // Checked against the source skill directory during planning so lint reports
+    // shipped-file collisions without materializing anything.
+    if (existsSync(join(input.catalogEntry.directory, section, resolved.destinationName))) {
+      diagnostics.push({
+        severity: 'error',
+        path: input.catalogEntry.skillPath,
+        message:
+          `Destination '${section}/${resolved.destinationName}' collides with a file ` +
+          `already shipped by skill '${input.catalogEntry.id}'.`,
       });
       continue;
     }
@@ -295,5 +356,6 @@ const escapesRoot = (sourcePath: string, root: string): boolean => {
 
   const relativePath = relative(resolvedRoot, resolvedSource);
 
-  return relativePath.startsWith('..') || isAbsolute(relativePath);
+  // A bare '..' or a '../' prefix escapes; a sibling name like '..config' does not.
+  return relativePath === '..' || relativePath.startsWith(`..${sep}`) || isAbsolute(relativePath);
 };
