@@ -69,8 +69,8 @@ in advance.
 
 ## Keep routing concise
 
-A profile's system prompt can map stable runtime metadata to relevant skills.
-Keep this routing contract short; detailed procedures belong in the selected
+A profile's system prompt can map stable runtime signals to relevant skills.
+Keep these activation rules short; detailed procedures belong in the selected
 skills and their references.
 
 When a skill already defines a capability, do not repeat or include its
@@ -79,25 +79,25 @@ instructions through the profile's `system_prompt`, `append_system_prompt`,
 condition. See [Where context and instructions live](./skills.md#where-context-and-instructions-live).
 
 ```text
-Use trigger_context to select only the skill needed for this run.
-- issues/opened with fix, feat, or idea labels: use issue-planning.
-- issues/assigned to the platform account: use issue-implementation.
-- schedule with report_kind weekly-kpi: use kpi-reporting.
-- deployment_status success: use deployment-review.
-- deployment_status failure: use failed-deployment-triage.
-Fetch full event content only after selecting the skill.
+Select only the skill relevant to the current task.
+- Planning request: use issue-planning.
+- Approved implementation request: use issue-implementation.
+- Recurring repository activity report: use kpi-reporting.
+- Successful environment awaiting verification: use deployment-review.
+- Failed environment update: use failed-deployment-triage.
+Load detailed task content only after selecting the skill.
 ```
 
-Pass trusted identifiers and event metadata into the initial prompt. Do not
-interpolate issue bodies, pull request bodies, comments, deployment logs, or
-fetched page content before routing. Let the selected skill fetch only the
-untrusted source material it needs with trusted tools.
+When an integration launches the profile, pass only the trusted identifiers and
+runtime metadata needed to choose a skill. Keep untrusted source material out of
+the activation rules and let the selected skill retrieve only what it needs with
+trusted tools.
 
 ## Keep automation reusable
 
 For agentic automation, prefer a small number of reusable workflows that pass
-structured trigger context to the same stable execution profile. Let that
-profile activate the appropriate skill.
+concise runtime metadata to the same stable execution profile. Let that profile
+activate the appropriate skill.
 
 This allows one profile and one workflow to support issue planning,
 implementation, scheduled reporting, deployment review, and future situations.
