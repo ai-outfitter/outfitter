@@ -106,10 +106,23 @@ references:
 ---
 ```
 
-For a published skill, `file` resolves from the catalog root and `repo_path`
-resolves from the consumer's active project. Outfitter materializes both under
-the generated skill's `references/` directory without loading or interpolating
-their contents.
+For a published skill, `file` resolves inside this catalog's checkout, including
+its cached checkout after `outfitter sync`. `repo_path` does not resolve inside
+the catalog: it resolves inside the consumer's active project where the agent
+was started. In the example above:
+
+```text
+<cached-ai-outfitter-actions>/docs/actions-design.md
+  -> references/actions-design.md
+
+<consumer-project>/docs/architecture/actions.md
+  -> references/actions.md
+```
+
+Outfitter materializes both under the generated skill's `references/`
+directory without loading or interpolating their contents. See
+[External references](./skills.md#external-references) for the complete two-root
+model, destination naming, and trust rules.
 
 ## Consuming a catalog as a profile source
 
