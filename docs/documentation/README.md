@@ -8,6 +8,8 @@ User-facing Outfitter documentation.
 - [First-time CLI agent users](./first-time-cli-agent-users.md)
 - [Switching to Outfitter](./switching-to-outfitter.md)
 - [Profiles](./profiles.md)
+- [Skills](./skills.md)
+- [Best practices](./best-practices.md)
 - [Profile repositories](./profile-repository.md)
 - [Iterating on local and worktree profiles](./iterating-on-profiles.md)
 - [Running profiles in GitHub Actions](./actions.md)
