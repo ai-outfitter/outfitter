@@ -8,9 +8,9 @@ User-facing Outfitter documentation.
 - [First-time CLI agent users](./first-time-cli-agent-users.md)
 - [Switching to Outfitter](./switching-to-outfitter.md)
 - [Profiles](./profiles.md)
-- [Skills](./skills.md)
-- [Best practices](./best-practices.md)
-- [Profile repositories](./profile-repository.md)
+- [Skills](./skills.md) — Define project and profile-bundled skills, route to specialized resources, and compose external references.
+- [Best practices](./best-practices.md) — Prefer a few stable profiles and many focused, progressively disclosed skills.
+- [Profile repositories](./profile-repository.md) — Publish and consume shareable profiles and standalone skills.
 - [Iterating on local and worktree profiles](./iterating-on-profiles.md)
 - [Running profiles in GitHub Actions](./actions.md)
 - [Adapter support matrix](./support-matrix.md)

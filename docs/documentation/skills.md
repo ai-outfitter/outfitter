@@ -8,6 +8,30 @@ Define project skills under `.outfitter/skills/` or bundle them inside a
 directory profile. See [Profile repositories](./profile-repository.md) to
 publish skills for other users and projects.
 
+## Start here
+
+- [Define a project skill](#project-skills) under `.outfitter/skills/`.
+- [Bundle a skill with a directory profile](#directory-profile-skills).
+- [Use a skill as a router](#skills-as-routers) to specialized knowledge,
+  scripts, and assets.
+- [Reference documents outside the skill folder](#external-references).
+- [Publish skills from a profile repository](./profile-repository.md#publishing-skills).
+
+## Agent Skills documentation
+
+Outfitter uses the portable `SKILL.md` model and translates selected skills for
+the active agent adapter. These agent-specific guides are useful when authoring
+skills or checking harness behavior:
+
+- [Pi skills](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/skills.md)
+- [Claude Code skills](https://code.claude.com/docs/en/skills)
+- [Gemini CLI Agent Skills](https://geminicli.com/docs/cli/using-agent-skills/)
+
+The links describe each harness's own discovery paths, frontmatter extensions,
+invocation behavior, and supporting-file conventions. They do not imply that
+every Outfitter adapter supports every harness feature. Check the
+[adapter support matrix](./support-matrix.md) for current Outfitter behavior.
+
 ## Project skills
 
 Place a project skill under `.outfitter/skills/<skill-id>/SKILL.md`. The folder
@@ -81,6 +105,69 @@ Describe when and how to perform this capability.
 
 Use lowercase letters, numbers, and hyphens for skill directory names. Keep the
 description precise enough for an agent to decide when the skill applies.
+
+## Skills as routers
+
+A skill does not need to contain all of its specialized knowledge in
+`SKILL.md`. Treat the skill body as a small router:
+
+1. The skill's `description` helps the agent decide whether to activate it.
+2. The activated `SKILL.md` classifies the specific situation.
+3. The instructions load only the relevant reference, run only the relevant
+   script, or select only the relevant asset.
+
+For example, one incident-response skill can route several incident types
+without loading every runbook into every incident:
+
+```text
+.outfitter/skills/incident-response/
+├── SKILL.md
+├── scripts/
+│   ├── collect-kubernetes.sh
+│   └── collect-postgres.sh
+└── assets/
+    └── incident-report.md
+
+docs/runbooks/
+├── kubernetes.md
+└── postgres.md
+```
+
+The frontmatter makes the human-maintained runbooks available beneath the
+generated skill's `references/` directory:
+
+```yaml
+---
+name: incident-response
+description: Investigate Kubernetes, database, and service incidents. Use when diagnosing an outage, failed health check, elevated errors, or degraded production behavior.
+
+references:
+  - repo_path: docs/runbooks/kubernetes.md
+  - repo_path: docs/runbooks/postgres.md
+---
+```
+
+The body routes to only the resources needed for this incident:
+
+```markdown
+# Incident Response
+
+Classify the incident before loading a runbook or running a collector.
+
+- For Kubernetes scheduling, pod, or rollout failures, read
+  `references/kubernetes.md`, then run `scripts/collect-kubernetes.sh`.
+- For connection, query, replication, or migration failures, read
+  `references/postgres.md`, then run `scripts/collect-postgres.sh`.
+- Use `assets/incident-report.md` only when writing the final report.
+
+Do not load unrelated runbooks or run both collectors by default.
+```
+
+This routing happens inside the activated skill. It does not require another
+profile, a separate routing model call, or a larger system prompt. References
+provide specialized knowledge, scripts provide deterministic operations, and
+assets provide templates or output resources without placing all of them in
+model context up front.
 
 ## External references
 
@@ -237,6 +324,10 @@ only when those detailed instructions become relevant.
 This keeps unrelated procedures out of context. A deployment review does not
 need issue-planning mechanics, and an issue-planning run does not need weekly
 report details.
+
+Router-style skills extend the same principle within one capability: an
+incident-response skill can expose several runbooks and collectors while
+loading only the branch relevant to the current incident.
 
 To distribute a skill through a shareable catalog, continue to
 [Publishing skills in a profile repository](./profile-repository.md#publishing-skills).
