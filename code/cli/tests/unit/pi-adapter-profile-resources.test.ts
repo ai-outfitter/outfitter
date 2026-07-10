@@ -2,15 +2,14 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { createPiAdapter } from '../../src/agents/pi/PiAdapter.js';
 
 const temporaryRoots: string[] = [];
-const repositoryRoot = fileURLToPath(new URL('../..', import.meta.url));
-const builtInOutfitterSkill = join(repositoryRoot, 'skills', 'outfitter');
+const builtInOutfitterSkill = (compositeProfileRoot: string): string =>
+  join(compositeProfileRoot, 'outfitter', 'plugin', 'skills', 'outfitter');
 
 afterEach(() => {
   for (const root of temporaryRoots.splice(0)) {
@@ -51,7 +50,12 @@ describe('pi adapter profile resources', () => {
       },
     );
 
-    expect(launchPlan.args).toEqual(['--skill', builtInOutfitterSkill, '--skill', skillFolder]);
+    expect(launchPlan.args).toEqual([
+      '--skill',
+      builtInOutfitterSkill(join(root, 'composite')),
+      '--skill',
+      skillFolder,
+    ]);
   });
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-006.3).
@@ -79,7 +83,7 @@ describe('pi adapter profile resources', () => {
 
     expect(launchPlan.args).toEqual([
       '--skill',
-      builtInOutfitterSkill,
+      builtInOutfitterSkill(join(root, 'composite')),
       '--skill',
       'user-skill',
       '--skill',

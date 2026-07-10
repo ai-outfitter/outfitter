@@ -12,6 +12,11 @@ import {
   supportedControlNames,
 } from '../AdapterProfileControls.js';
 import { createDeclaredStatePaths, findProfileStateSource } from '../AdapterStatePaths.js';
+import {
+  createOutfitterPluginCompositeFiles,
+  outfitterPluginCompositeRelativePath,
+  resolveOutfitterSkillSource,
+} from '../OutfitterSkill.js';
 import type { ClaudeProfileControls, Profile, ProfileControls } from '../../profiles/Profile.js';
 import { resolveAppendSystemPromptControl } from '../../profiles/PromptIncludes.js';
 import type { StatePathDeclaration, CompositeProfileStatePath } from '../../compositeProfile/StatePersistence.js';
@@ -75,6 +80,7 @@ export const createClaudeAdapter = (): AgentAdapter => ({
           sourceInputs: input.profilePaths,
           strategy: 'transform',
         }),
+        ...createOutfitterPluginCompositeFiles(input.rootDirectory),
       ],
       createClaudeStatePaths(profile, input),
     );
@@ -110,7 +116,13 @@ export const createClaudeAdapter = (): AgentAdapter => ({
 
     return {
       command: 'claude',
-      args: [...createClaudeArgs({ ...controls, appendSystemPrompt: appendPrompt.prompts }), ...passThroughArgs],
+      args: [
+        ...createClaudeArgs({ ...controls, appendSystemPrompt: appendPrompt.prompts }),
+        // Publish the bundled Outfitter self-documentation skill through Claude's
+        // plugin channel; the skills/ state path stays reserved for user skills.
+        ...createOutfitterPluginArgs(compositeProfile.rootDirectory),
+        ...passThroughArgs,
+      ],
       env: {
         ...controls.environment,
         CLAUDE_CONFIG_DIR: compositeProfile.rootDirectory,
@@ -171,6 +183,15 @@ const resolveClaudeStateSourcePath = (
     '.claude',
     normalizedRelativePath,
   );
+};
+
+const createOutfitterPluginArgs = (rootDirectory: string): readonly string[] => {
+  /* v8 ignore next 3 -- defensive fallback for installs that exclude the bundled skill. */
+  if (resolveOutfitterSkillSource() === undefined) {
+    return [];
+  }
+
+  return ['--plugin-dir', join(rootDirectory, outfitterPluginCompositeRelativePath)];
 };
 
 const mergeClaudeControls = (controls: ProfileControls): ClaudeProfileControls =>

@@ -23,8 +23,6 @@ export interface AgentLaunchContext {
   readonly profileLayers?: readonly AgentLaunchProfileLayer[];
   readonly projectDirectory?: string;
   readonly cacheDirectory?: string;
-  /** Directory of bundled user-facing Outfitter documentation the launched agent may read. */
-  readonly outfitterDocsDirectory?: string;
   readonly onProgress?: (message: string) => void;
 }
 

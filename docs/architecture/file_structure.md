@@ -16,6 +16,8 @@ Outfitter is organized around a private npm workspace root, clear TypeScript pac
 │   └── schemas/                       # project-specific DeepSchema definitions
 ├── .github/                           # GitHub automation configuration
 │   └── workflows/                     # GitHub Actions workflows and local .deepreview rules
+├── .outfitter/                        # Outfitter's own project configuration
+│   └── skills/outfitter/              # bundled self-documentation skill published into launches
 ├── docs/                              # documentation, architecture, requirements, plans, and specs
 │   ├── architecture/                  # architecture and internal design docs
 │   ├── documentation/                 # user-facing Outfitter docs
@@ -31,8 +33,7 @@ Outfitter is organized around a private npm workspace root, clear TypeScript pac
 │   │   ├── package.json               # published package metadata, bin, files, and package-local scripts
 │   │   ├── scripts/                   # package-local helper scripts
 │   │   │   ├── dev-install.mjs        # npm-link installer for local CLI development
-│   │   │   └── sync-package-assets.mjs # prepack staging for root README/license and enterprise notices
-│   │   ├── skills/                    # Pi package skills published with Outfitter
+│   │   │   └── sync-package-assets.mjs # prepack staging for root README/license, docs, the bundled skill, and enterprise notices
 │   │   ├── src/                       # production TypeScript source
 │   │   │   ├── cli.ts                 # executable CLI entry point
 │   │   │   ├── cli/                   # CLI parser construction and command objects

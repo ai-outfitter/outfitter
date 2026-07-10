@@ -16,10 +16,10 @@
   },
   "files": [
     "dist",
-    "skills",
+    ".outfitter",
     "requirements",
     "src/schemas",
-    "doc",
+    "docs",
     "code/enterprise",
     "code/pi-extension",
     "README.md",
@@ -71,7 +71,7 @@
   ],
   "pi": {
     "skills": [
-      "./skills"
+      "./.outfitter/skills"
     ]
   },
   "license": "SEE LICENSE IN LICENSE.md",

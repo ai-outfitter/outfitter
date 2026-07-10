@@ -8,7 +8,7 @@
     "--model",
     "repo-review-model",
     "--skill",
-    "<repo>/skills/outfitter",
+    "<composite-profile>/outfitter/plugin/skills/outfitter",
     "--repo-flag"
   ],
   "launchEnv": {

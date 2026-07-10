@@ -13,7 +13,7 @@ then finish profile setup inside Pi through a native Outfitter extension command
 1. When an interactive default `outfitter` launch finds no `~/.outfitter/settings.yml`, Outfitter MUST launch Pi with an Outfitter bootstrap extension instead of showing terminal welcome/readline prompts.
 2. The bootstrap extension MUST register a native Pi command named `/outfitter` with `pi.registerCommand("outfitter", ...)`.
 3. `/outfitter` MUST complete its onboarding UI without sending an agent/model message and MUST NOT require an available model.
-4. Extension-command dispatch SHOULD take precedence over the published fallback `skills/outfitter` guidance where Pi command dispatch supports extension commands before skills.
+4. Extension-command dispatch SHOULD take precedence over the published fallback `.outfitter/skills/outfitter` guidance where Pi command dispatch supports extension commands before skills.
 5. Non-interactive Pi launches MUST NOT show onboarding UI, auto-submit onboarding commands, sync onboarding sources, or mutate Outfitter settings.
 6. First-run Pi-native onboarding SHOULD automatically trust the exact project folder for Pi project-local resources without prompting the user, and MUST NOT automatically trust a parent folder.
 
@@ -92,4 +92,4 @@ then finish profile setup inside Pi through a native Outfitter extension command
 
 1. Explicit `outfitter setup` MUST launch Pi-native onboarding rather than terminal setup prompts.
 2. `outfitter setup <source>` MUST pass the provided source into Pi-native onboarding so setup writes happen from inside Pi.
-3. The published `skills/outfitter` fallback MUST remain available as documentation/guidance for environments where the native command is unavailable.
+3. The published `.outfitter/skills/outfitter` fallback MUST remain available as documentation/guidance for environments where the native command is unavailable.

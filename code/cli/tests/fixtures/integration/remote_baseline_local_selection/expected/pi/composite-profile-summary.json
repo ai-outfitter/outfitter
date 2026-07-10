@@ -12,7 +12,7 @@
     "--thinking",
     "user-default-thinking",
     "--skill",
-    "<repo>/skills/outfitter",
+    "<composite-profile>/outfitter/plugin/skills/outfitter",
     "--local-selection",
     "--project-review",
     "--remote-baseline",

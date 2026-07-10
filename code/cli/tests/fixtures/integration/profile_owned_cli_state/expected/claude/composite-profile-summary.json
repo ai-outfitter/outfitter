@@ -13,7 +13,9 @@
     "generic-extension",
     "--plugin-dir",
     "team-extension",
-    "--claude-owned-state"
+    "--claude-owned-state",
+    "--plugin-dir",
+    "<composite-profile>/outfitter/plugin"
   ],
   "launchEnv": {
     "CLAUDE_CONFIG_DIR": "<composite-profile>",

@@ -8,7 +8,7 @@
     "--model",
     "cache-tooling-model",
     "--skill",
-    "<repo>/skills/outfitter",
+    "<composite-profile>/outfitter/plugin/skills/outfitter",
     "--cache-tooling"
   ],
   "launchEnv": {

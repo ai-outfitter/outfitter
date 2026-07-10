@@ -15,7 +15,9 @@
     "./tools/claude-plugin",
     "--plugin-dir",
     "./tools/generic-extension",
-    "--claude-flag"
+    "--claude-flag",
+    "--plugin-dir",
+    "<composite-profile>/outfitter/plugin"
   ],
   "launchEnv": {
     "CLAUDE_CONFIG_DIR": "<composite-profile>",
