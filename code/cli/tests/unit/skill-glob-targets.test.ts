@@ -163,6 +163,42 @@ describe('glob targets in reference materialization', () => {
     expect(message).toContain(join(project, 'docs', 'beta', 'readme.md'));
   });
 
+  it('treats braced paths as literal targets and rejects braces inside glob patterns', () => {
+    const project = createRoot();
+    const output = createRoot();
+    mkdirSync(join(project, 'docs'), { recursive: true });
+    writeFileSync(join(project, 'docs', 'notes{1}.md'), 'braced\n');
+    writeFileSync(join(project, 'docs', 'a-notes.md'), 'a\n');
+    writeSkill(
+      join(project, '.outfitter', 'skills'),
+      'braced-literal',
+      'name: braced-literal\nreferences:\n  - file: docs/notes{1}.md',
+    );
+    writeSkill(
+      join(project, '.outfitter', 'skills'),
+      'braced-glob',
+      'name: braced-glob\nreferences:\n  - file: docs/{a,b}*.md',
+    );
+    const catalog = discoverSkillCatalog({ projectDirectory: project });
+
+    const literal = resolveSkillEntries({
+      entries: [{ entry: 'braced-literal' }],
+      catalog,
+      projectDirectory: project,
+      outputDirectory: output,
+    });
+    const braced = resolveSkillEntries({
+      entries: [{ entry: 'braced-glob' }],
+      catalog,
+      projectDirectory: project,
+    });
+
+    expect(literal.diagnostics).toEqual([]);
+    expect(readFileSync(join(output, 'braced-literal', 'references', 'notes{1}.md'), 'utf8')).toBe('braced\n');
+    expect(braced.diagnostics[0]?.message).toContain("Reference file glob 'docs/{a,b}*.md' must not contain braces");
+    expect(braced.sources).toEqual([]);
+  });
+
   it('fails a glob match that escapes the reference root through a symlink', () => {
     const project = createRoot();
     const outside = createRoot();

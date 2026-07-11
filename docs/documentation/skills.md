@@ -329,9 +329,13 @@ it available to the skill but does not load its contents into model context.
   `<section>/<source basename>/`, preserving the nested layout and file modes.
   Symlinks inside the directory are dereferenced so the generated skill is
   self-contained.
-- **Glob.** A target containing `*`, `?`, `[`, or `{` is a glob, expanded at
-  resolution time against its root — the profile-repository checkout for
-  `file`, the active project root for `repo_file`:
+- **Glob.** A target containing `*`, `?`, or `[` is a glob in the familiar
+  gitignore and GitHub Actions path-filter style: `*` matches within a path
+  segment, `**` matches across segments, `?` matches one character, and
+  `[...]` matches a character range — nothing more. Braces are literal path
+  characters, not glob syntax, so a glob pattern must not contain them. Globs
+  expand at resolution time against their root — the profile-repository
+  checkout for `file`, the active project root for `repo_file`:
 
   ```yaml
   references:
@@ -343,8 +347,7 @@ it available to the skill but does not load its contents into model context.
   A `file` glob matching zero files fails validation, like a broken `file`
   target; a `repo_file` glob matching zero files is omitted, like a missing
   `repo_file` target. Matches MUST remain within their root after symlink
-  normalization, per [Trust boundary](#trust-boundary); `**` is allowed under
-  the same constraint.
+  normalization, per [Trust boundary](#trust-boundary).
 
 Every materialized target lands at `<section>/<source basename>`. Two targets
 or glob matches whose sources share a basename fail validation; rename one of

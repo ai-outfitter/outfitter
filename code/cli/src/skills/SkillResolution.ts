@@ -381,8 +381,12 @@ const resolveReferenceMaterializations = (input: {
   return resolved === undefined ? [] : [resolved];
 };
 
-/** Matches when a target uses glob syntax instead of naming one literal path. */
-const isGlobPattern = (declaredPath: string): boolean => /[*?[{]/u.test(declaredPath);
+/**
+ * Matches when a target uses glob syntax instead of naming one literal path.
+ * Only the gitignore-style metacharacters count; braces are literal path
+ * characters, so a braced filename resolves as a literal target.
+ */
+const isGlobPattern = (declaredPath: string): boolean => /[*?[]/u.test(declaredPath);
 
 /**
  * Expands a glob target against its root. Each match then follows the same
@@ -393,6 +397,19 @@ const expandGlobMaterializations = (
   pattern: string,
   context: ReferenceTargetContext,
 ): readonly (SkillMaterialization | SkillResolutionDiagnostic)[] => {
+  // Braces are literal path characters in this contract, but globSync
+  // brace-expands them textually and offers no escape, so mixing them with
+  // glob syntax fails validation rather than silently matching other paths.
+  if (/[{}]/u.test(pattern)) {
+    return [
+      targetError(
+        context.skillPath,
+        `Reference ${context.kind} glob '${pattern}' must not contain braces; ` +
+          `braces are literal path characters, not glob syntax.`,
+      ),
+    ];
+  }
+
   // Sorted so diagnostics and collisions are deterministic across platforms.
   const matches = globSync(pattern, { cwd: context.root }).sort();
 
