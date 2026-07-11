@@ -317,16 +317,38 @@ the skill is later published: `file` follows the skill into its profile
 repository, while `repo_file` continues to target whichever project consumes
 the skill.
 
-References are regular files or directories. They are not interpolated or
-added to the system prompt. Materializing a reference makes it available to
-the skill but does not load its contents into model context.
+### Target kinds
 
-A file target materializes as `references/<source basename>`. A directory
-target materializes recursively as `references/<source basename>/`, preserving
-the nested layout and file modes; symlinks inside the directory are
-dereferenced so the generated skill is self-contained. Two references whose
-sources share a basename fail validation; rename one of the source targets to
-resolve the collision.
+A `file` or `repo_file` target names a regular file, a directory, or a glob;
+`references`, `scripts`, and `assets` entries share this contract. Targets are
+not interpolated or added to the system prompt. Materializing a target makes
+it available to the skill but does not load its contents into model context.
+
+- **File.** A regular file materializes as `<section>/<source basename>`.
+- **Directory.** A directory materializes recursively as
+  `<section>/<source basename>/`, preserving the nested layout and file modes.
+  Symlinks inside the directory are dereferenced so the generated skill is
+  self-contained.
+- **Glob.** A target containing `*`, `?`, `[`, or `{` is a glob, expanded at
+  resolution time against its root — the profile-repository checkout for
+  `file`, the active project root for `repo_file`:
+
+  ```yaml
+  references:
+    - file: docs/*.md
+  ```
+
+  Each match materializes by basename exactly as if listed individually, and a
+  matched directory materializes recursively like a declared directory target.
+  A `file` glob matching zero files fails validation, like a broken `file`
+  target; a `repo_file` glob matching zero files is omitted, like a missing
+  `repo_file` target. Matches MUST remain within their root after symlink
+  normalization, per [Trust boundary](#trust-boundary); `**` is allowed under
+  the same constraint.
+
+Every materialized target lands at `<section>/<source basename>`. Two targets
+or glob matches whose sources share a basename fail validation; rename one of
+the sources to resolve the collision.
 
 ### Scripts and assets
 
@@ -404,7 +426,8 @@ boundaries, or the user's request.
 
 Outfitter resolves and normalizes reference targets before launch. Targets MUST
 remain within their Outfitter, profile-repository, or project root after
-following symlinks. A directory target is additionally scanned recursively: a
+following symlinks, and every glob match is validated individually under the
+same rules. A directory target is additionally scanned recursively: a
 contained symlink that resolves outside that root fails validation, so a
 directory cannot smuggle outside content into the generated skill, and a
 contained entry that is not a regular file or directory (such as a FIFO or
@@ -420,15 +443,15 @@ For each selected skill, Outfitter:
    directories, contributing directory profiles, and catalog `skills/`
    directories — following [layer precedence](./concepts.md#layer-precedence).
 2. Validates `SKILL.md` and confirms `name` matches the directory name.
-3. Resolves `file` and `repo_file` reference entries.
+3. Resolves `file` and `repo_file` reference entries, expanding glob targets.
 4. Creates a generated skill directory for the run.
 5. Materializes references under that directory's `references/` folder.
 6. Passes the generated skill to the selected agent adapter.
 7. Removes the generated skill with the temporary composite profile.
 
 Run `outfitter profile lint` to diagnose unresolved skill IDs, invalid
-frontmatter, missing `file` references, escaping paths, and destination
-collisions before launch.
+frontmatter, missing or zero-match `file` references, escaping paths, and
+destination collisions before launch.
 
 ## Progressive disclosure
 

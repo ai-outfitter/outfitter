@@ -1,5 +1,15 @@
 // Resolves selected skill IDs, validates references, and materializes generated skills.
-import { copyFileSync, cpSync, existsSync, mkdirSync, readdirSync, realpathSync, statSync, type Stats } from 'node:fs';
+import {
+  copyFileSync,
+  cpSync,
+  existsSync,
+  globSync,
+  mkdirSync,
+  readdirSync,
+  realpathSync,
+  statSync,
+  type Stats,
+} from 'node:fs';
 import { basename, isAbsolute, join, relative, sep } from 'node:path';
 
 import type { SkillControlEntry, SkillReference, SkillSelection } from '../profiles/Profile.js';
@@ -245,10 +255,10 @@ const planSectionMaterializations = (
   diagnostics: SkillResolutionDiagnostic[],
 ): readonly SkillMaterialization[] => {
   const materializations: SkillMaterialization[] = [];
-  const destinationNames = new Set<string>();
+  const destinationSources = new Map<string, string>();
 
   for (const { reference, fileRoot } of entries) {
-    const resolved = resolveReferenceMaterialization({
+    const outcomes = resolveReferenceMaterializations({
       reference,
       section,
       fileRoot,
@@ -256,42 +266,53 @@ const planSectionMaterializations = (
       skillPath: input.catalogEntry.skillPath,
     });
 
-    if (resolved === undefined) {
-      continue;
-    }
+    for (const resolved of outcomes) {
+      if ('message' in resolved) {
+        diagnostics.push(resolved);
+        continue;
+      }
 
-    if ('message' in resolved) {
-      diagnostics.push(resolved);
-      continue;
-    }
+      const collision = describeDestinationCollision(input, section, resolved, destinationSources);
 
-    if (destinationNames.has(resolved.destinationName)) {
-      diagnostics.push({
-        severity: 'error',
-        path: input.catalogEntry.skillPath,
-        message: `Destination '${section}/${resolved.destinationName}' is declared more than once.`,
-      });
-      continue;
-    }
+      if (collision !== undefined) {
+        diagnostics.push({ severity: 'error', path: input.catalogEntry.skillPath, message: collision });
+        continue;
+      }
 
-    // Checked against the source skill directory during planning so lint reports
-    // shipped-file collisions without materializing anything.
-    if (existsSync(join(input.catalogEntry.directory, section, resolved.destinationName))) {
-      diagnostics.push({
-        severity: 'error',
-        path: input.catalogEntry.skillPath,
-        message:
-          `Destination '${section}/${resolved.destinationName}' collides with a file ` +
-          `already shipped by skill '${input.catalogEntry.id}'.`,
-      });
-      continue;
+      destinationSources.set(resolved.destinationName, resolved.sourcePath);
+      materializations.push(resolved);
     }
-
-    destinationNames.add(resolved.destinationName);
-    materializations.push(resolved);
   }
 
   return materializations;
+};
+
+/** Reports a destination claimed twice or already shipped inside the skill directory. */
+const describeDestinationCollision = (
+  input: CatalogSkillResolutionInput,
+  section: SkillMaterializationSection,
+  resolved: SkillMaterialization,
+  destinationSources: ReadonlyMap<string, string>,
+): string | undefined => {
+  const previousSource = destinationSources.get(resolved.destinationName);
+
+  if (previousSource !== undefined) {
+    return (
+      `Destination '${section}/${resolved.destinationName}' is declared more than once ` +
+      `(by '${previousSource}' and '${resolved.sourcePath}').`
+    );
+  }
+
+  // Checked against the source skill directory during planning so lint reports
+  // shipped-file collisions without materializing anything.
+  if (existsSync(join(input.catalogEntry.directory, section, resolved.destinationName))) {
+    return (
+      `Destination '${section}/${resolved.destinationName}' collides with a file ` +
+      `already shipped by skill '${input.catalogEntry.id}'.`
+    );
+  }
+
+  return undefined;
 };
 
 interface DescribedReference {
@@ -310,55 +331,125 @@ const describeReference = (
     ? { declaredPath: reference.repo_file, root: projectDirectory, kind: 'repo_file', rootLabel: 'project' }
     : { declaredPath: reference.file, root: fileRoot, kind: 'file', rootLabel: 'catalog' };
 
-const resolveReferenceMaterialization = (input: {
+/** One reference's resolved root and labels, shared by every target it names. */
+interface ReferenceTargetContext {
+  readonly root: string;
+  readonly kind: 'file' | 'repo_file';
+  readonly rootLabel: 'catalog' | 'project';
+  readonly section: SkillMaterializationSection;
+  readonly skillPath: string;
+}
+
+const targetError = (skillPath: string, message: string): SkillResolutionDiagnostic => ({
+  severity: 'error',
+  path: skillPath,
+  message,
+});
+
+/**
+ * Resolves one reference entry to its materializations: one for a literal
+ * target, one per match for a glob target, and none for an omitted missing
+ * `repo_file` target.
+ */
+const resolveReferenceMaterializations = (input: {
   readonly reference: SkillReference;
   readonly section: SkillMaterializationSection;
   readonly fileRoot: string;
   readonly projectDirectory?: string;
   readonly skillPath: string;
-}): SkillMaterialization | SkillResolutionDiagnostic | undefined => {
+}): readonly (SkillMaterialization | SkillResolutionDiagnostic)[] => {
   const { declaredPath, root, kind, rootLabel } = describeReference(
     input.reference,
     input.fileRoot,
     input.projectDirectory,
   );
-  const error = (message: string): SkillResolutionDiagnostic => ({
-    severity: 'error',
-    path: input.skillPath,
-    message,
-  });
 
   if (root === undefined) {
-    return error(`Reference ${kind} '${declaredPath}' has no ${rootLabel} root to resolve from.`);
+    return [
+      targetError(input.skillPath, `Reference ${kind} '${declaredPath}' has no ${rootLabel} root to resolve from.`),
+    ];
   }
 
-  const sourcePath = isAbsolute(declaredPath) ? declaredPath : join(root, declaredPath);
+  const context: ReferenceTargetContext = { root, kind, rootLabel, section: input.section, skillPath: input.skillPath };
+
+  if (isGlobPattern(declaredPath)) {
+    return expandGlobMaterializations(declaredPath, context);
+  }
+
+  const resolved = resolveTargetMaterialization(declaredPath, context);
+
+  return resolved === undefined ? [] : [resolved];
+};
+
+/** Matches when a target uses glob syntax instead of naming one literal path. */
+const isGlobPattern = (declaredPath: string): boolean => /[*?[{]/u.test(declaredPath);
+
+/**
+ * Expands a glob target against its root. Each match then follows the same
+ * rules as a literal target, so a matched directory materializes recursively
+ * while an escaping or special match fails validation individually.
+ */
+const expandGlobMaterializations = (
+  pattern: string,
+  context: ReferenceTargetContext,
+): readonly (SkillMaterialization | SkillResolutionDiagnostic)[] => {
+  // Sorted so diagnostics and collisions are deterministic across platforms.
+  const matches = globSync(pattern, { cwd: context.root }).sort();
+
+  if (matches.length === 0) {
+    // A consuming project may not contain repo_file matches; the reference is omitted.
+    return context.kind === 'repo_file'
+      ? []
+      : [targetError(context.skillPath, `Reference file glob '${pattern}' matched no files under '${context.root}'.`)];
+  }
+
+  const resolved: (SkillMaterialization | SkillResolutionDiagnostic)[] = [];
+
+  for (const match of matches) {
+    const outcome = resolveTargetMaterialization(match, context);
+
+    if (outcome !== undefined) {
+      resolved.push(outcome);
+    }
+  }
+
+  return resolved;
+};
+
+/** Validates one concrete target path — a literal target or a single glob match. */
+const resolveTargetMaterialization = (
+  targetPath: string,
+  context: ReferenceTargetContext,
+): SkillMaterialization | SkillResolutionDiagnostic | undefined => {
+  const { root, kind, rootLabel, skillPath } = context;
+  const error = (message: string): SkillResolutionDiagnostic => targetError(skillPath, message);
+  const sourcePath = isAbsolute(targetPath) ? targetPath : join(root, targetPath);
 
   if (!existsSync(sourcePath)) {
     // A consuming project may not contain a repo_file target; the reference is omitted.
-    return kind === 'repo_file' ? undefined : error(`Reference file '${declaredPath}' was not found under '${root}'.`);
+    return kind === 'repo_file' ? undefined : error(`Reference file '${targetPath}' was not found under '${root}'.`);
   }
 
   const stats = statSync(sourcePath);
 
   if (!stats.isFile() && !stats.isDirectory()) {
-    return error(`Reference ${kind} '${declaredPath}' must be a regular file or directory.`);
+    return error(`Reference ${kind} '${targetPath}' must be a regular file or directory.`);
   }
 
   if (escapesRoot(sourcePath, root)) {
-    return error(`Reference ${kind} '${declaredPath}' resolves outside its ${rootLabel} root '${root}'.`);
+    return error(`Reference ${kind} '${targetPath}' resolves outside its ${rootLabel} root '${root}'.`);
   }
 
-  const directoryIssue = describeDirectoryTargetIssue(stats, sourcePath, { root, declaredPath, kind, rootLabel });
+  const directoryIssue = describeDirectoryTargetIssue(stats, sourcePath, targetPath, context);
 
   if (directoryIssue !== undefined) {
     return error(directoryIssue);
   }
 
   return {
-    section: input.section,
+    section: context.section,
     sourcePath,
-    destinationName: basename(declaredPath),
+    destinationName: basename(targetPath),
     kind: stats.isDirectory() ? 'directory' : 'file',
   };
 };
@@ -367,12 +458,8 @@ const resolveReferenceMaterialization = (input: {
 const describeDirectoryTargetIssue = (
   stats: Stats,
   sourcePath: string,
-  context: {
-    readonly root: string;
-    readonly declaredPath: string;
-    readonly kind: 'file' | 'repo_file';
-    readonly rootLabel: 'catalog' | 'project';
-  },
+  targetPath: string,
+  context: ReferenceTargetContext,
 ): string | undefined => {
   if (!stats.isDirectory()) {
     return undefined;
@@ -392,8 +479,7 @@ const describeDirectoryTargetIssue = (
   };
 
   return (
-    `Reference ${context.kind} '${context.declaredPath}' contains ` +
-    `'${containedPath}', ${problemDescriptions[issue.problem]}.`
+    `Reference ${context.kind} '${targetPath}' contains ` + `'${containedPath}', ${problemDescriptions[issue.problem]}.`
   );
 };
 
