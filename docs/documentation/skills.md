@@ -317,13 +317,16 @@ the skill is later published: `file` follows the skill into its profile
 repository, while `repo_file` continues to target whichever project consumes
 the skill.
 
-References are regular files. They are not interpolated or added to the system
-prompt. Materializing a reference makes it available to the skill but does not
-load its contents into model context.
+References are regular files or directories. They are not interpolated or
+added to the system prompt. Materializing a reference makes it available to
+the skill but does not load its contents into model context.
 
-Each reference materializes as `references/<source basename>`. Two references
-whose sources share a basename fail validation; rename one of the source
-documents to resolve the collision.
+A file target materializes as `references/<source basename>`. A directory
+target materializes recursively as `references/<source basename>/`, preserving
+the nested layout and file modes; symlinks inside the directory are
+dereferenced so the generated skill is self-contained. Two references whose
+sources share a basename fail validation; rename one of the source targets to
+resolve the collision.
 
 ### Scripts and assets
 
@@ -344,6 +347,22 @@ assets:
   - repo_file: templates/report.json # assets/report.json
 ---
 ```
+
+A directory target ships an entire tree with the skill. For example, a profile
+repository can publish a scaffolding skill beside the project template it
+instantiates:
+
+```yaml
+---
+name: project-scaffolding
+assets:
+  - file: code/project-repo-template # assets/project-repo-template/
+---
+```
+
+The generated skill contains `assets/project-repo-template/` with the
+template's full contents — nested scripts keep their executable mode — so the
+skill body can copy the template into the consuming project.
 
 Files already inside the skill directory (`scripts/`, `references/`, `assets/`)
 ship with the skill as before; frontmatter entries add external files beside
@@ -385,9 +404,11 @@ boundaries, or the user's request.
 
 Outfitter resolves and normalizes reference targets before launch. Targets MUST
 remain within their Outfitter, profile-repository, or project root after
-following symlinks. Escaping, non-file, colliding, and broken `file` references
-fail validation; a missing `repo_file` target is omitted rather than failing,
-as described above.
+following symlinks. A directory target is additionally scanned recursively, and
+any contained symlink that resolves outside that root fails validation, so a
+directory cannot smuggle outside content into the generated skill. Escaping,
+colliding, and broken `file` references fail validation; a missing `repo_file`
+target is omitted rather than failing, as described above.
 
 ## Resolution and launch
 

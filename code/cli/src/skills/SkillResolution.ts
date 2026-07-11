@@ -1,5 +1,5 @@
 // Resolves selected skill IDs, validates references, and materializes generated skills.
-import { copyFileSync, cpSync, existsSync, mkdirSync, realpathSync, statSync } from 'node:fs';
+import { copyFileSync, cpSync, existsSync, mkdirSync, readdirSync, realpathSync, statSync, type Stats } from 'node:fs';
 import { basename, isAbsolute, join, relative, sep } from 'node:path';
 
 import type { SkillControlEntry, SkillReference, SkillSelection } from '../profiles/Profile.js';
@@ -192,8 +192,16 @@ const resolveCatalogSkill = (
   for (const materialization of materializations) {
     const sectionDirectory = join(generatedDirectory, materialization.section);
     mkdirSync(sectionDirectory, { recursive: true });
-    // copyFileSync preserves the source mode, so materialized scripts stay executable.
-    copyFileSync(materialization.sourcePath, join(sectionDirectory, materialization.destinationName));
+    const destinationPath = join(sectionDirectory, materialization.destinationName);
+
+    // Both copies preserve the source mode, so materialized scripts stay
+    // executable. Directory targets dereference symlinks that the contained
+    // scan already validated, so the generated skill is self-contained.
+    if (materialization.kind === 'directory') {
+      copyDirectoryDereferenced(materialization.sourcePath, destinationPath);
+    } else {
+      copyFileSync(materialization.sourcePath, destinationPath);
+    }
   }
 
   return { generatedDirectory, diagnostics };
@@ -203,6 +211,7 @@ interface SkillMaterialization {
   readonly section: SkillMaterializationSection;
   readonly sourcePath: string;
   readonly destinationName: string;
+  readonly kind: 'file' | 'directory';
 }
 
 const planSkillMaterializations = (
@@ -330,15 +339,131 @@ const resolveReferenceMaterialization = (input: {
     return kind === 'repo_file' ? undefined : error(`Reference file '${declaredPath}' was not found under '${root}'.`);
   }
 
-  if (!statSync(sourcePath).isFile()) {
-    return error(`Reference ${kind} '${declaredPath}' must be a regular file.`);
+  const stats = statSync(sourcePath);
+
+  /* v8 ignore next 3 -- only reachable with special files such as FIFOs or sockets. */
+  if (!stats.isFile() && !stats.isDirectory()) {
+    return error(`Reference ${kind} '${declaredPath}' must be a regular file or directory.`);
   }
 
   if (escapesRoot(sourcePath, root)) {
     return error(`Reference ${kind} '${declaredPath}' resolves outside its ${rootLabel} root '${root}'.`);
   }
 
-  return { section: input.section, sourcePath, destinationName: basename(declaredPath) };
+  const directoryIssue = describeDirectoryTargetIssue(stats, sourcePath, { root, declaredPath, kind, rootLabel });
+
+  if (directoryIssue !== undefined) {
+    return error(directoryIssue);
+  }
+
+  return {
+    section: input.section,
+    sourcePath,
+    destinationName: basename(declaredPath),
+    kind: stats.isDirectory() ? 'directory' : 'file',
+  };
+};
+
+/** Describes the first escaping or cyclic path inside a directory target, if any. */
+const describeDirectoryTargetIssue = (
+  stats: Stats,
+  sourcePath: string,
+  context: {
+    readonly root: string;
+    readonly declaredPath: string;
+    readonly kind: 'file' | 'repo_file';
+    readonly rootLabel: 'catalog' | 'project';
+  },
+): string | undefined => {
+  if (!stats.isDirectory()) {
+    return undefined;
+  }
+
+  const issue = scanDirectoryTarget(sourcePath, context.root, [realpathSync(sourcePath)], new Set());
+
+  if (issue === undefined) {
+    return undefined;
+  }
+
+  const containedPath = relative(sourcePath, issue.path);
+
+  return issue.problem === 'escaping'
+    ? `Reference ${context.kind} '${context.declaredPath}' contains '${containedPath}', ` +
+        `which resolves outside its ${context.rootLabel} root '${context.root}'.`
+    : `Reference ${context.kind} '${context.declaredPath}' contains '${containedPath}', which creates a symlink cycle.`;
+};
+
+interface ContainedPathIssue {
+  readonly path: string;
+  readonly problem: 'escaping' | 'cyclic';
+}
+
+/**
+ * Finds the first path inside a directory target whose realpath escapes the
+ * reference root, or a symlink that cycles back into an ancestor directory.
+ * Directory materialization dereferences symlinks recursively, so an escaping
+ * link would smuggle outside content into the generated skill and a cyclic
+ * link would never finish copying.
+ */
+const scanDirectoryTarget = (
+  directory: string,
+  root: string,
+  /** Realpaths of the directories on the current descent, for cycle detection. */
+  ancestry: readonly string[],
+  /** Realpaths of fully scanned directories, so shared subtrees scan once. */
+  scanned: Set<string>,
+): ContainedPathIssue | undefined => {
+  for (const entry of readdirSync(directory, { withFileTypes: true })) {
+    const entryPath = join(directory, entry.name);
+
+    if (escapesRoot(entryPath, root)) {
+      return { path: entryPath, problem: 'escaping' };
+    }
+
+    // statSync follows symlinks, so in-root symlinked subdirectories are scanned too.
+    if (!statSync(entryPath).isDirectory()) {
+      continue;
+    }
+
+    const resolvedEntryPath = realpathSync(entryPath);
+
+    if (ancestry.includes(resolvedEntryPath)) {
+      return { path: entryPath, problem: 'cyclic' };
+    }
+
+    if (!scanned.has(resolvedEntryPath)) {
+      scanned.add(resolvedEntryPath);
+      const issue = scanDirectoryTarget(entryPath, root, [...ancestry, resolvedEntryPath], scanned);
+
+      if (issue !== undefined) {
+        return issue;
+      }
+    }
+  }
+
+  return undefined;
+};
+
+/**
+ * Copies a directory target while dereferencing symlinks, so the generated
+ * skill has no links back into catalog or project checkouts. cpSync's
+ * dereference option only follows the top-level source path, so nested entries
+ * are walked explicitly; copyFileSync preserves each file's mode.
+ */
+const copyDirectoryDereferenced = (source: string, destination: string): void => {
+  mkdirSync(destination, { recursive: true });
+
+  for (const entry of readdirSync(source, { withFileTypes: true })) {
+    const sourcePath = join(source, entry.name);
+    const destinationPath = join(destination, entry.name);
+
+    // statSync follows symlinks; scanDirectoryTarget already rejected cycles.
+    if (statSync(sourcePath).isDirectory()) {
+      copyDirectoryDereferenced(sourcePath, destinationPath);
+    } else {
+      copyFileSync(sourcePath, destinationPath);
+    }
+  }
 };
 
 /** Targets must remain within their root after following symlinks. */

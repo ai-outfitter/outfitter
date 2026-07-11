@@ -234,7 +234,7 @@ describe('skill resolution and reference materialization', () => {
     expect(broken.diagnostics[0]?.message).toContain("Reference file 'docs/absent.md' was not found");
   });
 
-  it('fails duplicate reference destinations, directory targets, and root-escaping symlinks', () => {
+  it('fails duplicate reference destinations and root-escaping symlinks', () => {
     const project = createRoot();
     const outside = createRoot();
     writeFileSync(join(outside, 'secret.md'), 'secret\n');
@@ -248,11 +248,6 @@ describe('skill resolution and reference materialization', () => {
     );
     writeSkill(
       join(project, '.outfitter', 'skills'),
-      'directory-ref',
-      'name: directory-ref\nreferences:\n  - file: docs',
-    );
-    writeSkill(
-      join(project, '.outfitter', 'skills'),
       'escaping',
       'name: escaping\nreferences:\n  - file: docs/escape.md',
     );
@@ -261,7 +256,6 @@ describe('skill resolution and reference materialization', () => {
       resolveSkillEntries({ entries: [{ entry: id }], catalog, projectDirectory: project }).diagnostics;
 
     expect(resolve('colliding')[0]?.message).toContain('declared more than once');
-    expect(resolve('directory-ref')[0]?.message).toContain('must be a regular file');
     expect(resolve('escaping')[0]?.message).toContain('resolves outside');
   });
 
