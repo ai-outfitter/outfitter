@@ -114,6 +114,8 @@ export const executeRunCommand = async (
     settings: resolvedProfile.settings,
     profileLayers: resolvedProfile.profileLayers,
     cacheDirectory: resolvedProfile.cacheDirectory,
+    agentId: adapter.id,
+    projectDirectory: input.projectDirectory,
     warn: dependencies.writeError ?? console.error,
   });
   let stateBaseline = createCompositeProfileStateBaseline(
@@ -166,6 +168,8 @@ export const executeRunCommand = async (
         settings: refreshedProfile.settings,
         profileLayers: refreshedProfile.profileLayers,
         cacheDirectory: refreshedProfile.cacheDirectory,
+        agentId: adapter.id,
+        projectDirectory: input.projectDirectory,
         warn: dependencies.writeError ?? console.error,
       });
 

@@ -63,16 +63,17 @@ The `run` command assembles a temporary agent-specific configuration directory c
 14. When the session is not interactive, changed `prompt` strategy paths MUST fall back to `warn` behavior with an explicit "prompt skipped: non-interactive" notice.
 15. Undeclared writes governed by an `unknown: prompt` strategy MUST be reported as warnings with an explicit notice that undeclared writes cannot be persisted.
 
-### OFTR-005.7: Generated Pi Prompt Export
+### OFTR-005.7: Generated System Prompt Export
 
 1. Generated prompt export MUST be disabled unless effective settings or the selected resolved profile enables it.
 2. Top-level settings `profile_export: true` MUST enable generated prompt export by default for selected local profiles.
 3. Top-level profile `profile_export` MUST override the settings default when present.
 4. Directory-layout profiles MUST export to `generated-system-prompt.md` under the selected profile directory.
 5. Flat-layout profiles MUST export to sibling `<profile-id>.generated-system-prompt.md` without creating a resource directory.
-6. Generated prompt export filenames MUST NOT include an agent or version suffix while only Pi prompt export is supported.
-7. Before Pi starts, Outfitter MAY seed a deterministic fallback artifact that includes the selected profile ID, a Pi prompt-source label, the effective Pi `system_prompt`, and ordered effective Pi `append_system_prompt` entries.
-8. For interactive Pi launches, Outfitter MUST pass the export path to its Pi launch extension and overwrite the fallback with the fully built Pi runtime system prompt from `ctx.getSystemPrompt()` when the session starts.
-9. Outfitter MUST NOT mutate cache-backed or remote selected profile owners for generated prompt export and MUST emit an actionable warning when export is skipped for that reason.
-10. Generated prompt export MUST NOT change launch args except for Outfitter's own runtime export extension plumbing, launch environment except for the export-path handoff, composite profile contents, or state persistence behavior.
-11. During live composite profile updates, Outfitter SHOULD refresh generated prompt fallback artifacts when enabled.
+6. Generated prompt export filenames MUST NOT include an agent or version suffix; the artifact reflects the adapter selected for the most recent launch.
+7. Outfitter MUST seed the export artifact for the selected adapter with the selected profile ID, an adapter prompt-source label, the effective `system_prompt`, and ordered effective `append_system_prompt` entries, resolving typed `file:` and `repo_file:` includes to their contents exactly as the launch resolves them.
+8. For interactive Pi launches, Outfitter MUST pass the export path to its Pi launch extension and overwrite the seeded artifact with the fully built Pi runtime system prompt from `ctx.getSystemPrompt()` when the session starts.
+9. For adapters without a runtime prompt read-back (for example Claude Code), the seeded artifact from item 7 is authoritative; Outfitter MUST label it as reflecting the composed prompt inputs Outfitter supplies rather than the adapter's full base prompt, and MUST NOT require any launch flag beyond selecting the adapter.
+10. Outfitter MUST NOT mutate cache-backed or remote selected profile owners for generated prompt export and MUST emit an actionable warning when export is skipped for that reason.
+11. Generated prompt export MUST NOT change launch args except for Outfitter's own runtime export extension plumbing, launch environment except for the export-path handoff, composite profile contents, or state persistence behavior.
+12. During live composite profile updates, Outfitter SHOULD refresh generated prompt export artifacts when enabled.

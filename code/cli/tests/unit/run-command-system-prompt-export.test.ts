@@ -336,4 +336,88 @@ describe('run command generated system prompt export', () => {
     expect(existsSync(join(cacheDirectory, 'cached', 'generated-system-prompt.md'))).toBe(false);
     expect(warnings.join('\n')).toContain("System prompt export skipped for profile 'cached'");
   });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-005.7).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('exports the composed Claude system prompt with resolved file includes and no extra flags', async () => {
+    const root = createTemporaryRoot();
+    const homeDirectory = join(root, 'home');
+    const projectDirectory = join(root, 'project');
+    const profilesDirectory = join(homeDirectory, '.outfitter', 'profiles');
+    const contextDirectory = join(homeDirectory, '.outfitter', 'context');
+    mkdirSync(contextDirectory, { recursive: true });
+    writeFileSync(join(contextDirectory, 'extra.md'), 'Included context body');
+    writeSettings(
+      homeDirectory,
+      'default_profile: default\nprofile_export: true\nprofile_sources:\n  - path: ./profiles\n',
+    );
+    writeProfile(
+      profilesDirectory,
+      'default',
+      [
+        'id: default',
+        'controls:',
+        '  system_prompt: Primary prompt',
+        '  append_system_prompt:',
+        '    - Inline append',
+        '    - file: .outfitter/context/extra.md',
+        '',
+      ].join('\n'),
+    );
+
+    // Only settings enable export and only the adapter is selected — no export-specific flags.
+    await executeRunCommand(
+      { homeDirectory, projectDirectory, agentId: 'claude' },
+      { writeLine: () => undefined, launcher: { launch: () => Promise.resolve(0) } },
+    );
+
+    const exported = readFileSync(join(profilesDirectory, 'default', 'generated-system-prompt.md'), 'utf8');
+    expect(exported).toContain('# Generated Claude system prompt');
+    expect(exported).toContain('Prompt source: Claude launch controls');
+    expect(exported).toContain('Primary prompt');
+    expect(exported).toContain('Inline append');
+    // The typed file include is resolved to its contents, not dropped as '(none)'.
+    expect(exported).toContain('Included context body');
+    expect(exported).not.toContain('before Pi runtime capture');
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-005.7).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('honors Claude-specific prompt overrides in the Claude export', async () => {
+    const root = createTemporaryRoot();
+    const homeDirectory = join(root, 'home');
+    const projectDirectory = join(root, 'project');
+    const profilesDirectory = join(homeDirectory, '.outfitter', 'profiles');
+    writeSettings(
+      homeDirectory,
+      'default_profile: default\nprofile_export: true\nprofile_sources:\n  - path: ./profiles\n',
+    );
+    writeProfile(
+      profilesDirectory,
+      'default',
+      [
+        'id: default',
+        'controls:',
+        '  system_prompt: Generic prompt',
+        '  append_system_prompt:',
+        '    - Generic append',
+        '  claude:',
+        '    system_prompt: Claude prompt',
+        '    append_system_prompt:',
+        '      - Claude append',
+        '',
+      ].join('\n'),
+    );
+
+    await executeRunCommand(
+      { homeDirectory, projectDirectory, agentId: 'claude' },
+      { writeLine: () => undefined, launcher: { launch: () => Promise.resolve(0) } },
+    );
+
+    const exported = readFileSync(join(profilesDirectory, 'default', 'generated-system-prompt.md'), 'utf8');
+    expect(exported).toContain('Claude prompt');
+    expect(exported).toContain('Claude append');
+    expect(exported).not.toContain('Generic prompt');
+    expect(exported).not.toContain('Generic append');
+  });
 });
