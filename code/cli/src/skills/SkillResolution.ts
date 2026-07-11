@@ -1,5 +1,15 @@
 // Resolves selected skill IDs, validates references, and materializes generated skills.
-import { copyFileSync, cpSync, existsSync, mkdirSync, realpathSync, statSync } from 'node:fs';
+import {
+  copyFileSync,
+  cpSync,
+  existsSync,
+  globSync,
+  mkdirSync,
+  readdirSync,
+  realpathSync,
+  statSync,
+  type Stats,
+} from 'node:fs';
 import { basename, isAbsolute, join, relative, sep } from 'node:path';
 
 import type { SkillControlEntry, SkillReference, SkillSelection } from '../profiles/Profile.js';
@@ -192,8 +202,16 @@ const resolveCatalogSkill = (
   for (const materialization of materializations) {
     const sectionDirectory = join(generatedDirectory, materialization.section);
     mkdirSync(sectionDirectory, { recursive: true });
-    // copyFileSync preserves the source mode, so materialized scripts stay executable.
-    copyFileSync(materialization.sourcePath, join(sectionDirectory, materialization.destinationName));
+    const destinationPath = join(sectionDirectory, materialization.destinationName);
+
+    // Both copies preserve the source mode, so materialized scripts stay
+    // executable. Directory targets dereference symlinks that the contained
+    // scan already validated, so the generated skill is self-contained.
+    if (materialization.kind === 'directory') {
+      copyDirectoryDereferenced(materialization.sourcePath, destinationPath);
+    } else {
+      copyFileSync(materialization.sourcePath, destinationPath);
+    }
   }
 
   return { generatedDirectory, diagnostics };
@@ -203,6 +221,7 @@ interface SkillMaterialization {
   readonly section: SkillMaterializationSection;
   readonly sourcePath: string;
   readonly destinationName: string;
+  readonly kind: 'file' | 'directory';
 }
 
 const planSkillMaterializations = (
@@ -236,10 +255,10 @@ const planSectionMaterializations = (
   diagnostics: SkillResolutionDiagnostic[],
 ): readonly SkillMaterialization[] => {
   const materializations: SkillMaterialization[] = [];
-  const destinationNames = new Set<string>();
+  const destinationSources = new Map<string, string>();
 
   for (const { reference, fileRoot } of entries) {
-    const resolved = resolveReferenceMaterialization({
+    const outcomes = resolveReferenceMaterializations({
       reference,
       section,
       fileRoot,
@@ -247,42 +266,53 @@ const planSectionMaterializations = (
       skillPath: input.catalogEntry.skillPath,
     });
 
-    if (resolved === undefined) {
-      continue;
-    }
+    for (const resolved of outcomes) {
+      if ('message' in resolved) {
+        diagnostics.push(resolved);
+        continue;
+      }
 
-    if ('message' in resolved) {
-      diagnostics.push(resolved);
-      continue;
-    }
+      const collision = describeDestinationCollision(input, section, resolved, destinationSources);
 
-    if (destinationNames.has(resolved.destinationName)) {
-      diagnostics.push({
-        severity: 'error',
-        path: input.catalogEntry.skillPath,
-        message: `Destination '${section}/${resolved.destinationName}' is declared more than once.`,
-      });
-      continue;
-    }
+      if (collision !== undefined) {
+        diagnostics.push({ severity: 'error', path: input.catalogEntry.skillPath, message: collision });
+        continue;
+      }
 
-    // Checked against the source skill directory during planning so lint reports
-    // shipped-file collisions without materializing anything.
-    if (existsSync(join(input.catalogEntry.directory, section, resolved.destinationName))) {
-      diagnostics.push({
-        severity: 'error',
-        path: input.catalogEntry.skillPath,
-        message:
-          `Destination '${section}/${resolved.destinationName}' collides with a file ` +
-          `already shipped by skill '${input.catalogEntry.id}'.`,
-      });
-      continue;
+      destinationSources.set(resolved.destinationName, resolved.sourcePath);
+      materializations.push(resolved);
     }
-
-    destinationNames.add(resolved.destinationName);
-    materializations.push(resolved);
   }
 
   return materializations;
+};
+
+/** Reports a destination claimed twice or already shipped inside the skill directory. */
+const describeDestinationCollision = (
+  input: CatalogSkillResolutionInput,
+  section: SkillMaterializationSection,
+  resolved: SkillMaterialization,
+  destinationSources: ReadonlyMap<string, string>,
+): string | undefined => {
+  const previousSource = destinationSources.get(resolved.destinationName);
+
+  if (previousSource !== undefined) {
+    return (
+      `Destination '${section}/${resolved.destinationName}' is declared more than once ` +
+      `(by '${previousSource}' and '${resolved.sourcePath}').`
+    );
+  }
+
+  // Checked against the source skill directory during planning so lint reports
+  // shipped-file collisions without materializing anything.
+  if (existsSync(join(input.catalogEntry.directory, section, resolved.destinationName))) {
+    return (
+      `Destination '${section}/${resolved.destinationName}' collides with a file ` +
+      `already shipped by skill '${input.catalogEntry.id}'.`
+    );
+  }
+
+  return undefined;
 };
 
 interface DescribedReference {
@@ -301,44 +331,254 @@ const describeReference = (
     ? { declaredPath: reference.repo_file, root: projectDirectory, kind: 'repo_file', rootLabel: 'project' }
     : { declaredPath: reference.file, root: fileRoot, kind: 'file', rootLabel: 'catalog' };
 
-const resolveReferenceMaterialization = (input: {
+/** One reference's resolved root and labels, shared by every target it names. */
+interface ReferenceTargetContext {
+  readonly root: string;
+  readonly kind: 'file' | 'repo_file';
+  readonly rootLabel: 'catalog' | 'project';
+  readonly section: SkillMaterializationSection;
+  readonly skillPath: string;
+}
+
+const targetError = (skillPath: string, message: string): SkillResolutionDiagnostic => ({
+  severity: 'error',
+  path: skillPath,
+  message,
+});
+
+/**
+ * Resolves one reference entry to its materializations: one for a literal
+ * target, one per match for a glob target, and none for an omitted missing
+ * `repo_file` target.
+ */
+const resolveReferenceMaterializations = (input: {
   readonly reference: SkillReference;
   readonly section: SkillMaterializationSection;
   readonly fileRoot: string;
   readonly projectDirectory?: string;
   readonly skillPath: string;
-}): SkillMaterialization | SkillResolutionDiagnostic | undefined => {
+}): readonly (SkillMaterialization | SkillResolutionDiagnostic)[] => {
   const { declaredPath, root, kind, rootLabel } = describeReference(
     input.reference,
     input.fileRoot,
     input.projectDirectory,
   );
-  const error = (message: string): SkillResolutionDiagnostic => ({
-    severity: 'error',
-    path: input.skillPath,
-    message,
-  });
 
   if (root === undefined) {
-    return error(`Reference ${kind} '${declaredPath}' has no ${rootLabel} root to resolve from.`);
+    return [
+      targetError(input.skillPath, `Reference ${kind} '${declaredPath}' has no ${rootLabel} root to resolve from.`),
+    ];
   }
 
-  const sourcePath = isAbsolute(declaredPath) ? declaredPath : join(root, declaredPath);
+  const context: ReferenceTargetContext = { root, kind, rootLabel, section: input.section, skillPath: input.skillPath };
+
+  if (isGlobPattern(declaredPath)) {
+    return expandGlobMaterializations(declaredPath, context);
+  }
+
+  const resolved = resolveTargetMaterialization(declaredPath, context);
+
+  return resolved === undefined ? [] : [resolved];
+};
+
+/**
+ * Matches when a target uses glob syntax instead of naming one literal path.
+ * Only the gitignore-style metacharacters count; braces are literal path
+ * characters, so a braced filename resolves as a literal target.
+ */
+const isGlobPattern = (declaredPath: string): boolean => /[*?[]/u.test(declaredPath);
+
+/**
+ * Expands a glob target against its root. Each match then follows the same
+ * rules as a literal target, so a matched directory materializes recursively
+ * while an escaping or special match fails validation individually.
+ */
+const expandGlobMaterializations = (
+  pattern: string,
+  context: ReferenceTargetContext,
+): readonly (SkillMaterialization | SkillResolutionDiagnostic)[] => {
+  // Braces are literal path characters in this contract, but globSync
+  // brace-expands them textually and offers no escape, so mixing them with
+  // glob syntax fails validation rather than silently matching other paths.
+  if (/[{}]/u.test(pattern)) {
+    return [
+      targetError(
+        context.skillPath,
+        `Reference ${context.kind} glob '${pattern}' must not contain braces; ` +
+          `braces are literal path characters, not glob syntax.`,
+      ),
+    ];
+  }
+
+  // Sorted so diagnostics and collisions are deterministic across platforms.
+  const matches = globSync(pattern, { cwd: context.root }).sort();
+
+  if (matches.length === 0) {
+    // A consuming project may not contain repo_file matches; the reference is omitted.
+    return context.kind === 'repo_file'
+      ? []
+      : [targetError(context.skillPath, `Reference file glob '${pattern}' matched no files under '${context.root}'.`)];
+  }
+
+  const resolved: (SkillMaterialization | SkillResolutionDiagnostic)[] = [];
+
+  for (const match of matches) {
+    const outcome = resolveTargetMaterialization(match, context);
+
+    if (outcome !== undefined) {
+      resolved.push(outcome);
+    }
+  }
+
+  return resolved;
+};
+
+/** Validates one concrete target path — a literal target or a single glob match. */
+const resolveTargetMaterialization = (
+  targetPath: string,
+  context: ReferenceTargetContext,
+): SkillMaterialization | SkillResolutionDiagnostic | undefined => {
+  const { root, kind, rootLabel, skillPath } = context;
+  const error = (message: string): SkillResolutionDiagnostic => targetError(skillPath, message);
+  const sourcePath = isAbsolute(targetPath) ? targetPath : join(root, targetPath);
 
   if (!existsSync(sourcePath)) {
     // A consuming project may not contain a repo_file target; the reference is omitted.
-    return kind === 'repo_file' ? undefined : error(`Reference file '${declaredPath}' was not found under '${root}'.`);
+    return kind === 'repo_file' ? undefined : error(`Reference file '${targetPath}' was not found under '${root}'.`);
   }
 
-  if (!statSync(sourcePath).isFile()) {
-    return error(`Reference ${kind} '${declaredPath}' must be a regular file.`);
+  const stats = statSync(sourcePath);
+
+  if (!stats.isFile() && !stats.isDirectory()) {
+    return error(`Reference ${kind} '${targetPath}' must be a regular file or directory.`);
   }
 
   if (escapesRoot(sourcePath, root)) {
-    return error(`Reference ${kind} '${declaredPath}' resolves outside its ${rootLabel} root '${root}'.`);
+    return error(`Reference ${kind} '${targetPath}' resolves outside its ${rootLabel} root '${root}'.`);
   }
 
-  return { section: input.section, sourcePath, destinationName: basename(declaredPath) };
+  const directoryIssue = describeDirectoryTargetIssue(stats, sourcePath, targetPath, context);
+
+  if (directoryIssue !== undefined) {
+    return error(directoryIssue);
+  }
+
+  return {
+    section: context.section,
+    sourcePath,
+    destinationName: basename(targetPath),
+    kind: stats.isDirectory() ? 'directory' : 'file',
+  };
+};
+
+/** Describes the first escaping, cyclic, or special path inside a directory target, if any. */
+const describeDirectoryTargetIssue = (
+  stats: Stats,
+  sourcePath: string,
+  targetPath: string,
+  context: ReferenceTargetContext,
+): string | undefined => {
+  if (!stats.isDirectory()) {
+    return undefined;
+  }
+
+  const issue = scanDirectoryTarget(sourcePath, context.root, [realpathSync(sourcePath)], new Set());
+
+  if (issue === undefined) {
+    return undefined;
+  }
+
+  const containedPath = relative(sourcePath, issue.path);
+  const problemDescriptions: Record<ContainedPathIssue['problem'], string> = {
+    escaping: `which resolves outside its ${context.rootLabel} root '${context.root}'`,
+    cyclic: 'which creates a symlink cycle',
+    special: 'which is not a regular file or directory',
+  };
+
+  return (
+    `Reference ${context.kind} '${targetPath}' contains ` + `'${containedPath}', ${problemDescriptions[issue.problem]}.`
+  );
+};
+
+interface ContainedPathIssue {
+  readonly path: string;
+  readonly problem: 'escaping' | 'cyclic' | 'special';
+}
+
+/**
+ * Finds the first path inside a directory target whose realpath escapes the
+ * reference root, a symlink that cycles back into an ancestor directory, or an
+ * entry that is neither a regular file nor a directory. Directory
+ * materialization dereferences symlinks recursively, so an escaping link would
+ * smuggle outside content into the generated skill, a cyclic link would never
+ * finish copying, and a special file such as a FIFO could block the copy.
+ */
+const scanDirectoryTarget = (
+  directory: string,
+  root: string,
+  /** Realpaths of the directories on the current descent, for cycle detection. */
+  ancestry: readonly string[],
+  /** Realpaths of fully scanned directories, so shared subtrees scan once. */
+  scanned: Set<string>,
+): ContainedPathIssue | undefined => {
+  for (const entry of readdirSync(directory, { withFileTypes: true })) {
+    const entryPath = join(directory, entry.name);
+
+    if (escapesRoot(entryPath, root)) {
+      return { path: entryPath, problem: 'escaping' };
+    }
+
+    // statSync follows symlinks, so in-root symlinked subdirectories are
+    // scanned too and a link to a special file is rejected like the file itself.
+    const entryStats = statSync(entryPath);
+
+    if (!entryStats.isFile() && !entryStats.isDirectory()) {
+      return { path: entryPath, problem: 'special' };
+    }
+
+    if (!entryStats.isDirectory()) {
+      continue;
+    }
+
+    const resolvedEntryPath = realpathSync(entryPath);
+
+    if (ancestry.includes(resolvedEntryPath)) {
+      return { path: entryPath, problem: 'cyclic' };
+    }
+
+    if (!scanned.has(resolvedEntryPath)) {
+      scanned.add(resolvedEntryPath);
+      const issue = scanDirectoryTarget(entryPath, root, [...ancestry, resolvedEntryPath], scanned);
+
+      if (issue !== undefined) {
+        return issue;
+      }
+    }
+  }
+
+  return undefined;
+};
+
+/**
+ * Copies a directory target while dereferencing symlinks, so the generated
+ * skill has no links back into catalog or project checkouts. cpSync's
+ * dereference option only follows the top-level source path, so nested entries
+ * are walked explicitly; copyFileSync preserves each file's mode.
+ */
+const copyDirectoryDereferenced = (source: string, destination: string): void => {
+  mkdirSync(destination, { recursive: true });
+
+  for (const entry of readdirSync(source, { withFileTypes: true })) {
+    const sourcePath = join(source, entry.name);
+    const destinationPath = join(destination, entry.name);
+
+    // statSync follows symlinks; scanDirectoryTarget already rejected cycles.
+    if (statSync(sourcePath).isDirectory()) {
+      copyDirectoryDereferenced(sourcePath, destinationPath);
+    } else {
+      copyFileSync(sourcePath, destinationPath);
+    }
+  }
 };
 
 /** Targets must remain within their root after following symlinks. */
