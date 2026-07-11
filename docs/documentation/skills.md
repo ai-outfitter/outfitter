@@ -404,11 +404,13 @@ boundaries, or the user's request.
 
 Outfitter resolves and normalizes reference targets before launch. Targets MUST
 remain within their Outfitter, profile-repository, or project root after
-following symlinks. A directory target is additionally scanned recursively, and
-any contained symlink that resolves outside that root fails validation, so a
-directory cannot smuggle outside content into the generated skill. Escaping,
-colliding, and broken `file` references fail validation; a missing `repo_file`
-target is omitted rather than failing, as described above.
+following symlinks. A directory target is additionally scanned recursively: a
+contained symlink that resolves outside that root fails validation, so a
+directory cannot smuggle outside content into the generated skill, and a
+contained entry that is not a regular file or directory (such as a FIFO or
+socket) also fails validation. Escaping, colliding, and broken `file`
+references fail validation; a missing `repo_file` target is omitted rather
+than failing, as described above.
 
 ## Resolution and launch
 

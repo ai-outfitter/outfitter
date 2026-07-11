@@ -1,4 +1,5 @@
 // Tests directory targets in skill reference, script, and asset materialization.
+import { execFileSync } from 'node:child_process';
 import {
   existsSync,
   lstatSync,
@@ -163,6 +164,28 @@ describe('directory targets in reference materialization', () => {
     expect(resolve('escaping-linked-dir')[0]?.message).toContain(
       `contains '${join('shared-link', 'escape.md')}', which resolves outside`,
     );
+  });
+
+  // Windows has no mkfifo; the FIFO branches are guarded by the same statSync
+  // checks that the covered file and directory cases exercise.
+  it.skipIf(process.platform === 'win32')('fails FIFO targets declared directly and inside a directory target', () => {
+    const project = createRoot();
+    mkdirSync(join(project, 'pipes'), { recursive: true });
+    execFileSync('mkfifo', [join(project, 'pipes', 'stream.fifo')]);
+    writeSkill(join(project, '.outfitter', 'skills'), 'piped-dir', 'name: piped-dir\nassets:\n  - file: pipes');
+    writeSkill(
+      join(project, '.outfitter', 'skills'),
+      'piped-file',
+      'name: piped-file\nassets:\n  - file: pipes/stream.fifo',
+    );
+    const catalog = discoverSkillCatalog({ projectDirectory: project });
+    const resolve = (id: string) =>
+      resolveSkillEntries({ entries: [{ entry: id }], catalog, projectDirectory: project }).diagnostics;
+
+    expect(resolve('piped-dir')[0]?.message).toContain(
+      "contains 'stream.fifo', which is not a regular file or directory",
+    );
+    expect(resolve('piped-file')[0]?.message).toContain('must be a regular file or directory');
   });
 
   it('fails a directory target containing a symlink cycle', () => {

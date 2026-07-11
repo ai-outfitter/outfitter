@@ -341,7 +341,6 @@ const resolveReferenceMaterialization = (input: {
 
   const stats = statSync(sourcePath);
 
-  /* v8 ignore next 3 -- only reachable with special files such as FIFOs or sockets. */
   if (!stats.isFile() && !stats.isDirectory()) {
     return error(`Reference ${kind} '${declaredPath}' must be a regular file or directory.`);
   }
@@ -364,7 +363,7 @@ const resolveReferenceMaterialization = (input: {
   };
 };
 
-/** Describes the first escaping or cyclic path inside a directory target, if any. */
+/** Describes the first escaping, cyclic, or special path inside a directory target, if any. */
 const describeDirectoryTargetIssue = (
   stats: Stats,
   sourcePath: string,
@@ -386,24 +385,30 @@ const describeDirectoryTargetIssue = (
   }
 
   const containedPath = relative(sourcePath, issue.path);
+  const problemDescriptions: Record<ContainedPathIssue['problem'], string> = {
+    escaping: `which resolves outside its ${context.rootLabel} root '${context.root}'`,
+    cyclic: 'which creates a symlink cycle',
+    special: 'which is not a regular file or directory',
+  };
 
-  return issue.problem === 'escaping'
-    ? `Reference ${context.kind} '${context.declaredPath}' contains '${containedPath}', ` +
-        `which resolves outside its ${context.rootLabel} root '${context.root}'.`
-    : `Reference ${context.kind} '${context.declaredPath}' contains '${containedPath}', which creates a symlink cycle.`;
+  return (
+    `Reference ${context.kind} '${context.declaredPath}' contains ` +
+    `'${containedPath}', ${problemDescriptions[issue.problem]}.`
+  );
 };
 
 interface ContainedPathIssue {
   readonly path: string;
-  readonly problem: 'escaping' | 'cyclic';
+  readonly problem: 'escaping' | 'cyclic' | 'special';
 }
 
 /**
  * Finds the first path inside a directory target whose realpath escapes the
- * reference root, or a symlink that cycles back into an ancestor directory.
- * Directory materialization dereferences symlinks recursively, so an escaping
- * link would smuggle outside content into the generated skill and a cyclic
- * link would never finish copying.
+ * reference root, a symlink that cycles back into an ancestor directory, or an
+ * entry that is neither a regular file nor a directory. Directory
+ * materialization dereferences symlinks recursively, so an escaping link would
+ * smuggle outside content into the generated skill, a cyclic link would never
+ * finish copying, and a special file such as a FIFO could block the copy.
  */
 const scanDirectoryTarget = (
   directory: string,
@@ -420,8 +425,15 @@ const scanDirectoryTarget = (
       return { path: entryPath, problem: 'escaping' };
     }
 
-    // statSync follows symlinks, so in-root symlinked subdirectories are scanned too.
-    if (!statSync(entryPath).isDirectory()) {
+    // statSync follows symlinks, so in-root symlinked subdirectories are
+    // scanned too and a link to a special file is rejected like the file itself.
+    const entryStats = statSync(entryPath);
+
+    if (!entryStats.isFile() && !entryStats.isDirectory()) {
+      return { path: entryPath, problem: 'special' };
+    }
+
+    if (!entryStats.isDirectory()) {
       continue;
     }
 
