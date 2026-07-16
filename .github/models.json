@@ -1,0 +1,21 @@
+{
+  "providers": {
+    "github-models": {
+      "baseUrl": "https://models.github.ai/inference",
+      "api": "openai-completions",
+      "apiKey": "$GITHUB_TOKEN",
+      "authHeader": true,
+      "compat": {
+        "supportsDeveloperRole": false,
+        "supportsReasoningEffort": false
+      },
+      "models": [
+        {
+          "id": "openai/gpt-4.1-mini",
+          "name": "GPT-4.1 mini (GitHub Models)",
+          "reasoning": false
+        }
+      ]
+    }
+  }
+}
