@@ -1,7 +1,7 @@
 {
   "providers": {
     "github-models": {
-      "baseUrl": "https://models.github.ai/inference",
+      "baseUrl": "https://models.inference.ai.azure.com",
       "api": "openai-completions",
       "apiKey": "$GITHUB_TOKEN",
       "authHeader": true,
@@ -11,8 +11,8 @@
       },
       "models": [
         {
-          "id": "openai/gpt-4.1-mini",
-          "name": "GPT-4.1 mini (GitHub Models)",
+          "id": "gpt-4.1-mini",
+          "name": "GPT-4.1 mini (GitHub Models, legacy endpoint)",
           "reasoning": false
         }
       ]

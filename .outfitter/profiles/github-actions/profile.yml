@@ -12,7 +12,11 @@ controls:
   provider: github-models
   # Chosen for observed reliability on the included GitHub Models tier — see
   # ai-outfitter/default-profiles issue-triage for the compatibility notes.
-  model: openai/gpt-4.1-mini
+  # Un-prefixed id: the legacy models.inference.ai.azure.com endpoint (see
+  # .github/models.json) doesn't use the openai/ publisher prefix. The new
+  # models.github.ai/inference gateway 403s Actions tokens from
+  # enterprise-owned org repos (see ai-outfitter/.outfitter weekly-kpis).
+  model: gpt-4.1-mini
   append_system_prompt: |
     You are this repository's CI automation agent, running headless as the
     github-actions bot: nothing you print is visible to anyone, and anything
