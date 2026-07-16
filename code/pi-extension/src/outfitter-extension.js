@@ -280,10 +280,24 @@ export default function outfitter(pi) {
     await exportRuntimeSystemPrompt(ctx);
     if (ctx.mode !== "tui") return;
     ctx.ui.setHeader((_tui, theme) => {
-      const lines = createStartupHeaderLines(theme, event.reason === "startup" && OUTFITTER_AUTO_OPEN);
+      const firstRun = event.reason === "startup" && OUTFITTER_AUTO_OPEN;
+      let cachedWidth;
+      let cachedLines;
       return {
-        render: () => lines,
-        invalidate: () => undefined,
+        // Pi-tui rejects render output wider than the terminal, so the header
+        // re-fits its lines to every width pi hands it instead of rendering once.
+        render: (width) => {
+          const maxWidth = typeof width === "number" && width > 0 ? width : 120;
+          if (cachedLines === undefined || cachedWidth !== maxWidth) {
+            cachedLines = createStartupHeaderLines(theme, firstRun, maxWidth);
+            cachedWidth = maxWidth;
+          }
+          return cachedLines;
+        },
+        invalidate: () => {
+          cachedWidth = undefined;
+          cachedLines = undefined;
+        },
       };
     });
     updateModeStatus(ctx);
@@ -334,33 +348,37 @@ export default function outfitter(pi) {
   });
 }
 
-const createStartupHeaderLines = (theme, firstRun) => {
-  const brandLine = theme.bold(theme.fg("accent", "Outfitter")) + theme.fg("dim", " + pi");
-  const commandHelp = theme.fg("muted", "/ commands · ! bash · shift+tab mode · ctrl+shift+t thinking · ctrl+o more");
+// Every emitted line must fit maxWidth: pi-tui throws on over-wide render output,
+// which crashed startup in narrow (e.g. 80x24 tmux) terminals. Prose wraps so no
+// words are lost; ASCII art and the brand line truncate because wrapping them is noise.
+const createStartupHeaderLines = (theme, firstRun, maxWidth) => {
   const lines = [];
+  const addTruncated = (line) => lines.push(visibleWidth(line) > maxWidth ? truncateToWidth(line, maxWidth) : line);
+  const addWrapped = (line) => {
+    for (const wrappedLine of wrapTextWithAnsi(line, Math.max(1, maxWidth))) addTruncated(wrappedLine);
+  };
 
   if (OUTFITTER_STARTUP_ASCII_ART) {
-    lines.push(
-      ...OUTFITTER_ASCII_ART.split("\n").map((line, index) => theme.fg(OUTFITTER_ASCII_GRADIENT[index] ?? "accent", line)),
-      "",
+    OUTFITTER_ASCII_ART.split("\n").forEach((line, index) =>
+      addTruncated(theme.fg(OUTFITTER_ASCII_GRADIENT[index] ?? "accent", line)),
     );
+    lines.push("");
   }
 
-  lines.push(brandLine, commandHelp);
+  addTruncated(theme.bold(theme.fg("accent", "Outfitter")) + theme.fg("dim", " + pi"));
+  addWrapped(theme.fg("muted", "/ commands · ! bash · shift+tab mode · ctrl+shift+t thinking · ctrl+o more"));
 
   if (firstRun) {
-    lines.push(
-      "",
-      theme.fg("dim", "Outfitter turns Pi into a configured working environment:"),
-      theme.fg("dim", "• profiles define model, tools, prompts, skills, and extensions"),
-      theme.fg("dim", "• settings can live in your home folder or this project"),
-      theme.fg("dim", "• catalogs let teams share setups through GitHub"),
-    );
+    lines.push("");
+    addWrapped(theme.fg("dim", "Outfitter turns Pi into a configured working environment:"));
+    addWrapped(theme.fg("dim", "• profiles define model, tools, prompts, skills, and extensions"));
+    addWrapped(theme.fg("dim", "• settings can live in your home folder or this project"));
+    addWrapped(theme.fg("dim", "• catalogs let teams share setups through GitHub"));
     return lines;
   }
 
-  lines.push(
-    "",
+  lines.push("");
+  addWrapped(
     theme.fg(
       "dim",
       "Outfitter + Pi can explain its own features and look up its docs. Ask it how to use or extend Pi or outfitter profiles.",
