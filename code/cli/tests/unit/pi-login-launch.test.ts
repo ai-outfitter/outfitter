@@ -56,6 +56,10 @@ const writeDefaultProfilesCache = (homeDirectory: string): string => {
 const extensionPaths = (plan: AgentLaunchPlan): string[] =>
   plan.args.filter((_arg, index) => plan.args[index - 1] === '--extension');
 
+// Built through the constructor because eslint's no-control-regex rejects a literal escape byte.
+const ansiSequencePattern = new RegExp(`${String.fromCharCode(27)}\\[[0-9;]*m`, 'gu');
+const visibleLineWidth = (line: string): number => line.replace(ansiSequencePattern, '').length;
+
 const readExtension = (plan: AgentLaunchPlan, fileName: string): string => {
   const path = extensionPaths(plan).find((candidate) => candidate.endsWith(fileName));
   if (path === undefined) {
@@ -214,6 +218,7 @@ const createMockContext = (
   const selectCalls: Array<{ readonly title: string; readonly options: readonly string[] }> = [];
   const inputCalls: Array<{ readonly message: string; readonly defaultValue?: string }> = [];
   const headerRenders: string[][] = [];
+  const headerComponents: Array<{ render(width?: number): string[]; invalidate(): void }> = [];
   const customRenders: string[][] = [];
   const submittedInputs: string[] = [];
   const selectedOptions = [...(options.selectedOptions ?? [])];
@@ -233,6 +238,7 @@ const createMockContext = (
     notifications,
     statuses,
     headerRenders,
+    headerComponents,
     customRenders,
     inputCalls,
     selectCalls,
@@ -312,17 +318,17 @@ const createMockContext = (
         factory: (
           _tui: unknown,
           theme: { bold(text: string): string; fg(_color: string, text: string): string },
-        ) => { render(): string[] },
+        ) => { render(width?: number): string[]; invalidate(): void },
       ) => {
-        headerRenders.push(
-          factory(
-            {},
-            {
-              bold: (text: string) => text,
-              fg: (_color: string, text: string) => text,
-            },
-          ).render(),
+        const component = factory(
+          {},
+          {
+            bold: (text: string) => text,
+            fg: (_color: string, text: string) => text,
+          },
         );
+        headerComponents.push(component);
+        headerRenders.push(component.render());
       },
       setStatus: (id: string, text: string) => {
         statuses[id] = text;
@@ -471,6 +477,92 @@ describe('preparePiLoginLaunchPlan', () => {
     expect(header).not.toContain('/outfitter will help you choose a profile catalog and install location.');
     expect(header).not.toContain('____');
     expect(context.notifications.join('\n')).not.toContain('/outfitter');
+  });
+
+  // Regression coverage for https://github.com/ai-outfitter/outfitter/issues/162: pi-tui
+  // throws on render lines wider than the terminal, so the injected header must fit every
+  // width pi passes to render(), including narrow embedder terminals like 80x24 tmux panes.
+  it.each([[80], [40], [20]])('fits every startup header line within a %d-column terminal', async (terminalWidth) => {
+    const agentDir = createAgentDir();
+    const plan = preparePiLoginLaunchPlan({
+      adapterId: 'pi',
+      homeDirectory: agentDir,
+      launchPlan: createLaunchPlan(agentDir),
+      writeLine: () => undefined,
+    });
+    const extension = evaluateOutfitterExtension(readExtension(plan, 'outfitter-extension.js'));
+    const pi = createMockPi();
+    const context = createMockContext();
+
+    extension(pi);
+    await startMockSession(pi, context);
+
+    const lines = context.headerComponents[0]?.render(terminalWidth) ?? [];
+    expect(lines.length).toBeGreaterThan(0);
+    for (const line of lines) {
+      expect(visibleLineWidth(line)).toBeLessThanOrEqual(terminalWidth);
+    }
+    expect(lines.join('\n')).toContain('Outfitter');
+  });
+
+  it.each([[80], [40]])(
+    'fits every first-run startup header line within a %d-column terminal',
+    async (terminalWidth) => {
+      const homeDirectory = createAgentDir();
+      const agentDir = createAgentDir();
+      const plan = preparePiLoginLaunchPlan({
+        adapterId: 'pi',
+        homeDirectory,
+        launchPlan: createLaunchPlan(agentDir),
+        runtimeOnboarding: { autoOpenOutfitter: true },
+        writeLine: () => undefined,
+      });
+      const extension = evaluateOutfitterExtension(readExtension(plan, 'outfitter-extension.js'));
+      const pi = createMockPi();
+      const context = createMockContext();
+
+      extension(pi);
+      await startMockSession(pi, context);
+
+      const lines = context.headerComponents[0]?.render(terminalWidth) ?? [];
+      expect(lines.length).toBeGreaterThan(0);
+      for (const line of lines) {
+        expect(visibleLineWidth(line)).toBeLessThanOrEqual(terminalWidth);
+      }
+      // First-run prose wraps instead of truncating, so no words are lost.
+      expect(lines.join(' ')).toContain('catalogs let teams share setups through GitHub');
+    },
+  );
+
+  it('re-fits the startup header when the terminal width changes and caches per width', async () => {
+    const agentDir = createAgentDir();
+    const plan = preparePiLoginLaunchPlan({
+      adapterId: 'pi',
+      homeDirectory: agentDir,
+      launchPlan: createLaunchPlan(agentDir),
+      writeLine: () => undefined,
+    });
+    const extension = evaluateOutfitterExtension(readExtension(plan, 'outfitter-extension.js'));
+    const pi = createMockPi();
+    const context = createMockContext();
+
+    extension(pi);
+    await startMockSession(pi, context);
+
+    const component = context.headerComponents[0];
+    if (component === undefined) {
+      throw new Error('startup header component was not registered.');
+    }
+    const wideLines = component.render(220);
+    const narrowLines = component.render(80);
+    expect(wideLines.every((line) => visibleLineWidth(line) <= 220)).toBe(true);
+    expect(narrowLines.every((line) => visibleLineWidth(line) <= 80)).toBe(true);
+    expect(narrowLines.length).toBeGreaterThan(wideLines.length);
+    expect(component.render(80)).toBe(narrowLines);
+    component.invalidate();
+    expect(component.render(80)).toEqual(narrowLines);
+    // Renders without a width (e.g. older pi-tui callers) fall back to a sane default.
+    expect(component.render().every((line) => visibleLineWidth(line) <= 120)).toBe(true);
   });
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-006.7).
