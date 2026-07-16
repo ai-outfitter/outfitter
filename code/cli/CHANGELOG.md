@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.11.0](https://github.com/ai-outfitter/outfitter/compare/v0.10.0...v0.11.0) (2026-07-16)
+
+
+### Features
+
+* **skills:** file, directory, and glob targets for references, scripts, and assets ([#158](https://github.com/ai-outfitter/outfitter/issues/158)) ([536a8d3](https://github.com/ai-outfitter/outfitter/commit/536a8d375bd1b8389bc43170794c20db80293b02))
+
+
+### Bug Fixes
+
+* make the injected pi header extension width-aware (fixes [#162](https://github.com/ai-outfitter/outfitter/issues/162)) ([#163](https://github.com/ai-outfitter/outfitter/issues/163)) ([9ef0c28](https://github.com/ai-outfitter/outfitter/commit/9ef0c28d74a00fc252863af4416494ae7a6b2c32))
+
 ## [0.10.0](https://github.com/ai-outfitter/outfitter/compare/v0.9.0...v0.10.0) (2026-07-10)
 
 
