@@ -28,3 +28,13 @@ To share behavior across several agents, keep shared operating context in the tr
 ## Migrating from authored profiles
 
 Earlier Outfitter versions defined profiles as authored YAML files (`.outfitter/profiles/`, `profile.yml`, inheritance, `controls`). That system is removed with no compatibility mode. See the [migration reference](./migration.md) for the manual mapping from the legacy format to agents and their loadouts.
+
+### Externally managed legacy profiles
+
+While using the released profile-based CLI, operators can keep the canonical profile store outside Outfitter and symlink the user profile directory to it:
+
+```sh
+ln -s ~/.config/panopticon/secrets/<dir>/outfitter/profiles ~/.outfitter/profiles
+```
+
+Profile resolution and writes through `~/.outfitter/profiles` follow the symlink, so setup and profile edits propagate to the canonical store.
