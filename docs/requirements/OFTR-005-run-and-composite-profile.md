@@ -1,6 +1,6 @@
 # OFTR-005: Run Command and Composite profile Lifecycle
 
-> **Transition (RFC [#165](https://github.com/ai-outfitter/outfitter/issues/165)):** this requirement describes pre-dotagents behavior and will be amended or superseded by the RFC #165 implementation PRs together with its pinned tests. The target design lives in [docs/documentation](../documentation/README.md) and [docs/architecture](../architecture/README.md).
+> **Transition (RFC [#165](https://github.com/ai-outfitter/outfitter/issues/165)):** this requirement is being amended across the implementation stack. **OFTR-005.2 and OFTR-005.3 are amended (2026-07-17)** to the harness-neutral composition model below. The remaining sections (run command surface, watching, state persistence, prompt export) still describe pre-dotagents behavior and are amended together with their pinned tests in the adapter/run PR. Target design: [docs/architecture/README.md](../architecture/README.md).
 
 ## Overview
 
@@ -18,20 +18,24 @@ The `run` command assembles a temporary agent-specific configuration directory c
 6. The `run` command MUST pass unrecognized arguments through to the selected agent CLI unaltered.
 7. When invoked before user setup has created `~/.outfitter/settings.yml`, the default `run` command MUST execute setup before resolving the profile without printing a separate pre-setup announcement.
 
-### OFTR-005.2: Composite profile Definition
+### OFTR-005.2: Composition Definition
 
-1. Outfitter MUST call the dynamically assembled runtime configuration directory a `composite profile`.
-2. A composite profile MUST be scoped to a resolved profile and a selected agent CLI.
-3. Outfitter MUST create composite profile directories under the system temporary directory.
-4. Outfitter SHOULD use composite profile paths that include a run-specific identifier to avoid collisions between concurrent runs.
+_Amended (2026-07-17, RFC #165): a run is defined by a harness-neutral composition, not a profile._
 
-### OFTR-005.3: Composite profile Assembly
+1. Outfitter MUST compose a harness-neutral **composition plan** for a run from the effective resource set and a selected agent.
+2. A composition plan MUST be scoped to one selected agent slug and is projected per harness by an adapter.
+3. A composition plan MUST carry the composed identity (base `system-prompt.md`, shared `agents.md` context, and the agent's `agent.md` body) and the agent's resolved loadout.
+4. Composition MUST be deterministic: identical sources, refs, and selections produce an identical composition plan.
 
-1. Outfitter MUST assemble the composite profile from resolved profile layers in precedence order.
-2. Outfitter MUST combine generic profile controls with CLI-specific overrides.
-3. Each logical generated file in the composite profile MUST have an object instance representing it.
-4. Each composite profile file object MUST know its source inputs and generated output path.
-5. Each composite profile file object SHOULD expose its merge or transform strategy.
+### OFTR-005.3: Composition Assembly
+
+_Amended (2026-07-17, RFC #165): composition assembles from the effective resource set._
+
+1. Outfitter MUST compose identity by layering the winning `system-prompt.md` as the base, the winning `agents.md` as shared context, and the selected agent's body on top, in that deterministic order.
+2. Outfitter MUST resolve each loadout slug (`skills`, `subagents`) against the effective resource set to its winning resource.
+3. Outfitter MUST report an error when the selected agent slug does not resolve or its definition is invalid.
+4. Outfitter MUST surface a loadout slug that does not resolve as a non-fatal composition warning.
+5. `list`, `validate`, `run`, and `dump` MUST compose from the same shared resolver and composer.
 
 ### OFTR-005.4: Composite profile Watching
 
