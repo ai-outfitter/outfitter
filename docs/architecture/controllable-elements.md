@@ -7,6 +7,7 @@ Status values:
 - **Supported**: Outfitter projects this element for the CLI.
 - **Partial**: some of the element works today, with documented gaps.
 - **Roadmap**: the CLI appears to support this concept, but Outfitter does not project it yet.
+- **Future**: the concept itself is deferred to a separate upcoming RFC, not just its projection.
 - **Unsupported**: the agent CLI cannot meaningfully support the concept or no known native mechanism exists.
 
 ## How to Read This Matrix
@@ -33,7 +34,7 @@ The directory where conversation sessions, transcripts, or run state are stored.
 
 ### Personas
 
-The composed identity of a run: `system-prompt.md`, `agents.md`, and ordered selected `agents/<id>/agent.md` definitions.
+Not a composed key. A persona is a convention: a base review [agent](../documentation/agents.md) plus an interchangeable persona description document fed as input (see [Personas](../documentation/personas.md)). The controllable element underneath it is the agent's composed identity — `system-prompt.md`, `agents.md`, and the selected `agents/<id>/agent.md` — not a `personas` list.
 
 - Pi name: `--system-prompt` / `--append-system-prompt` composition
 - Claude name: `--system-prompt` / `--append-system-prompt` composition
@@ -79,6 +80,20 @@ Model Context Protocol server configuration from the tree's `mcp.json`.
 - Pi name: `mcp.json` in the agent dir
 - Claude name: MCP configuration under the config directory
 
+### Extensions
+
+Pi extensions selected by an agent's loadout (`extensions:`) and loaded into the run. A first-class, pi-native configuration element in its own right — distinct from the single bootstrap extension Outfitter injects for mode switching. An agent can select any number of extensions; the adapter registers them alongside the bootstrap extension.
+
+- Pi name: extensions loaded via `--extension` / `-e`
+- Claude name: no direct equivalent; roadmap adapter mapping
+
+### Plugins
+
+Pi plugins selected by an agent's loadout (`plugins:`). Also first-class and pi-native, tracked separately from extensions because Pi treats them as a distinct mechanism.
+
+- Pi name: plugin loading
+- Claude name: plugin/marketplace mechanism, not mapped by Outfitter yet
+
 ### Credentials and Environment
 
 Environment variables, API keys, auth files, and related secret material needed by providers or tools. Never stored in the tree; supplied at runtime.
@@ -88,10 +103,10 @@ Environment variables, API keys, auth files, and related secret material needed 
 
 ### Tasks
 
-Baked task artifacts executed headlessly or interactively.
+Named work contracts baked into immutable artifacts for headless execution. The task/bake surface is deferred to a [separate upcoming RFC](../documentation/tasks.md); today headless runs launch an agent in print mode with structured inputs.
 
-- Pi name: headless print mode (`-p`) with the baked projection
-- Claude name: print mode with the baked projection
+- Pi name: headless print mode (`-p`) with the composed projection
+- Claude name: print mode with the composed projection
 
 ### DeepWork Jobs
 
@@ -155,8 +170,10 @@ An early-startup customization used to register providers, tools, hooks, or addi
 | Knowledge                   | Supported | Partial   |
 | Model Selection             | Supported | Partial   |
 | MCP Servers                 | Supported | Supported |
+| Extensions                  | Supported | Roadmap   |
+| Plugins                     | Supported | Roadmap   |
 | Credentials and Environment | Supported | Supported |
-| Tasks                       | Supported | Supported |
+| Tasks                       | Future    | Future    |
 | DeepWork Jobs               | Supported | Roadmap   |
 | Hooks                       | Partial   | Partial   |
 | Tool Availability           | Roadmap   | Roadmap   |

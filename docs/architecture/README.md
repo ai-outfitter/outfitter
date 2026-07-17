@@ -16,10 +16,11 @@ Formal implementation requirements live in [`../requirements/`](../requirements/
 4. **One resolver**: listing, validation, task baking, running, and dumping share a single effective-resolution path. There is no code path that composes resources differently from another.
 5. **Deterministic composition**: identical sources, refs, selections, and inputs produce identical results — the same effective identity for a run, and byte-identical output for a dump.
 6. **Generic composition, adapter projection**: compositions are harness-neutral; adapters project them to agent-specific files, flags, and environment variables. If a composition asks for something an adapter cannot project, Outfitter warns to stderr; `--strict` makes it fatal.
-7. **Command objects for complexity**: non-trivial CLI commands are implemented as command objects with explicit dependencies and typed inputs/outputs.
-8. **Schema validation at boundaries**: every persisted file format read by Outfitter is validated at the read boundary (JSON Schema for JSON and YAML files, frontmatter schemas for markdown resources).
-9. **Complete test coverage early**: the project maintains a test framework with a 100% global coverage requirement.
-10. **Complexity limits early**: ESLint is configured with maximum complexity `10`.
+7. **Pi-native by design**: pi is not merely the first adapter — targeting pi natively and completely is a deliberate design choice. Pi's configuration surface (extensions, plugins, subagents, keybindings, bootstrap) is treated as first-class, and the composition model is validated against it before being generalized to other harnesses. Claude Code is a supported additional adapter with documented gaps, not a co-equal design target.
+8. **Command objects for complexity**: non-trivial CLI commands are implemented as command objects with explicit dependencies and typed inputs/outputs.
+9. **Schema validation at boundaries**: every persisted file format read by Outfitter is validated at the read boundary (JSON Schema for JSON and YAML files, frontmatter schemas for markdown resources).
+10. **Complete test coverage early**: the project maintains a test framework with a 100% global coverage requirement.
+11. **Complexity limits early**: ESLint is configured with maximum complexity `10`.
 
 ## Runtime and Tooling Baseline
 
@@ -74,7 +75,7 @@ Remote sources (catalog repositories) supply additional layers below the local o
 - Resources merge **by ID** across layers: workspace over global over remote sources in configured order. The winning definition replaces lower ones; there is no partial merge of markdown resources.
 - JSON files (`mcp.json`, `models.json`, per-agent `config.json`) follow the protocol's JSON merge behavior across layers.
 - The resolver produces one immutable **effective resource set** per invocation: every slug mapped to its winning source, with shadowed definitions retained for diagnostics.
-- `list`, `validate`, `task bake`, `run`, and `dump` all consume the same effective resource set. This is a hard invariant, enforced by sharing one `Resolver` component.
+- `list`, `validate`, `run`, and `dump` all consume the same effective resource set. This is a hard invariant, enforced by sharing one `Resolver` component.
 - Conformance fixtures (layer trees + expected effective output) pin the merge semantics to the protocol revision; a protocol upgrade updates fixtures in the same change.
 
 ## Settings
@@ -97,8 +98,8 @@ The internal `Settings` object is the single conceptual result of reading all se
 ### Schema
 
 ```yaml
-default_profile: engineer
-default_agent: pi
+default_agent: engineer # which agent runs by default
+default_harness: pi # which harness to launch: pi or claude
 cache_directory: ./cache
 
 sources:
@@ -111,13 +112,6 @@ sources:
     ref: main
   - path: ../shared-agents
 
-profiles:
-  engineer:
-    personas: [engineer]
-    skills: [wiki, research]
-    subagents: [code-reviewer]
-    knowledge: [architecture]
-
 remote_settings:
   - github: example/.outfitter
     ref: <commit-sha>
@@ -129,30 +123,25 @@ custom_settings: {}
 
 Rules:
 
+- Settings do not carry resource selections. An agent's loadout — skills, subagents, mcp, extensions, plugins, model, thinking, tools — is declared on the agent (`agents/<id>/agent.md` frontmatter or `config.json`), not in settings. There is no `profiles` map and no `default_profile`.
+- `default_agent` names the agent plain `outfitter` runs; `default_harness` selects the harness (`pi` or `claude`).
 - `sources` entries MUST specify a local `path`, a remote `uri`, or a `github` shorthand; remote entries accept `ref` and payload-subdirectory `path`. Relative `path` values resolve relative to the settings file containing them.
-- `profiles` maps names to selections of resource slugs (`personas`, `skills`, `subagents`, `knowledge`, `commands`, `jobs`). Selections reference resources; they never define them.
 - `remote_settings` entries point at settings-style YAML files inside synced remote repositories; fetched by `outfitter sync` and loaded at lower precedence.
 - `custom_settings` may contain arbitrary YAML-compatible nested data, deep-merged by precedence.
 
 ## Composition
 
-For a selected profile or task, the composer builds the run's effective configuration from the effective resource set:
+For a selected agent, the composer builds the run's effective configuration from the effective resource set:
 
-1. **Identity**: the tree's `system-prompt.md` is the base; `agents.md` contributes shared operating context; each selected persona's `agent.md` layers in declared order, later over earlier. Composition order is explicit and deterministic.
-2. **Subagents**: selected `agents/<id>` definitions are marked for projection into the harness's delegation surface.
-3. **Skills**: selected skills are materialized (frontmatter `references`/`scripts`/`assets` resolved from their two-root model, validated for escapes and collisions) into generated skill directories.
-4. **Structured configuration**: `models.json`, `mcp.json`, and per-agent `config.json` merge per protocol JSON semantics.
-5. **Tasks** additionally bind the objective body, validated structured inputs, and any selected DeepWork jobs.
+1. **Identity**: the tree's `system-prompt.md` is the base; `agents.md` contributes shared operating context; the selected agent's `agent.md` layers on top. Composition order is explicit and deterministic.
+2. **Subagents**: agents named in the selected agent's `subagents` loadout are marked for projection into the harness's delegation surface.
+3. **Skills**: skills named in the loadout are materialized (frontmatter `references`/`scripts`/`assets` resolved from their two-root model, validated for escapes and collisions) into generated skill directories.
+4. **Harness elements**: extensions and plugins named in the loadout are marked for the adapter (first-class for pi).
+5. **Structured configuration**: `models.json`, `mcp.json`, and per-agent `config.json` merge per protocol JSON semantics; the loadout's `model`, `thinking`, and `tools` select and constrain within them.
 
-The composed result is a harness-neutral **composition plan** — the input to bake, dump, and adapter projection.
+The composed result is a harness-neutral **composition plan** — the input to dump and adapter projection.
 
-## Task Bake
-
-`outfitter task bake <id>` freezes a composition plan into an immutable execution artifact backed by a self-contained `.agents/` tree: every resource materialized, every input validated and bound, provenance recorded (source, ref, and content hash per resource) as namespaced JSON metadata.
-
-- `outfitter run --task <id>` always goes through the bake path before launch.
-- The `ai-outfitter/actions` Action invokes bake-and-execute; it never resolves or composes independently.
-- Bakes are deterministic; the artifact's content hash serves as a cache and verification key.
+> **Tasks and bake** — freezing a named work contract and its typed inputs into an immutable execution artifact — are the subject of a [separate upcoming RFC](../documentation/tasks.md) and are not part of this architecture yet. The `ai-outfitter/actions` Action currently launches a composed agent headlessly with structured inputs through the same resolver.
 
 ## Dump
 
@@ -168,10 +157,10 @@ Generated harness files may use LiquidJS templating with Outfitter-specific deli
 
 ## Runtime Model and State
 
-A launch materializes the baked composition under the system temp directory:
+A launch materializes the composed agent under the system temp directory:
 
 ```text
-$TMPDIR/outfitter-<selection>-<agent-id>-<random>/
+$TMPDIR/outfitter-<agent>-<harness>-<random>/
 ```
 
 Adapter-declared state paths symlink to durable native CLI locations (`~/.pi/agent/...`, `~/.claude/...`) per the functional state model — see [`./state_writeback_strategy.md`](./state_writeback_strategy.md). State handling strategies are `symlink`, `discard`, `warn`, `error`, and `prompt`; unknown writes are never silently persisted. `state_persistence` policy lives in settings.
@@ -216,13 +205,14 @@ Outfitter launches `claude` with `CLAUDE_CONFIG_DIR` pointing at the projection 
 
 ## CLI Commands
 
-- **`outfitter run`** (default command): resolve → compose → bake → project → launch. `-p/--profile` selects a named selection; `--task` selects a task (always baked); `--agent <pi|claude>` selects the adapter (default from settings, then `pi`); unknown args pass through to the child CLI; `--strict` makes warnings fatal. Interactive clean-home launches start Pi-native onboarding; non-interactive clean-home launches require `outfitter setup` first.
+- **`outfitter run [agent]`** (default command): resolve → compose → project → launch. A positional agent slug selects what to run (default from settings `default_agent`); `--harness <pi|claude>` selects the harness (default from settings `default_harness`, then `pi`); unknown args pass through to the child CLI; `--strict` makes warnings fatal. Interactive clean-home launches start Pi-native onboarding; non-interactive clean-home launches require `outfitter setup` first.
 - **`outfitter setup [source]`**: detect an existing `~/.agents` tree and adopt it; offer the `~/.claude` port when applicable; otherwise bootstrap from the default catalog or the provided source. Setup writes stay inside the native onboarding flow.
 - **`outfitter sync`**: fetch/update remote sources and remote settings into the cache (`~/.agents/cache/repos/<encoded-uri-and-ref>/`), validate payloads, report per-source status, redact embedded credentials from output.
 - **`outfitter list [kind]`**: report the effective resource set — slugs, winning sources, shadowed definitions — deterministically.
-- **`outfitter validate [--strict] [--json]`**: protocol layout, frontmatter and JSON schemas, unresolved selection slugs, skill reference escapes/collisions, settings schema.
-- **`outfitter task bake <id>`**: produce the immutable artifact; `--input k=v` binds inputs; `--out` selects the destination.
-- **`outfitter dump [--profile|--task] [--out]`**: write the deterministic tree.
+- **`outfitter validate [--strict] [--json]`**: protocol layout, frontmatter and JSON schemas, unresolved loadout slugs, skill reference escapes/collisions, settings schema.
+- **`outfitter dump [--agent <id>] [--out]`**: write the deterministic tree, optionally restricted to one agent's transitive closure.
+
+> `outfitter task bake` is deferred to the [tasks RFC](../documentation/tasks.md).
 
 ## Command Object Pattern
 
