@@ -4,12 +4,12 @@ Outfitter settings configure how resources are resolved and launched. They live 
 
 ## Scopes
 
-| Scope         | File                                     | Purpose                                                    |
-| ------------- | ---------------------------------------- | ---------------------------------------------------------- |
-| Project-local | `<project>/.agents/settings.local.yml`   | Personal, uncommitted overrides for one machine. Gitignore it. |
-| Project       | `<project>/.agents/settings.yml`         | Committed settings shared by everyone on the project.      |
-| User          | `~/.agents/settings.yml` (+ optional `settings.local.yml`) | Personal defaults across projects.       |
-| Remote        | Cached files from `remote_settings`      | Organization-distributed defaults.                         |
+| Scope         | File                                                       | Purpose                                                        |
+| ------------- | ---------------------------------------------------------- | -------------------------------------------------------------- |
+| Project-local | `<project>/.agents/settings.local.yml`                     | Personal, uncommitted overrides for one machine. Gitignore it. |
+| Project       | `<project>/.agents/settings.yml`                           | Committed settings shared by everyone on the project.          |
+| User          | `~/.agents/settings.yml` (+ optional `settings.local.yml`) | Personal defaults across projects.                             |
+| Remote        | Cached files from `remote_settings`                        | Organization-distributed defaults.                             |
 
 `settings.local.yml` is a flat file beside `settings.yml` — there is no nested local directory. It overlays its sibling with the same schema and higher precedence, and is the natural home for machine-specific values such as absolute paths to local checkouts (see [Local development](./local-development.md)).
 

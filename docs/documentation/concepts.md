@@ -45,9 +45,9 @@ The protocol resources Outfitter resolves and composes:
 
 These are three distinct concepts:
 
-- A **[profile](./profiles.md)** is *what you selected*: a named selection of resource slugs — personas, skills, subagents, knowledge — declared in settings or by a task. A profile is not a file format; there is no `profile.yml`.
-- A **[persona](./personas.md)** is *who the agent is*: one or more protocol agents composed in explicit order to form the primary identity, policy, and behavioral posture of a run.
-- A **[subagent](./subagents.md)** is *who the agent can delegate to*: a protocol agent projected into the harness's native subagent mechanism and invoked from within a run.
+- A **[profile](./profiles.md)** is _what you selected_: a named selection of resource slugs — personas, skills, subagents, knowledge — declared in settings or by a task. A profile is not a file format; there is no `profile.yml`.
+- A **[persona](./personas.md)** is _who the agent is_: one or more protocol agents composed in explicit order to form the primary identity, policy, and behavioral posture of a run.
+- A **[subagent](./subagents.md)** is _who the agent can delegate to_: a protocol agent projected into the harness's native subagent mechanism and invoked from within a run.
 
 The same agent definition can play either role; the profile decides how it is used.
 
@@ -59,7 +59,7 @@ Resources resolve across layers, following the protocol's overlay semantics:
 2. `~/.agents/` — the global layer for one developer.
 3. Remote sources — pinned `.agents` payloads from [catalog repositories](./catalogs.md), in configured order.
 
-Resources merge **by ID**: a workspace `skills/wiki/` overrides a global or remote `skills/wiki/`. JSON files such as `mcp.json` and `models.json` follow the protocol's JSON merge behavior. Standalone `.agents` repositories — where the repository root *is* the payload — are the primary way to develop and share layers; see [Catalogs](./catalogs.md) and [Local development](./local-development.md).
+Resources merge **by ID**: a workspace `skills/wiki/` overrides a global or remote `skills/wiki/`. JSON files such as `mcp.json` and `models.json` follow the protocol's JSON merge behavior. Standalone `.agents` repositories — where the repository root _is_ the payload — are the primary way to develop and share layers; see [Catalogs](./catalogs.md) and [Local development](./local-development.md).
 
 ## Settings scopes
 

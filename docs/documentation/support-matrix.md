@@ -10,26 +10,26 @@ Status values:
 
 When a composition requests something an adapter cannot project, Outfitter warns to stderr; `--strict` makes those warnings fatal.
 
-| What Outfitter projects                             | Pi        | Claude Code |
-| --------------------------------------------------- | --------- | ----------- |
-| Agent config directory                              | Supported | Supported   |
-| Session directory                                   | Supported | Supported   |
-| Personas (`system-prompt.md`, `agents.md`, ordered agent composition) | Supported | Supported |
-| Subagents (`agents/<id>` as harness delegates)      | Supported | Supported   |
-| Skills (`skills/<id>`)                              | Supported | Partial     |
-| Commands (`commands/`)                              | Supported | Partial     |
-| Knowledge (`knowledge/`)                            | Supported | Partial     |
-| Model selection (`models.json`)                     | Supported | Partial     |
-| MCP servers (`mcp.json`)                            | Supported | Supported   |
-| Credentials and environment                         | Supported | Supported   |
-| Tasks (bake and run)                                | Supported | Supported   |
-| DeepWork job selection                              | Supported | Roadmap     |
-| Hooks                                               | Partial   | Partial     |
-| Tool availability                                   | Roadmap   | Roadmap     |
-| Theme / UI presentation                             | Roadmap   | Roadmap     |
-| Working directory                                   | Roadmap   | Roadmap     |
-| Pass-through arguments                              | Supported | Supported   |
-| Bootstrap hook                                      | Supported | Roadmap     |
+| What Outfitter projects                                               | Pi        | Claude Code |
+| --------------------------------------------------------------------- | --------- | ----------- |
+| Agent config directory                                                | Supported | Supported   |
+| Session directory                                                     | Supported | Supported   |
+| Personas (`system-prompt.md`, `agents.md`, ordered agent composition) | Supported | Supported   |
+| Subagents (`agents/<id>` as harness delegates)                        | Supported | Supported   |
+| Skills (`skills/<id>`)                                                | Supported | Partial     |
+| Commands (`commands/`)                                                | Supported | Partial     |
+| Knowledge (`knowledge/`)                                              | Supported | Partial     |
+| Model selection (`models.json`)                                       | Supported | Partial     |
+| MCP servers (`mcp.json`)                                              | Supported | Supported   |
+| Credentials and environment                                           | Supported | Supported   |
+| Tasks (bake and run)                                                  | Supported | Supported   |
+| DeepWork job selection                                                | Supported | Roadmap     |
+| Hooks                                                                 | Partial   | Partial     |
+| Tool availability                                                     | Roadmap   | Roadmap     |
+| Theme / UI presentation                                               | Roadmap   | Roadmap     |
+| Working directory                                                     | Roadmap   | Roadmap     |
+| Pass-through arguments                                                | Supported | Supported   |
+| Bootstrap hook                                                        | Supported | Roadmap     |
 
 ## Claude Code notes
 

@@ -35,7 +35,7 @@ Separate personas are appropriate when the policy boundary differs. An engineeri
 
 ## Keep tasks thin
 
-A task owns an objective, an input contract, and completion criteria — nothing else. If a task body is describing *how*, move that content into a selected skill or DeepWork job. Different triggers that share an objective should share one task; a new trigger is workflow wiring, not a new task.
+A task owns an objective, an input contract, and completion criteria — nothing else. If a task body is describing _how_, move that content into a selected skill or DeepWork job. Different triggers that share an objective should share one task; a new trigger is workflow wiring, not a new task.
 
 ## Keep skills focused
 

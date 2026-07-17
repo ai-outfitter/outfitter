@@ -35,7 +35,7 @@ Leave transient chat tricks behind. If a rule is not worth committing to the tre
 
 Use this as a migration worksheet: one persona holding your durable posture, plus a named selection.
 
-```markdown
+```
 <!-- ~/.agents/agents/workbench/agent.md -->
 ---
 name: workbench
@@ -70,8 +70,9 @@ profiles:
 
 Use a project overlay when a repository has instructions that should not leak into every session. The workspace layer merges over your global layer by ID; `agents.md` carries project context.
 
-```markdown
+```
 <!-- <repo>/.agents/agents.md -->
+
 Use this repository's docs, tests, and issue tracker as the source of truth.
 Record durable decisions in project files, not only in chat.
 Run the narrowest relevant validation before broad checks.

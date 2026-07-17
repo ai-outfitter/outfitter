@@ -8,10 +8,10 @@ It is written for people and for Outfitter-managed agents — if you are an agen
 
 Outfitter resolves resources from every configured layer. Two are directly editable on the current machine:
 
-| Scope   | Resources               | Settings                                                       | Use for                                  |
-| ------- | ----------------------- | -------------------------------------------------------------- | ---------------------------------------- |
-| user    | `~/.agents/`            | `~/.agents/settings.yml` (+ `settings.local.yml`)              | Personal defaults shared across projects |
-| project | `<project>/.agents/`    | `<project>/.agents/settings.yml` (+ `settings.local.yml`)      | Checked-in behavior the whole team gets  |
+| Scope   | Resources            | Settings                                                  | Use for                                  |
+| ------- | -------------------- | --------------------------------------------------------- | ---------------------------------------- |
+| user    | `~/.agents/`         | `~/.agents/settings.yml` (+ `settings.local.yml`)         | Personal defaults shared across projects |
+| project | `<project>/.agents/` | `<project>/.agents/settings.yml` (+ `settings.local.yml`) | Checked-in behavior the whole team gets  |
 
 Machine-private experiments belong in the flat, gitignored `settings.local.yml` of either scope — it overlays its sibling with the same schema, so you can redefine profiles or repoint `sources` without touching committed files.
 
@@ -40,7 +40,7 @@ Changes apply on the next launch. A running session keeps the baked composition 
 
    with the trial behavior in a workspace agent:
 
-   ```markdown
+   ```
    <!-- .agents/agents/experiment/agent.md -->
    ---
    name: experiment

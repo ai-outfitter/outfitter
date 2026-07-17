@@ -67,7 +67,7 @@ Outfitter resolves protocol resources from layered `.agents` trees:
   settings.local.yml
 ```
 
-Remote sources (catalog repositories) supply additional layers below the local ones, in configured order. A standalone catalog repository's root *is* the payload; a colocated source nests it under `.agents/` (selected with the source's `path:`).
+Remote sources (catalog repositories) supply additional layers below the local ones, in configured order. A standalone catalog repository's root _is_ the payload; a colocated source nests it under `.agents/` (selected with the source's `path:`).
 
 ### Resolution semantics
 
@@ -199,10 +199,7 @@ interface AgentAdapter {
       readonly projectDirectory?: string;
     },
   ): AgentProjectionPlan;
-  createLaunchPlan(
-    projection: AgentProjection,
-    passThroughArgs?: readonly string[],
-  ): AgentLaunchPlan;
+  createLaunchPlan(projection: AgentProjection, passThroughArgs?: readonly string[]): AgentLaunchPlan;
   getUnsupportedElements(composition: CompositionPlan): readonly string[];
 }
 ```

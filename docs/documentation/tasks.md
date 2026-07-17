@@ -38,7 +38,7 @@ Classify the issue, apply the appropriate labels, and post one triage comment.
 
 - **Selection** (`personas`, `skills`, and optionally `subagents`, `knowledge`, `jobs`) — the same fields as a [profile](./profiles.md), resolved by the same resolver. A task is effectively a profile plus an objective and contract.
 - **`inputs`** — the structured invocation contract. Callers pass values (`--input issue_number=421` locally, structured `with:` inputs in CI); bake fails fast on missing or mistyped inputs instead of failing mid-run.
-- **Body** — the stable objective and completion contract. Keep procedures out: if the body is describing *how*, that content belongs in a selected skill or DeepWork job.
+- **Body** — the stable objective and completion contract. Keep procedures out: if the body is describing _how_, that content belongs in a selected skill or DeepWork job.
 
 ## Running tasks
 

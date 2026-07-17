@@ -12,7 +12,7 @@ An agent is the protocol's identity resource: a directory under `agents/<id>/` c
       agent.md
 ```
 
-Agent definitions are plain protocol resources — nothing about them is Outfitter-specific. Outfitter's contribution is how they are *used*: the same agent definition can be composed as a [persona](./personas.md) (the run's primary identity) or projected as a [subagent](./subagents.md) (a delegate the run can invoke). The [profile](./profiles.md) or [task](./tasks.md) making the selection decides which role it plays.
+Agent definitions are plain protocol resources — nothing about them is Outfitter-specific. Outfitter's contribution is how they are _used_: the same agent definition can be composed as a [persona](./personas.md) (the run's primary identity) or projected as a [subagent](./subagents.md) (a delegate the run can invoke). The [profile](./profiles.md) or [task](./tasks.md) making the selection decides which role it plays.
 
 ## agent.md
 

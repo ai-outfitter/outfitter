@@ -35,14 +35,14 @@ The Action consumes a task ID, a local or pinned remote source, structured task 
 
 The workflow YAML owns the GitHub side; the task owns the work:
 
-| Workflow YAML owns                          | Task owns                                   |
-| ------------------------------------------- | ------------------------------------------- |
-| Triggers (`on:`)                            | The stable objective and prompt             |
-| Checkout                                    | Persona composition                         |
-| `permissions:` and credentials              | Selected skills, subagents, and jobs        |
-| Execution identity                          | Input and output contract                   |
-| Trusted event identifiers passed as inputs  | Completion behavior                         |
-| GitHub-specific result handling             |                                             |
+| Workflow YAML owns                         | Task owns                            |
+| ------------------------------------------ | ------------------------------------ |
+| Triggers (`on:`)                           | The stable objective and prompt      |
+| Checkout                                   | Persona composition                  |
+| `permissions:` and credentials             | Selected skills, subagents, and jobs |
+| Execution identity                         | Input and output contract            |
+| Trusted event identifiers passed as inputs | Completion behavior                  |
+| GitHub-specific result handling            |                                      |
 
 Pass only the identifiers the task's input contract declares (numbers, SHAs, repository names, workflow-owned discriminators). Never interpolate issue bodies, PR bodies, comments, diffs, or fetched page content into inputs — user-influenced values like titles and branch names are opaque identifiers, not instructions. A selected skill retrieves untrusted source material itself with trusted tools.
 

@@ -34,7 +34,7 @@ profiles:
 
 ## Shared base persona
 
-```markdown
+```
 <!-- agents/base-engineering/agent.md -->
 ---
 name: base-engineering
@@ -50,7 +50,7 @@ and return changed files plus verification evidence.
 
 Engineering catalogs SHOULD separate routine implementation from high-risk infrastructure and review work. Model and thinking choices live in each agent's `config.json`; replace the IDs with the exact choices exposed by the team's providers.
 
-```markdown
+```
 <!-- agents/engineer/agent.md -->
 ---
 name: engineer
@@ -61,7 +61,7 @@ Optimize for correct, reviewable implementation. Inspect nearby code and tests,
 make narrow commits, run the smallest meaningful validation, and summarize risks.
 ```
 
-```markdown
+```
 <!-- agents/platform-engineer/agent.md -->
 ---
 name: platform-engineer
@@ -73,7 +73,7 @@ mutating state, name rollback paths, and ask before deploys, credential use,
 payments, or irreversible operations.
 ```
 
-```markdown
+```
 <!-- agents/reviewer/agent.md -->
 ---
 name: reviewer
@@ -89,8 +89,9 @@ over style nits.
 
 Engineering catalogs SHOULD make verification expectations explicit so agents return evidence instead of vague completion claims:
 
-```markdown
+```
 <!-- agents/engineer/agent.md excerpt -->
+
 When you change code, report the exact tests or checks you ran. If a check is
 skipped, say why and name the smallest follow-up validation that would reduce risk.
 ```

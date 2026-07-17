@@ -73,7 +73,7 @@ git worktree add ../worktrees/feat/sharper-review -b feat/sharper-review
 
 ## Consuming your repo from projects
 
-A project that wants your personal layer doesn't need anything special — `~/.agents` *is* the global layer. For project-specific wiring, a project's `.agents/settings.local.yml` can also point a source at your checkout, keeping teammates and CI on the published pins while you iterate.
+A project that wants your personal layer doesn't need anything special — `~/.agents` _is_ the global layer. For project-specific wiring, a project's `.agents/settings.local.yml` can also point a source at your checkout, keeping teammates and CI on the published pins while you iterate.
 
 ## For Outfitter-managed agents
 

@@ -48,16 +48,16 @@ Skill directory names use lowercase letters, numbers, and hyphens — at most 64
 
 Keep one source of truth for each instruction. Personas establish the durable operating context for a run; skills own the procedures for individual capabilities; tasks own per-run objectives.
 
-| Content                                                                      | Owner                          |
-| ---------------------------------------------------------------------------- | ------------------------------ |
-| Identity, safety boundaries, organization policy, permissions                | [Persona](./personas.md)       |
+| Content                                                                      | Owner                            |
+| ---------------------------------------------------------------------------- | -------------------------------- |
+| Identity, safety boundaries, organization policy, permissions                | [Persona](./personas.md)         |
 | Shared operating context for every run from a tree                           | `agents.md` / `system-prompt.md` |
-| Short rules that decide which skill applies                                  | Persona definition             |
-| A named objective, inputs, and completion contract                           | [Task](./tasks.md)             |
-| Steps, decision trees, and checks for performing a capability                | Skill `SKILL.md`               |
-| Detailed architecture, runbooks, schemas, examples, and domain knowledge     | Skill `references/`            |
-| Deterministic collectors, validators, transformations, and maintenance tasks | Skill `scripts/`               |
-| Templates and files used to produce output                                   | Skill `assets/`                |
+| Short rules that decide which skill applies                                  | Persona definition               |
+| A named objective, inputs, and completion contract                           | [Task](./tasks.md)               |
+| Steps, decision trees, and checks for performing a capability                | Skill `SKILL.md`                 |
+| Detailed architecture, runbooks, schemas, examples, and domain knowledge     | Skill `references/`              |
+| Deterministic collectors, validators, transformations, and maintenance tasks | Skill `scripts/`                 |
+| Templates and files used to produce output                                   | Skill `assets/`                  |
 
 When a selected skill already defines a capability, a persona MUST NOT copy or paraphrase that capability's detailed instructions. The persona should contain only the short activation rule needed to select the skill. This boundary prevents identity prompts from growing with every capability, avoids instruction drift between two copies, and preserves progressive disclosure. Prefer **one skill per capability** rather than one skill per task or trigger.
 
@@ -122,10 +122,10 @@ Declare supporting documents in `SKILL.md` frontmatter with `references`. Outfit
 
 A reference can come from either of two places involved in a run:
 
-| Key         | Root                                                                                             | Use for                                                        |
-| ----------- | ------------------------------------------------------------------------------------------------ | -------------------------------------------------------------- |
-| `file`      | **Source tree:** the `.agents` layer (or its synced catalog checkout) containing the skill       | Documentation maintained and versioned with the skill          |
-| `repo_file` | **Started repository:** the active project where `outfitter run` launched the agent              | Project-specific architecture, policy, and operating documents |
+| Key         | Root                                                                                       | Use for                                                        |
+| ----------- | ------------------------------------------------------------------------------------------ | -------------------------------------------------------------- |
+| `file`      | **Source tree:** the `.agents` layer (or its synced catalog checkout) containing the skill | Documentation maintained and versioned with the skill          |
+| `repo_file` | **Started repository:** the active project where `outfitter run` launched the agent        | Project-specific architecture, policy, and operating documents |
 
 For example, a shared catalog can publish a skill beside its general design guide, while the consuming project owns its own architecture doc:
 
@@ -181,7 +181,7 @@ skills:
       - repo_file: docs/runbooks/deploy.md
 ```
 
-Selection-added entries use the same `file` / `repo_file` sources and validation rules; `file` resolves from the tree containing the *selection*, not the skill's catalog. This lets a selection specialize a shared skill with additional documentation without forking it. Because the skill body cannot name these files in advance, a routing skill should list its `references/` directory rather than assume a fixed set.
+Selection-added entries use the same `file` / `repo_file` sources and validation rules; `file` resolves from the tree containing the _selection_, not the skill's catalog. This lets a selection specialize a shared skill with additional documentation without forking it. Because the skill body cannot name these files in advance, a routing skill should list its `references/` directory rather than assume a fixed set.
 
 ### Trust boundary
 

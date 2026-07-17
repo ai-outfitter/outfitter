@@ -1,6 +1,6 @@
 # Subagents
 
-A subagent is a protocol [agent](./agents.md) projected into the harness's native delegation mechanism, so the main run can hand focused work to a separate context. Subagents answer a different question than [personas](./personas.md): a persona is who the run *is*; a subagent is who the run can *call*.
+A subagent is a protocol [agent](./agents.md) projected into the harness's native delegation mechanism, so the main run can hand focused work to a separate context. Subagents answer a different question than [personas](./personas.md): a persona is who the run _is_; a subagent is who the run can _call_.
 
 Two stable patterns cover most setups:
 
@@ -26,11 +26,11 @@ See the [adapter support matrix](./support-matrix.md) for current coverage.
 
 ## Subagent or persona?
 
-| You want                                             | Use                                      |
-| ---------------------------------------------------- | ---------------------------------------- |
-| The run to embody a role for its whole duration      | A persona                                |
-| The run to hand a bounded job to a separate context  | A subagent                               |
-| A repeatable, bakeable unit of work                  | A [task](./tasks.md) selecting a persona |
+| You want                                            | Use                                      |
+| --------------------------------------------------- | ---------------------------------------- |
+| The run to embody a role for its whole duration     | A persona                                |
+| The run to hand a bounded job to a separate context | A subagent                               |
+| A repeatable, bakeable unit of work                 | A [task](./tasks.md) selecting a persona |
 
 The same definition can appear in both lists of different profiles. Write agent definitions role-first (what the identity is, when to invoke it) so they stay useful in either position.
 

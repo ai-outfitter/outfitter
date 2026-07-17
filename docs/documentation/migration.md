@@ -4,24 +4,24 @@ Earlier Outfitter versions used an authored profile system: `.outfitter/` direct
 
 ## Mapping
 
-| Legacy                                                   | End state                                                                 |
-| -------------------------------------------------------- | ------------------------------------------------------------------------- |
-| `.outfitter/profiles/<id>/profile.yml` (or `<id>.yml`)   | Split into resources: identity → `agents/<id>/agent.md`, procedures → `skills/`, plus a named [profile selection](./profiles.md) in `settings.yml` |
-| `controls.system_prompt` / `append_system_prompt`        | `system-prompt.md`, `agents.md`, and persona `agent.md` bodies            |
-| `controls.model`, `provider`, `thinking`                 | `models.json` (and per-agent `config.json`)                               |
-| `controls.skills`                                        | The selection's `skills:` list; skills live at `skills/<id>/`             |
-| `controls.extensions`, `args`, `environment`             | Harness configuration projected by adapters; MCP servers → `mcp.json`     |
-| Profile inheritance (`inherits:`)                        | Ordered [persona composition](./personas.md) and layer merge-by-ID        |
-| `template: true` base profiles                           | A base persona composed first in `personas: [...]`                        |
-| `~/.outfitter/settings.yml`                              | `~/.agents/settings.yml`                                                  |
-| `<project>/.outfitter/settings.yml`                      | `<project>/.agents/settings.yml`                                          |
-| `<project>/.outfitter/local/settings.yml` (nested dir)   | `<project>/.agents/settings.local.yml` (flat, gitignored)                 |
-| `profile_sources`                                        | `sources` supplying `.agents` payloads ([catalogs](./catalogs.md))        |
-| `default_profile`                                        | `default_profile` naming a profile selection                              |
-| `outfitter run --profile <file-based id>`                | `outfitter run --profile <selection>` or `--task <id>`                    |
-| `outfitter profile list` / `create` / `lint`             | `outfitter list profiles` / author files directly / `outfitter validate`  |
-| `profile_export` / `generated-system-prompt.md`          | `outfitter dump` ([Dump and bake](./dump-and-bake.md))                    |
-| Free-form CI prompt + profile in `ai-outfitter/actions`  | Task ID + structured inputs through the bake path ([Actions](./actions.md)) |
+| Legacy                                                  | End state                                                                                                                                          |
+| ------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `.outfitter/profiles/<id>/profile.yml` (or `<id>.yml`)  | Split into resources: identity → `agents/<id>/agent.md`, procedures → `skills/`, plus a named [profile selection](./profiles.md) in `settings.yml` |
+| `controls.system_prompt` / `append_system_prompt`       | `system-prompt.md`, `agents.md`, and persona `agent.md` bodies                                                                                     |
+| `controls.model`, `provider`, `thinking`                | `models.json` (and per-agent `config.json`)                                                                                                        |
+| `controls.skills`                                       | The selection's `skills:` list; skills live at `skills/<id>/`                                                                                      |
+| `controls.extensions`, `args`, `environment`            | Harness configuration projected by adapters; MCP servers → `mcp.json`                                                                              |
+| Profile inheritance (`inherits:`)                       | Ordered [persona composition](./personas.md) and layer merge-by-ID                                                                                 |
+| `template: true` base profiles                          | A base persona composed first in `personas: [...]`                                                                                                 |
+| `~/.outfitter/settings.yml`                             | `~/.agents/settings.yml`                                                                                                                           |
+| `<project>/.outfitter/settings.yml`                     | `<project>/.agents/settings.yml`                                                                                                                   |
+| `<project>/.outfitter/local/settings.yml` (nested dir)  | `<project>/.agents/settings.local.yml` (flat, gitignored)                                                                                          |
+| `profile_sources`                                       | `sources` supplying `.agents` payloads ([catalogs](./catalogs.md))                                                                                 |
+| `default_profile`                                       | `default_profile` naming a profile selection                                                                                                       |
+| `outfitter run --profile <file-based id>`               | `outfitter run --profile <selection>` or `--task <id>`                                                                                             |
+| `outfitter profile list` / `create` / `lint`            | `outfitter list profiles` / author files directly / `outfitter validate`                                                                           |
+| `profile_export` / `generated-system-prompt.md`         | `outfitter dump` ([Dump and bake](./dump-and-bake.md))                                                                                             |
+| Free-form CI prompt + profile in `ai-outfitter/actions` | Task ID + structured inputs through the bake path ([Actions](./actions.md))                                                                        |
 
 ## Procedure
 
@@ -32,7 +32,7 @@ Earlier Outfitter versions used an authored profile system: `.outfitter/` direct
 5. **Validate**: `outfitter validate --strict`, then `outfitter dump` and review the tree.
 6. **Delete** the `.outfitter/` directory once the dump matches expectations.
 
-A remote repository *named* `.outfitter` remains a supported convention for organization control repos — but only when it publishes the new protocol payload. The name is supported; the previous profile layout inside it is not.
+A remote repository _named_ `.outfitter` remains a supported convention for organization control repos — but only when it publishes the new protocol payload. The name is supported; the previous profile layout inside it is not.
 
 ## Claude Code users
 

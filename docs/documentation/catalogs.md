@@ -6,7 +6,7 @@ A catalog is a git repository that publishes a `.agents` payload — agents, ski
 outfitter setup https://github.com/ncrmro/.agents
 ```
 
-The repository names are discovery and distribution conventions; the payload is always the same protocol-shaped tree:
+The repository names are discovery and distribution conventions; the payload is always the same protocol-shaped tree (pinned protocol revision [`502a9d5`](https://github.com/aj47/dotagentsprotocol-website/blob/502a9d5f886d0aad8d3da83c03354bdfa4b389e7/src/components/Structure.astro)):
 
 | Convention                        | Purpose                                                                          |
 | --------------------------------- | -------------------------------------------------------------------------------- |

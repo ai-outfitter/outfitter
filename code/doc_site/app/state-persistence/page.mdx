@@ -21,13 +21,13 @@ Outfitter makes those writes explicit with `state_persistence` rules. Each selec
 
 ## Strategies
 
-| Strategy  | Behavior                                                                       |
-| --------- | ------------------------------------------------------------------------------ |
-| `symlink` | Persist writes by pointing the projection path at a durable destination.       |
-| `discard` | Allow writes for this run and throw them away when the projection is deleted.  |
-| `warn`    | Allow and discard writes, then report them after the agent exits.              |
-| `error`   | Allow writes during the run, then fail if the path changed.                    |
-| `prompt`  | Ask interactively after the run: persist, discard, or always persist.          |
+| Strategy  | Behavior                                                                      |
+| --------- | ----------------------------------------------------------------------------- |
+| `symlink` | Persist writes by pointing the projection path at a durable destination.      |
+| `discard` | Allow writes for this run and throw them away when the projection is deleted. |
+| `warn`    | Allow and discard writes, then report them after the agent exits.             |
+| `error`   | Allow writes during the run, then fail if the path changed.                   |
+| `prompt`  | Ask interactively after the run: persist, discard, or always persist.         |
 
 Unknown writes outside adapter-declared paths are never silently persisted. They are governed by the adapter's `unknown` policy.
 

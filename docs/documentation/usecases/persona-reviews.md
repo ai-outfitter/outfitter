@@ -35,7 +35,7 @@ profiles:
 
 ## Shared base persona
 
-```markdown
+```
 <!-- agents/base-customer-persona/agent.md -->
 ---
 name: base-customer-persona
@@ -53,7 +53,7 @@ do not invent real customer research.
 
 Make each potential customer's job, anxieties, buying triggers, and expected feedback shape explicit:
 
-```markdown
+```
 <!-- agents/founder-operator/agent.md -->
 ---
 name: founder-operator
@@ -66,7 +66,7 @@ valuable. Flag jargon, setup friction, unclear pricing or trust boundaries,
 and anything that delays the first useful outcome.
 ```
 
-```markdown
+```
 <!-- agents/staff-engineer/agent.md -->
 ---
 name: staff-engineer
@@ -79,7 +79,7 @@ explain how the product improves real engineering work. Flag missing examples,
 weak verification paths, and claims that need evidence.
 ```
 
-```markdown
+```
 <!-- agents/engineering-manager/agent.md -->
 ---
 name: engineering-manager
@@ -91,7 +91,7 @@ onboarding, review expectations, and governance are understandable. Flag
 anything that makes rollout, support, training, or risk ownership unclear.
 ```
 
-```markdown
+```
 <!-- agents/platform-lead/agent.md -->
 ---
 name: platform-lead
@@ -104,7 +104,7 @@ repo assumptions, reproducibility, and operational failure modes. Prioritize
 risks that would block enterprise rollout.
 ```
 
-```markdown
+```
 <!-- agents/agency-consultant/agent.md -->
 ---
 name: agency-consultant
@@ -140,8 +140,9 @@ For a recurring review — every release, every docs change — bind the prompt 
 
 Personas SHOULD define a repeatable response shape so feedback from different potential customers is comparable:
 
-```markdown
+```
 <!-- agents/founder-operator/agent.md excerpt -->
+
 Return feedback as: persona, artifact reviewed, first impression, top blocker,
 strongest value signal, confusing language, suggested change, and confidence.
 If you need more context, ask for the smallest missing artifact.

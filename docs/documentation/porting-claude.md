@@ -10,13 +10,13 @@ Setup detects an existing `~/.claude` directory (when no `~/.agents/` tree exist
 
 ## What gets ported
 
-| `~/.claude` content        | `~/.agents/` destination            | Symlinked back? |
-| -------------------------- | ----------------------------------- | --------------- |
-| `agents/<id>.md`           | `agents/<id>/agent.md`              | Yes             |
-| `skills/<id>/`             | `skills/<id>/`                      | Yes             |
-| `commands/`                | `commands/`                         | Yes             |
-| `CLAUDE.md`                | `agents.md`                         | Yes             |
-| MCP server configuration   | `mcp.json`                          | Yes             |
+| `~/.claude` content      | `~/.agents/` destination | Symlinked back? |
+| ------------------------ | ------------------------ | --------------- |
+| `agents/<id>.md`         | `agents/<id>/agent.md`   | Yes             |
+| `skills/<id>/`           | `skills/<id>/`           | Yes             |
+| `commands/`              | `commands/`              | Yes             |
+| `CLAUDE.md`              | `agents.md`              | Yes             |
+| MCP server configuration | `mcp.json`               | Yes             |
 
 After the port, `~/.claude/skills` is a symlink into `~/.agents/skills`, and so on — Claude Code reads exactly what it read before, from the protocol tree. Editing either view edits the same files.
 

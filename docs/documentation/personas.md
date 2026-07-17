@@ -31,7 +31,7 @@ Keep personas few and stable. A persona owns durable identity and policy; proced
 
 The same agent definition can serve as either:
 
-- As a **persona**, the agent *is* the run — its definition becomes part of the system prompt.
+- As a **persona**, the agent _is_ the run — its definition becomes part of the system prompt.
 - As a **subagent**, the agent is a delegate — projected into the harness's subagent mechanism and invoked with its own context. See [Subagents](./subagents.md).
 
 A `code-reviewer` agent might be a subagent in an engineer's interactive profile (delegate reviews mid-session) and the sole persona of a `review-pr` task (the whole run is a review).

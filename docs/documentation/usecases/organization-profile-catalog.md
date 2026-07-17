@@ -35,7 +35,7 @@ profiles:
 
 ## Shared base persona
 
-```markdown
+```
 <!-- .agents/agents/base-acme/agent.md -->
 ---
 name: base-acme
@@ -53,7 +53,7 @@ Every role selection composes `base-acme` first, then the role persona — order
 
 The catalog SHOULD publish role personas that make the cost/latency/quality tradeoff explicit. Model choices live in each agent's `config.json` (or the tree's `models.json`); replace the IDs below with the exact names exposed by the organization's provider catalog.
 
-```markdown
+```
 <!-- .agents/agents/engineer/agent.md -->
 ---
 name: engineer
@@ -70,7 +70,7 @@ verification.
 { "provider": "anthropic", "model": "anthropic/claude-sonnet-4", "thinking": "high" }
 ```
 
-```markdown
+```
 <!-- .agents/agents/platform-operator/agent.md -->
 ---
 name: platform-operator
@@ -82,7 +82,7 @@ name rollback paths, and ask before deploys, credential use, payments, or
 irreversible changes.
 ```
 
-```markdown
+```
 <!-- .agents/agents/support-triage/agent.md -->
 ---
 name: support-triage
@@ -93,7 +93,7 @@ Convert messy user reports into concise reproduction steps, affected surfaces,
 suspected owners, and the next question that would unblock diagnosis.
 ```
 
-```markdown
+```
 <!-- .agents/agents/exec-briefing/agent.md -->
 ---
 name: exec-briefing
