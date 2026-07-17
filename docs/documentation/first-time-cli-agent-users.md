@@ -134,4 +134,4 @@ You may read files and run non-destructive discovery commands.
 Ask before deleting files, changing dependencies, pushing, publishing, or touching credentials.
 ```
 
-After a few sessions, move the reusable parts into a persona in your `~/.agents` tree so every launch starts with your preferred operating style.
+After a few sessions, move the reusable parts into an [agent](./agents.md) definition in your `~/.agents` tree so every launch starts with your preferred operating style.

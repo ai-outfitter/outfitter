@@ -18,7 +18,7 @@ outfitter list          # see what resolves from ~/.agents and <project>/.agents
 outfitter run           # launch with your defaults
 ```
 
-Declare a [profile](./profiles.md) in `.agents/settings.yml` to name a selection of your existing resources, and you're done.
+Set `default_agent` in `.agents/settings.yml` to one of your [agent](./agents.md) slugs; that agent's own loadout selects the skills, subagents, model, and so on it runs with. You're done.
 
 If your configuration lives in `~/.claude` instead, `outfitter setup` can port it into `~/.agents/` and symlink it back so Claude Code keeps working natively — see [Porting a Claude Code setup](./porting-claude.md).
 

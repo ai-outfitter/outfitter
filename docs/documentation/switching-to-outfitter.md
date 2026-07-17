@@ -4,7 +4,7 @@ This guide is for people who already use Pi, Claude Code, Codex, Cursor, or anot
 
 ## Two adoption paths
 
-**You already have a `.agents/` directory.** You're done with the hard part — Outfitter reads the protocol directly. Declare a [profile](./profiles.md) in `.agents/settings.yml` that selects your existing agents, skills, and knowledge by slug, and run `outfitter`. Nothing is converted or re-authored.
+**You already have a `.agents/` directory.** You're done with the hard part — Outfitter reads the protocol directly. Set `default_agent` in `.agents/settings.yml` to one of your [agent](./agents.md) slugs — the agent's own loadout selects its skills, subagents, and knowledge — and run `outfitter`. Nothing is converted or re-authored.
 
 **Your setup lives in `~/.claude`.** Let `outfitter setup` port it into `~/.agents/` and symlink it back so Claude Code keeps working natively — see [Porting a Claude Code setup](./porting-claude.md). Your ported skills, agents, and commands are then referenceable by slug like any protocol resource.
 
@@ -75,14 +75,13 @@ Record durable decisions in project files, not only in chat.
 Run the narrowest relevant validation before broad checks.
 ```
 
-A project overlay can add a skill to the workbench agent it inherits by ID, without redefining the whole agent:
+A project overlay can add a skill to the workbench agent without redefining it. Put the additive loadout change in the agent's `config.json`: JSON files shallow-merge by key across layers, so the workspace layer adds `deployment-review` while the global `agent.md` identity stays intact. (A partial `agent.md` would _not_ merge field-by-field — it resolves whole-resource by ID and would replace the global body, so keep loadout tweaks in `config.json`.)
 
 ```
-<!-- <repo>/.agents/agents/workbench/agent.md -->
----
-name: workbench # merges by ID over the global workbench agent
-skills: [deployment-review] # resolves from <repo>/.agents/skills/
----
+<!-- <repo>/.agents/agents/workbench/config.json -->
+{
+  "skills": ["deployment-review"]
+}
 ```
 
 ```yaml
@@ -95,7 +94,7 @@ default_agent: workbench
 | Existing habit                       | Outfitter shape                                                                                          |
 | ------------------------------------ | -------------------------------------------------------------------------------------------------------- |
 | "Always plan before edits."          | Use the plan extension keybinding (`Shift+Tab` in the default Outfitter Pi setup) before implementation. |
-| "Use YOLO except dangerous actions." | State allowed local actions and approval gates in your persona.                                          |
+| "Use YOLO except dangerous actions." | State allowed local actions and approval gates in your agent.                                            |
 | "Run code review after changes."     | Select a review skill, then invoke it with a slash command such as `/skill:review`.                      |
 | "Spawn a second agent for research." | Select an explorer [subagent](./subagents.md) and describe when the lead agent should delegate.          |
 | "Use browser or GitHub helpers."     | Add the MCP server to `mcp.json` in the layer that needs it.                                             |
@@ -122,4 +121,4 @@ Run:
 outfitter
 ```
 
-If the first session does not feel like a better version of your old setup, edit the persona before adding more files. The first win is reliable launch plus useful starting context; broader catalogs can come after that baseline holds.
+If the first session does not feel like a better version of your old setup, edit the agent before adding more files. The first win is reliable launch plus useful starting context; broader catalogs can come after that baseline holds.

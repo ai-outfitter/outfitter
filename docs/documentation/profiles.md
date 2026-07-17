@@ -17,13 +17,13 @@ outfitter run engineer --harness claude
 
 ## Where the loadout lives
 
-The loadout lives on the agent, not in settings. Add or change what an agent composes by editing that agent's `agents/<id>/agent.md` frontmatter or `config.json` — see [Agents](./agents.md#loadout-fields) for the field list. Because agents merge by ID across layers, a workspace or machine-local layer can override one field (swap the model, add an extension) without redefining the agent.
+The loadout lives on the agent, not in settings. Add or change what an agent composes by editing that agent's `agents/<id>/agent.md` frontmatter or `config.json` — see [Agents](./agents.md#loadout-fields) for the field list. To override just one field from a higher layer (swap the model, add an extension) without redefining the agent, put it in the agent's `config.json`: JSON files shallow-merge by key across layers. An `agent.md` resolves whole-resource by ID — the winning layer's `agent.md` replaces lower ones rather than field-merging — so a partial `agent.md` would discard the base identity.
 
 Settings ([settings.md](./settings.md)) is left with just resolution and launch concerns — `default_agent`, `default_harness`, `sources`, and state policy — not resource selection.
 
 ## Composing from a base
 
-To share behavior across several agents, define a base agent and select it as a subagent, or keep shared operating context in the tree's `system-prompt.md` and `agents.md` so every agent inherits it. The [persona](./personas.md) convention builds on this: one base review agent, many interchangeable persona description documents fed as input.
+To share behavior across several agents, keep shared operating context in the tree's `system-prompt.md` and `agents.md` — every agent in the tree inherits those — and put shared procedures in [skills](./skills.md) each agent selects. Selecting an agent as a subagent does _not_ share its policy; it only makes that agent available as a delegation target. The [persona](./personas.md) convention builds on the shared-context idea: one base review agent, many interchangeable persona description documents fed as input.
 
 ## Migrating from authored profiles
 
