@@ -219,11 +219,19 @@ const addSettingsFile = (
 
   files.push({
     location,
-    settings: convertSettingsDocument(parsed.document as SettingsDocument, dirname(location.path)),
+    settings: convertSettingsDocument(parsed.document as SettingsDocument, dirname(location.path), location.scope),
   });
 };
 
-const convertSettingsDocument = (document: SettingsDocument, settingsDirectory: string): Settings => ({
+// Enterprise governance controls are honored only from the user's own ~/.agents settings so a
+// checked-in project or remote catalog cannot enable private catalogs on the user's behalf.
+const isHomeScope = (scope: SettingsLocation['scope']): boolean => scope === 'user' || scope === 'user-local';
+
+const convertSettingsDocument = (
+  document: SettingsDocument,
+  settingsDirectory: string,
+  scope: SettingsLocation['scope'],
+): Settings => ({
   defaultAgent: document.default_agent,
   defaultHarness: document.default_harness,
   sources: document.sources?.map((source) => convertSource(source, settingsDirectory)),
@@ -235,7 +243,7 @@ const convertSettingsDocument = (document: SettingsDocument, settingsDirectory: 
   statePersistence: document.state_persistence,
   customSettings: document.custom_settings,
   startup: convertStartupSettings(document.startup),
-  enterprise: convertEnterpriseSettings(document.enterprise),
+  enterprise: isHomeScope(scope) ? convertEnterpriseSettings(document.enterprise) : undefined,
 });
 
 const convertStartupSettings = (startup: StartupSettingsDocument | undefined): Settings['startup'] =>

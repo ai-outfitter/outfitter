@@ -39,7 +39,12 @@
       "items": {
         "type": "object",
         "oneOf": [
-          { "required": ["path"], "not": { "anyOf": [{ "required": ["uri"] }, { "required": ["github"] }] } },
+          {
+            "required": ["path"],
+            "not": {
+              "anyOf": [{ "required": ["uri"] }, { "required": ["github"] }, { "required": ["ref"] }]
+            }
+          },
           { "required": ["uri"], "not": { "required": ["github"] } },
           { "required": ["github"], "not": { "required": ["uri"] } }
         ],

@@ -18,13 +18,15 @@ export type Harness = 'pi' | 'claude';
 export type StatePersistenceStrategy = 'symlink' | 'discard' | 'warn' | 'error' | 'prompt';
 export type StatePersistence = Readonly<Record<string, StatePersistenceStrategy>>;
 
-/** An ordered `.agents` payload source: a local path, a remote URI, or a `github` shorthand. */
-export interface SourceReference {
-  readonly path?: string;
-  readonly uri?: string;
-  readonly github?: string;
-  readonly ref?: string;
-}
+/**
+ * An ordered `.agents` payload source: a local path, a remote URI, or a `github` shorthand.
+ * Modeled as a discriminated union so exactly one of `path`/`uri`/`github` is present and `ref`
+ * is available only for remote sources.
+ */
+export type SourceReference =
+  | { readonly path: string; readonly uri?: never; readonly github?: never; readonly ref?: never }
+  | { readonly uri: string; readonly github?: never; readonly ref?: string; readonly path?: string }
+  | { readonly github: string; readonly uri?: never; readonly ref?: string; readonly path?: string };
 
 export interface StartupSettings {
   readonly asciiArt?: boolean;

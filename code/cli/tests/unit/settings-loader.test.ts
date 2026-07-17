@@ -98,17 +98,18 @@ describe('settings loading', () => {
     expect(loaded.settings.defaultHarness).toBe('pi');
   });
 
-  it('loads and merges startup display and enterprise settings', () => {
+  it('merges startup display across scopes but honors enterprise controls only from home', () => {
     const root = createTemporaryRoot();
     const homeDirectory = join(root, 'home');
     const projectDirectory = join(root, 'project');
+    // Home enables private catalogs; a checked-in project MUST NOT be able to flip it.
     writeSettings(
       join(homeDirectory, '.agents', 'settings.yml'),
-      'startup:\n  ascii_art: true\nenterprise:\n  private_catalogs: false\n',
+      'startup:\n  ascii_art: true\nenterprise:\n  private_catalogs: true\n',
     );
     writeSettings(
       join(projectDirectory, '.agents', 'settings.yml'),
-      'startup:\n  ascii_art: false\nenterprise:\n  private_catalogs: true\n',
+      'startup:\n  ascii_art: false\nenterprise:\n  private_catalogs: false\n',
     );
 
     const loaded = loadSettings(discoverSettingsLoadPlan({ homeDirectory, projectDirectory }));
@@ -116,6 +117,18 @@ describe('settings loading', () => {
     expect(loaded.issues).toEqual([]);
     expect(loaded.settings.startup).toEqual({ asciiArt: false });
     expect(loaded.settings.enterprise).toEqual({ privateCatalogs: true });
+  });
+
+  it('ignores enterprise controls set outside home settings', () => {
+    const root = createTemporaryRoot();
+    const homeDirectory = join(root, 'home');
+    const projectDirectory = join(root, 'project');
+    writeSettings(join(projectDirectory, '.agents', 'settings.yml'), 'enterprise:\n  private_catalogs: true\n');
+
+    const loaded = loadSettings(discoverSettingsLoadPlan({ homeDirectory, projectDirectory }));
+
+    expect(loaded.issues).toEqual([]);
+    expect(loaded.settings.enterprise).toEqual({});
   });
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-002.8).
@@ -184,6 +197,20 @@ describe('settings loading', () => {
     expect(result.files[0]?.settings.remoteSettings).toEqual([
       { github: 'example/outfitter-config', ref: 'main', path: 'settings.yml' },
     ]);
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-002.5).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('rejects a local source that specifies ref, which is only valid for remote sources', () => {
+    const root = createTemporaryRoot();
+    const settingsPath = join(root, '.agents', 'settings.yml');
+    writeSettings(settingsPath, 'sources:\n  - path: ./agents\n    ref: main\n');
+
+    const result = loadSettingsFiles(createSettingsLoadPlan([{ scope: 'user', path: settingsPath }]));
+
+    expect(result.files).toEqual([]);
+    expect(result.issues[0]?.filePath).toBe(settingsPath);
+    expect(result.issues[0]?.path).toBe('/sources/0');
   });
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-002.7).
