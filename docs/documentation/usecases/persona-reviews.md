@@ -1,173 +1,167 @@
 # Persona Reviews
 
-A persona review catalog is a shared setup source that publishes profiles representing the kinds of people who might use a product, service, internal tool, or documentation site. Teams can launch these personas to get structured feedback on docs, onboarding, website copy, setup flows, and UX before asking real prospects or customers to spend time on a review.
+A persona review catalog gathers structured feedback on a product, docs, onboarding flow, or UX from the points of view of the people who might use it — before asking real prospects to spend time. It uses the [persona convention](../personas.md): **one base review agent** plus a **directory of persona description documents**, run once per document.
 
-The example below uses Outfitter itself as the product being reviewed, but the pattern is meant for your own product. Replace the persona files, concerns, and review prompts with the customer types you care about.
+There is no `personas:` map and no agent per customer type. The review rules live in a single agent; each persona is a cheap markdown file you feed it as input.
 
 ```text
-customer-persona-reviews/
+customer-review/                 # standalone .agents repo; root is the payload
+  agents/
+    reviewer/agent.md            # the base review agent
   settings.yml
-  personas/
-    base-customer-persona.yml
-    founder-operator.yml
-    staff-engineer.yml
-    engineering-manager.yml
-    platform-lead.yml
-    agency-consultant.yml
+docs/user-personas/
+  roles/                         # reusable job archetypes (shared segment priorities)
+    staff-engineer.md
+    founder-operator.md
+    platform-lead.md
+  individuals/                   # specific named people, each naming one or more roles
+    marcus-bell.md               # roles: [staff-engineer]
+    dana-okafor.md               # roles: [founder-operator]
+    priya-nair.md                # roles: [platform-lead]
 ```
 
-## Catalog settings
+Personas come in two kinds of file, and a review **mixes and matches** them: a **role** carries the priorities everyone in a customer segment shares, and an **individual** is one named person who inherits one or more roles and adds their own demographics and voice. Keep roles reusable and individuals concrete, and you can cover a lot of viewpoints from a small set of files.
+
+## Settings
+
+Settings only names the default agent and where resources resolve from — no persona list:
 
 ```yaml
-# customer-persona-reviews/settings.yml
-profile_sources:
-  - path: ./personas
-    only:
-      - founder-operator
-      - staff-engineer
-      - engineering-manager
-      - platform-lead
-      - agency-consultant
+# settings.yml
+default_agent: reviewer
 ```
 
-## Shared base profile
+## The base review agent
 
-```yaml
-# personas/base-customer-persona.yml
-id: base-customer-persona
-label: Customer Persona Base
-template: true
-description: Shared rules for reviewing an artifact from a customer persona's point of view.
-controls:
-  append_system_prompt: |
-    Review as the assigned customer persona. Read or experience the provided artifact
-    from that persona's point of view: docs, screenshots, website, prototype, product
-    flow, or onboarding path. Distinguish evidence from assumptions, cite the exact
-    page or UI moment that shaped your reaction, and do not invent real customer research.
+One agent holds the review method and the output shape. It does not name any customer type; it reads the persona files it is told to adopt, in order.
+
+```
+<!-- agents/reviewer/agent.md -->
+---
+name: reviewer
+description: Reviews an artifact from the point of view of an assigned customer persona.
+---
+
+Adopt the persona files named in your instructions, in order: a role file
+establishes the segment's priorities, and an individual file layers that
+person's demographics and voice on top (later files refine earlier ones). If
+an individual names roles in its frontmatter, treat those as its baseline.
+
+Read or experience the provided artifact from that persona's point of view:
+docs, screenshots, website, prototype, product flow, or onboarding path.
+Distinguish evidence from assumptions, cite the exact page or UI moment that
+shaped your reaction, and do not invent real customer research.
+
+Return feedback as: persona, artifact reviewed, first impression, top blocker,
+strongest value signal, confusing language, suggested change, and confidence.
+If you need more context, ask for the smallest missing artifact.
 ```
 
-## Persona profiles
+## Roles: reusable job archetypes
 
-Persona review catalogs SHOULD make each potential customer's job, anxieties, buying triggers, and expected feedback shape explicit. These examples use Outfitter as the reviewed product so the pattern is concrete; replace the product references with your own product, audience, and UX.
+A role captures what everyone in a customer segment shares — the job, its goals, anxieties, buying triggers, and what its feedback focuses on — with no personal detail. Roles are reused across many individuals.
 
-```yaml
-# personas/founder-operator.yml
-id: founder-operator
-label: Founder Operator
-description: Reviews whether a product helps a hands-on founder get leverage quickly.
-inherits:
-  - base-customer-persona
-controls:
-  provider: anthropic
-  model: anthropic/claude-sonnet-4
-  thinking: high
-  append_system_prompt: |
-    You are a technical founder who writes product specs, edits docs, ships small
-    features, and manages a thin team. For this example, review Outfitter as the
-    product. Say whether the first hour feels obviously valuable. Flag jargon, setup
-    friction, unclear pricing or trust boundaries, and anything that delays the first
-    useful outcome.
+```
+<!-- docs/user-personas/roles/staff-engineer.md -->
+---
+kind: role
+title: Staff Engineer
+segment: large-eng-org
+goals: [reduce cross-team friction, raise technical quality, adopt tools that survive scrutiny]
+anxieties: [tools that demo well but fail on a real codebase, unproven claims]
+buying_triggers: [credible examples, verifiable outcomes, a clean migration path]
+feedback_focus: [depth, verification paths, missing examples, evidence behind claims]
+---
+
+Responsible for large codebases, architecture decisions, reviews, and
+cross-team technical quality. Cares whether the docs explain how the product
+improves real engineering work. Flags missing examples, weak verification
+paths, and claims that need evidence.
 ```
 
-```yaml
-# personas/staff-engineer.yml
-id: staff-engineer
-label: Staff Engineer
-description: Reviews whether a product is credible for complex technical work.
-inherits:
-  - base-customer-persona
-controls:
-  provider: anthropic
-  model: anthropic/claude-sonnet-4
-  thinking: high
-  append_system_prompt: |
-    You are a staff engineer responsible for large codebases, architecture decisions,
-    reviews, and cross-team technical quality. For this example, review Outfitter as
-    the product. Say whether the docs explain how the product improves real engineering
-    work. Flag missing examples, weak verification paths, and claims that need evidence.
+```
+<!-- docs/user-personas/roles/founder-operator.md -->
+---
+kind: role
+title: Founder-operator
+segment: seed-stage-startup
+goals: [ship weekly, keep the team small, reach the next milestone before the runway ends]
+anxieties: [tool sprawl, hidden pricing, time lost to setup]
+buying_triggers: [obvious value in the first hour, no credit card to try]
+feedback_focus: [time-to-first-value, jargon, trust boundaries, pricing clarity]
+---
+
+A hands-on founder who writes product specs, edits docs, ships small features,
+and manages a thin team. Cares whether the first hour feels obviously valuable.
 ```
 
-```yaml
-# personas/engineering-manager.yml
-id: engineering-manager
-label: Engineering Manager
-description: Reviews whether a product helps a team standardize work safely.
-inherits:
-  - base-customer-persona
-controls:
-  provider: openai
-  model: openai/gpt-4.1
-  thinking: medium
-  append_system_prompt: |
-    You manage engineers with different tool habits. For this example, review Outfitter
-    as the product. Say whether team defaults, onboarding, review expectations, and
-    governance are understandable. Flag anything that makes rollout, support, training,
-    or risk ownership unclear.
+## Individuals: named people who inherit roles
+
+An individual is one concrete person — with the demographics a [Lean Canvas](https://leanstack.com/lean-canvas) customer segment gets — who names one or more roles to inherit and then adds their own attributes and voice. The named person **mixes and matches** roles: usually one, but a founder who also runs the platform can list both.
+
+```
+<!-- docs/user-personas/individuals/marcus-bell.md -->
+---
+kind: individual
+name: Marcus Bell
+roles: [staff-engineer]
+born: 1985-11-02
+location: Seattle, WA
+household_income: 265000
+education: MS Computer Engineering
+employer: ~400-engineer fintech
+hobbies: [rock climbing, sci-fi novels, restoring old synths]
+skills: [distributed systems, code review, architecture, mentoring]
+tone: dry, skeptical, cites sources
+---
+
+Reads new tooling the way he reads a design doc: looking for the failure mode
+first. Warm once convinced, but will not take a benchmark on faith.
 ```
 
-```yaml
-# personas/platform-lead.yml
-id: platform-lead
-label: Platform Lead
-description: Reviews whether a product can fit into internal developer platform workflows.
-inherits:
-  - base-customer-persona
-controls:
-  provider: anthropic
-  model: anthropic/claude-opus-4
-  thinking: xhigh
-  append_system_prompt: |
-    You own internal developer tooling, CI, secrets, and fleet-wide standards. For this
-    example, review Outfitter as the product. Focus on trust boundaries, credential
-    handling, catalog governance, private repo assumptions, reproducibility, and
-    operational failure modes. Prioritize risks that would block enterprise rollout.
+```
+<!-- docs/user-personas/individuals/dana-okafor.md -->
+---
+kind: individual
+name: Dana Okafor
+roles: [founder-operator, platform-lead] # mixes two roles
+born: 1989-03-14
+location: Austin, TX
+household_income: 180000
+education: BS Computer Science
+employer: 6-person seed-stage startup (also the de facto platform owner)
+hobbies: [trail running, home espresso, mechanical keyboards]
+skills: [product specs, TypeScript, fundraising, hiring]
+tone: fast, pragmatic, allergic to jargon
+---
+
+Wears the founder and the platform hat at once, so she weighs first-hour value
+against fleet-wide safety in the same breath. Impatient with setup friction.
 ```
 
-```yaml
-# personas/agency-consultant.yml
-id: agency-consultant
-label: Agency Consultant
-description: Reviews whether a product helps switch between multiple client contexts cleanly.
-inherits:
-  - base-customer-persona
-controls:
-  provider: openai
-  model: openai/gpt-4.1-mini
-  thinking: low
-  append_system_prompt: |
-    You work across multiple client contexts and need repeatable setup without leaking
-    one client's context into another. For this example, review Outfitter as the product.
-    Say whether the docs and UX make isolation, project settings, and switching contexts
-    obvious.
+Keep the role attribute set consistent so reviews stay comparable, and let individuals vary freely in demographics and tone. Add more roles (`platform-lead`, `engineering-manager`, `agency-consultant`) and more individuals the same way.
+
+## Running the reviews
+
+Run the base agent once per persona, naming the role and individual files to adopt and the artifact under review:
+
+```bash
+outfitter run reviewer -- --print \
+  "Adopt docs/user-personas/roles/staff-engineer.md refined by \
+   docs/user-personas/individuals/marcus-bell.md. Read README.md, \
+   docs/getting-started.md, and docs/pricing.md, then return the standard \
+   review shape: where the product feels credible, where it feels \
+   underspecified, and the one example that would most improve your confidence."
 ```
 
-## Review workflows
-
-A persona review can inspect static docs or interact with a running UX. The prompt should say which artifact is under review and what kind of feedback is useful. For your own product, swap in your own docs, prototype URL, screenshots, local app, or onboarding flow.
-
-```text
-Read README.md, docs/getting-started.md, and docs/pricing.md for <your product>.
-As the staff-engineer persona, explain where the product feels credible, where it feels
-underspecified, and what one example would most improve your confidence.
+```bash
+outfitter run reviewer -- --print \
+  "Adopt docs/user-personas/individuals/dana-okafor.md and the roles it names. \
+   Browse the local docs site and try the first-run setup flow. Report the \
+   first confusing moment, the first moment that felt valuable, and whether \
+   you would keep using it."
 ```
 
-```text
-Browse <your product>'s local documentation site and try the first-run setup flow.
-As the founder-operator persona, report the first confusing moment, the first moment
-that felt valuable, and whether you would keep using the product after setup.
-```
+Model and thinking choices — cheaper models for high-volume routing reviews, deeper reasoning for platform-risk reviews — live in the reviewer agent's loadout, or a machine-local override, rather than being duplicated per persona.
 
-## Review output pattern
-
-Persona profiles SHOULD define a repeatable response shape so feedback from different potential customers is comparable.
-
-```yaml
-# personas/founder-operator.yml excerpt
-controls:
-  append_system_prompt: |
-    Return feedback as: persona, artifact reviewed, first impression, top blocker,
-    strongest value signal, confusing language, suggested change, and confidence.
-    If you need more context, ask for the smallest missing artifact.
-```
-
-This gives a team a reusable customer-persona review catalog: each agent reads docs or experiences a UX from a distinct buyer/user viewpoint, then returns structured feedback without pretending to replace real customer discovery.
+Because the base agent fixes the output shape, feedback from every persona document is directly comparable. The result is a reusable customer-persona review catalog that reads docs or experiences a UX from many viewpoints without pretending to replace real customer discovery.

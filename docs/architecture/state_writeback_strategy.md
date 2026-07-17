@@ -1,82 +1,66 @@
 # State Writeback Strategy
 
-This document describes Outfitter's current model for handling writes that agent CLIs make inside a composite profile.
+This document describes Outfitter's model for handling writes that agent CLIs make inside a temporary projection — the generated configuration directory an adapter builds from a baked composition.
 
-A composite profile is temporary, but agent CLIs sometimes perform intentionally durable writes, such as logging in, installing plugins, changing settings, or updating MCP configuration.
-Outfitter makes those paths explicit: adapter-declared writable paths are materialized with a resolved `state_persistence` strategy before the child CLI starts, and non-persistent or unknown writes are diagnosed after the child exits.
+A projection is temporary, but agent CLIs sometimes perform intentionally durable writes, such as logging in, installing plugins, changing settings, or updating MCP configuration. Outfitter makes those paths explicit: adapter-declared writable paths are materialized with a resolved `state_persistence` strategy before the child CLI starts, and non-persistent or unknown writes are diagnosed after the child exits.
 
 ## Functional model
 
-Outfitter separates three kinds of files that may exist in a composite profile:
+Outfitter separates three kinds of files that may exist in a projection:
 
-1. **Generated runtime files**: files Outfitter assembles from settings, profiles, templates, and adapter rules.
-   Outfitter may regenerate these while the child agent is running when their source inputs change.
+1. **Generated runtime files**: files Outfitter assembles from the baked composition and adapter rules.
 2. **Declared state paths**: adapter-known files or directories the agent CLI may update intentionally, such as auth, settings, MCP config, plugins, caches, and sessions.
 3. **Unknown writes**: files or directories the agent creates outside the adapter-declared state paths.
 
-Only declared state paths can be made durable automatically.
-Unknown writes are never silently persisted because Outfitter does not know their intended owner, merge rules, or durable destination.
-Generated runtime files and declared state paths are deliberately handled separately so live profile/template updates do not erase or re-baseline agent state changes made during the same run.
+Only declared state paths can be made durable automatically. Unknown writes are never silently persisted because Outfitter does not know their intended owner, merge rules, or durable destination. Generated runtime files and declared state paths are deliberately handled separately so composition regeneration does not erase or re-baseline agent state changes made during the same run.
 
 The user-facing state update lifecycle is:
 
-1. **Choose a profile**.
-   Profile resolution determines the effective `state_persistence` map using normal profile precedence.
-2. **Resolve adapter defaults**.
-   For each path the selected adapter declares, Outfitter uses the profile override when present and otherwise uses the adapter default.
-3. **Prepare the composite profile**.
-   Durable paths are connected to a profile-managed or native CLI location; non-durable paths are created as normal temporary composite profile paths.
-4. **Run the agent**.
-   The agent CLI reads and writes the composite profile as if it were its normal configuration directory.
-5. **Classify changes after exit**.
-   Outfitter checks non-durable declared paths and unknown paths and reports or fails according to their strategies.
-6. **Clean up temporary state**.
-   Temporary composite profile contents are discarded; durable symlink targets remain in their profile or native CLI location.
+1. **Resolve settings.** Settings resolution determines the effective `state_persistence` map using normal settings precedence (`settings.local.yml` over `settings.yml`, project over user).
+2. **Resolve adapter defaults.** For each path the selected adapter declares, Outfitter uses the settings override when present and otherwise uses the adapter default.
+3. **Prepare the projection.** Durable paths are connected to a native CLI location; non-durable paths are created as normal temporary projection paths.
+4. **Run the agent.** The agent CLI reads and writes the projection as if it were its normal configuration directory.
+5. **Classify changes after exit.** Outfitter checks non-durable declared paths and unknown paths and reports, prompts, or fails according to their strategies.
+6. **Clean up temporary state.** Temporary projection contents are discarded; durable symlink targets remain in their native CLI location.
 
 ## Current behavior
 
-- Composite profiles remain temporary and reproducible by default.
+- Projections remain temporary and reproducible by default.
 - Outfitter does not do generic post-run copy-back or JSON/YAML merge-back.
-- Persistent state is represented by symlinking a composite profile path to a profile file/directory or to the native CLI fallback path.
-- Adapters may generate a concrete runtime file for a declared state path when they need deterministic launch-time reconciliation.
-  For example, the Pi adapter can generate a transformed `settings.json` that removes native `packages` entries already supplied by profile-controlled extensions, and then mark that declared path as `discard` for write detection during the run.
-- Every adapter-declared state path has a resolved strategy before launch: profile overrides win, otherwise the adapter `default_strategy` is used, except for adapter-generated reconciliation files that are intentionally treated as discarded runtime files.
-- Invalid or disallowed profile-requested `state_persistence` strategies fail before launch; adapter-internal reconciliation may still choose a one-run handling strategy for a generated runtime file.
+- Persistent state is represented by symlinking a projection path to the native CLI fallback path.
+- Adapters may generate a concrete runtime file for a declared state path when they need deterministic launch-time reconciliation. For example, the Pi adapter can generate a transformed `settings.json` that removes native `packages` entries already supplied by composition-controlled extensions, and then mark that declared path as `discard` for write detection during the run.
+- Every adapter-declared state path has a resolved strategy before launch: settings overrides win, otherwise the adapter `default_strategy` is used, except for adapter-generated reconciliation files that are intentionally treated as discarded runtime files.
+- Invalid or disallowed requested `state_persistence` strategies fail before launch; adapter-internal reconciliation may still choose a one-run handling strategy for a generated runtime file.
 - Non-persistent `warn` and `error` strategies are checked after the child CLI exits.
 - Unknown writes outside adapter-declared paths are checked with the adapter's `unknown` pseudo-path strategy.
-- `prompt` is reserved for a future interactive/control-plane workflow.
-  When accepted by a declaration today, it is treated as a non-persistent diagnostic like `warn`.
+- Baked artifacts and dumps never include declared state paths or their contents; state is runtime, not configuration.
 
 ## Non-goals
 
-- Outfitter does not implement generic copy-back from the composite profile to profiles.
+- Outfitter does not implement generic copy-back from the projection to `.agents` trees.
 - Outfitter does not implement generic structured merge-back.
 - Outfitter does not silently persist unknown writes.
 
-## Profile stack and native fallback
+## Settings resolution and native fallback
 
-State persistence is a normal profile setting.
-Its strategy overrides resolve through the same selected-profile stack as other profile data. When the user provides `--profile X`, only definitions of `X` and its explicit inheritance chain participate; the configured `default_profile` is selected only when no explicit profile is provided.
+State persistence is a normal Outfitter setting. Its strategy overrides resolve through the same settings precedence as other settings data:
 
 ```text
-project-local definition of selected profile
-project definition of selected profile
-user definition of selected profile
-URI/cache definitions of selected profile
-explicit inheritance
+<project>/.agents/settings.local.yml
+<project>/.agents/settings.yml
+~/.agents/settings.local.yml
+~/.agents/settings.yml
+cached remote settings
 Outfitter defaults
 ```
 
-Native CLI state is not represented as an extra profile layer.
-For `symlink` paths without a profile-provided source, the selected adapter resolves a native fallback location directly, such as `~/.pi/agent/...` for most Pi state paths, `~/.claude/...` for most Claude Code state paths, or `<cache_directory>/utilities` for Pi `utilities/` and `bin/`.
-This native fallback is not a base profile: it does not participate in profile inheritance or merge precedence, and it cannot contribute controls or profile YAML.
-Claude Code `projects/` is additionally controlled by `controls.session_directory` or `controls.claude.session_directory` when set.
+Native CLI state is not a configuration layer. For `symlink` paths, the selected adapter resolves a native fallback location directly, such as `~/.pi/agent/...` for most Pi state paths, `~/.claude/...` for most Claude Code state paths, or `<cache_directory>/utilities` for Pi `utilities/` and `bin/`. The native fallback does not participate in resource resolution or merge precedence and cannot contribute resources. Claude Code `projects/` is additionally controlled by the session-directory setting when set.
+
+For a [ported Claude Code setup](../documentation/porting-claude.md), configuration entries under `~/.claude` are symlinks into `~/.agents/`, so a durable write through the projection's `skills/` link lands in the protocol tree. The porting arrangement is created by setup; the state machinery just follows the links.
 
 ## Path-keyed adapter declarations
 
-Adapters declare writable state paths directly, using relative file paths as keys.
-Directory paths use a trailing slash.
-The same key is used for adapter coverage, `state_persistence` overrides, profile resource lookup, native fallback lookup, and composite profile materialization.
+Adapters declare writable state paths directly, using relative file paths as keys. Directory paths use a trailing slash. The same key is used for adapter coverage, `state_persistence` overrides, native fallback lookup, and projection materialization.
 
 The Pi adapter currently declares:
 
@@ -90,11 +74,12 @@ state_paths:
     default_strategy: symlink
     allowed_strategies: [symlink, warn, error, prompt]
     note: >-
-      When profile-controlled Pi extensions duplicate native settings packages,
-      Outfitter may generate a transformed runtime settings.json and treat this
-      declared path as discard for that launch. That discard handling is
-      adapter-internal; users still cannot request settings.json: discard
-      because discard is not listed in allowed_strategies.
+      When composition-controlled Pi extensions duplicate native settings
+      packages, Outfitter may generate a transformed runtime settings.json and
+      treat this declared path as discard for that launch. That discard
+      handling is adapter-internal; users still cannot request
+      settings.json: discard because discard is not listed in
+      allowed_strategies.
 
   keybindings.json:
     default_strategy: symlink
@@ -190,43 +175,9 @@ state_paths:
     allowed_strategies: [discard, warn, error, prompt]
 ```
 
-## Profile layout for state files
-
-State files live under the relevant CLI-specific profile folder:
-
-```text
-profiles/
-  default/
-    profile.yml
-    cli_specific/
-      pi/
-        auth.json
-        settings.json
-        keybindings.json
-        plugins/
-      claude/
-        settings.json
-        skills/
-        commands/
-        plugins/
-```
-
-Except for special adapter paths described below, when a selected strategy is `symlink`, Outfitter searches the resolved profile folders from highest to lowest precedence for `cli_specific/<adapter>/<state-path>`.
-If a profile contains the file or directory, Outfitter symlinks the composite profile path to that source.
-
-For most Pi paths, if no profile source exists, Outfitter falls back to the corresponding native Pi agent path under `~/.pi/agent`.
-Missing native fallback files/directories are created so the composite profile symlink has a durable destination.
-
-Pi `utilities/` and `bin/` are special cache-backed paths: both resolve to `<cache_directory>/utilities` instead of profile or native Pi state.
-This keeps pi-managed helper binaries reusable across temporary composite profiles without treating them as user-editable profile files.
-
-For most Claude Code paths, if no profile source exists, Outfitter falls back to the corresponding native Claude Code path under `~/.claude`.
-Claude Code `projects/` is special: `controls.claude.session_directory` overrides generic `controls.session_directory`, and the selected session directory becomes the `projects/` symlink source.
-If neither session-directory control is present, `projects/` falls back to `~/.claude/projects`.
-
 ## `state_persistence`
 
-Profiles may override persistence by mapping adapter-declared paths to strategy names:
+Settings may override persistence by mapping adapter-declared paths to strategy names:
 
 ```yaml
 state_persistence:
@@ -238,11 +189,9 @@ state_persistence:
   unknown: warn
 ```
 
-The values are concrete strategy names.
-`state_persistence` only needs overrides; omitted paths use the adapter declaration's `default_strategy`.
+The values are concrete strategy names. `state_persistence` only needs overrides; omitted paths use the adapter declaration's `default_strategy`.
 
-`state_persistence` is validated by the profile JSON Schema at read boundaries.
-Outfitter also validates the resolved strategy against the adapter declaration before launch.
+`state_persistence` is validated by the settings JSON Schema at read boundaries. Outfitter also validates the resolved strategy against the adapter declaration before launch.
 
 Functional examples:
 
@@ -256,7 +205,7 @@ state_persistence:
 ```
 
 ```yaml
-# CI profile: fail if pi changes settings, MCP config, or unknown files.
+# CI settings: fail if pi changes settings, MCP config, or unknown files.
 state_persistence:
   settings.json: error
   mcp.json: error
@@ -265,25 +214,25 @@ state_persistence:
 ```
 
 ```yaml
-# Exploratory profile: allow plugin experiments but report them after exit.
+# Exploratory settings: allow plugin experiments but report them after exit.
 state_persistence:
   plugins/: warn
   unknown: warn
 ```
 
-## Composite profile materialization
+## Projection materialization
 
 Before launch, Outfitter processes each adapter-declared state path:
 
-1. Resolve the path's strategy from profile `state_persistence` overrides, then the adapter `default_strategy`.
+1. Resolve the path's strategy from `state_persistence` overrides, then the adapter `default_strategy`.
 2. Validate that the strategy is allowed for that path.
-3. Resolve a source path through the profile hierarchy when the strategy is `symlink`.
-4. Materialize the composite profile path.
+3. Resolve the native fallback source when the strategy is `symlink`; missing native fallback files/directories are created so the symlink has a durable destination.
+4. Materialize the projection path.
 5. Record a baseline fingerprint for non-persistent and unknown write detection.
 
-For `symlink`, Outfitter creates a symlink from the composite profile path to the resolved profile or native CLI source.
+For `symlink`, Outfitter creates a symlink from the projection path to the resolved native CLI source. For `discard`, `warn`, `error`, and `prompt`, Outfitter creates normal temporary projection paths where needed and observes whether they changed.
 
-For `discard`, `warn`, `error`, and `prompt`, Outfitter creates normal temporary composite profile paths where needed and observes whether they changed.
+Pi `utilities/` and `bin/` are special cache-backed paths: both resolve to `<cache_directory>/utilities` instead of native Pi state, keeping pi-managed helper binaries reusable across temporary projections. Claude Code `projects/` uses the configured session directory when set, otherwise `~/.claude/projects`.
 
 ## Unknown writes
 
@@ -294,57 +243,40 @@ state_persistence:
   unknown: warn
 ```
 
-Supported `unknown` strategies are non-persistent only:
-
-- `discard`
-- `warn`
-- `error`
-- `prompt`
-
-`unknown` does not support `symlink`, because there is no declared durable destination.
+Supported `unknown` strategies are non-persistent only: `discard`, `warn`, `error`, and `prompt`. `unknown` does not support `symlink`, because there is no declared durable destination; `unknown: prompt` reports as a warning with an explanation.
 
 ## Strategy selection guide
 
-Use `symlink` when a write is part of durable agent setup, such as logging in, editing native settings, updating MCP config, or installing plugins that should be reused.
-Use `discard` when the data is useful only during the current run, such as cache entries or throwaway sessions.
-Use `warn` when mutation is acceptable but should be visible to the user.
-Use `error` when mutation means the run was not reproducible enough, especially in CI or locked-down project profiles.
-Use `prompt` only as a forward-compatible declaration for future interactive handling.
+Use `symlink` when a write is part of durable agent setup, such as logging in, editing native settings, updating MCP config, or installing plugins that should be reused. Use `discard` when the data is useful only during the current run, such as cache entries or throwaway sessions. Use `warn` when mutation is acceptable but should be visible to the user. Use `error` when mutation means the run was not reproducible enough, especially in CI or locked-down projects. Use `prompt` when the user should decide interactively after each run.
 
 ## Strategies
 
 ### `symlink`
 
-Outfitter resolves the state path through the profile hierarchy, then the native CLI fallback, and symlinks that source into the composite profile.
-Persistence happens because the CLI writes through the symlink to an intentional file or directory.
+Outfitter resolves the state path to its native CLI fallback and symlinks that source into the projection. Persistence happens because the CLI writes through the symlink to an intentional file or directory.
 
 ### `discard`
 
-Writes are allowed in the composite profile and are thrown away when the composite profile is deleted.
-Outfitter does not emit diagnostics for changed `discard` paths.
+Writes are allowed in the projection and are thrown away when the projection is deleted. Outfitter does not emit diagnostics for changed `discard` paths.
 
 ### `warn`
 
-Writes are allowed, discarded, and reported after the child exits.
-`--strict` makes these warnings fatal.
+Writes are allowed, discarded, and reported after the child exits. `--strict` makes these warnings fatal.
 
 ### `error`
 
-Writes are allowed during the child process but cause Outfitter to fail after the child exits if the path changed.
-This is useful for CI and strict reproducibility.
+Writes are allowed during the child process but cause Outfitter to fail after the child exits if the path changed. This is useful for CI and strict reproducibility.
 
 ### `prompt`
 
-`prompt` is reserved for a future interactive/control-plane workflow.
-Current implementations that allow it treat writes as non-persistent diagnostics, equivalent to `warn`, with the strategy name preserved in the message.
+When a `prompt` path changed and both stdin and stdout are interactive terminals, Outfitter asks after the child exits: **persist** (copy the change to the durable destination once), **discard**, or **always** (persist and record a `symlink` override in the editable settings scope). Outfitter never mutates a synced catalog cache; when the active configuration is remote, the change is persisted once with a warning that the choice could not be recorded. In non-interactive sessions, `prompt` falls back to `warn` with an explicit `prompt skipped: non-interactive` notice.
 
 ## Rationale
 
 Path-keyed state declarations keep the model simple:
 
 - the adapter declares the paths it knows the CLI may write and their default strategies;
-- profiles may provide files at those same paths;
 - the native fallback exposes native CLI files at those same paths;
 - `state_persistence` says what to do with each path.
 
-This avoids ambiguous writeback behavior and gives users a clear rule: if a CLI write should persist, configure that composite profile path as `symlink` and provide or accept the profile/native file that should receive the mutation.
+This avoids ambiguous writeback behavior and gives users a clear rule: if a CLI write should persist, configure that projection path as `symlink` and accept the native file that should receive the mutation. Configuration flows the other direction — from the `.agents` tree into the projection — and never back.

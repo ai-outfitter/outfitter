@@ -1,49 +1,54 @@
 # Adapter support matrix
 
-What Outfitter can control per agent CLI today. Pi is the primary and most complete adapter; Claude Code is supported with gaps.
+What Outfitter can project per agent CLI. Pi is the primary and most complete adapter; Claude Code is supported with gaps.
 
 Status values:
 
-- **Supported** — Outfitter translates this concept for the CLI through at least one native mechanism.
+- **Supported** — Outfitter projects this concept for the CLI through at least one native mechanism.
 - **Partial** — some of the concept works today, with documented gaps.
-- **Roadmap** — the CLI appears to support the concept, but Outfitter does not translate it yet.
+- **Roadmap** — the CLI appears to support the concept, but Outfitter does not project it yet.
 
-When a profile requests a control an adapter cannot translate, Outfitter warns to stderr; `--strict` makes those warnings fatal.
+When a composition requests something an adapter cannot project, Outfitter warns to stderr; `--strict` makes those warnings fatal.
 
-| What you can control                              | Pi        | Claude Code |
-| ------------------------------------------------- | --------- | ----------- |
-| Agent config directory                            | Supported | Supported   |
-| Session directory (`session_directory`)           | Supported | Supported   |
-| Extensions / plugins (`extensions`)               | Supported | Supported   |
-| Skills (`skills`)                                 | Supported | Partial     |
-| Prompt templates / commands (`prompt_template`)   | Supported | Partial     |
-| System prompt (`system_prompt`)                   | Supported | Supported   |
-| Appended system prompt (`append_system_prompt`)   | Supported | Supported   |
-| Model selection (`model`, `provider`, `thinking`) | Supported | Partial     |
-| Credentials and environment (`environment`)       | Supported | Supported   |
-| Tool availability                                 | Roadmap   | Roadmap     |
-| Context files                                     | Roadmap   | Roadmap     |
-| Theme / UI presentation                           | Roadmap   | Roadmap     |
-| Project override policy                           | Roadmap   | Roadmap     |
-| Working directory                                 | Roadmap   | Roadmap     |
-| Pass-through arguments                            | Supported | Supported   |
-| Bootstrap hook                                    | Supported | Roadmap     |
+Tasks and bake are not in this matrix — they are the subject of a [separate upcoming RFC](./tasks.md).
+
+| What Outfitter projects                                                  | Pi        | Claude Code |
+| ------------------------------------------------------------------------ | --------- | ----------- |
+| Agent config directory                                                   | Supported | Supported   |
+| Session directory                                                        | Supported | Supported   |
+| Agent identity (`system-prompt.md`, `agents.md`, `agents/<id>/agent.md`) | Supported | Supported   |
+| Subagents (`agents/<id>` as harness delegates)                           | Supported | Supported   |
+| Skills (`skills/<id>`)                                                   | Supported | Partial     |
+| Commands (`commands/`)                                                   | Supported | Partial     |
+| Knowledge (`knowledge/`)                                                 | Supported | Partial     |
+| Model selection (`models.json`)                                          | Supported | Partial     |
+| MCP servers (`mcp.json`)                                                 | Supported | Supported   |
+| Extensions (agent `extensions:` loadout)                                 | Supported | Roadmap     |
+| Plugins (agent `plugins:` loadout)                                       | Supported | Roadmap     |
+| Credentials and environment                                              | Supported | Supported   |
+| DeepWork job selection                                                   | Supported | Roadmap     |
+| Hooks                                                                    | Partial   | Partial     |
+| Tool availability                                                        | Roadmap   | Roadmap     |
+| Theme / UI presentation                                                  | Roadmap   | Roadmap     |
+| Working directory                                                        | Roadmap   | Roadmap     |
+| Pass-through arguments                                                   | Supported | Supported   |
+| Bootstrap hook                                                           | Supported | Roadmap     |
 
 ## Claude Code notes
 
-- **Config and session state** — Outfitter points `CLAUDE_CONFIG_DIR` at the composite profile, declares Claude state paths (`settings.json`, `agents/`, `skills/`, `commands/`, `plugins/`, `projects/`) for persistence, and lets `session_directory` choose where `projects/` session state is symlinked from. There is no standalone session-dir flag.
-- **Skills (Partial)** — native Claude skills work when a profile ships them as `cli_specific/claude/skills/` directories, which Outfitter places in the profiled config directory. The generic `controls.skills` selector (including catalog skill IDs) is not translated for Claude yet and warns if requested; the bundled Outfitter skill ships through the plugin channel instead.
-- **Prompt templates (Partial)** — same shape: native `cli_specific/claude/commands/` directories work, but the generic `controls.prompt_template` selector is not translated and warns.
-- **Model selection (Partial)** — `model` maps to `--model` and `thinking` maps to `--effort`, but `provider` is not translated for Claude and warns if requested.
-- **Extensions** — `controls.extensions` entries are passed as repeated `--plugin-dir` flags.
-- **Bundled Outfitter skill** — every launch also publishes Outfitter's own self-documentation skill (authored at `.outfitter/skills/outfitter` in the Outfitter repository) as a bundled plugin through `--plugin-dir`, so the agent can explain Outfitter and this launch's configuration.
-- **DeepWork jobs** — the `controls.deepwork` selection is Pi-only today and warns on Claude.
+- **Config and session state** — Outfitter points `CLAUDE_CONFIG_DIR` at the baked composition, declares Claude state paths (`settings.json`, `agents/`, `skills/`, `commands/`, `plugins/`, `projects/`) for [state persistence](./state.md), and can [symlink a ported `~/.claude`](./porting-claude.md) so native use keeps working.
+- **Subagents** — selected `agents/<id>` definitions are materialized into Claude's native agents directory.
+- **Skills (Partial)** — selected skills are materialized into the config directory's skills surface; remaining gaps are tracked per release. The bundled Outfitter skill ships through the plugin channel.
+- **Model selection (Partial)** — model maps to `--model` and thinking level to `--effort`; provider selection is not projected for Claude and warns if requested.
+- **Hooks (Partial)** — hook configuration is projected into the generated `settings.json`; there is no portable protocol hooks resource yet. See [Hooks](./hooks.md).
+- **DeepWork jobs** — job selection is Pi-only today and warns on Claude.
+- **Bundled Outfitter skill** — every launch also publishes Outfitter's own self-documentation skill as a bundled plugin, so the agent can explain Outfitter and this launch's configuration.
 
 ## Pi notes
 
-- Pi translates the full generic control set: `provider`, `model`, `thinking`, `system_prompt`, `append_system_prompt`, `extensions` (`--extension`), `skills` (`--skill`), `prompt_template` (`--prompt-template`), `environment`, `args`, `session_directory`, and DeepWork job selection.
-- **Catalog skills** — `controls.skills` entries may be catalog skill IDs (bare strings or `{ id, references }` objects). Outfitter resolves IDs across project, directory-profile, and configured-source `skills/` directories following layer precedence, materializes `references`, `scripts`, and `assets` frontmatter into a generated skill beneath the composite profile, and passes the generated directory via `--skill`. `outfitter profile lint` validates selections and references before launch.
-- Bootstrap behavior (for example the onboarding flow) uses an explicit Pi bootstrap extension via `--extension`.
-- Every launch also passes Outfitter's own self-documentation skill — materialized with its documentation references into the composite profile — through `--skill`.
+- Pi projects the full resource set: agent identity, subagents (via the subagent extension), skills (`--skill`), commands, model configuration, MCP, extensions (`--extension`) and plugins as first-class loadout elements, environment, pass-through args, session directory, and DeepWork job selection.
+- Selected skills resolve across layers following [layer precedence](./concepts.md#layer-precedence); `references`, `scripts`, and `assets` frontmatter materialize into a generated skill passed via `--skill`. `outfitter validate` checks selections and references before launch.
+- **Hooks (Partial)** — bootstrap behavior uses an explicit Pi extension via `--extension`; recurring per-event hooks are extension territory. See [Hooks](./hooks.md).
+- Every launch also passes Outfitter's own self-documentation skill through `--skill`.
 
 For the architecture-level definitions behind each row, see [Controllable elements](../architecture/controllable-elements.md).

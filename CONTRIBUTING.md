@@ -3,6 +3,8 @@
 This guide describes how to install and test Outfitter locally from a source checkout.
 For normal usage, install Outfitter from npm with `npm install -g @ai-outfitter/outfitter`.
 
+> **RFC #165 transition:** `docs/documentation/` and `docs/architecture/` describe the target dotagents `.agents` architecture. The commands and file paths in this contributor guide (for example `outfitter profile create` and `~/.outfitter`) match the current code and are updated by each implementation PR as it lands; see [AGENTS.md](./AGENTS.md).
+
 ## Prerequisites
 
 - Node.js `>=22.19.0`
@@ -14,7 +16,7 @@ For normal usage, install Outfitter from npm with `npm install -g @ai-outfitter/
 
 | Path                                            | Use it for                                               |
 | ----------------------------------------------- | -------------------------------------------------------- |
-| [Documentation](./docs/documentation/README.md) | User-facing setup, profile, and profile-repository docs. |
+| [Documentation](./docs/documentation/README.md) | User-facing setup, composition, and catalog docs.        |
 | [Architecture](./docs/architecture/README.md)   | Architecture, runtime design, and internal conventions.  |
 | [Requirements](./docs/requirements/)            | Formal OFTR requirements.                                |
 | [CLI package](./code/cli/)                      | Published CLI package source, tests, skills, and config. |

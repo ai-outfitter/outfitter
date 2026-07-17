@@ -19,25 +19,26 @@ theme:
     </div>
     <div className="outfitter-wrap outfitter-hero-inner">
       <div className="outfitter-copy">
-        <p className="outfitter-badge"><span aria-hidden="true" /> Agent harness profiles</p>
+        <p className="outfitter-badge"><span aria-hidden="true" /> The .agents protocol toolchain</p>
         <h1>Your agent harness, <span>finally manageable</span></h1>
         <div className="outfitter-lede">
-          Outfitter is the pi-first control layer for AI coding agents. Define reusable profiles that travel between machines, adapt per repo, compose in layers, and launch through native pi configuration.
+          Outfitter is the toolchain for the Dotagents .agents protocol. Keep agents and skills as plain files that travel between machines, give each agent a loadout composed by slug — skills, subagents, MCP, extensions, model — and launch it through native pi or Claude Code configuration.
         </div>
         <div className="outfitter-actions">
           <a className="outfitter-button primary" href="#get-started">Get started →</a>
           <a className="outfitter-button ghost" href="#feature-comparison">Compare the gaps</a>
         </div>
-        <p className="outfitter-sub"><code>$ npm i -g @ai-outfitter/outfitter</code> · pi-first · profile-driven · deterministic</p>
+        <p className="outfitter-sub"><code>$ npm i -g @ai-outfitter/outfitter</code> · protocol-native · composable · deterministic</p>
       </div>
       <div className="outfitter-terminal outfitter-float">
         <div className="outfitter-termbar"><i aria-hidden="true" /><i aria-hidden="true" /><i aria-hidden="true" /><span>outfitter — run</span></div>
-        <pre>{`$ outfitter run --profile engineering-default
-→ resolving profile  engineering-default
-  ✓ user source      github:nhorton/agent-profiles@main
-  ✓ repo overlay     .outfitter/profiles/engineer
-  ✓ merged controls  model=claude-sonnet-4
-  ✓ prepared composite profile    /tmp/outfitter-engineering-default-pi-a91f
+        <pre>{`$ outfitter run engineer
+→ resolving .agents layers
+  ✓ workspace        .agents/
+  ✓ global           ~/.agents/
+  ✓ pinned source    github:ncrmro/.agents@2f9c1ab
+  ✓ composed agent   engineer · skills=[wiki research] · subagents=[code-reviewer]
+  ✓ projection       /tmp/outfitter-engineer-pi-a91f
 ↳ launching pi …`}</pre>
       </div>
     </div>
@@ -55,7 +56,7 @@ theme:
     <span>
       <i className="teal" aria-hidden="true" /> custom adapters future
     </span>
-    <em>generic profile vocabulary with a pi-first implementation</em>
+    <em>one protocol-shaped .agents tree, projected per harness</em>
   </div>
 </div>
 
@@ -65,7 +66,7 @@ theme:
     <h2>Agent config is powerful — and fragmented</h2>
     <div className="outfitter-section-copy">
       Machine-global settings rot into a junk drawer. Project settings force every role and language through one
-      default. Outfitter fills the gap with portable, composable profiles.
+      default. Outfitter fills the gap with the vendor-neutral .agents protocol: portable resources, composed by slug.
     </div>
   </div>
   <div className="outfitter-cards">
@@ -73,25 +74,28 @@ theme:
       <div aria-hidden="true">◇</div>
       <h3>Like dotfiles, but shared</h3>
       <div className="outfitter-card-copy">
-        Keep user-global settings in source-controlled profile repos instead of burying them in one machine's home
-        directory.
+        Keep your global layer in a source-controlled standalone .agents repository instead of burying it in one
+        machine's home directory.
       </div>
     </div>
     <div className="outfitter-card">
       <div aria-hidden="true">⌘</div>
       <h3>Per-stack setups</h3>
-      <p>Switch between TypeScript, Python, Rust, docs, or data profiles without rewriting project configuration.</p>
+      <p>Switch between TypeScript, Python, Rust, docs, or data agents without rewriting a single resource.</p>
     </div>
     <div className="outfitter-card">
       <div aria-hidden="true">◌</div>
-      <h3>Intent-specific modes</h3>
-      <p>Use a PM profile for planning, DevOps for deployment work, and engineering for implementation.</p>
+      <h3>Intent-specific agents</h3>
+      <p>
+        Run a PM agent for planning, a DevOps agent for deployment work, and an engineering agent for implementation.
+      </p>
     </div>
     <div className="outfitter-card">
       <div aria-hidden="true">✓</div>
-      <h3>Pi-first policy</h3>
+      <h3>Harness projection</h3>
       <div className="outfitter-card-copy">
-        Describe generic profile controls once, then let the pi adapter map supported controls into native settings.
+        Author resources once in the protocol layout, then let the pi and Claude Code adapters project them into native
+        configuration.
       </div>
     </div>
   </div>
@@ -99,67 +103,68 @@ theme:
 
 <section className="outfitter-section outfitter-layers-band">
   <div className="outfitter-wrap">
-    <p className="outfitter-eyebrow">Layered profiles in practice</p>
+    <p className="outfitter-eyebrow">Layered .agents trees in practice</p>
     <div className="outfitter-section-head">
-      <h2>Dotfiles, team standards, and repo overrides — resolved into one composite profile</h2>
+      <h2>Dotfiles, team standards, and repo overlays — resolved into one composition</h2>
       <div className="outfitter-section-copy">
-        Outfitter combines the relevant layers deterministically, warns when a requested control is unsupported, and
-        prepares a clean runtime composite profile before launch. If no profile owns a declared CLI state path,
+        Outfitter merges the layers by resource ID deterministically, warns when an adapter cannot project part of the
+        composition, and composes a clean runtime tree before launch. If no layer owns a declared CLI state path,
         Outfitter symlinks that path to the native CLI fallback, such as <code>~/.pi/agent/settings.json</code>; that
-        fallback is durable state, not a hidden base profile layer.
+        fallback is durable state, not a hidden configuration layer.
       </div>
     </div>
     <div className="outfitter-layers">
       <div className="outfitter-layer-list">
         <div>
           <span>1</span>
-          <h3>User profile source</h3>
+          <h3>Personal .agents repo</h3>
           <div className="outfitter-layer-copy">
-            <code>github:nhorton/agent-profiles</code> provides shared defaults and machine-independent policy.
+            <code>github:ncrmro/.agents</code> provides your global layer: agents, skills, and machine-independent
+            policy.
           </div>
         </div>
         <div>
           <span>2</span>
           <h3>Organization standard</h3>
           <div className="outfitter-layer-copy">
-            <code>github:acme/agent-standards</code> sets approved defaults and common controls.
+            <code>github:acme/.outfitter</code> distributes approved org resources at a pinned ref.
           </div>
         </div>
         <div>
           <span>3</span>
-          <h3>Repository-local profile</h3>
+          <h3>Workspace overlay</h3>
           <div className="outfitter-layer-copy">
-            <code>.outfitter/profiles/engineer</code> adds repo-specific guidance and safety rules.
+            <code>&lt;repo&gt;/.agents/</code> adds repo-specific agents, skills, and safety rules that win by ID.
           </div>
         </div>
         <div>
           <span>4</span>
-          <h3>Native pi launch</h3>
+          <h3>Native launch</h3>
           <p>
-            The pi adapter translates supported controls into the runtime composite profile and native pi launch inputs.
-            Missing profile-owned state symlinks fall back directly to native pi files, not inherited profile controls.
+            The pi and Claude Code adapters project the composed agent into native launch inputs. Missing state symlinks
+            fall back directly to native CLI files, never to hidden configuration.
           </p>
         </div>
       </div>
-      <div className="outfitter-stack" role="img" aria-label="Profile layer stack">
+      <div className="outfitter-stack" role="img" aria-label=".agents layer stack">
         <div className="stack-card a">
-          <small>User profile source</small>
-          <b>github:nhorton/agent-profiles</b>
+          <small>Personal .agents repo</small>
+          <b>github:ncrmro/.agents</b>
         </div>
         <div className="stack-card b">
           <small>Organization standard</small>
-          <b>github:acme/agent-standards</b>
+          <b>github:acme/.outfitter</b>
         </div>
         <div className="stack-card c">
-          <small>Repository overlay</small>
-          <b>.outfitter/profiles/engineer</b>
+          <small>Workspace overlay</small>
+          <b>&lt;repo&gt;/.agents/</b>
         </div>
         <div className="stack-plus">＋</div>
         <div className="stack-result">
-          <small>Resolved profile</small>
-          <b>17 controls merged · 0 conflicts</b>
+          <small>Composed agent</small>
+          <b>engineer · 5 skills · 0 conflicts</b>
         </div>
-        <div className="stack-launch">▶ native pi launch</div>
+        <div className="stack-launch">▶ native launch</div>
       </div>
     </div>
   </div>
@@ -168,16 +173,16 @@ theme:
   <section className="outfitter-section outfitter-wrap outfitter-showcase">
     <div>
       <p className="outfitter-eyebrow">One command</p>
-      <h2>Select a profile. Launch consistently.</h2>
+      <h2>Select an agent. Launch consistently.</h2>
       <div className="outfitter-feature-list">
-        <p><strong>Pick the right loadout</strong><br />One flag selects language, role, risk level, or intent.</p>
-        <p><strong>Sync from anywhere</strong><br /><code>outfitter sync</code> pulls remote settings and profile sources before a run.</p>
-        <p><strong>Deterministic every time</strong><br />The same profile resolves to the same composite profile: reviewable and reproducible.</p>
+        <p><strong>Pick the right loadout</strong><br />One argument selects an agent whose loadout is composed from your existing resources by slug.</p>
+        <p><strong>Sync from anywhere</strong><br /><code>outfitter sync</code> pulls pinned remote catalogs and settings before a run.</p>
+        <p><strong>Deterministic every time</strong><br />The same agent composes to the same tree — <code>outfitter dump</code> makes it reviewable byte for byte.</p>
       </div>
     </div>
     <div className="outfitter-config-card">
-      <div><span className="active">profile.yml</span><span>settings.yml</span></div>
-      <pre>{'id: engineering-default\nlabel: Engineering Default\ninherits:\n  - base-typescript\n\ncontrols:\n  model: anthropic/claude-sonnet-4\n  environment:\n    TEAM_MODE: engineering'}</pre>
+      <div><span className="active">agents/engineer/agent.md</span><span>settings.yml</span></div>
+      <pre>{'---\nname: engineer\nskills: [wiki, research]\nsubagents: [code-reviewer]\nmcp: [github]\nmodel: gpt-5.2\nthinking: high\n---'}</pre>
     </div>
 
   </section>
@@ -242,7 +247,7 @@ theme:
           <td>—</td>
         </tr>
         <tr>
-          <td>Generic settings vocabulary, pi-first implementation</td>
+          <td>Vendor-neutral .agents protocol storage</td>
           <td>✓</td>
           <td>—</td>
           <td>—</td>
@@ -265,7 +270,7 @@ theme:
     <div>
       <p className="outfitter-eyebrow">Get started</p>
       <h2>Treat agent setup like <em>real</em> infrastructure</h2>
-      <p>{'Documented, reviewable, reusable. Put defaults in a profile repo, override only where it matters, and launch consistently.'}</p>
+      <p>{'Documented, reviewable, reusable. Put defaults in a standalone .agents repo, overlay only where it matters, and launch consistently.'}</p>
       <code>$ npm i -g @ai-outfitter/outfitter</code>
     </div>
   </section>

@@ -1,5 +1,7 @@
 # CLI reference
 
+> **Status: RFC [#165](https://github.com/ai-outfitter/outfitter/issues/165) target.** This reference describes the dotagents end-state command surface. The currently released CLI still implements the legacy profile commands; implementation PRs replace them incrementally.
+
 Global options:
 
 | Option          | Description                  |
@@ -7,68 +9,59 @@ Global options:
 | `-V, --version` | Print the Outfitter version. |
 | `-h, --help`    | Show help for a command.     |
 
-## `outfitter run [args...]`
+## `outfitter run [agent] [args...]`
 
-Assemble a composite profile and launch the selected agent CLI. `run` is the default command, so plain `outfitter` and `outfitter run` are equivalent.
+Resolve, compose, and launch an agent. `run` is the default command, so plain `outfitter` and `outfitter run` are equivalent.
 
-| Option                    | Description                                                                |
-| ------------------------- | -------------------------------------------------------------------------- |
-| `-p, --profile <profile>` | Outfitter profile id to run. Defaults to the settings `default_profile`.   |
-| `--agent <agent>`         | Agent adapter to launch: `pi` or `claude`. Defaults to `default_agent`.    |
-| `--strict`                | Fail instead of warning when controls cannot be translated by the adapter. |
+| Argument / Option     | Description                                                                      |
+| --------------------- | -------------------------------------------------------------------------------- |
+| `[agent]`             | Agent slug to run. Defaults to the settings `default_agent`.                     |
+| `--harness <harness>` | Harness to launch in: `pi` or `claude`. Defaults to `default_harness`.           |
+| `--strict`            | Fail instead of warning when the adapter cannot project part of the composition. |
 
-Any other arguments and unrecognized options are passed through to the launched agent CLI:
+Any other arguments and unrecognized options are passed through to the launched harness:
 
 ```bash
-outfitter run --profile engineer --agent claude
-outfitter -p data_analyst -- --print "summarize this repo"
+outfitter run engineer --harness claude
+outfitter run reviewer -- --print "summarize this repo"
 ```
-
-On a first interactive launch with no `~/.outfitter/settings.yml`, `outfitter` starts Pi-native onboarding instead of a normal run.
 
 ## `outfitter setup [source]`
 
-Create initial Outfitter settings and a default profile. Setup launches Pi with the Outfitter onboarding extension and finishes profile selection inside the agent session (see [Getting started](./getting-started.md)).
+Create initial Outfitter settings, or adopt an existing configuration. Setup detects an existing `~/.agents/` tree and uses it as-is; if it finds a `~/.claude` directory instead, it offers to [port and symlink it](./porting-claude.md).
 
-| Argument   | Description                                                                                                    |
-| ---------- | -------------------------------------------------------------------------------------------------------------- |
-| `[source]` | Optional setup source: a local path or a git URL of a [profile repository](./profile-repository.md) to import. |
+| Argument   | Description                                                                       |
+| ---------- | --------------------------------------------------------------------------------- |
+| `[source]` | Optional bootstrap source: a local path or git URL of a [catalog](./catalogs.md). |
 
 ## `outfitter sync`
 
-Synchronize URI-backed profile and remote settings sources into the local cache (`~/.outfitter/cache/`). Takes no options. Reports a per-source status of `updated`, `unchanged`, `skipped`, or `failed`, and validates synced profile sources.
+Synchronize remote sources and remote settings into the local cache. Reports a per-source status of `updated`, `unchanged`, `skipped`, or `failed`, and validates synced sources.
 
-## `outfitter profile`
+## `outfitter list [kind]`
 
-List and manage Outfitter profiles.
+List resolvable resources across all layers, with the winning source for each slug and any shadowed IDs.
 
-### `outfitter profile list`
+| Argument | Description                                                   |
+| -------- | ------------------------------------------------------------- |
+| `[kind]` | Optional filter: `agents`, `skills`, `knowledge`, `commands`. |
 
-List available Outfitter profiles.
+## `outfitter validate`
 
-| Option  | Description                                                       |
-| ------- | ----------------------------------------------------------------- |
-| `--all` | Include template profiles that are intended only for inheritance. |
-
-### `outfitter profile create <name>`
-
-Create a new Outfitter profile skeleton.
-
-| Argument / option | Description                                               |
-| ----------------- | --------------------------------------------------------- |
-| `<name>`          | Filesystem-safe profile name.                             |
-| `--scope <scope>` | Destination scope: `user`, `project`, or `project-local`. |
-| `--path <path>`   | Destination profile source directory.                     |
-
-### `outfitter profile lint`
-
-Validate profiles, inheritance, and typed prompt includes.
+Validate the effective resource set: protocol layout, frontmatter, unresolved slugs in agent loadouts, broken or escaping skill references, and settings schema.
 
 | Option     | Description                              |
 | ---------- | ---------------------------------------- |
 | `--strict` | Exit non-zero when warnings are present. |
 | `--json`   | Print diagnostics as JSON.               |
 
-## `outfitter welcome`
+## `outfitter dump`
 
-Run Outfitter welcome onboarding prompts in the terminal. This is a legacy compatibility command: current onboarding runs natively inside Pi (via `outfitter setup` or the first-run `outfitter` launch), and `welcome` remains for environments that need the older terminal prompt flow. Requires an interactive TTY. Takes no options.
+Write the composed resource tree as a self-contained `.agents/` directory for review, vendoring, or air-gapped use. Identical sources, refs, and selections produce byte-identical output; dumps never contain credentials, sessions, caches, or other mutable runtime state.
+
+| Option         | Description                                          |
+| -------------- | ---------------------------------------------------- |
+| `--agent <id>` | Restrict the dump to one agent's transitive closure. |
+| `--out <dir>`  | Destination directory (default `./.agents`).         |
+
+> **Tasks and `outfitter task bake`** — baking a task and its inputs into an immutable execution artifact — are the subject of a separate upcoming RFC and are not part of this command surface yet. See [Tasks](./tasks.md).

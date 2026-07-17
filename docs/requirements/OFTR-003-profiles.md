@@ -1,5 +1,7 @@
 # OFTR-003: Profiles and Inheritance
 
+> **Transition (RFC [#165](https://github.com/ai-outfitter/outfitter/issues/165)):** this requirement describes pre-dotagents behavior and will be amended or superseded by the RFC #165 implementation PRs together with its pinned tests. The target design lives in [docs/documentation](../documentation/README.md) and [docs/architecture](../architecture/README.md).
+
 ## Overview
 
 Profiles describe reusable agent-CLI loadouts.

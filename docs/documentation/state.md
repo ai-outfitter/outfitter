@@ -1,8 +1,8 @@
 # State persistence
 
-Outfitter launches agent CLIs from a temporary composite profile. During a run, Pi, Claude Code, or another adapter may write state such as settings, sessions, plugin installs, caches, auth metadata, or MCP configuration.
+Outfitter launches agent CLIs from a temporary baked composition. During a run, Pi, Claude Code, or another adapter may write state such as settings, sessions, plugin installs, caches, auth metadata, or MCP configuration.
 
-Outfitter does not silently copy every file back into your profiles. Instead, each adapter declares the state paths it understands, chooses safe defaults, and lets profiles override how writes to those paths are handled.
+Outfitter does not silently copy every file back into your `.agents` tree. Instead, each adapter declares the state paths it understands, chooses safe defaults, and lets settings override how writes to those paths are handled.
 
 ## Default behavior
 
@@ -18,40 +18,33 @@ state_persistence:
   mcp.json: symlink # MCP/server configuration stays durable.
   plugins/: symlink # Installed plugins can be reused.
   cache/: symlink # Useful package/cache state can be reused.
-  sessions/: symlink # Session/project state is durable unless a profile overrides it.
-  unknown: warn # Unexpected writes are visible and not silently copied into a profile.
+  sessions/: symlink # Session/project state is durable unless overridden.
+  unknown: warn # Unexpected writes are visible and not silently persisted.
 ```
 
-Some generated Pi runtime files, such as transformed settings or keybindings, may be treated as one-run generated files even though the underlying state path normally defaults to `symlink`. This keeps Outfitter-managed launch reconciliation from becoming accidental user state.
+Some generated runtime files, such as transformed settings or keybindings, may be treated as one-run generated files even though the underlying state path normally defaults to `symlink`. This keeps Outfitter-managed launch reconciliation from becoming accidental user state.
 
 ## How state works
 
 Outfitter separates runtime files into three groups:
 
-1. **Generated profile files** — files Outfitter builds from settings, profiles, templates, and adapter rules. These are temporary and reproducible.
+1. **Generated composition files** — files Outfitter bakes from the resolved `.agents` layers and adapter rules. These are temporary and reproducible.
 2. **Declared state paths** — files or directories the selected agent CLI is expected to read or write, such as `settings.json`, `mcp.json`, `plugins/`, or `sessions/`.
 3. **Unknown writes** — anything the agent writes outside declared state paths. Outfitter never silently persists these because it does not know their owner or merge rules.
 
-Only declared state paths can be persisted automatically.
+Only declared state paths can be persisted automatically. Baked artifacts and [dumps](./dump-and-bake.md) never contain persisted state — state is runtime, not configuration.
 
-## Profile option
+## Configuring persistence
 
-Use `state_persistence` in a profile to override adapter defaults:
+Set `state_persistence` in [settings](./settings.md) — globally, per project, or in `settings.local.yml` for one machine:
 
 ```yaml
-id: strict-ci
-label: Strict CI
-
-# Omitted paths use the selected adapter's default strategy.
-# This profile only overrides paths where CI should be stricter than normal.
+# .agents/settings.yml — a stricter policy for a CI project
 state_persistence:
   settings.json: error # Fail if the agent changes settings during the run.
   mcp.json: error # Fail if tool/server config changes during the run.
   plugins/: error # Fail if plugin state changes during the run.
   unknown: error # Fail if the agent writes an undeclared file.
-
-controls:
-  thinking: high
 ```
 
 ## Strategies
@@ -60,24 +53,22 @@ controls:
 
 ```yaml
 state_persistence:
-  auth.json: symlink # Persist writes through a durable profile-managed or native CLI path.
+  auth.json: symlink # Persist writes through a durable native CLI path.
   cache/: discard # Allow writes, then throw them away when the run ends.
   plugins/: warn # Allow writes, discard them, and report them after the run.
   settings.json: error # Allow the run, then fail if this path changed.
-  mcp.json: prompt # Ask after the run: persist, discard, or always persist for this profile.
+  mcp.json: prompt # Ask after the run: persist, discard, or always persist.
 ```
 
-Use `symlink` for state you want to keep, such as login state, durable settings, MCP config, or plugin installs. Use `discard`, `warn`, or `error` for state that should not become part of the durable profile. Use `prompt` when you want to decide interactively after each run.
+Use `symlink` for state you want to keep, such as login state, durable settings, MCP config, or plugin installs. Use `discard`, `warn`, or `error` for state that should not become durable. Use `prompt` when you want to decide interactively after each run.
 
 ## Prompt strategy
 
 When a `prompt` path changed during a run and both stdin and stdout are interactive terminals, Outfitter asks what to do with the change after the agent exits:
 
-- **persist** — copy the change to the path's durable source (the profile-managed file or the native CLI location) for this run only.
-- **discard** — throw the change away with the rest of the composite profile.
-- **always** — persist the change and record a `state_persistence: <path>: symlink` override in the selected profile's own YAML file, so future runs persist writes to that path automatically.
-
-The "always" choice is written into the selected profile's `profile.yml` because profiles are the single source of truth for `state_persistence` policy. If the selected profile comes from a remote or cached source, Outfitter never mutates the cache: the change is persisted once and a warning explains that the choice could not be recorded.
+- **persist** — copy the change to the path's durable destination for this run only.
+- **discard** — throw the change away with the rest of the baked composition.
+- **always** — persist the change and record a `state_persistence: <path>: symlink` override in the editable settings scope, so future runs persist writes to that path automatically. Outfitter never mutates a synced catalog cache: if the active configuration comes from a remote source, the change is persisted once and a warning explains that the choice could not be recorded.
 
 In non-interactive sessions (CI, scripts, piped stdio), `prompt` falls back to `warn` and Outfitter prints an explicit `prompt skipped: non-interactive` notice.
 
@@ -85,7 +76,7 @@ Undeclared writes governed by `unknown: prompt` cannot be persisted because they
 
 ## Temporary directory cleanup
 
-Composite profile directories are created under the system temporary directory and removed automatically when the Outfitter process exits or receives a handled signal. Removal deletes symlink entries without following them, so the durable auth/settings state the links point at is never touched. Pass `--debug` to keep the directory for inspection; Outfitter prints its path.
+Baked composition directories are created under the system temporary directory and removed automatically when the Outfitter process exits or receives a handled signal. Removal deletes symlink entries without following them, so the durable auth/settings state the links point at is never touched. Pass `--debug` to keep the directory for inspection; Outfitter prints its path.
 
 Each startup also best-effort sweeps `outfitter-*` directories older than seven days from the temporary root. The sweep never follows symlinks, so a stale directory's links are removed while their targets survive.
 
@@ -104,7 +95,7 @@ state_persistence:
 ### Keep shared catalogs clean
 
 ```yaml
-# Story: A team publishes a shared engineering profile catalog.
+# Story: A team publishes a shared .agents catalog.
 # Goal: MCP config can come from the catalog, but one user's random runtime files
 # should not become shared team state.
 state_persistence:
@@ -115,12 +106,12 @@ state_persistence:
 ### Make CI reproducible
 
 ```yaml
-# Story: A platform engineer runs an Outfitter profile in CI.
-# Goal: CI should prove the profile is complete, not depend on hidden runtime mutation.
+# Story: A platform engineer runs a baked Outfitter task in CI.
+# Goal: CI should prove the composition is complete, not depend on hidden runtime mutation.
 state_persistence:
-  settings.json: error # Settings drift means the profile is incomplete.
+  settings.json: error # Settings drift means the composition is incomplete.
   mcp.json: error # Tool config drift should fail the job.
-  plugins/: error # Plugin installs/updates should be explicit in the profile.
+  plugins/: error # Plugin installs/updates should be explicit in the tree.
   unknown: error # Any undeclared write is a reproducibility problem.
 ```
 
@@ -186,39 +177,10 @@ state_persistence:
   unknown: warn # Undeclared writes; allowed: discard, warn, error, prompt.
 ```
 
-Claude Code project/session state is represented through `projects/`. If a profile sets `controls.session_directory` or `controls.claude.session_directory`, Outfitter uses that location for Claude project state.
-
 ## Where durable state lives
 
-When a path uses `symlink`, Outfitter looks for a matching file or directory under the selected profile's CLI-specific resources:
+When a path uses `symlink`, the durable destination is the native CLI state location — `~/.pi/agent/...` for Pi, `~/.claude/...` for Claude Code. The native location is not another configuration layer: it does not participate in resolution or merge precedence; it only provides a durable destination for state paths.
 
-```text
-profiles/
-  default/
-    profile.yml
-    cli_specific/
-      pi/
-        settings.json
-        mcp.json
-      claude/
-        settings.json
-        skills/
-```
-
-If no profile-managed source exists, Outfitter falls back to the native CLI state location for most paths, such as `~/.pi/agent/...` for Pi or `~/.claude/...` for Claude Code.
-
-This fallback is not another profile layer. It does not participate in inheritance, merge precedence, or profile controls; it only provides a durable destination for state paths.
-
-## When to change defaults
-
-Most users can keep the adapter defaults. Override `state_persistence` when you need a profile with a specific state policy:
-
-```yaml
-state_persistence:
-  cache/: discard # Throwaway demos, sessions, or caches.
-  plugins/: warn # Local experimentation is okay but should be visible.
-  settings.json: error # CI, reproducibility checks, or locked-down project profiles.
-  auth.json: symlink # Intentional durable setup.
-```
+For a [ported Claude Code setup](./porting-claude.md), `~/.claude` configuration entries are themselves symlinks into `~/.agents/`, so persisted configuration state lands in the protocol tree while session and auth state stays native.
 
 For the complete adapter contract and rationale, see [State writeback strategy](../architecture/state_writeback_strategy.md).
