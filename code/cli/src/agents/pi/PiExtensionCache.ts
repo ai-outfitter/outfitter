@@ -13,6 +13,7 @@ import spawn from 'cross-spawn';
 export interface PiExtensionCacheOptions {
   readonly cacheDirectory?: string;
   readonly onProgress?: (message: string) => void;
+  readonly warn?: (message: string) => void;
 }
 
 interface GitExtensionSource {
@@ -29,7 +30,86 @@ export const materializePiExtensionSources = (
   }
 
   const { cacheDirectory } = options;
-  return sources.map((source) => materializePiExtensionSource(source, cacheDirectory, options.onProgress));
+  const materializedSources = sources.map((source) => ({
+    source,
+    materializedSource: materializePiExtensionSource(source, cacheDirectory, options.onProgress),
+  }));
+
+  return dropDuplicatePackageExtensions(materializedSources, options.warn);
+};
+
+interface MaterializedExtensionSource {
+  readonly source: string;
+  readonly materializedSource: string;
+}
+
+// Different source specs can resolve to the same extension package (for example a
+// repository transferred between GitHub organizations, where the old URL redirects).
+// Spec-level identity dedupe cannot catch that, and pi fails on duplicate tool names,
+// so drop later duplicates by resolved package name and keep the highest-precedence one.
+const dropDuplicatePackageExtensions = (
+  materializedSources: readonly MaterializedExtensionSource[],
+  warn?: (message: string) => void,
+): readonly string[] => {
+  const sourcesByPackageName = new Map<string, MaterializedExtensionSource>();
+  const uniqueSources: string[] = [];
+
+  for (const materializedSource of materializedSources) {
+    const packageName = resolveExtensionPackageName(materializedSource);
+
+    if (packageName === undefined) {
+      uniqueSources.push(materializedSource.materializedSource);
+      continue;
+    }
+
+    const existingSource = sourcesByPackageName.get(packageName);
+
+    if (existingSource === undefined) {
+      sourcesByPackageName.set(packageName, materializedSource);
+      uniqueSources.push(materializedSource.materializedSource);
+      continue;
+    }
+
+    warn?.(
+      `pi adapter skipped duplicate extension '${materializedSource.source}': package '${packageName}' is already provided by '${existingSource.source}'.`,
+    );
+  }
+
+  return uniqueSources;
+};
+
+const resolveExtensionPackageName = (materializedSource: MaterializedExtensionSource): string | undefined => {
+  if (materializedSource.source.startsWith('npm:')) {
+    return parseNpmPackageName(materializedSource.source.slice('npm:'.length));
+  }
+
+  if (materializedSource.materializedSource === materializedSource.source) {
+    return undefined;
+  }
+
+  return readPackageName(materializedSource.materializedSource);
+};
+
+const parseNpmPackageName = (spec: string): string | undefined => {
+  const withoutRange = spec.split('#', 1)[0];
+  const versionSeparatorIndex = withoutRange.indexOf('@', withoutRange.startsWith('@') ? 1 : 0);
+  const packageName = versionSeparatorIndex === -1 ? withoutRange : withoutRange.slice(0, versionSeparatorIndex);
+
+  return packageName === '' ? undefined : packageName.toLowerCase();
+};
+
+const readPackageName = (extensionPath: string): string | undefined => {
+  try {
+    const parsed: unknown = JSON.parse(readFileSync(join(extensionPath, 'package.json'), 'utf8'));
+
+    if (parsed !== null && typeof parsed === 'object' && 'name' in parsed && typeof parsed.name === 'string') {
+      return parsed.name.toLowerCase();
+    }
+  } catch {
+    // Extensions without a readable package.json cannot be identified; never dedupe them.
+  }
+
+  return undefined;
 };
 
 const materializePiExtensionSource = (

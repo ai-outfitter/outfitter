@@ -135,6 +135,7 @@ export const executeRunCommand = async (
           projectDirectory: input.projectDirectory,
           cacheDirectory: resolvedProfile.cacheDirectory,
           onProgress: resolveRunProgressWriter(dependencies),
+          warn: dependencies.writeError ?? console.error,
         },
       ),
       systemPromptExport.outputPath,

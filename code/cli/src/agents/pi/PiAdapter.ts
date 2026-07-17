@@ -129,6 +129,7 @@ export const createPiAdapter = (): AgentAdapter => ({
           extensions: materializePiExtensionSources(controls.extensions, {
             cacheDirectory: context.cacheDirectory,
             onProgress: context.onProgress,
+            warn: context.warn,
           }),
           skills: skillSources,
           appendSystemPrompt: appendPrompt.prompts,

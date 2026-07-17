@@ -85,6 +85,93 @@ describe('pi extension cache', () => {
     expect(existsSync(join(extensionPath, 'package-lock.json'))).toBe(true);
   });
 
+  it('drops later git extensions that resolve to an already-provided package name', () => {
+    const root = createTemporaryRoot();
+    const firstRepository = createLocalGitExtensionRepository(root, {
+      packageJson: true,
+      directoryName: 'extension-source-original',
+    });
+    const secondRepository = createLocalGitExtensionRepository(root, {
+      packageJson: true,
+      directoryName: 'extension-source-transferred',
+    });
+    const cacheDirectory = join(root, 'cache');
+    const warnings: string[] = [];
+    const adapter = createPiAdapter();
+    const compositeProfilePlan = adapter.createCompositeProfile(
+      { id: 'engineering', inherits: [], controls: {} },
+      { rootDirectory: join(root, 'composite'), profilePaths: [] },
+    );
+
+    const launchPlan = adapter.createLaunchPlan(
+      compositeProfilePlan.compositeProfile,
+      {
+        id: 'engineering',
+        inherits: [],
+        controls: { pi: { extensions: [`git+file://${firstRepository}`, `git+file://${secondRepository}`] } },
+      },
+      [],
+      { cacheDirectory, warn: (message) => warnings.push(message) },
+    );
+
+    expect(launchPlan.args.filter((arg) => arg === '--extension')).toHaveLength(1);
+    expect(warnings).toEqual([
+      `pi adapter skipped duplicate extension 'git+file://${secondRepository}': package 'test-pi-extension' is already provided by 'git+file://${firstRepository}'.`,
+    ]);
+  });
+
+  it('drops npm extensions duplicating an already-provided package name', () => {
+    const root = createTemporaryRoot();
+    const remoteRepository = createLocalGitExtensionRepository(root, { packageJson: true });
+    const cacheDirectory = join(root, 'cache');
+    const warnings: string[] = [];
+    const adapter = createPiAdapter();
+    const compositeProfilePlan = adapter.createCompositeProfile(
+      { id: 'engineering', inherits: [], controls: {} },
+      { rootDirectory: join(root, 'composite'), profilePaths: [] },
+    );
+
+    const launchPlan = adapter.createLaunchPlan(
+      compositeProfilePlan.compositeProfile,
+      {
+        id: 'engineering',
+        inherits: [],
+        controls: { pi: { extensions: [`git+file://${remoteRepository}`, 'npm:test-pi-extension@1.2.3'] } },
+      },
+      [],
+      { cacheDirectory, warn: (message) => warnings.push(message) },
+    );
+
+    expect(launchPlan.args.filter((arg) => arg === '--extension')).toHaveLength(1);
+    expect(launchPlan.args).not.toContain('npm:test-pi-extension@1.2.3');
+    expect(warnings).toHaveLength(1);
+  });
+
+  it('keeps git extensions without a package name even when their contents match', () => {
+    const root = createTemporaryRoot();
+    const firstRepository = createLocalGitExtensionRepository(root, { directoryName: 'extension-source-a' });
+    const secondRepository = createLocalGitExtensionRepository(root, { directoryName: 'extension-source-b' });
+    const cacheDirectory = join(root, 'cache');
+    const adapter = createPiAdapter();
+    const compositeProfilePlan = adapter.createCompositeProfile(
+      { id: 'engineering', inherits: [], controls: {} },
+      { rootDirectory: join(root, 'composite'), profilePaths: [] },
+    );
+
+    const launchPlan = adapter.createLaunchPlan(
+      compositeProfilePlan.compositeProfile,
+      {
+        id: 'engineering',
+        inherits: [],
+        controls: { pi: { extensions: [`git+file://${firstRepository}`, `git+file://${secondRepository}`] } },
+      },
+      [],
+      { cacheDirectory },
+    );
+
+    expect(launchPlan.args.filter((arg) => arg === '--extension')).toHaveLength(2);
+  });
+
   it('removes partial cache entries when dependency installation fails', () => {
     const root = createTemporaryRoot();
     const remoteRepository = createLocalGitExtensionRepository(root, { packageJson: 'invalid' });
@@ -225,9 +312,9 @@ const materializedExtensionPath = (source: string, cacheDirectory: string): stri
 
 const createLocalGitExtensionRepository = (
   root: string,
-  options: { readonly packageJson?: true | 'invalid' } = {},
+  options: { readonly packageJson?: true | 'invalid'; readonly directoryName?: string } = {},
 ): string => {
-  const repository = join(root, 'extension-source');
+  const repository = join(root, options.directoryName ?? 'extension-source');
   mkdirSync(repository, { recursive: true });
   runGit(['init', '--initial-branch=main'], repository);
   writeFileSync(join(repository, 'index.ts'), 'export default function () {}\n');

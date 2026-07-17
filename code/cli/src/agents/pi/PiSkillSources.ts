@@ -3,6 +3,7 @@ import { readdirSync, statSync, type Dirent } from 'node:fs';
 import { dirname, isAbsolute, join } from 'node:path';
 
 import type { AgentLaunchProfileLayer } from '../AgentAdapter.js';
+import { inferProfileIncludeSourceRoot } from '../../profiles/PromptIncludes.js';
 import type { PiProfileControls } from '../../profiles/Profile.js';
 
 export const createPiSkillSources = (input: {
@@ -46,6 +47,14 @@ const sharedSkillRootsForLayer = (profileLayer: AgentLaunchProfileLayer): readon
   const roots: string[] = [];
 
   if (profileLayer.sourceRootPath !== undefined) {
+    // Profiles conventionally live in <root>/.outfitter/profiles and declare skills
+    // relative to <root>, mirroring how append_system_prompt file includes resolve.
+    const conventionalRoot = inferProfileIncludeSourceRoot(profileLayer);
+
+    if (conventionalRoot !== undefined) {
+      roots.push(conventionalRoot);
+    }
+
     roots.push(dirname(profileLayer.sourceRootPath), profileLayer.sourceRootPath);
   }
 

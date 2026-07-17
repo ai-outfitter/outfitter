@@ -24,6 +24,8 @@ export interface AgentLaunchContext {
   readonly projectDirectory?: string;
   readonly cacheDirectory?: string;
   readonly onProgress?: (message: string) => void;
+  /** Receives launch-plan warnings; adapters fall back to silence when omitted. */
+  readonly warn?: (message: string) => void;
 }
 
 export interface AgentCompositeProfilePlan {
