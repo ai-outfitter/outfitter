@@ -1,9 +1,27 @@
 // Resolves protocol resources from layered `.agents` trees into one immutable effective resource set.
-import { existsSync, readdirSync } from 'node:fs';
+import { existsSync, readdirSync, statSync } from 'node:fs';
 import { join, posix, relative, sep } from 'node:path';
 
 import type { EffectiveResourceSet, Layer, ResourceDefinition, ResourceKind, ResolvedResource } from './Resource.js';
 import { resourceKinds } from './Resource.js';
+
+/** True when the path resolves (following symlinks) to a directory; false for broken links. */
+const resolvesToDirectory = (path: string): boolean => {
+  try {
+    return statSync(path).isDirectory();
+  } catch {
+    return false;
+  }
+};
+
+/** True when the path resolves (following symlinks) to a file; false for broken links. */
+const resolvesToFile = (path: string): boolean => {
+  try {
+    return statSync(path).isFile();
+  } catch {
+    return false;
+  }
+};
 
 const directoryResourceKinds: ReadonlyMap<ResourceKind, string> = new Map([
   ['agent', 'agents'],
@@ -20,13 +38,14 @@ const fileTreeResourceKinds: ReadonlyMap<ResourceKind, string> = new Map([
   ['command', 'commands'],
 ]);
 
+// Symlinked directories are followed (matching the skill catalog), so a resource can be a link.
 const listSubdirectories = (directory: string): readonly string[] => {
   if (!existsSync(directory)) {
     return [];
   }
 
   return readdirSync(directory, { withFileTypes: true })
-    .filter((entry) => entry.isDirectory())
+    .filter((entry) => resolvesToDirectory(join(directory, entry.name)))
     .map((entry) => entry.name);
 };
 
@@ -40,9 +59,9 @@ const listFilesRecursively = (root: string): readonly string[] => {
   for (const entry of readdirSync(root, { withFileTypes: true })) {
     const entryPath = join(root, entry.name);
 
-    if (entry.isDirectory()) {
+    if (resolvesToDirectory(entryPath)) {
       files.push(...listFilesRecursively(entryPath));
-    } else if (entry.isFile()) {
+    } else if (resolvesToFile(entryPath)) {
       files.push(entryPath);
     }
   }
@@ -57,9 +76,26 @@ const discoverDirectoryResources = (layer: Layer, kind: ResourceKind): readonly 
   const entryFile = entryFileByKind.get(kind)!;
 
   return listSubdirectories(container)
-    .filter((slug) => existsSync(join(container, slug, entryFile)))
+    .filter((slug) => resolvesToFile(join(container, slug, entryFile)))
     .map((slug) => ({ kind, slug, layer, path: join(container, slug, entryFile) }));
 };
+
+// Per-agent config.json paths across every layer that defines the agent, highest precedence first.
+const collectAgentConfigPaths = (layers: readonly Layer[], slug: string): readonly string[] =>
+  layers
+    .map((layer) => join(layer.root, 'agents', slug, 'config.json'))
+    .filter((configPath) => resolvesToFile(configPath));
+
+const withAgentConfigPaths = (
+  layers: readonly Layer[],
+  agents: ReadonlyMap<string, ResolvedResource>,
+): ReadonlyMap<string, ResolvedResource> =>
+  new Map(
+    [...agents.entries()].map(([slug, resource]) => [
+      slug,
+      { ...resource, configPaths: collectAgentConfigPaths(layers, slug) },
+    ]),
+  );
 
 const discoverFileResources = (layer: Layer, kind: ResourceKind): readonly ResourceDefinition[] => {
   const container = join(layer.root, fileTreeResourceKinds.get(kind)!);
@@ -99,7 +135,8 @@ export const resolveResources = (layers: readonly Layer[]): EffectiveResourceSet
   const resources = new Map<ResourceKind, ReadonlyMap<string, ResolvedResource>>();
 
   for (const kind of resourceKinds) {
-    resources.set(kind, resolveKind(layers, kind));
+    const resolved = resolveKind(layers, kind);
+    resources.set(kind, kind === 'agent' ? withAgentConfigPaths(layers, resolved) : resolved);
   }
 
   return { layers, resources };

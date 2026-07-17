@@ -56,7 +56,8 @@ export const executeListCommand = (input: ListInput): ListResult => {
   const { set, settingsIssues } = resolveEffectiveSet(input);
 
   if (settingsIssues.length > 0) {
-    throw new Error(`Cannot list resources with invalid settings: ${settingsIssues.map((i) => i.message).join('; ')}`);
+    const detail = settingsIssues.map((issue) => `${issue.filePath}#${issue.path} ${issue.message}`).join('; ');
+    throw new Error(`Cannot list resources with invalid settings: ${detail}`);
   }
 
   const messages: string[] = [];

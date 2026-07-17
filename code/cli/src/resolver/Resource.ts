@@ -51,7 +51,16 @@ export interface ResolvedResource {
   readonly slug: string;
   readonly winner: ResourceDefinition;
   readonly shadowed: readonly ResourceDefinition[];
+  /**
+   * For agents: existing `config.json` paths across all layers, highest precedence first. Per-agent
+   * JSON merges across layers independently of the markdown merge-by-ID, so a workspace config can
+   * override one loadout field of a globally defined agent.
+   */
+  readonly configPaths?: readonly string[];
 }
+
+/** Locale-independent, deterministic slug ordering (code-unit comparison). */
+export const compareSlugs = (left: string, right: string): number => (left < right ? -1 : left > right ? 1 : 0);
 
 /** One immutable effective resource set per invocation, keyed by kind then slug. */
 export interface EffectiveResourceSet {
@@ -66,7 +75,7 @@ export const listResources = (set: EffectiveResourceSet, kind: ResourceKind): re
     return [];
   }
 
-  return [...bySlug.values()].sort((left, right) => left.slug.localeCompare(right.slug));
+  return [...bySlug.values()].sort((left, right) => compareSlugs(left.slug, right.slug));
 };
 
 export const findResource = (

@@ -2,7 +2,7 @@
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { createRemoteRepositoryCachePath, resolveRemoteRepositorySubpath } from '../profiles/ProfileCache.js';
+import { encodeRemoteSource, resolveRemoteRepositorySubpath } from '../profiles/ProfileCache.js';
 import type { Settings, SourceReference } from '../settings/Settings.js';
 import type { Layer } from './Resource.js';
 
@@ -14,13 +14,17 @@ export interface LayerDiscoveryInput {
 
 const agentsRoot = (directory: string): string => join(directory, '.agents');
 
-const sourceLayer = (homeDirectory: string, source: SourceReference): Layer => {
+// Remote sources cache under the configured cache_directory, defaulting to ~/.agents/cache.
+const cacheRoot = (input: LayerDiscoveryInput): string =>
+  input.settings.cacheDirectory ?? join(input.homeDirectory, '.agents', 'cache');
+
+const sourceLayer = (input: LayerDiscoveryInput, source: SourceReference): Layer => {
   if (source.path !== undefined && source.uri === undefined && source.github === undefined) {
     return { root: source.path, origin: 'source', label: source.path };
   }
 
   const remote = source as { readonly uri?: string; readonly github?: string; readonly ref?: string };
-  const repositoryPath = createRemoteRepositoryCachePath(homeDirectory, remote as never);
+  const repositoryPath = join(cacheRoot(input), 'repos', encodeRemoteSource(remote as never));
   const root = source.path === undefined ? repositoryPath : resolveRemoteRepositorySubpath(repositoryPath, source.path);
   const label = remote.uri ?? `github:${remote.github}`;
 
@@ -35,7 +39,7 @@ export const discoverLayers = (input: LayerDiscoveryInput): readonly Layer[] => 
   const candidates: Layer[] = [
     { root: agentsRoot(input.projectDirectory), origin: 'workspace', label: 'workspace' },
     { root: agentsRoot(input.homeDirectory), origin: 'global', label: 'global' },
-    ...(input.settings.sources ?? []).map((source) => sourceLayer(input.homeDirectory, source)),
+    ...(input.settings.sources ?? []).map((source) => sourceLayer(input, source)),
   ];
 
   return candidates.filter((layer) => existsSync(layer.root));

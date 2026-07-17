@@ -1,6 +1,5 @@
-// Parses `agents/<id>/agent.md` frontmatter (plus optional config.json) into an agent identity + loadout.
-import { existsSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
+// Parses `agents/<id>/agent.md` frontmatter and merges per-layer config.json loadout overrides.
+import { readFileSync } from 'node:fs';
 
 import { validateSchema } from '../validation/SchemaValidator.js';
 import { parseYamlDocument } from '../validation/YamlDocument.js';
@@ -22,6 +21,9 @@ export interface AgentDefinitionIssue {
 
 export const isAgentDefinitionIssue = (value: AgentDefinition | AgentDefinitionIssue): value is AgentDefinitionIssue =>
   'message' in value;
+
+/** Loadout fields a per-agent config.json may override; identity fields (`name`) are frontmatter-only. */
+const loadoutKeys = ['skills', 'subagents', 'mcp', 'extensions', 'plugins', 'model', 'thinking', 'tools'] as const;
 
 interface FrontmatterSplit {
   readonly frontmatter: string;
@@ -72,25 +74,28 @@ const loadoutFromRecord = (record: Readonly<Record<string, unknown>>): Loadout =
   };
 };
 
-/** Reads the optional per-agent `config.json` loadout overrides beside `agent.md`. */
-const readConfigOverrides = (agentDirectory: string): Readonly<Record<string, unknown>> => {
-  const configPath = join(agentDirectory, 'config.json');
+/** Reads one config.json, restricting it to loadout keys; parse/read/non-object failures are issues. */
+const readConfigLoadout = (configPath: string): Readonly<Record<string, unknown>> | AgentDefinitionIssue => {
+  let parsed: unknown;
 
-  if (!existsSync(configPath)) {
-    return {};
+  try {
+    parsed = JSON.parse(readFileSync(configPath, 'utf8'));
+  } catch (error) {
+    return { path: configPath, message: `config.json is not readable JSON: ${String(error)}` };
   }
 
-  const parsed = JSON.parse(readFileSync(configPath, 'utf8')) as unknown;
-  return parsed !== null && typeof parsed === 'object' && !Array.isArray(parsed)
-    ? (parsed as Readonly<Record<string, unknown>>)
-    : {};
+  if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    return { path: configPath, message: 'config.json must be a JSON object of loadout overrides.' };
+  }
+
+  const record = parsed as Record<string, unknown>;
+  return Object.fromEntries(loadoutKeys.filter((key) => key in record).map((key) => [key, record[key]]));
 };
 
-export const parseAgentDefinition = (
+const parseFrontmatterRecord = (
   content: string,
-  agentDirectory: string,
   agentPath: string,
-): AgentDefinition | AgentDefinitionIssue => {
+): { readonly record: Record<string, unknown>; readonly body: string } | AgentDefinitionIssue => {
   const split = splitFrontmatter(content);
 
   if (split === undefined) {
@@ -107,25 +112,55 @@ export const parseAgentDefinition = (
     return { path: agentPath, message: 'agent.md frontmatter must be a YAML mapping.' };
   }
 
-  // config.json shallow-merges by key over the frontmatter loadout.
-  const record = { ...(parsed.document as Record<string, unknown>), ...readConfigOverrides(agentDirectory) };
-  const validation = validateSchema('agent', record);
+  // Validate the frontmatter on its own so config.json cannot supply required identity fields.
+  const validation = validateSchema('agent', parsed.document);
 
   if (!validation.valid) {
     return { path: agentPath, message: `agent.md is invalid: ${validation.issues[0]?.message ?? 'schema error'}` };
   }
 
+  return { record: parsed.document as Record<string, unknown>, body: split.body };
+};
+
+/**
+ * Parses an agent definition. `configPaths` are highest-precedence first; each is a loadout-only
+ * override that JSON-merges by key across layers over the frontmatter loadout.
+ */
+export const parseAgentDefinition = (
+  content: string,
+  configPaths: readonly string[],
+  agentPath: string,
+): AgentDefinition | AgentDefinitionIssue => {
+  const frontmatter = parseFrontmatterRecord(content, agentPath);
+
+  if (isAgentDefinitionIssue(frontmatter)) {
+    return frontmatter;
+  }
+
+  let merged: Record<string, unknown> = { ...frontmatter.record };
+
+  // Apply lowest precedence first so higher layers win per key.
+  for (const configPath of [...configPaths].reverse()) {
+    const config = readConfigLoadout(configPath);
+
+    if (isAgentDefinitionIssue(config)) {
+      return config;
+    }
+
+    merged = { ...merged, ...config };
+  }
+
   return {
-    name: record.name as string,
-    description: asString(record.description),
-    body: split.body,
-    loadout: loadoutFromRecord(record),
+    name: frontmatter.record.name as string,
+    description: asString(frontmatter.record.description),
+    body: frontmatter.body,
+    loadout: loadoutFromRecord(merged),
   };
 };
 
 export const readAgentDefinition = (
-  agentDirectory: string,
   agentPath: string,
+  configPaths: readonly string[] = [],
 ): AgentDefinition | AgentDefinitionIssue => {
   let content: string;
 
@@ -135,5 +170,5 @@ export const readAgentDefinition = (
     return { path: agentPath, message: `Could not read agent.md: ${String(error)}` };
   }
 
-  return parseAgentDefinition(content, agentDirectory, agentPath);
+  return parseAgentDefinition(content, configPaths, agentPath);
 };

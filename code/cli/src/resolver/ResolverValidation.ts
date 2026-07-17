@@ -1,6 +1,5 @@
-// Validates an effective resource set: agent frontmatter, unresolved loadout slugs, and shadowing.
-import { dirname } from 'node:path';
-
+// Validates an effective resource set: agent + skill definitions, unresolved loadout slugs, shadowing.
+import { isSkillDocumentIssue, readSkillDocument } from '../skills/SkillDocument.js';
 import { isAgentDefinitionIssue, readAgentDefinition } from './AgentDefinition.js';
 import type { EffectiveResourceSet, ResolvedResource } from './Resource.js';
 import { listResources } from './Resource.js';
@@ -27,7 +26,7 @@ const loadoutSlugReference = (
     }));
 
 const validateAgent = (set: EffectiveResourceSet, agent: ResolvedResource): readonly ValidationFinding[] => {
-  const definition = readAgentDefinition(dirname(agent.winner.path), agent.winner.path);
+  const definition = readAgentDefinition(agent.winner.path, agent.configPaths ?? []);
 
   if (isAgentDefinitionIssue(definition)) {
     return [{ severity: 'error', resource: `agent:${agent.slug}`, message: definition.message }];
@@ -49,6 +48,26 @@ const validateAgent = (set: EffectiveResourceSet, agent: ResolvedResource): read
   ];
 };
 
+const validateSkill = (skill: ResolvedResource): readonly ValidationFinding[] => {
+  const document = readSkillDocument(skill.winner.path);
+
+  if (isSkillDocumentIssue(document)) {
+    return [{ severity: 'error', resource: `skill:${skill.slug}`, message: document.message }];
+  }
+
+  if (document.name !== skill.slug) {
+    return [
+      {
+        severity: 'error',
+        resource: `skill:${skill.slug}`,
+        message: `SKILL.md name '${document.name}' must match its directory '${skill.slug}'.`,
+      },
+    ];
+  }
+
+  return [];
+};
+
 const shadowFindings = (resource: ResolvedResource): readonly ValidationFinding[] =>
   resource.shadowed.map((definition) => ({
     severity: 'warning' as const,
@@ -56,12 +75,19 @@ const shadowFindings = (resource: ResolvedResource): readonly ValidationFinding[
     message: `shadowed definition in ${definition.layer.label} is overridden by ${resource.winner.layer.label}.`,
   }));
 
-/** Collects validation findings across the effective set. Errors fail `--strict`; warnings are advisory. */
+/**
+ * Collects validation findings across the effective set. `error` findings always fail validation;
+ * `warning` findings (such as shadowed definitions) fail only under `--strict`.
+ */
 export const validateEffectiveSet = (set: EffectiveResourceSet): readonly ValidationFinding[] => {
   const findings: ValidationFinding[] = [];
 
   for (const agent of listResources(set, 'agent')) {
     findings.push(...validateAgent(set, agent));
+  }
+
+  for (const skill of listResources(set, 'skill')) {
+    findings.push(...validateSkill(skill));
   }
 
   for (const kind of ['agent', 'skill', 'knowledge', 'command'] as const) {
