@@ -1,0 +1,40 @@
+# Temporary diagnostic for ai-outfitter/actions#19: can the workflow's own
+# GITHUB_TOKEN (permission copilot-requests: write, added 2026-07-02 for
+# Copilot CLI) authenticate raw Copilot API inference calls — the path pi's
+# github-copilot provider uses? Delete after the investigation concludes.
+name: Probe Copilot API with GITHUB_TOKEN
+on:
+  workflow_dispatch: {}
+
+permissions:
+  copilot-requests: write
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Probe Copilot endpoints
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          payload='{"model":"gpt-4.1","messages":[{"role":"user","content":"Say ok"}],"max_tokens":5}'
+          probe() {
+            local name="$1" url="$2"
+            echo "=== $name ($url)"
+            curl -sS -o /tmp/resp.json -w "HTTP %{http_code}\n" \
+              -X POST "$url" \
+              -H "Authorization: Bearer $GH_TOKEN" \
+              -H "Content-Type: application/json" \
+              -H "X-Initiator: agent" \
+              -H "Openai-Intent: conversation-edits" \
+              -H "Editor-Version: pi/1.0" \
+              -d "$payload" || true
+            head -c 400 /tmp/resp.json; echo; echo
+          }
+          probe "copilot api"            "https://api.githubcopilot.com/chat/completions"
+          probe "copilot api individual" "https://api.individual.githubcopilot.com/chat/completions"
+          echo "=== models catalog (api.githubcopilot.com/models)"
+          curl -sS -o /tmp/models.json -w "HTTP %{http_code}\n" \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            "https://api.githubcopilot.com/models" || true
+          head -c 400 /tmp/models.json; echo
