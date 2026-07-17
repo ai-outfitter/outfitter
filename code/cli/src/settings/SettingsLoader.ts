@@ -3,15 +3,20 @@ import { existsSync, readFileSync } from 'node:fs';
 import { dirname, isAbsolute, join, resolve } from 'node:path';
 
 import { createRemoteRepositoryCachePath, resolveRemoteRepositorySubpath } from '../profiles/ProfileCache.js';
-import type { ProfileSourceReference } from '../profiles/ProfileSource.js';
 import type { ValidationIssue } from '../validation/SchemaValidator.js';
 import { validateSchema } from '../validation/SchemaValidator.js';
 import { parseYamlDocument } from '../validation/YamlDocument.js';
-import type { CustomSettings, RemoteSettingsReference, Settings } from './Settings.js';
+import type {
+  CustomSettings,
+  RemoteSettingsReference,
+  Settings,
+  SourceReference,
+  StatePersistence,
+} from './Settings.js';
 import { mergeSettingsStack } from './SettingsMerger.js';
 
 export interface SettingsLocation {
-  readonly scope: 'user' | 'project' | 'project-local' | 'remote';
+  readonly scope: 'user' | 'user-local' | 'project' | 'project-local' | 'remote';
   readonly path: string;
 }
 
@@ -38,32 +43,30 @@ export interface SettingsLoadIssue extends ValidationIssue {
 }
 
 interface SettingsDocument {
-  readonly default_profile?: string;
   readonly default_agent?: string;
-  readonly profile_sources?: readonly ProfileSourceDocument[];
+  readonly default_harness?: 'pi' | 'claude';
+  readonly sources?: readonly SourceDocument[];
   readonly remote_settings?: readonly RemoteSettingsDocument[];
   readonly cache_directory?: string;
+  readonly state_persistence?: StatePersistence;
   readonly custom_settings?: CustomSettings;
-  readonly profile_export?: boolean;
   readonly startup?: StartupSettingsDocument;
   readonly enterprise?: EnterpriseSettingsDocument;
 }
 
 interface EnterpriseSettingsDocument {
-  readonly private_profile_catalogs?: boolean;
+  readonly private_catalogs?: boolean;
 }
 
 interface StartupSettingsDocument {
   readonly ascii_art?: boolean;
 }
 
-interface ProfileSourceDocument {
+interface SourceDocument {
   readonly path?: string;
   readonly uri?: string;
   readonly github?: string;
   readonly ref?: string;
-  readonly only?: readonly string[];
-  readonly except?: readonly string[];
 }
 
 interface RemoteSettingsDocument {
@@ -82,11 +85,15 @@ export const createSettingsLoadPlan = (locations: readonly SettingsLocation[]): 
   locations,
 });
 
+const agentsSettings = (directory: string, ...rest: string[]): string => join(directory, '.agents', ...rest);
+
+// Ordered lowest-to-highest precedence so later files fold over earlier ones during merge.
 export const discoverSettingsLoadPlan = (input: SettingsDiscoveryInput): SettingsLoadPlan =>
   createSettingsLoadPlan([
-    { scope: 'user', path: join(input.homeDirectory, '.outfitter', 'settings.yml') },
-    { scope: 'project', path: join(input.projectDirectory, '.outfitter', 'settings.yml') },
-    { scope: 'project-local', path: join(input.projectDirectory, '.outfitter', 'local', 'settings.yml') },
+    { scope: 'user', path: agentsSettings(input.homeDirectory, 'settings.yml') },
+    { scope: 'user-local', path: agentsSettings(input.homeDirectory, 'settings.local.yml') },
+    { scope: 'project', path: agentsSettings(input.projectDirectory, 'settings.yml') },
+    { scope: 'project-local', path: agentsSettings(input.projectDirectory, 'settings.local.yml') },
   ]);
 
 export const discoverRemoteSettingsLoadPlan = (
@@ -102,8 +109,8 @@ export const resolveCachedRemoteSettingsPath = (homeDirectory: string, source: R
     return configuredPath;
   }
 
-  const nestedOutfitterSettingsPath = resolveRemoteRepositorySubpath(repositoryPath, '.outfitter/settings.yml');
-  return existsSync(nestedOutfitterSettingsPath) ? nestedOutfitterSettingsPath : configuredPath;
+  const nestedAgentsSettingsPath = resolveRemoteRepositorySubpath(repositoryPath, '.agents/settings.yml');
+  return existsSync(nestedAgentsSettingsPath) ? nestedAgentsSettingsPath : configuredPath;
 };
 
 export const loadSettingsFiles = (plan: SettingsLoadPlan): SettingsLoadResult => {
@@ -217,16 +224,16 @@ const addSettingsFile = (
 };
 
 const convertSettingsDocument = (document: SettingsDocument, settingsDirectory: string): Settings => ({
-  defaultProfile: document.default_profile,
   defaultAgent: document.default_agent,
-  profileSources: document.profile_sources?.map((source) => convertProfileSource(source, settingsDirectory)),
+  defaultHarness: document.default_harness,
+  sources: document.sources?.map((source) => convertSource(source, settingsDirectory)),
   remoteSettings: document.remote_settings?.map(convertRemoteSettingsSource),
   cacheDirectory:
     document.cache_directory === undefined
       ? undefined
       : resolveConfigDirectory(document.cache_directory, settingsDirectory),
+  statePersistence: document.state_persistence,
   customSettings: document.custom_settings,
-  profileExport: document.profile_export,
   startup: convertStartupSettings(document.startup),
   enterprise: convertEnterpriseSettings(document.enterprise),
 });
@@ -235,7 +242,7 @@ const convertStartupSettings = (startup: StartupSettingsDocument | undefined): S
   startup === undefined ? undefined : { asciiArt: startup.ascii_art };
 
 const convertEnterpriseSettings = (enterprise: EnterpriseSettingsDocument | undefined): Settings['enterprise'] =>
-  enterprise === undefined ? undefined : { privateProfileCatalogs: enterprise.private_profile_catalogs };
+  enterprise === undefined ? undefined : { privateCatalogs: enterprise.private_catalogs };
 
 const convertRemoteSettingsSource = (source: RemoteSettingsDocument): RemoteSettingsReference => {
   if (source.uri !== undefined) {
@@ -245,25 +252,17 @@ const convertRemoteSettingsSource = (source: RemoteSettingsDocument): RemoteSett
   return { github: source.github!, ref: source.ref, path: source.path };
 };
 
-const convertProfileSource = (source: ProfileSourceDocument, settingsDirectory: string): ProfileSourceReference => {
-  const filters = {
-    only: source.only,
-    except: source.except,
-  };
-
+const convertSource = (source: SourceDocument, settingsDirectory: string): SourceReference => {
   if (source.uri !== undefined) {
-    return { ...filters, uri: source.uri, ref: source.ref, path: source.path };
+    return { uri: source.uri, ref: source.ref, path: source.path };
   }
 
   if (source.github !== undefined) {
-    return { ...filters, github: source.github, ref: source.ref, path: source.path };
+    return { github: source.github, ref: source.ref, path: source.path };
   }
 
-  return { ...filters, path: resolveProfileSourcePath(source.path!, settingsDirectory) };
+  return { path: resolveConfigDirectory(source.path!, settingsDirectory) };
 };
-
-const resolveProfileSourcePath = (sourcePath: string, settingsDirectory: string): string =>
-  resolveConfigDirectory(sourcePath, settingsDirectory);
 
 const resolveConfigDirectory = (configuredPath: string, settingsDirectory: string): string => {
   if (isAbsolute(configuredPath)) {

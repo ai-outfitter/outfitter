@@ -1,51 +1,49 @@
 /* eslint-disable complexity */
 // Provides deterministic Settings merge scaffolding.
 import { mergeObjectsWithPolicy } from '../merge/SettingsValueMerger.js';
-import type { CustomSettings, Settings } from './Settings.js';
+import type { CustomSettings, Settings, StatePersistence } from './Settings.js';
 import { emptySettings } from './Settings.js';
 
 export const mergeSettingsStack = (settingsStack: readonly Settings[]): Settings => {
-  let defaultProfile: string | undefined;
   let defaultAgent: string | undefined;
-  let profileSources: Settings['profileSources'];
+  let defaultHarness: Settings['defaultHarness'];
+  let sources: Settings['sources'];
   let remoteSettings: Settings['remoteSettings'];
   let cacheDirectory: string | undefined;
+  let statePersistence: StatePersistence | undefined;
   let customSettings: CustomSettings | undefined;
-  let profileExport: boolean | undefined;
   let startup: Settings['startup'];
   let enterprise: Settings['enterprise'];
 
   for (const settings of settingsStack) {
-    defaultProfile = settings.defaultProfile ?? defaultProfile;
     defaultAgent = settings.defaultAgent ?? defaultAgent;
+    defaultHarness = settings.defaultHarness ?? defaultHarness;
 
-    profileSources = settings.profileSources ?? profileSources;
+    sources = settings.sources ?? sources;
     remoteSettings = settings.remoteSettings ?? remoteSettings;
     cacheDirectory = settings.cacheDirectory ?? cacheDirectory;
+    statePersistence =
+      settings.statePersistence === undefined
+        ? statePersistence
+        : { ...statePersistence, ...settings.statePersistence };
     customSettings = mergeOptionalCustomSettings(customSettings, settings.customSettings);
-    profileExport = mergeOptionalBoolean(profileExport, settings.profileExport);
     startup = settings.startup === undefined ? startup : { ...startup, ...settings.startup };
     enterprise = settings.enterprise === undefined ? enterprise : { ...enterprise, ...settings.enterprise };
   }
 
   return {
     ...emptySettings(),
-    defaultProfile,
     defaultAgent,
-    profileSources: profileSources ?? [],
+    defaultHarness,
+    sources: sources ?? [],
     remoteSettings: remoteSettings ?? [],
     cacheDirectory,
+    statePersistence: statePersistence ?? {},
     customSettings: customSettings ?? {},
-    profileExport,
     startup: startup ?? {},
     enterprise: enterprise ?? {},
   };
 };
-
-const mergeOptionalBoolean = (
-  lowerPrecedence: boolean | undefined,
-  higherPrecedence: boolean | undefined,
-): boolean | undefined => higherPrecedence ?? lowerPrecedence;
 
 const mergeOptionalCustomSettings = (
   lowerPrecedence: CustomSettings | undefined,
