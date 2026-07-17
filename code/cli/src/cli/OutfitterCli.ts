@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import { Command } from 'commander';
 
 import type { CommandObject } from './commands/CommandObject.js';
+import { createDumpCommand } from './commands/DumpCommand.js';
 import { createListCommand } from './commands/ListCommand.js';
 import { createRunCommand, executeRunCommand } from './commands/RunCommand.js';
 import { createSetupCommand } from './commands/SetupCommand.js';
@@ -26,6 +27,7 @@ export const createDefaultCommands = (): CommandObject[] => [
   createWelcomeCommand(),
   createListCommand(),
   createValidateCommand(),
+  createDumpCommand(),
 ];
 
 export const createOutfitterProgram = (commands: readonly CommandObject[] = createDefaultCommands()): Command => {
