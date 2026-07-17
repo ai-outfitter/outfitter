@@ -1,8 +1,9 @@
-# Temporary diagnostic for ai-outfitter/actions#19: the raw Copilot API
-# rejects the workflow GITHUB_TOKEN ("Server-To-Server Tokens are not
-# supported"). Copilot CLI must exchange it — test whether the exchange
-# endpoint accepts the Actions token and whether the resulting session token
-# works for direct chat completions. Delete after the investigation concludes.
+# Temporary diagnostic for ai-outfitter/actions#19, round 3: the raw Copilot
+# API and the copilot_internal/v2/token exchange both reject the Actions
+# GITHUB_TOKEN, so the only documented zero-PAT path is Copilot CLI itself
+# (changelog 2026-07-02). Run it headless with the workflow token to see if
+# it works in this org (requires the "Copilot CLI billed to the organization"
+# policy). Delete after the investigation concludes.
 name: Probe Copilot API with GITHUB_TOKEN
 on:
   workflow_dispatch: {}
@@ -13,44 +14,15 @@ permissions:
 jobs:
   probe:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
-      - name: Exchange GITHUB_TOKEN for Copilot session token
+      - name: Install Copilot CLI
+        run: npm install -g @github/copilot && copilot --version
+
+      - name: Run Copilot CLI headless with workflow token
         env:
-          GH_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
-          echo "=== token exchange (api.github.com/copilot_internal/v2/token)"
-          status=$(curl -sS -o /tmp/exchange.json -w "%{http_code}" \
-            -H "Authorization: token $GH_TOKEN" \
-            -H "Editor-Version: pi/1.0" \
-            "https://api.github.com/copilot_internal/v2/token" || true)
-          echo "HTTP $status"
-          # Never print the token itself; show shape only.
-          jq 'if .token then {token: "<redacted>", expires_at, refresh_in, endpoints, chat_enabled} else . end' /tmp/exchange.json 2>/dev/null | head -c 800 || head -c 400 /tmp/exchange.json
-          echo
-
-          token=$(jq -r '.token // empty' /tmp/exchange.json)
-          if [ -z "$token" ]; then
-            echo "No session token; stopping."
-            exit 0
-          fi
-
-          api_base=$(jq -r '.endpoints.api // "https://api.githubcopilot.com"' /tmp/exchange.json)
-          echo "=== chat completion with session token ($api_base)"
-          curl -sS -o /tmp/resp.json -w "HTTP %{http_code}\n" \
-            -X POST "$api_base/chat/completions" \
-            -H "Authorization: Bearer $token" \
-            -H "Content-Type: application/json" \
-            -H "X-Initiator: agent" \
-            -H "Openai-Intent: conversation-edits" \
-            -H "Editor-Version: pi/1.0" \
-            -d '{"model":"gpt-4.1","messages":[{"role":"user","content":"Say ok"}],"max_tokens":5}' || true
-          jq -c '{content: .choices[0].message.content, model} // .' /tmp/resp.json 2>/dev/null | head -c 400 || head -c 400 /tmp/resp.json
-          echo
-
-          echo "=== models catalog with session token"
-          curl -sS -o /tmp/models.json -w "HTTP %{http_code}\n" \
-            -H "Authorization: Bearer $token" \
-            -H "Editor-Version: pi/1.0" \
-            "$api_base/models" || true
-          jq -r '[.data[].id] | join(", ")' /tmp/models.json 2>/dev/null | head -c 600 || head -c 300 /tmp/models.json
-          echo
+          set +e
+          copilot -p "Reply with exactly: ok" --allow-all-tools --log-level debug 2>&1 | tail -30
+          echo "exit=$?"
