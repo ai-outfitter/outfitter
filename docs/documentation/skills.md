@@ -1,6 +1,6 @@
 # Skills
 
-Skills are focused capability packages that an agent loads progressively. A [profile](./profiles.md) or [task](./tasks.md) selects the skills available to a run by slug, while each skill owns the instructions and references needed for one kind of work.
+Skills are focused capability packages that an agent loads progressively. An [agent](./agents.md) selects the skills available to a run by slug in its `skills` loadout, while each skill owns the instructions and references needed for one kind of work.
 
 Skills are protocol resources under `skills/<id>/` in any [`.agents` layer](./concepts.md#layers) — workspace, global, or a remote [catalog](./catalogs.md). Outfitter follows the [Agent Skills](https://agentskills.io/specification) package model as incorporated by the pinned protocol revision.
 
@@ -15,18 +15,18 @@ Place a skill under `skills/<skill-id>/SKILL.md`. The folder name is its ID:
       SKILL.md
 ```
 
-Select it by slug:
+Select it by slug in an agent's loadout:
 
-```yaml
-# .agents/settings.yml
-profiles:
-  platform:
-    personas: [platform]
-    skills:
-      - outfitter-actions
+```
+<!-- .agents/agents/platform/agent.md -->
+---
+name: platform
+skills:
+  - outfitter-actions
+---
 ```
 
-A `skills` entry is a bare slug or, to append references to the selected skill, an `{ id, references }` object ([Selection-added references](#selection-added-references)).
+A `skills` entry is a bare slug or, to append references to the selected skill, an `{ id, references }` object ([Loadout-added references](#loadout-added-references)).
 
 ## SKILL.md
 
@@ -46,20 +46,19 @@ Skill directory names use lowercase letters, numbers, and hyphens — at most 64
 
 ## Where context and instructions live
 
-Keep one source of truth for each instruction. Personas establish the durable operating context for a run; skills own the procedures for individual capabilities; tasks own per-run objectives.
+Keep one source of truth for each instruction. An agent's identity establishes the durable operating context for a run; skills own the procedures for individual capabilities.
 
 | Content                                                                      | Owner                            |
 | ---------------------------------------------------------------------------- | -------------------------------- |
-| Identity, safety boundaries, organization policy, permissions                | [Persona](./personas.md)         |
+| Identity, safety boundaries, organization policy, permissions                | [Agent](./agents.md) `agent.md`  |
 | Shared operating context for every run from a tree                           | `agents.md` / `system-prompt.md` |
-| Short rules that decide which skill applies                                  | Persona definition               |
-| A named objective, inputs, and completion contract                           | [Task](./tasks.md)               |
+| Short rules that decide which skill applies                                  | Agent definition                 |
 | Steps, decision trees, and checks for performing a capability                | Skill `SKILL.md`                 |
 | Detailed architecture, runbooks, schemas, examples, and domain knowledge     | Skill `references/`              |
 | Deterministic collectors, validators, transformations, and maintenance tasks | Skill `scripts/`                 |
 | Templates and files used to produce output                                   | Skill `assets/`                  |
 
-When a selected skill already defines a capability, a persona MUST NOT copy or paraphrase that capability's detailed instructions. The persona should contain only the short activation rule needed to select the skill. This boundary prevents identity prompts from growing with every capability, avoids instruction drift between two copies, and preserves progressive disclosure. Prefer **one skill per capability** rather than one skill per task or trigger.
+When a selected skill already defines a capability, an agent definition MUST NOT copy or paraphrase that capability's detailed instructions. The agent should contain only the short activation rule needed to select the skill. This boundary prevents identity prompts from growing with every capability, avoids instruction drift between two copies, and preserves progressive disclosure. Prefer **one skill per capability** rather than one skill per task or trigger.
 
 ## Skills as routers
 
@@ -165,13 +164,22 @@ A `file` or `repo_file` target names a regular file, a directory, or a glob; `re
 
 Every materialized target lands at `<section>/<source basename>`. Two targets whose sources share a basename fail validation; rename one source to resolve the collision.
 
+A single directory reference is the idiomatic way to expose a whole documentation tree to a skill instead of listing each file. Outfitter's own bundled skill, for example, points at the entire `docs/documentation` directory:
+
+```yaml
+references:
+  - file: docs/documentation
+```
+
+> The bundled skill's `SKILL.md` still enumerates its references file by file until directory materialization for that skill lands in an implementation PR; the single-directory form above is the target.
+
 ### Scripts and assets
 
 The `scripts` and `assets` frontmatter keys use the same entry union and validation rules as `references`, materializing under the generated skill's `scripts/` and `assets/` directories. Materialized scripts keep their executable mode. Files already inside the skill directory ship with the skill as before; frontmatter entries add external files beside them, and a destination that collides with a shipped file fails validation.
 
-### Selection-added references
+### Loadout-added references
 
-A profile or task can append references to a skill it selects, expanding the entry from a bare slug to an object:
+An agent's `skills` loadout can append references to a skill it selects, expanding the entry from a bare slug to an object:
 
 ```yaml
 skills:
@@ -181,7 +189,7 @@ skills:
       - repo_file: docs/runbooks/deploy.md
 ```
 
-Selection-added entries use the same `file` / `repo_file` sources and validation rules; `file` resolves from the tree containing the _selection_, not the skill's catalog. This lets a selection specialize a shared skill with additional documentation without forking it. Because the skill body cannot name these files in advance, a routing skill should list its `references/` directory rather than assume a fixed set.
+Loadout-added entries use the same `file` / `repo_file` sources and validation rules; `file` resolves from the tree containing the _agent_, not the skill's catalog. This lets an agent specialize a shared skill with additional documentation without forking it. Because the skill body cannot name these files in advance, a routing skill should list its `references/` directory rather than assume a fixed set.
 
 ### Trust boundary
 
@@ -196,7 +204,7 @@ For each selected skill, Outfitter:
 1. Resolves the slug across layers — workspace, global, then remote sources — following [layer precedence](./concepts.md#layer-precedence).
 2. Validates `SKILL.md` and confirms `name` matches the directory name.
 3. Resolves `file` and `repo_file` reference entries, expanding glob targets.
-4. Materializes the generated skill (references, scripts, assets) for the run or [bake](./dump-and-bake.md).
+4. Materializes the generated skill (references, scripts, assets) for the run or [dump](./dump-and-bake.md).
 5. Passes the generated skill to the selected agent adapter.
 
 Run `outfitter validate` to diagnose unresolved slugs, invalid frontmatter, missing or zero-match `file` references, escaping paths, and destination collisions before launch.
