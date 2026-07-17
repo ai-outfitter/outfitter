@@ -2,6 +2,8 @@
 
 Outfitter settings configure how resources are resolved and launched. They live inside the `.agents` tree so a tree carries everything it needs, and they are the only Outfitter-specific files in it — deleting them leaves a pure protocol payload.
 
+Settings do not carry resource selections. An agent's loadout — its skills, subagents, model, and so on — lives on the [agent](./agents.md), not here. Settings is only about where resources come from and how a run launches.
+
 ## Scopes
 
 | Scope         | File                                                       | Purpose                                                        |
@@ -19,8 +21,8 @@ In a standalone `.agents` repository the repository root is the tree, so the fil
 
 ```yaml
 # .agents/settings.yml
-default_profile: engineer
-default_agent: pi
+default_agent: engineer # which agent runs by default
+default_harness: pi # which harness to launch: pi or claude
 
 # Where protocol resources come from, beyond this tree and ~/.agents.
 sources:
@@ -31,17 +33,6 @@ sources:
     ref: v1.2.0
   - path: ../shared-agents # local directory, read live from disk
 
-# Named profiles: selections of resource slugs. See profiles.md.
-profiles:
-  engineer:
-    personas: [engineer]
-    skills: [wiki, research]
-    subagents: [code-reviewer]
-    knowledge: [architecture]
-  reviewer:
-    personas: [engineer, staff-reviewer] # composed in order
-    skills: [deployment-review]
-
 # Organization-distributed settings, layered below local settings.
 remote_settings:
   - github: my-org/.outfitter
@@ -51,9 +42,8 @@ remote_settings:
 cache_directory: ~/.agents/cache
 ```
 
-- `default_profile` / `default_agent` — what plain `outfitter` runs.
+- `default_agent` / `default_harness` — which agent plain `outfitter` runs, and the harness it launches in.
 - `sources` — ordered list of remote or local `.agents` payloads. Remote entries (`github:` / `uri:`) accept `ref:` pinning and an optional `path:` to the payload inside the repository; see [Catalogs](./catalogs.md) for conventions and trust guidance.
-- `profiles` — named selections composed from resolved resources by slug; see [Profiles](./profiles.md).
 - `remote_settings` — shared settings a repository distributes; cached locally and merged below your project and user settings, so anything you set locally wins.
 - `cache_directory` — where remote sources are cached (`outfitter sync` updates them).
 

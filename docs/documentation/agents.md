@@ -1,6 +1,6 @@
 # Agents
 
-An agent is the protocol's identity resource: a directory under `agents/<id>/` containing an `agent.md` definition and an optional `config.json`.
+An agent is the protocol's identity resource — and, in Outfitter, the thing you run. A directory under `agents/<id>/` holds an `agent.md` definition and an optional `config.json`. Together they carry both _who the agent is_ and _what it runs with_: its skills, MCP servers, subagents, extensions, plugins, model, thinking level, and tool policy. That whole bundle — identity plus loadout — is what earlier drafts called a "profile." There is no separate profile resource; **an agent is the profile**. See [Profiles](./profiles.md).
 
 ```text
 .agents/
@@ -12,34 +12,73 @@ An agent is the protocol's identity resource: a directory under `agents/<id>/` c
       agent.md
 ```
 
-Agent definitions are plain protocol resources — nothing about them is Outfitter-specific. Outfitter's contribution is how they are _used_: the same agent definition can be composed as a [persona](./personas.md) (the run's primary identity) or projected as a [subagent](./subagents.md) (a delegate the run can invoke). The [profile](./profiles.md) or [task](./tasks.md) making the selection decides which role it plays.
-
 ## agent.md
 
-`agent.md` describes the identity in markdown: who the agent is, its policy and posture, how it approaches work, and any activation guidance. Keep it focused on durable identity and behavior — procedures for individual capabilities belong in [skills](./skills.md), and per-run objectives belong in [tasks](./tasks.md).
+`agent.md` describes the identity in markdown — who the agent is, its policy and posture, how it approaches work — and declares its loadout in frontmatter:
 
 ```markdown
 ---
-name: code-reviewer
-description: Reviews diffs for correctness and simplification opportunities.
+name: engineer
+description: Implements features and fixes with a bias toward small, verifiable changes.
+skills: [wiki, research]
+subagents: [code-reviewer]
+extensions: [outfitter-mode]
+plugins: [git-tools]
+mcp: [github]
+model: gpt-5.2
+thinking: high
+tools:
+  allow: [read, edit, bash]
 ---
 
-# Code Reviewer
+# Engineer
 
-You review changes with a bias toward small, verifiable findings...
+You implement changes directly, keep diffs small, and verify before claiming done...
 ```
+
+Keep the prose focused on durable identity and behavior. Per-capability procedures belong in [skills](./skills.md); the frontmatter only _selects_ resources by slug — it never copies their content.
+
+### Loadout fields
+
+| Field        | Selects                                                                      |
+| ------------ | ---------------------------------------------------------------------------- |
+| `skills`     | [Skill](./skills.md) slugs made available to the run.                        |
+| `mcp`        | MCP servers from the tree's `mcp.json` to enable.                            |
+| `subagents`  | Agent slugs projected as harness delegates. See [Subagents](./subagents.md). |
+| `extensions` | Pi extensions to load. First-class, per the adapter.                         |
+| `plugins`    | Pi plugins to load. First-class, per the adapter.                            |
+| `model`      | Provider/model from `models.json`.                                           |
+| `thinking`   | Thinking/effort level.                                                       |
+| `tools`      | Allowed/denied tool policy for the run.                                      |
+
+Every value is a slug resolved across layers, so `skills: [wiki]` uses whichever `skills/wiki/` wins by precedence — nothing is duplicated into the agent.
 
 ## config.json
 
-The optional `config.json` carries structured configuration for the agent — model and tool preferences, harness-specific options — following the protocol's schema for the pinned revision. JSON files merge across layers per the protocol's JSON merge behavior, so a workspace layer can adjust one field of a globally defined agent without copying the whole definition.
+The optional `config.json` carries structured or harness-specific configuration that is awkward in frontmatter, following the protocol's schema for the pinned revision. JSON files merge across layers per the protocol's JSON merge behavior, so a workspace layer can adjust one field of a globally defined agent — swap the model, add an extension — without copying the whole definition.
 
 ## Tree-level context
 
 Two files at the tree root complement agent definitions:
 
-- `agents.md` — shared operating context that applies to every run from this tree, regardless of the selected personas.
-- `system-prompt.md` — the base system prompt personas layer on top of.
+- `agents.md` — shared operating context that applies to every run from this tree.
+- `system-prompt.md` — the base system prompt an agent's identity layers on top of.
+
+## Running an agent
+
+Select an agent by slug; choose the harness with `--harness`:
+
+```bash
+outfitter run engineer
+outfitter run engineer --harness claude
+```
+
+`default_agent` in [settings](./settings.md) sets what plain `outfitter` runs.
 
 ## Resolution
 
-Agents resolve by slug across layers — workspace, global, then remote sources — with merge-by-ID semantics: a workspace `agents/engineer/` overrides a global or remote one. `outfitter list agents` shows every resolvable agent and its winning source; `outfitter validate` reports broken or shadowed definitions.
+Agents resolve by slug across layers — workspace, global, then remote sources — with merge-by-ID semantics: a workspace `agents/engineer/` overrides a global or remote one. `outfitter list agents` shows every resolvable agent and its winning source; `outfitter validate` reports broken loadout slugs and shadowed definitions.
+
+## Agents as delegates
+
+The same agent definition can also be selected as a [subagent](./subagents.md) in another agent's `subagents` list — a delegate the run can hand focused work to. A leader agent's loadout is where that delegation is declared.

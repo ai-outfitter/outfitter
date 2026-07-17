@@ -7,13 +7,12 @@ flowchart LR
   A[Settings] --> B[Sources]
   B --> C[.agents layers]
   C --> D[Resolver]
-  D --> E[Composed profile]
-  E --> F[Bake]
-  F --> G[Adapter]
-  G --> H[Agent CLI]
+  D --> E[Composed agent]
+  E --> F[Adapter]
+  F --> G[Harness]
 ```
 
-Settings tell Outfitter where `.agents` resources come from; sources supply protocol resource trees; the resolver merges the layered trees into one effective resource set; a profile selects resources from that set by slug; bake freezes the selection into an immutable runnable artifact; and an adapter projects that artifact into agent-specific files, flags, and environment variables before launching the agent CLI.
+Settings tell Outfitter where `.agents` resources come from; sources supply protocol resource trees; the resolver merges the layered trees into one effective resource set; the selected agent composes its loadout — skills, subagents, model, and so on — from that set by slug; and an adapter projects the composed agent into harness-specific files, flags, and environment variables before launching the harness (pi or Claude Code).
 
 ## The `.agents` protocol
 
@@ -36,20 +35,21 @@ Outfitter stores and exchanges all agent configuration in the vendor-neutral [Do
 
 The protocol resources Outfitter resolves and composes:
 
-- **Agent** — a definition at `agents/<id>/agent.md` describing an identity and its behavior. One agent definition can serve as a [persona](./personas.md) or a [subagent](./subagents.md). See [Agents](./agents.md).
+- **Agent** — a definition at `agents/<id>/agent.md` (plus optional `config.json`) describing an identity _and_ its loadout: the skills, subagents, MCP servers, extensions, plugins, model, thinking level, and tools it runs with. The agent is what you run. See [Agents](./agents.md).
 - **Skill** — a capability package under `skills/<id>/` with instructions, references, scripts, and assets. See [Skills](./skills.md).
-- **Task** — a lightweight execution contract at `tasks/<id>/task.md` that selects personas, skills, and optional DeepWork jobs. See [Tasks](./tasks.md).
 - **Knowledge** and **commands** — reference documents and slash commands shared across runs.
+
+> Tasks — `tasks/<id>/task.md` execution contracts, structured inputs, and baking — are the subject of a separate upcoming RFC and are not part of this end state. See [Tasks](./tasks.md).
 
 ## Profiles, personas, and subagents
 
-These are three distinct concepts:
+Three related terms, none of which is a settings key or a separate file format:
 
-- A **[profile](./profiles.md)** is _what you selected_: a named selection of resource slugs — personas, skills, subagents, knowledge — declared in settings or by a task. A profile is not a file format; there is no `profile.yml`.
-- A **[persona](./personas.md)** is _who the agent is_: one or more protocol agents composed in explicit order to form the primary identity, policy, and behavioral posture of a run.
-- A **[subagent](./subagents.md)** is _who the agent can delegate to_: a protocol agent projected into the harness's native subagent mechanism and invoked from within a run.
+- A **[profile](./profiles.md)** is just an agent and its loadout. "The engineer profile" is the `engineer` agent with everything it composes. There is no `profile.yml` and no `profiles:` map — the loadout lives on the agent.
+- A **[persona](./personas.md)** is a _convention_, not a resource: a base review agent (a base prompt plus how-to-review instructions) that reads an interchangeable persona description document — for example `docs/user-personas/coyote-road-runner-chaser.md` — as input. Swapping the input document swaps the persona.
+- A **[subagent](./subagents.md)** is an agent projected into the harness's native delegation mechanism, selected in another agent's `subagents` loadout. A leader agent delegates to local coding-harness subagents or to issue- and action-backed subagents.
 
-The same agent definition can play either role; the profile decides how it is used.
+The same agent definition can be run directly or selected as a subagent elsewhere; its loadout decides what it composes.
 
 ## Layers
 
@@ -69,11 +69,11 @@ Outfitter's own settings live inside the `.agents` tree as `settings.yml`, with 
 - `<project>/.agents/settings.yml` — committed project settings.
 - `<project>/.agents/settings.local.yml` — personal, uncommitted overrides for that project. This flat file replaces the old nested project-local directory scope.
 
-Settings declare the default profile and agent, named profile selections, resource sources, and launch behavior. Removing the settings files leaves a pure protocol tree. See [Settings](./settings.md).
+Settings declare the default agent and harness, resource sources, and launch behavior — not resource selection, which lives on the agent. Removing the settings files leaves a pure protocol tree. See [Settings](./settings.md).
 
 ## One resolver
 
-Listing, validation, task baking, running, and dumping all share one resolver. What `outfitter list` shows is what `outfitter run` launches, what `outfitter task bake` freezes, and what `outfitter dump` writes. See [Dump and bake](./dump-and-bake.md).
+Listing, validation, running, and dumping all share one resolver. What `outfitter list` shows is what `outfitter run` launches and what `outfitter dump` writes. See [Dump](./dump-and-bake.md).
 
 ## Adapters
 
