@@ -58,13 +58,19 @@ describe('source layout scaffolding', () => {
       'setup',
       'sync',
       'welcome',
-      'profile',
-      'profile list',
-      'profile create',
-      'profile lint',
+      'list',
+      'validate',
+      'dump',
     ]);
-    expect(program.commands.map((command) => command.name())).toEqual(['run', 'setup', 'sync', 'welcome', 'profile']);
-    expect(program.commands.at(4)?.commands.map((command) => command.name())).toEqual(['list', 'create', 'lint']);
+    expect(program.commands.map((command) => command.name())).toEqual([
+      'run',
+      'setup',
+      'sync',
+      'welcome',
+      'list',
+      'validate',
+      'dump',
+    ]);
     expect(describeCommandObject(createRunCommand())).toEqual({
       name: 'run',
       description: 'Assemble a profile compositeProfile and launch the selected agent CLI.',

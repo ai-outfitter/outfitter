@@ -118,4 +118,97 @@ describe('dump command', () => {
     expect(result.ok).toBe(false);
     expect(result.messages[0]).toContain("Unknown agent 'ghost'");
   });
+
+  it('materializes the merged effective config.json across layers', () => {
+    const root = createTemporaryRoot();
+    const home = join(root, 'home');
+    const project = join(root, 'project');
+    write(
+      join(home, '.agents', 'agents', 'engineer', 'agent.md'),
+      '---\nname: engineer\nmodel: gpt-5.2\n---\n\nBody.\n',
+    );
+    write(join(project, '.agents', 'agents', 'engineer', 'config.json'), JSON.stringify({ model: 'gpt-5.3' }));
+    const out = join(createTemporaryRoot(), 'merged');
+
+    executeDumpCommand({ homeDirectory: home, projectDirectory: project, agent: 'engineer', out });
+
+    const config = JSON.parse(readFileSync(join(out, '.agents', 'agents', 'engineer', 'config.json'), 'utf8'));
+    expect(config).toEqual({ model: 'gpt-5.3' });
+  });
+
+  it('rejects a dump whose resource directory is a symlink', () => {
+    const root = createTemporaryRoot();
+    const project = join(root, 'project');
+    const external = join(root, 'external-skill');
+    write(join(external, 'SKILL.md'), '---\nname: wiki\n---\n');
+    write(
+      join(project, '.agents', 'agents', 'engineer', 'agent.md'),
+      '---\nname: engineer\nskills: [wiki]\n---\n\nBody.\n',
+    );
+    mkdirSync(join(project, '.agents', 'skills'), { recursive: true });
+    symlinkSync(external, join(project, '.agents', 'skills', 'wiki'));
+    const out = join(createTemporaryRoot(), 'unsafe');
+
+    const result = executeDumpCommand({
+      homeDirectory: join(root, 'home'),
+      projectDirectory: project,
+      agent: 'engineer',
+      out,
+    });
+    expect(result.ok).toBe(false);
+    expect(result.messages.join(' ')).toContain('directory symlink');
+  });
+
+  it('cleans the destination so a smaller closure leaves no stale files', () => {
+    const { home, project } = buildTree();
+    const out = join(createTemporaryRoot(), 'reuse');
+    // First dump: engineer pulls in reviewer + wiki.
+    executeDumpCommand({ homeDirectory: home, projectDirectory: project, agent: 'engineer', out });
+    // Second dump into the same dir: reviewer has no skills/subagents.
+    executeDumpCommand({ homeDirectory: home, projectDirectory: project, agent: 'reviewer', out });
+
+    const tree = relativeTree(join(out, '.agents'));
+    expect(tree).toContain('agents/reviewer/agent.md');
+    expect(tree).not.toContain('agents/engineer/agent.md');
+    expect(tree).not.toContain('skills/wiki/SKILL.md');
+  });
+
+  it('fails the whole dump when a transitive subagent is invalid', () => {
+    const root = createTemporaryRoot();
+    const project = join(root, 'project');
+    write(
+      join(project, '.agents', 'agents', 'lead', 'agent.md'),
+      '---\nname: lead\nsubagents: [broken]\n---\n\nBody.\n',
+    );
+    write(join(project, '.agents', 'agents', 'broken', 'agent.md'), '---\nname: mismatch\n---\n\nBody.\n');
+    const out = join(createTemporaryRoot(), 'closure');
+
+    const result = executeDumpCommand({
+      homeDirectory: join(root, 'home'),
+      projectDirectory: project,
+      agent: 'lead',
+      out,
+    });
+    expect(result.ok).toBe(false);
+    expect(result.messages.join(' ')).toContain('must match its directory');
+  });
+
+  it('propagates non-fatal loadout warnings from closure members', () => {
+    const root = createTemporaryRoot();
+    const project = join(root, 'project');
+    write(
+      join(project, '.agents', 'agents', 'engineer', 'agent.md'),
+      '---\nname: engineer\nskills: [ghost]\n---\n\nBody.\n',
+    );
+    const out = join(createTemporaryRoot(), 'warn');
+
+    const result = executeDumpCommand({
+      homeDirectory: join(root, 'home'),
+      projectDirectory: project,
+      agent: 'engineer',
+      out,
+    });
+    expect(result.ok).toBe(true);
+    expect(result.messages.join(' ')).toContain("unknown skill 'ghost'");
+  });
 });
