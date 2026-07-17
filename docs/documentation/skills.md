@@ -6,7 +6,7 @@ Skills are protocol resources under `skills/<id>/` in any [`.agents` layer](./co
 
 ## Defining a skill
 
-Place a skill under `skills/<skill-id>/SKILL.md`. The folder name is its ID:
+Place a skill under `skills/<skill-id>/SKILL.md`. The folder name is its ID. Outfitter standardizes the entry file as `SKILL.md` (uppercase) always, matching the [Agent Skills](https://agentskills.io/specification) spec; that casing is the resolved convention, not a per-tree choice.
 
 ```text
 .agents/

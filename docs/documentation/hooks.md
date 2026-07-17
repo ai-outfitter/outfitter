@@ -7,7 +7,7 @@ Hooks let deterministic code run at fixed points in an agent session — before 
 Claude Code hooks live in its native `settings.json` (`hooks` key), matching tool events to shell commands. Outfitter projects hook configuration into the composite `settings.json` it generates for a Claude launch, so a composition can ship hooks the same way it ships skills:
 
 - Keep hook scripts in a skill's `scripts/` directory or under `commands/`, so they travel with the tree and pass through the same [trust review](./catalogs.md#trust-and-review) as other executable content.
-- Machine-specific hook configuration belongs in `settings.local.yml`-scoped composition, not in shared catalogs.
+- Machine-specific hook wiring stays in your local layer and is projected as harness-native config (the Claude `settings.json` Outfitter composes for that launch), not in a `settings.yml` key — the protocol schema defines no hooks field. Keep it out of shared catalogs.
 
 See the [Claude Code hooks documentation](https://code.claude.com/docs/en/hooks) for event types and matcher syntax.
 

@@ -87,4 +87,4 @@ code/cli/tests/fixtures/scenarios/
   profile-precedence/
 ```
 
-Each scenario should include realistic `.agents` trees and expected resolution output. Protocol conformance fixtures (layered trees plus expected effective output, pinned to the protocol revision) follow the same convention.
+The `profile-*` scenarios above are the current profile-era fixtures; per the transition note, the implementation PRs that add the resolver and composition modules replace them with target-state scenarios whose fixtures include realistic `.agents` trees and expected resolution output. Protocol conformance fixtures (layered trees plus expected effective output, pinned to the protocol revision) follow the same convention.
