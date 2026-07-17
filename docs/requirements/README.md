@@ -29,3 +29,23 @@ Amendments are reviewed like any other change: the requirement edit, test
 edit, and implementation edit should land together so the diff shows the
 whole trace. Example: the 2026-07-01 amendment to OFTR-001.5 removed the
 never-adopted `typebox`, `defu`, `glob`, and `hosted-git-info` dependencies.
+
+## RFC #165 transition
+
+[RFC #165](https://github.com/ai-outfitter/outfitter/issues/165) replaces the
+profile system these requirements specify with the Dotagents `.agents`
+protocol. During the transition:
+
+- The OFTR files below continue to specify **current shipped behavior**. Per
+  the governance rules above, they are amended only together with their pinned
+  tests and the implementation — never by a docs-only change.
+- The **target architecture** lives in [`docs/documentation/`](../documentation/README.md)
+  and [`docs/architecture/`](../architecture/README.md), which already describe
+  the RFC #165 end state.
+- Each RFC #165 implementation PR amends the OFTR files it affects (notably
+  OFTR-002 settings, OFTR-003 profiles, OFTR-005 run/composite profile) or
+  introduces new requirements (for example dotagents resolution, and task
+  bake/dump) in the same change set as its tests and code.
+
+OFTR files describing pre-RFC behavior carry a transition banner under their
+title.
