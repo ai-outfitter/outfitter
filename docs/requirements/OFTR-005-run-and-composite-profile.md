@@ -35,7 +35,7 @@ _Amended (2026-07-17, RFC #165): composition assembles from the effective resour
 2. Outfitter MUST resolve each loadout slug (`skills`, `subagents`) against the effective resource set to its winning resource.
 3. Outfitter MUST report an error when the selected agent slug does not resolve or its definition is invalid.
 4. Outfitter MUST surface a loadout slug that does not resolve as a non-fatal composition warning.
-5. `list`, `validate`, `run`, and `dump` MUST compose from the same shared resolver and composer.
+5. `list`, `validate`, `run`, and `dump` MUST share one resolver (a single effective resource set); the commands that create a selected composition (`run`, `dump`) MUST use the same shared composer.
 
 ### OFTR-005.4: Composite profile Watching
 

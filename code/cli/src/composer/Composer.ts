@@ -75,6 +75,13 @@ export const compose = (set: EffectiveResourceSet, agentSlug: string): ComposeRe
     return { errors: [`Agent '${agentSlug}' is invalid: ${definition.message}`] };
   }
 
+  // A name/directory mismatch is an invalid agent (OFTR-003.2) and must fail composition.
+  if (definition.name !== agentSlug) {
+    return {
+      errors: [`Agent '${agentSlug}' is invalid: agent.md name '${definition.name}' must match its directory.`],
+    };
+  }
+
   const warnings: string[] = [];
   const plan: CompositionPlan = {
     agent: agentSlug,

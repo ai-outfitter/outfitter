@@ -92,6 +92,15 @@ describe('composer', () => {
     expect(result.errors[0]).toContain('is invalid');
   });
 
+  it('errors when the selected agent name does not match its directory', () => {
+    const root = createTemporaryRoot();
+    const project = join(root, 'project');
+    write(join(project, '.agents', 'agents', 'mislabeled', 'agent.md'), '---\nname: other\n---\n\nBody.\n');
+    const result = compose(resolveSet(join(root, 'home'), project), 'mislabeled');
+    expect(result.plan).toBeUndefined();
+    expect(result.errors[0]).toContain('must match its directory');
+  });
+
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-005.3).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('warns but does not fail when a loadout slug does not resolve', () => {
