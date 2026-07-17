@@ -43,10 +43,13 @@ Outfitter is organized around a private npm workspace root, clear TypeScript pac
 │   │   │   │   ├── commands/run/      # run command helper modules (profile resolution, launch summary)
 │   │   │   │   └── commands/setup/    # setup command helper modules (types, starter sources, imports, prompts, launch)
 │   │   │   ├── settings/              # settings loading and merging
-│   │   │   ├── profiles/              # profile loading, validation, resolution, and merging
+│   │   │   ├── resolver/              # .agents layer resolution into one effective resource set (RFC #165)
+│   │   │   ├── composer/              # harness-neutral CompositionPlan from the effective set (RFC #165)
+│   │   │   ├── dump/                  # deterministic self-contained `.agents` tree output (RFC #165)
+│   │   │   ├── profiles/              # legacy profile loading/resolution (removed by the RFC #165 cleanup PR)
 │   │   │   │   └── PromptIncludes.ts  # typed append_system_prompt include resolution and diagnostics
 │   │   │   ├── merge/                 # deterministic value and array merge policy helpers
-│   │   │   ├── compositeProfile/      # generated runtime composite profile assembly and watching
+│   │   │   ├── compositeProfile/      # legacy composite profile assembly (removed by the RFC #165 cleanup PR)
 │   │   │   ├── agents/                # agent adapter boundary and CLI-specific adapters
 │   │   │   ├── schemas/               # JSON Schema artifacts for persisted formats
 │   │   │   └── validation/            # shared validation helpers
