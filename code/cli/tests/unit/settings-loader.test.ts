@@ -39,16 +39,17 @@ afterEach(() => {
 describe('settings loading', () => {
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-002.1).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
-  it('discovers user, project, and project-local settings.yml locations', () => {
+  it('discovers user, user-local, project, and project-local .agents settings locations', () => {
     const homeDirectory = '/home/example';
     const projectDirectory = '/work/project';
 
     const plan = discoverSettingsLoadPlan({ homeDirectory, projectDirectory });
 
     expect(plan.locations).toEqual([
-      { scope: 'user', path: '/home/example/.outfitter/settings.yml' },
-      { scope: 'project', path: '/work/project/.outfitter/settings.yml' },
-      { scope: 'project-local', path: '/work/project/.outfitter/local/settings.yml' },
+      { scope: 'user', path: '/home/example/.agents/settings.yml' },
+      { scope: 'user-local', path: '/home/example/.agents/settings.local.yml' },
+      { scope: 'project', path: '/work/project/.agents/settings.yml' },
+      { scope: 'project-local', path: '/work/project/.agents/settings.local.yml' },
     ]);
   });
 
@@ -59,61 +60,93 @@ describe('settings loading', () => {
     const homeDirectory = join(root, 'home');
     const projectDirectory = join(root, 'project');
     writeSettings(
-      join(homeDirectory, '.outfitter', 'settings.yml'),
-      'default_profile: user-default\ndefault_agent: pi\ncache_directory: ./user-cache\nprofile_export: false\nprofile_sources:\n  - path: ./profiles\n',
+      join(homeDirectory, '.agents', 'settings.yml'),
+      'default_agent: user-default\ndefault_harness: pi\ncache_directory: ./user-cache\nsources:\n  - path: ./agents\n',
     );
     writeSettings(
-      join(projectDirectory, '.outfitter', 'settings.yml'),
-      'default_profile: project-default\ndefault_agent: claude\ncache_directory: ./project-cache\n',
+      join(projectDirectory, '.agents', 'settings.yml'),
+      'default_agent: project-default\ndefault_harness: claude\ncache_directory: ./project-cache\n',
     );
     writeSettings(
-      join(projectDirectory, '.outfitter', 'local', 'settings.yml'),
-      'default_profile: local-default\ncache_directory: ./local-cache\nprofile_export: true\n',
+      join(projectDirectory, '.agents', 'settings.local.yml'),
+      'default_agent: local-default\ncache_directory: ./local-cache\n',
     );
 
     const loaded = loadSettings(discoverSettingsLoadPlan({ homeDirectory, projectDirectory }));
 
     expect(loaded.issues).toEqual([]);
     expect(loaded.files.map((file) => file.location.scope)).toEqual(['user', 'project', 'project-local']);
-    expect(loaded.settings.defaultProfile).toBe('local-default');
-    expect(loaded.settings.defaultAgent).toBe('claude');
-    expect(loaded.settings.profileSources).toEqual([{ path: join(homeDirectory, '.outfitter', 'profiles') }]);
+    expect(loaded.settings.defaultAgent).toBe('local-default');
+    expect(loaded.settings.defaultHarness).toBe('claude');
+    expect(loaded.settings.sources).toEqual([{ path: join(homeDirectory, '.agents', 'agents') }]);
     expect(loaded.settings.remoteSettings).toEqual([]);
-    expect(loaded.settings.cacheDirectory).toBe(join(projectDirectory, '.outfitter', 'local', 'local-cache'));
-    expect(loaded.settings.profileExport).toBe(true);
+    expect(loaded.settings.cacheDirectory).toBe(join(projectDirectory, '.agents', 'local-cache'));
   });
 
-  it('loads and merges startup display and enterprise settings', () => {
+  it('applies user-local settings above user settings', () => {
     const root = createTemporaryRoot();
     const homeDirectory = join(root, 'home');
     const projectDirectory = join(root, 'project');
+    writeSettings(join(homeDirectory, '.agents', 'settings.yml'), 'default_agent: user\ndefault_harness: pi\n');
+    writeSettings(join(homeDirectory, '.agents', 'settings.local.yml'), 'default_agent: user-local\n');
+
+    const loaded = loadSettings(discoverSettingsLoadPlan({ homeDirectory, projectDirectory }));
+
+    expect(loaded.issues).toEqual([]);
+    expect(loaded.files.map((file) => file.location.scope)).toEqual(['user', 'user-local']);
+    expect(loaded.settings.defaultAgent).toBe('user-local');
+    expect(loaded.settings.defaultHarness).toBe('pi');
+  });
+
+  it('merges startup display across scopes but honors enterprise controls only from home', () => {
+    const root = createTemporaryRoot();
+    const homeDirectory = join(root, 'home');
+    const projectDirectory = join(root, 'project');
+    // Home enables private catalogs; a checked-in project MUST NOT be able to flip it.
     writeSettings(
-      join(homeDirectory, '.outfitter', 'settings.yml'),
-      'startup:\n  ascii_art: true\nenterprise:\n  private_profile_catalogs: false\n',
+      join(homeDirectory, '.agents', 'settings.yml'),
+      'startup:\n  ascii_art: true\nenterprise:\n  private_catalogs: true\n',
     );
     writeSettings(
-      join(projectDirectory, '.outfitter', 'settings.yml'),
-      'startup:\n  ascii_art: false\nenterprise:\n  private_profile_catalogs: true\n',
+      join(projectDirectory, '.agents', 'settings.yml'),
+      'startup:\n  ascii_art: false\nenterprise:\n  private_catalogs: false\n',
     );
 
     const loaded = loadSettings(discoverSettingsLoadPlan({ homeDirectory, projectDirectory }));
 
     expect(loaded.issues).toEqual([]);
     expect(loaded.settings.startup).toEqual({ asciiArt: false });
-    expect(loaded.settings.enterprise).toEqual({ privateProfileCatalogs: true });
+    expect(loaded.settings.enterprise).toEqual({ privateCatalogs: true });
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-002.8, OFTR-005.7).
-  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
-  it('loads profile_export as the default generated prompt export setting', () => {
+  it('ignores enterprise controls set outside home settings', () => {
     const root = createTemporaryRoot();
-    const settingsPath = join(root, '.outfitter', 'settings.yml');
-    writeSettings(settingsPath, 'profile_export: true\n');
+    const homeDirectory = join(root, 'home');
+    const projectDirectory = join(root, 'project');
+    writeSettings(join(projectDirectory, '.agents', 'settings.yml'), 'enterprise:\n  private_catalogs: true\n');
 
-    const result = loadSettingsFiles(createSettingsLoadPlan([{ scope: 'user', path: settingsPath }]));
+    const loaded = loadSettings(discoverSettingsLoadPlan({ homeDirectory, projectDirectory }));
 
-    expect(result.issues).toEqual([]);
-    expect(result.files[0]?.settings.profileExport).toBe(true);
+    expect(loaded.issues).toEqual([]);
+    expect(loaded.settings.enterprise).toEqual({});
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-002.8).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('loads and merges state_persistence maps with higher-precedence overrides', () => {
+    const root = createTemporaryRoot();
+    const homeDirectory = join(root, 'home');
+    const projectDirectory = join(root, 'project');
+    writeSettings(
+      join(homeDirectory, '.agents', 'settings.yml'),
+      'state_persistence:\n  "settings.json": discard\n  "auth.json": symlink\n',
+    );
+    writeSettings(join(projectDirectory, '.agents', 'settings.yml'), 'state_persistence:\n  "settings.json": warn\n');
+
+    const loaded = loadSettings(discoverSettingsLoadPlan({ homeDirectory, projectDirectory }));
+
+    expect(loaded.issues).toEqual([]);
+    expect(loaded.settings.statePersistence).toEqual({ 'settings.json': 'warn', 'auth.json': 'symlink' });
   });
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-002.3).
@@ -123,7 +156,7 @@ describe('settings loading', () => {
     const malformedPath = join(root, 'malformed.yml');
     const invalidPath = join(root, 'invalid.yml');
     writeSettings(malformedPath, ': invalid: yaml:');
-    writeSettings(invalidPath, 'profile_sources:\n  - only:\n      - engineering\n');
+    writeSettings(invalidPath, 'default_harness: bun\n');
 
     const result = loadSettingsFiles(
       createSettingsLoadPlan([
@@ -137,8 +170,8 @@ describe('settings loading', () => {
     expect(result.issues[0]?.path).toBe(malformedPath);
     expect(result.issues).toContainEqual({
       filePath: invalidPath,
-      path: '/profile_sources/0',
-      message: "must have required property 'path'",
+      path: '/default_harness',
+      message: 'must be equal to one of the allowed values',
     });
   });
 
@@ -146,24 +179,38 @@ describe('settings loading', () => {
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('validates local, URI, GitHub, and remote settings entries from settings files', () => {
     const root = createTemporaryRoot();
-    const settingsPath = join(root, '.outfitter', 'settings.yml');
+    const settingsPath = join(root, '.agents', 'settings.yml');
     writeSettings(
       settingsPath,
-      `profile_sources:\n  - path: ./profiles\n    only: [engineering]\n  - path: ${join(root, 'absolute-profiles')}\n  - uri: git+https://example.test/profiles.git\n    path: team/profiles\n    ref: main\n    except: [sandbox]\n  - github: example/outfitter-config\n    path: profiles\nremote_settings:\n  - github: example/outfitter-config\n    ref: main\n    path: settings.yml\n`,
+      `sources:\n  - path: ./agents\n  - path: ${join(root, 'absolute-agents')}\n  - uri: git+https://example.test/agents.git\n    path: team/agents\n    ref: main\n  - github: example/.agent\n    path: agents\nremote_settings:\n  - github: example/outfitter-config\n    ref: main\n    path: settings.yml\n`,
     );
 
     const result = loadSettingsFiles(createSettingsLoadPlan([{ scope: 'user', path: settingsPath }]));
 
     expect(result.issues).toEqual([]);
-    expect(result.files[0]?.settings.profileSources).toEqual([
-      { path: join(root, '.outfitter', 'profiles'), only: ['engineering'] },
-      { path: join(root, 'absolute-profiles') },
-      { uri: 'git+https://example.test/profiles.git', path: 'team/profiles', ref: 'main', except: ['sandbox'] },
-      { github: 'example/outfitter-config', path: 'profiles' },
+    expect(result.files[0]?.settings.sources).toEqual([
+      { path: join(root, '.agents', 'agents') },
+      { path: join(root, 'absolute-agents') },
+      { uri: 'git+https://example.test/agents.git', path: 'team/agents', ref: 'main' },
+      { github: 'example/.agent', path: 'agents' },
     ]);
     expect(result.files[0]?.settings.remoteSettings).toEqual([
       { github: 'example/outfitter-config', ref: 'main', path: 'settings.yml' },
     ]);
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-002.5).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('rejects a local source that specifies ref, which is only valid for remote sources', () => {
+    const root = createTemporaryRoot();
+    const settingsPath = join(root, '.agents', 'settings.yml');
+    writeSettings(settingsPath, 'sources:\n  - path: ./agents\n    ref: main\n');
+
+    const result = loadSettingsFiles(createSettingsLoadPlan([{ scope: 'user', path: settingsPath }]));
+
+    expect(result.files).toEqual([]);
+    expect(result.issues[0]?.filePath).toBe(settingsPath);
+    expect(result.issues[0]?.path).toBe('/sources/0');
   });
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-002.7).
@@ -173,7 +220,7 @@ describe('settings loading', () => {
     const homeDirectory = join(root, 'home');
     const projectDirectory = join(root, 'project');
     writeSettings(
-      join(homeDirectory, '.outfitter', 'settings.yml'),
+      join(homeDirectory, '.agents', 'settings.yml'),
       [
         'custom_settings:',
         '  build_commands:',
@@ -185,7 +232,7 @@ describe('settings loading', () => {
       ].join('\n'),
     );
     writeSettings(
-      join(projectDirectory, '.outfitter', 'settings.yml'),
+      join(projectDirectory, '.agents', 'settings.yml'),
       ['custom_settings:', '  build_commands:', '    lint: npm run lint:ci', '  tools:', '    - prettier', ''].join(
         '\n',
       ),
@@ -205,13 +252,13 @@ describe('settings loading', () => {
 
   it('resolves configured cache directories relative to the containing settings file', () => {
     const root = createTemporaryRoot();
-    const settingsPath = join(root, '.outfitter', 'settings.yml');
+    const settingsPath = join(root, '.agents', 'settings.yml');
     writeSettings(settingsPath, 'cache_directory: ./cache\n');
 
     const result = loadSettingsFiles(createSettingsLoadPlan([{ scope: 'user', path: settingsPath }]));
 
     expect(result.issues).toEqual([]);
-    expect(result.files[0]?.settings.cacheDirectory).toBe(join(root, '.outfitter', 'cache'));
+    expect(result.files[0]?.settings.cacheDirectory).toBe(join(root, '.agents', 'cache'));
   });
 
   it('skips missing settings files and exposes generic YAML and schema helpers', () => {
@@ -223,7 +270,7 @@ describe('settings loading', () => {
       issues: [],
     });
     expect(parseYamlDocument('answer: 42\n', '/inline')).toEqual({ ok: true, document: { answer: 42 } });
-    expect(validateSchema('profile-source', { path: './profiles' })).toEqual({ valid: true, issues: [] });
+    expect(validateSchema('settings', { default_agent: 'engineer' })).toEqual({ valid: true, issues: [] });
     expect(validateSchema('settings', null).issues[0]?.path).toBe('/');
   });
 
@@ -234,8 +281,8 @@ describe('settings loading', () => {
     const homeDirectory = join(root, 'home');
     const projectDirectory = join(root, 'project');
     writeSettings(
-      join(homeDirectory, '.outfitter', 'settings.yml'),
-      'default_profile: local\nremote_settings:\n  - uri: git+https://github.com/example/outfitter-config.git\n    ref: main\n    path: settings.yml\n',
+      join(homeDirectory, '.agents', 'settings.yml'),
+      'default_agent: local\nremote_settings:\n  - uri: git+https://github.com/example/outfitter-config.git\n    ref: main\n    path: settings.yml\n',
     );
     const remoteSettingsPath = join(
       createRemoteRepositoryCachePath(homeDirectory, {
@@ -246,23 +293,21 @@ describe('settings loading', () => {
     );
     writeSettings(
       remoteSettingsPath,
-      'default_profile: remote\nprofile_sources:\n  - github: example/outfitter-config\n    path: remote-profiles\n',
+      'default_agent: remote\nsources:\n  - github: example/.agent\n    path: remote-agents\n',
     );
 
     const loaded = loadSettingsWithCachedRemoteSettings({ homeDirectory, projectDirectory });
 
     expect(loaded.issues).toEqual([]);
-    expect(loaded.settings.defaultProfile).toBe('local');
-    expect(loaded.settings.profileSources).toEqual([{ github: 'example/outfitter-config', path: 'remote-profiles' }]);
+    expect(loaded.settings.defaultAgent).toBe('local');
+    expect(loaded.settings.sources).toEqual([{ github: 'example/.agent', path: 'remote-agents' }]);
 
     writeSettings(
-      join(homeDirectory, '.outfitter', 'settings.yml'),
-      'default_profile: local\nprofile_sources:\n  - path: ./local-profiles\nremote_settings:\n  - uri: git+https://github.com/example/outfitter-config.git\n    ref: main\n    path: settings.yml\n',
+      join(homeDirectory, '.agents', 'settings.yml'),
+      'default_agent: local\nsources:\n  - path: ./local-agents\nremote_settings:\n  - uri: git+https://github.com/example/outfitter-config.git\n    ref: main\n    path: settings.yml\n',
     );
     const localOverrideLoaded = loadSettingsWithCachedRemoteSettings({ homeDirectory, projectDirectory });
-    expect(localOverrideLoaded.settings.profileSources).toEqual([
-      { path: join(homeDirectory, '.outfitter', 'local-profiles') },
-    ]);
+    expect(localOverrideLoaded.settings.sources).toEqual([{ path: join(homeDirectory, '.agents', 'local-agents') }]);
   });
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-002.6).
@@ -272,7 +317,7 @@ describe('settings loading', () => {
     const homeDirectory = join(root, 'home');
     const projectDirectory = join(root, 'project');
     writeSettings(
-      join(homeDirectory, '.outfitter', 'settings.yml'),
+      join(homeDirectory, '.agents', 'settings.yml'),
       'remote_settings:\n  - github: example/absolute\n    path: /tmp/settings.yml\n  - github: example/escape\n    path: ../settings.yml\n',
     );
 

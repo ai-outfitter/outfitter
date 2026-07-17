@@ -4,10 +4,14 @@
   "title": "Outfitter settings",
   "type": "object",
   "properties": {
-    "default_profile": { "type": "string", "minLength": 1 },
-    "default_agent": { "enum": ["pi", "claude"] },
+    "default_agent": { "type": "string", "minLength": 1 },
+    "default_harness": { "enum": ["pi", "claude"] },
     "cache_directory": { "type": "string", "minLength": 1 },
-    "profile_export": { "type": "boolean" },
+    "state_persistence": {
+      "type": "object",
+      "description": "Maps adapter-declared state paths to a persistence strategy.",
+      "additionalProperties": { "enum": ["symlink", "discard", "warn", "error", "prompt"] }
+    },
     "startup": {
       "type": "object",
       "description": "Controls Outfitter startup presentation inside launched agents.",
@@ -21,18 +25,37 @@
     },
     "enterprise": {
       "type": "object",
-      "description": "Enterprise governance settings. User-home ~/.outfitter/settings.yml is the source of truth for these controls.",
+      "description": "Enterprise governance settings. User-home ~/.agents/settings.yml is the source of truth for these controls.",
       "properties": {
-        "private_profile_catalogs": {
+        "private_catalogs": {
           "type": "boolean",
-          "description": "Enable confirmed-private GitHub profile catalogs after reviewing the Outfitter Enterprise license or enterprise agreement."
+          "description": "Enable confirmed-private GitHub catalogs after reviewing the Outfitter Enterprise license or enterprise agreement."
         }
       },
       "additionalProperties": false
     },
-    "profile_sources": {
+    "sources": {
       "type": "array",
-      "items": { "$ref": "profile-source.schema.json" }
+      "items": {
+        "type": "object",
+        "oneOf": [
+          {
+            "required": ["path"],
+            "not": {
+              "anyOf": [{ "required": ["uri"] }, { "required": ["github"] }, { "required": ["ref"] }]
+            }
+          },
+          { "required": ["uri"], "not": { "required": ["github"] } },
+          { "required": ["github"], "not": { "required": ["uri"] } }
+        ],
+        "properties": {
+          "path": { "type": "string", "minLength": 1 },
+          "uri": { "type": "string", "minLength": 1 },
+          "github": { "type": "string", "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$" },
+          "ref": { "type": "string", "minLength": 1 }
+        },
+        "additionalProperties": false
+      }
     },
     "remote_settings": {
       "type": "array",
@@ -53,7 +76,7 @@
     },
     "custom_settings": {
       "type": "object",
-      "description": "Arbitrary YAML-compatible values exposed to Outfitter compositeProfile templates as outfitter.custom_settings."
+      "description": "Arbitrary YAML-compatible values exposed to Outfitter composition templates as outfitter.custom_settings."
     }
   },
   "additionalProperties": true
