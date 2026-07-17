@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://outfitter.dev/schemas/agent.schema.json",
+  "title": "Outfitter agent definition frontmatter",
+  "type": "object",
+  "required": ["name"],
+  "properties": {
+    "name": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$", "maxLength": 64 },
+    "description": { "type": "string" },
+    "skills": { "$ref": "#/$defs/slugList" },
+    "subagents": { "$ref": "#/$defs/slugList" },
+    "mcp": { "$ref": "#/$defs/slugList" },
+    "extensions": { "$ref": "#/$defs/slugList" },
+    "plugins": { "$ref": "#/$defs/slugList" },
+    "model": { "type": "string", "minLength": 1 },
+    "thinking": { "type": "string", "minLength": 1 },
+    "tools": {
+      "type": "object",
+      "properties": {
+        "allow": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "deny": { "type": "array", "items": { "type": "string", "minLength": 1 } }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": true,
+  "$defs": {
+    "slugList": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    }
+  }
+}

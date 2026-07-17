@@ -1,75 +1,66 @@
-# OFTR-003: Profiles and Inheritance
+# OFTR-003: Agents and Resolution
 
-> **Transition (RFC [#165](https://github.com/ai-outfitter/outfitter/issues/165)):** this requirement describes pre-dotagents behavior and will be amended or superseded by the RFC #165 implementation PRs together with its pinned tests. The target design lives in [docs/documentation](../documentation/README.md) and [docs/architecture](../architecture/README.md).
+> **Amendment (2026-07-17, RFC [#165](https://github.com/ai-outfitter/outfitter/issues/165)):**
+> profiles fold into agents. Authored `profile.yml` files, `inherits` inheritance, `template`
+> profiles, and `profile_export` are removed; an agent is `agents/<id>/agent.md` frontmatter plus an
+> optional `config.json`, resolved by slug across `.agents` layers with merge-by-ID. Section IDs are
+> preserved for pinned-test traceability. Target design: [docs/documentation/agents.md](../documentation/agents.md)
+> and [docs/architecture/README.md](../architecture/README.md).
 
 ## Overview
 
-Profiles describe reusable agent-CLI loadouts.
-Outfitter resolves profile definitions across settings scopes, explicit sources, and inherited profiles; the configured user default profile is selected only when no explicit profile is requested.
+An agent is the protocol's identity resource and the thing Outfitter runs. Outfitter resolves agents
+and other resources from layered `.agents` trees into one immutable effective resource set that every
+command shares.
 
 ## Requirements
 
-### OFTR-003.1: Profile Folder Layout
+### OFTR-003.1: Agent Resource Layout
 
-1. A profile MUST be represented by either a folder with a required `profile.yml` file or a flat YAML file named `<profile-id>.yml` or `<profile-id>.yaml`.
-2. Outfitter MUST provide a JSON Schema for profile YAML documents.
-3. Outfitter MUST validate every loaded profile YAML document against the profile JSON Schema.
-4. A profile folder MAY contain conventional resource folders such as `skills`, `prompts`, `extensions`, and `deepwork/jobs`.
-5. A profile folder MAY contain `cli_specific/<cli-name>/` folders for agent-specific resources and overrides.
-6. Flat profile files MUST NOT be treated as profile resource folders.
-7. Setup-source imports MUST preserve flat profile files as flat files unless the user explicitly invokes a profile-creation command.
+1. An agent MUST be represented by a directory `agents/<id>/` containing a required `agent.md` file.
+2. `agent.md` MUST begin with a `---` YAML frontmatter block declaring at least `name`.
+3. An agent directory MAY contain an optional `config.json` carrying structured loadout overrides.
+4. Outfitter MUST provide a JSON Schema for `agent.md` frontmatter and validate every loaded agent against it.
+5. Skills, knowledge, and commands are separate protocol resources under `skills/<id>/SKILL.md`, `knowledge/`, and `commands/` respectively.
 
-### OFTR-003.2: Profile Identity
+### OFTR-003.2: Agent Identity
 
-1. Profile IDs MUST be stable identifiers suitable for commands, logs, cache keys, and documentation.
-2. Profile IDs MUST match the regex `^[a-z0-9][a-z0-9._-]*[a-z0-9]$|^[a-z0-9]$`.
-3. Outfitter MUST reject profile IDs that cannot be safely referenced from the CLI.
-4. When a profile YAML document omits `id`, Outfitter MUST derive the profile ID from the containing folder name or flat filename stem.
-5. Outfitter MUST reject discovered profile folder names or flat filename stems that are not filesystem-safe profile IDs before using them as fallback IDs.
-6. Outfitter SHOULD support a separate display label if human-readable names need spaces or punctuation.
-7. Profiles MAY include a short `description` for interactive prompts and profile discovery surfaces.
-8. Interactive setup profile prompts MUST use loaded profile IDs, labels, and descriptions as their display metadata rather than hardcoding profile-repository knowledge in setup code.
+1. Agent IDs MUST be filesystem-safe slugs matching `^[a-z0-9]+(?:-[a-z0-9]+)*$`, at most 64 characters.
+2. The agent's frontmatter `name` MUST match its directory ID; a mismatch MUST be a validation error.
+3. Agents MAY include a `description` used by discovery surfaces.
 
-### OFTR-003.3: Profile Scope Precedence
+### OFTR-003.3: Layer Precedence
 
-1. Project-local profile definitions MUST take precedence over project profile definitions for the same profile name.
-2. Project profile definitions MUST take precedence over user profile definitions for the same profile name.
-3. User profile definitions MUST take precedence over cached URI profile definitions for the same profile name.
-4. Cached URI profile definitions MUST be considered according to resolved source order when multiple URI sources provide the same profile name.
+1. Outfitter MUST resolve resources from layered `.agents` trees ordered highest precedence first: workspace `<project>/.agents`, then global `~/.agents`, then configured `sources` in order.
+2. Only layers whose payload root exists on disk are included.
+3. A local `path` source's payload root is the directory itself; a remote source's root is its synced cache directory plus any configured subpath.
 
-### OFTR-003.4: Profile Inheritance
+### OFTR-003.4: Merge by ID
 
-1. `profile.yml` MAY specify an ordered `inherits` array of profile names.
-2. Inherited profiles MUST be treated as lower-precedence sources for the inheriting profile.
-3. Outfitter MUST recursively resolve inherited profiles.
-4. Outfitter MUST detect inheritance cycles and report them as validation errors.
-5. Outfitter MUST preserve inherited profile order when building the profile stack.
+1. Resources MUST merge by ID across layers: the highest-precedence definition of a slug wins and replaces lower ones. Markdown resources are not partially merged.
+2. Per-agent `config.json` MUST shallow-merge by key over the `agent.md` frontmatter loadout for the same agent directory.
+3. There is no profile inheritance; shared context lives in tree-level `system-prompt.md`/`agents.md`.
 
-### OFTR-003.5: Default Profile Selection
+### OFTR-003.5: Effective Resource Set
 
-1. Outfitter MUST use the configured `default_profile` only when no explicit profile is selected.
-2. When an explicit profile is selected, Outfitter MUST resolve only that profile and its declared `inherits` chain.
-3. Outfitter MUST NOT include the configured `default_profile` as an implicit base layer for an explicit profile.
+1. Outfitter MUST produce one immutable effective resource set per invocation mapping every slug to its winning definition.
+2. Lower-precedence definitions that a winner shadows MUST be retained for diagnostics.
+3. `list`, `validate`, `run`, and `dump` MUST consume the same effective resource set produced by a single shared resolver.
 
-### OFTR-003.6: Profile Merging
+### OFTR-003.6: Loadout
 
-1. Outfitter MUST merge resolved profile layers deterministically.
-2. YAML object values SHOULD be merged with `defu` or an equivalent controlled deep-merge utility.
-3. Array merge behavior MUST be documented per profile key before that key is treated as stable.
-4. CLI-specific profile content MUST take precedence over generic controls when both generate the same agent-specific artifact.
-5. Outfitter MUST compose `append_system_prompt` values from multiple resolved profile layers into repeated agent append-prompt inputs without requiring profiles to use raw CLI `args` for prompt composition.
-6. Outfitter MUST merge `controls.deepwork.jobs` deterministically and remove duplicate job names while preserving inherited job order.
+1. An agent's frontmatter/`config.json` MAY declare a loadout: `skills`, `subagents`, `mcp`, `extensions`, `plugins`, `model`, `thinking`, and `tools`.
+2. Loadout list entries MUST be slugs resolved against the effective resource set across layers; nothing is copied into the agent.
+3. Settings MUST NOT carry loadout selections.
 
-### OFTR-003.7: Template Profiles
+### OFTR-003.7: Resolution Validation
 
-1. A profile MAY set top-level `template: true` to indicate it is intended for inheritance by runnable profiles rather than direct launch.
-2. Outfitter MUST allow template profiles to contribute controls through `inherits` without marking the inheriting profile as a template.
-3. Outfitter MUST reject direct launches of template profiles, including launches selected through `default_profile`.
-4. `outfitter profile list` SHOULD hide template profiles by default and MUST expose them when the user explicitly requests all profiles.
+1. Outfitter MUST report an error when an agent's loadout references a `skills` or `subagents` slug that does not resolve.
+2. Outfitter MUST report a warning when a resource shadows a lower-precedence definition of the same slug.
+3. `outfitter validate --strict` MUST treat warnings as failures.
 
-### OFTR-003.8: Generated Prompt Export Preference
+### OFTR-003.8: Listing Resources
 
-1. A profile MAY set top-level `profile_export: true` to request generated prompt export for that profile.
-2. A profile MAY set top-level `profile_export: false` to disable generated prompt export even when settings enable it by default.
-3. Missing `profile_export` in a profile MUST defer to the effective settings default.
-4. Outfitter MUST validate `profile_export` as a boolean when present.
+1. `outfitter list` MUST list resolvable resources by kind from the effective resource set.
+2. `outfitter list <kind>` MUST restrict output to one kind of `agents`, `skills`, `knowledge`, or `commands` and MUST reject unknown kinds.
+3. Listed resources MUST report the winning layer for each slug deterministically.

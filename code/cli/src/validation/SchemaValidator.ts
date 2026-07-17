@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import type { AnySchema, ErrorObject, ValidateFunction } from 'ajv';
 import { Ajv2020 } from 'ajv/dist/2020.js';
 
-export type SchemaName = 'settings' | 'profile' | 'profile-source';
+export type SchemaName = 'settings' | 'profile' | 'profile-source' | 'agent';
 
 export interface ValidationIssue {
   readonly path: string;
@@ -22,12 +22,14 @@ const readSchema = (schemaFileName: string): unknown =>
 const settingsSchema = readSchema('settings.schema.json');
 const profileSchema = readSchema('profile.schema.json');
 const profileSourceSchema = readSchema('profile-source.schema.json');
+const agentSchema = readSchema('agent.schema.json');
 
 const createAjv = (): Ajv2020 => {
   const ajv = new Ajv2020({ allErrors: true });
   ajv.addSchema(profileSourceSchema as AnySchema, 'profile-source.schema.json');
   ajv.addSchema(profileSchema as AnySchema, 'profile.schema.json');
   ajv.addSchema(settingsSchema as AnySchema, 'settings.schema.json');
+  ajv.addSchema(agentSchema as AnySchema, 'agent.schema.json');
   return ajv;
 };
 
@@ -37,6 +39,7 @@ const validators: Record<SchemaName, ValidateFunction> = {
   settings: ajv.compile(settingsSchema as AnySchema),
   profile: ajv.compile(profileSchema as AnySchema),
   'profile-source': ajv.compile(profileSourceSchema as AnySchema),
+  agent: ajv.compile(agentSchema as AnySchema),
 };
 
 export const createValidationResult = (issues: readonly ValidationIssue[]): ValidationResult => ({
