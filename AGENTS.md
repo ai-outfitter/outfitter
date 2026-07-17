@@ -1,5 +1,12 @@
 # AGENTS.md
 
+> **RFC #165 transition:** `docs/documentation/` and `docs/architecture/`
+> describe the target dotagents `.agents` architecture of
+> [RFC #165](https://github.com/ai-outfitter/outfitter/issues/165). The
+> bullets below and `docs/requirements/` describe the **current code** and
+> stay authoritative for implementation work until each RFC #165 PR amends
+> them alongside its tests.
+
 ## Architecture essentials
 
 - Outfitter is a TypeScript CLI for assembling and launching reproducible agent-CLI profiles; `pi` is the first and primary supported target.
