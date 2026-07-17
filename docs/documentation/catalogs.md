@@ -92,7 +92,7 @@ remote_settings:
     ref: 9c47d1e2b8a05f36c4d7e90a12b3f8c5d6e71a04
 ```
 
-Remote settings are cached locally and merged at lower precedence than your project and user settings, so anything you set locally wins. This is how an organization distributes shared sources, profiles, and defaults without controlling each user's machine. See the [organization catalog use case](./usecases/organization-profile-catalog.md).
+Remote settings are cached locally and merged at lower precedence than your project and user settings, so anything you set locally wins. This is how an organization distributes shared sources, agents, and defaults without controlling each user's machine. See the [organization catalog use case](./usecases/organization-profile-catalog.md).
 
 ## Syncing and updating
 

@@ -13,7 +13,7 @@ export const metadata: Metadata = {
     default: 'Outfitter Documentation',
     template: '%s | Outfitter',
   },
-  description: 'Outfitter profiles make agent harness configuration consistent, customizable, and reusable.',
+  description: 'Outfitter agent profiles make agent harness configuration consistent, customizable, and reusable.',
 };
 
 const navbar = <Navbar logo={<strong>Outfitter</strong>} projectLink="https://github.com/ai-outfitter/outfitter" />;

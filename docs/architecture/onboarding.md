@@ -10,11 +10,11 @@ A plain interactive `outfitter` launch uses Pi-native onboarding only when Outfi
 
 Before syncing anything, first-run onboarding detects existing configuration:
 
-1. **Existing `~/.agents/` tree without settings** — adopt it: onboarding lists the tree's resolvable agents and skills, helps the user name a default profile selection from their own resources by slug, and writes only `settings.yml`. No resources are created, copied, or converted.
+1. **Existing `~/.agents/` tree without settings** — adopt it: onboarding lists the tree's resolvable agents and skills, helps the user pick a default agent from their own resources by slug, and writes only `settings.yml`. No resources are created, copied, or converted.
 2. **Existing `~/.claude` directory and no `~/.agents/` tree** — offer the [port](../documentation/porting-claude.md): move configuration entries into `~/.agents/` and symlink them back so native Claude Code keeps working, then continue as case 1. Declining the port continues as case 3 without touching `~/.claude`.
 3. **Neither** — bootstrap from the default catalog.
 
-When bootstrap onboarding is active, `RunCommand` synchronizes the default catalog from `github: ai-outfitter/.agent` (pinned). The generated Pi bootstrap extension receives the synced cache path. The extension reads profile selections and their descriptions from the cached catalog's `settings.yml` and agent frontmatter at runtime; picker entries are not hardcoded in the extension.
+When bootstrap onboarding is active, `RunCommand` synchronizes the default catalog from `github: ai-outfitter/.agent` (pinned). The generated Pi bootstrap extension receives the synced cache path. The extension reads the catalog's agents and their descriptions from the cached catalog's `settings.yml` and agent frontmatter at runtime; picker entries are not hardcoded in the extension.
 
 Before Pi starts, Outfitter prepares a generated CLI extension and launch environment:
 
@@ -33,7 +33,7 @@ flowchart TD
   A[User runs outfitter] --> B{Interactive Pi launch?}
   B -- No --> B1[Use normal non-interactive launch path]
   B -- Yes --> C{~/.agents/settings.yml exists?}
-  C -- Yes --> C1[Resolve configured default profile and launch normally]
+  C -- Yes --> C1[Resolve configured default agent and launch normally]
   C -- No --> C2{Existing configuration?}
   C2 -- ~/.agents tree --> C3[Adopt: select from existing resources]
   C2 -- ~/.claude only --> C4{Port and symlink?}
@@ -55,17 +55,17 @@ flowchart TD
   L -- Yes --> M[No login handoff]
   K --> N{Setup mode}
   N -- Default catalog --> O[Read cached catalog selections]
-  O --> P[Custom profile picker]
+  O --> P[Custom agent picker]
   P --> P1[Founder highlighted by default when present]
   P --> Q[Choose install target]
-  N -- Own resources --> R[Select personas and skills by slug]
+  N -- Own resources --> R[Pick a default agent by slug]
   R --> Q
   N -- Import catalog --> S[Ask remote_settings source]
   S --> Q
   Q --> T{Install target}
   T -- Home --> U[Write ~/.agents/settings.yml]
   T -- Project --> V[Write <project>/.agents/settings.yml]
-  U --> W[Notify restart required for selected profile]
+  U --> W[Notify restart required for selected agent]
   V --> W
 ```
 
@@ -75,7 +75,7 @@ flowchart TD
 
 The bootstrap extension uses `ctx.ui.setEditorText("/outfitter")` plus a hidden `ctx.ui.custom(...)` component that submits Enter. That lets Pi's slash-command dispatcher run the extension command while avoiding a visible notification that Outfitter is opening setup. The same mechanism opens `/login` only after runtime model availability checks indicate no available models. Before the `/login` handoff, Outfitter SHOULD render a question box that says: "Pi does not have a model provider connected yet. Connect one now so Outfitter can use Pi. Credentials stay inside Pi." This copy SHOULD NOT be emitted as a main-body notification.
 
-## Custom Profile Picker Nuance
+## Custom Agent Picker Nuance
 
 Pi's public extension UI selector has a deliberately simple shape:
 
@@ -83,26 +83,26 @@ Pi's public extension UI selector has a deliberately simple shape:
 ctx.ui.select(title: string, options: string[]): Promise<string | undefined>
 ```
 
-That API can show a shared title and a flat list of strings, but it cannot attach a per-option description that updates beside the highlighted row. Outfitter therefore uses `ctx.ui.custom(...)` only for the profile picker.
+That API can show a shared title and a flat list of strings, but it cannot attach a per-option description that updates beside the highlighted row. Outfitter therefore uses `ctx.ui.custom(...)` only for the agent picker.
 
 The custom picker uses a purpose-specific custom UI helper named `selectDescribedOption`. The name intentionally avoids a generic `customSelect` label: this component exists for option lists where the highlighted row owns a secondary description. It should be reused for onboarding choices that need per-option explanatory text, including the install-target screen.
 
 The described-option selector renders:
 
-- the fixed profile-setup title and guidance;
-- one selectable row per catalog profile selection;
-- only the selected profile's description to the right of that row;
-- no description text for profiles without a description;
+- the fixed agent-setup title and guidance;
+- one selectable row per catalog agent;
+- only the selected agent's description to the right of that row;
+- no description text for agents without a description;
 - `↑`/`↓` navigation, Enter selection, and Escape/Ctrl+C cancellation.
 
-The picker initializes on the current configured default profile when one exists. If no current default exists and `founder` is present in the synced catalog, it initializes on `founder` and labels it as recommended. Otherwise it initializes on the first sorted profile. Sorting still keeps `founder` first when present, then sorts remaining profiles by id.
+The picker initializes on the current configured default agent when one exists. If no current default exists and `founder` is present in the synced catalog, it initializes on `founder` and labels it as recommended. Otherwise it initializes on the first sorted agent. Sorting still keeps `founder` first when present, then sorts remaining agents by id.
 
 Example shape:
 
 ```text
-Outfitter profile setup
+Outfitter agent setup
 
-Choose the default profile from the selected catalog for future 'outfitter' launches.
+Choose the default agent from the selected catalog for future 'outfitter' launches.
 The current Pi process keeps the composition it started with; this setting applies on the next launch.
 
 → founder — Founder (Recommended)  Founder-operator setup for building, product thinking, research checks, dense prose, and careful delivery.
@@ -114,8 +114,8 @@ The current Pi process keeps the composition it started with; this setting appli
 
 The first onboarding question chooses one setup mode:
 
-1. **Use the default Outfitter catalog** reads profile selections from the synced `ai-outfitter/.agent` cache, then writes `default_profile` and the pinned default source to the selected install target's `settings.yml`.
-2. **Compose from your own resources** (offered when an adopted or ported tree exists) lists the tree's agents and skills by slug and writes a named profile selection referencing them. It never creates or edits resource files.
+1. **Use the default Outfitter catalog** reads the agents from the synced `ai-outfitter/.agent` cache, then writes `default_agent` and the pinned default source to the selected install target's `settings.yml`.
+2. **Pick from your own resources** (offered when an adopted or ported tree exists) lists the tree's agents by slug and writes `default_agent` referencing one. It never creates or edits resource files.
 3. **Provide a different catalog to import** writes `remote_settings` pointing at the user-provided `owner/repo`, `ref`, and settings path. Before writing, the extension checks GitHub repository metadata. Only HTTP 200 with JSON `private: true` is treated as confirmed private; public, unknown, 403/404, network, malformed, and non-GitHub outcomes do not warn, error, or block.
 
 Private catalog enablement is sourced only from `~/.agents/settings.yml`:
@@ -161,11 +161,11 @@ The final install target question writes either `~/.agents/settings.yml` or `<pr
 
 The install target prompt SHOULD also use `selectDescribedOption`, because the distinction between user-wide and project settings is semantic, not just locational. Required copy:
 
-- Home folder: "These profiles will be available anywhere you start outfitter."
-- Current project directory: "These profiles will only be available in the current project directory and will compose resources of the same slug from the home folder."
+- Home folder: "These agents will be available anywhere you start outfitter."
+- Current project directory: "These agents will only be available in the current project directory and will compose resources of the same slug from the home folder."
 
 If terminal width is too narrow, the selected description SHOULD wrap below the highlighted row rather than truncating the scope explanation.
 
 ## Cache and Staleness Implications
 
-The default catalog is a pinned remote source, but the profile picker reads the synchronized local cache passed to the generated extension. If the pinned ref changes upstream, an existing cache can remain stale until sync refreshes it. Seeing a removed profile in the picker usually means the first-run process is reading an old cache or a stuck sync process, not that the generated extension has hardcoded that profile.
+The default catalog is a pinned remote source, but the agent picker reads the synchronized local cache passed to the generated extension. If the pinned ref changes upstream, an existing cache can remain stale until sync refreshes it. Seeing a removed agent in the picker usually means the first-run process is reading an old cache or a stuck sync process, not that the generated extension has hardcoded that agent.

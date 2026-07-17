@@ -33,13 +33,14 @@ Leave transient chat tricks behind. If a rule is not worth committing to the tre
 
 ## Global layer template
 
-Use this as a migration worksheet: one persona holding your durable posture, plus a named selection.
+Use this as a migration worksheet: one agent holding your durable posture and the skills you reach for.
 
 ```
 <!-- ~/.agents/agents/workbench/agent.md -->
 ---
 name: workbench
 description: Personal agent-CLI habits migrated from my previous setup.
+skills: [] # add only skills you expect to use repeatedly
 ---
 
 # Workbench
@@ -58,12 +59,8 @@ ambiguous requests into a short plan, preserve interesting claims, remove filler
 
 ```yaml
 # ~/.agents/settings.yml
-default_profile: workbench
-default_agent: pi
-profiles:
-  workbench:
-    personas: [workbench]
-    skills: [] # add only skills you expect to use repeatedly
+default_agent: workbench
+default_harness: pi
 ```
 
 ## Project overlay template
@@ -78,13 +75,19 @@ Record durable decisions in project files, not only in chat.
 Run the narrowest relevant validation before broad checks.
 ```
 
+A project overlay can add a skill to the workbench agent it inherits by ID, without redefining the whole agent:
+
+```
+<!-- <repo>/.agents/agents/workbench/agent.md -->
+---
+name: workbench # merges by ID over the global workbench agent
+skills: [deployment-review] # resolves from <repo>/.agents/skills/
+---
+```
+
 ```yaml
 # <repo>/.agents/settings.yml
-default_profile: project-workbench
-profiles:
-  project-workbench:
-    personas: [workbench] # resolves from your global layer
-    skills: [deployment-review] # resolves from <repo>/.agents/skills/
+default_agent: workbench
 ```
 
 ## Mapping old habits to Outfitter

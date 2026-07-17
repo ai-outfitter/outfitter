@@ -1,11 +1,11 @@
 ---
 title: State Persistence
-description: How Outfitter handles agent state writes inside temporary baked compositions
+description: How Outfitter handles agent state writes inside temporary composed projections
 ---
 
 # State Persistence
 
-Outfitter creates a temporary runtime directory, the **projection** of a baked composition, each time it launches an agent. The projection should be disposable, but agent CLIs also write durable state such as logins, settings, plugins, caches, and sessions.
+Outfitter creates a temporary runtime directory, the **projection** of a composed agent, each time it launches an agent. The projection should be disposable, but agent CLIs also write durable state such as logins, settings, plugins, caches, and sessions.
 
 Outfitter makes those writes explicit with `state_persistence` rules. Each selected adapter declares the state paths it knows about and the strategies each path allows, then your settings can override paths with an allowed strategy such as persisting, discarding, warning, or failing after the run.
 
@@ -44,7 +44,7 @@ state_persistence:
   plugins/: symlink
 ```
 
-Update scenario: you run `outfitter run --profile engineer`, complete a provider login, and pi writes `auth.json`. Because the path is symlinked, the login lands in the native pi state location rather than disappearing with the projection.
+Update scenario: you run `outfitter run engineer`, complete a provider login, and pi writes `auth.json`. Because the path is symlinked, the login lands in the native pi state location rather than disappearing with the projection.
 
 ## Example: strict CI settings
 

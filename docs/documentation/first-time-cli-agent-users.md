@@ -104,7 +104,7 @@ Try inside Pi:
 /skill:generated-daily-report
 ```
 
-Then provide the goal or inputs the skill asks for. Other examples might be project review, browser testing, release notes, or incident summaries, depending on what the active profile installed.
+Then provide the goal or inputs the skill asks for. Other examples might be project review, browser testing, release notes, or incident summaries, depending on what the active agent installed.
 
 Skills may come from Pi packages, from the Outfitter default catalog, or from a project's `.agents/skills/` directory. If a skill is not active, ask Pi what skills it can see before relying on it.
 

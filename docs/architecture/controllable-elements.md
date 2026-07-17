@@ -110,7 +110,7 @@ Named work contracts baked into immutable artifacts for headless execution. The 
 
 ### DeepWork Jobs
 
-Reusable multi-step procedures selected by tasks or profiles.
+Reusable multi-step procedures selected by an agent's loadout.
 
 - Pi name: `DEEPWORK_ADDITIONAL_JOBS_FOLDERS`
 - Claude name: not mapped yet

@@ -1,10 +1,10 @@
 # Architecture diagrams
 
-Mermaid diagrams of how Outfitter turns `.agents` resources into a running agent CLI. Prose definitions live in [concepts](../documentation/concepts.md), per-adapter coverage in the [support matrix](../documentation/support-matrix.md), and the architectural shape in [architecture](./README.md).
+Mermaid diagrams of how Outfitter turns `.agents` resources into a running agent. Prose definitions live in [concepts](../documentation/concepts.md), per-adapter coverage in the [support matrix](../documentation/support-matrix.md), and the architectural shape in [architecture](./README.md).
 
 ## Components: sources to launched agent
 
-Resources come from layered `.agents` trees: the project workspace overlay, the user's global layer, and cached remote catalogs, with higher layers winning by ID. A profile or task selects resources by slug from the merged set; the composer builds a harness-neutral composition plan; bake freezes it into an immutable artifact; and an adapter projects that artifact into one agent CLI's native files, flags, and environment.
+Resources come from layered `.agents` trees: the project workspace overlay, the user's global layer, and cached remote catalogs, with higher layers winning by ID. The selected agent composes its loadout by slug from the merged set; the composer builds a harness-neutral composition plan; and an adapter projects that plan into one harness's native files, flags, and environment.
 
 ```mermaid
 flowchart LR
@@ -15,9 +15,8 @@ flowchart LR
   end
 
   subgraph resources [Protocol resources]
-    AG[Agents]
+    AG[Agents + loadouts]
     SK[Skills]
-    TK[Tasks]
     KN[Knowledge / commands]
     JS[mcp.json / models.json]
   end
@@ -25,39 +24,38 @@ flowchart LR
   layers --> RESOLVE[Resolver<br>merge by ID]
   resources -.stored in.- layers
 
-  RESOLVE --> SELECT[Profile or task selection<br>personas, skills, subagents, inputs]
-  SELECT --> BAKE[Bake<br>immutable artifact / .agents tree]
+  RESOLVE --> SELECT[Composed agent<br>identity + skills, subagents, mcp, model]
 
-  BAKE --> AD{Adapter}
+  SELECT --> AD{Adapter}
   AD -->|full projection| PI[Pi CLI<br>primary adapter]
   AD -->|partial, warns on gaps| CC[Claude Code CLI]
 
-  BAKE --> DUMP[outfitter dump<br>deterministic .agents/ output]
+  SELECT --> DUMP[outfitter dump<br>deterministic .agents/ output]
 
   PI --> RUN([Launched agent process])
   CC --> RUN
 ```
 
-## Sequence: `outfitter run --task X`
+## Sequence: `outfitter run <agent>`
 
-`run` resolves the effective resource set through layer precedence, composes the selection, bakes it (always, for tasks), asks the adapter to project the baked artifact into a launch plan, surfaces unprojectable elements as stderr warnings (fatal with `--strict`), and finally spawns the child agent CLI. Declared state paths persist useful agent state across runs.
+`run` resolves the effective resource set through layer precedence, composes the selected agent, asks the adapter to project the composition into a launch plan, surfaces unprojectable elements as stderr warnings (fatal with `--strict`), and finally spawns the child harness. Declared state paths persist useful agent state across runs.
 
 ```mermaid
 sequenceDiagram
   actor User
   participant CLI as outfitter run
   participant Resolver as Resolver
-  participant Baker as Composer / baker
+  participant Composer as Composer
   participant Adapter as Agent adapter (pi / claude)
   participant Agent as Agent CLI process
 
-  User->>CLI: outfitter run --task X [--agent claude] [--strict]
+  User->>CLI: outfitter run <agent> [--harness claude] [--strict]
   CLI->>Resolver: resolve effective resource set
   Resolver->>Resolver: layer .agents trees<br>(workspace > global > pinned remotes)
   Resolver-->>CLI: effective resources + shadow diagnostics
-  CLI->>Baker: compose selection, validate inputs, bake
-  Baker-->>CLI: immutable artifact
-  CLI->>Adapter: project artifact
+  CLI->>Composer: compose selected agent
+  Composer-->>CLI: composition plan
+  CLI->>Adapter: project composition
   Adapter-->>CLI: projection plan + warnings
   alt --strict and warnings
     CLI-->>User: fail with unsupported-element error
@@ -97,5 +95,5 @@ flowchart TB
   CACHE --> VALIDATE[Validate payloads]
   PATH -->|read live, no cache| LAYERS
   VALIDATE --> LAYERS[.agents layer stack]
-  LAYERS --> RUN[outfitter run / list / validate / bake / dump]
+  LAYERS --> RUN[outfitter run / list / validate / dump]
 ```

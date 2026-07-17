@@ -1,6 +1,6 @@
 # Outfitter Philosophy
 
-Make, share, and switch the profiles your coding agents use — manually or programmatically.
+Make, share, and switch the agent profiles your coding agents use — manually or programmatically. A profile is just an agent and the loadout it composes; there is no separate profile format.
 
 ## Expeditious agents
 
@@ -12,7 +12,7 @@ Tight profiles also make delegation practical. When a role is small and well def
 
 ## Composition over accumulation
 
-The common failure mode is a single, ever-growing agent setup: one configuration that accretes every tool and instruction anyone has ever needed, serving no task particularly well. Outfitter takes the opposite approach. Profiles are small, purpose-built, and composable — you stack a personal baseline, a team convention, and a task-specific role, and switch between combinations as the work changes. Each profile stays sharp because it never has to be everything at once.
+The common failure mode is a single, ever-growing agent setup: one configuration that accretes every tool and instruction anyone has ever needed, serving no task particularly well. Outfitter takes the opposite approach. Agent profiles are small, purpose-built, and composable — you stack a personal baseline, a team convention, and a project-specific role, and switch between agents as the work changes. Each stays sharp because it never has to be everything at once.
 
 ## Individual, team, enterprise
 

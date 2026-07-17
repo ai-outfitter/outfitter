@@ -11,8 +11,7 @@ ncrmro/.agents/
     founder/agent.md
     engineer/agent.md
   skills/
-  tasks/
-  settings.yml           # committed: pinned upstream sources, named profiles
+  settings.yml           # committed: pinned upstream sources, default agent
   settings.local.yml     # gitignored: this machine's overrides
   .gitignore             # settings.local.yml, *.generated-*
 ```
@@ -29,7 +28,7 @@ The committed `settings.yml` consumes shared catalogs **pinned to exact commits*
 
 ```yaml
 # settings.yml (committed)
-default_profile: founder
+default_agent: founder
 
 sources:
   - github: ai-outfitter/.agent
@@ -62,9 +61,9 @@ git worktree add ../worktrees/feat/sharper-review -b feat/sharper-review
 
 ## The loop
 
-1. Edit resources — an `agent.md`, a skill, a task — in whichever checkout owns them.
+1. Edit resources — an `agent.md`, a skill — in whichever checkout owns them.
 2. Validate: `outfitter validate --strict`.
-3. Inspect what a run would actually receive: `outfitter dump --profile founder --out /tmp/inspect` and diff between iterations.
+3. Inspect what a run would actually receive: `outfitter dump --agent founder --out /tmp/inspect` and diff between iterations.
 4. Relaunch `outfitter` and test the behavior (a running session keeps the composition it started with).
 5. Fold settled changes back to their home:
    - personal → commit to your `.agents` repo;

@@ -24,7 +24,7 @@ If your configuration lives in `~/.claude` instead, `outfitter setup` can port i
 
 ## First-time setup
 
-Bootstrap from the Outfitter [default catalog](https://github.com/ai-outfitter/.agent), then launch the default profile:
+Bootstrap from the Outfitter [default catalog](https://github.com/ai-outfitter/.agent), then launch the default agent:
 
 ```bash
 outfitter setup
@@ -33,16 +33,15 @@ outfitter
 
 If you are new to Claude Code, Codex, Pi, and agent CLIs, start with [First-time CLI agent users](./first-time-cli-agent-users.md). If you already have an agent workflow, use [Switching to Outfitter](./switching-to-outfitter.md) to adopt the smallest durable set first.
 
-Learn how shared sources work in [Catalogs](./catalogs.md), then see [Profiles](./profiles.md), [Personas](./personas.md), and [Tasks](./tasks.md) for composition.
+Learn how shared sources work in [Catalogs](./catalogs.md), then see [Agents](./agents.md), [Agent profiles](./profiles.md), and [Personas](./personas.md) for composition.
 
 ## Common commands
 
 ```bash
-outfitter run --profile engineer
-outfitter run --agent claude --profile reviewer
-outfitter run --task issue-triage
+outfitter run engineer
+outfitter run reviewer --harness claude
 outfitter sync
-outfitter list
+outfitter list agents
 outfitter validate
 outfitter dump --out ./review
 ```

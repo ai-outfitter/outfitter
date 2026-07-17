@@ -25,16 +25,21 @@ Outfitter launches agent CLIs; install the agents you plan to use separately. Fo
 
 ## Already have a `.agents/` directory?
 
-Then you already have Outfitter configuration. Existing agents, skills, knowledge, and commands are referenced by slug with zero porting:
+Then you already have Outfitter configuration. Each agent's loadout references your existing skills, subagents, MCP, knowledge, and commands by slug with zero porting:
+
+```
+<!-- .agents/agents/engineer/agent.md -->
+---
+name: engineer
+skills: [wiki, research]
+subagents: [code-reviewer]
+mcp: [github]
+---
+```
 
 ```yaml
 # .agents/settings.yml
-default_profile: engineer
-profiles:
-  engineer:
-    personas: [engineer]
-    skills: [wiki, research]
-    subagents: [code-reviewer]
+default_agent: engineer
 ```
 
 If your setup lives in `~/.claude` instead, Outfitter can port it into `~/.agents/` and symlink it back so Claude Code keeps working natively — see [Porting a Claude Code setup](./docs/documentation/porting-claude.md).
@@ -47,24 +52,23 @@ If your setup lives in `~/.claude` instead, Outfitter can port it into `~/.agent
   system-prompt.md     # base system prompt
   mcp.json             # MCP servers
   models.json          # model configuration
-  agents/<id>/agent.md # identities — used as personas or subagents
+  agents/<id>/agent.md # identities + loadouts — run directly or as subagents
   skills/<id>/...      # capability packages
-  tasks/<id>/task.md   # named execution contracts
   knowledge/           # reference documents
   commands/            # slash commands
 ```
 
-Layers merge by ID: `<project>/.agents/` over `~/.agents/` over pinned remote [catalogs](./docs/documentation/catalogs.md). A [profile](./docs/documentation/profiles.md) is a named selection from the merged set; a [persona](./docs/documentation/personas.md) is the identity a run composes; a [task](./docs/documentation/tasks.md) is a repeatable objective that can be [baked](./docs/documentation/dump-and-bake.md) and run anywhere — including [GitHub Actions](./docs/documentation/actions.md).
+Layers merge by ID: `<project>/.agents/` over `~/.agents/` over pinned remote [catalogs](./docs/documentation/catalogs.md). An [agent](./docs/documentation/agents.md) carries both its identity and its loadout — an [agent profile](./docs/documentation/profiles.md) — and is what you run; a [persona](./docs/documentation/personas.md) is a review convention layered on a base agent; a [subagent](./docs/documentation/subagents.md) is an agent a run delegates to, including through [GitHub Actions](./docs/documentation/actions.md).
 
 ## Documentation
 
 - [Getting started](./docs/documentation/getting-started.md)
 - [Concepts](./docs/documentation/concepts.md)
 - [Settings](./docs/documentation/settings.md)
-- [Profiles](./docs/documentation/profiles.md) · [Personas](./docs/documentation/personas.md) · [Subagents](./docs/documentation/subagents.md)
-- [Agents](./docs/documentation/agents.md) · [Skills](./docs/documentation/skills.md) · [Tasks](./docs/documentation/tasks.md)
-- [Catalogs](./docs/documentation/catalogs.md) · [Dump and bake](./docs/documentation/dump-and-bake.md)
-- [Running tasks in GitHub Actions](./docs/documentation/actions.md)
+- [Agents](./docs/documentation/agents.md) · [Agent profiles](./docs/documentation/profiles.md) · [Personas](./docs/documentation/personas.md) · [Subagents](./docs/documentation/subagents.md)
+- [Skills](./docs/documentation/skills.md) · [Tasks (future RFC)](./docs/documentation/tasks.md)
+- [Catalogs](./docs/documentation/catalogs.md) · [Dump](./docs/documentation/dump-and-bake.md)
+- [Running an agent in GitHub Actions](./docs/documentation/actions.md)
 - [Hooks](./docs/documentation/hooks.md) · [State persistence](./docs/documentation/state.md)
 - [Adapter support matrix](./docs/documentation/support-matrix.md)
 - [Local dotagents development](./docs/documentation/local-development.md)

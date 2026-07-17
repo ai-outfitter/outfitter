@@ -33,18 +33,18 @@ This is the same boundary [state persistence](./state.md) enforces at run time: 
 
 ## After porting
 
-Your resources are now protocol resources. Reference them by slug like anything else:
+Your resources are now protocol resources. Reference them by slug from an agent's loadout like anything else:
 
-```yaml
-# ~/.agents/settings.yml
-profiles:
-  daily:
-    personas: [engineer]
-    skills: [wiki, code-review] # formerly ~/.claude/skills/*
+```
+<!-- ~/.agents/agents/daily/agent.md -->
+---
+name: daily
+skills: [wiki, code-review] # formerly ~/.claude/skills/*
+---
 ```
 
 - `outfitter list` shows everything that resolved from the ported tree.
-- `outfitter run --agent claude` launches Claude Code through Outfitter with the same material, now composable with catalogs and other layers.
+- `outfitter run daily --harness claude` launches Claude Code through Outfitter with the same material, now composable with catalogs and other layers.
 - Plain `claude` continues to work as before, through the symlinks.
 
 Consider putting `~/.agents` under version control as a standalone repository — see [Local development](./local-development.md).

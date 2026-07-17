@@ -1,14 +1,13 @@
 # Organization Catalog
 
-An organization catalog publishes named roles instead of asking every user to choose models, prompts, skills, and MCP configuration by hand. The convention is an `owner/.outfitter` control repository carrying a protocol `.agents/` payload: `acme/.outfitter` can give engineers, platform operators, support staff, and executives a useful default session while still letting projects override the final composition.
+An organization catalog publishes named role agents instead of asking every user to choose models, prompts, skills, and MCP configuration by hand. The convention is an `owner/.outfitter` control repository carrying a protocol `.agents/` payload: `acme/.outfitter` can give engineers, platform operators, support staff, and executives a useful default session while still letting projects override the final composition.
 
 ```text
 acme/.outfitter/
   .agents/
-    agents.md
+    agents.md              # shared Acme operating rules for every role
     models.json
     agents/
-      base-acme/agent.md
       engineer/agent.md
       platform-operator/agent.md
       support-triage/agent.md
@@ -18,40 +17,28 @@ acme/.outfitter/
 
 ## Catalog settings
 
-The catalog's `settings.yml` names the published role profiles; the organization distributes it through [remote settings](./../catalogs.md#organization-control-repositories):
+The catalog's `settings.yml` names the default agent; the organization distributes it through [remote settings](./../catalogs.md#organization-control-repositories):
 
 ```yaml
 # acme/.outfitter/.agents/settings.yml
-profiles:
-  engineer:
-    personas: [base-acme, engineer]
-  platform-operator:
-    personas: [base-acme, platform-operator]
-  support-triage:
-    personas: [base-acme, support-triage]
-  exec-briefing:
-    personas: [base-acme, exec-briefing]
+default_agent: engineer
 ```
 
-## Shared base persona
+## Shared operating context
 
-```
-<!-- .agents/agents/base-acme/agent.md -->
----
-name: base-acme
-description: Shared Acme operating rules for every published role.
----
+Rules every role shares live in the tree's `agents.md`, inherited by each agent without ordered persona composition:
+
+```markdown
+<!-- .agents/agents.md -->
 
 Work as an Acme operator: prefer small reversible changes, cite durable
 evidence, keep secrets out of logs and docs, and write decisions into
 repository files.
 ```
 
-Every role selection composes `base-acme` first, then the role persona — ordered [persona composition](../personas.md) replaces profile inheritance.
+## Role agents
 
-## Role personas
-
-The catalog SHOULD publish role personas that make the cost/latency/quality tradeoff explicit. Model choices live in each agent's `config.json` (or the tree's `models.json`); replace the IDs below with the exact names exposed by the organization's provider catalog.
+The catalog SHOULD publish role agents that make the cost/latency/quality tradeoff explicit. Model choices live in each agent's `config.json` (or the tree's `models.json`); replace the IDs below with the exact names exposed by the organization's provider catalog.
 
 ```
 <!-- .agents/agents/engineer/agent.md -->
@@ -122,4 +109,4 @@ expensive human review.
 
 ## Governance
 
-Because the catalog is a normal repository publishing normal files, organization changes flow through ordinary pull requests: a role prompt change is a reviewable diff to one `agent.md`. Consumers pin the catalog by SHA and bump deliberately; `outfitter dump` shows exactly what a pinned composition resolves to before an approval. Recurring org automation — like a `weekly-kpis` report — lives in the same repository as a [task](../tasks.md) run through [GitHub Actions](../actions.md).
+Because the catalog is a normal repository publishing normal files, organization changes flow through ordinary pull requests: a role prompt change is a reviewable diff to one `agent.md`. Consumers pin the catalog by SHA and bump deliberately; `outfitter dump` shows exactly what a pinned composition resolves to before an approval. Recurring org automation — like a `weekly-kpis` report — lives in the same repository as an agent run through [GitHub Actions](../actions.md); a dedicated task/bake contract for that work is a [separate upcoming RFC](../tasks.md).
