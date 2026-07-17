@@ -13,7 +13,8 @@ import { dirname, join } from 'node:path';
 
 import { compose } from '../composer/Composer.js';
 import { compareSlugs, findResource } from '../resolver/Resource.js';
-import type { EffectiveResourceSet, ResolvedResource } from '../resolver/Resource.js';
+import type { EffectiveResourceSet, Layer, ResolvedResource } from '../resolver/Resource.js';
+import { escapesRoots, overlaps } from './Containment.js';
 
 export interface DumpResult {
   readonly writtenPaths: readonly string[];
@@ -23,16 +24,12 @@ export interface DumpResult {
 
 const loadoutKeys = ['skills', 'subagents', 'mcp', 'extensions', 'plugins', 'model', 'thinking', 'tools'] as const;
 
-/** True when the path is a symlink; a symlinked resource directory cannot be safely dumped. */
-const isSymlink = (path: string): boolean => {
-  try {
-    return lstatSync(path).isSymbolicLink();
-  } catch {
-    return false;
-  }
-};
+// Tree-root files carried into the dump so loadout selections (mcp/models) are not dangling.
+const rootFileNames = ['system-prompt.md', 'agents.md', 'mcp.json', 'models.json'] as const;
 
-/** Recursively copies a resource directory, skipping symlinks so no path escapes the tree. */
+const layerRoots = (set: EffectiveResourceSet): readonly string[] => set.layers.map((layer) => layer.root);
+
+/** Recursively copies a directory, skipping symlinked entries so no path escapes the tree. */
 const copyResourceDirectory = (
   sourceDir: string,
   targetDir: string,
@@ -104,18 +101,29 @@ const agentClosure = (set: EffectiveResourceSet, rootSlug: string): readonly Res
   return ordered;
 };
 
-// Only regular files are dumped for identity roots; a symlinked root file is skipped to a lower layer.
-const writeRootFile = (set: EffectiveResourceSet, fileName: string, outRoot: string, written: string[]): void => {
-  for (const layer of set.layers) {
-    const candidate = join(layer.root, fileName);
+// Copies the highest-precedence tree-root file, matching what the composer reads; escaping targets error.
+const writeRootFiles = (set: EffectiveResourceSet, outRoot: string, written: string[]): readonly string[] => {
+  const errors: string[] = [];
+  const roots = layerRoots(set);
 
-    if (existsSync(candidate) && !isSymlink(candidate) && lstatSync(candidate).isFile()) {
-      const target = join(outRoot, fileName);
-      writeFileSync(target, readFileSync(candidate, 'utf8'));
-      written.push(target);
-      return;
+  for (const fileName of rootFileNames) {
+    const source = set.layers.map((layer) => join(layer.root, fileName)).find((candidate) => existsSync(candidate));
+
+    if (source === undefined) {
+      continue;
     }
+
+    if (escapesRoots(source, roots)) {
+      errors.push(`root file '${fileName}' resolves outside the tree and cannot be safely dumped.`);
+      continue;
+    }
+
+    const target = join(outRoot, fileName);
+    writeFileSync(target, readFileSync(source, 'utf8'));
+    written.push(target);
   }
+
+  return errors;
 };
 
 interface ClosureCompose {
@@ -149,8 +157,31 @@ const composeClosure = (set: EffectiveResourceSet, rootSlug: string): ClosureCom
   return { agents, skillSlugs: [...skillSlugs].sort(compareSlugs), warnings, errors };
 };
 
-const symlinkResourceError = (resource: ResolvedResource): string =>
-  `${resource.kind} '${resource.slug}' is a directory symlink and cannot be safely dumped.`;
+const closureResources = (set: EffectiveResourceSet, closure: ClosureCompose): readonly ResolvedResource[] => [
+  ...closure.agents,
+  ...closure.skillSlugs.map((slug) => findResource(set, 'skill', slug)!),
+];
+
+// A defining file or its config that resolves outside every layer root cannot be safely dumped.
+const containmentErrors = (resources: readonly ResolvedResource[], roots: readonly string[]): readonly string[] => {
+  const errors: string[] = [];
+
+  for (const resource of resources) {
+    const files = [resource.winner.path, ...(resource.configPaths ?? [])];
+    if (files.some((file) => escapesRoots(file, roots))) {
+      errors.push(`${resource.kind} '${resource.slug}' resolves outside the tree and cannot be safely dumped.`);
+    }
+  }
+
+  return errors;
+};
+
+const overlapError = (outRoot: string, layers: readonly Layer[]): string | undefined => {
+  const clash = layers.find((layer) => overlaps(outRoot, layer.root));
+  return clash === undefined
+    ? undefined
+    : `dump output ${outRoot} overlaps source layer '${clash.label}'; choose an --out outside the tree.`;
+};
 
 const writeMergedConfig = (agent: ResolvedResource, agentTarget: string, written: string[]): void => {
   const mergedConfig = mergeEffectiveConfig(agent.configPaths ?? []);
@@ -163,34 +194,46 @@ const writeMergedConfig = (agent: ResolvedResource, agentTarget: string, written
   }
 };
 
+const failure = (errors: readonly string[], warnings: readonly string[] = []): DumpResult => ({
+  writtenPaths: [],
+  warnings,
+  errors,
+});
+
 /** Writes the composed closure of `agentSlug` into a freshly cleaned `<outDirectory>/.agents/`. */
 export const dumpAgent = (set: EffectiveResourceSet, agentSlug: string, outDirectory: string): DumpResult => {
-  const rootCompose = compose(set, agentSlug);
-
-  if (rootCompose.plan === undefined) {
-    return { writtenPaths: [], warnings: [], errors: rootCompose.errors };
+  if (compose(set, agentSlug).plan === undefined) {
+    return failure(compose(set, agentSlug).errors);
   }
 
   const closure = composeClosure(set, agentSlug);
 
   if (closure.errors.length > 0) {
-    return { writtenPaths: [], warnings: closure.warnings, errors: closure.errors };
+    return failure(closure.errors, closure.warnings);
   }
 
-  const resources = [...closure.agents, ...closure.skillSlugs.map((slug) => findResource(set, 'skill', slug)!)];
-  const symlinked = resources.filter((resource) => isSymlink(dirname(resource.winner.path)));
+  const roots = layerRoots(set);
+  const safety = containmentErrors(closureResources(set, closure), roots);
 
-  if (symlinked.length > 0) {
-    return { writtenPaths: [], warnings: closure.warnings, errors: symlinked.map(symlinkResourceError) };
+  if (safety.length > 0) {
+    return failure(safety, closure.warnings);
   }
 
   const outRoot = join(outDirectory, '.agents');
+  const clash = overlapError(outRoot, set.layers);
+
+  if (clash !== undefined) {
+    return failure([clash], closure.warnings);
+  }
+
   rmSync(outRoot, { recursive: true, force: true }); // clean destination so the dump is closure-scoped
   mkdirSync(outRoot, { recursive: true });
   const written: string[] = [];
+  const rootErrors = writeRootFiles(set, outRoot, written);
 
-  writeRootFile(set, 'system-prompt.md', outRoot, written);
-  writeRootFile(set, 'agents.md', outRoot, written);
+  if (rootErrors.length > 0) {
+    return failure(rootErrors, closure.warnings);
+  }
 
   for (const agent of closure.agents) {
     const agentTarget = join(outRoot, 'agents', agent.slug);

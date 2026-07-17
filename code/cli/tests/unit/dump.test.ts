@@ -156,7 +156,75 @@ describe('dump command', () => {
       out,
     });
     expect(result.ok).toBe(false);
-    expect(result.messages.join(' ')).toContain('directory symlink');
+    expect(result.messages.join(' ')).toContain('cannot be safely dumped');
+  });
+
+  it('rejects a resource reached through a symlinked ancestor directory', () => {
+    const root = createTemporaryRoot();
+    const project = join(root, 'project');
+    const externalAgents = join(root, 'external-agents');
+    write(join(externalAgents, 'engineer', 'agent.md'), '---\nname: engineer\n---\n\nBody.\n');
+    mkdirSync(join(project, '.agents'), { recursive: true });
+    symlinkSync(externalAgents, join(project, '.agents', 'agents')); // whole agents/ dir is an escaping link
+    const out = join(createTemporaryRoot(), 'ancestor');
+
+    const result = executeDumpCommand({
+      homeDirectory: join(root, 'home'),
+      projectDirectory: project,
+      agent: 'engineer',
+      out,
+    });
+    expect(result.ok).toBe(false);
+    expect(result.messages.join(' ')).toContain('cannot be safely dumped');
+  });
+
+  it('rejects an --out that overlaps a source layer', () => {
+    const { home, project } = buildTree();
+    const result = executeDumpCommand({
+      homeDirectory: home,
+      projectDirectory: project,
+      agent: 'engineer',
+      out: project,
+    });
+    expect(result.ok).toBe(false);
+    expect(result.messages.join(' ')).toContain('overlaps source layer');
+    // the source .agents tree must still be intact
+    expect(relativeTree(join(project, '.agents'))).toContain('agents/engineer/agent.md');
+  });
+
+  it('materializes tree-root mcp.json and models.json so selections are self-contained', () => {
+    const root = createTemporaryRoot();
+    const project = join(root, 'project');
+    write(join(project, '.agents', 'mcp.json'), '{"github":{}}');
+    write(join(project, '.agents', 'models.json'), '{"gpt-5.2":{}}');
+    write(
+      join(project, '.agents', 'agents', 'engineer', 'agent.md'),
+      '---\nname: engineer\nmcp: [github]\n---\n\nBody.\n',
+    );
+    const out = join(createTemporaryRoot(), 'roots');
+
+    executeDumpCommand({ homeDirectory: join(root, 'home'), projectDirectory: project, agent: 'engineer', out });
+    const tree = relativeTree(join(out, '.agents'));
+    expect(tree).toContain('mcp.json');
+    expect(tree).toContain('models.json');
+  });
+
+  it('errors when a tree-root file resolves outside the tree', () => {
+    const root = createTemporaryRoot();
+    const project = join(root, 'project');
+    write(join(root, 'outside', 'system-prompt.md'), 'EXTERNAL');
+    write(join(project, '.agents', 'agents', 'engineer', 'agent.md'), '---\nname: engineer\n---\n\nBody.\n');
+    symlinkSync(join(root, 'outside', 'system-prompt.md'), join(project, '.agents', 'system-prompt.md'));
+    const out = join(createTemporaryRoot(), 'escape');
+
+    const result = executeDumpCommand({
+      homeDirectory: join(root, 'home'),
+      projectDirectory: project,
+      agent: 'engineer',
+      out,
+    });
+    expect(result.ok).toBe(false);
+    expect(result.messages.join(' ')).toContain('resolves outside the tree');
   });
 
   it('cleans the destination so a smaller closure leaves no stale files', () => {
@@ -178,7 +246,7 @@ describe('dump command', () => {
     const project = join(root, 'project');
     write(
       join(project, '.agents', 'agents', 'lead', 'agent.md'),
-      '---\nname: lead\nsubagents: [broken]\n---\n\nBody.\n',
+      '---\nname: lead\nskills: [ghost]\nsubagents: [broken]\n---\n\nBody.\n',
     );
     write(join(project, '.agents', 'agents', 'broken', 'agent.md'), '---\nname: mismatch\n---\n\nBody.\n');
     const out = join(createTemporaryRoot(), 'closure');
@@ -191,6 +259,8 @@ describe('dump command', () => {
     });
     expect(result.ok).toBe(false);
     expect(result.messages.join(' ')).toContain('must match its directory');
+    // warnings from closure members are surfaced even on a fatal failure
+    expect(result.messages.join(' ')).toContain("unknown skill 'ghost'");
   });
 
   it('propagates non-fatal loadout warnings from closure members', () => {

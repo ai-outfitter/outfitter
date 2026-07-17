@@ -53,7 +53,7 @@ export const executeDumpCommand = (input: DumpInput): DumpCommandResult => {
   const ok = result.errors.length === 0;
   const messages = ok
     ? [`Dumped '${agentSlug}' to ${input.out} (${result.writtenPaths.length} files).`, ...result.warnings]
-    : result.errors;
+    : [...result.errors, ...result.warnings];
 
   return { writtenPaths: result.writtenPaths, messages, ok };
 };
