@@ -9,30 +9,45 @@ outfitter --help
 
 Outfitter launches agent CLIs; install the agents you plan to use separately.
 
+## Already have a `.agents/` directory?
+
+You're most of the way there. Outfitter reads the [Dotagents `.agents` protocol](./concepts.md#the-agents-protocol) directly — your existing agents, skills, knowledge, and commands are usable by slug with no conversion:
+
+```bash
+outfitter list          # see what resolves from ~/.agents and <project>/.agents
+outfitter run           # launch with your defaults
+```
+
+Declare a [profile](./profiles.md) in `.agents/settings.yml` to name a selection of your existing resources, and you're done.
+
+If your configuration lives in `~/.claude` instead, `outfitter setup` can port it into `~/.agents/` and symlink it back so Claude Code keeps working natively — see [Porting a Claude Code setup](./porting-claude.md).
+
 ## First-time setup
 
-Set up profiles from the Outfitter [default profiles repo](https://github.com/ai-outfitter/default-profiles), then launch the default profile:
+Bootstrap from the Outfitter [default catalog](https://github.com/ai-outfitter/.agent), then launch the default profile:
 
 ```bash
 outfitter setup
 outfitter
 ```
 
-If you are new to Claude Code, Codex, Pi, and agent CLIs, start with [First-time CLI agent users](./first-time-cli-agent-users.md) for YOLO mode, permissions, context engineering, planning mode, subagents, skills, and extension basics. If you already have an agent workflow, use [Switching to Outfitter](./switching-to-outfitter.md) to migrate the smallest durable set of habits first.
+If you are new to Claude Code, Codex, Pi, and agent CLIs, start with [First-time CLI agent users](./first-time-cli-agent-users.md). If you already have an agent workflow, use [Switching to Outfitter](./switching-to-outfitter.md) to adopt the smallest durable set first.
 
-Learn how shared setup sources work in [Profile repositories](./profile-repository.md), then see [Profiles](./profiles.md) for profile composition, inheritance, and prompt examples.
+Learn how shared sources work in [Catalogs](./catalogs.md), then see [Profiles](./profiles.md), [Personas](./personas.md), and [Tasks](./tasks.md) for composition.
 
 ## Common commands
 
 ```bash
-outfitter run --profile engineering-default
-outfitter run --agent claude --profile support
+outfitter run --profile engineer
+outfitter run --agent claude --profile reviewer
+outfitter run --task issue-triage
 outfitter sync
-outfitter profile list
-outfitter profile create regulated --scope user
+outfitter list
+outfitter validate
+outfitter dump --out ./review
 ```
 
-See the [CLI reference](./cli.md) for every command and flag, and [Concepts](./concepts.md) for how settings, profiles, and adapters fit together. (`outfitter welcome` also exists as a legacy compatibility command for the older terminal onboarding prompts; current onboarding runs inside Pi via `outfitter setup`.)
+See the [CLI reference](./cli.md) for every command and flag, and [Concepts](./concepts.md) for how settings, resources, and adapters fit together.
 
 ## Other install options
 

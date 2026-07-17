@@ -1,68 +1,80 @@
 # Outfitter
 
-Outfitter builds effective agent profiles and launches them through wrapped agent CLIs like [`pi`](https://github.com/earendil-works/pi-coding-agent), Claude Code, and future adapters. Individuals, teams, and organizations can share and compose repeatable agent profiles.
+Outfitter is the toolchain for the [Dotagents `.agents` protocol](https://dotagentsprotocol.com/): it resolves agent configuration from local and remote `.agents` trees, composes personas, skills, and tasks by slug, bakes tasks into deterministic execution artifacts, and launches the result through wrapped agent CLIs like [`pi`](https://github.com/earendil-works/pi-coding-agent) and Claude Code.
 
-If you have not tried [Pi](https://pi.dev) yet, Outfitter is the quickest path to a recommended Pi loadout for engineering work.
+Outfitter does not own a configuration format. Your `.agents/` directory is the source of truth — useful without Outfitter, committed and reviewed like any other code.
+
+> **Status:** these docs describe the target architecture of [RFC #165](https://github.com/ai-outfitter/outfitter/issues/165) (protocol revision `502a9d5`). Implementation is landing as a chain of PRs; the released CLI still runs the legacy profile system until then.
 
 ## Quick start
 
-The first time outfitter runs it will start the setup flow to choose profiles and setup a model if pi is not already configured with one.
-
-Run without installing.
+Run without installing:
 
 ```bash
 npx @ai-outfitter/outfitter
 ```
 
-Full install
+Full install:
 
 ```bash
 npm install -g @ai-outfitter/outfitter
 outfitter
 ```
 
-Outfitter launches agent CLIs; install the agents you plan to use separately.
+Outfitter launches agent CLIs; install the agents you plan to use separately. For the full walkthrough, see [Getting started](./docs/documentation/getting-started.md).
 
-For the full walkthrough, see [Getting started](./docs/documentation/getting-started.md).
+## Already have a `.agents/` directory?
 
-## Profiles
-
-[Profiles](./docs/documentation/profiles.md) compose the context, tools, prompts, skills, extensions, subagents, and DeepWork workflows that shape an agent. Profiles can be shared using [Profile Catalog Repos](./docs/documentation/profile-repository.md).
+Then you already have Outfitter configuration. Existing agents, skills, knowledge, and commands are referenced by slug with zero porting:
 
 ```yaml
-# ~/.outfitter/profiles/home-default.yml
-id: home-default
-label: Home Default
-description: Reusable personal defaults for Outfitter-managed Pi runs.
-controls:
-  provider: openai-codex
-  model: gpt-5.5
-  thinking: high
-  append_system_prompt:
-    - |
-      Use concise, evidence-backed engineering prose.
-      Prefer small, reviewable changes.
-      Keep durable decisions in repo files.
-    - repo_file: docs/architecture.md
+# .agents/settings.yml
+default_profile: engineer
+profiles:
+  engineer:
+    personas: [engineer]
+    skills: [wiki, research]
+    subagents: [code-reviewer]
 ```
+
+If your setup lives in `~/.claude` instead, Outfitter can port it into `~/.agents/` and symlink it back so Claude Code keeps working natively — see [Porting a Claude Code setup](./docs/documentation/porting-claude.md).
+
+## The `.agents` protocol in 30 seconds
+
+```text
+.agents/
+  agents.md            # shared operating context
+  system-prompt.md     # base system prompt
+  mcp.json             # MCP servers
+  models.json          # model configuration
+  agents/<id>/agent.md # identities — used as personas or subagents
+  skills/<id>/...      # capability packages
+  tasks/<id>/task.md   # named execution contracts
+  knowledge/           # reference documents
+  commands/            # slash commands
+```
+
+Layers merge by ID: `<project>/.agents/` over `~/.agents/` over pinned remote [catalogs](./docs/documentation/catalogs.md). A [profile](./docs/documentation/profiles.md) is a named selection from the merged set; a [persona](./docs/documentation/personas.md) is the identity a run composes; a [task](./docs/documentation/tasks.md) is a repeatable objective that can be [baked](./docs/documentation/dump-and-bake.md) and run anywhere — including [GitHub Actions](./docs/documentation/actions.md).
 
 ## Documentation
 
 - [Getting started](./docs/documentation/getting-started.md)
-- [What works today: adapter support matrix](./docs/documentation/support-matrix.md)
-- [Profiles](./docs/documentation/profiles.md)
-- [Skills](./docs/documentation/skills.md)
-- [Best practices](./docs/documentation/best-practices.md)
-- [Profile repositories](./docs/documentation/profile-repository.md)
-- [State persistence](./docs/documentation/state.md)
-- [First-time CLI agent users](./docs/documentation/first-time-cli-agent-users.md)
-- [Switching to Outfitter](./docs/documentation/switching-to-outfitter.md)
+- [Concepts](./docs/documentation/concepts.md)
+- [Settings](./docs/documentation/settings.md)
+- [Profiles](./docs/documentation/profiles.md) · [Personas](./docs/documentation/personas.md) · [Subagents](./docs/documentation/subagents.md)
+- [Agents](./docs/documentation/agents.md) · [Skills](./docs/documentation/skills.md) · [Tasks](./docs/documentation/tasks.md)
+- [Catalogs](./docs/documentation/catalogs.md) · [Dump and bake](./docs/documentation/dump-and-bake.md)
+- [Running tasks in GitHub Actions](./docs/documentation/actions.md)
+- [Hooks](./docs/documentation/hooks.md) · [State persistence](./docs/documentation/state.md)
+- [Adapter support matrix](./docs/documentation/support-matrix.md)
+- [Local dotagents development](./docs/documentation/local-development.md)
+- [Switching to Outfitter](./docs/documentation/switching-to-outfitter.md) · [Migration from legacy profiles](./docs/documentation/migration.md)
 - [Documentation index](./docs/documentation/README.md)
 
 Use cases:
 
-- [Organization profile catalog](./docs/documentation/usecases/organization-profile-catalog.md) — Publish shared team roles so new users can start with organization-approved defaults.
-- [Engineering profile catalog](./docs/documentation/usecases/engineering.md) — Package coding, platform, and review profiles for repeatable engineering workflows.
-- [Persona reviews](./docs/documentation/usecases/persona-reviews.md) — Create customer personas to get feedback on ideas, documentation, and designs.
+- [Organization catalog](./docs/documentation/usecases/organization-profile-catalog.md) — Publish shared org resources and defaults through an `owner/.outfitter` control repository.
+- [Engineering catalog](./docs/documentation/usecases/engineering.md) — Package engineering personas, skills, and tasks for repeatable workflows.
+- [Persona reviews](./docs/documentation/usecases/persona-reviews.md) — Compose customer personas to get feedback on ideas, documentation, and designs.
 
 For local development, repository structure, and release workflow details, see [Contributing](./CONTRIBUTING.md).
