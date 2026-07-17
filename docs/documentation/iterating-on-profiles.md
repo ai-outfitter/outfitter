@@ -1,109 +1,96 @@
-# Iterating on local and worktree profiles
+# Iterating on profiles
 
-This guide covers the edit-run-inspect loop for profiles: switching to a profile you can edit, iterating on it locally or in a git worktree of a profile catalog, and verifying the result.
-It is written for people and for Outfitter-managed agents — if you are an agent reading this, the "Improving your own profile" section describes how to modify the profile you were launched with.
+This guide covers the edit-run-inspect loop for compositions: switching to a profile you can edit, iterating on the resources it selects — locally or in a git worktree of a catalog — and verifying the result.
 
-## Where editable profiles live
+It is written for people and for Outfitter-managed agents — if you are an agent reading this, see [For Outfitter-managed agents](./local-development.md#for-outfitter-managed-agents) for how to improve the configuration you were launched with.
 
-Outfitter resolves profiles from every configured `profile_sources` entry.
-Three scopes are directly editable on the current machine:
+## Where editable resources live
 
-| Scope         | Profiles                               | Settings                                  | Use for                                   |
-| ------------- | -------------------------------------- | ----------------------------------------- | ----------------------------------------- |
-| user          | `~/.outfitter/profiles/`               | `~/.outfitter/settings.yml`               | Personal defaults shared across projects  |
-| project       | `<project>/.outfitter/profiles/`       | `<project>/.outfitter/settings.yml`       | Checked-in behavior the whole team gets   |
-| project-local | `<project>/.outfitter/local/profiles/` | `<project>/.outfitter/local/settings.yml` | Machine-private overrides and experiments |
+Outfitter resolves resources from every configured layer. Two are directly editable on the current machine:
 
-Profiles synced from a remote catalog (`github:` or `uri:` profile sources) land in the Outfitter cache.
-Do not edit the cache — `outfitter sync` overwrites it.
-To iterate on a catalog profile, work in a local checkout of the catalog instead (see the worktree section below).
+| Scope   | Resources               | Settings                                                       | Use for                                  |
+| ------- | ----------------------- | -------------------------------------------------------------- | ---------------------------------------- |
+| user    | `~/.agents/`            | `~/.agents/settings.yml` (+ `settings.local.yml`)              | Personal defaults shared across projects |
+| project | `<project>/.agents/`    | `<project>/.agents/settings.yml` (+ `settings.local.yml`)      | Checked-in behavior the whole team gets  |
+
+Machine-private experiments belong in the flat, gitignored `settings.local.yml` of either scope — it overlays its sibling with the same schema, so you can redefine profiles or repoint `sources` without touching committed files.
+
+Resources synced from a remote catalog land in the Outfitter cache. Do not edit the cache — `outfitter sync` overwrites it. To iterate on a catalog resource, work in a local checkout of the catalog instead (see the worktree section below).
 
 ## Switching profiles
 
 - One launch: `outfitter run --profile <id> [-- <agent args>]`
 - Future launches: set `default_profile: <id>` in the settings scope you want it to apply to.
-- List what is resolvable right now: `outfitter profile list` (add `--all` to include inheritance-only templates).
+- List what is resolvable right now: `outfitter list profiles`.
 
-Profile changes apply on the next launch.
-A running session keeps the composite profile it started with, so after editing a profile you must restart `outfitter` to load the result.
+Changes apply on the next launch. A running session keeps the baked composition it started with, so after editing you must restart `outfitter` to load the result.
 
 ## The iteration loop
 
-1. Create or locate an editable profile:
+1. Declare an experimental profile in `settings.local.yml`, layering a trial persona over an existing selection:
 
-   ```sh
-   outfitter profile create my_experiment --scope project-local
+   ```yaml
+   # .agents/settings.local.yml
+   default_profile: my-experiment
+   profiles:
+     my-experiment:
+       personas: [engineer, experiment] # experiment layers over engineer
+       skills: [wiki]
    ```
 
-To iterate on an existing profile without touching it, create a new profile that inherits from it:
+   with the trial behavior in a workspace agent:
 
-```yaml
-# .outfitter/local/profiles/my_experiment/profile.yml
-id: my_experiment
-label: My Experiment
-inherits:
-  - engineer
-controls:
-  append_system_prompt:
-    - |
-      <the behavior you are trying out>
-```
+   ```markdown
+   <!-- .agents/agents/experiment/agent.md -->
+   ---
+   name: experiment
+   description: Behavior I am trying out.
+   ---
 
-2. Point your next launch at it, either with `outfitter run --profile my_experiment` or by setting `default_profile: my_experiment` in `.outfitter/local/settings.yml`.
+   <the behavior you are trying out>
+   ```
+
+2. Point your next launch at it: `outfitter run --profile my-experiment`, or rely on the `default_profile` override above.
 
 3. Validate before launching:
 
    ```sh
-   outfitter profile lint --strict
+   outfitter validate --strict
    ```
 
-This reports schema and inheritance errors, missing typed prompt include files, and raw append-prompt strings that look like file paths.
+   This reports protocol layout errors, unresolved slugs in selections, and broken skill references.
 
-4. Inspect what the agent actually received.
-   With `profile_export: true` in the active settings, Outfitter writes the composed system prompt next to the profile (`generated-system-prompt.md` in a directory profile, `<id>.generated-system-prompt.md` beside a flat profile).
-   Diff it between iterations to confirm a change landed.
+4. Inspect what the agent actually received:
 
-5. Restart and test the behavior, then fold the settled changes back into the profile the experiment inherited from.
+   ```sh
+   outfitter dump --profile my-experiment --out /tmp/inspect
+   ```
 
-## Iterating on a catalog profile in a git worktree
+   Diff dumps between iterations to confirm a change landed — the dump is exactly what run composes.
 
-Shared profiles usually come from a catalog repository (see [Profile repositories](./profile-repository.md)) referenced as a `github:` source.
-To change one:
+5. Restart and test the behavior, then fold the settled changes back into the persona or skill the experiment layered over, and remove the experiment entries.
+
+## Iterating on a catalog resource in a git worktree
+
+Shared resources usually come from a [catalog](./catalogs.md) referenced as a pinned `github:` source. To change one:
 
 1. Clone the catalog, or add a worktree to an existing clone so the iteration branch stays isolated:
 
    ```sh
-   cd ~/repos/acme/profile-catalog/main
+   cd ~/repos/acme/agents-catalog/main
    git worktree add ../worktrees/feat/sharper-review-prompts -b feat/sharper-review-prompts
    ```
 
-2. Point a machine-private profile source at the worktree in `.outfitter/local/settings.yml` (or `~/.outfitter/settings.yml`).
-   Local `path:` sources take the same layout as the catalog:
+2. Point a machine-private source at the worktree in `settings.local.yml` (project or user scope):
 
    ```yaml
-   # .outfitter/local/settings.yml
-   profile_sources:
-     - path: ~/repos/acme/profile-catalog/worktrees/feat/sharper-review-prompts/profiles
+   # .agents/settings.local.yml
+   sources:
+     - path: ~/repos/acme/agents-catalog/worktrees/feat/sharper-review-prompts
    ```
 
-3. Iterate with the loop above: edit in the worktree, `outfitter profile lint --strict`, relaunch, inspect the prompt export.
+3. Iterate with the loop above: edit in the worktree, `outfitter validate --strict`, relaunch, diff the dump.
 
-4. Commit in the worktree, push, and open a pull request against the catalog.
-   After it merges, remove the local `path:` override, run `outfitter sync` to refresh the cached catalog, and remove the worktree.
+4. Commit in the worktree, push, and open a pull request against the catalog. After it merges, remove the local `path:` override, bump the pinned `ref:`, run `outfitter sync`, and remove the worktree.
 
-Because the override lives in project-local settings, teammates and CI keep resolving the published catalog while you iterate.
-
-## Improving your own profile (for Outfitter-managed agents)
-
-If you are an agent launched by Outfitter, your instructions, tools, skills, and extensions came from a profile, and you can improve that profile the same way you improve code — but the change only takes effect for future sessions, never the current one.
-
-1. Identify your active profile.
-   The launch header and `outfitter profile list` show profile ids; your composite profile directory contains `outfitter/profile.json` with the id, label, and merged controls you were launched with.
-2. Find the editable source for that profile with the scope table above.
-   If the profile comes from a remote catalog, do not edit the cache — use the worktree flow above, or create a local profile that `inherits` from it and layer the improvement on top.
-3. Make the smallest change that captures the improvement: a new `append_system_prompt` entry for a behavior correction, a `skills` entry for a reusable procedure, or a control override (model, thinking level, environment) for launch mechanics.
-4. Validate with `outfitter profile lint --strict`, and review the `profile_export` prompt output when prompt text changed.
-5. Tell the user what you changed and why, and that the change applies when they restart `outfitter` (or launch `outfitter run --profile <id>`).
-   You cannot reload your own profile mid-session.
-
-Prefer durable, reviewable improvements: put team-relevant changes in the project or catalog profile through a pull request, and keep personal or experimental changes in user or project-local scope.
+Because the override lives in `settings.local.yml`, teammates and CI keep resolving the published catalog while you iterate. This is the same trickle-up workflow as [Local development](./local-development.md), applied to one change.

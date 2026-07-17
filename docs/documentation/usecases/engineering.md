@@ -1,114 +1,102 @@
-# Engineering Profile Catalog
+# Engineering Catalog
 
-An engineering profile catalog is a shared setup source for people who write code, review changes, operate infrastructure, and debug production-like systems. It gives engineers a reliable default Pi session without asking each teammate to rebuild the same model, thinking, prompt, skill, and extension choices by hand.
+An engineering catalog is a shared `.agents` source for people who write code, review changes, operate infrastructure, and debug production-like systems. It gives engineers a reliable default session without asking each teammate to rebuild the same model, prompt, skill, and persona choices by hand.
 
-For example, `acme-engineering-outfitter` can publish a small catalog with profiles for day-to-day implementation, deeper platform work, and lightweight review or triage.
+For example, `acme-engineering/.agent` can publish a small catalog with roles for day-to-day implementation, deeper platform work, and lightweight review or triage — plus the skills those roles share.
 
 ```text
-acme-engineering-outfitter/
+acme-engineering/.agent/     # repository root is the payload
+  agents/
+    base-engineering/agent.md
+    engineer/agent.md
+    platform-engineer/agent.md
+    reviewer/agent.md
+  skills/
+    issue-planning/
+    deployment-review/
   settings.yml
-  profiles/
-    base-engineering/
-      profile.yml
-    engineer/
-      profile.yml
-    platform-engineer/
-      profile.yml
-    reviewer/
-      profile.yml
 ```
 
 ## Catalog settings
 
 ```yaml
-# acme-engineering-outfitter/settings.yml
-profile_sources:
-  - path: ./profiles
-    only:
-      - engineer
-      - platform-engineer
-      - reviewer
+# settings.yml
+profiles:
+  engineer:
+    personas: [base-engineering, engineer]
+    skills: [issue-planning]
+  platform-engineer:
+    personas: [base-engineering, platform-engineer]
+    skills: [deployment-review]
+  reviewer:
+    personas: [base-engineering, reviewer]
 ```
 
-## Shared base profile
+## Shared base persona
 
-```yaml
-# profiles/base-engineering/profile.yml
-id: base-engineering
-label: Engineering Base
-template: true
+```markdown
+<!-- agents/base-engineering/agent.md -->
+---
+name: base-engineering
 description: Shared engineering operating rules for code, tests, and infrastructure.
-controls:
-  append_system_prompt: |
-    Work as a careful engineering agent. Read the relevant code before editing,
-    prefer small reversible changes, keep secrets out of logs, run focused tests,
-    and return changed files plus verification evidence.
+---
+
+Work as a careful engineering agent. Read the relevant code before editing,
+prefer small reversible changes, keep secrets out of logs, run focused tests,
+and return changed files plus verification evidence.
 ```
 
-## Role profiles
+## Role personas
 
-Engineering catalogs SHOULD separate routine implementation from high-risk infrastructure and review work. The examples below are role-shaped; replace model IDs and thinking levels with the exact choices exposed by the team's agent providers.
+Engineering catalogs SHOULD separate routine implementation from high-risk infrastructure and review work. Model and thinking choices live in each agent's `config.json`; replace the IDs with the exact choices exposed by the team's providers.
 
-```yaml
-# profiles/engineer/profile.yml
-id: engineer
-label: Software Engineer
+```markdown
+<!-- agents/engineer/agent.md -->
+---
+name: engineer
 description: Default for feature work, bug fixes, and test-backed implementation.
-inherits:
-  - base-engineering
-controls:
-  provider: anthropic
-  model: anthropic/claude-sonnet-4
-  thinking: high
-  append_system_prompt: |
-    Optimize for correct, reviewable implementation. Inspect nearby code and tests,
-    make narrow commits, run the smallest meaningful validation, and summarize risks.
+---
+
+Optimize for correct, reviewable implementation. Inspect nearby code and tests,
+make narrow commits, run the smallest meaningful validation, and summarize risks.
 ```
 
-```yaml
-# profiles/platform-engineer/profile.yml
-id: platform-engineer
-label: Platform Engineer
-description: Higher-caution profile for CI, infrastructure, deployment, and incident work.
-inherits:
-  - base-engineering
-controls:
-  provider: anthropic
-  model: anthropic/claude-opus-4
-  thinking: xhigh
-  append_system_prompt: |
-    Treat infrastructure and production-like systems as high-risk. Diagnose before
-    mutating state, name rollback paths, and ask before deploys, credential use,
-    payments, or irreversible operations.
+```markdown
+<!-- agents/platform-engineer/agent.md -->
+---
+name: platform-engineer
+description: Higher-caution role for CI, infrastructure, deployment, and incident work.
+---
+
+Treat infrastructure and production-like systems as high-risk. Diagnose before
+mutating state, name rollback paths, and ask before deploys, credential use,
+payments, or irreversible operations.
 ```
 
-```yaml
-# profiles/reviewer/profile.yml
-id: reviewer
-label: Code Reviewer
-description: Review-focused profile for diffs, pull requests, and release readiness.
-inherits:
-  - base-engineering
-controls:
-  provider: openai
-  model: openai/gpt-4.1
-  thinking: medium
-  append_system_prompt: |
-    Review for correctness, regression risk, missing tests, unsafe operations,
-    unclear rollout paths, and documentation drift. Prioritize actionable findings
-    over style nits.
+```markdown
+<!-- agents/reviewer/agent.md -->
+---
+name: reviewer
+description: Review-focused role for diffs, pull requests, and release readiness.
+---
+
+Review for correctness, regression risk, missing tests, unsafe operations,
+unclear rollout paths, and documentation drift. Prioritize actionable findings
+over style nits.
 ```
 
 ## Verification pattern
 
-Engineering catalogs SHOULD make verification expectations explicit in prompts or comments so agents return evidence instead of vague completion claims.
+Engineering catalogs SHOULD make verification expectations explicit so agents return evidence instead of vague completion claims:
 
-```yaml
-# profiles/engineer/profile.yml excerpt
-controls:
-  append_system_prompt: |
-    When you change code, report the exact tests or checks you ran. If a check is
-    skipped, say why and name the smallest follow-up validation that would reduce risk.
+```markdown
+<!-- agents/engineer/agent.md excerpt -->
+When you change code, report the exact tests or checks you ran. If a check is
+skipped, say why and name the smallest follow-up validation that would reduce risk.
 ```
+
+## Repeatable automation
+
+Recurring engineering work — PR review, issue triage, scheduled audits — becomes [tasks](../tasks.md) in the same catalog, selecting these personas and skills and invoked through [GitHub Actions](../actions.md) with structured inputs. Adding a capability is a skill change; adding a trigger is workflow wiring; neither duplicates the roles.
 
 This gives an engineering team a repeatable catalog with safe defaults: fast enough for common implementation, cautious enough for infrastructure, and explicit about verification evidence.

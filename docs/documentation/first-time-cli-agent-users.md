@@ -14,7 +14,7 @@ You may inspect files, edit code, and run project tests.
 Ask before deleting files, changing dependencies, touching credentials, or publishing anything.
 ```
 
-Permissions are the safety boundary. A good session says what the agent may do, what it must ask about, and what evidence proves the job is done. Outfitter’s default profile catalog is meant to provide useful defaults, but you still own the trust decision for each project and command.
+Permissions are the safety boundary. A good session says what the agent may do, what it must ask about, and what evidence proves the job is done. Outfitter’s default catalog is meant to provide useful defaults, but you still own the trust decision for each project and command.
 
 Good first permission rules:
 
@@ -45,11 +45,11 @@ Read AGENTS.md, the README, package scripts, and the failing test before editing
 Then propose a three-step plan with acceptance criteria.
 ```
 
-Outfitter profiles can store reusable personal context, while `AGENTS.md` keeps project context in the repo. Pi also supports extension-provided tools and skills; the default profile catalog may include skills that add project-governance, review, or browser/testing instructions to the session.
+Your `~/.agents` tree stores reusable personal context, while `AGENTS.md` (or a project's `.agents/agents.md`) keeps project context in the repo. Pi also supports extension-provided tools and skills; the default catalog may include skills that add project-governance, review, or browser/testing instructions to the session.
 
 ## Planning mode
 
-Planning mode is provided by the plan Pi extension installed in the current Outfitter profile. In the default Outfitter Pi setup, use the plan-mode keybinding (`Shift+Tab`) to toggle from build mode into plan mode before broad changes. Plan mode keeps the agent in an investigation/design posture: read, inspect, and propose; do not write the implementation yet.
+Planning mode is provided by the plan Pi extension installed in the current Outfitter composition. In the default Outfitter Pi setup, use the plan-mode keybinding (`Shift+Tab`) to toggle from build mode into plan mode before broad changes. Plan mode keeps the agent in an investigation/design posture: read, inspect, and propose; do not write the implementation yet.
 
 Use the plan-mode keybinding when:
 
@@ -92,7 +92,7 @@ Subagents are useful for:
 - comparing approaches;
 - keeping risky experiments away from the main checkout.
 
-Whether subagents are available depends on the active Pi/Outfitter profile and extensions. The default profile catalog may include subagent definitions or guidance; vanilla agent CLIs differ in what they provide out of the box.
+Whether subagents are available depends on the active composition and extensions — see [Subagents](./subagents.md). The default catalog may include subagent definitions or guidance; vanilla agent CLIs differ in what they provide out of the box.
 
 ## Skills
 
@@ -106,11 +106,11 @@ Try inside Pi:
 
 Then provide the goal or inputs the skill asks for. Other examples might be project review, browser testing, release notes, or incident summaries, depending on what the active profile installed.
 
-Skills may come from Pi packages, from the Outfitter default profile catalog, or from a project-local `.outfitter` profile. If a skill is not active, ask Pi what skills it can see before relying on it.
+Skills may come from Pi packages, from the Outfitter default catalog, or from a project's `.agents/skills/` directory. If a skill is not active, ask Pi what skills it can see before relying on it.
 
 ## Extensions and tools
 
-Extensions add tools and UI affordances to Pi. For example, an extension can expose a browser tool, a structured question UI, a GitHub helper, or an Outfitter setup command. These are not all vanilla Pi features; they appear when the active profile loads the relevant Pi package or extension.
+Extensions add tools and UI affordances to Pi. For example, an extension can expose a browser tool, a structured question UI, a GitHub helper, or an Outfitter setup command. These are not all vanilla Pi features; they appear when the active composition loads the relevant Pi package or extension.
 
 Ask:
 
@@ -134,4 +134,4 @@ You may read files and run non-destructive discovery commands.
 Ask before deleting files, changing dependencies, pushing, publishing, or touching credentials.
 ```
 
-After a few sessions, move the reusable parts into an Outfitter profile so every launch starts with your preferred operating style.
+After a few sessions, move the reusable parts into a persona in your `~/.agents` tree so every launch starts with your preferred operating style.
