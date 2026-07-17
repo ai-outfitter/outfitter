@@ -1,7 +1,9 @@
 # Outfitter File Structure
 
 This document records the key repository file and directory structure used by Outfitter.
-See [`./README.md`](./README.md) for runtime file conventions such as `.outfitter` settings folders, profile folders, and generated composite profile directories.
+See [`./README.md`](./README.md) for runtime file conventions such as `.agents` layers, settings files, and generated composition directories.
+
+> **Transition (RFC [#165](https://github.com/ai-outfitter/outfitter/issues/165)):** the `code/cli/src` subdirectories below reflect the current profile-era implementation. Implementation PRs replace `profiles/` and `compositeProfile/` with resolver, composition, bake, and dump modules and update this listing as they land.
 
 ## Repository Layout
 
@@ -85,4 +87,4 @@ code/cli/tests/fixtures/scenarios/
   profile-precedence/
 ```
 
-Each scenario should include realistic `.outfitter` folders and expected resolution output.
+Each scenario should include realistic `.agents` trees and expected resolution output. Protocol conformance fixtures (layered trees plus expected effective output, pinned to the protocol revision) follow the same convention.

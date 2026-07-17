@@ -2,13 +2,19 @@
 
 ## Purpose
 
-This document describes the current Pi-native Outfitter onboarding path. It is architecture documentation, not product copy: it explains the runtime decisions, generated Pi extension responsibilities, catalog source-of-truth, and custom UI behavior that keep first-run setup native to Pi without requiring an agent/model turn.
+This document describes the Pi-native Outfitter onboarding path in the RFC [#165](https://github.com/ai-outfitter/outfitter/issues/165) end state. It is architecture documentation, not product copy: it explains the runtime decisions, generated Pi extension responsibilities, adoption detection, catalog source-of-truth, and custom UI behavior that keep first-run setup native to Pi without requiring an agent/model turn.
 
 ## Current First-Run Flow
 
-A plain interactive `outfitter` launch uses Pi-native onboarding only when Outfitter cannot find `~/.outfitter/settings.yml`. Existing settings use the normal run path. Non-interactive Pi launches (`--print`, `-p`, `--export`, `--list-models`, JSON/print/RPC modes) MUST NOT open onboarding UI, auto-submit slash commands, sync first-run sources, or mutate Outfitter settings.
+A plain interactive `outfitter` launch uses Pi-native onboarding only when Outfitter cannot find `~/.agents/settings.yml`. Existing settings use the normal run path. Non-interactive Pi launches (`--print`, `-p`, `--export`, `--list-models`, JSON/print/RPC modes) MUST NOT open onboarding UI, auto-submit slash commands, sync first-run sources, or mutate Outfitter settings.
 
-When first-run onboarding is active, `RunCommand` synchronizes the default profile catalog from `github: ai-outfitter/default-profiles` with `path: profiles`. The generated Pi bootstrap extension receives the synced cache path as `defaultProfilesPath`. The extension reads profile `id`, `label`, and `description` from cached catalog `profile.yml` files at runtime; profile picker entries are not hardcoded in the extension.
+Before syncing anything, first-run onboarding detects existing configuration:
+
+1. **Existing `~/.agents/` tree without settings** — adopt it: onboarding lists the tree's resolvable agents and skills, helps the user name a default profile selection from their own resources by slug, and writes only `settings.yml`. No resources are created, copied, or converted.
+2. **Existing `~/.claude` directory and no `~/.agents/` tree** — offer the [port](../documentation/porting-claude.md): move configuration entries into `~/.agents/` and symlink them back so native Claude Code keeps working, then continue as case 1. Declining the port continues as case 3 without touching `~/.claude`.
+3. **Neither** — bootstrap from the default catalog.
+
+When bootstrap onboarding is active, `RunCommand` synchronizes the default catalog from `github: ai-outfitter/.agent` (pinned). The generated Pi bootstrap extension receives the synced cache path. The extension reads profile selections and their descriptions from the cached catalog's `settings.yml` and agent frontmatter at runtime; picker entries are not hardcoded in the extension.
 
 Before Pi starts, Outfitter prepares a generated CLI extension and launch environment:
 
@@ -26,12 +32,18 @@ The extension opens `/outfitter` after Pi session start by setting the editor te
 flowchart TD
   A[User runs outfitter] --> B{Interactive Pi launch?}
   B -- No --> B1[Use normal non-interactive launch path]
-  B -- Yes --> C{~/.outfitter/settings.yml exists?}
+  B -- Yes --> C{~/.agents/settings.yml exists?}
   C -- Yes --> C1[Resolve configured default profile and launch normally]
-  C -- No --> D[Sync ai-outfitter/default-profiles path: profiles]
+  C -- No --> C2{Existing configuration?}
+  C2 -- ~/.agents tree --> C3[Adopt: select from existing resources]
+  C2 -- ~/.claude only --> C4{Port and symlink?}
+  C4 -- Yes --> C3
+  C4 -- No --> D
+  C2 -- None --> D[Sync pinned ai-outfitter/.agent]
   D --> E{Sync succeeded?}
   E -- No --> E1[Fail with setup guidance]
   E -- Yes --> F[Prepare generated Pi bootstrap extension]
+  C3 --> F
   F --> G[Set quietStartup and first-run bootstrap launch options]
   G --> H[Launch Pi with --extension]
   H --> I[project_trust event]
@@ -42,17 +54,17 @@ flowchart TD
   L -- No --> L1[Auto-submit /login]
   L -- Yes --> M[No login handoff]
   K --> N{Setup mode}
-  N -- Default catalog --> O[Read cached catalog profile.yml files]
+  N -- Default catalog --> O[Read cached catalog selections]
   O --> P[Custom profile picker]
   P --> P1[Founder highlighted by default when present]
   P --> Q[Choose install target]
-  N -- Create profile --> R[Ask profile id and label]
+  N -- Own resources --> R[Select personas and skills by slug]
   R --> Q
   N -- Import catalog --> S[Ask remote_settings source]
   S --> Q
   Q --> T{Install target}
-  T -- Home --> U[Write ~/.outfitter/settings.yml]
-  T -- Project --> V[Write <project>/.outfitter/settings.yml]
+  T -- Home --> U[Write ~/.agents/settings.yml]
+  T -- Project --> V[Write <project>/.agents/settings.yml]
   U --> W[Notify restart required for selected profile]
   V --> W
 ```
@@ -78,9 +90,9 @@ The custom picker uses a purpose-specific custom UI helper named `selectDescribe
 The described-option selector renders:
 
 - the fixed profile-setup title and guidance;
-- one selectable row per synced catalog profile;
-- only the selected profile's `description` to the right of that row;
-- no description text for profiles without a `description` field;
+- one selectable row per catalog profile selection;
+- only the selected profile's description to the right of that row;
+- no description text for profiles without a description;
 - `↑`/`↓` navigation, Enter selection, and Escape/Ctrl+C cancellation.
 
 The picker initializes on the current configured default profile when one exists. If no current default exists and `founder` is present in the synced catalog, it initializes on `founder` and labels it as recommended. Otherwise it initializes on the first sorted profile. Sorting still keeps `founder` first when present, then sorts remaining profiles by id.
@@ -91,7 +103,7 @@ Example shape:
 Outfitter profile setup
 
 Choose the default profile from the selected catalog for future 'outfitter' launches.
-The current Pi process keeps the profile it started with; this setting applies on the next launch.
+The current Pi process keeps the composition it started with; this setting applies on the next launch.
 
 → founder — Founder (Recommended)  Founder-operator setup for building, product thinking, research checks, dense prose, and careful delivery.
   data_analyst — Data Analyst
@@ -102,26 +114,26 @@ The current Pi process keeps the profile it started with; this setting applies o
 
 The first onboarding question chooses one setup mode:
 
-1. **Use the default Outfitter profile catalog** reads profile choices from the synced `ai-outfitter/default-profiles` cache, then writes `default_profile` and default `profile_sources` to the selected install target.
-2. **Create your own profile** asks for a profile id and label, writes settings for a local profile source, and creates `<install-target>/.outfitter/profiles/<profile>/profile.yml` only if that file does not already exist.
+1. **Use the default Outfitter catalog** reads profile selections from the synced `ai-outfitter/.agent` cache, then writes `default_profile` and the pinned default source to the selected install target's `settings.yml`.
+2. **Compose from your own resources** (offered when an adopted or ported tree exists) lists the tree's agents and skills by slug and writes a named profile selection referencing them. It never creates or edits resource files.
 3. **Provide a different catalog to import** writes `remote_settings` pointing at the user-provided `owner/repo`, `ref`, and settings path. Before writing, the extension checks GitHub repository metadata. Only HTTP 200 with JSON `private: true` is treated as confirmed private; public, unknown, 403/404, network, malformed, and non-GitHub outcomes do not warn, error, or block.
 
-Private catalog enablement is sourced only from `~/.outfitter/settings.yml`:
+Private catalog enablement is sourced only from `~/.agents/settings.yml`:
 
 ```yaml
 enterprise:
-  private_profile_catalogs: true
+  private_catalogs: true
 ```
 
 If that setting is absent and an imported GitHub catalog is confirmed private, Pi-native onboarding asks:
 
 ```text
-Private GitHub profile catalog detected: OWNER/REPO.
+Private GitHub catalog detected: OWNER/REPO.
 
-Private profile catalog support is covered by the Outfitter Enterprise license.
+Private catalog support is covered by the Outfitter Enterprise license.
 Review code/enterprise/LICENSE or your enterprise agreement before enabling.
 
-Enable private profile catalogs in ~/.outfitter/settings.yml and use this catalog?
+Enable private catalogs in ~/.agents/settings.yml and use this catalog?
 ```
 
 The choices are:
@@ -134,7 +146,7 @@ Cancel private catalog setup
 Accepting writes the home setting and notifies:
 
 ```text
-Outfitter enabled private profile catalogs in ~/.outfitter/settings.yml and saved this catalog.
+Outfitter enabled private catalogs in ~/.agents/settings.yml and saved this catalog.
 ```
 
 Declining leaves all settings unchanged and notifies:
@@ -145,54 +157,15 @@ Private catalog setup was cancelled; no settings were changed.
 
 If the home setting is already enabled, onboarding skips the private-catalog enterprise prompt and saves the catalog normally. Outfitter does not collect, echo, persist, synthesize, or validate provider credentials.
 
-The final install target question writes either `~/.outfitter/settings.yml` or `<project>/.outfitter/settings.yml`. Profile changes selected after Pi has already started apply to the next `outfitter` launch, so onboarding must communicate that restart boundary.
+The final install target question writes either `~/.agents/settings.yml` or `<project>/.agents/settings.yml`. Selections made after Pi has already started apply to the next `outfitter` launch, so onboarding must communicate that restart boundary. Onboarding never writes `settings.local.yml`; the flat local override file is user-managed.
 
-The install target prompt SHOULD also use `selectDescribedOption`, because the distinction between user-wide and project-local settings is semantic, not just locational. Required copy:
+The install target prompt SHOULD also use `selectDescribedOption`, because the distinction between user-wide and project settings is semantic, not just locational. Required copy:
 
 - Home folder: "These profiles will be available anywhere you start outfitter."
-- Current project directory: "These profiles will only be available in the current project directory and will compose the profiles of the same name in the home folder."
-
-### Install Target Screen Variations
-
-Variation A keeps the same inline-description pattern as the profile picker and emphasizes the selected row only:
-
-```text
-Where should Outfitter install these settings?
-
-  Home folder (~/.outfitter)
-→ Current project directory (.outfitter)  These profiles will only be available in the current project directory and will compose the profiles of the same name in the home folder.
-```
-
-Variation B uses a wider label column so the explanatory text starts at a stable position:
-
-```text
-Where should Outfitter install these settings?
-
-  Home folder (~/.outfitter)
-→ Current project directory (.outfitter)    These profiles will only be available in the current project directory and will compose the profiles of the same name in the home folder.
-```
-
-Variation C adds one line of neutral guidance above the selector while still keeping descriptions tied to the highlighted row:
-
-```text
-Where should Outfitter install these settings?
-Choose the scope for the settings.yml written by this setup flow.
-
-→ Home folder (~/.outfitter)              These profiles will be available anywhere you start outfitter.
-  Current project directory (.outfitter)
-```
-
-Variation D favors a compact two-column layout and is the preferred architecture target when terminal width allows it:
-
-```text
-Where should Outfitter install these settings?
-
-  Home folder (~/.outfitter)
-→ Current project directory (.outfitter)  These profiles will only be available in the current project directory and will compose the profiles of the same name in the home folder.
-```
+- Current project directory: "These profiles will only be available in the current project directory and will compose resources of the same slug from the home folder."
 
 If terminal width is too narrow, the selected description SHOULD wrap below the highlighted row rather than truncating the scope explanation.
 
 ## Cache and Staleness Implications
 
-The default catalog is a remote source, but the profile picker reads the synchronized local cache passed to the generated extension. If the upstream default-profiles repository changes, an existing cache can remain stale until sync refreshes it. Seeing a removed profile in the picker usually means the first-run process is reading an old cache or a stuck sync process, not that the generated extension has hardcoded that profile.
+The default catalog is a pinned remote source, but the profile picker reads the synchronized local cache passed to the generated extension. If the pinned ref changes upstream, an existing cache can remain stale until sync refreshes it. Seeing a removed profile in the picker usually means the first-run process is reading an old cache or a stuck sync process, not that the generated extension has hardcoded that profile.

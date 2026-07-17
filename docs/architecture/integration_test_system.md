@@ -1,5 +1,7 @@
 # Integration Test System
 
+> **Transition (RFC [#165](https://github.com/ai-outfitter/outfitter/issues/165)):** this document and its fixtures describe the test system as it exists today, exercising the legacy settings/profile trees. The RFC #165 implementation PRs migrate fixtures to `.agents` layer trees and add protocol conformance fixtures; until each PR lands, this document intentionally matches the current code, not the target architecture in the surrounding docs.
+
 ## Purpose
 
 Outfitter uses fixture-backed integration tests to exercise real settings/profile directory trees rather than constructing every input inside individual tests.

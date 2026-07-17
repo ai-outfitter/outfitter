@@ -1,23 +1,19 @@
 # Controllable Elements
 
-This document defines cross-agent-CLI concepts that Outfitter profiles may control.
-Pi is the first supported CLI, and Claude Code is supported as an additional adapter.
-Other CLIs may be added later while keeping the profile model generic.
+This document defines the cross-agent-CLI concepts an Outfitter composition may control — the harness-neutral vocabulary adapters project into native mechanisms. Pi is the first supported CLI, and Claude Code is supported as an additional adapter. Other CLIs may be added later while keeping the composition model generic.
 
 Status values:
 
-- **Supported**: Outfitter supports this control for the CLI.
-- **Roadmap**: the CLI appears to support this concept, but Outfitter does not support it yet.
+- **Supported**: Outfitter projects this element for the CLI.
+- **Partial**: some of the element works today, with documented gaps.
+- **Roadmap**: the CLI appears to support this concept, but Outfitter does not project it yet.
 - **Unsupported**: the agent CLI cannot meaningfully support the concept or no known native mechanism exists.
 
 ## How to Read This Matrix
 
-A `Supported` entry means Outfitter can control that concept for the agent CLI through at least one native mechanism: a config-directory boundary, state-path placement, generated files, environment variables, command-line flags, or pass-through arguments.
-It does not always mean there is a one-to-one native CLI flag or that every generic profile selector has been mapped.
+A `Supported` entry means Outfitter can project that concept for the agent CLI through at least one native mechanism: a config-directory boundary, state-path placement, generated files, environment variables, command-line flags, or pass-through arguments. It does not always mean there is a one-to-one native CLI flag.
 
-For example, Claude Code session/project state lives under Claude's config home rather than a standalone `--session-dir` flag.
-Outfitter supports that session-directory concept for Claude by setting `CLAUDE_CONFIG_DIR` to the composite profile root, declaring Claude `projects/` state for persistence, and allowing `controls.session_directory` or `controls.claude.session_directory` to choose where that state is symlinked from.
-Likewise, Claude skills and commands are supported as native directories under the profiled `CLAUDE_CONFIG_DIR`, even though the generic `controls.skills` and `controls.prompt_template` selectors are not yet translated into Claude-specific selection flags.
+For example, Claude Code session/project state lives under Claude's config home rather than a standalone `--session-dir` flag. Outfitter supports the session-directory concept for Claude by setting `CLAUDE_CONFIG_DIR` to the projection root and declaring Claude `projects/` state for persistence.
 
 ## Defined Terms
 
@@ -35,54 +31,81 @@ The directory where conversation sessions, transcripts, or run state are stored.
 - Pi name: `PI_CODING_AGENT_SESSION_DIR` / `--session-dir`
 - Claude name: session/project state under `CLAUDE_CONFIG_DIR`, including `projects/` state managed by Outfitter state persistence
 
-### Extensions
+### Personas
 
-Executable/plugin modules that add tools, providers, hooks, or runtime behavior.
+The composed identity of a run: `system-prompt.md`, `agents.md`, and ordered selected `agents/<id>/agent.md` definitions.
 
-- Pi name: extensions, `--extension` / `-e`
-- Claude name: plugins via `--plugin-dir`
+- Pi name: `--system-prompt` / `--append-system-prompt` composition
+- Claude name: `--system-prompt` / `--append-system-prompt` composition
+
+### Subagents
+
+Selected `agents/<id>` definitions projected as harness delegates.
+
+- Pi name: subagent extension registration
+- Claude name: native agent definitions under the config directory's `agents/`
 
 ### Skills
 
-Reusable task instructions, workflows, or resource bundles exposed to the agent.
+Protocol `skills/<id>/` packages exposed to the agent.
 
 - Pi name: skills, `--skill`
-- Claude name: skills under the Claude config directory; Outfitter can profile native Claude skills through `cli_specific/claude/skills`, but generic `skills` selection is not mapped yet
+- Claude name: skills under the Claude config directory
 
-### Prompt Templates
+### Commands / Prompt Templates
 
-Named reusable prompts/templates available to the agent runtime.
+Named reusable prompts or slash commands available to the agent runtime, from the tree's `commands/`.
 
 - Pi name: prompt templates, `--prompt-template`
-- Claude name: commands/prompts under the Claude config directory; Outfitter can profile native Claude commands through `cli_specific/claude/commands`, but generic `prompt_template` selection is not mapped yet
+- Claude name: commands under the Claude config directory
 
-### System Prompt
+### Knowledge
 
-The primary instruction text supplied to the agent.
+Reference documents from the tree's `knowledge/` made available to a run without loading them into context up front.
 
-- Pi name: `--system-prompt`, `SYSTEM.md`
-- Claude name: `--system-prompt`
-
-### Appended System Prompt
-
-Additional instruction text layered onto the primary system prompt.
-
-- Pi name: `--append-system-prompt`, `APPEND_SYSTEM.md`
-- Claude name: `--append-system-prompt`
+- Pi/Claude: materialized files in the projection; loading is progressive.
 
 ### Model Selection
 
-The selected provider/model and related inference options.
+The selected provider/model and related inference options, from `models.json` and per-agent `config.json`.
 
 - Pi name: `--provider`, `--model`, `--models`, `--thinking`
 - Claude name: `--model`, `--effort`
 
+### MCP Servers
+
+Model Context Protocol server configuration from the tree's `mcp.json`.
+
+- Pi name: `mcp.json` in the agent dir
+- Claude name: MCP configuration under the config directory
+
 ### Credentials and Environment
 
-Environment variables, API keys, auth files, and related secret material needed by providers or tools.
+Environment variables, API keys, auth files, and related secret material needed by providers or tools. Never stored in the tree; supplied at runtime.
 
 - Pi name: provider env vars, `auth.json`, `--api-key`
 - Claude name: environment variables and config files under `CLAUDE_CONFIG_DIR`
+
+### Tasks
+
+Baked task artifacts executed headlessly or interactively.
+
+- Pi name: headless print mode (`-p`) with the baked projection
+- Claude name: print mode with the baked projection
+
+### DeepWork Jobs
+
+Reusable multi-step procedures selected by tasks or profiles.
+
+- Pi name: `DEEPWORK_ADDITIONAL_JOBS_FOLDERS`
+- Claude name: not mapped yet
+
+### Hooks
+
+Deterministic code at fixed session points. No protocol resource exists yet; see [Hooks](../documentation/hooks.md) for the roadmap TODO on an Outfitter hooks extension.
+
+- Pi name: bootstrap extension via `--extension` / `-e`; per-event hooks are extension territory
+- Claude name: `hooks` in the generated `settings.json`
 
 ### Tool Availability
 
@@ -91,26 +114,12 @@ Configuration that enables, disables, or filters tools exposed to the agent.
 - Pi name: tool settings and extension-provided tools
 - Claude name: allowed/disallowed tools, roadmap adapter mapping
 
-### Context Files
-
-Project or profile files automatically loaded into context.
-
-- Pi name: context files, `--no-context-files`
-- Claude name: project memory/context files, roadmap adapter mapping
-
 ### Theme / UI Presentation
 
 Terminal UI theme, keybindings, and presentation settings.
 
 - Pi name: themes, `--theme`, `--no-themes`, `keybindings.json`; Outfitter reserves `Shift+Tab` for mode switching and maps thinking-level cycling to `Ctrl+Shift+T`
 - Claude name: UI/theme controls, roadmap adapter mapping
-
-### Project Override Policy
-
-Whether project-local agent configuration is allowed, ignored, or constrained.
-
-- Pi name: project `.pi/` resources and settings
-- Claude name: project-local config, roadmap adapter mapping
 
 ### Working Directory
 
@@ -139,24 +148,21 @@ An early-startup customization used to register providers, tools, hooks, or addi
 | --------------------------- | --------- | --------- |
 | Agent Config Directory      | Supported | Supported |
 | Session Directory           | Supported | Supported |
-| Extensions                  | Supported | Supported |
-| Skills                      | Supported | Supported |
-| Prompt Templates            | Supported | Supported |
-| System Prompt               | Supported | Supported |
-| Appended System Prompt      | Supported | Supported |
-| Model Selection             | Supported | Supported |
+| Personas                    | Supported | Supported |
+| Subagents                   | Supported | Supported |
+| Skills                      | Supported | Partial   |
+| Commands / Prompt Templates | Supported | Partial   |
+| Knowledge                   | Supported | Partial   |
+| Model Selection             | Supported | Partial   |
+| MCP Servers                 | Supported | Supported |
 | Credentials and Environment | Supported | Supported |
+| Tasks                       | Supported | Supported |
+| DeepWork Jobs               | Supported | Roadmap   |
+| Hooks                       | Partial   | Partial   |
 | Tool Availability           | Roadmap   | Roadmap   |
-| Context Files               | Roadmap   | Roadmap   |
 | Theme / UI Presentation     | Roadmap   | Roadmap   |
-| Project Override Policy     | Roadmap   | Roadmap   |
 | Working Directory           | Roadmap   | Roadmap   |
 | Pass-through Arguments      | Supported | Supported |
 | Bootstrap Hook              | Supported | Roadmap   |
 
-## Day-One Interpretation
-
-For v1, a Outfitter profile may describe all defined terms generically.
-The Pi adapter is the first implementation, and pi remains the default adapter.
-Adapter-specific overrides live under `controls.pi` and `controls.claude`; unsupported controls warn at runtime, and `--strict` makes those warnings fatal.
-For Claude Code, `skills/` and `commands/` are supported as native configuration directories inside the profiled `CLAUDE_CONFIG_DIR`; the generic `controls.skills` and `controls.prompt_template` selectors remain unmapped and warn if requested.
+The user-facing view of this matrix, with per-gap notes, lives in the [adapter support matrix](../documentation/support-matrix.md). Unsupported elements warn at runtime; `--strict` makes those warnings fatal.
