@@ -1,6 +1,6 @@
-# Running tasks in GitHub Actions
+# Running an agent in GitHub Actions
 
-[`ai-outfitter/actions`](https://github.com/ai-outfitter/actions) runs an Outfitter [task](./tasks.md) non-interactively inside a GitHub Actions workflow. The Action asks Outfitter to [bake](./dump-and-bake.md) the selected task — resolving the same personas, skills, and inputs it would locally — then launches the agent CLI in headless print mode, so the agent does one unit of work per workflow run and exits. Wire it to any trigger and a task becomes a CI agent: a PR reviewer, a scheduled commit auditor, an issue triager.
+[`ai-outfitter/actions`](https://github.com/ai-outfitter/actions) runs an Outfitter [agent](./agents.md) non-interactively inside a GitHub Actions workflow. The Action asks Outfitter to resolve and compose the selected agent — the same loadout it would compose locally — then launches the harness in headless print mode, so the agent does one unit of work per workflow run and exits. Wire it to any trigger and an agent becomes a CI worker: a PR reviewer, a scheduled commit auditor, an issue triager.
 
 ```yaml
 # .github/workflows/issue-triage.yml
@@ -22,35 +22,37 @@ jobs:
       - uses: actions/checkout@v4
       - uses: ai-outfitter/actions@v2
         with:
-          task: issue-triage
+          agent: issue-triage
           source: ${{ github.workspace }}/.agents # or owner/.agent + a pinned ref
           inputs: |
             issue_number: ${{ github.event.issue.number }}
             repository: ${{ github.repository }}
 ```
 
-The Action consumes a task ID, a local or pinned remote source, structured task inputs, and runtime-only options (harness, credentials, working directory). It does not resolve personas or reproduce composition logic itself — it always goes through Outfitter's task-bake path. The runner is discarded afterwards; nothing persists except what the agent pushed through its token.
+The Action consumes an agent ID, a local or pinned remote source, structured inputs, and runtime-only options (harness, credentials, working directory). It does not reproduce composition logic itself — it goes through Outfitter's resolver so a CI run and a local run compose identically given the same sources and refs.
+
+> **Note:** a dedicated **task**-bake path — freezing a named work contract and its typed inputs into an immutable artifact before launch — is the subject of a [separate upcoming RFC](./tasks.md). Until then the Action runs an agent with structured inputs; the `inputs:` shape above is forward-compatible with that work.
 
 ## Division of ownership
 
-The workflow YAML owns the GitHub side; the task owns the work:
+The workflow YAML owns the GitHub side; the agent owns the work:
 
-| Workflow YAML owns                         | Task owns                            |
-| ------------------------------------------ | ------------------------------------ |
-| Triggers (`on:`)                           | The stable objective and prompt      |
-| Checkout                                   | Persona composition                  |
-| `permissions:` and credentials             | Selected skills, subagents, and jobs |
-| Execution identity                         | Input and output contract            |
-| Trusted event identifiers passed as inputs | Completion behavior                  |
-| GitHub-specific result handling            |                                      |
+| Workflow YAML owns                         | Agent owns                          |
+| ------------------------------------------ | ----------------------------------- |
+| Triggers (`on:`)                           | The objective and prompt            |
+| Checkout                                   | Identity and posture                |
+| `permissions:` and credentials             | Its loadout: skills, subagents, mcp |
+| Execution identity                         | How it uses its inputs              |
+| Trusted event identifiers passed as inputs | Completion behavior                 |
+| GitHub-specific result handling            |                                     |
 
-Pass only the identifiers the task's input contract declares (numbers, SHAs, repository names, workflow-owned discriminators). Never interpolate issue bodies, PR bodies, comments, diffs, or fetched page content into inputs — user-influenced values like titles and branch names are opaque identifiers, not instructions. A selected skill retrieves untrusted source material itself with trusted tools.
+Pass only the identifiers the agent expects (numbers, SHAs, repository names, workflow-owned discriminators). Never interpolate issue bodies, PR bodies, comments, diffs, or fetched page content into inputs — user-influenced values like titles and branch names are opaque identifiers, not instructions. A selected skill retrieves untrusted source material itself with trusted tools.
 
 ## Setup: the `outfitter-actions` skill
 
 The workflow surface is installed and maintained by the `outfitter-actions` setup skill shipped in the `ai-outfitter/actions` catalog, which includes the reusable workflow template (`template/github-action.yml`). Run it in an agent session to create or update your project's workflows.
 
-The setup skill consolidates compatible tasks into as few workflows as practical: separate workflows are justified only by different triggers, permissions, credentials, isolation, or other GitHub-enforced boundaries. Domain skills such as `reports` or `issue-triage` do not ship their own workflow templates.
+The setup skill consolidates compatible agents into as few workflows as practical: separate workflows are justified only by different triggers, permissions, credentials, isolation, or other GitHub-enforced boundaries. Domain skills such as `reports` or `issue-triage` do not ship their own workflow templates.
 
 ## Zero-key inference with GitHub Models
 
@@ -58,14 +60,14 @@ CI agents don't need a paid provider key. [GitHub Models](https://docs.github.co
 
 Mind the rate limits: the included tier is sized for event-driven, one-shot jobs. Concurrent runs of a large model can 429; high-volume review loops need a provider key.
 
-## Write tasks for headless runs
+## Write agents for headless runs
 
 A composition that behaves well interactively can still fail silently in CI. Lessons from running triage agents in production:
 
-- **Stdout is invisible.** In print mode nobody reads what the agent says — only its side effects matter. Make the task's completion contract name the exact `gh` side effects (comment, label, push); otherwise models will print the deliverable as their answer and exit green.
+- **Stdout is invisible.** In print mode nobody reads what the agent says — only its side effects matter. Make the agent's completion criteria name the exact `gh` side effects (comment, label, push); otherwise models will print the deliverable as their answer and exit green.
 - **Quote-safe posting.** When the agent posts text derived from untrusted input (issue bodies, diffs) back through `gh`, require a quoted heredoc plus `--body-file`, never inline `--body "..."` — backticks in a double-quoted body are executed by the shell.
 - **Verify side effects, not exit codes.** A green run is not proof of work. Add a post-agent step that asserts the expected side effects landed — the Action ships [`scripts/validate-triage.sh`](https://github.com/ai-outfitter/actions/blob/main/scripts/validate-triage.sh) as a reference for triage-style jobs.
-- **Hard limits in the contract.** Enumerate exactly what the agent may do (which labels, how many comments, no closing/editing) in the task and its personas, and treat fetched content as data to classify, never instructions.
+- **Hard limits in the contract.** Enumerate exactly what the agent may do (which labels, how many comments, no closing/editing) in the agent's own definition, and treat fetched content as data to classify, never instructions.
 
 ## Scope the token
 
@@ -75,4 +77,4 @@ Pin remote sources consumed in CI to full commit SHAs — see [Trust and review]
 
 ## More examples
 
-The Action's [`examples/`](https://github.com/ai-outfitter/actions/tree/main/examples) directory covers scheduled commit review, PR ready-for-review reviews, sensitive-path audits, assigned-task agents, and zero-key issue triage on GitHub Models. A complete live setup runs in [`ai-outfitter/.outfitter`](https://github.com/ai-outfitter/.outfitter) as the organization's own baked `weekly-kpis` task.
+The Action's [`examples/`](https://github.com/ai-outfitter/actions/tree/main/examples) directory covers scheduled commit review, PR ready-for-review reviews, sensitive-path audits, assigned-task agents, and zero-key issue triage on GitHub Models. A complete live setup runs in [`ai-outfitter/.outfitter`](https://github.com/ai-outfitter/.outfitter) as the organization's own `weekly-kpis` agent.
