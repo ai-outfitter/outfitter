@@ -4,10 +4,11 @@ import { readFileSync } from 'node:fs';
 import { Command } from 'commander';
 
 import type { CommandObject } from './commands/CommandObject.js';
-import { createProfileCommands } from './commands/profile/Command.js';
+import { createListCommand } from './commands/ListCommand.js';
 import { createRunCommand, executeRunCommand } from './commands/RunCommand.js';
 import { createSetupCommand } from './commands/SetupCommand.js';
 import { createSyncCommand } from './commands/SyncCommand.js';
+import { createValidateCommand } from './commands/ValidateCommand.js';
 import { createWelcomeCommand } from './commands/WelcomeCommand.js';
 
 export const createDefaultCommands = (): CommandObject[] => [
@@ -23,7 +24,8 @@ export const createDefaultCommands = (): CommandObject[] => [
   }),
   createSyncCommand(),
   createWelcomeCommand(),
-  ...createProfileCommands(),
+  createListCommand(),
+  createValidateCommand(),
 ];
 
 export const createOutfitterProgram = (commands: readonly CommandObject[] = createDefaultCommands()): Command => {
