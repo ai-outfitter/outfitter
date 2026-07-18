@@ -12,6 +12,7 @@ import {
 import { dirname, join } from 'node:path';
 
 import { compose } from '../composer/Composer.js';
+import { pickLoadoutKeys } from '../resolver/AgentDefinition.js';
 import { compareSlugs, findResource } from '../resolver/Resource.js';
 import type { EffectiveResourceSet, Layer, ResolvedResource } from '../resolver/Resource.js';
 import { escapesRoots, overlaps } from './Containment.js';
@@ -21,8 +22,6 @@ export interface DumpResult {
   readonly warnings: readonly string[];
   readonly errors: readonly string[];
 }
-
-const loadoutKeys = ['skills', 'subagents', 'mcp', 'extensions', 'plugins', 'model', 'thinking', 'tools'] as const;
 
 // Tree-root files carried into the dump so loadout selections (mcp/models) are not dangling.
 const rootFileNames = ['system-prompt.md', 'agents.md', 'mcp.json', 'models.json'] as const;
@@ -66,8 +65,7 @@ const mergeEffectiveConfig = (configPaths: readonly string[]): Record<string, un
 
   for (const configPath of [...configPaths].reverse()) {
     const parsed = JSON.parse(readFileSync(configPath, 'utf8')) as Record<string, unknown>;
-    const loadout = Object.fromEntries(loadoutKeys.filter((key) => key in parsed).map((key) => [key, parsed[key]]));
-    merged = { ...merged, ...loadout };
+    merged = { ...merged, ...pickLoadoutKeys(parsed) };
   }
 
   return merged;
