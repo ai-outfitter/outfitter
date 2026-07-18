@@ -10,7 +10,6 @@ import { compose } from '../../composer/Composer.js';
 import { projectComposition } from '../../projection/ProjectHarness.js';
 import type { AgentLaunchPlan } from '../../projection/Projection.js';
 import { resolveEffectiveSet } from '../../resolver/ResolverContext.js';
-import { loadSettingsWithCachedRemoteSettings } from '../../settings/SettingsLoader.js';
 import type { Harness } from '../../settings/Settings.js';
 import type { CommandObject } from './CommandObject.js';
 import { resolveHomeDirectory, resolveProjectDirectory } from './ProcessDefaults.js';
@@ -65,8 +64,7 @@ const resolveHarness = (settingsDefault: Harness | undefined, requested: string 
 };
 
 export const executeRunAgentCommand = async (input: RunAgentInput): Promise<RunAgentResult> => {
-  const { settings } = loadSettingsWithCachedRemoteSettings(input);
-  const { set, settingsIssues } = resolveEffectiveSet(input);
+  const { set, settings, settingsIssues } = resolveEffectiveSet(input);
 
   if (settingsIssues.length > 0) {
     throw new Error(`Cannot run with invalid settings: ${settingsIssues.map((issue) => issue.message).join('; ')}`);

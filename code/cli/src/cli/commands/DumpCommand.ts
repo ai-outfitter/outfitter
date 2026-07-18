@@ -4,7 +4,7 @@ import { Command } from 'commander';
 
 import { dumpAgent } from '../../dump/Dump.js';
 import { resolveEffectiveSet } from '../../resolver/ResolverContext.js';
-import { loadSettingsWithCachedRemoteSettings } from '../../settings/SettingsLoader.js';
+import type { Settings } from '../../settings/Settings.js';
 import type { CommandObject } from './CommandObject.js';
 import { resolveHomeDirectory, resolveProjectDirectory } from './ProcessDefaults.js';
 
@@ -27,12 +27,10 @@ export interface DumpCommandDependencies {
   readonly writeLine?: (message: string) => void;
 }
 
-const resolveAgentSlug = (homeDirectory: string, projectDirectory: string, requested: string | undefined): string => {
+const resolveAgentSlug = (settings: Settings, requested: string | undefined): string => {
   if (requested !== undefined) {
     return requested;
   }
-
-  const { settings } = loadSettingsWithCachedRemoteSettings({ homeDirectory, projectDirectory });
 
   if (settings.defaultAgent === undefined) {
     throw new Error("No agent selected and no 'default_agent' in settings. Pass --agent <id>.");
@@ -42,13 +40,13 @@ const resolveAgentSlug = (homeDirectory: string, projectDirectory: string, reque
 };
 
 export const executeDumpCommand = (input: DumpInput): DumpCommandResult => {
-  const { set, settingsIssues } = resolveEffectiveSet(input);
+  const { set, settings, settingsIssues } = resolveEffectiveSet(input);
 
   if (settingsIssues.length > 0) {
     throw new Error(`Cannot dump with invalid settings: ${settingsIssues.map((issue) => issue.message).join('; ')}`);
   }
 
-  const agentSlug = resolveAgentSlug(input.homeDirectory, input.projectDirectory, input.agent);
+  const agentSlug = resolveAgentSlug(settings, input.agent);
   const result = dumpAgent(set, agentSlug, input.out);
   const ok = result.errors.length === 0;
   const messages = ok
