@@ -73,35 +73,6 @@ const mergeEffectiveConfig = (configPaths: readonly string[]): Record<string, un
   return merged;
 };
 
-/** BFS over the selected agent and its subagents to form the transitive agent closure. */
-const agentClosure = (set: EffectiveResourceSet, rootSlug: string): readonly ResolvedResource[] => {
-  const seen = new Set<string>();
-  const ordered: ResolvedResource[] = [];
-  const queue = [rootSlug];
-
-  while (queue.length > 0) {
-    const slug = queue.shift()!;
-
-    if (seen.has(slug)) {
-      continue;
-    }
-    seen.add(slug);
-
-    const agent = findResource(set, 'agent', slug);
-
-    /* v8 ignore next 3 -- compose only queues resolvable subagents, so a queued slug always resolves. */
-    if (agent === undefined) {
-      continue;
-    }
-
-    ordered.push(agent);
-    const composed = compose(set, slug);
-    queue.push(...(composed.plan?.loadout.subagents ?? []).map((subagent) => subagent.slug).sort(compareSlugs));
-  }
-
-  return ordered;
-};
-
 // Copies the highest-precedence tree-root file, matching what the composer reads; escaping targets error.
 const writeRootFiles = (set: EffectiveResourceSet, outRoot: string, written: string[]): readonly string[] => {
   const errors: string[] = [];
@@ -134,25 +105,46 @@ interface ClosureCompose {
   readonly errors: readonly string[];
 }
 
-/** Composes every closure member, collecting skills, warnings, and any composition errors. */
+/**
+ * BFS over the selected agent and its subagents, composing each closure member exactly once to
+ * collect the transitive agent list, its skills, warnings, and any composition errors.
+ */
 const composeClosure = (set: EffectiveResourceSet, rootSlug: string): ClosureCompose => {
-  const agents = agentClosure(set, rootSlug);
+  const seen = new Set<string>();
+  const agents: ResolvedResource[] = [];
   const skillSlugs = new Set<string>();
   const warnings: string[] = [];
   const errors: string[] = [];
+  const queue = [rootSlug];
 
-  for (const agent of agents) {
-    const composed = compose(set, agent.slug);
+  while (queue.length > 0) {
+    const slug = queue.shift()!;
+
+    if (seen.has(slug)) {
+      continue;
+    }
+    seen.add(slug);
+
+    const agent = findResource(set, 'agent', slug);
+
+    /* v8 ignore next 3 -- compose only queues resolvable subagents, so a queued slug always resolves. */
+    if (agent === undefined) {
+      continue;
+    }
+
+    const composed = compose(set, slug);
 
     if (composed.plan === undefined) {
       errors.push(...composed.errors);
       continue;
     }
 
+    agents.push(agent);
     warnings.push(...composed.plan.warnings);
     for (const skill of composed.plan.loadout.skills) {
       skillSlugs.add(skill.slug);
     }
+    queue.push(...composed.plan.loadout.subagents.map((subagent) => subagent.slug).sort(compareSlugs));
   }
 
   return { agents, skillSlugs: [...skillSlugs].sort(compareSlugs), warnings, errors };
@@ -203,8 +195,10 @@ const failure = (errors: readonly string[], warnings: readonly string[] = []): D
 
 /** Writes the composed closure of `agentSlug` into a freshly cleaned `<outDirectory>/.agents/`. */
 export const dumpAgent = (set: EffectiveResourceSet, agentSlug: string, outDirectory: string): DumpResult => {
-  if (compose(set, agentSlug).plan === undefined) {
-    return failure(compose(set, agentSlug).errors);
+  const root = compose(set, agentSlug);
+
+  if (root.plan === undefined) {
+    return failure(root.errors);
   }
 
   const closure = composeClosure(set, agentSlug);
