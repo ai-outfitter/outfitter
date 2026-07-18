@@ -2,7 +2,7 @@
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { encodeRemoteSource, resolveRemoteRepositorySubpath } from '../profiles/ProfileCache.js';
+import { encodeRemoteSource, resolveRemoteRepositorySubpath } from '../sources/SourceCache.js';
 import type { Settings, SourceReference } from '../settings/Settings.js';
 import type { Layer } from './Resource.js';
 

@@ -1,14 +1,9 @@
 // Defines the internal Settings shape produced from Outfitter settings files.
-import type { RemoteSourceReference } from '../profiles/ProfileSource.js';
+import type { RemoteSourceReference } from '../sources/SourceCache.js';
 
 export type RemoteSettingsReference = RemoteSourceReference & { readonly path: string };
 export type SettingsValue =
-  | string
-  | number
-  | boolean
-  | null
-  | readonly SettingsValue[]
-  | { readonly [key: string]: SettingsValue };
+  string | number | boolean | null | readonly SettingsValue[] | { readonly [key: string]: SettingsValue };
 export type CustomSettings = Readonly<Record<string, SettingsValue>>;
 
 /** Harnesses Outfitter can launch a composed agent in. */

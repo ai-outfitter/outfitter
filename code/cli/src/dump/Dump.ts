@@ -89,6 +89,7 @@ const agentClosure = (set: EffectiveResourceSet, rootSlug: string): readonly Res
 
     const agent = findResource(set, 'agent', slug);
 
+    /* v8 ignore next 3 -- compose only queues resolvable subagents, so a queued slug always resolves. */
     if (agent === undefined) {
       continue;
     }

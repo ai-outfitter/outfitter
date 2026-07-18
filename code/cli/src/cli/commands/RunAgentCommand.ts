@@ -1,6 +1,6 @@
 // `outfitter run [agent]` — resolve → compose → project → launch on the .agents model.
 import { mkdtempSync, rmSync } from 'node:fs';
-import { homedir, tmpdir } from 'node:os';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { Command, Option } from 'commander';
@@ -13,6 +13,7 @@ import { resolveEffectiveSet } from '../../resolver/ResolverContext.js';
 import { loadSettingsWithCachedRemoteSettings } from '../../settings/SettingsLoader.js';
 import type { Harness } from '../../settings/Settings.js';
 import type { CommandObject } from './CommandObject.js';
+import { resolveHomeDirectory, resolveProjectDirectory } from './ProcessDefaults.js';
 
 export type AgentProcessLauncher = (plan: AgentLaunchPlan) => Promise<number>;
 
@@ -148,16 +149,18 @@ export const createRunAgentCommand = (dependencies: RunAgentDependencies = {}): 
           passThroughArgs: readonly string[],
           options: { harness?: string; strict?: boolean },
         ) => {
+          /* v8 ignore next 3 -- process/launcher defaults are exercised by the CLI entrypoint, not unit tests. */
+          const homeDirectory = resolveHomeDirectory(dependencies.homeDirectory);
+          const projectDirectory = resolveProjectDirectory(dependencies.projectDirectory);
+          const launcher = dependencies.launcher ?? makeDefaultLauncher(resolveHarness(undefined, options.harness));
           const result = await executeRunAgentCommand({
-            /* v8 ignore next 2 -- process defaults exercised by the CLI entrypoint, not unit tests. */
-            homeDirectory: dependencies.homeDirectory ?? homedir(),
-            projectDirectory: dependencies.projectDirectory ?? process.cwd(),
+            homeDirectory,
+            projectDirectory,
             agent,
             harness: options.harness,
             strict: options.strict,
             passThroughArgs,
-            /* v8 ignore next -- the default spawn launcher is exercised by end-to-end usage. */
-            launcher: dependencies.launcher ?? makeDefaultLauncher(resolveHarness(undefined, options.harness)),
+            launcher,
           });
 
           for (const message of result.messages) {

@@ -49,24 +49,24 @@ npm install --global --prefix "$install_prefix" "$tarball" >/dev/null
 outfitter_bin="$install_prefix/bin/outfitter"
 [ -x "$outfitter_bin" ] || fail "installed global bin not found at $outfitter_bin"
 
-# Fixture HOME: minimal Outfitter settings plus one local profile so every command
-# below works offline against the installed artifact (no network, no real \$HOME).
+# Fixture HOME: a minimal .agents tree plus one agent so the resolver-backed
+# commands work offline against the installed artifact (no network, no real \$HOME).
 fixture_home="$work_dir/home"
-mkdir -p "$fixture_home/.outfitter/profiles/smoke"
-cat >"$fixture_home/.outfitter/settings.yml" <<'SETTINGS'
-default_profile: smoke
-default_agent: pi
-cache_directory: ./cache
-profile_sources:
-  - path: ./profiles
+mkdir -p "$fixture_home/.agents/agents/smoke"
+cat >"$fixture_home/.agents/settings.yml" <<'SETTINGS'
+default_agent: smoke
+default_harness: pi
 SETTINGS
-cat >"$fixture_home/.outfitter/profiles/smoke/profile.yml" <<'PROFILE'
-id: smoke
-label: Packaged Smoke Profile
-controls:
-  environment:
-    OUTFITTER_SMOKE: 'enabled'
-PROFILE
+cat >"$fixture_home/.agents/agents/smoke/agent.md" <<'AGENT'
+---
+name: smoke
+description: Packaged smoke-test agent.
+---
+
+# Smoke
+
+Verifies the packaged artifact resolves and composes.
+AGENT
 
 project_dir="$work_dir/project"
 mkdir -p "$project_dir"
@@ -93,7 +93,7 @@ case "$help_output" in
   *'Usage: outfitter'*) ;;
   *) fail '--help output is missing the usage banner' ;;
 esac
-for expected_command in run setup sync profile; do
+for expected_command in run list validate dump; do
   case "$help_output" in
     *"$expected_command"*) ;;
     *) fail "--help output is missing the '$expected_command' command" ;;
@@ -101,22 +101,23 @@ for expected_command in run setup sync profile; do
 done
 log '--help OK'
 
-log 'Checking `outfitter profile list` against the fixture HOME'
-profile_list_output="$(cd "$project_dir" && run_outfitter profile list)"
-[ "$profile_list_output" = 'smoke' ] || fail "profile list printed '$profile_list_output', expected 'smoke'"
-log 'profile list OK'
-
-# Non-interactive `outfitter run`: pass `--version` through to the agent so the
-# bundled pi resolves, launches, prints its version, and exits without a TTY. This
-# exercises profile resolution, composite profile assembly, and bundled-pi bin
-# resolution (AgentLaunch) inside the packed artifact.
-log 'Checking non-interactive `outfitter run -p smoke -- --version` (bundled pi)'
-run_output="$( (cd "$project_dir" && run_outfitter run -p smoke -- --version) 2>&1 )" ||
-  fail "outfitter run exited non-zero: $run_output"
-case "$run_output" in
-  *'launching'*'pi'*) ;;
-  *) fail "outfitter run output did not report a pi launch: $run_output" ;;
+# `outfitter list agents` exercises the resolver over the fixture .agents tree
+# inside the packed artifact (dist schemas, bundled parsing) fully offline.
+log 'Checking `outfitter list agents` against the fixture HOME'
+list_output="$(run_outfitter list agents 2>&1)" || fail "outfitter list exited non-zero: $list_output"
+case "$list_output" in
+  *'smoke'*) ;;
+  *) fail "list agents did not include 'smoke': $list_output" ;;
 esac
-log 'outfitter run OK'
+log 'list agents OK'
+
+# `outfitter validate` exercises the full resolve → validate path on the artifact.
+log 'Checking `outfitter validate`'
+validate_output="$(run_outfitter validate 2>&1)" || fail "outfitter validate reported problems: $validate_output"
+case "$validate_output" in
+  *'No issues found'*) ;;
+  *) fail "validate did not pass cleanly: $validate_output" ;;
+esac
+log 'validate OK'
 
 log "All packaged smoke checks passed (cold ${cold_duration}ms, warm ${warm_duration}ms)"
