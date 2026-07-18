@@ -6,14 +6,15 @@ import { Command } from 'commander';
 import type { CommandObject } from './commands/CommandObject.js';
 import { createDumpCommand } from './commands/DumpCommand.js';
 import { createListCommand } from './commands/ListCommand.js';
-import { createRunCommand, executeRunCommand } from './commands/RunCommand.js';
+import { executeRunCommand } from './commands/RunCommand.js';
+import { createRunAgentCommand } from './commands/RunAgentCommand.js';
 import { createSetupCommand } from './commands/SetupCommand.js';
 import { createSyncCommand } from './commands/SyncCommand.js';
 import { createValidateCommand } from './commands/ValidateCommand.js';
 import { createWelcomeCommand } from './commands/WelcomeCommand.js';
 
 export const createDefaultCommands = (): CommandObject[] => [
-  createRunCommand(),
+  createRunAgentCommand(),
   createSetupCommand({
     /* v8 ignore next 2 -- covered by end-to-end CLI smoke usage; unit tests inject this dependency. */
     async launchSetupSourceProfile(input) {
@@ -35,7 +36,7 @@ export const createOutfitterProgram = (commands: readonly CommandObject[] = crea
 
   program
     .name('outfitter')
-    .description('Profile-oriented wrapper for launching pi, Claude Code, and future agent CLIs.')
+    .description('Resolve, compose, and launch .agents agents in pi, Claude Code, and future harnesses.')
     .version(readPackageVersion());
 
   for (const command of commands) {
