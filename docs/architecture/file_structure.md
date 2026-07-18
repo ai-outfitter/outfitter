@@ -3,7 +3,7 @@
 This document records the key repository file and directory structure used by Outfitter.
 See [`./README.md`](./README.md) for runtime file conventions such as `.agents` layers, settings files, and generated composition directories.
 
-> **RFC [#165](https://github.com/ai-outfitter/outfitter/issues/165) status:** the profile-era `profiles/` and `compositeProfile/` modules have been removed; `code/cli/src` now uses the dotagents pipeline (`resolver/`, `composer/`, `projection/`, `dump/`, `sources/`). Onboarding (`setup`/`welcome`) and remote `sync` were dropped in the cleanup and return in a follow-up onboarding PR.
+> **RFC [#165](https://github.com/ai-outfitter/outfitter/issues/165) status:** the profile-era `profiles/` and `compositeProfile/` modules have been removed; `code/cli/src` now uses the dotagents pipeline (`resolver/`, `composer/`, `projection/`, `dump/`, `sources/`). Interactive `.agents` onboarding is back as `setup/` (the `outfitter setup` command and the implicit first-run trigger from `run`); remote `sync` remains deferred to a follow-up PR.
 
 ## Repository Layout
 
@@ -39,10 +39,9 @@ Outfitter is organized around a private npm workspace root, clear TypeScript pac
 │   │   ├── src/                       # production TypeScript source
 │   │   │   ├── cli.ts                 # executable CLI entry point
 │   │   │   ├── cli/                   # CLI parser construction and command objects
-│   │   │   │   ├── commands/profile/LintCommand.ts # `outfitter profile lint` implementation
-│   │   │   │   ├── commands/run/      # run command helper modules (profile resolution, launch summary)
-│   │   │   │   └── commands/setup/    # setup command helper modules (types, starter sources, imports, prompts, launch)
+│   │   │   │   └── commands/          # run, setup, list, validate, dump command objects
 │   │   │   ├── settings/              # settings loading and merging
+│   │   │   ├── setup/                 # interactive `.agents` onboarding (default agent + harness)
 │   │   │   ├── sources/               # remote `.agents` source cache paths and reference normalization
 │   │   │   ├── resolver/              # .agents layer resolution into one effective resource set
 │   │   │   ├── composer/              # harness-neutral CompositionPlan from the effective set

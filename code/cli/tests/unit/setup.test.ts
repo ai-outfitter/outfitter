@@ -1,7 +1,7 @@
 // Tests interactive onboarding: writes a starter .agents config, sanitizes names, is idempotent.
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 
 import { Command } from 'commander';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -45,11 +45,11 @@ describe('outfitter setup', () => {
     expect(result.defaultHarness).toBe('claude');
 
     const settings = readFileSync(join(home, '.agents', 'settings.yml'), 'utf8');
-    expect(settings).toContain('default_agent: engineer-bot');
+    expect(settings).toContain('default_agent: "engineer-bot"'); // quoted so numeric/bool-like slugs stay strings
     expect(settings).toContain('default_harness: claude');
 
     const agent = readFileSync(join(home, '.agents', 'agents', 'engineer-bot', 'agent.md'), 'utf8');
-    expect(agent).toContain('name: engineer-bot'); // name matches directory so it composes
+    expect(agent).toContain('name: "engineer-bot"'); // name matches directory so it composes
     expect(result.created).toEqual([
       join(home, '.agents', 'settings.yml'),
       join(home, '.agents', 'agents', 'engineer-bot', 'agent.md'),
@@ -72,6 +72,17 @@ describe('outfitter setup', () => {
     expect(result.defaultAgent).toBe('assistant');
   });
 
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-010.2.3).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('produces schema-valid slugs: collapses hyphen runs and truncates to 64 chars', () => {
+    expect(sanitizeAgentSlug('foo--bar__baz')).toBe('foo-bar-baz'); // no consecutive hyphens
+    const long = sanitizeAgentSlug('a'.repeat(80));
+    expect(long.length).toBe(64);
+    expect(sanitizeAgentSlug(`${'a'.repeat(63)}-b`)).toBe('a'.repeat(63)); // truncation leaves no trailing hyphen
+    const schemaPattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+    expect(schemaPattern.test('foo-bar-baz')).toBe(true);
+  });
+
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-010.3.3).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('is idempotent: leaves an existing settings.yml untouched', async () => {
@@ -85,6 +96,22 @@ describe('outfitter setup', () => {
     expect(result.created).toEqual([]);
     expect(readFileSync(join(home, '.agents', 'settings.yml'), 'utf8')).toBe('default_agent: kept\n');
     expect(existsSync(join(home, '.agents', 'agents', 'other'))).toBe(false);
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-010.3.2, OFTR-010.3.3).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('never overwrites an existing agent, and rolls back settings on that conflict', async () => {
+    const home = createTemporaryHome();
+    const agentPath = join(home, '.agents', 'agents', 'taken', 'agent.md');
+    mkdirSync(dirname(agentPath), { recursive: true });
+    writeFileSync(agentPath, 'PRE-EXISTING');
+
+    const result = await executeSetup({ homeDirectory: home, prompter: scriptedPrompter({ name: 'taken' }) });
+
+    expect(result.created).toEqual([]);
+    expect(result.defaultAgent).toBeUndefined();
+    expect(readFileSync(agentPath, 'utf8')).toBe('PRE-EXISTING'); // untouched
+    expect(existsSync(join(home, '.agents', 'settings.yml'))).toBe(false); // rolled back
   });
 
   it('sanitizeAgentSlug normalizes casing, spaces, and edges', () => {

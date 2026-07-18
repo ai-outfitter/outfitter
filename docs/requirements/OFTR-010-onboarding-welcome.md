@@ -10,8 +10,11 @@
 ## Overview
 
 The first time someone runs Outfitter with nothing configured, onboarding gets them to a working
-agent without hand-authoring files. It is harness-neutral (it does not assume pi or Claude Code),
-runs a short terminal questionnaire, writes a minimal `.agents` config, and then continues.
+agent without hand-authoring files. It is **harness-neutral**: the terminal questionnaire is the
+default setup UX for every harness (pi, Claude Code, and future adapters), generalizing the
+profile-era Pi-only `/outfitter` flow that ran inside pi. A harness MAY layer its own in-session
+onboarding on top later, but this terminal flow is the baseline that works everywhere — it runs a
+short questionnaire, writes a minimal `.agents` config, and then continues.
 
 ## Requirements
 
