@@ -125,10 +125,11 @@ const spawnLauncher = {
   },
 };
 
-const makeDefaultLauncher =
-  (agentId: Harness): AgentProcessLauncher =>
-  (plan) =>
-    launchAgentProcess(spawnLauncher, resolveAgentLaunchExecutable(plan), agentId);
+// The install-hint agentId is derived from the logical launch command ('pi' | 'claude') so a
+// missing-CLI failure always names the harness actually being launched, regardless of how the
+// harness was selected (flag, settings default, or built-in fallback).
+const defaultLauncher: AgentProcessLauncher = (plan) =>
+  launchAgentProcess(spawnLauncher, resolveAgentLaunchExecutable(plan), plan.command);
 /* v8 ignore stop */
 
 export const createRunAgentCommand = (dependencies: RunAgentDependencies = {}): CommandObject => ({
@@ -152,7 +153,7 @@ export const createRunAgentCommand = (dependencies: RunAgentDependencies = {}): 
           /* v8 ignore next 3 -- process/launcher defaults are exercised by the CLI entrypoint, not unit tests. */
           const homeDirectory = resolveHomeDirectory(dependencies.homeDirectory);
           const projectDirectory = resolveProjectDirectory(dependencies.projectDirectory);
-          const launcher = dependencies.launcher ?? makeDefaultLauncher(resolveHarness(undefined, options.harness));
+          const launcher = dependencies.launcher ?? defaultLauncher;
           const result = await executeRunAgentCommand({
             homeDirectory,
             projectDirectory,
