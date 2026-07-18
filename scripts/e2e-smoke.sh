@@ -93,7 +93,7 @@ case "$help_output" in
   *'Usage: outfitter'*) ;;
   *) fail '--help output is missing the usage banner' ;;
 esac
-for expected_command in run list validate dump; do
+for expected_command in run setup list validate dump; do
   case "$help_output" in
     *"$expected_command"*) ;;
     *) fail "--help output is missing the '$expected_command' command" ;;

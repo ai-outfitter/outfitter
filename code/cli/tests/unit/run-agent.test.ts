@@ -12,6 +12,7 @@ import {
   launchThroughSpawn,
 } from '../../src/cli/commands/RunAgentCommand.js';
 import type { AgentLaunchPlan } from '../../src/projection/Projection.js';
+import type { SetupResult } from '../../src/setup/Setup.js';
 
 const temporaryRoots: string[] = [];
 let previousExitCode: typeof process.exitCode;
@@ -304,6 +305,57 @@ describe('run agent', () => {
     await program.parseAsync(['node', 'outfitter', 'run', 'engineer', '--harness', 'pi']);
     expect(captured[0]?.plan.command).toBe('pi');
     expect(captured[0]?.dirExisted).toBe(true);
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-010.1, OFTR-010.4).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('runs implicit setup when nothing is configured, then launches the created agent', async () => {
+    const root = createTemporaryRoot();
+    const home = join(root, 'home');
+    const project = join(root, 'project');
+    mkdirSync(project, { recursive: true });
+
+    // A setup runner that scaffolds a minimal .agents home, exactly as onboarding would.
+    const setup = (input: { homeDirectory: string }): Promise<SetupResult> => {
+      write(
+        join(input.homeDirectory, '.agents', 'agents', 'assistant', 'agent.md'),
+        '---\nname: assistant\n---\n\nHi.\n',
+      );
+      write(join(input.homeDirectory, '.agents', 'settings.yml'), 'default_agent: assistant\ndefault_harness: pi\n');
+      return Promise.resolve({
+        created: [],
+        settingsPath: join(input.homeDirectory, '.agents', 'settings.yml'),
+        defaultAgent: 'assistant',
+        defaultHarness: 'pi' as const,
+        alreadyConfigured: false,
+        messages: ['[setup] created a starter agent.'],
+      });
+    };
+
+    const result = await executeRunAgentCommand({ homeDirectory: home, projectDirectory: project, launcher, setup });
+
+    expect(result.exitCode).toBe(0);
+    expect(result.launchPlan!.command).toBe('pi'); // launched the just-created default agent
+    expect(result.messages).toContain('[setup] created a starter agent.');
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-010.1.2).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('falls back to the no-agent error when setup declines (non-interactive)', async () => {
+    const root = createTemporaryRoot();
+    const home = join(root, 'home');
+    const project = join(root, 'project');
+    mkdirSync(home, { recursive: true });
+    mkdirSync(project, { recursive: true });
+
+    await expect(
+      executeRunAgentCommand({
+        homeDirectory: home,
+        projectDirectory: project,
+        launcher,
+        setup: () => Promise.resolve(undefined),
+      }),
+    ).rejects.toThrow(/No agent selected/);
   });
 
   // A missing CLI must be reported for the harness actually launched, not the built-in pi fallback
