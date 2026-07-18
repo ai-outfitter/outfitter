@@ -1,8 +1,10 @@
 // Materializes a CompositionPlan into a runtime configuration directory the harness launches from.
-import { mkdirSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { copyFileSync, lstatSync, mkdirSync, readdirSync, writeFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 
 import type { CompositionPlan } from '../composer/Composition.js';
+import type { ResolvedResource } from '../resolver/Resource.js';
+import { escapesRoots } from '../dump/Containment.js';
 
 export interface MaterializedComposition {
   readonly rootDirectory: string;
@@ -10,13 +12,48 @@ export interface MaterializedComposition {
   readonly systemPromptPath: string;
   /** Absolute paths to append-prompt fragments, in composition order. */
   readonly appendPromptPaths: readonly string[];
-  /** Absolute paths to materialized skill directories, keyed by slug. */
+  /** Absolute paths to materialized skill directories, in slug order. */
   readonly skillDirectories: readonly string[];
+  /** Skills that could not be materialized safely (escaping symlinks). */
+  readonly skippedSkills: readonly string[];
 }
+
+/** Recursively copies a directory, skipping symlinked entries so no path escapes the tree. */
+const copyDirectory = (sourceDir: string, targetDir: string): void => {
+  mkdirSync(targetDir, { recursive: true });
+
+  for (const entry of readdirSync(sourceDir, { withFileTypes: true })) {
+    const sourcePath = join(sourceDir, entry.name);
+
+    if (lstatSync(sourcePath).isSymbolicLink()) {
+      continue;
+    }
+
+    if (entry.isDirectory()) {
+      copyDirectory(sourcePath, join(targetDir, entry.name));
+    } else if (entry.isFile()) {
+      copyFileSync(sourcePath, join(targetDir, entry.name));
+    }
+  }
+};
+
+const materializeSkill = (skill: ResolvedResource, rootDirectory: string): string | undefined => {
+  const sourceDir = dirname(skill.winner.path);
+
+  // A skill whose directory resolves outside its layer cannot be materialized safely.
+  if (escapesRoots(sourceDir, [skill.winner.layer.root])) {
+    return undefined;
+  }
+
+  const targetDir = join(rootDirectory, 'skills', skill.slug);
+  copyDirectory(sourceDir, targetDir);
+  return targetDir;
+};
 
 /**
  * Writes the composed identity and skills into `rootDirectory`. The base `system-prompt.md` becomes
- * the system prompt; shared `agents.md` context and the agent body are appended in order.
+ * the system prompt; shared `agents.md` context and the agent body are appended in order. Each
+ * selected skill directory (SKILL.md + scripts/assets) is copied so the harness has real content.
  */
 export const materializeComposition = (
   composition: CompositionPlan,
@@ -39,11 +76,17 @@ export const materializeComposition = (
   writeFileSync(agentBodyPath, composition.identity.agentBody);
   appendPromptPaths.push(agentBodyPath);
 
-  const skillDirectories = composition.loadout.skills.map((skill) => {
-    const skillDir = join(rootDirectory, 'skills', skill.slug);
-    mkdirSync(skillDir, { recursive: true });
-    return skillDir;
-  });
+  const skillDirectories: string[] = [];
+  const skippedSkills: string[] = [];
 
-  return { rootDirectory, systemPromptPath, appendPromptPaths, skillDirectories };
+  for (const skill of composition.loadout.skills) {
+    const materialized = materializeSkill(skill, rootDirectory);
+    if (materialized === undefined) {
+      skippedSkills.push(skill.slug);
+    } else {
+      skillDirectories.push(materialized);
+    }
+  }
+
+  return { rootDirectory, systemPromptPath, appendPromptPaths, skillDirectories, skippedSkills };
 };

@@ -1,15 +1,17 @@
 // `outfitter run [agent]` — resolve → compose → project → launch on the .agents model.
-import { mkdtempSync } from 'node:fs';
+import { mkdtempSync, rmSync } from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
 import { join } from 'node:path';
 
+import { Command, Option } from 'commander';
+
+import { launchAgentProcess, resolveAgentLaunchExecutable } from '../../agents/AgentLaunch.js';
 import { compose } from '../../composer/Composer.js';
 import { projectComposition } from '../../projection/ProjectHarness.js';
 import type { AgentLaunchPlan } from '../../projection/Projection.js';
 import { resolveEffectiveSet } from '../../resolver/ResolverContext.js';
 import { loadSettingsWithCachedRemoteSettings } from '../../settings/SettingsLoader.js';
 import type { Harness } from '../../settings/Settings.js';
-import { Command } from 'commander';
 import type { CommandObject } from './CommandObject.js';
 
 export type AgentProcessLauncher = (plan: AgentLaunchPlan) => Promise<number>;
@@ -18,10 +20,12 @@ export interface RunAgentInput {
   readonly homeDirectory: string;
   readonly projectDirectory: string;
   readonly agent?: string;
-  readonly harness?: Harness;
+  readonly harness?: string;
   readonly strict?: boolean;
   readonly passThroughArgs?: readonly string[];
   readonly launcher: AgentProcessLauncher;
+  /** Keep the runtime projection directory after the run (debugging). */
+  readonly retainProjection?: boolean;
 }
 
 export interface RunAgentResult {
@@ -37,6 +41,8 @@ export interface RunAgentDependencies {
   readonly writeLine?: (message: string) => void;
 }
 
+const harnesses: readonly Harness[] = ['pi', 'claude'];
+
 const resolveAgentSlug = (settingsDefault: string | undefined, requested: string | undefined): string => {
   const slug = requested ?? settingsDefault;
 
@@ -47,8 +53,15 @@ const resolveAgentSlug = (settingsDefault: string | undefined, requested: string
   return slug;
 };
 
-const resolveHarness = (settingsDefault: Harness | undefined, requested: Harness | undefined): Harness =>
-  requested ?? settingsDefault ?? 'pi';
+const resolveHarness = (settingsDefault: Harness | undefined, requested: string | undefined): Harness => {
+  const harness = requested ?? settingsDefault ?? 'pi';
+
+  if (harness !== 'pi' && harness !== 'claude') {
+    throw new Error(`Unknown harness '${harness}'. Use --harness pi or --harness claude.`);
+  }
+
+  return harness;
+};
 
 export const executeRunAgentCommand = async (input: RunAgentInput): Promise<RunAgentResult> => {
   const { settings } = loadSettingsWithCachedRemoteSettings(input);
@@ -67,35 +80,54 @@ export const executeRunAgentCommand = async (input: RunAgentInput): Promise<RunA
   }
 
   const rootDirectory = mkdtempSync(join(tmpdir(), `outfitter-${agentSlug}-${harness}-`));
-  const projection = projectComposition(composed.plan, {
-    harness,
-    rootDirectory,
-    homeDirectory: input.homeDirectory,
-    passThroughArgs: input.passThroughArgs,
-  });
 
-  const warnings = [
-    ...composed.plan.warnings,
-    ...projection.unsupported.map((element) => `harness '${harness}' cannot project loadout element '${element}'.`),
-  ];
+  try {
+    const projection = projectComposition(composed.plan, {
+      harness,
+      rootDirectory,
+      homeDirectory: input.homeDirectory,
+      passThroughArgs: input.passThroughArgs,
+    });
 
-  if (input.strict === true && projection.unsupported.length > 0) {
-    return { exitCode: 1, messages: [...warnings, 'Strict mode: unsupported loadout elements are fatal.'] };
+    // Composition warnings (e.g. an unresolved skill) and unsupported harness elements are both
+    // advisory; --strict makes the combined set fatal before launch.
+    const warnings = [
+      ...composed.plan.warnings,
+      ...projection.unsupported.map((element) => `harness '${harness}' cannot project loadout element '${element}'.`),
+    ];
+
+    if (input.strict === true && warnings.length > 0) {
+      return {
+        exitCode: 1,
+        messages: [...warnings, 'Strict mode: composition warnings and unsupported elements are fatal.'],
+      };
+    }
+
+    const exitCode = await input.launcher(projection.launch);
+    return { launchPlan: projection.launch, exitCode, messages: warnings };
+  } finally {
+    if (input.retainProjection !== true) {
+      rmSync(rootDirectory, { recursive: true, force: true });
+    }
   }
-
-  const exitCode = await input.launcher(projection.launch);
-  return { launchPlan: projection.launch, exitCode, messages: warnings };
 };
 
 /* v8 ignore start -- real process spawn is covered by end-to-end smoke usage, not unit tests. */
-const defaultLauncher: AgentProcessLauncher = async (plan) => {
-  const { default: spawn } = await import('cross-spawn');
-  return await new Promise<number>((resolve) => {
-    const child = spawn(plan.command, [...plan.args], { stdio: 'inherit', env: { ...process.env, ...plan.env } });
-    child.on('exit', (code) => resolve(code ?? 0));
-    child.on('error', () => resolve(1));
-  });
+const spawnLauncher = {
+  async launch(plan: AgentLaunchPlan): Promise<number> {
+    const { default: spawn } = await import('cross-spawn');
+    return await new Promise<number>((resolve, reject) => {
+      const child = spawn(plan.command, [...plan.args], { stdio: 'inherit', env: { ...process.env, ...plan.env } });
+      child.on('error', reject); // ENOENT surfaces as an actionable install message
+      child.on('close', (code, signal) => resolve(code ?? (signal ? 1 : 0)));
+    });
+  },
 };
+
+const makeDefaultLauncher =
+  (agentId: Harness): AgentProcessLauncher =>
+  (plan) =>
+    launchAgentProcess(spawnLauncher, resolveAgentLaunchExecutable(plan), agentId);
 /* v8 ignore stop */
 
 export const createRunAgentCommand = (dependencies: RunAgentDependencies = {}): CommandObject => ({
@@ -107,14 +139,14 @@ export const createRunAgentCommand = (dependencies: RunAgentDependencies = {}): 
       .description('Resolve, compose, and launch an agent in the selected harness.')
       .argument('[agent]', 'Agent slug to run (default: settings default_agent).')
       .argument('[args...]', 'Arguments passed through to the harness after --.')
-      .option('--harness <harness>', 'Harness to launch: pi or claude.')
-      .option('--strict', 'Treat unsupported loadout elements as fatal.')
+      .addOption(new Option('--harness <harness>', 'Harness to launch.').choices([...harnesses]))
+      .option('--strict', 'Treat composition warnings and unsupported loadout elements as fatal.')
       .allowUnknownOption(true)
       .action(
         async (
           agent: string | undefined,
           passThroughArgs: readonly string[],
-          options: { harness?: Harness; strict?: boolean },
+          options: { harness?: string; strict?: boolean },
         ) => {
           const result = await executeRunAgentCommand({
             /* v8 ignore next 2 -- process defaults exercised by the CLI entrypoint, not unit tests. */
@@ -124,12 +156,13 @@ export const createRunAgentCommand = (dependencies: RunAgentDependencies = {}): 
             harness: options.harness,
             strict: options.strict,
             passThroughArgs,
-            launcher: dependencies.launcher ?? defaultLauncher,
+            /* v8 ignore next -- the default spawn launcher is exercised by end-to-end usage. */
+            launcher: dependencies.launcher ?? makeDefaultLauncher(resolveHarness(undefined, options.harness)),
           });
 
           for (const message of result.messages) {
-            /* v8 ignore next -- console fallback is direct CLI behavior; tests inject a writer. */
-            (dependencies.writeLine ?? console.log)(message);
+            /* v8 ignore next -- console.error fallback is direct CLI behavior; tests inject a writer. */
+            (dependencies.writeLine ?? console.error)(message);
           }
 
           process.exitCode = result.exitCode;

@@ -4,10 +4,12 @@ import type { Harness } from '../settings/Settings.js';
 import { materializeComposition } from './Materialize.js';
 import type { AgentLaunchPlan, AgentProjectionPlan, ProjectionInput } from './Projection.js';
 
-// Loadout elements each harness can project today; anything else surfaces as unsupported.
+// Loadout elements each harness actually projects today. Anything else is reported unsupported so
+// `--strict` catches silently-dropped selections. mcp/extensions/plugins/subagents/tools are not
+// projected yet (incremental parity) and therefore surface as unsupported.
 const supportedElements: Readonly<Record<Harness, readonly string[]>> = {
-  pi: ['skills', 'model', 'thinking', 'extensions', 'plugins', 'mcp'],
-  claude: ['skills', 'model', 'thinking', 'mcp'],
+  pi: ['skills', 'model', 'thinking'],
+  claude: ['skills', 'model', 'thinking'],
 };
 
 const loadoutElementsInUse = (composition: CompositionPlan): readonly string[] => {
@@ -15,11 +17,13 @@ const loadoutElementsInUse = (composition: CompositionPlan): readonly string[] =
   const present: string[] = [];
 
   if (loadout.skills.length > 0) present.push('skills');
+  if (loadout.subagents.length > 0) present.push('subagents');
   if (loadout.extensions.length > 0) present.push('extensions');
   if (loadout.plugins.length > 0) present.push('plugins');
   if (loadout.mcp.length > 0) present.push('mcp');
   if (loadout.model !== undefined) present.push('model');
   if (loadout.thinking !== undefined) present.push('thinking');
+  if (loadout.tools !== undefined) present.push('tools');
 
   return present;
 };
@@ -72,6 +76,10 @@ const buildLaunchPlan = (
 export const projectComposition = (composition: CompositionPlan, input: ProjectionInput): AgentProjectionPlan => {
   const materialized = materializeComposition(composition, input.rootDirectory);
   const launch = buildLaunchPlan(composition, input, materialized.systemPromptPath, materialized.appendPromptPaths);
+  const unsupported = [
+    ...unsupportedElements(composition, input.harness),
+    ...materialized.skippedSkills.map((slug) => `skill:${slug} (escaping symlink)`),
+  ];
 
-  return { rootDirectory: input.rootDirectory, launch, unsupported: unsupportedElements(composition, input.harness) };
+  return { rootDirectory: input.rootDirectory, launch, unsupported };
 };
