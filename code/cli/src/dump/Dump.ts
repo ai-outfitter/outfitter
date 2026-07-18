@@ -123,13 +123,8 @@ const composeClosure = (set: EffectiveResourceSet, rootSlug: string): ClosureCom
     }
     seen.add(slug);
 
-    const agent = findResource(set, 'agent', slug);
-
-    /* v8 ignore next 3 -- compose only queues resolvable subagents, so a queued slug always resolves. */
-    if (agent === undefined) {
-      continue;
-    }
-
+    // compose surfaces an unknown/invalid root agent as an error; every queued subagent is already
+    // resolved by the composer, so a plan implies findResource returns the agent.
     const composed = compose(set, slug);
 
     if (composed.plan === undefined) {
@@ -137,7 +132,7 @@ const composeClosure = (set: EffectiveResourceSet, rootSlug: string): ClosureCom
       continue;
     }
 
-    agents.push(agent);
+    agents.push(findResource(set, 'agent', slug)!);
     warnings.push(...composed.plan.warnings);
     for (const skill of composed.plan.loadout.skills) {
       skillSlugs.add(skill.slug);
@@ -193,12 +188,7 @@ const failure = (errors: readonly string[], warnings: readonly string[] = []): D
 
 /** Writes the composed closure of `agentSlug` into a freshly cleaned `<outDirectory>/.agents/`. */
 export const dumpAgent = (set: EffectiveResourceSet, agentSlug: string, outDirectory: string): DumpResult => {
-  const root = compose(set, agentSlug);
-
-  if (root.plan === undefined) {
-    return failure(root.errors);
-  }
-
+  // composeClosure composes the root once and surfaces an unknown/invalid root agent as an error.
   const closure = composeClosure(set, agentSlug);
 
   if (closure.errors.length > 0) {
