@@ -1,20 +1,24 @@
 # OFTR-004: Setup, Sync, and Profile Creation Commands
 
-> **Deferred (RFC [#165](https://github.com/ai-outfitter/outfitter/issues/165), 2026-07-17):** the profile-era `setup`, `sync`, and `profile create` commands were **removed** in the RFC #165 cleanup. Their `.agents`-native replacements — `sync` fetching `.agents` sources into `cache_directory`, and setup writing `default_agent` — are unbuilt and return in a dedicated onboarding/sync PR. Until then Outfitter's CLI surface is `run`, `list`, `validate`, and `dump`. This requirement is frozen pending that PR.
+> **Amended (RFC [#165](https://github.com/ai-outfitter/outfitter/issues/165), 2026-07-17):** the
+> `.agents`-native **`setup`** command is now implemented as an interactive terminal onboarding flow —
+> see [OFTR-010](OFTR-010-onboarding-welcome.md), which supersedes the Pi-native model in OFTR-004.1.
+> **`sync`** (fetching `.agents` sources into `cache_directory`) and the profile-era `profile create` /
+> `profile list` commands (OFTR-004.2/.3/.5) remain **removed/deferred**; the current CLI surface is
+> `run`, `setup`, `list`, `validate`, and `dump`.
 
 ## Overview
 
-Outfitter provides setup and maintenance commands that launch Pi-native onboarding, synchronize remote profile sources, and generate placeholder profile folders.
+Outfitter provides setup and maintenance commands that onboard a new user, synchronize remote `.agents` sources, and (in future) scaffold resources.
 
 ## Requirements
 
 ### OFTR-004.1: Setup Command
 
 1. Outfitter MUST provide a `setup` command.
-2. The `setup` command MUST launch Pi with Outfitter runtime onboarding and MUST NOT run terminal setup prompts.
-3. The `setup` command MUST force Pi-native onboarding even when existing Outfitter settings are present.
-4. The `setup <source>` command MUST preserve the provided source and hand it to Pi-native onboarding.
-5. Setup writes MUST happen from the Pi-native `/outfitter` flow after Pi starts.
+2. The `setup` command MUST run the interactive `.agents` onboarding flow defined in OFTR-010 (write
+   `default_agent`/`default_harness` and a starter agent), sharing one implementation with the
+   implicit first-run entry from `run`.
 
 ### OFTR-004.2: Sync Command
 
