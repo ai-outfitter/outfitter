@@ -1,5 +1,5 @@
 // Tests run: resolve → compose → project → launch, launch mapping, cleanup, and strict/validation.
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 
@@ -33,17 +33,17 @@ interface CapturedLaunch {
 
 const captured: CapturedLaunch[] = [];
 
-const launcher = async (plan: AgentLaunchPlan): Promise<number> => {
+const launcher = (plan: AgentLaunchPlan): Promise<number> => {
   const runtimeDir = plan.env.PI_CODING_AGENT_DIR ?? plan.env.CLAUDE_CONFIG_DIR ?? '';
   const promptIndex = plan.args.indexOf('--system-prompt');
   captured.push({
     plan,
     runtimeDir,
     dirExisted: existsSync(runtimeDir),
-    systemPrompt: promptIndex >= 0 ? readFileSync(plan.args[promptIndex + 1]!, 'utf8') : undefined,
+    systemPrompt: promptIndex >= 0 ? readFileSync(plan.args[promptIndex + 1], 'utf8') : undefined,
     skillPresent: existsSync(join(runtimeDir, 'skills', 'wiki', 'SKILL.md')),
   });
-  return 0;
+  return Promise.resolve(0);
 };
 
 beforeEach(() => {
@@ -65,6 +65,8 @@ const tree = (): { home: string; project: string } => {
   write(join(project, '.agents', 'system-prompt.md'), 'BASE PROMPT');
   write(join(project, '.agents', 'agents.md'), 'SHARED');
   write(join(project, '.agents', 'skills', 'wiki', 'SKILL.md'), '---\nname: wiki\n---\n\nWiki skill body.\n');
+  write(join(project, '.agents', 'skills', 'wiki', 'scripts', 'go.sh'), 'echo hi'); // nested dir under the skill
+  symlinkSync('/etc/hosts', join(project, '.agents', 'skills', 'wiki', 'inner-link')); // inner symlink skipped on materialize
   write(
     join(project, '.agents', 'agents', 'engineer', 'agent.md'),
     '---\nname: engineer\nskills: [wiki]\nmodel: gpt-5.2\nthinking: high\nextensions: [ext-a]\n---\n\n# Engineer\n',
@@ -88,7 +90,7 @@ describe('run agent', () => {
 
     expect(result.exitCode).toBe(0);
     expect(result.launchPlan!.command).toBe('pi');
-    const launch = captured[0]!;
+    const launch = captured[0];
     expect(launch.plan.args).toEqual(
       expect.arrayContaining([
         '--system-prompt',
@@ -115,8 +117,8 @@ describe('run agent', () => {
       harness: 'pi',
       launcher,
     });
-    expect(captured[0]!.dirExisted).toBe(true); // existed during launch
-    expect(existsSync(captured[0]!.runtimeDir)).toBe(false); // removed afterwards
+    expect(captured[0].dirExisted).toBe(true); // existed during launch
+    expect(existsSync(captured[0].runtimeDir)).toBe(false); // removed afterwards
   });
 
   it('maps model/thinking to claude flags and reports pi-only elements as unsupported', async () => {
@@ -195,7 +197,6 @@ describe('run agent', () => {
       '---\nname: engineer\nskills: [wiki]\n---\n\nBody.\n',
     );
     mkdirSync(join(project, '.agents', 'skills'), { recursive: true });
-    const { symlinkSync } = await import('node:fs');
     symlinkSync(external, join(project, '.agents', 'skills', 'wiki'));
 
     const result = await executeRunAgentCommand({
@@ -205,7 +206,7 @@ describe('run agent', () => {
       harness: 'pi',
       launcher,
     });
-    expect(captured[0]!.skillPresent).toBe(false);
+    expect(captured[0].skillPresent).toBe(false);
     expect(result.messages.join(' ')).toContain('escaping symlink');
   });
 
@@ -214,6 +215,57 @@ describe('run agent', () => {
     write(join(project, '.agents', 'settings.yml'), 'default_agent: engineer\ndefault_harness: pi\n');
     const result = await executeRunAgentCommand({ homeDirectory: home, projectDirectory: project, launcher });
     expect(result.launchPlan?.command).toBe('pi');
+  });
+
+  it('reports every non-projected loadout element as unsupported', async () => {
+    const root = createTemporaryRoot();
+    const project = join(root, 'project');
+    write(join(project, '.agents', 'agents', 'reviewer', 'agent.md'), '---\nname: reviewer\n---\n\nReview.\n');
+    write(
+      join(project, '.agents', 'agents', 'lead', 'agent.md'),
+      '---\nname: lead\nsubagents: [reviewer]\nmcp: [gh]\nplugins: [p]\nextensions: [e]\nmodel: m\nthinking: high\ntools:\n  allow: [read]\n---\n\nBody.\n',
+    );
+    const result = await executeRunAgentCommand({
+      homeDirectory: join(root, 'home'),
+      projectDirectory: project,
+      agent: 'lead',
+      harness: 'pi',
+      launcher,
+    });
+    const messages = result.messages.join(' ');
+    for (const element of ['subagents', 'mcp', 'plugins', 'extensions', 'tools']) {
+      expect(messages).toContain(`loadout element '${element}'`);
+    }
+  });
+
+  it('retains the runtime projection directory when asked', async () => {
+    const { home, project } = tree();
+    await executeRunAgentCommand({
+      homeDirectory: home,
+      projectDirectory: project,
+      agent: 'engineer',
+      harness: 'pi',
+      retainProjection: true,
+      launcher,
+    });
+    expect(existsSync(captured[0].runtimeDir)).toBe(true);
+    rmSync(captured[0].runtimeDir, { recursive: true, force: true });
+  });
+
+  it('throws on invalid settings', async () => {
+    const root = createTemporaryRoot();
+    const project = join(root, 'project');
+    write(join(project, '.agents', 'settings.yml'), 'default_harness: bun\n');
+    write(join(project, '.agents', 'agents', 'engineer', 'agent.md'), '---\nname: engineer\n---\n\nBody.\n');
+    await expect(
+      executeRunAgentCommand({
+        homeDirectory: join(root, 'home'),
+        projectDirectory: project,
+        agent: 'engineer',
+        harness: 'pi',
+        launcher,
+      }),
+    ).rejects.toThrow(/invalid settings/);
   });
 
   it('errors when no agent is selected and none is defaulted', async () => {

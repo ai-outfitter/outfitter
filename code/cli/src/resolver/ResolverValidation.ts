@@ -26,7 +26,7 @@ const loadoutSlugReference = (
     }));
 
 const validateAgent = (set: EffectiveResourceSet, agent: ResolvedResource): readonly ValidationFinding[] => {
-  const definition = readAgentDefinition(agent.winner.path, agent.configPaths ?? []);
+  const definition = readAgentDefinition(agent.winner.path, agent.configPaths);
 
   if (isAgentDefinitionIssue(definition)) {
     return [{ severity: 'error', resource: `agent:${agent.slug}`, message: definition.message }];

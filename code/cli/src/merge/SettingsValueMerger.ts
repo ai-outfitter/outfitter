@@ -10,7 +10,12 @@ export interface MergeValueOptions {
 }
 
 export type MergeableValue =
-  string | number | boolean | null | readonly MergeableValue[] | { readonly [key: string]: MergeableValue | undefined };
+  | string
+  | number
+  | boolean
+  | null
+  | readonly MergeableValue[]
+  | { readonly [key: string]: MergeableValue | undefined };
 
 export type MergeableObject = Readonly<Record<string, MergeableValue | undefined>>;
 

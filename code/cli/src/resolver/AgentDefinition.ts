@@ -19,8 +19,9 @@ export interface AgentDefinitionIssue {
   readonly message: string;
 }
 
-export const isAgentDefinitionIssue = (value: AgentDefinition | AgentDefinitionIssue): value is AgentDefinitionIssue =>
-  'message' in value;
+export const isAgentDefinitionIssue = <T extends object>(
+  value: T | AgentDefinitionIssue,
+): value is AgentDefinitionIssue => 'message' in value;
 
 /** Loadout fields a per-agent config.json may override; identity fields (`name`) are frontmatter-only. */
 const loadoutKeys = ['skills', 'subagents', 'mcp', 'extensions', 'plugins', 'model', 'thinking', 'tools'] as const;
@@ -116,7 +117,8 @@ const parseFrontmatterRecord = (
   const validation = validateSchema('agent', parsed.document);
 
   if (!validation.valid) {
-    return { path: agentPath, message: `agent.md is invalid: ${validation.issues[0]?.message ?? 'schema error'}` };
+    // An invalid document always yields at least one issue.
+    return { path: agentPath, message: `agent.md is invalid: ${validation.issues[0].message}` };
   }
 
   return { record: parsed.document as Record<string, unknown>, body: split.body };

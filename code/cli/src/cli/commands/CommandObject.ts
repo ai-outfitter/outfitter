@@ -6,13 +6,3 @@ export interface CommandObject {
   readonly description: string;
   register(program: Command): void;
 }
-
-export interface CommandDescriptor {
-  readonly name: string;
-  readonly description: string;
-}
-
-export const describeCommandObject = (command: CommandObject): CommandDescriptor => ({
-  name: command.name,
-  description: command.description,
-});

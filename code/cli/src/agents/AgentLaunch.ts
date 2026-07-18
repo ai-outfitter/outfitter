@@ -4,7 +4,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import type { AgentLaunchPlan } from './AgentAdapter.js';
+import type { AgentLaunchPlan } from '../projection/Projection.js';
 
 export interface AgentProcessLauncher {
   launch(plan: AgentLaunchPlan): Promise<number>;

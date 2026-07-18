@@ -103,7 +103,7 @@ describe('project foundation', () => {
     const program = createProgram();
 
     expect(program.name()).toBe('outfitter');
-    expect(program.description()).toContain('Profile-oriented wrapper');
+    expect(program.description()).toContain('Resolve, compose, and launch');
   });
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-010.3).

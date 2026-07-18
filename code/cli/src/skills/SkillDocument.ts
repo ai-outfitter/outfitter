@@ -2,7 +2,9 @@
 import { readFileSync } from 'node:fs';
 
 import { parseYamlDocument } from '../validation/YamlDocument.js';
-import type { SkillReference } from '../profiles/Profile.js';
+
+/** A materializable skill reference: a source-tree `file` or an active-project `repo_file`. */
+export type SkillReference = { readonly file: string } | { readonly repo_file: string };
 
 export const isSkillReference = (value: unknown): value is SkillReference =>
   value !== null &&

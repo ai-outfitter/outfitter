@@ -5,7 +5,7 @@ import { dirname, join } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { encodeRemoteSource } from '../../src/profiles/ProfileCache.js';
+import { encodeRemoteSource } from '../../src/sources/SourceCache.js';
 import {
   isAgentDefinitionIssue,
   parseAgentDefinition,
@@ -113,8 +113,9 @@ describe('agent definition parsing', () => {
     );
   });
 
-  it('reports missing frontmatter, invalid YAML, non-mapping, and read errors', () => {
+  it('reports missing frontmatter, unclosed frontmatter, invalid YAML, non-mapping, and read errors', () => {
     expectIssueContaining(parseAgentDefinition('no frontmatter', [], '/x/agent.md'), 'frontmatter block');
+    expectIssueContaining(parseAgentDefinition('---\nname: x\n', [], '/x/agent.md'), 'frontmatter block'); // no closing ---
     expectIssueContaining(parseAgentDefinition('---\n: bad: yaml:\n---\n', [], '/x/agent.md'), 'not valid YAML');
     expectIssueContaining(parseAgentDefinition('---\n- 1\n---\n', [], '/x/agent.md'), 'YAML mapping');
     expectIssueContaining(readAgentDefinition('/missing/agent.md'), 'Could not read');
@@ -253,6 +254,17 @@ describe('resource resolution', () => {
     expect(hasFinding('agent:engineer', "unknown skill 'missing'")).toBe(true);
     expect(hasFinding('agent:mislabeled', 'must match its directory')).toBe(true);
     expect(hasFinding('skill:wrong', 'must match its directory')).toBe(true);
+  });
+
+  it('reports a malformed SKILL.md or agent.md as a validation error', () => {
+    const root = createTemporaryRoot();
+    const project = join(root, 'project');
+    write(join(project, '.agents', 'skills', 'broken', 'SKILL.md'), 'no frontmatter at all');
+    write(join(project, '.agents', 'agents', 'broken', 'agent.md'), 'no frontmatter at all');
+
+    const findings = validateEffectiveSet(setFor(join(root, 'home'), project));
+    expect(findings.some((f) => f.resource === 'skill:broken' && f.severity === 'error')).toBe(true);
+    expect(findings.some((f) => f.resource === 'agent:broken' && f.severity === 'error')).toBe(true);
   });
 
   it('rejects an unknown list kind and lists all kinds by default', () => {

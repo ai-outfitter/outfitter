@@ -2,7 +2,13 @@
 export type ArrayMergeKey<T> = (item: T) => string;
 
 export type StringArrayMergePolicy =
-  'replace' | 'append' | 'prepend' | 'appendUnique' | 'prependUnique' | 'appendList' | 'prependList';
+  | 'replace'
+  | 'append'
+  | 'prepend'
+  | 'appendUnique'
+  | 'prependUnique'
+  | 'appendList'
+  | 'prependList';
 
 export type ArrayMergePolicy<T = unknown> =
   | StringArrayMergePolicy

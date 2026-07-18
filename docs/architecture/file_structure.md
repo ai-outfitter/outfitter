@@ -3,7 +3,7 @@
 This document records the key repository file and directory structure used by Outfitter.
 See [`./README.md`](./README.md) for runtime file conventions such as `.agents` layers, settings files, and generated composition directories.
 
-> **Transition (RFC [#165](https://github.com/ai-outfitter/outfitter/issues/165)):** the `code/cli/src` subdirectories below reflect the current profile-era implementation. Implementation PRs replace `profiles/` and `compositeProfile/` with resolver, composition, bake, and dump modules and update this listing as they land.
+> **RFC [#165](https://github.com/ai-outfitter/outfitter/issues/165) status:** the profile-era `profiles/` and `compositeProfile/` modules have been removed; `code/cli/src` now uses the dotagents pipeline (`resolver/`, `composer/`, `projection/`, `dump/`, `sources/`). Onboarding (`setup`/`welcome`) and remote `sync` were dropped in the cleanup and return in a follow-up onboarding PR.
 
 ## Repository Layout
 
@@ -43,14 +43,13 @@ Outfitter is organized around a private npm workspace root, clear TypeScript pac
 │   │   │   │   ├── commands/run/      # run command helper modules (profile resolution, launch summary)
 │   │   │   │   └── commands/setup/    # setup command helper modules (types, starter sources, imports, prompts, launch)
 │   │   │   ├── settings/              # settings loading and merging
-│   │   │   ├── resolver/              # .agents layer resolution into one effective resource set (RFC #165)
-│   │   │   ├── composer/              # harness-neutral CompositionPlan from the effective set (RFC #165)
-│   │   │   ├── dump/                  # deterministic self-contained `.agents` tree output (RFC #165)
-│   │   │   ├── profiles/              # legacy profile loading/resolution (removed by the RFC #165 cleanup PR)
-│   │   │   │   └── PromptIncludes.ts  # typed append_system_prompt include resolution and diagnostics
+│   │   │   ├── sources/               # remote `.agents` source cache paths and reference normalization
+│   │   │   ├── resolver/              # .agents layer resolution into one effective resource set
+│   │   │   ├── composer/              # harness-neutral CompositionPlan from the effective set
+│   │   │   ├── projection/            # materialize a composition + build a pi/claude launch plan
+│   │   │   ├── dump/                  # deterministic self-contained `.agents` tree output
 │   │   │   ├── merge/                 # deterministic value and array merge policy helpers
-│   │   │   ├── compositeProfile/      # legacy composite profile assembly (removed by the RFC #165 cleanup PR)
-│   │   │   ├── agents/                # agent adapter boundary and CLI-specific adapters
+│   │   │   ├── agents/                # AgentLaunch: bundled-pi resolution and process launch boundary
 │   │   │   ├── schemas/               # JSON Schema artifacts for persisted formats
 │   │   │   └── validation/            # shared validation helpers
 │   │   ├── tests/                     # automated CLI package tests and fixtures

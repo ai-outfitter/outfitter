@@ -1,6 +1,6 @@
 # OFTR-004: Setup, Sync, and Profile Creation Commands
 
-> **Transition (RFC [#165](https://github.com/ai-outfitter/outfitter/issues/165)):** this requirement describes pre-dotagents behavior and will be amended or superseded by the RFC #165 implementation PRs together with its pinned tests. The target design lives in [docs/documentation](../documentation/README.md) and [docs/architecture](../architecture/README.md).
+> **Deferred (RFC [#165](https://github.com/ai-outfitter/outfitter/issues/165), 2026-07-17):** the profile-era `setup`, `sync`, and `profile create` commands were **removed** in the RFC #165 cleanup. Their `.agents`-native replacements — `sync` fetching `.agents` sources into `cache_directory`, and setup writing `default_agent` — are unbuilt and return in a dedicated onboarding/sync PR. Until then Outfitter's CLI surface is `run`, `list`, `validate`, and `dump`. This requirement is frozen pending that PR.
 
 ## Overview
 
