@@ -12,6 +12,7 @@ import {
 import { dirname, join } from 'node:path';
 
 import { compose } from '../composer/Composer.js';
+import { pickLoadoutKeys } from '../resolver/AgentDefinition.js';
 import { compareSlugs, findResource } from '../resolver/Resource.js';
 import type { EffectiveResourceSet, Layer, ResolvedResource } from '../resolver/Resource.js';
 import { escapesRoots, overlaps } from './Containment.js';
@@ -21,8 +22,6 @@ export interface DumpResult {
   readonly warnings: readonly string[];
   readonly errors: readonly string[];
 }
-
-const loadoutKeys = ['skills', 'subagents', 'mcp', 'extensions', 'plugins', 'model', 'thinking', 'tools'] as const;
 
 // Tree-root files carried into the dump so loadout selections (mcp/models) are not dangling.
 const rootFileNames = ['system-prompt.md', 'agents.md', 'mcp.json', 'models.json'] as const;
@@ -66,40 +65,10 @@ const mergeEffectiveConfig = (configPaths: readonly string[]): Record<string, un
 
   for (const configPath of [...configPaths].reverse()) {
     const parsed = JSON.parse(readFileSync(configPath, 'utf8')) as Record<string, unknown>;
-    const loadout = Object.fromEntries(loadoutKeys.filter((key) => key in parsed).map((key) => [key, parsed[key]]));
-    merged = { ...merged, ...loadout };
+    merged = { ...merged, ...pickLoadoutKeys(parsed) };
   }
 
   return merged;
-};
-
-/** BFS over the selected agent and its subagents to form the transitive agent closure. */
-const agentClosure = (set: EffectiveResourceSet, rootSlug: string): readonly ResolvedResource[] => {
-  const seen = new Set<string>();
-  const ordered: ResolvedResource[] = [];
-  const queue = [rootSlug];
-
-  while (queue.length > 0) {
-    const slug = queue.shift()!;
-
-    if (seen.has(slug)) {
-      continue;
-    }
-    seen.add(slug);
-
-    const agent = findResource(set, 'agent', slug);
-
-    /* v8 ignore next 3 -- compose only queues resolvable subagents, so a queued slug always resolves. */
-    if (agent === undefined) {
-      continue;
-    }
-
-    ordered.push(agent);
-    const composed = compose(set, slug);
-    queue.push(...(composed.plan?.loadout.subagents ?? []).map((subagent) => subagent.slug).sort(compareSlugs));
-  }
-
-  return ordered;
 };
 
 // Copies the highest-precedence tree-root file, matching what the composer reads; escaping targets error.
@@ -134,25 +103,41 @@ interface ClosureCompose {
   readonly errors: readonly string[];
 }
 
-/** Composes every closure member, collecting skills, warnings, and any composition errors. */
+/**
+ * BFS over the selected agent and its subagents, composing each closure member exactly once to
+ * collect the transitive agent list, its skills, warnings, and any composition errors.
+ */
 const composeClosure = (set: EffectiveResourceSet, rootSlug: string): ClosureCompose => {
-  const agents = agentClosure(set, rootSlug);
+  const seen = new Set<string>();
+  const agents: ResolvedResource[] = [];
   const skillSlugs = new Set<string>();
   const warnings: string[] = [];
   const errors: string[] = [];
+  const queue = [rootSlug];
 
-  for (const agent of agents) {
-    const composed = compose(set, agent.slug);
+  while (queue.length > 0) {
+    const slug = queue.shift()!;
+
+    if (seen.has(slug)) {
+      continue;
+    }
+    seen.add(slug);
+
+    // compose surfaces an unknown/invalid root agent as an error; every queued subagent is already
+    // resolved by the composer, so a plan implies findResource returns the agent.
+    const composed = compose(set, slug);
 
     if (composed.plan === undefined) {
       errors.push(...composed.errors);
       continue;
     }
 
+    agents.push(findResource(set, 'agent', slug)!);
     warnings.push(...composed.plan.warnings);
     for (const skill of composed.plan.loadout.skills) {
       skillSlugs.add(skill.slug);
     }
+    queue.push(...composed.plan.loadout.subagents.map((subagent) => subagent.slug).sort(compareSlugs));
   }
 
   return { agents, skillSlugs: [...skillSlugs].sort(compareSlugs), warnings, errors };
@@ -203,10 +188,7 @@ const failure = (errors: readonly string[], warnings: readonly string[] = []): D
 
 /** Writes the composed closure of `agentSlug` into a freshly cleaned `<outDirectory>/.agents/`. */
 export const dumpAgent = (set: EffectiveResourceSet, agentSlug: string, outDirectory: string): DumpResult => {
-  if (compose(set, agentSlug).plan === undefined) {
-    return failure(compose(set, agentSlug).errors);
-  }
-
+  // composeClosure composes the root once and surfaces an unknown/invalid root agent as an error.
   const closure = composeClosure(set, agentSlug);
 
   if (closure.errors.length > 0) {

@@ -24,7 +24,20 @@ export const isAgentDefinitionIssue = <T extends object>(
 ): value is AgentDefinitionIssue => 'message' in value;
 
 /** Loadout fields a per-agent config.json may override; identity fields (`name`) are frontmatter-only. */
-const loadoutKeys = ['skills', 'subagents', 'mcp', 'extensions', 'plugins', 'model', 'thinking', 'tools'] as const;
+export const loadoutKeys = [
+  'skills',
+  'subagents',
+  'mcp',
+  'extensions',
+  'plugins',
+  'model',
+  'thinking',
+  'tools',
+] as const;
+
+/** Restricts an arbitrary record to the loadout keys config.json is allowed to supply. */
+export const pickLoadoutKeys = (record: Readonly<Record<string, unknown>>): Record<string, unknown> =>
+  Object.fromEntries(loadoutKeys.filter((key) => key in record).map((key) => [key, record[key]]));
 
 interface FrontmatterSplit {
   readonly frontmatter: string;
@@ -89,8 +102,7 @@ const readConfigLoadout = (configPath: string): Readonly<Record<string, unknown>
     return { path: configPath, message: 'config.json must be a JSON object of loadout overrides.' };
   }
 
-  const record = parsed as Record<string, unknown>;
-  return Object.fromEntries(loadoutKeys.filter((key) => key in record).map((key) => [key, record[key]]));
+  return pickLoadoutKeys(parsed as Record<string, unknown>);
 };
 
 const parseFrontmatterRecord = (
