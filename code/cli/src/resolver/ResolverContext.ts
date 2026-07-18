@@ -1,6 +1,7 @@
 // Shared entry point that turns a home/project location into one effective resource set.
 import { loadSettingsWithCachedRemoteSettings } from '../settings/SettingsLoader.js';
 import type { SettingsLoadIssue } from '../settings/SettingsLoader.js';
+import type { Settings } from '../settings/Settings.js';
 import { discoverLayers } from './Layer.js';
 import type { EffectiveResourceSet } from './Resource.js';
 import { resolveResources } from './Resolver.js';
@@ -12,6 +13,8 @@ export interface ResolveInput {
 
 export interface ResolveResult {
   readonly set: EffectiveResourceSet;
+  /** The merged settings loaded during resolution, so callers need not reload them. */
+  readonly settings: Settings;
   readonly settingsIssues: readonly SettingsLoadIssue[];
 }
 
@@ -20,5 +23,5 @@ export const resolveEffectiveSet = (input: ResolveInput): ResolveResult => {
   const loadedSettings = loadSettingsWithCachedRemoteSettings(input);
   const layers = discoverLayers({ ...input, settings: loadedSettings.settings });
 
-  return { set: resolveResources(layers), settingsIssues: loadedSettings.issues };
+  return { set: resolveResources(layers), settings: loadedSettings.settings, settingsIssues: loadedSettings.issues };
 };

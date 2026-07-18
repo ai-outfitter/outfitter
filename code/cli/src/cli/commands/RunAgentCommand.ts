@@ -10,7 +10,6 @@ import { compose } from '../../composer/Composer.js';
 import { projectComposition } from '../../projection/ProjectHarness.js';
 import type { AgentLaunchPlan } from '../../projection/Projection.js';
 import { resolveEffectiveSet } from '../../resolver/ResolverContext.js';
-import { loadSettingsWithCachedRemoteSettings } from '../../settings/SettingsLoader.js';
 import type { Harness } from '../../settings/Settings.js';
 import type { CommandObject } from './CommandObject.js';
 import { resolveHomeDirectory, resolveProjectDirectory } from './ProcessDefaults.js';
@@ -65,8 +64,7 @@ const resolveHarness = (settingsDefault: Harness | undefined, requested: string 
 };
 
 export const executeRunAgentCommand = async (input: RunAgentInput): Promise<RunAgentResult> => {
-  const { settings } = loadSettingsWithCachedRemoteSettings(input);
-  const { set, settingsIssues } = resolveEffectiveSet(input);
+  const { set, settings, settingsIssues } = resolveEffectiveSet(input);
 
   if (settingsIssues.length > 0) {
     throw new Error(`Cannot run with invalid settings: ${settingsIssues.map((issue) => issue.message).join('; ')}`);
@@ -114,7 +112,7 @@ export const executeRunAgentCommand = async (input: RunAgentInput): Promise<RunA
 };
 
 /* v8 ignore start -- real process spawn is covered by end-to-end smoke usage, not unit tests. */
-const spawnLauncher = {
+const spawnLauncher: SpawnLauncher = {
   async launch(plan: AgentLaunchPlan): Promise<number> {
     const { default: spawn } = await import('cross-spawn');
     return await new Promise<number>((resolve, reject) => {
@@ -124,12 +122,23 @@ const spawnLauncher = {
     });
   },
 };
-
-const makeDefaultLauncher =
-  (agentId: Harness): AgentProcessLauncher =>
-  (plan) =>
-    launchAgentProcess(spawnLauncher, resolveAgentLaunchExecutable(plan), agentId);
 /* v8 ignore stop */
+
+interface SpawnLauncher {
+  launch(plan: AgentLaunchPlan): Promise<number>;
+}
+
+/**
+ * Launches a resolved plan through the given spawn boundary. The install-hint agentId is derived
+ * from the logical launch command ('pi' | 'claude') so a missing-CLI failure always names the
+ * harness actually being launched, regardless of how the harness was selected (flag, settings
+ * default, or built-in fallback).
+ */
+export const launchThroughSpawn = (spawn: SpawnLauncher, plan: AgentLaunchPlan): Promise<number> =>
+  launchAgentProcess(spawn, resolveAgentLaunchExecutable(plan), plan.command);
+
+/* v8 ignore next -- wiring to the real spawn boundary; launchThroughSpawn itself is unit-tested. */
+const defaultLauncher: AgentProcessLauncher = (plan) => launchThroughSpawn(spawnLauncher, plan);
 
 export const createRunAgentCommand = (dependencies: RunAgentDependencies = {}): CommandObject => ({
   name: 'run',
@@ -152,7 +161,7 @@ export const createRunAgentCommand = (dependencies: RunAgentDependencies = {}): 
           /* v8 ignore next 3 -- process/launcher defaults are exercised by the CLI entrypoint, not unit tests. */
           const homeDirectory = resolveHomeDirectory(dependencies.homeDirectory);
           const projectDirectory = resolveProjectDirectory(dependencies.projectDirectory);
-          const launcher = dependencies.launcher ?? makeDefaultLauncher(resolveHarness(undefined, options.harness));
+          const launcher = dependencies.launcher ?? defaultLauncher;
           const result = await executeRunAgentCommand({
             homeDirectory,
             projectDirectory,
