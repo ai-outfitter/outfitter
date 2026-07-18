@@ -11,10 +11,20 @@ import { projectComposition } from '../../projection/ProjectHarness.js';
 import type { AgentLaunchPlan } from '../../projection/Projection.js';
 import { resolveEffectiveSet } from '../../resolver/ResolverContext.js';
 import type { Harness } from '../../settings/Settings.js';
+import type { SetupResult } from '../../setup/Setup.js';
+import { executeSetup } from '../../setup/Setup.js';
 import type { CommandObject } from './CommandObject.js';
 import { resolveHomeDirectory, resolveProjectDirectory } from './ProcessDefaults.js';
+import { createReadlinePrompter } from './SetupCommand.js';
 
 export type AgentProcessLauncher = (plan: AgentLaunchPlan) => Promise<number>;
+
+/**
+ * Runs first-run onboarding when `run` finds nothing configured. Returns the setup result, or
+ * `undefined` when setup was not performed (e.g. non-interactive), so the caller falls back to the
+ * normal "no agent selected" error.
+ */
+export type SetupRunner = (input: { homeDirectory: string }) => Promise<SetupResult | undefined>;
 
 export interface RunAgentInput {
   readonly homeDirectory: string;
@@ -24,6 +34,8 @@ export interface RunAgentInput {
   readonly strict?: boolean;
   readonly passThroughArgs?: readonly string[];
   readonly launcher: AgentProcessLauncher;
+  /** Onboarding to run once when no agent is selected and settings define no `default_agent`. */
+  readonly setup?: SetupRunner;
   /** Keep the runtime projection directory after the run (debugging). */
   readonly retainProjection?: boolean;
 }
@@ -38,10 +50,24 @@ export interface RunAgentDependencies {
   readonly homeDirectory?: string;
   readonly projectDirectory?: string;
   readonly launcher?: AgentProcessLauncher;
+  readonly setup?: SetupRunner;
   readonly writeLine?: (message: string) => void;
 }
 
 const harnesses: readonly Harness[] = ['pi', 'claude'];
+
+/* v8 ignore start -- real-TTY onboarding wiring; executeSetup is unit-tested via an injected runner. */
+// Onboard only when attached to a real terminal; scripted/CI runs get the normal "no agent" error.
+const interactiveSetupRunner: SetupRunner = async ({ homeDirectory }) => {
+  const prompter = createReadlinePrompter();
+
+  if (!prompter.interactive) {
+    return undefined;
+  }
+
+  return executeSetup({ homeDirectory, prompter });
+};
+/* v8 ignore stop */
 
 const resolveAgentSlug = (settingsDefault: string | undefined, requested: string | undefined): string => {
   const slug = requested ?? settingsDefault;
@@ -63,19 +89,35 @@ const resolveHarness = (settingsDefault: Harness | undefined, requested: string 
   return harness;
 };
 
-export const executeRunAgentCommand = async (input: RunAgentInput): Promise<RunAgentResult> => {
-  const { set, settings, settingsIssues } = resolveEffectiveSet(input);
+const assertNoSettingsIssues = (issues: readonly { readonly message: string }[]): void => {
+  if (issues.length > 0) {
+    throw new Error(`Cannot run with invalid settings: ${issues.map((issue) => issue.message).join('; ')}`);
+  }
+};
 
-  if (settingsIssues.length > 0) {
-    throw new Error(`Cannot run with invalid settings: ${settingsIssues.map((issue) => issue.message).join('; ')}`);
+export const executeRunAgentCommand = async (input: RunAgentInput): Promise<RunAgentResult> => {
+  let resolved = resolveEffectiveSet(input);
+  assertNoSettingsIssues(resolved.settingsIssues);
+
+  // First run: nothing selected and no default configured — onboard, then resolve again.
+  const setupMessages: string[] = [];
+  if (input.agent === undefined && resolved.settings.defaultAgent === undefined && input.setup !== undefined) {
+    const setupResult = await input.setup({ homeDirectory: input.homeDirectory });
+
+    if (setupResult !== undefined) {
+      setupMessages.push(...setupResult.messages);
+      resolved = resolveEffectiveSet(input);
+      assertNoSettingsIssues(resolved.settingsIssues);
+    }
   }
 
+  const { set, settings } = resolved;
   const agentSlug = resolveAgentSlug(settings.defaultAgent, input.agent);
   const harness = resolveHarness(settings.defaultHarness, input.harness);
   const composed = compose(set, agentSlug);
 
   if (composed.plan === undefined) {
-    return { exitCode: 1, messages: composed.errors };
+    return { exitCode: 1, messages: [...setupMessages, ...composed.errors] };
   }
 
   const rootDirectory = mkdtempSync(join(tmpdir(), `outfitter-${agentSlug}-${harness}-`));
@@ -98,12 +140,16 @@ export const executeRunAgentCommand = async (input: RunAgentInput): Promise<RunA
     if (input.strict === true && warnings.length > 0) {
       return {
         exitCode: 1,
-        messages: [...warnings, 'Strict mode: composition warnings and unsupported elements are fatal.'],
+        messages: [
+          ...setupMessages,
+          ...warnings,
+          'Strict mode: composition warnings and unsupported elements are fatal.',
+        ],
       };
     }
 
     const exitCode = await input.launcher(projection.launch);
-    return { launchPlan: projection.launch, exitCode, messages: warnings };
+    return { launchPlan: projection.launch, exitCode, messages: [...setupMessages, ...warnings] };
   } finally {
     if (input.retainProjection !== true) {
       rmSync(rootDirectory, { recursive: true, force: true });
@@ -170,6 +216,7 @@ export const createRunAgentCommand = (dependencies: RunAgentDependencies = {}): 
             strict: options.strict,
             passThroughArgs,
             launcher,
+            setup: dependencies.setup ?? interactiveSetupRunner,
           });
 
           for (const message of result.messages) {
