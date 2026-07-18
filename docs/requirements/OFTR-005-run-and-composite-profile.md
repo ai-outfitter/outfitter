@@ -10,13 +10,16 @@ The `run` command assembles a temporary agent-specific configuration directory c
 
 ### OFTR-005.1: Run Command Defaults
 
+_Amended (2026-07-17, RFC #165): `run` selects an agent slug and a harness, not a profile._
+
 1. Outfitter MUST provide a `run` command.
 2. `run` MUST be the default command when no command is specified.
 3. The default command behavior MUST be implemented with Commander rather than a custom `process.argv` parser.
-4. The `run` command MUST accept `-p` and `--profile` options for selecting the profile.
-5. The `run` command MUST use the resolved default profile when no profile option is provided.
-6. The `run` command MUST pass unrecognized arguments through to the selected agent CLI unaltered.
-7. When invoked before user setup has created `~/.outfitter/settings.yml`, the default `run` command MUST execute setup before resolving the profile without printing a separate pre-setup announcement.
+4. The `run` command MUST accept a positional agent slug selecting which agent to run.
+5. The `run` command MUST use the resolved `default_agent` when no agent is provided, and error when neither is available.
+6. The `run` command MUST accept `--harness <pi|claude>`, defaulting to `default_harness` then `pi`.
+7. The `run` command MUST pass unrecognized arguments through to the selected harness CLI unaltered.
+8. The `run` command MUST resolve, compose, project, and launch through the shared resolver and composer.
 
 ### OFTR-005.2: Composition Definition
 

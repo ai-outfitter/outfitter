@@ -1,6 +1,6 @@
 # OFTR-006: Agent Adapters, Pi Support, and Claude Code Support
 
-> **Transition (RFC [#165](https://github.com/ai-outfitter/outfitter/issues/165)):** this requirement describes pre-dotagents behavior and will be amended or superseded by the RFC #165 implementation PRs together with its pinned tests. The target design lives in [docs/documentation](../documentation/README.md) and [docs/architecture](../architecture/README.md).
+> **Transition (RFC [#165](https://github.com/ai-outfitter/outfitter/issues/165)):** **OFTR-006.1 is amended (2026-07-17)** to the composition-projection model below (harnesses project a `CompositionPlan`, reporting unsupported _elements_). The pi/claude launch-control sections still describe profile-era behavior and richer parity (mcp reconciliation, extensions, session dirs, state persistence) is projected incrementally; the current implementation projects composed identity, skills, model, and thinking. Target design: [docs/architecture/README.md](../architecture/README.md).
 
 ## Overview
 
@@ -11,11 +11,13 @@ Pi is the default and primary supported adapter; Claude Code is also supported t
 
 ### OFTR-006.1: Adapter Boundary
 
-1. Outfitter MUST define an agent adapter abstraction for CLI-specific composite profile assembly and launch command generation.
-2. Each adapter MUST expose an identifier for the agent CLI it supports.
-3. Each adapter MUST report which controllable elements it supports.
-4. Each adapter MUST return warnings for profile controls it cannot translate.
-5. Outfitter SHOULD keep generic profile resolution independent from adapter-specific file generation.
+_Amended (2026-07-17, RFC #165): adapters project a harness-neutral composition, not a profile._
+
+1. Outfitter MUST project a harness-neutral `CompositionPlan` to a native harness launch: a materialized runtime configuration root plus a launch plan (command, args, environment).
+2. Each harness projection MUST be identified by its harness (`pi` or `claude`).
+3. Each harness projection MUST report which composition loadout elements it cannot project (`getUnsupportedElements`).
+4. When a composition selects an element the harness cannot project, Outfitter MUST warn; `--strict` MUST make it fatal before launch.
+5. Composition (resolver + composer) MUST stay independent of harness-specific projection.
 
 ### OFTR-006.2: Supported Adapter Availability
 
