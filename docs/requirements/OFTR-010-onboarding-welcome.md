@@ -1,6 +1,6 @@
 # OFTR-010: Pi-Native Onboarding Welcome
 
-> **Transition (RFC [#165](https://github.com/ai-outfitter/outfitter/issues/165)):** this requirement describes pre-dotagents behavior and will be amended or superseded by the RFC #165 implementation PRs together with its pinned tests. The target design lives in [docs/documentation](../documentation/README.md) and [docs/architecture](../architecture/README.md).
+> **Deferred (RFC [#165](https://github.com/ai-outfitter/outfitter/issues/165), 2026-07-17):** the Pi-native onboarding `welcome`/`setup` flow was **removed** in the RFC #165 cleanup along with the profile system. `.agents`-native onboarding (writing `default_agent`) returns in a dedicated onboarding PR; this requirement is frozen pending that work.
 
 ## Overview
 

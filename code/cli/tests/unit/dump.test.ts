@@ -132,7 +132,9 @@ describe('dump command', () => {
 
     executeDumpCommand({ homeDirectory: home, projectDirectory: project, agent: 'engineer', out });
 
-    const config = JSON.parse(readFileSync(join(out, '.agents', 'agents', 'engineer', 'config.json'), 'utf8'));
+    const config = JSON.parse(
+      readFileSync(join(out, '.agents', 'agents', 'engineer', 'config.json'), 'utf8'),
+    ) as Record<string, unknown>;
     expect(config).toEqual({ model: 'gpt-5.3' });
   });
 

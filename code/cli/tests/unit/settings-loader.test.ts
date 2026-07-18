@@ -5,7 +5,7 @@ import { dirname, join } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { createRemoteRepositoryCachePath } from '../../src/profiles/ProfileCache.js';
+import { createRemoteRepositoryCachePath } from '../../src/sources/SourceCache.js';
 import {
   createSettingsLoadPlan,
   discoverRemoteSettingsLoadPlan,
@@ -13,6 +13,7 @@ import {
   loadSettings,
   loadSettingsFiles,
   loadSettingsWithCachedRemoteSettings,
+  resolveCachedRemoteSettingsPath,
 } from '../../src/settings/SettingsLoader.js';
 import { validateSchema } from '../../src/validation/SchemaValidator.js';
 import { parseYamlDocument } from '../../src/validation/YamlDocument.js';
@@ -248,6 +249,22 @@ describe('settings loading', () => {
       },
       tools: ['prettier'],
     });
+  });
+
+  it('falls back to a nested .agents/settings.yml in a cached remote repo', () => {
+    const homeDirectory = createTemporaryRoot();
+    const source = { github: 'example/config', ref: 'main', path: 'settings.yml' } as const;
+    const repoPath = createRemoteRepositoryCachePath(homeDirectory, source);
+
+    // No top-level settings.yml, but a nested .agents/settings.yml exists.
+    writeSettings(join(repoPath, '.agents', 'settings.yml'), 'default_agent: nested\n');
+    expect(resolveCachedRemoteSettingsPath(homeDirectory, source)).toBe(join(repoPath, '.agents', 'settings.yml'));
+
+    // When neither exists, the configured path is returned as-is.
+    const missing = { github: 'example/none', ref: 'main', path: 'settings.yml' } as const;
+    expect(resolveCachedRemoteSettingsPath(homeDirectory, missing)).toBe(
+      join(createRemoteRepositoryCachePath(homeDirectory, missing), 'settings.yml'),
+    );
   });
 
   it('resolves configured cache directories relative to the containing settings file', () => {

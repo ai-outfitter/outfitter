@@ -1,6 +1,6 @@
 # OFTR-005: Run Command and Composite profile Lifecycle
 
-> **Transition (RFC [#165](https://github.com/ai-outfitter/outfitter/issues/165)):** this requirement is being amended across the implementation stack. **OFTR-005.2 and OFTR-005.3 are amended (2026-07-17)** to the harness-neutral composition model below. The remaining sections (run command surface, watching, state persistence, prompt export) still describe pre-dotagents behavior and are amended together with their pinned tests in the adapter/run PR. Target design: [docs/architecture/README.md](../architecture/README.md).
+> **Transition (RFC [#165](https://github.com/ai-outfitter/outfitter/issues/165)):** **OFTR-005.1/005.2/005.3 are amended (2026-07-17)** to the run/composition model (run selects an agent + harness and resolves → composes → projects → launches). The remaining sections (005.4 watching, 005.6 state persistence, 005.7 prompt export) describe profile-era features that are **not yet reprojected** — the current run projects composed identity, skills, model, and thinking into an ephemeral runtime directory. Those features return incrementally with the fuller adapter parity. Target design: [docs/architecture/README.md](../architecture/README.md).
 
 ## Overview
 

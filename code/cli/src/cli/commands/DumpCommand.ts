@@ -1,5 +1,4 @@
 // Provides `outfitter dump --agent <id> --out <dir>` over the effective resource set.
-import { homedir } from 'node:os';
 
 import { Command } from 'commander';
 
@@ -7,6 +6,7 @@ import { dumpAgent } from '../../dump/Dump.js';
 import { resolveEffectiveSet } from '../../resolver/ResolverContext.js';
 import { loadSettingsWithCachedRemoteSettings } from '../../settings/SettingsLoader.js';
 import type { CommandObject } from './CommandObject.js';
+import { resolveHomeDirectory, resolveProjectDirectory } from './ProcessDefaults.js';
 
 export interface DumpInput {
   readonly homeDirectory: string;
@@ -70,8 +70,8 @@ export const createDumpCommand = (dependencies: DumpCommandDependencies = {}): C
         .action((options: { agent?: string; out: string }) => {
           const result = executeDumpCommand({
             /* v8 ignore next 2 -- process defaults are exercised by the CLI entrypoint, not unit tests. */
-            homeDirectory: dependencies.homeDirectory ?? homedir(),
-            projectDirectory: dependencies.projectDirectory ?? process.cwd(),
+            homeDirectory: resolveHomeDirectory(dependencies.homeDirectory),
+            projectDirectory: resolveProjectDirectory(dependencies.projectDirectory),
             agent: options.agent,
             out: options.out,
           });

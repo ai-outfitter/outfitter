@@ -1,5 +1,0 @@
-id: second
-controls:
-  environment:
-    SECOND: 'enabled'
-    SHARED: second

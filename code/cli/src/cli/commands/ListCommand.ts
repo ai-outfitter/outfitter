@@ -1,5 +1,4 @@
 // Provides `outfitter list [kind]` over the effective resource set.
-import { homedir } from 'node:os';
 
 import { Command } from 'commander';
 
@@ -7,6 +6,7 @@ import type { ResourceKind } from '../../resolver/Resource.js';
 import { listResources, resourceKinds } from '../../resolver/Resource.js';
 import { resolveEffectiveSet } from '../../resolver/ResolverContext.js';
 import type { CommandObject } from './CommandObject.js';
+import { resolveHomeDirectory, resolveProjectDirectory } from './ProcessDefaults.js';
 
 export interface ListInput {
   readonly homeDirectory: string;
@@ -84,8 +84,8 @@ export const createListCommand = (dependencies: ListCommandDependencies = {}): C
         .action((kind: string | undefined) => {
           const result = executeListCommand({
             /* v8 ignore next 2 -- process defaults are exercised by the CLI entrypoint, not unit tests. */
-            homeDirectory: dependencies.homeDirectory ?? homedir(),
-            projectDirectory: dependencies.projectDirectory ?? process.cwd(),
+            homeDirectory: resolveHomeDirectory(dependencies.homeDirectory),
+            projectDirectory: resolveProjectDirectory(dependencies.projectDirectory),
             kind,
           });
 

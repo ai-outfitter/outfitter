@@ -98,4 +98,13 @@ describe('resolver command objects', () => {
     expect(result.ok).toBe(true);
     expect(result.messages).toContain('✓ No issues found.');
   });
+
+  it('validate through parseAsync prints clean text output and leaves the exit code unset', async () => {
+    const root = createTemporaryRoot();
+    write(join(root, 'project', '.agents', 'agents', 'ok', 'agent.md'), '---\nname: ok\n---\n\nBody.\n');
+    const lines: string[] = [];
+    await buildProgram(root, lines).parseAsync(['node', 'outfitter', 'validate']);
+    expect(lines.join('\n')).toContain('✓ No issues found.');
+    expect(process.exitCode).not.toBe(1);
+  });
 });

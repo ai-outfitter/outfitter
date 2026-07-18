@@ -1,5 +1,4 @@
 // Provides `outfitter validate [--strict] [--json]` over the effective resource set.
-import { homedir } from 'node:os';
 
 import { Command } from 'commander';
 
@@ -7,6 +6,7 @@ import { resolveEffectiveSet } from '../../resolver/ResolverContext.js';
 import type { ValidationFinding } from '../../resolver/ResolverValidation.js';
 import { validateEffectiveSet } from '../../resolver/ResolverValidation.js';
 import type { CommandObject } from './CommandObject.js';
+import { resolveHomeDirectory, resolveProjectDirectory } from './ProcessDefaults.js';
 
 export interface ValidateInput {
   readonly homeDirectory: string;
@@ -68,10 +68,12 @@ export const createValidateCommand = (dependencies: ValidateCommandDependencies 
         .option('--strict', 'Treat warnings (such as shadowed definitions) as failures.')
         .option('--json', 'Emit findings as JSON.')
         .action((options: { strict?: boolean; json?: boolean }) => {
+          /* v8 ignore next 2 -- process defaults are exercised by the CLI entrypoint, not unit tests. */
+          const homeDirectory = resolveHomeDirectory(dependencies.homeDirectory);
+          const projectDirectory = resolveProjectDirectory(dependencies.projectDirectory);
           const result = executeValidateCommand({
-            /* v8 ignore next 2 -- process defaults are exercised by the CLI entrypoint, not unit tests. */
-            homeDirectory: dependencies.homeDirectory ?? homedir(),
-            projectDirectory: dependencies.projectDirectory ?? process.cwd(),
+            homeDirectory,
+            projectDirectory,
             strict: options.strict,
             json: options.json,
           });
