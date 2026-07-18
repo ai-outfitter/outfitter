@@ -112,7 +112,7 @@ export const executeRunAgentCommand = async (input: RunAgentInput): Promise<RunA
 };
 
 /* v8 ignore start -- real process spawn is covered by end-to-end smoke usage, not unit tests. */
-const spawnLauncher = {
+const spawnLauncher: SpawnLauncher = {
   async launch(plan: AgentLaunchPlan): Promise<number> {
     const { default: spawn } = await import('cross-spawn');
     return await new Promise<number>((resolve, reject) => {
@@ -122,13 +122,23 @@ const spawnLauncher = {
     });
   },
 };
-
-// The install-hint agentId is derived from the logical launch command ('pi' | 'claude') so a
-// missing-CLI failure always names the harness actually being launched, regardless of how the
-// harness was selected (flag, settings default, or built-in fallback).
-const defaultLauncher: AgentProcessLauncher = (plan) =>
-  launchAgentProcess(spawnLauncher, resolveAgentLaunchExecutable(plan), plan.command);
 /* v8 ignore stop */
+
+interface SpawnLauncher {
+  launch(plan: AgentLaunchPlan): Promise<number>;
+}
+
+/**
+ * Launches a resolved plan through the given spawn boundary. The install-hint agentId is derived
+ * from the logical launch command ('pi' | 'claude') so a missing-CLI failure always names the
+ * harness actually being launched, regardless of how the harness was selected (flag, settings
+ * default, or built-in fallback).
+ */
+export const launchThroughSpawn = (spawn: SpawnLauncher, plan: AgentLaunchPlan): Promise<number> =>
+  launchAgentProcess(spawn, resolveAgentLaunchExecutable(plan), plan.command);
+
+/* v8 ignore next -- wiring to the real spawn boundary; launchThroughSpawn itself is unit-tested. */
+const defaultLauncher: AgentProcessLauncher = (plan) => launchThroughSpawn(spawnLauncher, plan);
 
 export const createRunAgentCommand = (dependencies: RunAgentDependencies = {}): CommandObject => ({
   name: 'run',

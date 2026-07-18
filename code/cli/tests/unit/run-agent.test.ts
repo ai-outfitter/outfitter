@@ -6,7 +6,11 @@ import { dirname, join } from 'node:path';
 import { Command } from 'commander';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { createRunAgentCommand, executeRunAgentCommand } from '../../src/cli/commands/RunAgentCommand.js';
+import {
+  createRunAgentCommand,
+  executeRunAgentCommand,
+  launchThroughSpawn,
+} from '../../src/cli/commands/RunAgentCommand.js';
 import type { AgentLaunchPlan } from '../../src/projection/Projection.js';
 
 const temporaryRoots: string[] = [];
@@ -300,5 +304,17 @@ describe('run agent', () => {
     await program.parseAsync(['node', 'outfitter', 'run', 'engineer', '--harness', 'pi']);
     expect(captured[0]?.plan.command).toBe('pi');
     expect(captured[0]?.dirExisted).toBe(true);
+  });
+
+  // A missing CLI must be reported for the harness actually launched, not the built-in pi fallback
+  // (regression: the default launcher's agentId once ignored the resolved harness).
+  it('reports the launched harness and its install hint when the CLI is missing', async () => {
+    const enoent = Object.assign(new Error('spawn claude ENOENT'), { code: 'ENOENT' });
+    const failingSpawn = { launch: (): Promise<number> => Promise.reject(enoent) };
+    const claudePlan: AgentLaunchPlan = { command: 'claude', args: [], env: { CLAUDE_CONFIG_DIR: '/tmp/x' } };
+
+    await expect(launchThroughSpawn(failingSpawn, claudePlan)).rejects.toThrow(
+      /Could not launch the 'claude' agent CLI.*claude\.com\/claude-code/s,
+    );
   });
 });
