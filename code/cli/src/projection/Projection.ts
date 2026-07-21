@@ -20,4 +20,6 @@ export interface ProjectionInput {
   readonly rootDirectory: string;
   readonly homeDirectory: string;
   readonly passThroughArgs?: readonly string[];
+  /** Local pi extension install directories to load with `--extension` (pi only). */
+  readonly extensionLoadDirs?: readonly string[];
 }
