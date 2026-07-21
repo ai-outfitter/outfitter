@@ -12,6 +12,26 @@
    and continue with the selected profile.
 3. Non-interactive invocations MUST NOT prompt or mutate settings.
 4. Setup Pi MUST be isolated, model-free, and offline; it MUST NOT open `/login` or send an agent turn.
+5. After a successful walkthrough, explicit `outfitter setup` MUST also re-resolve and launch the
+   selected profile when a concrete agent was chosen (default/create modes), so the user lands in a
+   working pi session without a manual restart. Catalog/source setups, whose profile needs a sync
+   first, MUST instead report next-launch behavior.
+
+## OFTR-010.5: Runtime sign-in
+
+1. Interactive real (non-setup) Pi launches MUST load an Outfitter runtime extension that, when Pi
+   starts with no models available, offers to connect a model provider and, on confirmation, opens
+   Pi's native `/login`. The prompt MUST replace Pi's raw "No models available" warning as the
+   primary path.
+2. The runtime extension MUST be a no-op when a model is already available and MUST NOT prompt on
+   non-interactive Pi launches (`--print`, `--export`, `--mode json|print|rpc`).
+3. Outfitter MUST NOT collect or store provider credentials itself; credential entry stays inside
+   Pi's `/login`.
+4. Provider credentials entered during a run MUST persist across runs even though Pi's
+   `PI_CODING_AGENT_DIR` is an ephemeral projection root: Outfitter seeds the run from Pi's durable
+   agent directory (`~/.pi/agent`) and writes credential state back after the session. So after a
+   first-run setup → relaunch → `/login`, later launches start with an active model and do not
+   re-prompt.
 
 ## OFTR-010.2: Exact walkthrough
 

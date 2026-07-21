@@ -16,6 +16,7 @@ import { applySetupSelection, discoverSetupAgentChoices } from '../../setup/Setu
 import { bootstrapDefaultCatalog } from '../../setup/DefaultCatalog.js';
 import type { CommandObject } from './CommandObject.js';
 import { resolveHomeDirectory, resolveProjectDirectory } from './ProcessDefaults.js';
+import { executeRunAgentCommand } from './RunAgentCommand.js';
 
 export type SetupProcessLauncher = (plan: AgentLaunchPlan) => Promise<number>;
 
@@ -26,6 +27,8 @@ export interface SetupCommandDependencies {
   readonly setupSourceUri?: string;
   readonly interactive?: boolean;
   readonly launcher?: SetupProcessLauncher;
+  /** Launcher for the profile pi started after setup; defaults to the real spawn boundary. */
+  readonly runLauncher?: SetupProcessLauncher;
   readonly writeLine?: (message: string) => void;
 }
 
@@ -226,6 +229,32 @@ export const runSetup = async (dependencies: SetupCommandDependencies = {}): Pro
   }
 };
 
+/* v8 ignore next -- wiring to the shared spawn boundary; launchThroughSpawn itself is unit-tested. */
+const defaultRunLauncher: SetupProcessLauncher = (plan) => launchThroughSpawn(spawnLauncher, plan);
+
+// After an explicit `outfitter setup`, start the just-selected profile in pi so the user lands in a
+// working session instead of being told to restart. Only a concrete agent choice (default/create
+// modes set `defaultAgent`) launches immediately; catalog/source setups still need a sync, so they
+// keep their "run outfitter sync / restart" guidance and are skipped here.
+const autoLaunchSelectedProfile = async (
+  dependencies: SetupCommandDependencies,
+  result: SetupResult,
+  writeLine: (message: string) => void,
+): Promise<void> => {
+  if (result.defaultAgent === undefined) return;
+
+  writeLine(`Starting '${result.defaultAgent}' in ${result.defaultHarness}…`);
+  const runResult = await executeRunAgentCommand({
+    homeDirectory: resolveHomeDirectory(dependencies.homeDirectory),
+    projectDirectory: resolve(resolveProjectDirectory(dependencies.projectDirectory)),
+    harness: result.defaultHarness,
+    launcher: dependencies.runLauncher ?? defaultRunLauncher,
+  });
+  for (const message of runResult.messages) writeLine(message);
+  /* v8 ignore next -- surfaces a nonzero profile-launch exit to the shell; happy path returns 0. */
+  if (runResult.exitCode !== 0) process.exitCode = runResult.exitCode;
+};
+
 export const createSetupCommand = (dependencies: SetupCommandDependencies = {}): CommandObject => ({
   name: 'setup',
   description: 'Configure .agents through the bundled Pi walkthrough.',
@@ -243,6 +272,7 @@ export const createSetupCommand = (dependencies: SetupCommandDependencies = {}):
             return;
           }
           for (const message of result.messages) writeLine(message);
+          await autoLaunchSelectedProfile(dependencies, result, writeLine);
         }),
     );
   },
