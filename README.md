@@ -21,7 +21,8 @@ npm install -g @ai-outfitter/outfitter
 outfitter
 ```
 
-Outfitter launches agent CLIs; install the agents you plan to use separately. For the full walkthrough, see [Getting started](./docs/documentation/getting-started.md).
+Pi is bundled and also hosts Outfitter's setup walkthrough. Install other runtime harnesses, such as
+Claude Code, separately. For the full walkthrough, see [Getting started](./docs/documentation/getting-started.md).
 
 ## Already have a `.agents/` directory?
 
@@ -42,7 +43,12 @@ mcp: [github]
 default_agent: engineer
 ```
 
-If your setup lives in `~/.claude` instead, Outfitter can port it into `~/.agents/` and symlink it back so Claude Code keeps working natively — see [Porting a Claude Code setup](./docs/documentation/porting-claude.md).
+`outfitter setup` restores the original Pi-native profile-catalog walkthrough on top of `.agents`:
+choose the default Outfitter catalog, create your own profile, or provide another catalog, then pick
+the home/project target and default CLI agent. The default picker is fetched from the immutable
+`ai-outfitter/default-profiles` Release Please tag pinned by Outfitter—never from a sibling checkout.
+Managed porting and persistent harness symlinks are deferred to
+[#187](https://github.com/ai-outfitter/outfitter/issues/187).
 
 ## The `.agents` protocol in 30 seconds
 

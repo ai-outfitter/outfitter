@@ -41,7 +41,7 @@ Outfitter is organized around a private npm workspace root, clear TypeScript pac
 │   │   │   ├── cli/                   # CLI parser construction and command objects
 │   │   │   │   └── commands/          # run, setup, list, validate, dump command objects
 │   │   │   ├── settings/              # settings loading and merging
-│   │   │   ├── setup/                 # interactive `.agents` onboarding (default agent + harness)
+│   │   │   ├── setup/                 # onboarding state + pinned default-catalog bootstrap
 │   │   │   ├── sources/               # remote `.agents` source cache paths and reference normalization
 │   │   │   ├── resolver/              # .agents layer resolution into one effective resource set
 │   │   │   ├── composer/              # harness-neutral CompositionPlan from the effective set

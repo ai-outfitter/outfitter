@@ -3,11 +3,17 @@ import type { RemoteSourceReference } from '../sources/SourceCache.js';
 
 export type RemoteSettingsReference = RemoteSourceReference & { readonly path: string };
 export type SettingsValue =
-  string | number | boolean | null | readonly SettingsValue[] | { readonly [key: string]: SettingsValue };
+  | string
+  | number
+  | boolean
+  | null
+  | readonly SettingsValue[]
+  | { readonly [key: string]: SettingsValue };
 export type CustomSettings = Readonly<Record<string, SettingsValue>>;
 
 /** Harnesses Outfitter can launch a composed agent in. */
-export type Harness = 'pi' | 'claude';
+export const HARNESSES = ['pi', 'claude'] as const;
+export type Harness = (typeof HARNESSES)[number];
 
 /** Functional persistence strategies for adapter-declared state paths. */
 export type StatePersistenceStrategy = 'symlink' | 'discard' | 'warn' | 'error' | 'prompt';

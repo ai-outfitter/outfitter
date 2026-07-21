@@ -201,12 +201,12 @@ Pi is the default adapter. Outfitter prefers native pi mechanisms: `PI_CODING_AG
 
 ### Claude Code
 
-Outfitter launches `claude` with `CLAUDE_CONFIG_DIR` pointing at the projection root, maps supported elements to native flags (`--model`, `--effort`, `--system-prompt`, `--append-system-prompt`, repeated `--plugin-dir`), materializes subagents into the native agents directory and hook configuration into the generated `settings.json`, and preserves Claude state paths (`settings.json`, `agents/`, `skills/`, `commands/`, `plugins/`, `projects/`, `debug/`) through declared state persistence. The [ported `~/.claude`](../documentation/porting-claude.md) symlink arrangement is created by setup, not by the adapter.
+Outfitter launches `claude` with `CLAUDE_CONFIG_DIR` pointing at the projection root and maps the elements supported by the current baseline adapter to native files and flags. Persistent state projection and managed harness symlinks are deferred to [#187](https://github.com/ai-outfitter/outfitter/issues/187); setup does not create them.
 
 ## CLI Commands
 
 - **`outfitter run [agent]`** (default command): resolve → compose → project → launch. A positional agent slug selects what to run (default from settings `default_agent`); `--harness <pi|claude>` selects the harness (default from settings `default_harness`, then `pi`); unknown args pass through to the child CLI; `--strict` makes warnings fatal. Interactive clean-home launches start Pi-native onboarding; non-interactive clean-home launches require `outfitter setup` first.
-- **`outfitter setup [source]`**: detect an existing `~/.agents` tree and adopt it; offer the `~/.claude` port when applicable; otherwise bootstrap from the default catalog or the provided source. Setup writes stay inside the native onboarding flow.
+- **`outfitter setup [source]`**: launch the bundled, model-free Pi walkthrough with the original three setup modes (default catalog, create a profile, or another catalog), original profile/target wording, and optional direct-source path; append only the default CLI-agent choice (Pi/Outfitter preselected); then atomically apply the result through the CLI state machine.
 - **`outfitter sync`**: fetch/update remote sources and remote settings into the cache (`~/.agents/cache/repos/<encoded-uri-and-ref>/`), validate payloads, report per-source status, redact embedded credentials from output.
 - **`outfitter list [kind]`**: report the effective resource set — slugs, winning sources, shadowed definitions — deterministically.
 - **`outfitter validate [--strict] [--json]`**: protocol layout, frontmatter and JSON schemas, unresolved loadout slugs, skill reference escapes/collisions, settings schema.

@@ -27,7 +27,7 @@ const enablePrivateProfileCatalogs = (settingsPath) => {
       ...document,
       enterprise: {
         ...enterprise,
-        private_profile_catalogs: true,
+        private_catalogs: true,
       },
     }),
   );
@@ -38,7 +38,7 @@ const readPrivateProfileCatalogsSetting = (value) => {
     return undefined;
   }
 
-  return value.enterprise?.private_profile_catalogs;
+  return value.enterprise?.private_catalogs;
 };
 
 const readSettingsRecord = (settingsPath) => {

@@ -1,4 +1,5 @@
-// Tests interactive onboarding: writes a starter .agents config, sanitizes names, is idempotent.
+/* eslint-disable max-lines */
+// Tests the renderer-independent setup state machine and Pi-hosted command handoff.
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
@@ -6,140 +7,676 @@ import { dirname, join } from 'node:path';
 import { Command } from 'commander';
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { createSetupCommand, runSetup } from '../../src/cli/commands/SetupCommand.js';
-import type { SetupPrompter } from '../../src/setup/Setup.js';
-import { executeSetup, sanitizeAgentSlug } from '../../src/setup/Setup.js';
+import { createSetupCommand, preparePiSetupLaunch, runSetup } from '../../src/cli/commands/SetupCommand.js';
+import type { AgentLaunchPlan } from '../../src/projection/Projection.js';
+import { defaultCatalogSource } from '../../src/setup/DefaultCatalog.js';
+import { applySetupSelection, discoverSetupAgentChoices, sanitizeAgentSlug } from '../../src/setup/Setup.js';
 
 const temporaryRoots: string[] = [];
 
-const createTemporaryHome = (): string => {
-  const home = mkdtempSync(join(tmpdir(), 'outfitter-setup-'));
-  temporaryRoots.push(home);
-  return home;
+const createTree = (): { catalog: string; home: string; project: string; root: string } => {
+  const root = mkdtempSync(join(tmpdir(), 'outfitter-setup-'));
+  temporaryRoots.push(root);
+  const home = join(root, 'home');
+  const project = join(root, 'project');
+  const catalog = join(root, 'default-profiles');
+  mkdirSync(home, { recursive: true });
+  mkdirSync(project, { recursive: true });
+  write(
+    join(catalog, 'agents', 'founder', 'agent.md'),
+    '---\nname: founder\ndescription: Founder/operator profile.\n---\n\n# Founder\n',
+  );
+  write(
+    join(catalog, 'agents', 'engineer', 'agent.md'),
+    '---\nname: engineer\ndescription: Engineering profile.\n---\n\n# Engineer\n',
+  );
+  write(join(catalog, 'skills', 'planning', 'SKILL.md'), '---\nname: planning\n---\n');
+  return { catalog, home, project, root };
 };
 
-const scriptedPrompter = (answers: { harness?: string; name?: string }, interactive = true): SetupPrompter => ({
-  interactive,
-  select: (_question, _options, defaultValue) => Promise.resolve(answers.harness ?? defaultValue),
-  input: (_question, defaultValue) => Promise.resolve(answers.name ?? defaultValue),
-});
+const write = (path: string, content: string): void => {
+  mkdirSync(dirname(path), { recursive: true });
+  writeFileSync(path, content);
+};
+
+const selectionPathFromPlan = (plan: AgentLaunchPlan): string => {
+  const extensionPath = plan.args[plan.args.indexOf('--extension') + 1];
+  const extension = readFileSync(extensionPath, 'utf8');
+  const encoded = /^const OUTFITTER_SETUP_RESULT_PATH = (.+);$/mu.exec(extension)?.[1];
+  if (encoded === undefined) throw new Error('stamped setup result path not found');
+  return JSON.parse(encoded) as string;
+};
 
 afterEach(() => {
-  for (const root of temporaryRoots.splice(0)) {
-    rmSync(root, { recursive: true, force: true });
-  }
+  for (const root of temporaryRoots.splice(0)) rmSync(root, { recursive: true, force: true });
 });
 
-describe('outfitter setup', () => {
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-010.2, OFTR-010.3).
-  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
-  it('writes settings and a starter agent from the prompted answers', async () => {
-    const home = createTemporaryHome();
-    const result = await executeSetup({
+describe('setup state machine', () => {
+  it('discovers the default Outfitter catalog with display metadata', () => {
+    const { catalog } = createTree();
+    expect(discoverSetupAgentChoices({ defaultCatalogRoot: catalog })).toEqual([
+      { id: 'founder', label: 'Founder', description: 'Founder/operator profile.' },
+      { id: 'engineer', label: 'Engineer', description: 'Engineering profile.' },
+    ]);
+    expect(discoverSetupAgentChoices({})).toEqual([]);
+  });
+
+  it('keeps a non-comment # in frontmatter metadata (e.g. C#) but strips a real inline comment', () => {
+    const { catalog } = createTree();
+    write(
+      join(catalog, 'agents', 'polyglot', 'agent.md'),
+      '---\nname: polyglot\nlabel: C# and F# # trailing note\ndescription: Handles C# code.\n---\n',
+    );
+    const choice = discoverSetupAgentChoices({ defaultCatalogRoot: catalog }).find((entry) => entry.id === 'polyglot');
+    expect(choice).toEqual({ id: 'polyglot', label: 'C# and F#', description: 'Handles C# code.' });
+  });
+
+  it('skips malformed catalog entries and derives fallback metadata', () => {
+    const { catalog } = createTree();
+    write(join(catalog, 'agents', 'bare', 'agent.md'), '---\nname: bare\n---\n');
+    write(join(catalog, 'agents', 'heading', 'agent.md'), '---\nname: heading\n---\n\n# Heading Label\n');
+    write(join(catalog, 'agents', 'implicit', 'agent.md'), '---\ndescription: Implicit name.\n---\n');
+    write(join(catalog, 'agents', 'mismatch', 'agent.md'), '---\nname: other\n---\n');
+    mkdirSync(join(catalog, 'agents', 'directory-file', 'agent.md'), { recursive: true });
+    expect(discoverSetupAgentChoices({ defaultCatalogRoot: join(catalog, 'missing') })).toEqual([]);
+    const choices = discoverSetupAgentChoices({ defaultCatalogRoot: catalog });
+    expect(choices).toEqual(
+      expect.arrayContaining([
+        { id: 'bare', label: 'bare', description: 'Outfitter profile from the default catalog.' },
+        { id: 'heading', label: 'Heading Label', description: 'Outfitter profile from the default catalog.' },
+        { id: 'implicit', label: 'implicit', description: 'Implicit name.' },
+      ]),
+    );
+    expect(choices.some((choice) => choice.id === 'mismatch')).toBe(false);
+  });
+
+  it('pins the canonical default catalog and saves the selected profile and CLI agent', () => {
+    const { catalog, home, project } = createTree();
+    const availableAgents = discoverSetupAgentChoices({ defaultCatalogRoot: catalog });
+    const result = applySetupSelection({
       homeDirectory: home,
-      prompter: scriptedPrompter({ harness: 'claude', name: 'Engineer Bot' }),
+      projectDirectory: project,
+      defaultCatalogRoot: catalog,
+      availableAgents,
+      selection: { setupMode: 'default', agentId: 'founder', harness: 'pi', target: 'home' },
     });
 
-    expect(result.alreadyConfigured).toBe(false);
-    expect(result.defaultAgent).toBe('engineer-bot'); // sanitized from "Engineer Bot"
-    expect(result.defaultHarness).toBe('claude');
+    expect(readFileSync(join(home, '.agents', 'settings.yml'), 'utf8')).toBe(
+      `default_agent: founder\ndefault_harness: pi\nsources:\n  - github: ${defaultCatalogSource.github}\n` +
+        `    ref: ${defaultCatalogSource.ref}\n`,
+    );
+    expect(existsSync(join(home, '.agents', 'catalogs'))).toBe(false);
+    expect(result.defaultAgent).toBe('founder');
+  });
 
-    const settings = readFileSync(join(home, '.agents', 'settings.yml'), 'utf8');
-    expect(settings).toContain('default_agent: "engineer-bot"'); // quoted so numeric/bool-like slugs stay strings
-    expect(settings).toContain('default_harness: claude');
-
-    const agent = readFileSync(join(home, '.agents', 'agents', 'engineer-bot', 'agent.md'), 'utf8');
-    expect(agent).toContain('name: "engineer-bot"'); // name matches directory so it composes
-    expect(result.created).toEqual([
+  it('updates defaults and replaces a stale default-catalog pin exactly once', () => {
+    const { catalog, home, project } = createTree();
+    write(
       join(home, '.agents', 'settings.yml'),
-      join(home, '.agents', 'agents', 'engineer-bot', 'agent.md'),
-    ]);
+      'default_agent: engineer\ndefault_harness: claude\nsources:\n  - path: ./personal\n' +
+        '  - github: ai-outfitter/default-profiles\n    ref: old\n    path: profiles\n' +
+        'startup:\n  ascii_art: false\n',
+    );
+    const availableAgents = discoverSetupAgentChoices({ defaultCatalogRoot: catalog });
+    const input = {
+      homeDirectory: home,
+      projectDirectory: project,
+      defaultCatalogRoot: catalog,
+      availableAgents,
+      selection: { setupMode: 'default', agentId: 'founder', harness: 'pi', target: 'home' } as const,
+    };
+    applySetupSelection(input);
+    applySetupSelection(input);
+    const settings = readFileSync(join(home, '.agents', 'settings.yml'), 'utf8');
+    expect(settings).toContain('default_agent: founder');
+    expect(settings).toContain('default_harness: pi');
+    expect(settings).toContain(
+      `  - path: ./personal\n  - github: ${defaultCatalogSource.github}\n    ref: ${defaultCatalogSource.ref}\nstartup:`,
+    );
+    expect(settings.match(/github: ai-outfitter\/default-profiles/gu)).toHaveLength(1);
+    expect(settings).not.toContain('path: profiles');
   });
 
-  it('uses defaults when the prompter declines every question', async () => {
-    const home = createTemporaryHome();
-    const result = await executeSetup({ homeDirectory: home, prompter: scriptedPrompter({}) });
-
-    expect(result.defaultAgent).toBe('assistant');
-    expect(result.defaultHarness).toBe('pi');
+  it('adds the pinned default source to an existing source list', () => {
+    const { catalog, home, project } = createTree();
+    write(join(home, '.agents', 'settings.yml'), 'sources:\n  - path: ./personal\n');
+    applySetupSelection({
+      homeDirectory: home,
+      projectDirectory: project,
+      defaultCatalogRoot: catalog,
+      availableAgents: discoverSetupAgentChoices({ defaultCatalogRoot: catalog }),
+      selection: { setupMode: 'default', agentId: 'founder', harness: 'pi', target: 'home' },
+    });
+    expect(readFileSync(join(home, '.agents', 'settings.yml'), 'utf8')).toContain(
+      `sources:\n  - github: ${defaultCatalogSource.github}\n    ref: ${defaultCatalogSource.ref}\n  - path: ./personal`,
+    );
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-010.2.3).
-  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
-  it('coerces an unusable name to the default slug', async () => {
-    const home = createTemporaryHome();
-    const result = await executeSetup({ homeDirectory: home, prompter: scriptedPrompter({ name: '!!!' }) });
-    expect(result.defaultAgent).toBe('assistant');
+  it('adds the immutable ref to an unpinned canonical source', () => {
+    const { catalog, home, project } = createTree();
+    write(join(home, '.agents', 'settings.yml'), `sources:\n  - github: ${defaultCatalogSource.github}\n`);
+    applySetupSelection({
+      homeDirectory: home,
+      projectDirectory: project,
+      defaultCatalogRoot: catalog,
+      availableAgents: discoverSetupAgentChoices({ defaultCatalogRoot: catalog }),
+      selection: { setupMode: 'default', agentId: 'founder', harness: 'pi', target: 'home' },
+    });
+    expect(readFileSync(join(home, '.agents', 'settings.yml'), 'utf8')).toContain(
+      `github: ${defaultCatalogSource.github}\n    ref: ${defaultCatalogSource.ref}`,
+    );
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-010.2.3).
-  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
-  it('produces schema-valid slugs: collapses hyphen runs and truncates to 64 chars', () => {
-    expect(sanitizeAgentSlug('foo--bar__baz')).toBe('foo-bar-baz'); // no consecutive hyphens
-    const long = sanitizeAgentSlug('a'.repeat(80));
-    expect(long.length).toBe(64);
-    expect(sanitizeAgentSlug(`${'a'.repeat(63)}-b`)).toBe('a'.repeat(63)); // truncation leaves no trailing hyphen
-    const schemaPattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
-    expect(schemaPattern.test('foo-bar-baz')).toBe(true);
+  it('creates a custom profile at the selected target and preserves unrelated settings', () => {
+    const { catalog, home, project } = createTree();
+    write(join(project, '.agents', 'settings.yml'), 'startup:\n  ascii_art: false\n');
+    const result = applySetupSelection({
+      homeDirectory: home,
+      projectDirectory: project,
+      defaultCatalogRoot: catalog,
+      availableAgents: [],
+      selection: {
+        setupMode: 'create',
+        agentId: 'my-profile',
+        agentLabel: 'My Profile',
+        harness: 'claude',
+        target: 'project',
+      },
+    });
+
+    expect(readFileSync(join(project, '.agents', 'agents', 'my-profile', 'agent.md'), 'utf8')).toContain(
+      '# My Profile',
+    );
+    const settings = readFileSync(join(project, '.agents', 'settings.yml'), 'utf8');
+    expect(settings).toContain('ascii_art: false');
+    expect(settings).toContain('default_agent: my-profile');
+    expect(settings).toContain('default_harness: claude');
+    expect(result.updated).toEqual([join(project, '.agents', 'settings.yml')]);
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-010.3.3).
-  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
-  it('is idempotent: leaves an existing settings.yml untouched', async () => {
-    const home = createTemporaryHome();
-    mkdirSync(join(home, '.agents'), { recursive: true });
-    writeFileSync(join(home, '.agents', 'settings.yml'), 'default_agent: kept\n');
-
-    const result = await executeSetup({ homeDirectory: home, prompter: scriptedPrompter({ name: 'other' }) });
-
-    expect(result.alreadyConfigured).toBe(true);
-    expect(result.created).toEqual([]);
-    expect(readFileSync(join(home, '.agents', 'settings.yml'), 'utf8')).toBe('default_agent: kept\n');
-    expect(existsSync(join(home, '.agents', 'agents', 'other'))).toBe(false);
+  it('preserves a custom profile that already exists while selecting it', () => {
+    const { home, project } = createTree();
+    const agentPath = join(home, '.agents', 'agents', 'founder', 'agent.md');
+    write(agentPath, 'USER OWNED');
+    applySetupSelection({
+      homeDirectory: home,
+      projectDirectory: project,
+      availableAgents: [],
+      selection: { setupMode: 'create', agentId: 'founder', harness: 'pi', target: 'home' },
+    });
+    expect(readFileSync(agentPath, 'utf8')).toBe('USER OWNED');
+    expect(readFileSync(join(home, '.agents', 'settings.yml'), 'utf8')).toContain('default_agent: founder');
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-010.3.2, OFTR-010.3.3).
-  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
-  it('never overwrites an existing agent, and rolls back settings on that conflict', async () => {
-    const home = createTemporaryHome();
-    const agentPath = join(home, '.agents', 'agents', 'taken', 'agent.md');
-    mkdirSync(dirname(agentPath), { recursive: true });
-    writeFileSync(agentPath, 'PRE-EXISTING');
-
-    const result = await executeSetup({ homeDirectory: home, prompter: scriptedPrompter({ name: 'taken' }) });
-
-    expect(result.created).toEqual([]);
-    expect(result.defaultAgent).toBeUndefined();
-    expect(readFileSync(agentPath, 'utf8')).toBe('PRE-EXISTING'); // untouched
-    expect(existsSync(join(home, '.agents', 'settings.yml'))).toBe(false); // rolled back
+  it('persists the original different-catalog outcome with the selected CLI agent', () => {
+    const { home, project } = createTree();
+    applySetupSelection({
+      homeDirectory: home,
+      projectDirectory: project,
+      availableAgents: [],
+      selection: {
+        setupMode: 'catalog',
+        github: 'acme/outfitter-config',
+        ref: 'main',
+        settingsPath: 'settings.yml',
+        harness: 'claude',
+        target: 'project',
+      },
+    });
+    expect(readFileSync(join(project, '.agents', 'settings.yml'), 'utf8')).toBe(
+      'default_harness: claude\nremote_settings:\n  - github: acme/outfitter-config\n    ref: main\n    path: settings.yml\n',
+    );
   });
 
-  it('sanitizeAgentSlug normalizes casing, spaces, and edges', () => {
-    expect(sanitizeAgentSlug('  My Agent  ')).toBe('my-agent');
-    expect(sanitizeAgentSlug('data_analyst')).toBe('data-analyst');
-    expect(sanitizeAgentSlug('---')).toBe('assistant');
-    expect(sanitizeAgentSlug('ok')).toBe('ok');
+  it('enables private catalogs in home settings for home and project installs', () => {
+    const { home, project } = createTree();
+    const catalogSelection = {
+      setupMode: 'catalog' as const,
+      github: 'company/private-profiles',
+      ref: 'main',
+      settingsPath: 'settings.yml',
+      harness: 'pi' as const,
+      privateCatalogsEnabled: true,
+    };
+    applySetupSelection({
+      homeDirectory: home,
+      projectDirectory: project,
+      availableAgents: [],
+      selection: { ...catalogSelection, privateCatalogAccepted: true, target: 'home' },
+    });
+    expect(readFileSync(join(home, '.agents', 'settings.yml'), 'utf8')).toContain('private_catalogs: true');
+
+    write(join(home, '.agents', 'settings.yml'), 'enterprise:\n  private_catalogs: false\ncustom: kept\n');
+    applySetupSelection({
+      homeDirectory: home,
+      projectDirectory: project,
+      availableAgents: [],
+      selection: { ...catalogSelection, privateCatalogAccepted: true, target: 'project' },
+    });
+    expect(readFileSync(join(home, '.agents', 'settings.yml'), 'utf8')).toContain('private_catalogs: true');
+    expect(readFileSync(join(home, '.agents', 'settings.yml'), 'utf8')).toContain('custom: kept');
+    expect(readFileSync(join(project, '.agents', 'settings.yml'), 'utf8')).toContain('company/private-profiles');
+
+    write(join(home, '.agents', 'settings.yml'), 'enterprise:\n  private_catalogs: true\n');
+    applySetupSelection({
+      homeDirectory: home,
+      projectDirectory: project,
+      availableAgents: [],
+      selection: { ...catalogSelection, privateCatalogAccepted: true, target: 'project' },
+    });
+    expect(readFileSync(join(home, '.agents', 'settings.yml'), 'utf8')).toContain('private_catalogs: true');
   });
 
-  it('runSetup drives the setup command object with an injected prompter and writer', async () => {
-    const home = createTemporaryHome();
+  it('creates home enterprise settings for a private project catalog and appends to unrelated settings', () => {
+    const first = createTree();
+    const selection = {
+      setupMode: 'catalog' as const,
+      github: 'company/private-profiles',
+      ref: 'main',
+      settingsPath: 'settings.yml',
+      harness: 'pi' as const,
+      privateCatalogAccepted: true,
+      privateCatalogsEnabled: true,
+      target: 'project' as const,
+    };
+    applySetupSelection({
+      homeDirectory: first.home,
+      projectDirectory: first.project,
+      availableAgents: [],
+      selection,
+    });
+    expect(readFileSync(join(first.home, '.agents', 'settings.yml'), 'utf8')).toBe(
+      'enterprise:\n  private_catalogs: true\n',
+    );
+
+    const second = createTree();
+    write(join(second.home, '.agents', 'settings.yml'), 'custom: kept\n');
+    applySetupSelection({
+      homeDirectory: second.home,
+      projectDirectory: second.project,
+      availableAgents: [],
+      selection,
+    });
+    expect(readFileSync(join(second.home, '.agents', 'settings.yml'), 'utf8')).toBe(
+      'custom: kept\nenterprise:\n  private_catalogs: true\n',
+    );
+  });
+
+  it('rolls back a private home change when the project settings write fails', () => {
+    const { home, project } = createTree();
+    write(join(home, '.agents', 'settings.yml'), 'enterprise:\n  private_catalogs: false\n');
+    mkdirSync(join(project, '.agents', 'settings.yml'), { recursive: true });
+    expect(() =>
+      applySetupSelection({
+        homeDirectory: home,
+        projectDirectory: project,
+        availableAgents: [],
+        selection: {
+          setupMode: 'catalog',
+          github: 'company/private-profiles',
+          ref: 'main',
+          settingsPath: 'settings.yml',
+          harness: 'pi',
+          privateCatalogAccepted: true,
+          privateCatalogsEnabled: true,
+          target: 'project',
+        },
+      }),
+    ).toThrow();
+    expect(readFileSync(join(home, '.agents', 'settings.yml'), 'utf8')).toContain('private_catalogs: false');
+  });
+
+  it('removes newly created private home settings when the project write fails', () => {
+    const { home, project } = createTree();
+    mkdirSync(join(project, '.agents', 'settings.yml'), { recursive: true });
+    expect(() =>
+      applySetupSelection({
+        homeDirectory: home,
+        projectDirectory: project,
+        availableAgents: [],
+        selection: {
+          setupMode: 'catalog',
+          github: 'company/private-profiles',
+          ref: 'main',
+          settingsPath: 'settings.yml',
+          harness: 'pi',
+          privateCatalogAccepted: true,
+          privateCatalogsEnabled: true,
+          target: 'project',
+        },
+      }),
+    ).toThrow();
+    expect(existsSync(join(home, '.agents', 'settings.yml'))).toBe(false);
+  });
+
+  it('persists a provided setup source with the selected CLI agent', () => {
+    const { home, project } = createTree();
+    applySetupSelection({
+      homeDirectory: home,
+      projectDirectory: project,
+      availableAgents: [],
+      selection: {
+        setupMode: 'source',
+        sourceUri: 'https://example.test/catalog.git',
+        harness: 'pi',
+        target: 'home',
+      },
+    });
+    expect(readFileSync(join(home, '.agents', 'settings.yml'), 'utf8')).toBe(
+      'default_harness: pi\nremote_settings:\n  - uri: "https://example.test/catalog.git"\n    path: settings.yml\n',
+    );
+  });
+
+  it('rejects invalid handoffs before writing', () => {
+    const { catalog, home, project } = createTree();
+    const availableAgents = discoverSetupAgentChoices({ defaultCatalogRoot: catalog });
+    const base = { homeDirectory: home, projectDirectory: project, availableAgents, defaultCatalogRoot: catalog };
+    expect(() =>
+      applySetupSelection({
+        ...base,
+        selection: { setupMode: 'default', agentId: 'missing', harness: 'pi', target: 'home' },
+      }),
+    ).toThrow(/unavailable agent/);
+    expect(() =>
+      applySetupSelection({
+        homeDirectory: home,
+        projectDirectory: project,
+        availableAgents: [{ id: 'founder', label: 'Founder', description: 'Founder.' }],
+        selection: { setupMode: 'default', agentId: 'founder', harness: 'pi', target: 'home' },
+      }),
+    ).toThrow(/catalog is unavailable/);
+    expect(() =>
+      applySetupSelection({
+        ...base,
+        selection: { setupMode: 'create', agentId: 'bad id', harness: 'pi', target: 'home' },
+      }),
+    ).toThrow(/invalid agent id/);
+    // Validation runs on the exact id that gets written, so schema-invalid slugs (underscores, dots)
+    // are rejected up front rather than written as an unresolvable agent.
+    for (const agentId of ['bad_id', 'my.profile', 'my--profile']) {
+      expect(() =>
+        applySetupSelection({ ...base, selection: { setupMode: 'create', agentId, harness: 'pi', target: 'home' } }),
+      ).toThrow(/invalid agent id/);
+    }
+    expect(() =>
+      applySetupSelection({
+        ...base,
+        selection: { setupMode: 'create', agentId: 'okay', harness: 'codex' as 'pi', target: 'home' },
+      }),
+    ).toThrow(/unsupported harness/);
+    for (const selection of [
+      { setupMode: 'catalog', github: 'bad', ref: 'main', settingsPath: 'settings.yml', harness: 'pi', target: 'home' },
+      { setupMode: 'catalog', github: 'ok/repo', ref: '', settingsPath: 'settings.yml', harness: 'pi', target: 'home' },
+      { setupMode: 'catalog', github: 'ok/repo', ref: 'main', settingsPath: '../bad', harness: 'pi', target: 'home' },
+      { setupMode: 'source', sourceUri: '', harness: 'pi', target: 'home' },
+    ] as const) {
+      expect(() => applySetupSelection({ ...base, selection })).toThrow(/invalid/);
+    }
+    expect(existsSync(join(home, '.agents'))).toBe(false);
+  });
+
+  it('rolls back files created by a failed custom-profile write', () => {
+    const { home, project } = createTree();
+    mkdirSync(join(home, '.agents', 'settings.yml'), { recursive: true });
+    expect(() =>
+      applySetupSelection({
+        homeDirectory: home,
+        projectDirectory: project,
+        availableAgents: [],
+        selection: { setupMode: 'create', agentId: 'new-profile', harness: 'pi', target: 'home' },
+      }),
+    ).toThrow();
+    expect(existsSync(join(home, '.agents', 'agents', 'new-profile', 'agent.md'))).toBe(false);
+  });
+
+  it('does not copy or mutate the bootstrapped default catalog when settings cannot be written', () => {
+    const { catalog, home, project } = createTree();
+    mkdirSync(join(home, '.agents', 'settings.yml'), { recursive: true });
+    const availableAgents = discoverSetupAgentChoices({ defaultCatalogRoot: catalog });
+    expect(() =>
+      applySetupSelection({
+        homeDirectory: home,
+        projectDirectory: project,
+        defaultCatalogRoot: catalog,
+        availableAgents,
+        selection: { setupMode: 'default', agentId: 'founder', harness: 'pi', target: 'home' },
+      }),
+    ).toThrow();
+    expect(existsSync(join(home, '.agents', 'catalogs'))).toBe(false);
+    expect(existsSync(join(catalog, 'agents', 'founder', 'agent.md'))).toBe(true);
+  });
+
+  it('normalizes setup names into schema-valid slugs', () => {
+    expect(sanitizeAgentSlug('  My Profile  ')).toBe('my-profile');
+    expect(sanitizeAgentSlug('foo--bar__baz')).toBe('foo-bar-baz');
+    expect(sanitizeAgentSlug('!!!')).toBe('assistant');
+  });
+});
+
+describe('Pi setup launch', () => {
+  it('stamps an isolated model-free extension containing the original setup wording', () => {
+    const { home, project, root } = createTree();
+    const availableAgents = [{ id: 'founder', label: 'Founder', description: 'Founder profile.' }];
+    const launch = preparePiSetupLaunch({
+      homeDirectory: home,
+      projectDirectory: project,
+      setupDirectory: root,
+      availableAgents,
+    });
+    expect(launch.plan.args).toEqual(
+      expect.arrayContaining(['--no-session', '--offline', '--no-tools', '--extension']),
+    );
+    const extensionPath = launch.plan.args[launch.plan.args.indexOf('--extension') + 1];
+    const extension = readFileSync(extensionPath, 'utf8');
+    expect(extension).toContain('Use the default Outfitter profile catalog');
+    expect(extension).toContain('Create your own profile');
+    expect(extension).toContain('Provide a different catalog to import');
+    expect(extension).toContain('Which CLI agent should Outfitter use by default?');
+    expect(extension).not.toContain('Starter agent');
+    expect(extension).not.toContain('__OUTFITTER_');
+    expect(extension).not.toContain('/login');
+  });
+
+  it('stamps the current default marker and an optional provided source', () => {
+    const { home, project, root } = createTree();
+    write(join(home, '.agents', 'settings.yml'), 'default_agent: engineer\n');
+    const launch = preparePiSetupLaunch({
+      homeDirectory: home,
+      projectDirectory: project,
+      setupDirectory: root,
+      availableAgents: [],
+      setupSourceUri: 'https://example.test/catalog.git',
+    });
+    const extensionPath = launch.plan.args[launch.plan.args.indexOf('--extension') + 1];
+    const extension = readFileSync(extensionPath, 'utf8');
+    expect(extension).toContain('const OUTFITTER_CURRENT_DEFAULT = "engineer";');
+    expect(extension).toContain('const OUTFITTER_SETUP_SOURCE_URI = "https://example.test/catalog.git";');
+  });
+
+  it('runs the Pi walkthrough and applies a custom-profile handoff', async () => {
+    const { catalog, home, project } = createTree();
+    const result = await runSetup({
+      homeDirectory: home,
+      projectDirectory: project,
+      defaultCatalogBootstrap: () => catalog,
+      interactive: true,
+      launcher: (plan) => {
+        writeFileSync(
+          selectionPathFromPlan(plan),
+          JSON.stringify({
+            setupMode: 'create',
+            agentId: 'walkthrough',
+            agentLabel: 'Walkthrough',
+            harness: 'claude',
+            target: 'project',
+          }),
+        );
+        return Promise.resolve(0);
+      },
+    });
+    expect(result?.defaultAgent).toBe('walkthrough');
+    expect(existsSync(join(project, '.agents', 'agents', 'walkthrough', 'agent.md'))).toBe(true);
+  });
+
+  it('bypasses default-catalog bootstrap for the original provided-source path', async () => {
+    const { home, project } = createTree();
+    let bootstrapCalls = 0;
+    const result = await runSetup({
+      homeDirectory: home,
+      projectDirectory: project,
+      setupSourceUri: 'https://example.test/catalog.git',
+      defaultCatalogBootstrap: () => {
+        bootstrapCalls += 1;
+        throw new Error('must not bootstrap');
+      },
+      interactive: true,
+      launcher: (plan) => {
+        writeFileSync(
+          selectionPathFromPlan(plan),
+          JSON.stringify({
+            setupMode: 'source',
+            sourceUri: 'https://example.test/catalog.git',
+            harness: 'pi',
+            target: 'home',
+          }),
+        );
+        return Promise.resolve(0);
+      },
+    });
+    expect(bootstrapCalls).toBe(0);
+    expect(result?.defaultAgent).toBeUndefined();
+    expect(readFileSync(join(home, '.agents', 'settings.yml'), 'utf8')).toContain(
+      'uri: "https://example.test/catalog.git"',
+    );
+  });
+
+  it('does not launch or write outside an interactive terminal', async () => {
+    const { home, project } = createTree();
+    let launched = false;
+    const result = await runSetup({
+      homeDirectory: home,
+      projectDirectory: project,
+      interactive: false,
+      launcher: () => {
+        launched = true;
+        return Promise.resolve(0);
+      },
+    });
+    expect(result).toBeUndefined();
+    expect(launched).toBe(false);
+    expect(existsSync(join(home, '.agents'))).toBe(false);
+  });
+
+  it('fails before launching or writing when the pinned default catalog is unavailable', async () => {
+    const { home, project } = createTree();
+    let launched = false;
+    await expect(
+      runSetup({
+        homeDirectory: home,
+        projectDirectory: project,
+        defaultCatalogBootstrap: () => {
+          throw new Error('pinned catalog unavailable');
+        },
+        interactive: true,
+        launcher: () => {
+          launched = true;
+          return Promise.resolve(0);
+        },
+      }),
+    ).rejects.toThrow(/pinned catalog unavailable/u);
+    expect(launched).toBe(false);
+    expect(existsSync(join(home, '.agents'))).toBe(false);
+  });
+
+  it('returns no result on cancellation and rejects invalid or failed walkthroughs', async () => {
+    const { catalog, home, project } = createTree();
+    await expect(
+      runSetup({
+        homeDirectory: home,
+        projectDirectory: project,
+        defaultCatalogBootstrap: () => catalog,
+        interactive: true,
+        launcher: () => Promise.resolve(0),
+      }),
+    ).resolves.toBeUndefined();
+    await expect(
+      runSetup({
+        homeDirectory: home,
+        projectDirectory: project,
+        defaultCatalogBootstrap: () => catalog,
+        interactive: true,
+        launcher: () => Promise.resolve(7),
+      }),
+    ).rejects.toThrow(/exited with code 7/);
+  });
+
+  it.each([
+    null,
+    {},
+    { setupMode: 'unknown', harness: 'pi', target: 'home' },
+    { setupMode: 'default', agentId: 'founder', harness: 'codex', target: 'home' },
+    { setupMode: 'default', harness: 'pi', target: 'home' },
+    { setupMode: 'catalog', ref: 'main', settingsPath: 'settings.yml', harness: 'pi', target: 'home' },
+    { setupMode: 'catalog', github: 'ok/repo', settingsPath: 'settings.yml', harness: 'pi', target: 'home' },
+    { setupMode: 'catalog', github: 'ok/repo', ref: 'main', harness: 'pi', target: 'home' },
+    { setupMode: 'source', harness: 'pi', target: 'home' },
+    { setupMode: 'source', sourceUri: 'x', harness: 'pi', target: 'machine' },
+  ])('rejects an invalid Pi handoff: %j', async (handoff) => {
+    const { catalog, home, project } = createTree();
+    await expect(
+      runSetup({
+        homeDirectory: home,
+        projectDirectory: project,
+        defaultCatalogBootstrap: () => catalog,
+        interactive: true,
+        launcher: (plan) => {
+          writeFileSync(selectionPathFromPlan(plan), JSON.stringify(handoff));
+          return Promise.resolve(0);
+        },
+      }),
+    ).rejects.toThrow(/invalid selection/);
+  });
+
+  it('drives the command object through the same walkthrough implementation', async () => {
+    const { catalog, home, project } = createTree();
     const lines: string[] = [];
     const program = new Command();
     createSetupCommand({
       homeDirectory: home,
-      prompter: scriptedPrompter({ harness: 'pi', name: 'starter' }),
+      projectDirectory: project,
+      defaultCatalogBootstrap: () => catalog,
+      interactive: true,
+      launcher: (plan) => {
+        writeFileSync(
+          selectionPathFromPlan(plan),
+          JSON.stringify({ setupMode: 'default', agentId: 'founder', harness: 'pi', target: 'home' }),
+        );
+        return Promise.resolve(0);
+      },
       writeLine: (message) => lines.push(message),
     }).register(program);
-
     await program.parseAsync(['node', 'outfitter', 'setup']);
-
-    expect(existsSync(join(home, '.agents', 'agents', 'starter', 'agent.md'))).toBe(true);
-    expect(lines.join('\n')).toContain("Default agent 'starter'");
+    expect(lines.join('\n')).toContain("Default agent 'founder'");
+    expect(readFileSync(join(home, '.agents', 'settings.yml'), 'utf8')).toContain(
+      `github: ${defaultCatalogSource.github}\n    ref: ${defaultCatalogSource.ref}`,
+    );
+    expect(existsSync(join(home, '.agents', 'catalogs'))).toBe(false);
   });
 
-  it('runSetup returns the setup result directly', async () => {
-    const home = createTemporaryHome();
-    const result = await runSetup({ homeDirectory: home, prompter: scriptedPrompter({ name: 'direct' }) });
-    expect(result.defaultAgent).toBe('direct');
+  it('reports a cancelled command without writing settings', async () => {
+    const { catalog, home, project } = createTree();
+    const lines: string[] = [];
+    const program = new Command();
+    createSetupCommand({
+      homeDirectory: home,
+      projectDirectory: project,
+      defaultCatalogBootstrap: () => catalog,
+      interactive: true,
+      launcher: () => Promise.resolve(0),
+      writeLine: (message) => lines.push(message),
+    }).register(program);
+    await program.parseAsync(['node', 'outfitter', 'setup']);
+    expect(lines.join('\n')).toContain('made no changes');
+    expect(existsSync(join(home, '.agents'))).toBe(false);
   });
 });
