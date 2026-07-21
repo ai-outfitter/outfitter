@@ -6,6 +6,7 @@ import { dirname, join, relative } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { executeDumpCommand } from '../../src/cli/commands/DumpCommand.js';
+import { encodeRemoteSource } from '../../src/sources/SourceCache.js';
 
 const temporaryRoots: string[] = [];
 
@@ -72,6 +73,93 @@ describe('dump command', () => {
     ]);
     // 'unused' skill is not in engineer's closure.
     expect(relativeTree(join(out, '.agents'))).not.toContain('skills/unused/SKILL.md');
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-005.2, OFTR-005.3).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('flattens a cached source agent-local skill into the dump with all packaged files', () => {
+    const root = createTemporaryRoot();
+    const home = join(root, 'home');
+    const project = join(root, 'project');
+    const source = { github: 'example/actions', ref: 'main' };
+    const cached = join(home, '.agents', 'cache', 'repos', encodeRemoteSource(source));
+    write(
+      join(cached, 'agents', 'actions', 'agent.md'),
+      '---\nname: actions\nskills: [actions-automation]\n---\n\nActions.\n',
+    );
+    const localSkill = join(cached, 'agents', 'actions', 'skills', 'actions-automation');
+    write(join(localSkill, 'SKILL.md'), '---\nname: actions-automation\n---\n');
+    write(join(localSkill, 'references', 'on-job-failure.md'), '# On failure\n');
+    write(join(localSkill, 'scripts', 'collect.sh'), 'echo collect\n');
+    write(join(project, '.agents', 'settings.yml'), 'sources:\n  - github: example/actions\n    ref: main\n');
+    const out = join(root, 'dump');
+
+    const result = executeDumpCommand({ homeDirectory: home, projectDirectory: project, agent: 'actions', out });
+
+    expect(result.ok).toBe(true);
+    const dumped = relativeTree(join(out, '.agents'));
+    expect(dumped).toContain('skills/actions-automation/SKILL.md');
+    expect(dumped).toContain('skills/actions-automation/references/on-job-failure.md');
+    expect(dumped).toContain('skills/actions-automation/scripts/collect.sh');
+    expect(dumped).not.toContain('agents/actions/skills/actions-automation/SKILL.md');
+  });
+
+  it('keeps same-slug local skills isolated when dumping their owning agents separately', () => {
+    const root = createTemporaryRoot();
+    const project = join(root, 'project');
+    for (const agent of ['alpha', 'beta']) {
+      write(join(project, '.agents', 'agents', agent, 'agent.md'), `---\nname: ${agent}\nskills: [private]\n---\n`);
+      write(
+        join(project, '.agents', 'agents', agent, 'skills', 'private', 'SKILL.md'),
+        `---\nname: private\n---\n\n${agent}\n`,
+      );
+    }
+    const alphaOut = join(root, 'alpha');
+    const betaOut = join(root, 'beta');
+
+    executeDumpCommand({
+      homeDirectory: join(root, 'home'),
+      projectDirectory: project,
+      agent: 'alpha',
+      out: alphaOut,
+    });
+    executeDumpCommand({
+      homeDirectory: join(root, 'home'),
+      projectDirectory: project,
+      agent: 'beta',
+      out: betaOut,
+    });
+
+    expect(readFileSync(join(alphaOut, '.agents', 'skills', 'private', 'SKILL.md'), 'utf8')).toContain('alpha');
+    expect(readFileSync(join(betaOut, '.agents', 'skills', 'private', 'SKILL.md'), 'utf8')).toContain('beta');
+  });
+
+  it('rejects conflicting same-slug local skills in one transitive dump closure', () => {
+    const root = createTemporaryRoot();
+    const project = join(root, 'project');
+    write(
+      join(project, '.agents', 'agents', 'lead', 'agent.md'),
+      '---\nname: lead\nskills: [private]\nsubagents: [reviewer]\n---\n',
+    );
+    write(
+      join(project, '.agents', 'agents', 'lead', 'skills', 'private', 'SKILL.md'),
+      '---\nname: private\n---\n\nlead\n',
+    );
+    write(join(project, '.agents', 'agents', 'reviewer', 'agent.md'), '---\nname: reviewer\nskills: [private]\n---\n');
+    write(
+      join(project, '.agents', 'agents', 'reviewer', 'skills', 'private', 'SKILL.md'),
+      '---\nname: private\n---\n\nreviewer\n',
+    );
+
+    const result = executeDumpCommand({
+      homeDirectory: join(root, 'home'),
+      projectDirectory: project,
+      agent: 'lead',
+      out: join(root, 'dump'),
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.messages.join(' ')).toContain("conflicting definitions for skill 'private'");
   });
 
   it('is deterministic — two dumps produce identical trees and contents', () => {

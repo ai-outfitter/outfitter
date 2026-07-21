@@ -43,6 +43,8 @@ export interface ResourceDefinition {
   readonly layer: Layer;
   /** Absolute path to the resource's defining file or directory. */
   readonly path: string;
+  /** Agent that owns this definition when it is nested beneath `agents/<agent>/<kind>/`. */
+  readonly ownerAgent?: string;
 }
 
 /** The winning definition for a slug plus any lower-precedence definitions it shadows. */
@@ -66,6 +68,8 @@ export const compareSlugs = (left: string, right: string): number => (left < rig
 export interface EffectiveResourceSet {
   readonly layers: readonly Layer[];
   readonly resources: ReadonlyMap<ResourceKind, ReadonlyMap<string, ResolvedResource>>;
+  /** Agent-local resources, keyed by owning agent, kind, then slug. */
+  readonly agentResources: ReadonlyMap<string, ReadonlyMap<ResourceKind, ReadonlyMap<string, ResolvedResource>>>;
 }
 
 export const listResources = (set: EffectiveResourceSet, kind: ResourceKind): readonly ResolvedResource[] => {
@@ -83,3 +87,28 @@ export const findResource = (
   kind: ResourceKind,
   slug: string,
 ): ResolvedResource | undefined => set.resources.get(kind)?.get(slug);
+
+export const listAgentResources = (
+  set: EffectiveResourceSet,
+  agentSlug: string,
+  kind: ResourceKind,
+): readonly ResolvedResource[] => {
+  const bySlug = set.agentResources.get(agentSlug)?.get(kind);
+
+  return bySlug === undefined ? [] : [...bySlug.values()].sort((left, right) => compareSlugs(left.slug, right.slug));
+};
+
+export const findAgentResource = (
+  set: EffectiveResourceSet,
+  agentSlug: string,
+  kind: ResourceKind,
+  slug: string,
+): ResolvedResource | undefined => set.agentResources.get(agentSlug)?.get(kind)?.get(slug);
+
+/** Resolves a loadout resource in the selected agent's private namespace before catalog fallback. */
+export const findLoadoutResource = (
+  set: EffectiveResourceSet,
+  agentSlug: string,
+  kind: ResourceKind,
+  slug: string,
+): ResolvedResource | undefined => findAgentResource(set, agentSlug, kind, slug) ?? findResource(set, kind, slug);

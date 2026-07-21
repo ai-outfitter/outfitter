@@ -2,7 +2,7 @@
 import { isSkillDocumentIssue, readSkillDocument } from '../skills/SkillDocument.js';
 import { isAgentDefinitionIssue, readAgentDefinition } from './AgentDefinition.js';
 import type { EffectiveResourceSet, ResolvedResource } from './Resource.js';
-import { listResources } from './Resource.js';
+import { findLoadoutResource, findResource, listAgentResources, listResources } from './Resource.js';
 
 export interface ValidationFinding {
   readonly severity: 'error' | 'warning';
@@ -18,7 +18,7 @@ const loadoutSlugReference = (
   slugs: readonly string[],
 ): readonly ValidationFinding[] =>
   slugs
-    .filter((slug) => set.resources.get(kind)?.get(slug) === undefined)
+    .filter((slug) => findLoadoutResource(set, agentSlug, kind, slug) === undefined)
     .map((slug) => ({
       severity: 'error' as const,
       resource: `agent:${agentSlug}`,
@@ -48,18 +48,24 @@ const validateAgent = (set: EffectiveResourceSet, agent: ResolvedResource): read
   ];
 };
 
+const resourceLabel = (resource: ResolvedResource): string =>
+  resource.winner.ownerAgent === undefined
+    ? `${resource.kind}:${resource.slug}`
+    : `agent:${resource.winner.ownerAgent}/${resource.kind}:${resource.slug}`;
+
 const validateSkill = (skill: ResolvedResource): readonly ValidationFinding[] => {
   const document = readSkillDocument(skill.winner.path);
+  const label = resourceLabel(skill);
 
   if (isSkillDocumentIssue(document)) {
-    return [{ severity: 'error', resource: `skill:${skill.slug}`, message: document.message }];
+    return [{ severity: 'error', resource: label, message: document.message }];
   }
 
   if (document.name !== skill.slug) {
     return [
       {
         severity: 'error',
-        resource: `skill:${skill.slug}`,
+        resource: label,
         message: `SKILL.md name '${document.name}' must match its directory '${skill.slug}'.`,
       },
     ];
@@ -71,7 +77,7 @@ const validateSkill = (skill: ResolvedResource): readonly ValidationFinding[] =>
 const shadowFindings = (resource: ResolvedResource): readonly ValidationFinding[] =>
   resource.shadowed.map((definition) => ({
     severity: 'warning' as const,
-    resource: `${resource.kind}:${resource.slug}`,
+    resource: resourceLabel(resource),
     message: `shadowed definition in ${definition.layer.label} is overridden by ${resource.winner.layer.label}.`,
   }));
 
@@ -88,6 +94,20 @@ export const validateEffectiveSet = (set: EffectiveResourceSet): readonly Valida
 
   for (const skill of listResources(set, 'skill')) {
     findings.push(...validateSkill(skill));
+  }
+
+  for (const [agentSlug] of set.agentResources) {
+    if (findResource(set, 'agent', agentSlug) === undefined) {
+      findings.push({
+        severity: 'error',
+        resource: `agent:${agentSlug}`,
+        message: 'agent-local resources require a resolvable owning agent.',
+      });
+    }
+
+    for (const skill of listAgentResources(set, agentSlug, 'skill')) {
+      findings.push(...validateSkill(skill), ...shadowFindings(skill));
+    }
   }
 
   for (const kind of ['agent', 'skill', 'knowledge', 'command'] as const) {

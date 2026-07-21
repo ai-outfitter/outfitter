@@ -3,7 +3,7 @@ import { existsSync, readdirSync, statSync } from 'node:fs';
 import { join, posix, relative, sep } from 'node:path';
 
 import type { EffectiveResourceSet, Layer, ResourceDefinition, ResourceKind, ResolvedResource } from './Resource.js';
-import { resourceKinds } from './Resource.js';
+import { compareSlugs, resourceKinds } from './Resource.js';
 
 /** True when the path resolves (following symlinks) to a directory; false for broken links. */
 const resolvesToDirectory = (path: string): boolean => {
@@ -106,27 +106,72 @@ const discoverFileResources = (layer: Layer, kind: ResourceKind): readonly Resou
 const discoverLayerResources = (layer: Layer, kind: ResourceKind): readonly ResourceDefinition[] =>
   directoryResourceKinds.has(kind) ? discoverDirectoryResources(layer, kind) : discoverFileResources(layer, kind);
 
-const resolveKind = (layers: readonly Layer[], kind: ResourceKind): ReadonlyMap<string, ResolvedResource> => {
+type AgentResourceDefinition = ResourceDefinition & { readonly ownerAgent: string };
+
+const discoverAgentSkills = (layer: Layer): readonly AgentResourceDefinition[] => {
+  const agentsDirectory = join(layer.root, 'agents');
+
+  return listSubdirectories(agentsDirectory).flatMap((ownerAgent) => {
+    const skillsDirectory = join(agentsDirectory, ownerAgent, 'skills');
+
+    return listSubdirectories(skillsDirectory)
+      .filter((slug) => resolvesToFile(join(skillsDirectory, slug, 'SKILL.md')))
+      .map((slug) => ({
+        kind: 'skill' as const,
+        slug,
+        layer,
+        path: join(skillsDirectory, slug, 'SKILL.md'),
+        ownerAgent,
+      }));
+  });
+};
+
+const resolveDefinitions = (definitions: readonly ResourceDefinition[]): ReadonlyMap<string, ResolvedResource> => {
   const bySlug = new Map<string, { winner: ResourceDefinition; shadowed: ResourceDefinition[] }>();
 
-  // Layers are ordered highest precedence first, so the first definition of a slug wins.
-  for (const layer of layers) {
-    for (const definition of discoverLayerResources(layer, kind)) {
-      const existing = bySlug.get(definition.slug);
+  for (const definition of definitions) {
+    const existing = bySlug.get(definition.slug);
 
-      if (existing === undefined) {
-        bySlug.set(definition.slug, { winner: definition, shadowed: [] });
-      } else {
-        existing.shadowed.push(definition);
-      }
+    if (existing === undefined) {
+      bySlug.set(definition.slug, { winner: definition, shadowed: [] });
+    } else {
+      existing.shadowed.push(definition);
     }
   }
 
   return new Map(
     [...bySlug.entries()].map(([slug, entry]) => [
       slug,
-      { kind, slug, winner: entry.winner, shadowed: entry.shadowed },
+      { kind: entry.winner.kind, slug, winner: entry.winner, shadowed: entry.shadowed },
     ]),
+  );
+};
+
+const resolveKind = (layers: readonly Layer[], kind: ResourceKind): ReadonlyMap<string, ResolvedResource> => {
+  // Layers are ordered highest precedence first, so the first definition of a slug wins.
+  return resolveDefinitions(layers.flatMap((layer) => discoverLayerResources(layer, kind)));
+};
+
+const resolveAgentResources = (
+  layers: readonly Layer[],
+): ReadonlyMap<string, ReadonlyMap<ResourceKind, ReadonlyMap<string, ResolvedResource>>> => {
+  const definitionsByAgent = new Map<string, AgentResourceDefinition[]>();
+
+  for (const layer of layers) {
+    for (const definition of discoverAgentSkills(layer)) {
+      const definitions = definitionsByAgent.get(definition.ownerAgent) ?? [];
+      definitions.push(definition);
+      definitionsByAgent.set(definition.ownerAgent, definitions);
+    }
+  }
+
+  return new Map(
+    [...definitionsByAgent.entries()]
+      .sort(([left], [right]) => compareSlugs(left, right))
+      .map(([agentSlug, definitions]) => [
+        agentSlug,
+        new Map<ResourceKind, ReadonlyMap<string, ResolvedResource>>([['skill', resolveDefinitions(definitions)]]),
+      ]),
   );
 };
 
@@ -139,5 +184,5 @@ export const resolveResources = (layers: readonly Layer[]): EffectiveResourceSet
     resources.set(kind, kind === 'agent' ? withAgentConfigPaths(layers, resolved) : resolved);
   }
 
-  return { layers, resources };
+  return { layers, resources, agentResources: resolveAgentResources(layers) };
 };

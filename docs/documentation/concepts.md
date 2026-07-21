@@ -25,6 +25,7 @@ Outfitter stores and exchanges all agent configuration in the vendor-neutral [Do
   mcp.json             # MCP server configuration
   models.json          # model configuration
   agents/<id>/agent.md # agent definitions (+ optional config.json)
+  agents/<id>/skills/  # skills private to one agent
   skills/<id>/...      # Agent Skills packages
   tasks/<id>/task.md   # named execution contracts
   knowledge/...        # reference documents
@@ -36,7 +37,7 @@ Outfitter stores and exchanges all agent configuration in the vendor-neutral [Do
 The protocol resources Outfitter resolves and composes:
 
 - **Agent** — a definition at `agents/<id>/agent.md` (plus optional `config.json`) describing an identity _and_ its loadout: the skills, subagents, MCP servers, extensions, plugins, model, thinking level, and tools it runs with. The agent is what you run. See [Agents](./agents.md).
-- **Skill** — a capability package under `skills/<id>/` with instructions, references, scripts, and assets. See [Skills](./skills.md).
+- **Skill** — a capability package under catalog-wide `skills/<id>/` or agent-local `agents/<agent-id>/skills/<id>/`, with instructions, references, scripts, and assets. See [Skills](./skills.md).
 - **Knowledge** and **commands** — reference documents and slash commands shared across runs.
 
 > Tasks — `tasks/<id>/task.md` execution contracts, structured inputs, and baking — are the subject of a separate upcoming RFC and are not part of this end state. See [Tasks](./tasks.md).
@@ -59,7 +60,7 @@ Resources resolve across layers, following the protocol's overlay semantics:
 2. `~/.agents/` — the global layer for one developer.
 3. Remote sources — pinned `.agents` payloads from [catalog repositories](./catalogs.md), in configured order.
 
-Resources merge **by ID**: a workspace `skills/wiki/` overrides a global or remote `skills/wiki/`. JSON files such as `mcp.json` and `models.json` follow the protocol's JSON merge behavior. Standalone `.agents` repositories — where the repository root _is_ the payload — are the primary way to develop and share layers; see [Catalogs](./catalogs.md) and [Local development](./local-development.md).
+Resources merge **by ID**: a workspace `skills/wiki/` overrides a global or remote `skills/wiki/`. Agent-local skills merge by owner and ID, so `agents/actions/skills/debug/` is distinct from `agents/reviewer/skills/debug/`; the selected agent's local winner takes precedence over catalog-wide `skills/debug/`. JSON files such as `mcp.json` and `models.json` follow the protocol's JSON merge behavior. Standalone `.agents` repositories — where the repository root _is_ the payload — are the primary way to develop and share layers; see [Catalogs](./catalogs.md) and [Local development](./local-development.md).
 
 ## Settings scopes
 

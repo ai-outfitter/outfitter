@@ -12,7 +12,13 @@ import {
   readAgentDefinition,
 } from '../../src/resolver/AgentDefinition.js';
 import { discoverLayers } from '../../src/resolver/Layer.js';
-import { compareSlugs, findResource, listResources } from '../../src/resolver/Resource.js';
+import {
+  compareSlugs,
+  findLoadoutResource,
+  findResource,
+  listAgentResources,
+  listResources,
+} from '../../src/resolver/Resource.js';
 import { resolveResources } from '../../src/resolver/Resolver.js';
 import { validateEffectiveSet } from '../../src/resolver/ResolverValidation.js';
 import { executeListCommand } from '../../src/cli/commands/ListCommand.js';
@@ -188,6 +194,54 @@ describe('resource resolution', () => {
     expect(listResources(set, 'command').map((r) => r.slug)).toEqual(['ship.md']);
   });
 
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-003.1, OFTR-003.4, OFTR-003.6).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('resolves agent-local skills first while preserving fallback, isolation, and per-agent slugs', () => {
+    const root = createTemporaryRoot();
+    const home = join(root, 'home');
+    const project = join(root, 'project');
+    const source = join(root, 'source');
+
+    write(join(home, '.agents', 'skills', 'fallback', 'SKILL.md'), '---\nname: fallback\n---\n\nglobal\n');
+    write(join(home, '.agents', 'skills', 'shared', 'SKILL.md'), '---\nname: shared\n---\n\nglobal\n');
+    write(
+      join(home, '.agents', 'agents', 'engineer', 'skills', 'shared', 'SKILL.md'),
+      '---\nname: shared\n---\n\nhome local\n',
+    );
+    write(join(source, 'agents', 'engineer', 'agent.md'), agentMd('engineer', 'skills: [shared, fallback, private]\n'));
+    write(join(source, 'agents', 'reviewer', 'agent.md'), agentMd('reviewer', 'skills: [shared]\n'));
+    write(join(source, 'agents', 'engineer', 'skills', 'private', 'SKILL.md'), '---\nname: private\n---\n');
+    write(
+      join(source, 'agents', 'reviewer', 'skills', 'shared', 'SKILL.md'),
+      '---\nname: shared\n---\n\nreviewer local\n',
+    );
+    write(
+      join(project, '.agents', 'agents', 'engineer', 'skills', 'shared', 'SKILL.md'),
+      '---\nname: shared\n---\n\nworkspace local\n',
+    );
+
+    const set = setFor(home, project, [{ path: source }]);
+    const engineerShared = findLoadoutResource(set, 'engineer', 'skill', 'shared')!;
+    const reviewerShared = findLoadoutResource(set, 'reviewer', 'skill', 'shared')!;
+
+    expect(engineerShared.winner.layer.origin).toBe('workspace');
+    expect(engineerShared.winner.ownerAgent).toBe('engineer');
+    expect(engineerShared.shadowed.map((definition) => definition.layer.origin)).toEqual(['global']);
+    expect(reviewerShared.winner.ownerAgent).toBe('reviewer');
+    expect(findLoadoutResource(set, 'engineer', 'skill', 'fallback')?.winner.ownerAgent).toBeUndefined();
+    expect(findLoadoutResource(set, 'reviewer', 'skill', 'private')).toBeUndefined();
+    expect(listAgentResources(set, 'engineer', 'skill').map((resource) => resource.slug)).toEqual([
+      'private',
+      'shared',
+    ]);
+    // Agent-local shadowing is distinct from the catalog-wide resource; both remain inspectable.
+    expect(findResource(set, 'skill', 'shared')?.winner.ownerAgent).toBeUndefined();
+    const localShadowWarnings = validateEffectiveSet(set).filter(
+      (finding) => finding.severity === 'warning' && finding.resource === 'agent:engineer/skill:shared',
+    );
+    expect(localShadowWarnings).toHaveLength(1); // local-over-local only; catalog fallback is not a collision
+  });
+
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-003.4).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('merges a workspace config.json over a globally defined agent by ID', () => {
@@ -254,6 +308,56 @@ describe('resource resolution', () => {
     expect(hasFinding('agent:engineer', "unknown skill 'missing'")).toBe(true);
     expect(hasFinding('agent:mislabeled', 'must match its directory')).toBe(true);
     expect(hasFinding('skill:wrong', 'must match its directory')).toBe(true);
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-003.7).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('validates malformed, mislabeled, and orphaned agent-local skills', () => {
+    const root = createTemporaryRoot();
+    const project = join(root, 'project');
+    write(join(project, '.agents', 'agents', 'engineer', 'agent.md'), agentMd('engineer', 'skills: [broken]\n'));
+    write(join(project, '.agents', 'agents', 'engineer', 'skills', 'broken', 'SKILL.md'), 'no frontmatter');
+    write(
+      join(project, '.agents', 'agents', 'engineer', 'skills', 'mislabeled', 'SKILL.md'),
+      '---\nname: other\n---\n',
+    );
+    write(join(project, '.agents', 'agents', 'orphan', 'skills', 'lonely', 'SKILL.md'), '---\nname: lonely\n---\n');
+
+    const findings = validateEffectiveSet(setFor(join(root, 'home'), project));
+    expect(findings.some((finding) => finding.resource === 'agent:engineer/skill:broken')).toBe(true);
+    expect(
+      findings.some(
+        (finding) => finding.resource === 'agent:engineer/skill:mislabeled' && finding.message.includes('must match'),
+      ),
+    ).toBe(true);
+    expect(findings.some((finding) => finding.resource === 'agent:orphan')).toBe(true);
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-003.8).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('lists the local-first skill view with agent ownership context', () => {
+    const root = createTemporaryRoot();
+    const project = join(root, 'project');
+    write(join(project, '.agents', 'agents', 'engineer', 'agent.md'), agentMd('engineer'));
+    write(join(project, '.agents', 'skills', 'shared', 'SKILL.md'), '---\nname: shared\n---\n');
+    write(join(project, '.agents', 'agents', 'engineer', 'skills', 'shared', 'SKILL.md'), '---\nname: shared\n---\n');
+
+    const listed = executeListCommand({
+      homeDirectory: join(root, 'home'),
+      projectDirectory: project,
+      kind: 'skills',
+      agent: 'engineer',
+    });
+
+    expect(listed.messages).toEqual(['skills (agent engineer):', '  shared  [workspace; agent-local]']);
+    expect(() =>
+      executeListCommand({
+        homeDirectory: join(root, 'home'),
+        projectDirectory: project,
+        kind: 'skills',
+        agent: 'missing',
+      }),
+    ).toThrow(/Unknown agent 'missing'/);
   });
 
   it('reports a malformed SKILL.md or agent.md as a validation error', () => {
