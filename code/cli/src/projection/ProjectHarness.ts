@@ -4,12 +4,14 @@ import type { Harness } from '../settings/Settings.js';
 import { materializeComposition } from './Materialize.js';
 import type { AgentLaunchPlan, AgentProjectionPlan, ProjectionInput } from './Projection.js';
 
-// Loadout elements each harness actually projects today. Anything else is reported unsupported so
-// `--strict` catches silently-dropped selections. mcp/extensions/plugins/subagents/tools are not
-// projected yet (incremental parity) and therefore surface as unsupported.
-const supportedElements: Readonly<Record<Harness, readonly string[]>> = {
-  pi: ['skills', 'model', 'thinking'],
-  claude: ['skills', 'model', 'thinking'],
+// Loadout elements a projection actually maps to native config. Anything else is reported
+// unsupported so `--strict` catches silently-dropped selections. Baseline for both harnesses is
+// identity + skills + model + thinking; pi additionally projects `extensions` once the run path has
+// resolved their install dirs (`extensionLoadDirs`). subagents/mcp/plugins/tools remain unsupported
+// pending incremental parity (#183).
+const supportedElements = (input: ProjectionInput): readonly string[] => {
+  const baseline = ['skills', 'model', 'thinking'];
+  return input.harness === 'pi' && input.extensionLoadDirs !== undefined ? [...baseline, 'extensions'] : baseline;
 };
 
 const loadoutElementsInUse = (composition: CompositionPlan): readonly string[] => {
@@ -28,8 +30,8 @@ const loadoutElementsInUse = (composition: CompositionPlan): readonly string[] =
   return present;
 };
 
-export const unsupportedElements = (composition: CompositionPlan, harness: Harness): readonly string[] =>
-  loadoutElementsInUse(composition).filter((element) => !supportedElements[harness].includes(element));
+export const unsupportedElements = (composition: CompositionPlan, input: ProjectionInput): readonly string[] =>
+  loadoutElementsInUse(composition).filter((element) => !supportedElements(input).includes(element));
 
 const promptArgs = (systemPromptPath: string, appendPromptPaths: readonly string[]): readonly string[] => [
   '--system-prompt',
@@ -59,12 +61,14 @@ const buildLaunchPlan = (
 ): AgentLaunchPlan => {
   const isPi = input.harness === 'pi';
   const skillArgs = isPi ? composition.loadout.skills.flatMap((skill) => ['--skill', skill.slug]) : [];
+  const extensionArgs = isPi ? (input.extensionLoadDirs ?? []).flatMap((dir) => ['--extension', dir]) : [];
 
   return {
     command: isPi ? 'pi' : 'claude',
     args: [
       ...promptArgs(systemPromptPath, appendPromptPaths),
       ...skillArgs,
+      ...extensionArgs,
       ...modelArgs(composition, input.harness),
       ...(input.passThroughArgs ?? []),
     ],
@@ -77,7 +81,7 @@ export const projectComposition = (composition: CompositionPlan, input: Projecti
   const materialized = materializeComposition(composition, input.rootDirectory);
   const launch = buildLaunchPlan(composition, input, materialized.systemPromptPath, materialized.appendPromptPaths);
   const unsupported = [
-    ...unsupportedElements(composition, input.harness),
+    ...unsupportedElements(composition, input),
     ...materialized.skippedSkills.map((slug) => `skill:${slug} (escaping symlink)`),
   ];
 
