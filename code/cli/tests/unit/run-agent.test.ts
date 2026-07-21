@@ -238,9 +238,94 @@ describe('run agent', () => {
       launcher,
     });
     const messages = result.messages.join(' ');
-    for (const element of ['subagents', 'mcp', 'plugins', 'extensions', 'tools']) {
+    for (const element of ['subagents', 'mcp', 'plugins', 'tools']) {
       expect(messages).toContain(`loadout element '${element}'`);
     }
+    // pi extensions are now projected, so a non-git/npm specifier is reported as an unsupported
+    // source rather than a categorically unsupported loadout element.
+    expect(messages).toContain("extension 'e' uses an unsupported source");
+    expect(messages).not.toContain("loadout element 'extensions'");
+  });
+
+  it('installs pi extensions into the XDG cache and loads them with --extension', async () => {
+    const root = createTemporaryRoot();
+    const home = join(root, 'home');
+    const project = join(root, 'project');
+    const xdg = join(root, 'xdg');
+    write(
+      join(project, '.agents', 'agents', 'dev', 'agent.md'),
+      '---\nname: dev\nextensions: ["npm:pi-nolo", "git:github.com/ai-outfitter/deepwork"]\n---\n\nBody.\n',
+    );
+    const installed: string[] = [];
+    const extensionInstallSpawner = ({ source, cacheAgentDir }: { source: string; cacheAgentDir: string }) => {
+      installed.push(source);
+      const segments = source.startsWith('npm:')
+        ? ['npm', 'node_modules', source.slice('npm:'.length)]
+        : ['git', ...source.slice('git:'.length).split('/')];
+      write(join(cacheAgentDir, ...segments, 'package.json'), '{"name":"x","version":"1.0.0"}');
+      return Promise.resolve(0);
+    };
+
+    const previousXdg = process.env.XDG_CACHE_HOME;
+    process.env.XDG_CACHE_HOME = xdg;
+    try {
+      const result = await executeRunAgentCommand({
+        homeDirectory: home,
+        projectDirectory: project,
+        agent: 'dev',
+        harness: 'pi',
+        launcher,
+        extensionInstallSpawner,
+      });
+
+      expect(result.exitCode).toBe(0);
+      const base = join(xdg, 'outfitter', 'pi-extensions');
+      const nolo = join(base, 'npm', 'node_modules', 'pi-nolo');
+      const deepwork = join(base, 'git', 'github.com', 'ai-outfitter', 'deepwork');
+      const args = captured[0].plan.args;
+      expect(args[args.indexOf(nolo) - 1]).toBe('--extension');
+      expect(args[args.indexOf(deepwork) - 1]).toBe('--extension');
+      expect(installed).toEqual(['npm:pi-nolo', 'git:github.com/ai-outfitter/deepwork']);
+      expect(result.messages.join(' ')).not.toContain("loadout element 'extensions'");
+
+      // Second run reuses the cache: no reinstall.
+      installed.length = 0;
+      captured.length = 0;
+      await executeRunAgentCommand({
+        homeDirectory: home,
+        projectDirectory: project,
+        agent: 'dev',
+        harness: 'pi',
+        launcher,
+        extensionInstallSpawner,
+      });
+      expect(installed).toEqual([]);
+      expect(captured[0].plan.args).toContain(nolo);
+    } finally {
+      if (previousXdg === undefined) delete process.env.XDG_CACHE_HOME;
+      else process.env.XDG_CACHE_HOME = previousXdg;
+    }
+  });
+
+  it('emits warnings before the pi session launches', async () => {
+    const { home, project } = tree(); // engineer selects an unsupported extension (ext-a)
+    const events: string[] = [];
+    await executeRunAgentCommand({
+      homeDirectory: home,
+      projectDirectory: project,
+      agent: 'engineer',
+      harness: 'pi',
+      launcher: (plan) => {
+        events.push('launch');
+        return launcher(plan);
+      },
+      writeLine: (message) => events.push(`warn:${message}`),
+    });
+
+    const launchIndex = events.indexOf('launch');
+    const warnIndex = events.findIndex((event) => event.startsWith('warn:') && event.includes("extension 'ext-a'"));
+    expect(warnIndex).toBeGreaterThanOrEqual(0);
+    expect(warnIndex).toBeLessThan(launchIndex);
   });
 
   it('retains the runtime projection directory when asked', async () => {

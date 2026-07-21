@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 
 import { Command } from 'commander';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { createSetupCommand, preparePiSetupLaunch, runSetup } from '../../src/cli/commands/SetupCommand.js';
 import type { AgentLaunchPlan } from '../../src/projection/Projection.js';
@@ -47,7 +47,14 @@ const selectionPathFromPlan = (plan: AgentLaunchPlan): string => {
   return JSON.parse(encoded) as string;
 };
 
+let previousExitCode: typeof process.exitCode;
+beforeEach(() => {
+  previousExitCode = process.exitCode;
+});
 afterEach(() => {
+  // The post-setup profile launch may set process.exitCode when a catalog agent is not resolvable
+  // in the test's isolated home; keep that from leaking into the runner's exit status.
+  process.exitCode = previousExitCode;
   for (const root of temporaryRoots.splice(0)) rmSync(root, { recursive: true, force: true });
 });
 
@@ -653,6 +660,8 @@ describe('Pi setup launch', () => {
         );
         return Promise.resolve(0);
       },
+      // A no-op run launcher keeps the post-setup profile launch from spawning real pi in the test.
+      runLauncher: () => Promise.resolve(0),
       writeLine: (message) => lines.push(message),
     }).register(program);
     await program.parseAsync(['node', 'outfitter', 'setup']);
@@ -661,6 +670,76 @@ describe('Pi setup launch', () => {
       `github: ${defaultCatalogSource.github}\n    ref: ${defaultCatalogSource.ref}`,
     );
     expect(existsSync(join(home, '.agents', 'catalogs'))).toBe(false);
+  });
+
+  it('auto-starts the selected profile in pi after an explicit setup', async () => {
+    const { catalog, home, project } = createTree();
+    const lines: string[] = [];
+    const runLaunches: string[] = [];
+    const program = new Command();
+    createSetupCommand({
+      homeDirectory: home,
+      projectDirectory: project,
+      defaultCatalogBootstrap: () => catalog,
+      interactive: true,
+      // Create a local profile so the post-setup re-resolve finds it without a catalog fetch.
+      launcher: (plan) => {
+        writeFileSync(
+          selectionPathFromPlan(plan),
+          JSON.stringify({
+            setupMode: 'create',
+            agentId: 'myagent',
+            agentLabel: 'My Agent',
+            harness: 'pi',
+            target: 'home',
+          }),
+        );
+        return Promise.resolve(0);
+      },
+      runLauncher: (plan) => {
+        runLaunches.push(plan.command);
+        return Promise.resolve(0);
+      },
+      writeLine: (message) => lines.push(message),
+    }).register(program);
+    await program.parseAsync(['node', 'outfitter', 'setup']);
+    expect(lines.join('\n')).toContain("Starting 'myagent' in pi");
+    expect(runLaunches).toEqual(['pi']); // setup auto-started the selected profile
+  });
+
+  it('does not auto-launch a catalog setup that still needs a sync', async () => {
+    const { catalog, home, project } = createTree();
+    const lines: string[] = [];
+    const runLaunches: string[] = [];
+    const program = new Command();
+    createSetupCommand({
+      homeDirectory: home,
+      projectDirectory: project,
+      defaultCatalogBootstrap: () => catalog,
+      interactive: true,
+      launcher: (plan) => {
+        writeFileSync(
+          selectionPathFromPlan(plan),
+          JSON.stringify({
+            setupMode: 'catalog',
+            github: 'acme/config',
+            ref: 'main',
+            settingsPath: 'settings.yml',
+            harness: 'pi',
+            target: 'home',
+          }),
+        );
+        return Promise.resolve(0);
+      },
+      runLauncher: (plan) => {
+        runLaunches.push(plan.command);
+        return Promise.resolve(0);
+      },
+      writeLine: (message) => lines.push(message),
+    }).register(program);
+    await program.parseAsync(['node', 'outfitter', 'setup']);
+    expect(lines.join('\n')).not.toContain('Starting');
+    expect(runLaunches).toEqual([]); // catalog setup reports next-launch instead of launching
   });
 
   it('reports a cancelled command without writing settings', async () => {

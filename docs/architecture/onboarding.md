@@ -41,7 +41,18 @@ Both explicit `outfitter setup [source]` and implicit first-run `outfitter run` 
 4. Auto-submit `/outfitter` and run the screen contract above through Pi UI APIs.
 5. Write a small temporary JSON handoff and shut down the setup shell.
 6. Validate the handoff and atomically apply it to `.agents`.
-7. On implicit setup, re-resolve and launch; on explicit setup, report next-launch behavior.
+7. Re-resolve and launch the selected profile so the user lands in a working session. Implicit
+   first-run and explicit `outfitter setup` both auto-start pi when a concrete agent was chosen
+   (default/create). Catalog/source setups, which still need a sync before the profile resolves,
+   report next-launch behavior instead of launching.
+
+The relaunched real Pi session (unlike the isolated setup shell) loads the runtime auto sign-in
+extension: when Pi reports no available models it shows the original "connect a model provider"
+confirmation and opens Pi's native `/login`, instead of Pi's raw "No models available" warning.
+Credentials stay inside Pi. Because the run's `PI_CODING_AGENT_DIR` is an ephemeral projection root,
+Outfitter seeds it from Pi's durable agent directory (`~/.pi/agent`) before launch and writes any
+`/login` changes back afterward, so the setup → relaunch → sign-in loop converges: the next launch
+starts with an active model without re-prompting.
 
 The original `selectDescribedOption` component remains intact: selected-row descriptions, Up/Down,
 Enter, Escape/Ctrl+C, recommended/current markers, and narrow-terminal wrapping are all covered by

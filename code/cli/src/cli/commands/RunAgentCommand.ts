@@ -6,7 +6,15 @@ import { join } from 'node:path';
 import { Command, Option } from 'commander';
 
 import { launchThroughSpawn, spawnLauncher } from '../../agents/AgentLaunch.js';
+import {
+  persistPiCredentials,
+  resolvePiUserAgentDirectory,
+  seedPiCredentials,
+} from '../../agents/PiCredentialPersistence.js';
 import { compose } from '../../composer/Composer.js';
+import { ensurePiExtensions } from '../../extensions/PiExtensionCache.js';
+import type { PiInstallSpawner } from '../../extensions/PiExtensionCache.js';
+import { resolveOutfitterCacheDir } from '../../paths/OutfitterCache.js';
 import { projectComposition } from '../../projection/ProjectHarness.js';
 import type { AgentLaunchPlan } from '../../projection/Projection.js';
 import { resolveEffectiveSet } from '../../resolver/ResolverContext.js';
@@ -14,6 +22,7 @@ import type { Harness } from '../../settings/Settings.js';
 import { HARNESSES } from '../../settings/Settings.js';
 import type { SetupResult } from '../../setup/Setup.js';
 import type { CommandObject } from './CommandObject.js';
+import { attachPiRuntimeExtension } from './PiRuntimeLaunch.js';
 import { resolveHomeDirectory, resolveProjectDirectory } from './ProcessDefaults.js';
 import { runSetup } from './SetupCommand.js';
 
@@ -41,6 +50,10 @@ export interface RunAgentInput {
   readonly setup?: SetupRunner;
   /** Keep the runtime projection directory after the run (debugging). */
   readonly retainProjection?: boolean;
+  /** Sink for setup notices and warnings; emitted before launch so they precede the pi session. */
+  readonly writeLine?: (message: string) => void;
+  /** Test seam for the `pi install` boundary used to cache pi extensions. */
+  readonly extensionInstallSpawner?: PiInstallSpawner;
 }
 
 export interface RunAgentResult {
@@ -89,7 +102,44 @@ const assertNoSettingsIssues = (issues: readonly { readonly message: string }[])
   }
 };
 
+// pi stores credentials under PI_CODING_AGENT_DIR (the ephemeral projection root), so seed them from
+// pi's durable agent dir before launch and copy any /login changes back afterward. Non-pi harnesses
+// launch unchanged.
+const launchWithCredentialPersistence = async (
+  input: RunAgentInput,
+  harness: Harness,
+  rootDirectory: string,
+  launch: AgentLaunchPlan,
+): Promise<number> => {
+  const piUserAgentDirectory = harness === 'pi' ? resolvePiUserAgentDirectory(input.homeDirectory) : undefined;
+  if (piUserAgentDirectory !== undefined) seedPiCredentials(rootDirectory, piUserAgentDirectory);
+
+  const exitCode = await input.launcher(launch);
+  if (piUserAgentDirectory !== undefined) persistPiCredentials(rootDirectory, piUserAgentDirectory);
+
+  return exitCode;
+};
+
+// Installs/caches the pi extensions for the composed agent (pi only) so they load at launch.
+const resolvePiExtensions = async (
+  input: RunAgentInput,
+  harness: Harness,
+  extensionSpecs: readonly string[],
+): Promise<{ readonly loadDirs: readonly string[]; readonly warnings: readonly string[] }> => {
+  if (harness !== 'pi') return { loadDirs: [], warnings: [] };
+  return ensurePiExtensions(extensionSpecs, {
+    cacheAgentDir: join(resolveOutfitterCacheDir(process.env, input.homeDirectory), 'pi-extensions'),
+    offline: process.env.PI_OFFLINE === '1' || process.env.PI_OFFLINE === 'true',
+    spawn: input.extensionInstallSpawner,
+  });
+};
+
 export const executeRunAgentCommand = async (input: RunAgentInput): Promise<RunAgentResult> => {
+  // Flush messages to the terminal (before launch); they are also returned so callers can inspect them.
+  const emit = (messages: readonly string[]): void => {
+    for (const message of messages) input.writeLine?.(message);
+  };
+
   let resolved = resolveEffectiveSet(input);
   assertNoSettingsIssues(resolved.settingsIssues);
 
@@ -114,8 +164,13 @@ export const executeRunAgentCommand = async (input: RunAgentInput): Promise<RunA
   const composed = compose(set, agentSlug);
 
   if (composed.plan === undefined) {
-    return { exitCode: 1, messages: [...setupMessages, ...composed.errors] };
+    const messages = [...setupMessages, ...composed.errors];
+    emit(messages);
+    return { exitCode: 1, messages };
   }
+
+  // Install/cache the pi extensions into a shared XDG cache and load them at launch (pi only).
+  const extensions = await resolvePiExtensions(input, harness, composed.plan.loadout.extensions);
 
   const rootDirectory = mkdtempSync(join(tmpdir(), `outfitter-${agentSlug}-${harness}-`));
 
@@ -125,28 +180,37 @@ export const executeRunAgentCommand = async (input: RunAgentInput): Promise<RunA
       rootDirectory,
       homeDirectory: input.homeDirectory,
       passThroughArgs: input.passThroughArgs,
+      extensionLoadDirs: harness === 'pi' ? extensions.loadDirs : undefined,
     });
 
-    // Composition warnings (e.g. an unresolved skill) and unsupported harness elements are both
+    // Composition warnings, unsupported harness elements, and extension-install failures are all
     // advisory; --strict makes the combined set fatal before launch.
     const warnings = [
       ...composed.plan.warnings,
       ...projection.unsupported.map((element) => `harness '${harness}' cannot project loadout element '${element}'.`),
+      ...extensions.warnings,
     ];
 
     if (input.strict === true && warnings.length > 0) {
-      return {
-        exitCode: 1,
-        messages: [
-          ...setupMessages,
-          ...warnings,
-          'Strict mode: composition warnings and unsupported elements are fatal.',
-        ],
-      };
+      const messages = [
+        ...setupMessages,
+        ...warnings,
+        'Strict mode: composition warnings and unsupported elements are fatal.',
+      ];
+      emit(messages);
+      return { exitCode: 1, messages };
     }
 
-    const exitCode = await input.launcher(projection.launch);
-    return { launchPlan: projection.launch, exitCode, messages: [...setupMessages, ...warnings] };
+    // Emit setup notices and warnings before launch so they precede the pi session on the terminal.
+    const messages = [...setupMessages, ...warnings];
+    emit(messages);
+
+    // Attach the Outfitter runtime extension so interactive pi sessions restore the "connect a
+    // model provider" sign-in prompt when no models are available, instead of pi's raw warning.
+    const launch = attachPiRuntimeExtension(projection.launch);
+    const exitCode = await launchWithCredentialPersistence(input, harness, rootDirectory, launch);
+
+    return { launchPlan: launch, exitCode, messages };
   } finally {
     if (input.retainProjection !== true) {
       rmSync(rootDirectory, { recursive: true, force: true });
@@ -191,12 +255,10 @@ export const createRunAgentCommand = (dependencies: RunAgentDependencies = {}): 
             passThroughArgs,
             launcher,
             setup: dependencies.setup ?? interactiveSetupRunner,
-          });
-
-          for (const message of result.messages) {
+            // executeRunAgentCommand emits messages (before launch) through this sink.
             /* v8 ignore next -- console.error fallback is direct CLI behavior; tests inject a writer. */
-            (dependencies.writeLine ?? console.error)(message);
-          }
+            writeLine: dependencies.writeLine ?? console.error,
+          });
 
           process.exitCode = result.exitCode;
         },
