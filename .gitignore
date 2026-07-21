@@ -39,9 +39,13 @@ temp/
 
 # Package manager / publish artifacts
 *.tgz
+# sync-package-assets.mjs stages the packaged `files` under the CLI package root before packing.
+# These are build copies, not source — never commit them.
 code/cli/README.md
 code/cli/LICENSE.md
-code/cli/code/enterprise/
+code/cli/code/
+code/cli/.outfitter/
+code/cli/docs/
 
 # OS and editor files
 .DS_Store
