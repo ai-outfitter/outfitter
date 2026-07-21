@@ -5,17 +5,17 @@ import { join } from 'node:path';
 
 import { Command, Option } from 'commander';
 
-import { launchAgentProcess, resolveAgentLaunchExecutable } from '../../agents/AgentLaunch.js';
+import { launchThroughSpawn, spawnLauncher } from '../../agents/AgentLaunch.js';
 import { compose } from '../../composer/Composer.js';
 import { projectComposition } from '../../projection/ProjectHarness.js';
 import type { AgentLaunchPlan } from '../../projection/Projection.js';
 import { resolveEffectiveSet } from '../../resolver/ResolverContext.js';
 import type { Harness } from '../../settings/Settings.js';
+import { HARNESSES } from '../../settings/Settings.js';
 import type { SetupResult } from '../../setup/Setup.js';
-import { executeSetup } from '../../setup/Setup.js';
 import type { CommandObject } from './CommandObject.js';
 import { resolveHomeDirectory, resolveProjectDirectory } from './ProcessDefaults.js';
-import { createReadlinePrompter } from './SetupCommand.js';
+import { runSetup } from './SetupCommand.js';
 
 export type AgentProcessLauncher = (plan: AgentLaunchPlan) => Promise<number>;
 
@@ -24,7 +24,10 @@ export type AgentProcessLauncher = (plan: AgentLaunchPlan) => Promise<number>;
  * `undefined` when setup was not performed (e.g. non-interactive), so the caller falls back to the
  * normal "no agent selected" error.
  */
-export type SetupRunner = (input: { homeDirectory: string }) => Promise<SetupResult | undefined>;
+export type SetupRunner = (input: {
+  homeDirectory: string;
+  projectDirectory: string;
+}) => Promise<SetupResult | undefined>;
 
 export interface RunAgentInput {
   readonly homeDirectory: string;
@@ -54,19 +57,10 @@ export interface RunAgentDependencies {
   readonly writeLine?: (message: string) => void;
 }
 
-const harnesses: readonly Harness[] = ['pi', 'claude'];
-
-/* v8 ignore start -- real-TTY onboarding wiring; executeSetup is unit-tested via an injected runner. */
+/* v8 ignore start -- real-TTY onboarding wiring; the setup state machine is tested via an injected runner. */
 // Onboard only when attached to a real terminal; scripted/CI runs get the normal "no agent" error.
-const interactiveSetupRunner: SetupRunner = async ({ homeDirectory }) => {
-  const prompter = createReadlinePrompter();
-
-  if (!prompter.interactive) {
-    return undefined;
-  }
-
-  return executeSetup({ homeDirectory, prompter });
-};
+const interactiveSetupRunner: SetupRunner = async ({ homeDirectory, projectDirectory }) =>
+  runSetup({ homeDirectory, projectDirectory });
 /* v8 ignore stop */
 
 const resolveAgentSlug = (settingsDefault: string | undefined, requested: string | undefined): string => {
@@ -82,11 +76,11 @@ const resolveAgentSlug = (settingsDefault: string | undefined, requested: string
 const resolveHarness = (settingsDefault: Harness | undefined, requested: string | undefined): Harness => {
   const harness = requested ?? settingsDefault ?? 'pi';
 
-  if (harness !== 'pi' && harness !== 'claude') {
+  if (!HARNESSES.includes(harness as Harness)) {
     throw new Error(`Unknown harness '${harness}'. Use --harness pi or --harness claude.`);
   }
 
-  return harness;
+  return harness as Harness;
 };
 
 const assertNoSettingsIssues = (issues: readonly { readonly message: string }[]): void => {
@@ -102,7 +96,10 @@ export const executeRunAgentCommand = async (input: RunAgentInput): Promise<RunA
   // First run: nothing selected and no default configured — onboard, then resolve again.
   const setupMessages: string[] = [];
   if (input.agent === undefined && resolved.settings.defaultAgent === undefined && input.setup !== undefined) {
-    const setupResult = await input.setup({ homeDirectory: input.homeDirectory });
+    const setupResult = await input.setup({
+      homeDirectory: input.homeDirectory,
+      projectDirectory: input.projectDirectory,
+    });
 
     if (setupResult !== undefined) {
       setupMessages.push(...setupResult.messages);
@@ -157,31 +154,8 @@ export const executeRunAgentCommand = async (input: RunAgentInput): Promise<RunA
   }
 };
 
-/* v8 ignore start -- real process spawn is covered by end-to-end smoke usage, not unit tests. */
-const spawnLauncher: SpawnLauncher = {
-  async launch(plan: AgentLaunchPlan): Promise<number> {
-    const { default: spawn } = await import('cross-spawn');
-    return await new Promise<number>((resolve, reject) => {
-      const child = spawn(plan.command, [...plan.args], { stdio: 'inherit', env: { ...process.env, ...plan.env } });
-      child.on('error', reject); // ENOENT surfaces as an actionable install message
-      child.on('close', (code, signal) => resolve(code ?? (signal ? 1 : 0)));
-    });
-  },
-};
-/* v8 ignore stop */
-
-interface SpawnLauncher {
-  launch(plan: AgentLaunchPlan): Promise<number>;
-}
-
-/**
- * Launches a resolved plan through the given spawn boundary. The install-hint agentId is derived
- * from the logical launch command ('pi' | 'claude') so a missing-CLI failure always names the
- * harness actually being launched, regardless of how the harness was selected (flag, settings
- * default, or built-in fallback).
- */
-export const launchThroughSpawn = (spawn: SpawnLauncher, plan: AgentLaunchPlan): Promise<number> =>
-  launchAgentProcess(spawn, resolveAgentLaunchExecutable(plan), plan.command);
+// Re-exported for tests and sibling commands; the shared launcher lives in AgentLaunch.
+export { launchThroughSpawn } from '../../agents/AgentLaunch.js';
 
 /* v8 ignore next -- wiring to the real spawn boundary; launchThroughSpawn itself is unit-tested. */
 const defaultLauncher: AgentProcessLauncher = (plan) => launchThroughSpawn(spawnLauncher, plan);
@@ -195,7 +169,7 @@ export const createRunAgentCommand = (dependencies: RunAgentDependencies = {}): 
       .description('Resolve, compose, and launch an agent in the selected harness.')
       .argument('[agent]', 'Agent slug to run (default: settings default_agent).')
       .argument('[args...]', 'Arguments passed through to the harness after --.')
-      .addOption(new Option('--harness <harness>', 'Harness to launch.').choices([...harnesses]))
+      .addOption(new Option('--harness <harness>', 'Harness to launch.').choices([...HARNESSES]))
       .option('--strict', 'Treat composition warnings and unsupported loadout elements as fatal.')
       .allowUnknownOption(true)
       .action(

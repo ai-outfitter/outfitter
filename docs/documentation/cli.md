@@ -28,11 +28,16 @@ outfitter run reviewer -- --print "summarize this repo"
 
 ## `outfitter setup [source]`
 
-Create initial Outfitter settings, or adopt an existing configuration. Setup detects an existing `~/.agents/` tree and uses it as-is; if it finds a `~/.claude` directory instead, it offers to [port and symlink it](./porting-claude.md).
-
-| Argument   | Description                                                                       |
-| ---------- | --------------------------------------------------------------------------------- |
-| `[source]` | Optional bootstrap source: a local path or git URL of a [catalog](./catalogs.md). |
+Open the bundled Pi walkthrough using the original setup wording and sequence. Choose **Use the
+default Outfitter profile catalog**, **Create your own profile**, or **Provide a different catalog
+to import**; complete that branch; choose a home/project settings target; then choose the default
+CLI agent. Pi/Outfitter is preselected. Passing `[source]` retains the original direct-source path
+and starts at target selection. Pi hosts the deterministic setup UI without a model provider and
+does not port or symlink harness configuration. The default picker always comes from
+`ai-outfitter/default-profiles` at the immutable Release Please version tag pinned by the installed
+Outfitter version; setup fetches or reuses that release through the normal source cache and writes
+the same GitHub/ref pair to settings. It never reads a sibling checkout or a packaged catalog
+fallback.
 
 ## `outfitter sync`
 

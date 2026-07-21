@@ -1,190 +1,100 @@
-import { Key, matchesKey, truncateToWidth, visibleWidth, wrapTextWithAnsi } from "@earendil-works/pi-tui";
+import { Key, matchesKey, truncateToWidth, visibleWidth, wrapTextWithAnsi } from '@earendil-works/pi-tui';
 
-const OUTFITTER_PLAN_TOOLS = ["read", "grep", "find", "ls"];
-const OUTFITTER_DEFAULT_TOOLS = ["read", "bash", "edit", "write"];
-// The Outfitter CLI replaces each quoted __OUTFITTER_*__ placeholder below with
-// a JSON-encoded launch-time value when it writes this extension into the Pi
-// agent directory. Pi never loads this file directly from the repository or the
-// npm package.
-const OUTFITTER_HOME = "__OUTFITTER_HOME__";
-const OUTFITTER_PROJECT = "__OUTFITTER_PROJECT__";
-const OUTFITTER_DEFAULT_PROFILES_PATH = "__OUTFITTER_DEFAULT_PROFILES_PATH__";
-const OUTFITTER_SETUP_SOURCE_URI = "__OUTFITTER_SETUP_SOURCE_URI__";
-const OUTFITTER_AUTO_OPEN = "__OUTFITTER_AUTO_OPEN__";
-const OUTFITTER_ACTIVE_PROFILE = "__OUTFITTER_ACTIVE_PROFILE__";
-const OUTFITTER_DEFAULT_SETTINGS_TEMPLATE = "__OUTFITTER_DEFAULT_SETTINGS_TEMPLATE__";
-const OUTFITTER_STARTUP_ASCII_ART = "__OUTFITTER_STARTUP_ASCII_ART__";
-const OUTFITTER_ASCII_ART = "__OUTFITTER_ASCII_ART__";
-const OUTFITTER_ASCII_GRADIENT = ["success", "accent", "text", "muted", "dim"];
-const OUTFITTER_PROFILE_ID_PATTERN = /^[a-z0-9][a-z0-9._-]*[a-z0-9]$|^[a-z0-9]$/u;
-const loadPrivateCatalogOnboarding = () => import("./pi-extension/privateCatalogOnboarding.js");
+// The CLI stamps these placeholders into an isolated copy before Pi loads it.
+const OUTFITTER_HOME = '__OUTFITTER_HOME__';
+const OUTFITTER_PROJECT = '__OUTFITTER_PROJECT__';
+const OUTFITTER_SETUP_RESULT_PATH = '__OUTFITTER_SETUP_RESULT_PATH__';
+const OUTFITTER_AGENT_CHOICES = '__OUTFITTER_AGENT_CHOICES__';
+const OUTFITTER_CURRENT_DEFAULT = '__OUTFITTER_CURRENT_DEFAULT__';
+const OUTFITTER_SETUP_SOURCE_URI = '__OUTFITTER_SETUP_SOURCE_URI__';
+const OUTFITTER_AUTO_OPEN = '__OUTFITTER_AUTO_OPEN__';
+const OUTFITTER_ASCII_ART = [
+  '▄▄▄▄▄▄▄ ▄▄▄ ▄▄▄ ▄▄▄▄▄▄▄ ▄▄▄▄▄▄▄ ▄▄▄▄▄▄▄ ▄▄▄▄▄▄▄ ▄▄▄▄▄▄▄ ▄▄▄▄▄▄▄ ▄▄▄▄▄▄▄',
+  '███ ███ ███ ███   ███   ███ ███   ███     ███     ███   ███ ▀▀▀ ███ ███',
+  '███ ███ ███ ███   ███   ███▄▄     ███     ███     ███   ███▀    ███▄██▀',
+  '███▄███ ███▄███   ███   ███     ▄▄███▄▄   ███     ███   ███▄███ ███ ███',
+  '▀▀▀▀▀▀▀ ▀▀▀▀▀▀▀   ▀▀▀   ▀▀▀     ▀▀▀▀▀▀▀   ▀▀▀     ▀▀▀   ▀▀▀▀▀▀▀ ▀▀▀ ▀▀▀',
+].join('\n');
+const OUTFITTER_ASCII_GRADIENT = ['success', 'accent', 'text', 'muted', 'dim'];
+// Must match the CLI's agent-slug rule (Setup.ts `agentSlugPattern`) exactly, so any id the
+// walkthrough accepts also passes `applySetupSelection`'s validation instead of crashing after setup.
+const OUTFITTER_PROFILE_ID_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/u;
+const OUTFITTER_PLAN_TOOLS = ['read', 'grep', 'find', 'ls'];
+const OUTFITTER_DEFAULT_TOOLS = ['read', 'bash', 'edit', 'write'];
+const loadPrivateCatalogOnboarding = () => import('./pi-extension/privateCatalogOnboarding.js');
 
 export default function outfitter(pi) {
-  let mode = "build";
+  let onboardingRunning = false;
+  let mode = 'build';
   let buildModeTools;
-  let loginSubmitted = false;
 
   const updateModeStatus = (ctx) => {
-    const color = mode === "plan" ? "warning" : "muted";
-    ctx.ui.setStatus("outfitter-mode", ctx.ui.theme.fg(color, "mode: " + mode));
-  };
-
-  const updateProfileStatus = (ctx) => {
-    // Stays a string when the placeholder is unstamped (file loaded outside an
-    // Outfitter launch) and `undefined` when the launch had no resolved profile.
-    if (typeof OUTFITTER_ACTIVE_PROFILE !== "object" || OUTFITTER_ACTIVE_PROFILE === null) return;
-    const name = OUTFITTER_ACTIVE_PROFILE.label ?? OUTFITTER_ACTIVE_PROFILE.id;
-    if (!name) return;
-    ctx.ui.setStatus("outfitter-profile", ctx.ui.theme.fg("muted", "profile: " + name));
+    const color = mode === 'plan' ? 'warning' : 'muted';
+    ctx.ui.setStatus('outfitter-mode', ctx.ui.theme.fg(color, 'mode: ' + mode));
   };
 
   const enterPlanMode = (ctx) => {
-    if (mode !== "plan") {
-      buildModeTools = pi.getActiveTools();
-    }
-    mode = "plan";
+    if (mode !== 'plan') buildModeTools = pi.getActiveTools();
+    mode = 'plan';
     const availableTools = new Set(pi.getAllTools().map((tool) => tool.name));
     const planTools = OUTFITTER_PLAN_TOOLS.filter((toolName) => availableTools.has(toolName));
     pi.setActiveTools(planTools.length > 0 ? planTools : OUTFITTER_PLAN_TOOLS);
     updateModeStatus(ctx);
-    ctx.ui.notify("Outfitter mode: plan (read-only tools; Shift+Tab to switch back)", "info");
+    ctx.ui.notify('Outfitter mode: plan (read-only tools; Shift+Tab to switch back)', 'info');
   };
 
   const enterBuildMode = (ctx) => {
-    mode = "build";
+    mode = 'build';
     pi.setActiveTools(buildModeTools ?? OUTFITTER_DEFAULT_TOOLS);
     buildModeTools = undefined;
     updateModeStatus(ctx);
-    ctx.ui.notify("Outfitter mode: build (normal tools; Shift+Tab for plan mode)", "info");
+    ctx.ui.notify('Outfitter mode: build (normal tools; Shift+Tab for plan mode)', 'info');
   };
 
-  const cycleOutfitterMode = (ctx) => {
-    if (mode === "plan") {
-      enterBuildMode(ctx);
-      return;
-    }
+  const cycleOutfitterMode = (ctx) => (mode === 'plan' ? enterBuildMode(ctx) : enterPlanMode(ctx));
 
-    enterPlanMode(ctx);
-  };
-
-  pi.on("project_trust", async (event) => {
-    if (!OUTFITTER_AUTO_OPEN || event.cwd !== OUTFITTER_PROJECT) {
-      return { trusted: "undecided" };
-    }
-
-    return { trusted: "yes", remember: true };
-  });
-
-  const exportRuntimeSystemPrompt = async (ctx) => {
-    const outputPath = typeof process === "undefined" ? undefined : process.env.OUTFITTER_SYSTEM_PROMPT_EXPORT_PATH;
-    if (!outputPath || typeof ctx.getSystemPrompt !== "function") return;
-
-    const systemPrompt = ctx.getSystemPrompt();
-    if (typeof systemPrompt !== "string") return;
-
-    const [{ mkdirSync, writeFileSync }, { dirname }] = await Promise.all([import("node:fs"), import("node:path")]);
-    mkdirSync(dirname(outputPath), { recursive: true });
-    writeFileSync(
-      outputPath,
-      [
-        "<!-- Generated by Outfitter from Pi runtime ctx.getSystemPrompt(). Safe to review or git-ignore. Do not edit by hand. -->",
-        "# Generated Pi runtime system prompt",
-        "",
-        systemPrompt,
-        "",
-      ].join("\n"),
-    );
-  };
-
-  const submitSlashCommand = async (ctx, command, notification) => {
-    if (ctx.mode !== "tui") return false;
+  const submitSlashCommand = async (ctx, command) => {
+    if (ctx.mode !== 'tui') return false;
     ctx.ui.setEditorText(command);
-    if (notification !== undefined) ctx.ui.notify(notification, "info");
-    await ctx.ui.custom((tui, _theme, _keybindings, done) => {
-      setTimeout(() => {
-        tui.focusedComponent?.handleInput?.("\r");
-        done(true);
-      }, 25);
-
-      return {
-        render: () => [],
-        invalidate: () => undefined,
-      };
-    }, { overlay: true, overlayOptions: { nonCapturing: true, visible: () => false } });
-    return true;
-  };
-
-  const getAvailableModelCount = async (ctx) => {
-    if (ctx.modelRegistry === undefined || typeof ctx.modelRegistry.getAvailable !== "function") {
-      return ctx.model === undefined ? 0 : 1;
-    }
-
-    try {
-      const available = await ctx.modelRegistry.getAvailable();
-      return Array.isArray(available) ? available.length : 0;
-    } catch {
-      return ctx.model === undefined ? 0 : 1;
-    }
-  };
-
-  const confirmModelProviderConnection = async (ctx) => {
-    if (typeof ctx.ui.custom !== "function") return true;
-    const selected = await selectDescribedOption(
-      ctx,
-      [
-        "Pi does not have a model provider connected yet.",
-        "Connect one now so Outfitter can use Pi.",
-        "Credentials stay inside Pi.",
-      ],
-      [{ value: "connect", label: "Connect a model provider" }],
-      "connect",
+    await ctx.ui.custom(
+      (tui, _theme, _keybindings, done) => {
+        setTimeout(() => {
+          tui.focusedComponent?.handleInput?.('\r');
+          done(true);
+        }, 25);
+        return { render: () => [], invalidate: () => undefined };
+      },
+      { overlay: true, overlayOptions: { nonCapturing: true, visible: () => false } },
     );
-    return selected === "connect";
-  };
-
-  const openLoginIfNoModels = async (ctx) => {
-    if (loginSubmitted || ctx.mode !== "tui") return;
-    const availableModelCount = await getAvailableModelCount(ctx);
-    if (availableModelCount > 0) return;
-    if (!(await confirmModelProviderConnection(ctx))) return;
-    loginSubmitted = await submitSlashCommand(ctx, "/login");
+    return true;
   };
 
   const createQuestionUi = (ctx) => ({
     async selectSetupMode() {
       const options = [
-        "Use the default Outfitter profile catalog",
-        "Create your own profile",
-        "Provide a different catalog to import",
+        'Use the default Outfitter profile catalog',
+        'Create your own profile',
+        'Provide a different catalog to import',
       ];
-      const selected = await ctx.ui.select("How would you like to set up Outfitter?", options);
+      const selected = await ctx.ui.select('How would you like to set up Outfitter?', options);
       if (selected === undefined) return undefined;
-      return options.indexOf(selected) === 1 ? "create" : options.indexOf(selected) === 2 ? "catalog" : "default";
+      return options.indexOf(selected) === 1 ? 'create' : options.indexOf(selected) === 2 ? 'catalog' : 'default';
     },
-    async selectInstallTarget(paths) {
+    async selectInstallTarget() {
       const items = [
         {
-          value: "home",
-          label: "Home folder (~/.outfitter)",
-          description: "These profiles will be available anywhere you start outfitter.",
+          value: 'home',
+          label: 'Home folder (~/.agents)',
+          description: 'These profiles will be available anywhere you start outfitter.',
         },
         {
-          value: "project",
-          label: "Current project directory (.outfitter)",
-          description: "These profiles will only be available in the current project directory and will compose the profiles of the same name in the home folder.",
+          value: 'project',
+          label: 'Current project directory (.agents)',
+          description:
+            'These profiles will only be available in the current project directory and will compose the profiles of the same name in the home folder.',
         },
       ];
-      const title = ["Where should Outfitter install these settings?"];
-      const selected = typeof ctx.ui.custom === "function"
-        ? await selectDescribedOption(ctx, title, items, "home")
-        : await ctx.ui.select(title.join("\n"), items.map((item) => item.label));
-      if (selected === undefined) return undefined;
-      const selectedValue = items.some((item) => item.value === selected)
-        ? selected
-        : items.find((item) => item.label === selected)?.value;
-      return selectedValue === "project"
-        ? { id: "project", settingsPath: paths.projectSettingsPath, profilesPath: paths.projectProfilesPath }
-        : { id: "home", settingsPath: paths.homeSettingsPath, profilesPath: paths.homeProfilesPath };
+      return selectFromItems(ctx, ['Where should Outfitter install these settings?'], items, 'home');
     },
     async selectProfile(profiles, currentDefault) {
       const items = profiles.map((profile) => ({
@@ -193,103 +103,231 @@ export default function outfitter(pi) {
         description: profile.description,
       }));
       const title = [
-        "Outfitter profile setup",
-        "",
+        'Outfitter profile setup',
+        '',
         "Choose the default profile from the selected catalog for future 'outfitter' launches.",
-        "The current Pi process keeps the profile it started with; this setting applies on the next launch.",
+        'The current Pi process keeps the profile it started with; this setting applies on the next launch.',
       ];
-      const initialProfileId = currentDefault ?? (profiles.some((profile) => profile.id === "founder") ? "founder" : profiles[0]?.id);
-      const selectedId = typeof ctx.ui.custom === "function"
-        ? await selectDescribedOption(ctx, title, items, initialProfileId)
-        : await ctx.ui.select(title.join("\n"), items.map((item) => item.label));
+      const initialProfileId =
+        currentDefault ?? (profiles.some((profile) => profile.id === 'founder') ? 'founder' : profiles[0]?.id);
+      const selectedId = await selectFromItems(ctx, title, items, initialProfileId);
       if (selectedId === undefined) return undefined;
-      return profiles.find((profile) => profile.id === selectedId) ?? profiles[items.findIndex((item) => item.label === selectedId)];
+      return profiles.find((profile) => profile.id === selectedId);
+    },
+    async selectCliAgent() {
+      const items = [
+        {
+          value: 'pi',
+          label: 'Pi / Outfitter (Recommended)',
+          description: 'Use the coding agent bundled with Outfitter.',
+        },
+        {
+          value: 'claude',
+          label: 'Claude Code',
+          description: "Use Anthropic's separately installed Claude Code CLI.",
+        },
+      ];
+      return selectFromItems(ctx, ['Which CLI agent should Outfitter use by default?'], items, 'pi');
     },
     async input(message, defaultValue) {
-      if (typeof ctx.ui.input === "function") {
+      if (typeof ctx.ui.input === 'function') {
         return ctx.ui.input(message, defaultValue === undefined ? undefined : { defaultValue });
       }
-      const suffix = defaultValue === undefined ? "" : " [" + defaultValue + "]";
-      const selected = await ctx.ui.select(message + suffix, [defaultValue ?? ""]);
-      return selected;
+      const suffix = defaultValue === undefined ? '' : ' [' + defaultValue + ']';
+      return ctx.ui.select(message + suffix, [defaultValue ?? '']);
     },
     async confirmPrivateCatalog(repository) {
       const { confirmPrivateCatalog } = await loadPrivateCatalogOnboarding();
       return confirmPrivateCatalog(ctx, selectDescribedOption, repository);
     },
-    notify: (message, type = "info") => ctx.ui.notify(message, type),
+    notify: (message, type = 'info') => ctx.ui.notify(message, type),
   });
 
-  const runOutfitterOnboarding = async (ctx) => {
-    if (!ctx.hasUI) return;
-    const [{ mkdirSync, existsSync, readFileSync, readdirSync, statSync, writeFileSync }, { dirname, join }] =
-      await Promise.all([import("node:fs"), import("node:path")]);
-    const paths = createOutfitterPaths(join);
-    const questionUi = createQuestionUi(ctx);
-
-    if (OUTFITTER_SETUP_SOURCE_URI !== undefined) {
-      await runProvidedSourceOnboarding({ mkdirSync, writeFileSync, dirname }, paths, questionUi, OUTFITTER_SETUP_SOURCE_URI);
-      await openLoginIfNoModels(ctx);
-      return;
-    }
-
-    const setupMode = await questionUi.selectSetupMode();
-
-    if (setupMode === undefined) {
-      questionUi.notify("Outfitter setup cancelled; no settings were changed.", "warning");
-      await openLoginIfNoModels(ctx);
-      return;
-    }
-
-    if (setupMode === "catalog") {
-      await runRemoteSettingsOnboarding({ existsSync, mkdirSync, readFileSync, writeFileSync, dirname }, paths, questionUi);
-      await openLoginIfNoModels(ctx);
-      return;
-    }
-
-    if (setupMode === "create") {
-      await runCreateProfileOnboarding({ existsSync, mkdirSync, readFileSync, writeFileSync, dirname, join }, paths, questionUi);
-      await openLoginIfNoModels(ctx);
-      return;
-    }
-
-    await runDefaultCatalogOnboarding(
-      { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync, dirname, join },
-      paths,
-      questionUi,
-    );
-    await openLoginIfNoModels(ctx);
+  const finish = async (ctx, selection, message) => {
+    await writeSetupResult(selection);
+    ctx.ui.notify(message, 'info');
+    ctx.shutdown();
   };
 
-  pi.registerCommand("outfitter", {
-    description: "Configure Outfitter profile onboarding",
+  const cancel = (ctx) => {
+    ctx.ui.notify('Outfitter setup cancelled; no settings were changed.', 'warning');
+    ctx.shutdown();
+  };
+
+  const runDefaultCatalogOnboarding = async (ctx, questionUi) => {
+    if (OUTFITTER_AGENT_CHOICES.length === 0) {
+      questionUi.notify(
+        'No profiles were found in the default Outfitter profile catalog. Fix the catalog sync or provide a different catalog.',
+        'error',
+      );
+      return;
+    }
+    const selectedProfile = await questionUi.selectProfile(OUTFITTER_AGENT_CHOICES, OUTFITTER_CURRENT_DEFAULT);
+    if (selectedProfile === undefined) return cancel(ctx);
+    if (!OUTFITTER_PROFILE_ID_PATTERN.test(selectedProfile.id)) {
+      questionUi.notify('Selected profile id is not filesystem-safe; no settings were changed.', 'error');
+      return;
+    }
+    const choice = await askTargetAndHarness(questionUi);
+    if (choice === undefined) return cancel(ctx);
+    const { target, harness } = choice;
+    const settingsPath = installRoot(target) + '/.agents/settings.yml';
+    await finish(
+      ctx,
+      { setupMode: 'default', agentId: selectedProfile.id, harness, target },
+      [
+        "Outfitter saved default profile '" + selectedProfile.id + "' to " + settingsPath + '.',
+        'Profile choices were loaded from the default Outfitter profile catalog, not generated locally.',
+        "It applies on the next 'outfitter' launch; restart Outfitter to load the selected profile.",
+      ].join('\n'),
+    );
+  };
+
+  const runCreateProfileOnboarding = async (ctx, questionUi) => {
+    const enteredProfileId = normalizeInputValue(await questionUi.input('Profile id', 'my_profile'));
+    const profileId = enteredProfileId?.replaceAll('_', '-');
+    if (!profileId || !OUTFITTER_PROFILE_ID_PATTERN.test(profileId)) {
+      questionUi.notify('Profile id is not filesystem-safe; no settings were changed.', 'error');
+      return;
+    }
+    const label = normalizeInputValue(await questionUi.input('Profile label', profileId));
+    const choice = await askTargetAndHarness(questionUi);
+    if (choice === undefined) return cancel(ctx);
+    const { target, harness } = choice;
+    const root = installRoot(target);
+    const profilePath = root + '/.agents/agents/' + profileId + '/agent.md';
+    const settingsPath = root + '/.agents/settings.yml';
+    await finish(
+      ctx,
+      { setupMode: 'create', agentId: profileId, agentLabel: label, harness, target },
+      [
+        "Outfitter created profile '" + profileId + "' at " + profilePath + '.',
+        'Outfitter saved settings to ' + settingsPath + '.',
+        "It applies on the next 'outfitter' launch; restart Outfitter to load the selected profile.",
+      ].join('\n'),
+    );
+  };
+
+  const runRemoteSettingsOnboarding = async (ctx, questionUi) => {
+    const github = normalizeInputValue(
+      await questionUi.input('GitHub catalog repo (owner/repo)', 'my_account/outfitter_config'),
+    );
+    const ref = normalizeInputValue(await questionUi.input('Catalog ref', 'main')) || 'main';
+    const settingsPath =
+      normalizeInputValue(await questionUi.input('Catalog settings path', 'settings.yml')) || 'settings.yml';
+    if (!github || !/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/u.test(github)) {
+      questionUi.notify('Catalog repo must use owner/repo syntax; no settings were changed.', 'error');
+      return;
+    }
+    if (settingsPath.startsWith('/') || settingsPath.includes('..')) {
+      questionUi.notify('Catalog settings path must stay inside the repository; no settings were changed.', 'error');
+      return;
+    }
+    const { existsSync, readFileSync } = await import('node:fs');
+    const homeSettingsPath = OUTFITTER_HOME + '/.agents/settings.yml';
+    const privateCatalogOnboarding = await loadPrivateCatalogOnboarding();
+    const privateCatalogsAlreadyEnabled = privateCatalogOnboarding.readPrivateProfileCatalogsEnabled(
+      { existsSync, readFileSync },
+      homeSettingsPath,
+    );
+    let privateCatalogAccepted = false;
+    if (
+      !privateCatalogsAlreadyEnabled &&
+      (await privateCatalogOnboarding.classifyGitHubRepositoryVisibility(github)) === 'private'
+    ) {
+      privateCatalogAccepted = await questionUi.confirmPrivateCatalog(github);
+      if (!privateCatalogAccepted) {
+        questionUi.notify('Private catalog setup was cancelled; no settings were changed.', 'warning');
+        return;
+      }
+    }
+    const choice = await askTargetAndHarness(questionUi);
+    if (choice === undefined) return cancel(ctx);
+    const { target, harness } = choice;
+    const destination = installRoot(target) + '/.agents/settings.yml';
+    if (!(await confirmSettingsReplacement(ctx, questionUi, destination))) return;
+    await finish(
+      ctx,
+      {
+        setupMode: 'catalog',
+        github,
+        ref,
+        settingsPath,
+        harness,
+        privateCatalogsEnabled: privateCatalogsAlreadyEnabled || privateCatalogAccepted || undefined,
+        privateCatalogAccepted: privateCatalogAccepted || undefined,
+        target,
+      },
+      privateCatalogAccepted
+        ? 'Outfitter enabled private profile catalogs in ~/.agents/settings.yml and saved this catalog.'
+        : [
+            'Outfitter saved remote settings catalog to ' + destination + '.',
+            "Run 'outfitter sync' or restart Outfitter after the catalog is reachable.",
+          ].join('\n'),
+    );
+  };
+
+  const runProvidedSourceOnboarding = async (ctx, questionUi, sourceUri) => {
+    const choice = await askTargetAndHarness(questionUi);
+    if (choice === undefined) return cancel(ctx);
+    const { target, harness } = choice;
+    const destination = installRoot(target) + '/.agents/settings.yml';
+    if (!(await confirmSettingsReplacement(ctx, questionUi, destination))) return;
+    await finish(
+      ctx,
+      { setupMode: 'source', sourceUri, harness, target },
+      [
+        'Outfitter saved setup source to ' + destination + '.',
+        "Run 'outfitter sync' or restart Outfitter after the source is reachable.",
+      ].join('\n'),
+    );
+  };
+
+  const runOutfitterOnboarding = async (ctx) => {
+    if (!ctx.hasUI || onboardingRunning) return;
+    onboardingRunning = true;
+    try {
+      const questionUi = createQuestionUi(ctx);
+      if (OUTFITTER_SETUP_SOURCE_URI !== undefined) {
+        return await runProvidedSourceOnboarding(ctx, questionUi, OUTFITTER_SETUP_SOURCE_URI);
+      }
+      const setupMode = await questionUi.selectSetupMode();
+      if (setupMode === undefined) return cancel(ctx);
+      if (setupMode === 'catalog') return await runRemoteSettingsOnboarding(ctx, questionUi);
+      if (setupMode === 'create') return await runCreateProfileOnboarding(ctx, questionUi);
+      return await runDefaultCatalogOnboarding(ctx, questionUi);
+    } finally {
+      onboardingRunning = false;
+    }
+  };
+
+  pi.registerCommand('outfitter', {
+    description: 'Configure Outfitter profile onboarding',
+    handler: async (_args, ctx) => runOutfitterOnboarding(ctx),
+  });
+
+  pi.registerCommand('mode', {
+    description: 'Toggle Outfitter build/plan mode',
     handler: async (_args, ctx) => {
-      await runOutfitterOnboarding(ctx);
+      if (ctx.mode === 'tui') cycleOutfitterMode(ctx);
     },
   });
 
-  pi.registerCommand("mode", {
-    description: "Toggle Outfitter build/plan mode",
-    handler: async (_args, ctx) => {
-      if (ctx.mode !== "tui") return;
-      cycleOutfitterMode(ctx);
-    },
+  pi.on('project_trust', async (event) => {
+    if (OUTFITTER_AUTO_OPEN && event.cwd === OUTFITTER_PROJECT) return { trusted: 'yes', remember: true };
+    return { trusted: 'undecided' };
   });
 
-  pi.on("session_start", async (event, ctx) => {
-    await exportRuntimeSystemPrompt(ctx);
-    if (ctx.mode !== "tui") return;
+  pi.on('session_start', async (event, ctx) => {
+    if (ctx.mode !== 'tui') return;
     ctx.ui.setHeader((_tui, theme) => {
-      const firstRun = event.reason === "startup" && OUTFITTER_AUTO_OPEN;
       let cachedWidth;
       let cachedLines;
       return {
-        // Pi-tui rejects render output wider than the terminal, so the header
-        // re-fits its lines to every width pi hands it instead of rendering once.
         render: (width) => {
-          const maxWidth = typeof width === "number" && width > 0 ? width : 120;
+          const maxWidth = typeof width === 'number' && width > 0 ? width : 120;
           if (cachedLines === undefined || cachedWidth !== maxWidth) {
-            cachedLines = createStartupHeaderLines(theme, firstRun, maxWidth);
+            cachedLines = createStartupHeaderLines(theme, maxWidth);
             cachedWidth = maxWidth;
           }
           return cachedLines;
@@ -301,46 +339,36 @@ export default function outfitter(pi) {
       };
     });
     updateModeStatus(ctx);
-    updateProfileStatus(ctx);
     ctx.ui.onTerminalInput((data) => {
-      if (!matchesKey(data, "shift+tab")) return undefined;
+      if (!matchesKey(data, 'shift+tab')) return undefined;
       cycleOutfitterMode(ctx);
       return { consume: true };
     });
-
-    if (event.reason === "startup" && OUTFITTER_AUTO_OPEN) {
-      await submitSlashCommand(ctx, "/outfitter");
-      return;
-    }
-
-    await openLoginIfNoModels(ctx);
+    if (event.reason === 'startup' && OUTFITTER_AUTO_OPEN) await submitSlashCommand(ctx, '/outfitter');
   });
 
-  pi.on("tool_call", async (event) => {
-    if (mode !== "plan" || event.toolName !== "bash") return;
-
+  pi.on('tool_call', async (event) => {
+    if (mode !== 'plan' || event.toolName !== 'bash') return;
     return {
       block: true,
-      reason: "Outfitter plan mode blocks Bash commands. Press Shift+Tab to return to build mode. Command: " + String(event.input?.command ?? ""),
+      reason:
+        'Outfitter plan mode blocks Bash commands. Press Shift+Tab to return to build mode. Command: ' +
+        String(event.input?.command ?? ''),
     };
   });
 
-  pi.on("context", async (event) => {
-    const messages = event.messages.filter((message) => message.customType !== "outfitter-mode-context");
-
-    if (mode !== "plan") {
-      return { messages };
-    }
-
+  pi.on('context', async (event) => {
+    const messages = event.messages.filter((message) => message.customType !== 'outfitter-mode-context');
+    if (mode !== 'plan') return { messages };
     return {
       messages: [
         ...messages,
         {
-          role: "custom",
-          customType: "outfitter-mode-context",
+          role: 'custom',
+          customType: 'outfitter-mode-context',
           content:
-            "[OUTFITTER PLAN MODE ACTIVE]\n" +
-            "You are in read-only planning mode. Inspect files and explain the implementation plan, but do not modify files, run Bash commands, or claim changes are done. Ask before leaving planning mode.",
+            '[OUTFITTER PLAN MODE ACTIVE]\n' +
+            'You are in read-only planning mode. Inspect files and explain the implementation plan, but do not modify files, run Bash commands, or claim changes are done. Ask before leaving planning mode.',
           display: false,
         },
       ],
@@ -348,285 +376,97 @@ export default function outfitter(pi) {
   });
 }
 
-// Every emitted line must fit maxWidth: pi-tui throws on over-wide render output,
-// which crashed startup in narrow (e.g. 80x24 tmux) terminals. Prose wraps so no
-// words are lost; ASCII art and the brand line truncate because wrapping them is noise.
-const createStartupHeaderLines = (theme, firstRun, maxWidth) => {
+const normalizeInputValue = (value) => (typeof value === 'string' ? value.trim() : undefined);
+
+const installRoot = (target) => (target === 'project' ? OUTFITTER_PROJECT : OUTFITTER_HOME);
+
+// Every onboarding branch ends by asking for the install target then the CLI agent, cancelling on
+// either escape. Returns undefined when the user cancels so the caller can `return cancel(ctx)`.
+const askTargetAndHarness = async (questionUi) => {
+  const target = await questionUi.selectInstallTarget();
+  if (target === undefined) return undefined;
+  const harness = await questionUi.selectCliAgent();
+  if (harness === undefined) return undefined;
+  return { target, harness };
+};
+
+// Catalog/source setup writes a fresh settings file at `destination`, replacing whatever is there.
+// Never clobber existing settings without an explicit confirmation; returns true only when the file
+// is absent or the user chose to replace it, and notifies+shuts down otherwise so nothing is written.
+const confirmSettingsReplacement = async (ctx, questionUi, destination) => {
+  const { existsSync } = await import('node:fs');
+  if (!existsSync(destination)) return true;
+  const decision = await selectFromItems(
+    ctx,
+    ['Outfitter settings already exist at ' + destination + '.', 'Replace them with your selections?'],
+    [
+      { value: 'keep', label: 'Keep my current settings', description: 'Leave the existing file unchanged and exit.' },
+      { value: 'replace', label: 'Replace them', description: 'Overwrite the existing file with these selections.' },
+    ],
+    'keep',
+  );
+  if (decision === 'replace') return true;
+  questionUi.notify('Kept your existing Outfitter settings; no changes were made.', 'warning');
+  ctx.shutdown();
+  return false;
+};
+
+const writeSetupResult = async (selection) => {
+  const [{ mkdirSync, renameSync, rmSync, writeFileSync }, { dirname }] = await Promise.all([
+    import('node:fs'),
+    import('node:path'),
+  ]);
+  const temporaryPath = OUTFITTER_SETUP_RESULT_PATH + '.tmp';
+  mkdirSync(dirname(OUTFITTER_SETUP_RESULT_PATH), { recursive: true });
+  try {
+    writeFileSync(temporaryPath, JSON.stringify(selection) + '\n', { flag: 'wx' });
+    renameSync(temporaryPath, OUTFITTER_SETUP_RESULT_PATH);
+  } finally {
+    rmSync(temporaryPath, { force: true });
+  }
+};
+
+const createStartupHeaderLines = (theme, maxWidth) => {
   const lines = [];
-  const addTruncated = (line) => lines.push(visibleWidth(line) > maxWidth ? truncateToWidth(line, maxWidth) : line);
+  const add = (line) => lines.push(visibleWidth(line) > maxWidth ? truncateToWidth(line, maxWidth) : line);
   const addWrapped = (line) => {
-    for (const wrappedLine of wrapTextWithAnsi(line, Math.max(1, maxWidth))) addTruncated(wrappedLine);
+    for (const wrapped of wrapTextWithAnsi(line, Math.max(1, maxWidth))) add(wrapped);
   };
 
-  if (OUTFITTER_STARTUP_ASCII_ART) {
-    OUTFITTER_ASCII_ART.split("\n").forEach((line, index) =>
-      addTruncated(theme.fg(OUTFITTER_ASCII_GRADIENT[index] ?? "accent", line)),
-    );
-    lines.push("");
-  }
-
-  addTruncated(theme.bold(theme.fg("accent", "Outfitter")) + theme.fg("dim", " + pi"));
-  addWrapped(theme.fg("muted", "/ commands · ! bash · shift+tab mode · ctrl+shift+t thinking · ctrl+o more"));
-
-  if (firstRun) {
-    lines.push("");
-    addWrapped(theme.fg("dim", "Outfitter turns Pi into a configured working environment:"));
-    addWrapped(theme.fg("dim", "• profiles define model, tools, prompts, skills, and extensions"));
-    addWrapped(theme.fg("dim", "• settings can live in your home folder or this project"));
-    addWrapped(theme.fg("dim", "• catalogs let teams share setups through GitHub"));
-    return lines;
-  }
-
-  lines.push("");
-  addWrapped(
-    theme.fg(
-      "dim",
-      "Outfitter + Pi can explain its own features and look up its docs. Ask it how to use or extend Pi or outfitter profiles.",
-    ),
+  OUTFITTER_ASCII_ART.split('\n').forEach((line, index) =>
+    add(theme.fg(OUTFITTER_ASCII_GRADIENT[index] ?? 'accent', line)),
   );
+  lines.push('');
+  add(theme.bold(theme.fg('accent', 'Outfitter')) + theme.fg('dim', ' + pi'));
+  addWrapped(theme.fg('muted', '/ commands · ! bash · shift+tab mode · ctrl+shift+t thinking · ctrl+o more'));
+  lines.push('');
+  addWrapped(theme.fg('dim', 'Outfitter turns Pi into a configured working environment:'));
+  addWrapped(theme.fg('dim', '• profiles define model, tools, prompts, skills, and extensions'));
+  addWrapped(theme.fg('dim', '• settings can live in your home folder or this project'));
+  addWrapped(theme.fg('dim', '• catalogs let teams share setups through GitHub'));
   return lines;
 };
 
-const createOutfitterPaths = (join) => ({
-  homeSettingsPath: join(OUTFITTER_HOME, ".outfitter", "settings.yml"),
-  homeProfilesPath: join(OUTFITTER_HOME, ".outfitter", "profiles"),
-  projectSettingsPath: join(OUTFITTER_PROJECT, ".outfitter", "settings.yml"),
-  projectProfilesPath: join(OUTFITTER_PROJECT, ".outfitter", "profiles"),
-  defaultProfilesPath: OUTFITTER_DEFAULT_PROFILES_PATH,
-});
-
-const runDefaultCatalogOnboarding = async (fs, paths, questionUi) => {
-  const currentDefault = readCurrentDefaultProfile(paths.homeSettingsPath, fs.existsSync, fs.readFileSync);
-  const profiles = discoverProfileChoices(fs, paths, currentDefault);
-  if (profiles.length === 0) {
-    questionUi.notify(
-      "No profiles were found in the default Outfitter profile catalog. Fix the catalog sync or provide a different catalog.",
-      "error",
-    );
-    return;
-  }
-
-  const selectedProfile = await questionUi.selectProfile(profiles, currentDefault);
-  if (selectedProfile === undefined) {
-    questionUi.notify("Outfitter setup cancelled; no settings were changed.", "warning");
-    return;
-  }
-
-  if (!OUTFITTER_PROFILE_ID_PATTERN.test(selectedProfile.id)) {
-    questionUi.notify("Selected profile id is not filesystem-safe; no settings were changed.", "error");
-    return;
-  }
-
-  const installTarget = await questionUi.selectInstallTarget(paths);
-  if (installTarget === undefined) {
-    questionUi.notify("Outfitter setup cancelled; no settings were changed.", "warning");
-    return;
-  }
-
-  fs.mkdirSync(fs.dirname(installTarget.settingsPath), { recursive: true });
-  fs.mkdirSync(installTarget.profilesPath, { recursive: true });
-  const settingsExisted = fs.existsSync(installTarget.settingsPath);
-  if (settingsExisted) {
-    updateExistingSettingsDefaultProfile(installTarget.settingsPath, selectedProfile.id, fs.readFileSync, fs.writeFileSync);
-  } else {
-    fs.writeFileSync(installTarget.settingsPath, createDefaultSettingsContent(selectedProfile.id));
-  }
-
-  questionUi.notify(
-    [
-      "Outfitter saved default profile '" + selectedProfile.id + "' to " + installTarget.settingsPath + ".",
-      "Profile choices were loaded from the default Outfitter profile catalog, not generated locally.",
-      "It applies on the next 'outfitter' launch; restart Outfitter to load the selected profile.",
-    ].join("\n"),
-    "info",
-  );
-};
-
-const runCreateProfileOnboarding = async (fs, paths, questionUi) => {
-  const profileId = normalizeInputValue(await questionUi.input("Profile id", "my_profile"));
-  if (!profileId || !OUTFITTER_PROFILE_ID_PATTERN.test(profileId)) {
-    questionUi.notify("Profile id is not filesystem-safe; no settings were changed.", "error");
-    return;
-  }
-  const label = normalizeInputValue(await questionUi.input("Profile label", profileId));
-  const installTarget = await questionUi.selectInstallTarget(paths);
-  if (installTarget === undefined) {
-    questionUi.notify("Outfitter setup cancelled; no settings were changed.", "warning");
-    return;
-  }
-
-  fs.mkdirSync(fs.dirname(installTarget.settingsPath), { recursive: true });
-  if (fs.existsSync(installTarget.settingsPath)) {
-    updateExistingSettingsDefaultProfile(installTarget.settingsPath, profileId, fs.readFileSync, fs.writeFileSync);
-  } else {
-    fs.writeFileSync(installTarget.settingsPath, createLocalProfileSettingsContent(profileId));
-  }
-
-  const profilePath = fs.join(installTarget.profilesPath, profileId, "profile.yml");
-  if (!fs.existsSync(profilePath)) {
-    fs.mkdirSync(fs.dirname(profilePath), { recursive: true });
-    fs.writeFileSync(profilePath, createUserProfileContent(profileId, label));
-  }
-
-  questionUi.notify(
-    [
-      "Outfitter created profile '" + profileId + "' at " + profilePath + ".",
-      "Outfitter saved settings to " + installTarget.settingsPath + ".",
-      "It applies on the next 'outfitter' launch; restart Outfitter to load the selected profile.",
-    ].join("\n"),
-    "info",
-  );
-};
-
-const runRemoteSettingsOnboarding = async (fs, paths, questionUi) => {
-  const github = normalizeInputValue(await questionUi.input("GitHub catalog repo (owner/repo)", "my_account/outfitter_config"));
-  const ref = normalizeInputValue(await questionUi.input("Catalog ref", "main")) || "main";
-  const settingsPath = normalizeInputValue(await questionUi.input("Catalog settings path", "settings.yml")) || "settings.yml";
-  if (!github || !/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/u.test(github)) {
-    questionUi.notify("Catalog repo must use owner/repo syntax; no settings were changed.", "error");
-    return;
-  }
-  if (settingsPath.startsWith("/") || settingsPath.includes("..")) {
-    questionUi.notify("Catalog settings path must stay inside the repository; no settings were changed.", "error");
-    return;
-  }
-
-  const privateCatalogOnboarding = await loadPrivateCatalogOnboarding();
-  const privateCatalogsAlreadyEnabled = privateCatalogOnboarding.readPrivateProfileCatalogsEnabled(fs, paths.homeSettingsPath);
-  let privateCatalogAccepted = false;
-  if (!privateCatalogsAlreadyEnabled && await privateCatalogOnboarding.classifyGitHubRepositoryVisibility(github) === "private") {
-    const accepted = await questionUi.confirmPrivateCatalog(github);
-    if (!accepted) {
-      questionUi.notify("Private catalog setup was cancelled; no settings were changed.", "warning");
-      return;
-    }
-
-    privateCatalogAccepted = true;
-  }
-
-  const installTarget = await questionUi.selectInstallTarget(paths);
-  if (installTarget === undefined) {
-    questionUi.notify("Outfitter setup cancelled; no settings were changed.", "warning");
-    return;
-  }
-
-  if (privateCatalogAccepted) {
-    privateCatalogOnboarding.writePrivateProfileCatalogsEnabled(fs, paths.homeSettingsPath);
-  }
-
-  const privateCatalogsEnabled = privateCatalogsAlreadyEnabled || privateCatalogAccepted;
-  fs.mkdirSync(fs.dirname(installTarget.settingsPath), { recursive: true });
-  fs.writeFileSync(installTarget.settingsPath, createRemoteSettingsContent(github, ref, settingsPath, privateCatalogsEnabled && installTarget.settingsPath === paths.homeSettingsPath));
-  questionUi.notify(
-    privateCatalogAccepted
-      ? "Outfitter enabled private profile catalogs in ~/.outfitter/settings.yml and saved this catalog."
-      : [
-          "Outfitter saved remote settings catalog to " + installTarget.settingsPath + ".",
-          "Run 'outfitter sync' or restart Outfitter after the catalog is reachable.",
-        ].join("\n"),
-    "info",
-  );
-};
-
-const runProvidedSourceOnboarding = async (fs, paths, questionUi, sourceUri) => {
-  const installTarget = await questionUi.selectInstallTarget(paths);
-  if (installTarget === undefined) {
-    questionUi.notify("Outfitter setup cancelled; no settings were changed.", "warning");
-    return;
-  }
-
-  fs.mkdirSync(fs.dirname(installTarget.settingsPath), { recursive: true });
-  fs.writeFileSync(installTarget.settingsPath, createProvidedSourceSettingsContent(sourceUri));
-  questionUi.notify(
-    [
-      "Outfitter saved setup source to " + installTarget.settingsPath + ".",
-      "Run 'outfitter sync' or restart Outfitter after the source is reachable.",
-    ].join("\n"),
-    "info",
-  );
-};
-
-const normalizeInputValue = (value) => typeof value === "string" ? value.trim() : undefined;
-
-const createProvidedSourceSettingsContent = (sourceUri) =>
-  ["remote_settings:", "  - uri: " + JSON.stringify(sourceUri), "    path: settings.yml", ""].join("\n");
-
-const readCurrentDefaultProfile = (settingsPath, existsSync, readFileSync) => {
-  if (!existsSync(settingsPath)) return undefined;
-  const match = /^default_profile:\s*([^\n#]+)/mu.exec(readFileSync(settingsPath, "utf8"));
-  return match?.[1]?.trim().replace(/^['"]|['"]$/gu, "");
-};
-
-const discoverProfileChoices = (fs, paths, currentDefault) => {
-  const discovered = new Map();
-  const addProfile = (profile) => {
-    if (!profile?.id || !OUTFITTER_PROFILE_ID_PATTERN.test(profile.id)) return;
-    const existing = discovered.get(profile.id);
-    discovered.set(profile.id, {
-      id: profile.id,
-      label: profile.label ?? existing?.label,
-      description: profile.description ?? existing?.description,
-    });
-  };
-
-  for (const profile of readProfilesFromSource(fs, paths.defaultProfilesPath)) addProfile(profile);
-
-  return [...discovered.values()].sort((left, right) => compareProfiles(left, right, currentDefault));
-};
-
-const readProfilesFromSource = (fs, sourcePath) => {
-  if (!sourcePath || !fs.existsSync(sourcePath)) return [];
-  let entries;
-  try {
-    entries = fs.readdirSync(sourcePath).sort();
-  } catch {
-    return [];
-  }
-
-  return entries.flatMap((entryName) => {
-    const entryPath = fs.join(sourcePath, entryName);
-    let entryStat;
-    try {
-      entryStat = fs.statSync(entryPath);
-    } catch {
-      return [];
-    }
-
-    if (entryStat.isDirectory()) {
-      const profilePath = fs.join(entryPath, "profile.yml");
-      return fs.existsSync(profilePath) ? [readProfileYaml(fs.readFileSync(profilePath, "utf8"), entryName)] : [];
-    }
-
-    if (!entryStat.isFile() || !/\.ya?ml$/u.test(entryName) || entryName === "profile.yml") return [];
-    return [readProfileYaml(fs.readFileSync(entryPath, "utf8"), entryName.replace(/\.ya?ml$/u, ""))];
-  }).filter((profile) => profile.template !== true);
-};
-
-const readProfileYaml = (content, fallbackId) => ({
-  id: readYamlString(content, "id") ?? fallbackId,
-  label: readYamlString(content, "label"),
-  description: readYamlString(content, "description"),
-  template: readYamlString(content, "template") === "true",
-});
-
-const readYamlString = (content, key) => {
-  const match = new RegExp("^" + key + ":\\s*([^\\n#]+)", "mu").exec(content);
-  return match?.[1]?.trim().replace(/^['"]|['"]$/gu, "");
-};
-
-const compareProfiles = (left, right, currentDefault) => {
-  if (currentDefault !== undefined) {
-    if (left.id === currentDefault) return -1;
-    if (right.id === currentDefault) return 1;
-  }
-  if (left.id === "founder") return -1;
-  if (right.id === "founder") return 1;
-  return left.id.localeCompare(right.id);
+// Runs the described-option picker when Pi supports custom UI, otherwise falls back to a plain
+// label list, then resolves whichever form's answer back to the chosen item's `value`.
+const selectFromItems = async (ctx, titleLines, items, initialValue) => {
+  const selected =
+    typeof ctx.ui.custom === 'function'
+      ? await selectDescribedOption(ctx, titleLines, items, initialValue)
+      : await ctx.ui.select(
+          titleLines.join('\n'),
+          items.map((item) => item.label),
+        );
+  if (selected === undefined) return undefined;
+  return items.some((item) => item.value === selected) ? selected : items.find((item) => item.label === selected)?.value;
 };
 
 const selectDescribedOption = (ctx, titleLines, items, initialValue) =>
   ctx.ui.custom((tui, theme, _keybindings, done) => {
-    let selectedIndex = Math.max(0, items.findIndex((item) => item.value === initialValue));
+    let selectedIndex = Math.max(
+      0,
+      items.findIndex((item) => item.value === initialValue),
+    );
     const labelWidth = Math.max(...items.map((item) => item.label.length));
     let cachedWidth;
     let cachedLines;
@@ -641,17 +481,13 @@ const selectDescribedOption = (ctx, titleLines, items, initialValue) =>
       selectedIndex = Math.max(0, Math.min(items.length - 1, selectedIndex + delta));
       refresh();
     };
-
     const render = (width) => {
-      const maxWidth = typeof width === "number" && width > 0 ? width : 120;
+      const maxWidth = typeof width === 'number' && width > 0 ? width : 120;
       if (cachedLines && cachedWidth === maxWidth) return cachedLines;
-
       const lines = [];
       const add = (line) => lines.push(visibleWidth(line) > maxWidth ? truncateToWidth(line, maxWidth) : line);
-      const addWrapped = (line, widthForWrap = maxWidth, prefix = "") => {
-        for (const wrappedLine of wrapTextWithAnsi(line, Math.max(1, widthForWrap))) {
-          add(prefix + wrappedLine);
-        }
+      const addWrapped = (line, widthForWrap = maxWidth, prefix = '') => {
+        for (const wrappedLine of wrapTextWithAnsi(line, Math.max(1, widthForWrap))) add(prefix + wrappedLine);
       };
       const renderSelectedItem = (prefix, label, description) => {
         const baseLine = prefix + label;
@@ -659,37 +495,34 @@ const selectDescribedOption = (ctx, titleLines, items, initialValue) =>
           add(baseLine);
           return;
         }
-
         const inlineDescriptionWidth = maxWidth - visibleWidth(baseLine) - 2;
-        const descriptionText = theme.fg("muted", description);
+        const descriptionText = theme.fg('muted', description);
         if (inlineDescriptionWidth >= 30) {
-          const [firstLine = "", ...remainingLines] = wrapTextWithAnsi(descriptionText, inlineDescriptionWidth);
-          add(baseLine + "  " + firstLine);
-          const continuationPrefix = " ".repeat(Math.min(maxWidth, visibleWidth(baseLine) + 2));
+          const [firstLine = '', ...remainingLines] = wrapTextWithAnsi(descriptionText, inlineDescriptionWidth);
+          add(baseLine + '  ' + firstLine);
+          const continuationPrefix = ' '.repeat(Math.min(maxWidth, visibleWidth(baseLine) + 2));
           for (const line of remainingLines) add(continuationPrefix + line);
           return;
         }
-
         add(baseLine);
-        addWrapped(descriptionText, maxWidth - 2, "  ");
+        addWrapped(descriptionText, maxWidth - 2, '  ');
       };
 
-      add(theme.fg("accent", "─".repeat(maxWidth)));
-      titleLines.forEach((line, index) => addWrapped(index === 0 ? theme.fg("text", " " + line) : theme.fg("dim", " " + line)));
-      lines.push("");
-
+      add(theme.fg('accent', '─'.repeat(maxWidth)));
+      titleLines.forEach((line, index) =>
+        addWrapped(index === 0 ? theme.fg('text', ' ' + line) : theme.fg('dim', ' ' + line)),
+      );
+      lines.push('');
       items.forEach((item, index) => {
         const selected = index === selectedIndex;
-        const prefix = selected ? theme.fg("accent", "→ ") : "  ";
+        const prefix = selected ? theme.fg('accent', '→ ') : '  ';
         const paddedLabel = item.label.padEnd(labelWidth);
-        const label = selected ? theme.fg("accent", paddedLabel) : paddedLabel;
+        const label = selected ? theme.fg('accent', paddedLabel) : paddedLabel;
         renderSelectedItem(prefix, label, selected ? item.description : undefined);
       });
-
-      lines.push("");
-      add(theme.fg("dim", "↑↓ navigate  enter select  escape/ctrl+c cancel"));
-      add(theme.fg("accent", "─".repeat(maxWidth)));
-
+      lines.push('');
+      add(theme.fg('dim', '↑↓ navigate  enter select  escape/ctrl+c cancel'));
+      add(theme.fg('accent', '─'.repeat(maxWidth)));
       cachedWidth = maxWidth;
       cachedLines = lines;
       return lines;
@@ -703,47 +536,14 @@ const selectDescribedOption = (ctx, titleLines, items, initialValue) =>
         if (matchesKey(data, Key.up)) move(-1);
         else if (matchesKey(data, Key.down)) move(1);
         else if (matchesKey(data, Key.enter)) finish(items[selectedIndex]?.value);
-        else if (matchesKey(data, Key.escape) || matchesKey(data, Key.ctrl("c"))) finish(undefined);
+        else if (matchesKey(data, Key.escape) || matchesKey(data, Key.ctrl('c'))) finish(undefined);
       },
     };
   });
 
 const formatProfileLabel = (profile, currentDefault) => {
-  const current = profile.id === currentDefault ? " (current)" : "";
-  const recommended = currentDefault === undefined && profile.id === "founder" ? " (Recommended)" : "";
-  const label = profile.label ? " — " + profile.label : "";
+  const current = profile.id === currentDefault ? ' (current)' : '';
+  const recommended = currentDefault === undefined && profile.id === 'founder' ? ' (Recommended)' : '';
+  const label = profile.label ? ' — ' + profile.label : '';
   return profile.id + label + current + recommended;
 };
-
-const createDefaultSettingsContent = (profileId) =>
-  OUTFITTER_DEFAULT_SETTINGS_TEMPLATE.replace("__OUTFITTER_PROFILE_ID__", profileId);
-
-const createLocalProfileSettingsContent = (profileId) =>
-  ["default_profile: " + profileId, "profile_sources:", "  - path: ./profiles", ""].join("\n");
-
-const createRemoteSettingsContent = (github, ref, path, privateCatalogsEnabled = false) =>
-  [
-    ...(privateCatalogsEnabled ? ["enterprise:", "  private_profile_catalogs: true"] : []),
-    "remote_settings:",
-    "  - github: " + github,
-    "    ref: " + ref,
-    "    path: " + path,
-    "",
-  ].join("\n");
-
-const updateExistingSettingsDefaultProfile = (settingsPath, profileId, readFileSync, writeFileSync) => {
-  const content = readFileSync(settingsPath, "utf8");
-  const nextContent = /^default_profile:.*$/mu.test(content)
-    ? content.replace(/^default_profile:.*$/gmu, "default_profile: " + profileId)
-    : content.replace(/\s*$/u, "\n") + "default_profile: " + profileId + "\n";
-  writeFileSync(settingsPath, nextContent);
-};
-
-const createUserProfileContent = (profileId, label) =>
-  [
-    "id: " + profileId,
-    "label: " + (label || profileId),
-    "description: User-created Outfitter profile.",
-    "controls: {}",
-    "",
-  ].join("\n");

@@ -20,27 +20,24 @@ export const confirmPrivateCatalog = async (ctx, selectDescribedOption, reposito
 export const readPrivateProfileCatalogsEnabled = (fs, settingsPath) => {
   if (!fs.existsSync(settingsPath)) return false;
   const content = fs.readFileSync(settingsPath, 'utf8');
-  return /^enterprise:\s*(?:\n\s+[A-Za-z0-9_-]+:\s*[^\n]*)*\n\s+private_profile_catalogs:\s*true\s*$/mu.test(content);
+  return /^enterprise:\s*(?:\n\s+[A-Za-z0-9_-]+:\s*[^\n]*)*\n\s+private_catalogs:\s*true\s*$/mu.test(content);
 };
 
 export const writePrivateProfileCatalogsEnabled = (fs, settingsPath) => {
   fs.mkdirSync(fs.dirname(settingsPath), { recursive: true });
   const content = fs.existsSync(settingsPath) ? fs.readFileSync(settingsPath, 'utf8') : '';
-  if (/^\s*private_profile_catalogs:\s*(?:true|false)\s*$/mu.test(content)) {
+  if (/^\s*private_catalogs:\s*(?:true|false)\s*$/mu.test(content)) {
     fs.writeFileSync(
       settingsPath,
-      content.replace(/^\s*private_profile_catalogs:\s*(?:true|false)\s*$/gmu, '  private_profile_catalogs: true'),
+      content.replace(/^\s*private_catalogs:\s*(?:true|false)\s*$/gmu, '  private_catalogs: true'),
     );
     return;
   }
   if (/^enterprise:\s*$/mu.test(content)) {
-    fs.writeFileSync(
-      settingsPath,
-      content.replace(/^enterprise:\s*$/mu, 'enterprise:\n  private_profile_catalogs: true'),
-    );
+    fs.writeFileSync(settingsPath, content.replace(/^enterprise:\s*$/mu, 'enterprise:\n  private_catalogs: true'));
     return;
   }
-  fs.writeFileSync(settingsPath, content.replace(/\s*$/u, '\n') + 'enterprise:\n  private_profile_catalogs: true\n');
+  fs.writeFileSync(settingsPath, content.replace(/\s*$/u, '\n') + 'enterprise:\n  private_catalogs: true\n');
 };
 
 export const classifyGitHubRepositoryVisibility = async (repository) => {

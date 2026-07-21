@@ -324,11 +324,11 @@ describe('run agent', () => {
       write(join(input.homeDirectory, '.agents', 'settings.yml'), 'default_agent: assistant\ndefault_harness: pi\n');
       return Promise.resolve({
         created: [],
+        updated: [],
         settingsPath: join(input.homeDirectory, '.agents', 'settings.yml'),
         defaultAgent: 'assistant',
         defaultHarness: 'pi' as const,
-        alreadyConfigured: false,
-        messages: ['[setup] created a starter agent.'],
+        messages: ['[setup] created a profile.'],
       });
     };
 
@@ -336,7 +336,7 @@ describe('run agent', () => {
 
     expect(result.exitCode).toBe(0);
     expect(result.launchPlan!.command).toBe('pi'); // launched the just-created default agent
-    expect(result.messages).toContain('[setup] created a starter agent.');
+    expect(result.messages).toContain('[setup] created a profile.');
   });
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-010.1.2).

@@ -55,6 +55,28 @@ export const resolveAgentLaunchExecutable = (launchPlan: AgentLaunchPlan): Agent
   };
 };
 
+/* v8 ignore start -- real process spawn is covered by end-to-end smoke usage, not unit tests. */
+export const spawnLauncher: AgentProcessLauncher = {
+  async launch(plan: AgentLaunchPlan): Promise<number> {
+    const { default: spawn } = await import('cross-spawn');
+    return await new Promise<number>((resolve, reject) => {
+      const child = spawn(plan.command, [...plan.args], { stdio: 'inherit', env: { ...process.env, ...plan.env } });
+      child.on('error', reject); // ENOENT surfaces as an actionable install message
+      child.on('close', (code, signal) => resolve(code ?? (signal ? 1 : 0)));
+    });
+  },
+};
+/* v8 ignore stop */
+
+/**
+ * Launches a resolved plan through the given spawn boundary. The install-hint agentId is derived
+ * from the logical launch command ('pi' | 'claude') so a missing-CLI failure always names the
+ * harness actually being launched, regardless of how the harness was selected (flag, settings
+ * default, or built-in fallback).
+ */
+export const launchThroughSpawn = (spawn: AgentProcessLauncher, plan: AgentLaunchPlan): Promise<number> =>
+  launchAgentProcess(spawn, resolveAgentLaunchExecutable(plan), plan.command);
+
 const isCommandNotFoundError = (error: unknown): boolean =>
   error !== null && typeof error === 'object' && 'code' in error && (error as { code?: unknown }).code === 'ENOENT';
 
