@@ -22,6 +22,7 @@ An agent is the protocol's identity resource — and, in Outfitter, the thing yo
 ```markdown
 ---
 name: engineer
+label: Engineer
 description: Implements features and fixes with a bias toward small, verifiable changes.
 skills: [wiki, research]
 subagents: [code-reviewer]
@@ -38,6 +39,10 @@ tools:
 
 You implement changes directly, keep diffs small, and verify before claiming done...
 ```
+
+`name` is the stable slug used for resolution. The optional `label` is the human-readable profile
+name shown during setup and in interactive harness UI. When `label` is omitted, Outfitter uses the
+first level-one Markdown heading, then falls back to the slug.
 
 Keep the prose focused on durable identity and behavior. Per-capability procedures belong in [skills](./skills.md); the frontmatter only _selects_ resources by slug — it never copies their content.
 

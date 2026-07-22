@@ -22,6 +22,7 @@ import { resolveEffectiveSet } from '../../resolver/ResolverContext.js';
 import type { Harness } from '../../settings/Settings.js';
 import { HARNESSES } from '../../settings/Settings.js';
 import type { SetupResult } from '../../setup/Setup.js';
+import { readOutfitterVersion } from '../../version/OutfitterVersion.js';
 import type { CommandObject } from './CommandObject.js';
 import { attachPiRuntimeExtension } from './PiRuntimeLaunch.js';
 import { resolveHomeDirectory, resolveProjectDirectory } from './ProcessDefaults.js';
@@ -209,9 +210,12 @@ export const executeRunAgentCommand = async (input: RunAgentInput): Promise<RunA
     const messages = [...setupMessages, ...warnings];
     emit(messages);
 
-    // Attach the Outfitter runtime extension so interactive pi sessions restore the "connect a
-    // model provider" sign-in prompt when no models are available, instead of pi's raw warning.
-    const launch = attachPiRuntimeExtension(projection.launch);
+    // Attach the Outfitter runtime UI and sign-in extension to interactive pi sessions.
+    const launch = attachPiRuntimeExtension(projection.launch, {
+      outfitterVersion: readOutfitterVersion(),
+      profile: { id: agentSlug, label: composed.plan.identity.label },
+      rootDirectory,
+    });
     const exitCode = await launchWithCredentialPersistence(input, harness, rootDirectory, launch);
 
     return { launchPlan: launch, exitCode, messages };

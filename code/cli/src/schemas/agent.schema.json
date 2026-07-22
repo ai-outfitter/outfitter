@@ -6,6 +6,7 @@
   "required": ["name"],
   "properties": {
     "name": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$", "maxLength": 64 },
+    "label": { "type": "string", "minLength": 1 },
     "description": { "type": "string" },
     "skills": {
       "$ref": "#/$defs/slugList",
