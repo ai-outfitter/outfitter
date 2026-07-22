@@ -175,6 +175,22 @@ describe('run agent', () => {
     expect(result.messages.join(' ')).toContain("cannot project loadout element 'extensions'");
   });
 
+  it('declares harness-owned runtime state paths for write accounting', async () => {
+    const { home, project } = tree();
+    const result = await executeRunAgentCommand({
+      homeDirectory: home,
+      projectDirectory: project,
+      agent: 'engineer',
+      harness: 'pi',
+      launcher: (plan) => {
+        write(join(plan.env.PI_CODING_AGENT_DIR, 'sessions', 'one.json'), '{}');
+        return Promise.resolve(0);
+      },
+    });
+    expect(captured).toHaveLength(0);
+    expect(result.messages.join(' ')).not.toContain('undeclared runtime projection state');
+  });
+
   it('fails under --strict on an unsupported element and never launches', async () => {
     const { home, project } = tree();
     const result = await executeRunAgentCommand({

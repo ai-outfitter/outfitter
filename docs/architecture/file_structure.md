@@ -47,7 +47,7 @@ Outfitter is organized around a private npm workspace root, clear TypeScript pac
 │   │   │   ├── sources/               # remote `.agents` source cache paths and reference normalization
 │   │   │   ├── resolver/              # .agents layer resolution into one effective resource set
 │   │   │   ├── composer/              # harness-neutral CompositionPlan from the effective set
-│   │   │   ├── projection/            # materialize a composition + build a pi/claude launch plan
+│   │   │   ├── projection/            # materialize/project a composition; monitor ephemeral runtime writes
 │   │   │   ├── dump/                  # deterministic self-contained `.agents` tree output
 │   │   │   ├── merge/                 # deterministic value and array merge policy helpers
 │   │   │   ├── agents/                # AgentLaunch: bundled-pi resolution and process launch boundary

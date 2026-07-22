@@ -17,6 +17,7 @@ import type { PiInstallSpawner } from '../../extensions/PiExtensionCache.js';
 import { resolveOutfitterCacheDir } from '../../paths/OutfitterCache.js';
 import { projectComposition } from '../../projection/ProjectHarness.js';
 import type { AgentLaunchPlan } from '../../projection/Projection.js';
+import type { ProjectionStateMonitorDependencies } from '../../projection/ProjectionStateMonitor.js';
 import { resolveEffectiveSet } from '../../resolver/ResolverContext.js';
 import type { Harness } from '../../settings/Settings.js';
 import { HARNESSES } from '../../settings/Settings.js';
@@ -25,6 +26,9 @@ import type { CommandObject } from './CommandObject.js';
 import { attachPiRuntimeExtension } from './PiRuntimeLaunch.js';
 import { resolveHomeDirectory, resolveProjectDirectory } from './ProcessDefaults.js';
 import { runSetup } from './SetupCommand.js';
+import { resolveClaudeLoginHint } from './run/RunClaudeOnboarding.js';
+import { runWithProjectionStateMonitoring } from './run/RunProjectionState.js';
+import type { RunProjectionStateResult } from './run/RunProjectionState.js';
 
 export type AgentProcessLauncher = (plan: AgentLaunchPlan) => Promise<number>;
 
@@ -54,6 +58,10 @@ export interface RunAgentInput {
   readonly writeLine?: (message: string) => void;
   /** Test seam for the `pi install` boundary used to cache pi extensions. */
   readonly extensionInstallSpawner?: PiInstallSpawner;
+  /** Override terminal detection for Claude's native-login handoff. */
+  readonly interactive?: boolean;
+  /** Test seams for live runtime-projection state monitoring. */
+  readonly stateWriteMonitor?: ProjectionStateMonitorDependencies;
 }
 
 export interface RunAgentResult {
@@ -110,14 +118,25 @@ const launchWithCredentialPersistence = async (
   harness: Harness,
   rootDirectory: string,
   launch: AgentLaunchPlan,
-): Promise<number> => {
+  statePaths: ReturnType<typeof projectComposition>['statePaths'],
+): Promise<{ readonly exitCode: number; readonly warnings: readonly string[] }> => {
   const piUserAgentDirectory = harness === 'pi' ? resolvePiUserAgentDirectory(input.homeDirectory) : undefined;
   if (piUserAgentDirectory !== undefined) seedPiCredentials(rootDirectory, piUserAgentDirectory);
 
-  const exitCode = await input.launcher(launch);
-  if (piUserAgentDirectory !== undefined) persistPiCredentials(rootDirectory, piUserAgentDirectory);
-
-  return exitCode;
+  return runWithProjectionStateMonitoring({
+    rootDirectory,
+    homeDirectory: input.homeDirectory,
+    harness,
+    agent: launch.command,
+    statePaths,
+    notify: input.writeLine ?? (() => undefined),
+    monitor: input.stateWriteMonitor,
+    launch: async () => {
+      const exitCode = await input.launcher(launch);
+      if (piUserAgentDirectory !== undefined) persistPiCredentials(rootDirectory, piUserAgentDirectory);
+      return exitCode;
+    },
+  });
 };
 
 // Installs/caches the pi extensions for the composed agent (pi only) so they load at launch.
@@ -134,12 +153,46 @@ const resolvePiExtensions = async (
   });
 };
 
-export const executeRunAgentCommand = async (input: RunAgentInput): Promise<RunAgentResult> => {
-  // Flush messages to the terminal (before launch); they are also returned so callers can inspect them.
-  const emit = (messages: readonly string[]): void => {
-    for (const message of messages) input.writeLine?.(message);
-  };
+const emitMessages = (input: RunAgentInput, messages: readonly string[]): void => {
+  for (const message of messages) input.writeLine?.(message);
+};
 
+const createPrelaunchMessages = (
+  input: RunAgentInput,
+  harness: Harness,
+  setupMessages: readonly string[],
+  warnings: readonly string[],
+): readonly string[] => {
+  const claudeLoginHint = resolveClaudeLoginHint({
+    harness,
+    homeDirectory: input.homeDirectory,
+    passThroughArgs: input.passThroughArgs ?? [],
+    interactive: input.interactive ?? Boolean(process.stdin.isTTY && process.stdout.isTTY),
+  });
+  return [...setupMessages, ...warnings, ...(claudeLoginHint === undefined ? [] : [claudeLoginHint])];
+};
+
+const finishProjectionStateRun = (
+  input: RunAgentInput,
+  launch: AgentLaunchPlan,
+  messages: readonly string[],
+  stateResult: RunProjectionStateResult,
+): RunAgentResult => {
+  emitMessages(input, stateResult.warnings);
+  if (input.strict !== true || stateResult.warnings.length === 0) {
+    return { launchPlan: launch, exitCode: stateResult.exitCode, messages: [...messages, ...stateResult.warnings] };
+  }
+
+  const strictMessage = 'Strict mode: undeclared runtime projection writes are fatal.';
+  emitMessages(input, [strictMessage]);
+  return {
+    launchPlan: launch,
+    exitCode: 1,
+    messages: [...messages, ...stateResult.warnings, strictMessage],
+  };
+};
+
+export const executeRunAgentCommand = async (input: RunAgentInput): Promise<RunAgentResult> => {
   let resolved = resolveEffectiveSet(input);
   assertNoSettingsIssues(resolved.settingsIssues);
 
@@ -165,7 +218,7 @@ export const executeRunAgentCommand = async (input: RunAgentInput): Promise<RunA
 
   if (composed.plan === undefined) {
     const messages = [...setupMessages, ...composed.errors];
-    emit(messages);
+    emitMessages(input, messages);
     return { exitCode: 1, messages };
   }
 
@@ -197,20 +250,25 @@ export const executeRunAgentCommand = async (input: RunAgentInput): Promise<RunA
         ...warnings,
         'Strict mode: composition warnings and unsupported elements are fatal.',
       ];
-      emit(messages);
+      emitMessages(input, messages);
       return { exitCode: 1, messages };
     }
 
     // Emit setup notices and warnings before launch so they precede the pi session on the terminal.
-    const messages = [...setupMessages, ...warnings];
-    emit(messages);
+    const messages = createPrelaunchMessages(input, harness, setupMessages, warnings);
+    emitMessages(input, messages);
 
     // Attach the Outfitter runtime extension so interactive pi sessions restore the "connect a
     // model provider" sign-in prompt when no models are available, instead of pi's raw warning.
     const launch = attachPiRuntimeExtension(projection.launch);
-    const exitCode = await launchWithCredentialPersistence(input, harness, rootDirectory, launch);
-
-    return { launchPlan: launch, exitCode, messages };
+    const stateResult = await launchWithCredentialPersistence(
+      input,
+      harness,
+      rootDirectory,
+      launch,
+      projection.statePaths,
+    );
+    return finishProjectionStateRun(input, launch, messages, stateResult);
   } finally {
     if (input.retainProjection !== true) {
       rmSync(rootDirectory, { recursive: true, force: true });

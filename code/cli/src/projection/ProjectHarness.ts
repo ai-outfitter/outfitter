@@ -2,7 +2,7 @@
 import type { CompositionPlan } from '../composer/Composition.js';
 import type { Harness } from '../settings/Settings.js';
 import { materializeComposition } from './Materialize.js';
-import type { AgentLaunchPlan, AgentProjectionPlan, ProjectionInput } from './Projection.js';
+import type { AgentLaunchPlan, AgentProjectionPlan, ProjectedStatePath, ProjectionInput } from './Projection.js';
 
 // Loadout elements a projection actually maps to native config. Anything else is reported
 // unsupported so `--strict` catches silently-dropped selections. Baseline for both harnesses is
@@ -76,6 +76,25 @@ const buildLaunchPlan = (
   };
 };
 
+const projectedStatePaths = (harness: Harness): readonly ProjectedStatePath[] =>
+  harness === 'pi'
+    ? [
+        { relativePath: 'auth.json', kind: 'file' },
+        { relativePath: 'models.json', kind: 'file' },
+        { relativePath: 'settings.json', kind: 'file' },
+        { relativePath: 'keybindings.json', kind: 'file' },
+        { relativePath: 'sessions', kind: 'directory' },
+      ]
+    : [
+        { relativePath: '.credentials.json', kind: 'file' },
+        { relativePath: 'settings.json', kind: 'file' },
+        { relativePath: 'agents', kind: 'directory' },
+        { relativePath: 'skills', kind: 'directory' },
+        { relativePath: 'commands', kind: 'directory' },
+        { relativePath: 'plugins', kind: 'directory' },
+        { relativePath: 'projects', kind: 'directory' },
+      ];
+
 /** Materializes the composition into the runtime root and builds the harness launch plan. */
 export const projectComposition = (composition: CompositionPlan, input: ProjectionInput): AgentProjectionPlan => {
   const materialized = materializeComposition(composition, input.rootDirectory);
@@ -85,5 +104,5 @@ export const projectComposition = (composition: CompositionPlan, input: Projecti
     ...materialized.skippedSkills.map((slug) => `skill:${slug} (escaping symlink)`),
   ];
 
-  return { rootDirectory: input.rootDirectory, launch, unsupported };
+  return { rootDirectory: input.rootDirectory, launch, statePaths: projectedStatePaths(input.harness), unsupported };
 };
