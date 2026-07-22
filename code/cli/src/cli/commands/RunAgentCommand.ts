@@ -104,6 +104,8 @@ const resolveHarness = (settingsDefault: Harness | undefined, requested: string 
   return harness as Harness;
 };
 
+const discardLine = (_message: string): void => undefined;
+
 const assertNoSettingsIssues = (issues: readonly { readonly message: string }[]): void => {
   if (issues.length > 0) {
     throw new Error(`Cannot run with invalid settings: ${issues.map((issue) => issue.message).join('; ')}`);
@@ -116,6 +118,7 @@ const assertNoSettingsIssues = (issues: readonly { readonly message: string }[])
 const launchWithCredentialPersistence = async (
   input: RunAgentInput,
   harness: Harness,
+  agent: string,
   rootDirectory: string,
   launch: AgentLaunchPlan,
   statePaths: ReturnType<typeof projectComposition>['statePaths'],
@@ -127,9 +130,9 @@ const launchWithCredentialPersistence = async (
     rootDirectory,
     homeDirectory: input.homeDirectory,
     harness,
-    agent: launch.command,
+    agent,
     statePaths,
-    notify: input.writeLine ?? (() => undefined),
+    notify: input.writeLine ?? discardLine,
     monitor: input.stateWriteMonitor,
     launch: async () => {
       const exitCode = await input.launcher(launch);
@@ -264,6 +267,7 @@ export const executeRunAgentCommand = async (input: RunAgentInput): Promise<RunA
     const stateResult = await launchWithCredentialPersistence(
       input,
       harness,
+      agentSlug,
       rootDirectory,
       launch,
       projection.statePaths,

@@ -1,5 +1,14 @@
 // Tests near-real-time undeclared runtime-projection writes and crash journals.
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs';
 import type { FSWatcher, watch } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
@@ -94,6 +103,13 @@ describe('projection state classification', () => {
       ['notes/deep.txt'],
     );
   });
+
+  it('fingerprints generated symbolic links without reading their targets', () => {
+    const root = createTemporaryRoot();
+    symlinkSync('missing-target', join(root, 'generated-link'));
+
+    expect(createProjectionStateBaseline(root).fingerprints.get('generated-link')).toBe('symlink:14');
+  });
 });
 
 describe('projection state live monitor', () => {
@@ -178,6 +194,30 @@ describe('projection state live monitor', () => {
     });
     expect(notices).toEqual(['Could not watch runtime projection state writes: Error: watch unavailable']);
     failed.close();
+  });
+
+  it('uses unrefed runtime timers for notices and cancels a pending flush on close', async () => {
+    const root = createTemporaryRoot();
+    const fakeWatch = createFakeWatch();
+    const notices: string[] = [];
+    const monitor = watchProjectionStateWrites({
+      rootDirectory: root,
+      harness: 'pi',
+      baseline: createProjectionStateBaseline(root),
+      statePaths: [],
+      notify: (message) => notices.push(message),
+      warn: (message) => notices.push(message),
+      watchFactory: fakeWatch.factory,
+      throttleMs: 1,
+    });
+
+    fakeWatch.emit('first.txt');
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    expect(notices).toHaveLength(1);
+    fakeWatch.emit('pending.txt');
+    monitor.close();
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    expect(notices).toHaveLength(1);
   });
 });
 
@@ -318,5 +358,26 @@ describe('run projection state accounting', () => {
         "were observed and not persisted: 'ghost.txt'.",
     );
     expect(readdirSync(journalDirectory)).toEqual([]);
+  });
+
+  it('keeps the harness exit code while reporting writes outside strict mode', async () => {
+    const root = createTemporaryRoot();
+    const homeDirectory = join(root, 'home');
+    const projectDirectory = join(root, 'project');
+    write(join(projectDirectory, '.agents', 'agents', 'engineer', 'agent.md'), '---\nname: engineer\n---\n');
+    const result = await executeRunAgentCommand({
+      homeDirectory,
+      projectDirectory,
+      agent: 'engineer',
+      launcher: (plan) => {
+        write(join(plan.env.PI_CODING_AGENT_DIR, 'unexpected.txt'), 'write');
+        return Promise.resolve(7);
+      },
+    });
+
+    expect(result.exitCode).toBe(7);
+    expect(result.messages).toContain(
+      "pi wrote undeclared runtime projection state 'unexpected.txt' and it was not persisted.",
+    );
   });
 });
