@@ -10,7 +10,6 @@
   ],
   "scripts": {
     "build": "npm run build --workspace @ai-outfitter/outfitter",
-    "prepare": "npm run build --workspace @ai-outfitter/outfitter",
     "dev_install": "npm run dev_install --workspace @ai-outfitter/outfitter",
     "docs:dev": "npm --prefix code/doc_site run dev --",
     "docs:build": "npm --prefix code/doc_site run build",
