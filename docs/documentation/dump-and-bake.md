@@ -23,6 +23,7 @@ Use dumps to:
 - **Self-contained** — the dumped tree resolves with no remote sources and no cache.
 - **Safe** — a dump may include reviewable source provenance, but never credentials, auth state, sessions, transcripts, caches, backups, mutable harness state, or symlinks escaping the tree.
 - **Protocol-shaped** — the output is a valid `.agents` payload usable by any protocol consumer, not just Outfitter. Any Outfitter-specific provenance metadata is namespaced, JSON-based, and removable without losing the underlying resources.
+- **Harness-discoverable** — selected agent-local skills are flattened into top-level `skills/<id>/` in the closure output, with their packaged references, scripts, and assets intact.
 
 ## Bake
 

@@ -5,6 +5,14 @@ export type ResourceKind = 'agent' | 'skill' | 'knowledge' | 'command';
 
 export const resourceKinds: readonly ResourceKind[] = ['agent', 'skill', 'knowledge', 'command'];
 
+/**
+ * Kinds that also resolve **agent-local** — discovered under `agents/<agent>/<container>/` and
+ * resolved local-first before catalog fallback. Excludes `agent` (no nested subagents; a delegate is
+ * a shared catalog agent). mcp/hooks are handled separately (config file / reserved namespace), not
+ * as slug-container kinds.
+ */
+export const agentLocalKinds: readonly ResourceKind[] = ['skill', 'knowledge', 'command'];
+
 /** Where a layer originates, highest precedence first. */
 export type LayerOrigin = 'workspace' | 'global' | 'source';
 
@@ -43,6 +51,8 @@ export interface ResourceDefinition {
   readonly layer: Layer;
   /** Absolute path to the resource's defining file or directory. */
   readonly path: string;
+  /** Agent that owns this definition when it is nested beneath `agents/<agent>/<kind>/`. */
+  readonly ownerAgent?: string;
 }
 
 /** The winning definition for a slug plus any lower-precedence definitions it shadows. */
@@ -57,6 +67,17 @@ export interface ResolvedResource {
    * override one loadout field of a globally defined agent.
    */
   readonly configPaths?: readonly string[];
+  /**
+   * For agents: existing `agents/<slug>/mcp.json` paths across all layers, highest precedence first.
+   * Discovered here so a later projection pass (#183) can merge them over the tree-root `mcp.json`.
+   * Config merges by server id — it does not shadow whole like slug resources.
+   */
+  readonly mcpPaths?: readonly string[];
+  /**
+   * For agents: existing `agents/<slug>/hooks/` directories across all layers. The hooks namespace is
+   * reserved (no protocol hooks entity yet); presence is surfaced as a diagnostic, not resolved.
+   */
+  readonly hookPaths?: readonly string[];
 }
 
 /** Locale-independent, deterministic slug ordering (code-unit comparison). */
@@ -66,6 +87,8 @@ export const compareSlugs = (left: string, right: string): number => (left < rig
 export interface EffectiveResourceSet {
   readonly layers: readonly Layer[];
   readonly resources: ReadonlyMap<ResourceKind, ReadonlyMap<string, ResolvedResource>>;
+  /** Agent-local resources, keyed by owning agent, kind, then slug. */
+  readonly agentResources: ReadonlyMap<string, ReadonlyMap<ResourceKind, ReadonlyMap<string, ResolvedResource>>>;
 }
 
 export const listResources = (set: EffectiveResourceSet, kind: ResourceKind): readonly ResolvedResource[] => {
@@ -83,3 +106,28 @@ export const findResource = (
   kind: ResourceKind,
   slug: string,
 ): ResolvedResource | undefined => set.resources.get(kind)?.get(slug);
+
+export const listAgentResources = (
+  set: EffectiveResourceSet,
+  agentSlug: string,
+  kind: ResourceKind,
+): readonly ResolvedResource[] => {
+  const bySlug = set.agentResources.get(agentSlug)?.get(kind);
+
+  return bySlug === undefined ? [] : [...bySlug.values()].sort((left, right) => compareSlugs(left.slug, right.slug));
+};
+
+export const findAgentResource = (
+  set: EffectiveResourceSet,
+  agentSlug: string,
+  kind: ResourceKind,
+  slug: string,
+): ResolvedResource | undefined => set.agentResources.get(agentSlug)?.get(kind)?.get(slug);
+
+/** Resolves a loadout resource in the selected agent's private namespace before catalog fallback. */
+export const findLoadoutResource = (
+  set: EffectiveResourceSet,
+  agentSlug: string,
+  kind: ResourceKind,
+  slug: string,
+): ResolvedResource | undefined => findAgentResource(set, agentSlug, kind, slug) ?? findResource(set, kind, slug);

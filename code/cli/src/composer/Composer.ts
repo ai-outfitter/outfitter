@@ -4,7 +4,7 @@ import { join } from 'node:path';
 
 import { isAgentDefinitionIssue, readAgentDefinition } from '../resolver/AgentDefinition.js';
 import type { EffectiveResourceSet, Loadout, ResolvedResource } from '../resolver/Resource.js';
-import { findResource } from '../resolver/Resource.js';
+import { findLoadoutResource, findResource } from '../resolver/Resource.js';
 import type { ComposedLoadout, CompositionPlan } from './Composition.js';
 
 export interface ComposeResult {
@@ -27,6 +27,7 @@ const readRootFile = (set: EffectiveResourceSet, fileName: string): string | und
 
 const resolveSlugs = (
   set: EffectiveResourceSet,
+  agentSlug: string,
   kind: 'skill' | 'agent',
   field: string,
   slugs: readonly string[],
@@ -35,7 +36,7 @@ const resolveSlugs = (
   const resolved: ResolvedResource[] = [];
 
   for (const slug of slugs) {
-    const resource = findResource(set, kind, slug);
+    const resource = findLoadoutResource(set, agentSlug, kind, slug);
 
     if (resource === undefined) {
       warnings.push(`loadout ${field} references unknown ${kind} '${slug}'.`);
@@ -47,9 +48,14 @@ const resolveSlugs = (
   return resolved;
 };
 
-const composeLoadout = (set: EffectiveResourceSet, loadout: Loadout, warnings: string[]): ComposedLoadout => ({
-  skills: resolveSlugs(set, 'skill', 'skills', loadout.skills, warnings),
-  subagents: resolveSlugs(set, 'agent', 'subagents', loadout.subagents, warnings),
+const composeLoadout = (
+  set: EffectiveResourceSet,
+  agentSlug: string,
+  loadout: Loadout,
+  warnings: string[],
+): ComposedLoadout => ({
+  skills: resolveSlugs(set, agentSlug, 'skill', 'skills', loadout.skills, warnings),
+  subagents: resolveSlugs(set, agentSlug, 'agent', 'subagents', loadout.subagents, warnings),
   mcp: loadout.mcp,
   extensions: loadout.extensions,
   plugins: loadout.plugins,
@@ -91,7 +97,7 @@ export const compose = (set: EffectiveResourceSet, agentSlug: string): ComposeRe
       agentBody: definition.body,
       description: definition.description,
     },
-    loadout: composeLoadout(set, definition.loadout, warnings),
+    loadout: composeLoadout(set, agentSlug, definition.loadout, warnings),
     warnings,
   };
 

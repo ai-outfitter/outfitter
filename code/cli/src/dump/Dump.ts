@@ -98,7 +98,7 @@ const writeRootFiles = (set: EffectiveResourceSet, outRoot: string, written: str
 
 interface ClosureCompose {
   readonly agents: readonly ResolvedResource[];
-  readonly skillSlugs: readonly string[];
+  readonly skills: readonly ResolvedResource[];
   readonly warnings: readonly string[];
   readonly errors: readonly string[];
 }
@@ -110,7 +110,7 @@ interface ClosureCompose {
 const composeClosure = (set: EffectiveResourceSet, rootSlug: string): ClosureCompose => {
   const seen = new Set<string>();
   const agents: ResolvedResource[] = [];
-  const skillSlugs = new Set<string>();
+  const skills = new Map<string, ResolvedResource>();
   const warnings: string[] = [];
   const errors: string[] = [];
   const queue = [rootSlug];
@@ -135,17 +135,27 @@ const composeClosure = (set: EffectiveResourceSet, rootSlug: string): ClosureCom
     agents.push(findResource(set, 'agent', slug)!);
     warnings.push(...composed.plan.warnings);
     for (const skill of composed.plan.loadout.skills) {
-      skillSlugs.add(skill.slug);
+      const existing = skills.get(skill.slug);
+      if (existing !== undefined && existing.winner.path !== skill.winner.path) {
+        errors.push(`dump closure resolves conflicting definitions for skill '${skill.slug}' and cannot flatten both.`);
+      } else {
+        skills.set(skill.slug, skill);
+      }
     }
     queue.push(...composed.plan.loadout.subagents.map((subagent) => subagent.slug).sort(compareSlugs));
   }
 
-  return { agents, skillSlugs: [...skillSlugs].sort(compareSlugs), warnings, errors };
+  return {
+    agents,
+    skills: [...skills.values()].sort((left, right) => compareSlugs(left.slug, right.slug)),
+    warnings,
+    errors,
+  };
 };
 
-const closureResources = (set: EffectiveResourceSet, closure: ClosureCompose): readonly ResolvedResource[] => [
+const closureResources = (closure: ClosureCompose): readonly ResolvedResource[] => [
   ...closure.agents,
-  ...closure.skillSlugs.map((slug) => findResource(set, 'skill', slug)!),
+  ...closure.skills,
 ];
 
 // A defining file or its config that resolves outside every layer root cannot be safely dumped.
@@ -196,7 +206,7 @@ export const dumpAgent = (set: EffectiveResourceSet, agentSlug: string, outDirec
   }
 
   const roots = layerRoots(set);
-  const safety = containmentErrors(closureResources(set, closure), roots);
+  const safety = containmentErrors(closureResources(closure), roots);
 
   if (safety.length > 0) {
     return failure(safety, closure.warnings);
@@ -220,16 +230,13 @@ export const dumpAgent = (set: EffectiveResourceSet, agentSlug: string, outDirec
 
   for (const agent of closure.agents) {
     const agentTarget = join(outRoot, 'agents', agent.slug);
-    copyResourceDirectory(dirname(agent.winner.path), agentTarget, written, ['config.json']);
+    // Local resources are flattened below so the dumped tree is directly consumable by harnesses.
+    copyResourceDirectory(dirname(agent.winner.path), agentTarget, written, ['config.json', 'skills']);
     writeMergedConfig(agent, agentTarget, written);
   }
 
-  for (const slug of closure.skillSlugs) {
-    copyResourceDirectory(
-      dirname(findResource(set, 'skill', slug)!.winner.path),
-      join(outRoot, 'skills', slug),
-      written,
-    );
+  for (const skill of closure.skills) {
+    copyResourceDirectory(dirname(skill.winner.path), join(outRoot, 'skills', skill.slug), written);
   }
 
   return { writtenPaths: written.sort(compareSlugs), warnings: closure.warnings, errors: [] };

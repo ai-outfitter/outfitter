@@ -35,10 +35,12 @@ _Amended (2026-07-17, RFC #165): a run is defined by a harness-neutral compositi
 _Amended (2026-07-17, RFC #165): composition assembles from the effective resource set._
 
 1. Outfitter MUST compose identity by layering the winning `system-prompt.md` as the base, the winning `agents.md` as shared context, and the selected agent's body on top, in that deterministic order.
-2. Outfitter MUST resolve each loadout slug (`skills`, `subagents`) against the effective resource set to its winning resource.
+2. Outfitter MUST resolve each loadout slug (`skills`, `subagents`) against the effective resource set to its winning resource; skills use the selected agent's local namespace before catalog-wide fallback.
 3. Outfitter MUST report an error when the selected agent slug does not resolve or its definition is invalid.
 4. Outfitter MUST surface a loadout slug that does not resolve as a non-fatal composition warning.
 5. `list`, `validate`, `run`, and `dump` MUST share one resolver (a single effective resource set); the commands that create a selected composition (`run`, `dump`) MUST use the same shared composer.
+6. Runtime projection MUST materialize a selected agent-local skill with the same instructions, references, scripts, and assets as a catalog-wide skill.
+7. Dump MUST place selected agent-local skills under top-level `skills/<id>/` in its closure output so target harnesses discover them.
 
 ### OFTR-005.4: Composite profile Watching
 
