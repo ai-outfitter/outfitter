@@ -70,6 +70,20 @@ Outfitter is organized around a private npm workspace root, clear TypeScript pac
 
 The exact layout may evolve, but these boundaries should stay recognizable. Root scripts delegate to the `@ai-outfitter/outfitter` workspace so commands such as `npm run check-ci` continue to work from the repository root.
 
+Within a resolved `.agents` layer, an agent may include a harness-native Pi configuration overlay:
+
+```text
+agents/<agent>/
+├── agent.md
+├── config.json             # optional harness-neutral loadout overrides
+└── pi/                     # copied into the temporary PI_CODING_AGENT_DIR
+    ├── settings.json
+    ├── keybindings.json
+    └── ...                 # other native Pi configuration files/directories
+```
+
+The resolver retains every contributing `pi/` directory in layer-precedence order. The Pi projection materializes them from lowest to highest precedence and skips symlinks; other harness projections do not consume them.
+
 ## Published Package Assets
 
 The CLI package root is `code/cli`, but the npm package must still include repository-level notices. The CLI package `prepack` script runs `code/cli/scripts/sync-package-assets.mjs`, which stages `README.md`, `LICENSE.md`, `code/enterprise/LICENSE`, and `code/enterprise/README.md` inside `code/cli` before `npm pack` or `npm publish`.

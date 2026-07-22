@@ -226,6 +226,47 @@ describe('dump command', () => {
     expect(config).toEqual({ model: 'gpt-5.3' });
   });
 
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-006.3.17).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('dumps the effective layered per-agent Pi configuration overlay', () => {
+    const root = createTemporaryRoot();
+    const home = join(root, 'home');
+    const project = join(root, 'project');
+    write(join(home, '.agents', 'agents', 'engineer', 'agent.md'), '---\nname: engineer\n---\n');
+    write(join(home, '.agents', 'agents', 'engineer', 'pi', 'settings.json'), '{"theme":"dark"}');
+    write(join(home, '.agents', 'agents', 'engineer', 'pi', 'keybindings.json'), '{"yank":"alt+y"}');
+    write(join(project, '.agents', 'agents', 'engineer', 'pi', 'keybindings.json'), '{"yank":"ctrl+shift+y"}');
+    const out = join(root, 'dump');
+
+    const result = executeDumpCommand({ homeDirectory: home, projectDirectory: project, agent: 'engineer', out });
+
+    expect(result.ok).toBe(true);
+    expect(readFileSync(join(out, '.agents', 'agents', 'engineer', 'pi', 'settings.json'), 'utf8')).toContain('dark');
+    expect(readFileSync(join(out, '.agents', 'agents', 'engineer', 'pi', 'keybindings.json'), 'utf8')).toContain(
+      'ctrl+shift+y',
+    );
+  });
+
+  it('honors file and directory replacement across dumped Pi overlay layers', () => {
+    const root = createTemporaryRoot();
+    const home = join(root, 'home');
+    const project = join(root, 'project');
+    write(join(home, '.agents', 'agents', 'engineer', 'agent.md'), '---\nname: engineer\n---\n');
+    write(join(home, '.agents', 'agents', 'engineer', 'pi', 'to-directory'), 'low file');
+    write(join(home, '.agents', 'agents', 'engineer', 'pi', 'to-file', 'nested'), 'low nested file');
+    write(join(project, '.agents', 'agents', 'engineer', 'pi', 'to-directory', 'nested'), 'high nested file');
+    write(join(project, '.agents', 'agents', 'engineer', 'pi', 'to-file'), 'high file');
+    const out = join(root, 'dump');
+
+    const result = executeDumpCommand({ homeDirectory: home, projectDirectory: project, agent: 'engineer', out });
+
+    expect(result.ok).toBe(true);
+    expect(readFileSync(join(out, '.agents', 'agents', 'engineer', 'pi', 'to-directory', 'nested'), 'utf8')).toBe(
+      'high nested file',
+    );
+    expect(readFileSync(join(out, '.agents', 'agents', 'engineer', 'pi', 'to-file'), 'utf8')).toBe('high file');
+  });
+
   it('rejects a dump whose resource directory is a symlink', () => {
     const root = createTemporaryRoot();
     const project = join(root, 'project');

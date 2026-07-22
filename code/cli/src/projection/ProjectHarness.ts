@@ -1,7 +1,7 @@
 // Projects a harness-neutral CompositionPlan to a native pi or Claude Code launch.
 import type { CompositionPlan } from '../composer/Composition.js';
 import type { Harness } from '../settings/Settings.js';
-import { materializeComposition } from './Materialize.js';
+import { materializeComposition, materializeConfigurationOverlays } from './Materialize.js';
 import type { AgentLaunchPlan, AgentProjectionPlan, ProjectionInput } from './Projection.js';
 
 // Loadout elements a projection actually maps to native config. Anything else is reported
@@ -78,6 +78,9 @@ const buildLaunchPlan = (
 
 /** Materializes the composition into the runtime root and builds the harness launch plan. */
 export const projectComposition = (composition: CompositionPlan, input: ProjectionInput): AgentProjectionPlan => {
+  if (input.harness === 'pi') {
+    materializeConfigurationOverlays(input.configurationOverlayDirectories ?? [], input.rootDirectory);
+  }
   const materialized = materializeComposition(composition, input.rootDirectory);
   const launch = buildLaunchPlan(composition, input, materialized.systemPromptPath, materialized.appendPromptPaths);
   const unsupported = [

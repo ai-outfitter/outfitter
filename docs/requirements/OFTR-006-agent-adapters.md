@@ -1,6 +1,6 @@
 # OFTR-006: Agent Adapters, Pi Support, and Claude Code Support
 
-> **Transition (RFC [#165](https://github.com/ai-outfitter/outfitter/issues/165)):** **OFTR-006.1 is amended (2026-07-17)** to the composition-projection model below (harnesses project a `CompositionPlan`, reporting unsupported _elements_). The pi/claude launch-control sections still describe profile-era behavior and richer parity (mcp reconciliation, extensions, session dirs, state persistence) is projected incrementally; the current implementation projects composed identity, skills, model, and thinking. Target design: [docs/architecture/README.md](../architecture/README.md).
+> **Transition (RFC [#165](https://github.com/ai-outfitter/outfitter/issues/165)):** **OFTR-006.1 is amended (2026-07-17)** to the composition-projection model below (harnesses project a `CompositionPlan`, reporting unsupported _elements_). The pi/claude launch-control sections still describe profile-era behavior and richer parity (mcp reconciliation, session dirs, state persistence) is projected incrementally; the current implementation projects composed identity, skills, model, thinking, Pi extensions, and per-agent Pi configuration overlays. Target design: [docs/architecture/README.md](../architecture/README.md).
 
 ## Overview
 
@@ -46,6 +46,7 @@ _Amended (2026-07-17, RFC #165): adapters project a harness-neutral composition,
 14. The pi adapter MUST resolve `controls.deepwork.jobs` entries as DeepWork job names from shared Outfitter job roots such as `.outfitter/deepwork/jobs/<job-name>/job.yml` and expose the matching jobs root through `DEEPWORK_ADDITIONAL_JOBS_FOLDERS`.
 15. The pi adapter MUST NOT treat flat profile source roots as profile-bundled job folders unless a named DeepWork job resolves to a shared jobs root.
 16. The pi adapter MUST ignore inherited external `DEEPWORK_ADDITIONAL_JOBS_FOLDERS` values unless `controls.pi.allow_external_deepwork_jobs` is true.
+17. The pi adapter MUST overlay `agents/<agent>/pi/` directories from contributing `.agents` layers into the temporary `PI_CODING_AGENT_DIR`, with higher-precedence layers replacing matching paths, without following symlinks or projecting the overlay into non-Pi harnesses.
 
 ### OFTR-006.4: Pi Startup Boundary
 

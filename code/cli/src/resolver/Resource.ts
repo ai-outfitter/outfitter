@@ -78,6 +78,11 @@ export interface ResolvedResource {
    * reserved (no protocol hooks entity yet); presence is surfaced as a diagnostic, not resolved.
    */
   readonly hookPaths?: readonly string[];
+  /**
+   * For agents: existing `agents/<slug>/pi/` directories across all layers, highest precedence
+   * first. The Pi projector overlays these directories into its runtime `PI_CODING_AGENT_DIR`.
+   */
+  readonly piConfigDirectories?: readonly string[];
 }
 
 /** Locale-independent, deterministic slug ordering (code-unit comparison). */

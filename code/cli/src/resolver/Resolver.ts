@@ -102,6 +102,11 @@ const isNonEmptyDirectory = (directory: string): boolean => {
 const collectAgentHookDirs = (layers: readonly Layer[], slug: string): readonly string[] =>
   layers.map((layer) => join(layer.root, 'agents', slug, 'hooks')).filter(isNonEmptyDirectory);
 
+// Existing harness-native Pi configuration directories across layers, highest precedence first.
+// Empty directories are retained because they are still valid overlays and deterministic inputs.
+const collectAgentPiConfigDirs = (layers: readonly Layer[], slug: string): readonly string[] =>
+  layers.map((layer) => join(layer.root, 'agents', slug, 'pi')).filter(resolvesToDirectory);
+
 const withAgentResourcePaths = (
   layers: readonly Layer[],
   agents: ReadonlyMap<string, ResolvedResource>,
@@ -114,6 +119,7 @@ const withAgentResourcePaths = (
         configPaths: collectAgentFiles(layers, slug, 'config.json'),
         mcpPaths: collectAgentFiles(layers, slug, 'mcp.json'),
         hookPaths: collectAgentHookDirs(layers, slug),
+        piConfigDirectories: collectAgentPiConfigDirs(layers, slug),
       },
     ]),
   );

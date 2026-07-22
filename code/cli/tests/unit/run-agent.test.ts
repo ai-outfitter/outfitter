@@ -144,6 +144,45 @@ describe('run agent', () => {
     expect(result.exitCode).toBe(0);
   });
 
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-006.3.17).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('projects the selected agent Pi folder into PI_CODING_AGENT_DIR only for Pi', async () => {
+    const { home, project } = tree();
+    write(
+      join(project, '.agents', 'agents', 'engineer', 'pi', 'keybindings.json'),
+      '{"tui.editor.yank":"ctrl+shift+y"}',
+    );
+    write(join(project, '.agents', 'agents', 'engineer', 'pi', 'settings.json'), '{"theme":"dark"}');
+
+    const result = await executeRunAgentCommand({
+      homeDirectory: home,
+      projectDirectory: project,
+      agent: 'engineer',
+      harness: 'pi',
+      launcher: (plan) => {
+        const runtimeDir = plan.env.PI_CODING_AGENT_DIR;
+        expect(readFileSync(join(runtimeDir, 'keybindings.json'), 'utf8')).toContain('ctrl+shift+y');
+        expect(readFileSync(join(runtimeDir, 'settings.json'), 'utf8')).toContain('dark');
+        return Promise.resolve(0);
+      },
+    });
+
+    expect(result.exitCode).toBe(0);
+
+    await executeRunAgentCommand({
+      homeDirectory: home,
+      projectDirectory: project,
+      agent: 'engineer',
+      harness: 'claude',
+      launcher: (plan) => {
+        const runtimeDir = plan.env.CLAUDE_CONFIG_DIR;
+        expect(existsSync(join(runtimeDir, 'keybindings.json'))).toBe(false);
+        expect(existsSync(join(runtimeDir, 'settings.json'))).toBe(false);
+        return Promise.resolve(0);
+      },
+    });
+  });
+
   it('cleans up the runtime projection directory after the run', async () => {
     const { home, project } = tree();
     await executeRunAgentCommand({

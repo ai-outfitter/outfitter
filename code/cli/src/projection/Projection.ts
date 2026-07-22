@@ -22,4 +22,6 @@ export interface ProjectionInput {
   readonly passThroughArgs?: readonly string[];
   /** Local pi extension install directories to load with `--extension` (pi only). */
   readonly extensionLoadDirs?: readonly string[];
+  /** Harness-native configuration directories, highest precedence first, overlaid into the root. */
+  readonly configurationOverlayDirectories?: readonly string[];
 }

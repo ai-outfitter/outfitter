@@ -12,6 +12,7 @@ import {
 import { dirname, join } from 'node:path';
 
 import { compose } from '../composer/Composer.js';
+import { removeTargetTypeConflict } from '../fs/TypeConflict.js';
 import { pickLoadoutKeys } from '../resolver/AgentDefinition.js';
 import { compareSlugs, findResource } from '../resolver/Resource.js';
 import type { EffectiveResourceSet, Layer, ResolvedResource } from '../resolver/Resource.js';
@@ -50,8 +51,10 @@ const copyResourceDirectory = (
     }
 
     if (entry.isDirectory()) {
+      removeTargetTypeConflict(targetPath, 'directory');
       copyResourceDirectory(sourcePath, targetPath, written);
     } else if (entry.isFile()) {
+      removeTargetTypeConflict(targetPath, 'file');
       mkdirSync(dirname(targetPath), { recursive: true });
       copyFileSync(sourcePath, targetPath);
       written.push(targetPath);
@@ -163,7 +166,7 @@ const containmentErrors = (resources: readonly ResolvedResource[], roots: readon
   const errors: string[] = [];
 
   for (const resource of resources) {
-    const files = [resource.winner.path, ...(resource.configPaths ?? [])];
+    const files = [resource.winner.path, ...(resource.configPaths ?? []), ...(resource.piConfigDirectories ?? [])];
     if (files.some((file) => escapesRoots(file, roots))) {
       errors.push(`${resource.kind} '${resource.slug}' resolves outside the tree and cannot be safely dumped.`);
     }
@@ -231,13 +234,17 @@ export const dumpAgent = (set: EffectiveResourceSet, agentSlug: string, outDirec
   for (const agent of closure.agents) {
     const agentTarget = join(outRoot, 'agents', agent.slug);
     // Local resources are flattened below so the dumped tree is directly consumable by harnesses.
-    copyResourceDirectory(dirname(agent.winner.path), agentTarget, written, ['config.json', 'skills']);
+    copyResourceDirectory(dirname(agent.winner.path), agentTarget, written, ['config.json', 'skills', 'pi']);
     writeMergedConfig(agent, agentTarget, written);
+    // Overlay each layer's pi config into a single `pi/` dir, highest precedence last so it wins.
+    for (const piConfigDirectory of [...(agent.piConfigDirectories ?? [])].reverse()) {
+      copyResourceDirectory(piConfigDirectory, join(agentTarget, 'pi'), written);
+    }
   }
 
   for (const skill of closure.skills) {
     copyResourceDirectory(dirname(skill.winner.path), join(outRoot, 'skills', skill.slug), written);
   }
 
-  return { writtenPaths: written.sort(compareSlugs), warnings: closure.warnings, errors: [] };
+  return { writtenPaths: [...new Set(written)].sort(compareSlugs), warnings: closure.warnings, errors: [] };
 };

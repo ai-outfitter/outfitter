@@ -17,6 +17,7 @@ import type { PiInstallSpawner } from '../../extensions/PiExtensionCache.js';
 import { resolveOutfitterCacheDir } from '../../paths/OutfitterCache.js';
 import { projectComposition } from '../../projection/ProjectHarness.js';
 import type { AgentLaunchPlan } from '../../projection/Projection.js';
+import { findResource } from '../../resolver/Resource.js';
 import { resolveEffectiveSet } from '../../resolver/ResolverContext.js';
 import type { Harness } from '../../settings/Settings.js';
 import { HARNESSES } from '../../settings/Settings.js';
@@ -171,6 +172,7 @@ export const executeRunAgentCommand = async (input: RunAgentInput): Promise<RunA
 
   // Install/cache the pi extensions into a shared XDG cache and load them at launch (pi only).
   const extensions = await resolvePiExtensions(input, harness, composed.plan.loadout.extensions);
+  const selectedAgent = findResource(set, 'agent', agentSlug)!;
 
   const rootDirectory = mkdtempSync(join(tmpdir(), `outfitter-${agentSlug}-${harness}-`));
 
@@ -181,6 +183,8 @@ export const executeRunAgentCommand = async (input: RunAgentInput): Promise<RunA
       homeDirectory: input.homeDirectory,
       passThroughArgs: input.passThroughArgs,
       extensionLoadDirs: harness === 'pi' ? extensions.loadDirs : undefined,
+      // ProjectHarness only overlays these for the pi harness, so pass them through unconditionally.
+      configurationOverlayDirectories: selectedAgent.piConfigDirectories,
     });
 
     // Composition warnings, unsupported harness elements, and extension-install failures are all

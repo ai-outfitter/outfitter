@@ -315,6 +315,32 @@ describe('resource resolution', () => {
     expect(findings.filter((f) => f.severity === 'error')).toHaveLength(0);
   });
 
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-006.3.17).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('collects layered per-agent Pi configuration directories in precedence order', () => {
+    const root = createTemporaryRoot();
+    const home = join(root, 'home');
+    const project = join(root, 'project');
+    const source = join(root, 'source');
+
+    write(join(source, 'agents', 'engineer', 'agent.md'), agentMd('engineer'));
+    write(join(source, 'agents', 'engineer', 'pi', 'settings.json'), '{"theme":"dark"}');
+    write(join(home, '.agents', 'agents', 'engineer', 'pi', 'keybindings.json'), '{"tui.editor.yank":"alt+y"}');
+    // A layer may customize an existing agent without repeating its agent.md.
+    write(
+      join(project, '.agents', 'agents', 'engineer', 'pi', 'keybindings.json'),
+      '{"tui.editor.yank":"ctrl+shift+y"}',
+    );
+
+    const engineer = findResource(setFor(home, project, [{ path: source }]), 'agent', 'engineer')!;
+
+    expect(engineer.piConfigDirectories).toEqual([
+      join(project, '.agents', 'agents', 'engineer', 'pi'),
+      join(home, '.agents', 'agents', 'engineer', 'pi'),
+      join(source, 'agents', 'engineer', 'pi'),
+    ]);
+  });
+
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-003.4).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('merges a workspace config.json over a globally defined agent by ID', () => {

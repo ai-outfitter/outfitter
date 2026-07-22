@@ -3,8 +3,9 @@ import { copyFileSync, lstatSync, mkdirSync, readdirSync, writeFileSync } from '
 import { dirname, join } from 'node:path';
 
 import type { CompositionPlan } from '../composer/Composition.js';
-import type { ResolvedResource } from '../resolver/Resource.js';
 import { escapesRoots } from '../dump/Containment.js';
+import { removeTargetTypeConflict } from '../fs/TypeConflict.js';
+import type { ResolvedResource } from '../resolver/Resource.js';
 
 export interface MaterializedComposition {
   readonly rootDirectory: string;
@@ -20,6 +21,7 @@ export interface MaterializedComposition {
 
 /** Recursively copies a directory, skipping symlinked entries so no path escapes the tree. */
 const copyDirectory = (sourceDir: string, targetDir: string): void => {
+  removeTargetTypeConflict(targetDir, 'directory');
   mkdirSync(targetDir, { recursive: true });
 
   for (const entry of readdirSync(sourceDir, { withFileTypes: true })) {
@@ -32,8 +34,29 @@ const copyDirectory = (sourceDir: string, targetDir: string): void => {
     if (entry.isDirectory()) {
       copyDirectory(sourcePath, join(targetDir, entry.name));
     } else if (entry.isFile()) {
-      copyFileSync(sourcePath, join(targetDir, entry.name));
+      const targetPath = join(targetDir, entry.name);
+      removeTargetTypeConflict(targetPath, 'file');
+      copyFileSync(sourcePath, targetPath);
     }
+  }
+};
+
+const writeGeneratedFile = (path: string, content: string): void => {
+  removeTargetTypeConflict(path, 'file');
+  writeFileSync(path, content);
+};
+
+/**
+ * Overlays native harness configuration into the runtime root. Inputs arrive highest precedence
+ * first, so copying in reverse order lets higher layers replace matching files. Symlinked overlay
+ * roots and entries are skipped so a catalog cannot make projection read outside its layer.
+ */
+export const materializeConfigurationOverlays = (sourceDirectories: readonly string[], rootDirectory: string): void => {
+  mkdirSync(rootDirectory, { recursive: true });
+
+  for (const sourceDirectory of [...sourceDirectories].reverse()) {
+    if (lstatSync(sourceDirectory).isSymbolicLink()) continue;
+    copyDirectory(sourceDirectory, rootDirectory);
   }
 };
 
@@ -62,18 +85,18 @@ export const materializeComposition = (
   mkdirSync(rootDirectory, { recursive: true });
 
   const systemPromptPath = join(rootDirectory, 'system-prompt.md');
-  writeFileSync(systemPromptPath, composition.identity.systemPrompt ?? '');
+  writeGeneratedFile(systemPromptPath, composition.identity.systemPrompt ?? '');
 
   const appendPromptPaths: string[] = [];
 
   if (composition.identity.sharedContext !== undefined) {
     const contextPath = join(rootDirectory, 'agents.md');
-    writeFileSync(contextPath, composition.identity.sharedContext);
+    writeGeneratedFile(contextPath, composition.identity.sharedContext);
     appendPromptPaths.push(contextPath);
   }
 
   const agentBodyPath = join(rootDirectory, 'agent.md');
-  writeFileSync(agentBodyPath, composition.identity.agentBody);
+  writeGeneratedFile(agentBodyPath, composition.identity.agentBody);
   appendPromptPaths.push(agentBodyPath);
 
   const skillDirectories: string[] = [];
