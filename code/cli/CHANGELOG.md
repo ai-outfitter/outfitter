@@ -1,5 +1,26 @@
 # Changelog
 
+## [1.0.0](https://github.com/ai-outfitter/outfitter/compare/v0.11.0...v1.0.0) (2026-07-22)
+
+
+### ⚠ BREAKING CHANGES
+
+* **cleanup:** Outfitter now uses the Dotagents .agents model and removes the legacy profile system, including profile commands, settings, schemas, inheritance, adapters, and compatibility paths. Use .agents agents with the run, list, validate, and dump command surface.
+
+### Features
+
+* **resolver:** agent-local resources (skills, knowledge, commands + mcp/hooks stubs) ([#192](https://github.com/ai-outfitter/outfitter/issues/192)) ([f384388](https://github.com/ai-outfitter/outfitter/commit/f384388e0601a901a7c94b29cee525d95b5b6f60))
+* **run:** cache and project pi extensions from profile loadouts ([bc0d2c4](https://github.com/ai-outfitter/outfitter/commit/bc0d2c4743271fbaddb17d8a4f21a361a44cebc6))
+* **run:** overlay agent-local pi config into the runtime root ([a88af75](https://github.com/ai-outfitter/outfitter/commit/a88af75eb96ec14886ee6d0440ecf7a887c2f648))
+* **setup:** interactive .agents onboarding (explicit + implicit) ([#186](https://github.com/ai-outfitter/outfitter/issues/186)) ([b421577](https://github.com/ai-outfitter/outfitter/commit/b421577f806b3aeba10f2a61d9d7edfc9f6e3040))
+* **setup:** restore auto sign-in and auto-start pi after onboarding ([bd5ee4b](https://github.com/ai-outfitter/outfitter/commit/bd5ee4b1507a041d2017f58ef68ede59c8db431a))
+* **setup:** restore Pi-native onboarding ([5c00daa](https://github.com/ai-outfitter/outfitter/commit/5c00daa9212dfa6b48de987832acc2d375b2eb14))
+
+
+### Code Refactoring
+
+* **cleanup:** remove the legacy profile system; main fully green ([#181](https://github.com/ai-outfitter/outfitter/issues/181)) ([d236ac0](https://github.com/ai-outfitter/outfitter/commit/d236ac0897ef21ed215d762ac3ce2441ea5f70ec))
+
 ## [0.11.0](https://github.com/ai-outfitter/outfitter/compare/v0.10.0...v0.11.0) (2026-07-16)
 
 
