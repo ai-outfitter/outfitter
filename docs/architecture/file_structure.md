@@ -29,6 +29,8 @@ Outfitter is organized around a private npm workspace root, clear TypeScript pac
 ├── .prettierrc.json                   # Prettier formatting configuration
 ├── .snapperrc.toml                    # Snapper Markdown formatting configuration
 ├── CONTRIBUTING.md                    # local install and contributor workflow guide
+├── flake.nix                          # Nix package output for the Outfitter CLI
+├── flake.lock                         # pinned Nix flake inputs
 ├── code/                              # npm workspace packages and license-separated code areas
 │   ├── cli/                           # @ai-outfitter/outfitter npm package root
 │   │   ├── eslint.config.js           # CLI package ESLint configuration

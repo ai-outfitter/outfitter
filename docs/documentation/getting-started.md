@@ -61,3 +61,9 @@ Try without a global install:
 ```bash
 npx --yes @ai-outfitter/outfitter@latest --help
 ```
+
+Run directly from the repository's Nix flake:
+
+```bash
+nix run github:ai-outfitter/outfitter -- --help
+```
