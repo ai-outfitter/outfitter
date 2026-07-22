@@ -24,7 +24,7 @@ Formal implementation requirements live in [`../requirements/`](../requirements/
 
 ## Runtime and Tooling Baseline
 
-- Runtime: Node.js `>=22.19.0`.
+- Runtime: Node.js `>=24.18.0 <25`, tested with the exact version pinned in `.node-version`.
 - Language: TypeScript. Package manager: npm.
 - CLI framework: Commander `^14` (default commands, aliases, `allowUnknownOption`, pass-through argument collection, testable parser construction).
 - Test framework: Vitest `^4` with `@vitest/coverage-v8`; 100% global coverage thresholds.

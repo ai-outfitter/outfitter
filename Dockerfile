@@ -1,4 +1,4 @@
-FROM node:22.19.0-bookworm
+FROM node:24.18.0-bookworm
 
 ENV PATH="/opt/outfitter/node_modules/.bin:${PATH}"
 

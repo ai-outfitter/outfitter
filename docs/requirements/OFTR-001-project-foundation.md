@@ -10,7 +10,7 @@ This document specifies the baseline runtime, language, test, lint, and document
 ### OFTR-001.1: Runtime, Package Manager, and Language
 
 1. The project MUST use TypeScript as its primary implementation language.
-2. The project MUST declare Node.js `>=22.19.0` as the supported runtime baseline for the first version.
+2. The project MUST declare Node.js `>=24.18.0 <25` as the supported runtime range and pin the exact tested version in `.node-version`.
 3. TypeScript configuration MUST enable strict type checking.
 4. The CLI workspace MUST provide a separate build TypeScript configuration that emits production files from `code/cli/src/` to `code/cli/dist/`.
 5. The project MUST use npm as its package manager for the first version.

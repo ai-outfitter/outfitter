@@ -35,7 +35,11 @@ const readJson = <T>(relativePath: string): T =>
   JSON.parse(readFileSync(new URL(relativePath, import.meta.url), 'utf8')) as T;
 
 const packageJson = readJson<PackageJson>('../package.json');
+const rootPackageJson = readJson<PackageJson>('../../../package.json');
+const docSitePackageJson = readJson<PackageJson>('../../../code/doc_site/package.json');
 const packageLockJson = readJson<PackageLockJson>('../../../package-lock.json');
+const nodeVersion = readFileSync(new URL('../../../.node-version', import.meta.url), 'utf8').trim();
+const supportedNodeRange = `>=${nodeVersion} <25`;
 const tsconfig = readJson<TypeScriptConfig>('../tsconfig.json');
 const buildTsconfig = readJson<TypeScriptConfig>('../tsconfig.build.json');
 const eslintConfigSource = readFileSync(new URL('../eslint.config.js', import.meta.url), 'utf8');
@@ -45,7 +49,10 @@ describe('project foundation', () => {
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-001.1).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('declares the runtime, package manager, and TypeScript build baseline', () => {
-    expect(packageJson.engines.node).toBe('>=22.19.0');
+    expect(nodeVersion).toBe('24.18.0');
+    expect(packageJson.engines.node).toBe(supportedNodeRange);
+    expect(rootPackageJson.engines.node).toBe(supportedNodeRange);
+    expect(docSitePackageJson.engines.node).toBe(supportedNodeRange);
     expect(packageLockJson.lockfileVersion).toBeGreaterThanOrEqual(3);
     expect(packageLockJson.packages).toHaveProperty('');
     expect(packageLockJson.packages).toHaveProperty('code/cli');

@@ -27,6 +27,6 @@
     "check-ci": "prettier --check . && npm run lint && npm run coverage && npm run docs:ci"
   },
   "engines": {
-    "node": ">=22.19.0"
+    "node": ">=24.18.0 <25"
   }
 }

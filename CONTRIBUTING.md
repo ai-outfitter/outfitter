@@ -7,10 +7,12 @@ For normal usage, install Outfitter from npm with `npm install -g @ai-outfitter/
 
 ## Prerequisites
 
-- Node.js `>=22.19.0`
+- Node.js `24.18.0`, as pinned in `.node-version`
 - npm, using the committed `package-lock.json`
 - Git
 - Optional for end-to-end `outfitter run` testing: the `pi` CLI available on your `PATH`
+
+`.node-version` is the canonical Node.js version for local development and GitHub Actions. Each project-owned `package.json#engines.node` field declares the compatible major-version range for package consumers, and the Dockerfile uses the matching pinned runtime image; update them together when changing Node.js versions.
 
 ## Repository structure
 
