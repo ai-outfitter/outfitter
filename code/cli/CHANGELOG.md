@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.1](https://github.com/ai-outfitter/outfitter/compare/v1.0.0...v1.0.1) (2026-07-22)
+
+
+### Bug Fixes
+
+* **ci:** standardize Node runtime on latest LTS ([795f4ed](https://github.com/ai-outfitter/outfitter/commit/795f4edac2cb6daed966fa7f1672e52a1be660d9))
+
 ## [1.0.0](https://github.com/ai-outfitter/outfitter/compare/v0.11.0...v1.0.0) (2026-07-22)
 
 
