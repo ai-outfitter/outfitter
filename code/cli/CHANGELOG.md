@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.2](https://github.com/ai-outfitter/outfitter/compare/v1.0.1...v1.0.2) (2026-07-22)
+
+
+### Bug Fixes
+
+* **container:** build release image with Nix ([2d9d981](https://github.com/ai-outfitter/outfitter/commit/2d9d981f353089ef5f8d7919d65630ab71356514))
+
 ## [1.0.1](https://github.com/ai-outfitter/outfitter/compare/v1.0.0...v1.0.1) (2026-07-22)
 
 
