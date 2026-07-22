@@ -66,6 +66,8 @@ Managed porting and persistent harness symlinks are deferred to
 
 Layers merge by ID: `<project>/.agents/` over `~/.agents/` over pinned remote [catalogs](./docs/documentation/catalogs.md). An [agent](./docs/documentation/agents.md) carries both its identity and its loadout — an [agent profile](./docs/documentation/profiles.md) — and is what you run; a [persona](./docs/documentation/personas.md) is a review convention layered on a base agent; a [subagent](./docs/documentation/subagents.md) is an agent a run delegates to, including through [GitHub Actions](./docs/documentation/actions.md).
 
+Agents can also run headlessly in GitHub Actions via [`ai-outfitter/actions`](https://github.com/ai-outfitter/actions).
+
 ## Documentation
 
 - [Getting started](./docs/documentation/getting-started.md)
@@ -88,3 +90,7 @@ Use cases:
 - [Persona reviews](./docs/documentation/usecases/persona-reviews.md) — Compose customer personas to get feedback on ideas, documentation, and designs.
 
 For local development, repository structure, and release workflow details, see [Contributing](./CONTRIBUTING.md).
+
+## License
+
+Outfitter is [MIT licensed](./LICENSE.md), except for code in `code/enterprise/`, which is under the [Unsupervised Enterprise license](./code/enterprise/LICENSE). Production use of that code requires a valid Unsupervised Enterprise license.
