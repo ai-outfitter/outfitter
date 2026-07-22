@@ -54,6 +54,7 @@ Outfitter is organized around a private npm workspace root, clear TypeScript pac
 │   │   │   ├── schemas/               # JSON Schema artifacts for persisted formats
 │   │   │   └── validation/            # shared validation helpers
 │   │   ├── tests/                     # automated CLI package tests and fixtures
+│   │   │   ├── conformance/            # cross-harness projection behavior + support-matrix drift checks
 │   │   ├── tsconfig.json              # strict package typecheck configuration
 │   │   ├── tsconfig.build.json        # production emission from code/cli/src/ to code/cli/dist/
 │   │   └── vitest.config.ts           # package test and coverage configuration
