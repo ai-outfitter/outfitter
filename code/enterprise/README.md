@@ -5,3 +5,5 @@ Files in this directory and its descendants are licensed under the Outfitter Ent
 Everything outside `code/enterprise/**` is licensed under the root [`LICENSE.md`](../../LICENSE.md) terms.
 
 `privateCatalog.js` defines the package-visible commercial boundary for private profile catalog support. Shared policy lives in `shared/`, CLI sync/settings helpers live in `cli/`, and Pi-native onboarding helpers live in `pi-extension/`. Package staging imports the policy marker and emits `private-catalog-boundary.json` so the published package carries executed enterprise policy artifacts, while public sync/setup behavior remains non-enforcing and continues to rely on the user's ambient Git configuration.
+
+Future managed-fleet enforcement, audit collectors, retention, and organization reporting belong on this side of the boundary. Their interoperable policy and audit schemas remain MIT-licensed; see the [organization-catalog governance design spec](../../docs/specs/org-catalog-governance.md).

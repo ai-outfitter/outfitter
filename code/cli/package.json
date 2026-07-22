@@ -68,7 +68,14 @@
     "cli",
     "pi-package",
     "pi",
-    "profiles"
+    "profiles",
+    "agent-profiles",
+    "agent-configuration",
+    "coding-agents",
+    "claude-code",
+    "mcp",
+    "ai-agents",
+    "developer-tools"
   ],
   "pi": {
     "skills": [

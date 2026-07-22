@@ -88,4 +88,11 @@ Use cases:
 - [Engineering catalog](./docs/documentation/usecases/engineering.md) — Package engineering personas, skills, and tasks for repeatable workflows.
 - [Persona reviews](./docs/documentation/usecases/persona-reviews.md) — Compose customer personas to get feedback on ideas, documentation, and designs.
 
+## Licensing
+
+- **MIT** — the CLI and everything outside `code/enterprise/` is MIT-licensed under [LICENSE.md](./LICENSE.md).
+- **Enterprise** — `code/enterprise/` contains org-scale commercial capabilities under its [enterprise license](./code/enterprise/LICENSE), including private catalog policy today and future managed-fleet enforcement and audit tooling described in the [governance design spec](./docs/specs/org-catalog-governance.md).
+
+The `.agents` format, public catalogs, composition, and individual/team workflows remain open. The commercial boundary is managed organization policy and operations.
+
 For local development, repository structure, and release workflow details, see [Contributing](./CONTRIBUTING.md).
