@@ -73,6 +73,7 @@ Layers merge by ID: `<project>/.agents/` over `~/.agents/` over pinned remote [c
 - [Settings](./docs/documentation/settings.md)
 - [Agents](./docs/documentation/agents.md) · [Agent profiles](./docs/documentation/profiles.md) · [Personas](./docs/documentation/personas.md) · [Subagents](./docs/documentation/subagents.md)
 - [Skills](./docs/documentation/skills.md) · [Tasks (future RFC)](./docs/documentation/tasks.md)
+- [Federated context](./docs/documentation/federated-context.md)
 - [Catalogs](./docs/documentation/catalogs.md) · [Dump](./docs/documentation/dump-and-bake.md)
 - [Running an agent in GitHub Actions](./docs/documentation/actions.md)
 - [Hooks](./docs/documentation/hooks.md) · [State persistence](./docs/documentation/state.md)

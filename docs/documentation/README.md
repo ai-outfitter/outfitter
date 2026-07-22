@@ -17,6 +17,7 @@ User-facing Outfitter documentation. These docs describe the [RFC #165](https://
 - [Personas](./personas.md) — The base-agent-plus-persona-documents review convention.
 - [Subagents](./subagents.md) — Agents projected as harness delegates; leader-agent delegation.
 - [Skills](./skills.md) — Capability packages with progressive disclosure, references, and routing.
+- [Federated context](./federated-context.md) — Governed atomic context skills selected by thin agents.
 - [Tasks](./tasks.md) — Placeholder for a separate upcoming RFC.
 
 ## Operations
@@ -43,3 +44,4 @@ User-facing Outfitter documentation. These docs describe the [RFC #165](https://
 - [Organization catalog](./usecases/organization-profile-catalog.md) — Publish shared org resources and defaults through an `owner/.outfitter` control repository.
 - [Engineering catalog](./usecases/engineering.md) — Package engineering agents and skills for repeatable workflows.
 - [Persona reviews](./usecases/persona-reviews.md) — A base review agent plus customer-persona documents for feedback on ideas, docs, and designs.
+- [Federated context](./federated-context.md) — Share codebase, team, tool, and model context without loading the whole organization.

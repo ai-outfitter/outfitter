@@ -2,6 +2,8 @@
 
 A persona review catalog gathers structured feedback on a product, docs, onboarding flow, or UX from the points of view of the people who might use it — before asking real prospects to spend time. It uses the [persona convention](../personas.md): **one base review agent** plus a **directory of persona description documents**, run once per document.
 
+See [`examples/persona-reviews`](../../../examples/persona-reviews/README.md) for a runnable catalog.
+
 There is no `personas:` map and no agent per customer type. The review rules live in a single agent; each persona is a cheap markdown file you feed it as input.
 
 ```text
