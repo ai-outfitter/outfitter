@@ -18,7 +18,7 @@ usage() {
   cat <<'USAGE'
 Usage: bin/dev-container-setup [options] [setup-source] [-- <outfitter setup args>]
 
-Build the local Outfitter Docker image, start in ~/repos, and run Outfitter.
+Build the local Outfitter Nix image, start in /workspace, and run Outfitter.
 With no setup-source, this opens `outfitter`. With setup-source, it opens
 Pi-native setup through `outfitter setup <setup-source>`.
 
@@ -65,10 +65,12 @@ while [[ $# -gt 0 ]]; do
 done
 
 command -v docker >/dev/null 2>&1 || die "docker is required"
-[[ -f "$REPO_ROOT/Dockerfile" ]] || die "missing Dockerfile: $REPO_ROOT/Dockerfile"
+command -v nix >/dev/null 2>&1 || die "nix is required"
 
 if [[ "$SKIP_BUILD" -eq 0 ]]; then
-  docker build -f "$REPO_ROOT/Dockerfile" -t "$IMAGE" "$REPO_ROOT"
+  nix build "$REPO_ROOT#container" --out-link "$REPO_ROOT/result"
+  docker load < "$REPO_ROOT/result"
+  docker tag outfitter:latest "$IMAGE"
 fi
 
 RUN_FLAGS=(--rm)
@@ -77,28 +79,20 @@ if [[ -t 0 && -t 1 ]]; then
 fi
 
 RUN_FLAGS+=(
-  -e HOME=/home/node
   -e OPENAI_API_KEY
-  --mount "type=volume,source=$PI_VOLUME,target=/home/node/.pi/agent"
-  -w /home/node/repos
+  --mount "type=volume,source=$PI_VOLUME,target=/tmp/.pi/agent"
+  -w /workspace
 )
 
 CONTAINER_SETUP_SOURCE="$SETUP_SOURCE"
 if [[ -n "$SETUP_SOURCE" && -d "$SETUP_SOURCE" ]]; then
   SOURCE_ABS="$(cd -- "$SETUP_SOURCE" && pwd)"
-  CONTAINER_SETUP_SOURCE="/home/node/repos/setup-source"
+  CONTAINER_SETUP_SOURCE="/workspace/setup-source"
   RUN_FLAGS+=(-v "$SOURCE_ABS:$CONTAINER_SETUP_SOURCE:ro")
 fi
 
-CONTAINER_SCRIPT='
-set -Eeuo pipefail
-mkdir -p "$HOME/repos"
-cd "$HOME/repos"
-if [[ -n "$1" ]]; then
-  outfitter setup "$1" "${@:2}"
+if [[ -n "$CONTAINER_SETUP_SOURCE" ]]; then
+  exec docker run "${RUN_FLAGS[@]}" "$IMAGE" setup "$CONTAINER_SETUP_SOURCE" "$@"
 else
-  exec outfitter "$@"
+  exec docker run "${RUN_FLAGS[@]}" "$IMAGE" "$@"
 fi
-'
-
-exec docker run "${RUN_FLAGS[@]}" --entrypoint bash "$IMAGE" -lc "$CONTAINER_SCRIPT" bash "$CONTAINER_SETUP_SOURCE" "$@"

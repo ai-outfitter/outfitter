@@ -12,7 +12,7 @@ For normal usage, install Outfitter from npm with `npm install -g @ai-outfitter/
 - Git
 - Optional for end-to-end `outfitter run` testing: the `pi` CLI available on your `PATH`
 
-`.node-version` is the canonical Node.js version for local development and GitHub Actions. Each project-owned `package.json#engines.node` field declares the compatible major-version range for package consumers, and the Dockerfile uses the matching pinned runtime image; update them together when changing Node.js versions.
+`.node-version` is the canonical Node.js version for local development and GitHub Actions. Each project-owned `package.json#engines.node` field declares the compatible major-version range for package consumers, and the Nix package uses the matching Node.js major version; update them together when changing Node.js versions.
 
 ## Repository structure
 
@@ -141,8 +141,9 @@ Outfitter assembles a temporary composite profile under the system temp director
 
 ## Docker
 
-Each published release builds the repository `Dockerfile` and pushes a `linux/amd64` image to GitHub Container Registry as `ghcr.io/ai-outfitter/outfitter:<version>` and `ghcr.io/ai-outfitter/outfitter:latest` (see the `publish-docker` job in `.github/workflows/release.yml`).
-The image bundles Outfitter and pi, and its entrypoint remaps the container user to the owner of the mounted working directory.
+Each published release builds the `container` output from `flake.nix` and pushes a `linux/amd64` image to GitHub Container Registry as `ghcr.io/ai-outfitter/outfitter:<version>` and `ghcr.io/ai-outfitter/outfitter:latest` (see the `publish-docker` job in `.github/workflows/release.yml`).
+The minimal image bundles the Nix-built Outfitter package and uses `outfitter` directly as its entrypoint.
+Use the manually dispatched `Container` workflow to reproduce and smoke test a release image without publishing it. Its Nix store paths are cached between GitHub Actions runs; the normal pull-request and push CI workflow does not build the image.
 
 Run the published image:
 
@@ -153,20 +154,22 @@ docker run --rm -it ghcr.io/ai-outfitter/outfitter
 ## Test profiles with a local container
 
 The release workflow publishes the npm package from the `code/cli` workspace and the container image to GHCR.
-The Dockerfile is also useful for local smoke testing.
+The flake container output is also useful for local smoke testing on Linux.
 
 Build a local image from the repository root:
 
 ```sh
-docker build -t outfitter:dev .
+nix build .#container
+docker load < result
+docker tag outfitter:latest outfitter:dev
 ```
 
 Run setup from a remote setup source:
 
 ```sh
 docker run --rm -it \
-  --mount type=volume,source=outfitter-pi-agent,target=/home/node/.pi/agent \
-  -w /home/node/repos \
+  --mount type=volume,source=outfitter-pi-agent,target=/tmp/.pi/agent \
+  -w /workspace \
   outfitter:dev \
   setup https://github.com/ai-outfitter/default-profiles
 ```
@@ -175,15 +178,15 @@ Run setup from a local profile source checkout:
 
 ```sh
 docker run --rm -it \
-  --mount type=volume,source=outfitter-pi-agent,target=/home/node/.pi/agent \
-  -v "$PWD:/home/node/repos/setup-source:ro" \
-  -w /home/node/repos \
+  --mount type=volume,source=outfitter-pi-agent,target=/tmp/.pi/agent \
+  -v "$PWD:/workspace/setup-source:ro" \
+  -w /workspace \
   outfitter:dev \
-  setup /home/node/repos/setup-source
+  setup /workspace/setup-source
 ```
 
-The named `outfitter-pi-agent` volume stores container-only Pi credentials and settings under `/home/node/.pi/agent`.
-The container starts in `/home/node/repos`; without extra mounts, each run gets a clean working directory.
+The named `outfitter-pi-agent` volume stores container-only Pi credentials and settings under `/tmp/.pi/agent`.
+The container starts in `/workspace`; without extra mounts, each run gets a clean working directory.
 
 ## Validate changes before opening or updating a PR
 

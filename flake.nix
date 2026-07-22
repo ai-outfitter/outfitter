@@ -47,6 +47,7 @@
           outfitter = pkgs.buildNpmPackage {
             pname = "outfitter";
             inherit (package) version;
+            nodejs = pkgs.nodejs_24;
 
             src = ./.;
             # The bundled pi package ships an npm-shrinkwrap whose registry URLs bypass
@@ -81,7 +82,7 @@
               rm -f node_modules/.bin/outfitter
               cp -r node_modules "$package_out/node_modules"
 
-              makeWrapper ${pkgs.nodejs}/bin/node "$out/bin/outfitter" \
+              makeWrapper ${pkgs.nodejs_24}/bin/node "$out/bin/outfitter" \
                 --add-flags "$package_out/${package.bin.outfitter}" \
                 --prefix PATH : ${
                   nixpkgs.lib.makeBinPath [
@@ -102,6 +103,21 @@
           };
 
           default = outfitter;
+
+          container = pkgs.dockerTools.buildLayeredImage {
+            name = "outfitter";
+            tag = "latest";
+            contents = [ outfitter ];
+            extraCommands = ''
+              mkdir -p tmp workspace
+              chmod 1777 tmp workspace
+            '';
+            config = {
+              Entrypoint = [ "${outfitter}/bin/outfitter" ];
+              Env = [ "HOME=/tmp" ];
+              WorkingDir = "/workspace";
+            };
+          };
         }
       );
     };

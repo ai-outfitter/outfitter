@@ -2,7 +2,7 @@
 
 ## Overview
 
-Outfitter release publishing prepares package metadata from Conventional Commit release PRs and GitHub release tags, then publishes the `@ai-outfitter/outfitter` CLI workspace package through GitHub Actions using npm trusted publishing / OIDC. Container image runtime behavior remains documented for local and future image workflows, but the current release path is CLI npm package publishing only.
+Outfitter release publishing prepares package metadata from Conventional Commit release PRs and GitHub release tags, then publishes the `@ai-outfitter/outfitter` CLI workspace package through npm trusted publishing / OIDC and the flake-built container through GitHub Container Registry.
 
 ## Requirements
 
@@ -36,7 +36,6 @@ Outfitter release publishing prepares package metadata from Conventional Commit 
 
 ### OFTR-009.4: Container Image Runtime
 
-1. The release container entrypoint MUST run Outfitter with `HOME=/home/node` unless the caller supplies another home directory.
-2. When the container starts as a non-root user, the entrypoint MUST execute Outfitter directly without changing the caller-selected identity.
-3. When the container starts as root and the working directory is owned by a non-root UID/GID, the entrypoint MUST drop to that UID/GID before executing Outfitter so rootful Docker bind mounts do not receive root-owned files.
-4. When the container starts as root and the working directory is owned by UID `0`, the entrypoint MUST execute Outfitter as root so rootless Podman bind mounts, which expose the host user as container root by default, remain writable.
+1. The flake MUST expose the release container as the `container` package output.
+2. The container MUST use the Nix-built Outfitter package directly as its entrypoint.
+3. The release workflow MUST smoke test the image before publishing it.
