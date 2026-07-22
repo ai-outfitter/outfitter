@@ -20,6 +20,7 @@ _2026-07-08. Decisions locked with Tyler this session. Companion context: micros
 **`daily_blog_ideas`** (~/experiments/202509-website) — freeze job.yml once Tyler finishes building it (soon). Chosen because: not yet in production (no output pollution), replayable by design (`npm run blog:ideas -- --as-of DATE` gives date-parameterized historical tasks → instant backfill + clean train/val/test split by date), and every stage has MUST-based review rubrics that convert directly to scorers.
 
 Rejected for Phase 0 (both viable later):
+
 - **Browser Anthropologist**: pollution solvable (per-day JSON replay in sandbox), but trajectories contain private personal data — needs the local-optimizer path first; also mostly deterministic sync plumbing, few skill-optimizable steps (analyze_patterns, write_journal).
 - **A customer daily-context job**: prepare/apply split already isolates side effects, but live Slack inputs are non-replayable (breaks the validation gate) and trajectories contain customer data.
 - **2119 dogfood** (phase 0.5, later): once 2119 development generates engineering trajectories, run the objective-scorer experiment (tests-green) there.
@@ -27,6 +28,7 @@ Rejected for Phase 0 (both viable later):
 ## Workstreams
 
 ### A — Phase 0 experiment (upstream Python; gates everything else)
+
 1. Wait for blog job completion; freeze job.yml (record content hash).
 2. Build the SkillOpt env (~100 lines + YAML): dataloader over historical run dates (backfill via scanner `--as-of`; target ≥30–60 dates, split ~2:1:7); rollout executes the daily_loop headless (pi -p or claude -p) in a scratch worktree with the candidate skill injected as system-prompt append; scorer auto-generated from job.yml review blocks (hard = outputs exist, required sections present, artifact paths resolve, no-draft-before-feedback ordering; soft = LLM judge running rubric text verbatim).
 3. Human-in-the-loop step handling: `editorial_feedback` comes from the spawning session in production — for offline rollouts, replace with a frozen editorial-persona judge prompt so tasks stay replayable. (Open item: Tyler to sanity-check the persona prompt.)
@@ -34,19 +36,23 @@ Rejected for Phase 0 (both viable later):
 5. Success criteria: validation gate accepts ≥1 edit; arm 2 or 4 closes a majority of the rubric-pass gap vs arm 1 at materially lower cost.
 
 ### B — Standalone trainer lib (TS, new ai-outfitter repo; can start in parallel — cheap)
+
 - Implements the paper's loop, not a port of their code: rollout interface → reflect → bounded add/delete/replace patches with textual learning rate → held-out validation gate → rejected-edit buffer. Slow/meta updates = v2.
 - Model access solely via OpenAI/Anthropic-compatible endpoint config (decision 3).
 - Acceptance test: reproduce upstream Phase 0 results on the same env within noise.
 - Naming TBD by Tyler.
 
 ### C — `deepwork autoimprove` (thin integration in ai-outfitter/deepwork, after A+B)
+
 Pipeline: ensure reviews exist (auto-generate via new_job Step-4 instructions if missing) → compile job.yml into env (dataloader from run history, scorer from reviews/process_requirements) → train via lib → stage `proposed_SKILL.md` + diff + report for human adoption → optionally publish adopted skill as an outfitter profile asset with validation provenance.
 
 ### D — Sessions→skills (after B; independent of A's outcome)
+
 - `SessionSource` adapter interface (discover sessions, normalize to a common trajectory format) with readers for pi, claude code, codex, hermes, openclaw, opencode. Outfitter's adapter layer already knows each harness's state dirs — natural home for discovery.
 - Borrow SkillOpt-Sleep's pipeline shape: mine recurring tasks → replay offline → optional synthesized ("dream") training variants with the never-in-val/test invariant → gate on held-out real tasks → stage proposals, human-approved adoption.
 
 ### E — Upstream contributions (after A; requires Tyler's explicit approval before any GitHub action)
+
 - DeepWork/job-rubric env adapter example to microsoft/SkillOpt.
 - Fixes toward their plugin self-containment issues (#106/#107).
 

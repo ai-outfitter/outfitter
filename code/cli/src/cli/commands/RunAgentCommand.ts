@@ -104,7 +104,7 @@ const resolveHarness = (settingsDefault: Harness | undefined, requested: string 
   return harness as Harness;
 };
 
-const discardLine = (_message: string): void => undefined;
+const discardLine = (): void => undefined;
 
 const assertNoSettingsIssues = (issues: readonly { readonly message: string }[]): void => {
   if (issues.length > 0) {
