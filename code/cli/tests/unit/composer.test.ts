@@ -70,6 +70,27 @@ describe('composer', () => {
     expect(plan.warnings).toEqual([]);
   });
 
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-005.3).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('composes an agent-local skill before a catalog-wide skill of the same slug', () => {
+    const root = createTemporaryRoot();
+    const project = join(root, 'project');
+    write(join(project, '.agents', 'skills', 'debug', 'SKILL.md'), '---\nname: debug\n---\n\nglobal\n');
+    write(
+      join(project, '.agents', 'agents', 'actions', 'agent.md'),
+      '---\nname: actions\nskills: [debug]\n---\n\nActions.\n',
+    );
+    write(
+      join(project, '.agents', 'agents', 'actions', 'skills', 'debug', 'SKILL.md'),
+      '---\nname: debug\n---\n\nlocal\n',
+    );
+
+    const result = compose(resolveSet(join(root, 'home'), project), 'actions');
+
+    expect(result.plan?.loadout.skills[0]?.winner.ownerAgent).toBe('actions');
+    expect(result.plan?.warnings).toEqual([]);
+  });
+
   it('is deterministic — identical inputs compose to an identical plan', () => {
     const { home, project } = buildTree();
     expect(compose(resolveSet(home, project), 'engineer').plan).toEqual(

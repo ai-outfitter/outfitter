@@ -34,6 +34,7 @@ interface CapturedLaunch {
   readonly dirExisted: boolean;
   readonly systemPrompt?: string;
   readonly skillPresent: boolean;
+  readonly skillBody?: string;
 }
 
 const captured: CapturedLaunch[] = [];
@@ -41,12 +42,14 @@ const captured: CapturedLaunch[] = [];
 const launcher = (plan: AgentLaunchPlan): Promise<number> => {
   const runtimeDir = plan.env.PI_CODING_AGENT_DIR ?? plan.env.CLAUDE_CONFIG_DIR ?? '';
   const promptIndex = plan.args.indexOf('--system-prompt');
+  const skillPath = join(runtimeDir, 'skills', 'wiki', 'SKILL.md');
   captured.push({
     plan,
     runtimeDir,
     dirExisted: existsSync(runtimeDir),
     systemPrompt: promptIndex >= 0 ? readFileSync(plan.args[promptIndex + 1], 'utf8') : undefined,
-    skillPresent: existsSync(join(runtimeDir, 'skills', 'wiki', 'SKILL.md')),
+    skillPresent: existsSync(skillPath),
+    skillBody: existsSync(skillPath) ? readFileSync(skillPath, 'utf8') : undefined,
   });
   return Promise.resolve(0);
 };
@@ -111,6 +114,34 @@ describe('run agent', () => {
     );
     expect(launch.systemPrompt).toBe('BASE PROMPT'); // composed identity materialized
     expect(launch.skillPresent).toBe(true); // skill content copied, not an empty dir
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-005.1, OFTR-005.3).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('projects the selected agent-local skill and its packaged files into the harness runtime', async () => {
+    const { home, project } = tree();
+    const localSkill = join(project, '.agents', 'agents', 'engineer', 'skills', 'wiki');
+    write(join(localSkill, 'SKILL.md'), '---\nname: wiki\n---\n\nAgent-local body.\n');
+    write(join(localSkill, 'references', 'on-failure.md'), '# Diagnose the failure\n');
+    write(join(localSkill, 'scripts', 'collect.sh'), 'echo collect\n');
+    write(join(localSkill, 'assets', 'comment.md'), 'Failure report\n');
+
+    const result = await executeRunAgentCommand({
+      homeDirectory: home,
+      projectDirectory: project,
+      agent: 'engineer',
+      harness: 'pi',
+      launcher: (plan) => {
+        const runtimeDir = plan.env.PI_CODING_AGENT_DIR;
+        expect(readFileSync(join(runtimeDir, 'skills', 'wiki', 'SKILL.md'), 'utf8')).toContain('Agent-local body');
+        expect(existsSync(join(runtimeDir, 'skills', 'wiki', 'references', 'on-failure.md'))).toBe(true);
+        expect(existsSync(join(runtimeDir, 'skills', 'wiki', 'scripts', 'collect.sh'))).toBe(true);
+        expect(existsSync(join(runtimeDir, 'skills', 'wiki', 'assets', 'comment.md'))).toBe(true);
+        return Promise.resolve(0);
+      },
+    });
+
+    expect(result.exitCode).toBe(0);
   });
 
   it('cleans up the runtime projection directory after the run', async () => {

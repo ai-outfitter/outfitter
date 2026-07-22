@@ -8,6 +8,9 @@ An agent is the protocol's identity resource — and, in Outfitter, the thing yo
     engineer/
       agent.md
       config.json   # optional
+      skills/       # capabilities private to engineer
+        release-debug/SKILL.md
+      hooks/        # reserved for a future portable hook entity
     code-reviewer/
       agent.md
 ```
@@ -51,7 +54,11 @@ Keep the prose focused on durable identity and behavior. Per-capability procedur
 | `thinking`   | Thinking/effort level.                                                       |
 | `tools`      | Allowed/denied tool policy for the run.                                      |
 
-Every value is a slug resolved across layers, so `skills: [wiki]` uses whichever `skills/wiki/` wins by precedence — nothing is duplicated into the agent.
+Every value is a slug resolved across layers. Skills first check `agents/<agent>/skills/<slug>/` across layer precedence, then fall back to catalog-wide `skills/<slug>/`. This lets an agent own private implementation capabilities without exposing them to every agent in the catalog. See [Skills](./skills.md#agent-local-skills).
+
+`knowledge` and `commands` resolve the same way — an agent may keep private files under `agents/<agent>/knowledge/` and `agents/<agent>/commands/`, local-first over the catalog-wide trees. `subagents` are always catalog-wide (a delegate is a shared agent). `extensions`/`plugins` are harness-native passthroughs with no on-disk namespace, and `model`/`thinking`/`tools` are per-agent already via `config.json` merge — none of these have an `agents/<agent>/` directory.
+
+Two per-agent surfaces are **discovered but not yet projected** (adapter parity is tracked in [#183](https://github.com/ai-outfitter/outfitter/issues/183)): `agents/<agent>/mcp.json` (merges by server id over the tree-root `mcp.json`) and the reserved `agents/<agent>/hooks/` namespace (see [Hooks](./hooks.md)). Both surface a validation warning when present so a selection placed there is never silently dropped.
 
 ## config.json
 
@@ -77,7 +84,7 @@ outfitter run engineer --harness claude
 
 ## Resolution
 
-Agents resolve by slug across layers — workspace, global, then remote sources — with merge-by-ID semantics: a workspace `agents/engineer/` overrides a global or remote one. `outfitter list agents` shows every resolvable agent and its winning source; `outfitter validate` reports broken loadout slugs and shadowed definitions.
+Agents resolve by slug across layers — workspace, global, then remote sources — with merge-by-ID semantics: a workspace `agents/engineer/` overrides a global or remote one. Agent-local skills merge by their owner and slug using the same layer order. `outfitter list agents` shows every resolvable agent and its winning source; `outfitter list skills --agent engineer` shows its effective skill namespace; `outfitter validate` reports broken loadout slugs and shadowed definitions.
 
 ## Agents as delegates
 

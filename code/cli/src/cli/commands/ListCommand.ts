@@ -3,7 +3,14 @@
 import { Command } from 'commander';
 
 import type { ResourceKind } from '../../resolver/Resource.js';
-import { listResources, resourceKinds } from '../../resolver/Resource.js';
+import {
+  agentLocalKinds,
+  compareSlugs,
+  findResource,
+  listAgentResources,
+  listResources,
+  resourceKinds,
+} from '../../resolver/Resource.js';
 import { resolveEffectiveSet } from '../../resolver/ResolverContext.js';
 import type { CommandObject } from './CommandObject.js';
 import { resolveHomeDirectory, resolveProjectDirectory } from './ProcessDefaults.js';
@@ -12,6 +19,7 @@ export interface ListInput {
   readonly homeDirectory: string;
   readonly projectDirectory: string;
   readonly kind?: string;
+  readonly agent?: string;
 }
 
 export interface ListResult {
@@ -62,11 +70,29 @@ export const executeListCommand = (input: ListInput): ListResult => {
 
   const messages: string[] = [];
 
+  if (input.agent !== undefined && findResource(set, 'agent', input.agent) === undefined) {
+    throw new Error(`Unknown agent '${input.agent}'. Run 'outfitter list agents' to see resolvable agents.`);
+  }
+
   for (const kind of resolveKindFilter(input.kind)) {
-    const resources = listResources(set, kind);
-    messages.push(`${pluralByKind.get(kind)!}:`);
+    const hasAgentContext = input.agent !== undefined && agentLocalKinds.includes(kind);
+    const globalResources = listResources(set, kind);
+    const localResources = hasAgentContext ? listAgentResources(set, input.agent, kind) : [];
+    const resources = new Map(globalResources.map((resource) => [resource.slug, resource]));
+    for (const resource of localResources) resources.set(resource.slug, resource);
+
+    messages.push(`${pluralByKind.get(kind)!}${hasAgentContext ? ` (agent ${input.agent})` : ''}:`);
     messages.push(
-      ...(resources.length === 0 ? ['  (none)'] : resources.map((r) => `  ${r.slug}  [${r.winner.layer.label}]`)),
+      ...(resources.size === 0
+        ? ['  (none)']
+        : [...resources.values()]
+            .sort((left, right) => compareSlugs(left.slug, right.slug))
+            .map(
+              (resource) =>
+                `  ${resource.slug}  [${resource.winner.layer.label}${
+                  resource.winner.ownerAgent === undefined ? '' : '; agent-local'
+                }]`,
+            )),
     );
   }
 
@@ -81,12 +107,17 @@ export const createListCommand = (dependencies: ListCommandDependencies = {}): C
       new Command('list')
         .description('List resolvable resources (agents, skills, knowledge, commands).')
         .argument('[kind]', 'Restrict to one kind: agents, skills, knowledge, or commands.')
-        .action((kind: string | undefined) => {
+        .option(
+          '--agent <id>',
+          'Resolve resources in an agent context, including its agent-local skills/knowledge/commands.',
+        )
+        .action((kind: string | undefined, options: { agent?: string }) => {
           const result = executeListCommand({
             /* v8 ignore next 2 -- process defaults are exercised by the CLI entrypoint, not unit tests. */
             homeDirectory: resolveHomeDirectory(dependencies.homeDirectory),
             projectDirectory: resolveProjectDirectory(dependencies.projectDirectory),
             kind,
+            agent: options.agent,
           });
 
           for (const message of result.messages) {
