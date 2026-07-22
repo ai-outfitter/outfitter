@@ -3,8 +3,6 @@
 This guide describes how to install and test Outfitter locally from a source checkout.
 For normal usage, install Outfitter from npm with `npm install -g @ai-outfitter/outfitter`.
 
-> **RFC #165 transition:** `docs/documentation/` and `docs/architecture/` describe the target dotagents `.agents` architecture. The commands and file paths in this contributor guide (for example `outfitter profile create` and `~/.outfitter`) match the current code and are updated by each implementation PR as it lands; see [AGENTS.md](./AGENTS.md).
-
 ## Prerequisites
 
 - Node.js `24.18.0`, as pinned in `.node-version`
@@ -218,7 +216,7 @@ Coverage includes all `code/cli/src/**/*.ts` files through the CLI workspace Vit
 ## Commit and release workflow
 
 Use Conventional Commits for every commit and PR title that will be squash-merged.
-Valid types are `feat`, `fix`, `refactor`, `chore`, `docs`, `test`, `ci`, `perf`, and `build`.
+Supported types are `feat`, `fix`, `chore`, and `refactor`.
 Each commit should represent one logical change.
 
 Release automation is split across two workflows:
@@ -229,6 +227,6 @@ Release automation is split across two workflows:
 3. `.github/workflows/release.yml` runs when that GitHub release is published.
    It publishes the CLI npm package from the `code/cli` workspace with trusted publishing and provenance.
 
-`feat` commits normally create a minor release, and `fix` or `perf` commits normally create a patch release.
-Maintenance-only commits such as `chore`, `docs`, `test`, `ci`, `refactor`, and `build` may appear in the changelog context but do not necessarily create a release by themselves.
+`feat` commits normally create a minor release, and `fix` commits normally create a patch release.
+Maintenance-only `chore` and `refactor` commits do not create a release by themselves.
 If a change must produce a release, use a releasable Conventional Commit type that accurately describes the user-facing impact.

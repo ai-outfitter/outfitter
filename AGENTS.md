@@ -1,15 +1,10 @@
 # AGENTS.md
 
-> **RFC #165 transition:** `docs/documentation/` and `docs/architecture/`
-> describe the target dotagents `.agents` architecture of
-> [RFC #165](https://github.com/ai-outfitter/outfitter/issues/165). The
-> bullets below and `docs/requirements/` describe the **current code** and
-> stay authoritative for implementation work until each RFC #165 PR amends
-> them alongside its tests.
+@CONTRIBUTING.md
 
 ## Architecture essentials
 
-- Outfitter is a TypeScript CLI for assembling and launching reproducible agent-CLI profiles; `pi` is the first and primary supported target.
+- Outfitter is a TypeScript CLI for assembling and launching reproducible agent-CLI profiles.
 - Use generic profile controls at the product boundary, then translate them through agent adapters into CLI-specific files, flags, and environment variables.
 - Prefer pi terminology, behavior, and native mechanisms whenever generic Outfitter controls conflict with pi conventions.
 - Persist user-editable config as YAML and validate every persisted YAML format with JSON Schema at read boundaries.
@@ -21,11 +16,3 @@
 - Pi is the primary and most complete adapter. A Claude Code adapter ships as well (OFTR-006) and is supported with gaps; unsupported controls must warn rather than fail unless `--strict` is set.
 - When adding files or changing directory layout, first check `docs/architecture/file_structure.md` for the current structure and update the relevant documentation afterward.
 - When adding tests that validate formal requirements, include the required two-line traceability comment immediately before the relevant `it(...)` or `describe(...)` block.
-
-## Contributor workflow
-
-@CONTRIBUTING.md
-
-- Use Conventional Commits for every commit message because release automation uses them for versioning and changelog generation. Prefer scopes, for example `fix(setup): ...`, `feat(pi): ...`, `docs(runtime): ...`, or `chore(deepwork): ...`.
-- Before committing, run the same formatting step the pre-commit flow expects: `npx prettier --write <changed files>` for targeted changes, or `npm run snapper:format && prettier --write .` when preparing a broad commit.
-- Before pushing, run `npm run check-ci` when practical; at minimum run the focused tests plus `npm run lint` and `prettier --check .` for the files you changed.
