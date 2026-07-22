@@ -13,7 +13,8 @@ import type { Harness } from '../../settings/Settings.js';
 import { HARNESSES } from '../../settings/Settings.js';
 import type { SetupAgentChoice, SetupResult, SetupSelection } from '../../setup/Setup.js';
 import { applySetupSelection, discoverSetupAgentChoices } from '../../setup/Setup.js';
-import { bootstrapDefaultCatalog } from '../../setup/DefaultCatalog.js';
+import { materializeBuiltinCatalog } from '../../setup/BuiltinCatalog.js';
+import { bootstrapDefaultCatalog, defaultCatalogSource } from '../../setup/DefaultCatalog.js';
 import type { CommandObject } from './CommandObject.js';
 import { resolveHomeDirectory, resolveProjectDirectory } from './ProcessDefaults.js';
 import { executeRunAgentCommand } from './RunAgentCommand.js';
@@ -189,6 +190,33 @@ const parseSetupSelection = (path: string): SetupSelection | undefined => {
 /* v8 ignore next -- wiring to the shared spawn boundary; launchThroughSpawn itself is unit-tested. */
 const defaultLauncher: SetupProcessLauncher = (plan) => launchThroughSpawn(spawnLauncher, plan);
 
+interface PreparedDefaultCatalog {
+  readonly root?: string;
+  readonly fallbackRoot?: string;
+  readonly notices: readonly string[];
+}
+
+const prepareDefaultCatalog = (
+  homeDirectory: string,
+  bootstrap: (homeDirectory: string) => string,
+): PreparedDefaultCatalog => {
+  try {
+    return { root: bootstrap(homeDirectory), notices: [] };
+  } catch (error) {
+    const fallbackRoot = materializeBuiltinCatalog(homeDirectory);
+    const source = `github:${defaultCatalogSource.github}@${defaultCatalogSource.ref}`;
+    return {
+      root: fallbackRoot,
+      fallbackRoot,
+      notices: [
+        `Warning: could not fetch the default catalog ${source}: ${String(error)}. ` +
+          "Continuing in degraded mode with the built-in 'starter' agent available; " +
+          'rerun `outfitter setup` once the source is reachable.',
+      ],
+    };
+  }
+};
+
 /** Launches the walkthrough, then applies its result through the shared setup state machine. */
 export const runSetup = async (dependencies: SetupCommandDependencies = {}): Promise<SetupResult | undefined> => {
   /* v8 ignore next -- the process TTY default is exercised through outfitter-dev. */
@@ -197,11 +225,14 @@ export const runSetup = async (dependencies: SetupCommandDependencies = {}): Pro
 
   const homeDirectory = resolveHomeDirectory(dependencies.homeDirectory);
   const projectDirectory = resolve(resolveProjectDirectory(dependencies.projectDirectory));
-  const defaultCatalogRoot =
+  const preparedCatalog =
     dependencies.setupSourceUri === undefined
-      ? (dependencies.defaultCatalogBootstrap ?? ((home) => bootstrapDefaultCatalog(home).root))(homeDirectory)
-      : undefined;
-  const availableAgents = discoverSetupAgentChoices({ defaultCatalogRoot });
+      ? prepareDefaultCatalog(
+          homeDirectory,
+          dependencies.defaultCatalogBootstrap ?? ((home) => bootstrapDefaultCatalog(home).root),
+        )
+      : { notices: [] };
+  const availableAgents = discoverSetupAgentChoices({ defaultCatalogRoot: preparedCatalog.root });
   const setupDirectory = mkdtempSync(join(tmpdir(), 'outfitter-setup-'));
 
   try {
@@ -222,7 +253,9 @@ export const runSetup = async (dependencies: SetupCommandDependencies = {}): Pro
       projectDirectory,
       selection,
       availableAgents,
-      defaultCatalogRoot,
+      defaultCatalogRoot: preparedCatalog.root,
+      fallbackCatalogRoot: preparedCatalog.fallbackRoot,
+      notices: preparedCatalog.notices,
     });
   } finally {
     rmSync(setupDirectory, { recursive: true, force: true });

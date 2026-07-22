@@ -68,6 +68,8 @@ describe('default catalog bootstrap', () => {
     ).toThrow(/must be a full commit SHA or version tag/u);
   });
 
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-010.3.9).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('fetches a pinned catalog into the normal source cache and reuses it offline', () => {
     const sourceRepository = createCatalogRepository();
     const homeDirectory = mkdtempSync(join(tmpdir(), 'outfitter-default-catalog-home-'));

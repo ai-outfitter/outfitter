@@ -3,6 +3,11 @@
 > **Amended (RFC [#165](https://github.com/ai-outfitter/outfitter/issues/165), 2026-07-20):**
 > restore the exact pre-Dotagents Pi-native setup wording, screens, and ordering. Translate only the
 > persisted model to `.agents`, and append one default CLI-agent selector with Pi/Outfitter selected.
+>
+> **Amended (degraded-offline onboarding, 2026-07-22):** authorize a minimal bundled `.agents`
+> starter catalog when the immutable default catalog cannot be fetched or reused from cache. The
+> fallback remains a separate, lower-precedence source so it cannot masquerade as or shadow the
+> pinned catalog.
 
 ## OFTR-010.1: Entry and isolation
 
@@ -52,6 +57,11 @@
 
 ## OFTR-010.3: Handoff and writes
 
+Amendment (2026-07-22): statements 7 and 8 were replaced because requiring network/cache
+availability made first-run setup unusable in offline, proxied, and restricted corporate networks.
+Statements 9 and 10 preserve the immutable pinned-catalog boundary while authorizing the separate,
+lower-precedence starter catalog specified by OFTR-010.6.
+
 1. The extension MUST write only a temporary handoff; the CLI validates and applies it.
 2. Home/project settings MUST be `~/.agents/settings.yml` and `<project>/.agents/settings.yml`.
 3. The profile choice maps to `default_agent`; the added CLI choice maps to `default_harness`.
@@ -60,9 +70,16 @@
    Outfitter.
 5. Existing resource files and unrelated settings MUST be preserved.
 6. Writes MUST be atomic; cancellation writes nothing; failures roll back only this attempt's changes.
-7. Setup MUST fetch that exact default-catalog revision into the normal remote-source cache or reuse
-   an exact cached checkout. It MUST NOT discover a sibling checkout or ship a fallback catalog.
-8. If the pinned revision is unavailable and uncached, setup MUST fail before changing settings.
+7. REQUIREMENT REMOVED (2026-07-22): setup was required to fetch or reuse only the exact pinned
+   catalog and was prohibited from shipping a fallback catalog; superseded by statements 9 and 10.
+8. REQUIREMENT REMOVED (2026-07-22): setup was required to fail before changing settings whenever
+   the pinned revision was unavailable and uncached; superseded by statements 9 and 10.
+9. Setup MUST fetch that exact default-catalog revision into the normal remote-source cache or reuse
+   an exact cached checkout. It MUST NOT discover a sibling checkout or represent fallback content
+   as the pinned checkout.
+10. If the pinned revision is unavailable and uncached, setup MUST use the degraded-offline behavior
+    in OFTR-010.6. If neither the pinned catalog nor bundled fallback can be prepared, setup MUST fail
+    before changing settings.
 
 ## OFTR-010.4: Verification
 
@@ -71,3 +88,18 @@
 2. Explicit and implicit entry points MUST use the same implementation.
 3. A packaged smoke test MUST prove the installed package bootstraps the pinned canonical catalog,
    selects Founder, and creates valid `.agents` settings without a monorepo sibling checkout.
+
+## OFTR-010.6: Degraded-offline onboarding
+
+1. The npm package MUST bundle a minimal `.agents` catalog containing an agent with id `starter`.
+   The starter MUST require no network access, remote extensions, model, or provider credentials.
+2. When the initial pinned default-catalog bootstrap fails, explicit and implicit setup MUST continue
+   through the normal walkthrough with the bundled starter available. Setup MUST warn, name the
+   failed pinned source, state that the starter is available as the degraded fallback, and explain
+   that rerunning setup once the source is reachable upgrades the environment.
+3. A degraded default selection MUST persist the pinned GitHub source first and the built-in catalog
+   path second. The fallback MUST remain separate from the remote-source cache and MUST NOT be
+   represented as an exact cached checkout.
+4. Successful pinned-catalog bootstrap behavior MUST remain unchanged. When the remote source later
+   becomes available, normal source precedence MUST select it ahead of the built-in fallback without
+   requiring re-onboarding or overwriting the bundled files.

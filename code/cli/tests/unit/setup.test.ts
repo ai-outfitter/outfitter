@@ -9,8 +9,12 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { createSetupCommand, preparePiSetupLaunch, runSetup } from '../../src/cli/commands/SetupCommand.js';
 import type { AgentLaunchPlan } from '../../src/projection/Projection.js';
+import { resolveEffectiveSet } from '../../src/resolver/ResolverContext.js';
+import { findResource } from '../../src/resolver/Resource.js';
+import { createBuiltinCatalogCachePath, materializeBuiltinCatalog } from '../../src/setup/BuiltinCatalog.js';
 import { defaultCatalogSource } from '../../src/setup/DefaultCatalog.js';
 import { applySetupSelection, discoverSetupAgentChoices, sanitizeAgentSlug } from '../../src/setup/Setup.js';
+import { createRemoteRepositoryCachePath } from '../../src/sources/SourceCache.js';
 
 const temporaryRoots: string[] = [];
 
@@ -574,25 +578,66 @@ describe('Pi setup launch', () => {
     expect(existsSync(join(home, '.agents'))).toBe(false);
   });
 
-  it('fails before launching or writing when the pinned default catalog is unavailable', async () => {
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-010.3.10, OFTR-010.6).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('continues with the lower-precedence starter catalog when the pinned catalog is unavailable', async () => {
     const { home, project } = createTree();
     let launched = false;
-    await expect(
-      runSetup({
-        homeDirectory: home,
-        projectDirectory: project,
-        defaultCatalogBootstrap: () => {
-          throw new Error('pinned catalog unavailable');
-        },
-        interactive: true,
-        launcher: () => {
-          launched = true;
-          return Promise.resolve(0);
-        },
-      }),
-    ).rejects.toThrow(/pinned catalog unavailable/u);
-    expect(launched).toBe(false);
-    expect(existsSync(join(home, '.agents'))).toBe(false);
+    const result = await runSetup({
+      homeDirectory: home,
+      projectDirectory: project,
+      defaultCatalogBootstrap: () => {
+        throw new Error('pinned catalog unavailable');
+      },
+      interactive: true,
+      launcher: (plan) => {
+        launched = true;
+        writeFileSync(
+          selectionPathFromPlan(plan),
+          JSON.stringify({ setupMode: 'default', agentId: 'starter', harness: 'pi', target: 'home' }),
+        );
+        return Promise.resolve(0);
+      },
+    });
+
+    const fallbackRoot = createBuiltinCatalogCachePath(home);
+    const settings = readFileSync(join(home, '.agents', 'settings.yml'), 'utf8');
+    expect(launched).toBe(true);
+    expect(result?.defaultAgent).toBe('starter');
+    expect(result?.messages[0]).toMatch(
+      /Warning: could not fetch the default catalog github:ai-outfitter\/default-profiles@v1\.0\.0.*built-in 'starter'/u,
+    );
+    expect(settings).toContain(`github: ${defaultCatalogSource.github}`);
+    expect(settings).toContain(`ref: ${defaultCatalogSource.ref}`);
+    expect(settings).toContain(`path: ${JSON.stringify(fallbackRoot)}`);
+    const fallbackAgentPath = join(fallbackRoot, 'agents', 'starter', 'agent.md');
+    expect(readFileSync(fallbackAgentPath, 'utf8')).toContain('name: starter');
+
+    writeFileSync(fallbackAgentPath, '---\nname: starter\n---\n\n# Preserved fallback\n');
+    expect(materializeBuiltinCatalog(home)).toBe(fallbackRoot);
+    expect(readFileSync(fallbackAgentPath, 'utf8')).toContain('Preserved fallback');
+
+    applySetupSelection({
+      homeDirectory: home,
+      projectDirectory: project,
+      defaultCatalogRoot: fallbackRoot,
+      fallbackCatalogRoot: fallbackRoot,
+      availableAgents: discoverSetupAgentChoices({ defaultCatalogRoot: fallbackRoot }),
+      selection: { setupMode: 'default', agentId: 'starter', harness: 'pi', target: 'home' },
+    });
+    expect(readFileSync(join(home, '.agents', 'settings.yml'), 'utf8').match(/builtin-catalog/gu)).toHaveLength(1);
+
+    const degraded = resolveEffectiveSet({ homeDirectory: home, projectDirectory: project });
+    expect(findResource(degraded.set, 'agent', 'starter')?.winner.path).toBe(
+      join(fallbackRoot, 'agents', 'starter', 'agent.md'),
+    );
+
+    const remoteRoot = createRemoteRepositoryCachePath(home, defaultCatalogSource);
+    write(join(remoteRoot, 'agents', 'starter', 'agent.md'), '---\nname: starter\n---\n\n# Remote starter\n');
+    const upgraded = resolveEffectiveSet({ homeDirectory: home, projectDirectory: project });
+    expect(findResource(upgraded.set, 'agent', 'starter')?.winner.path).toBe(
+      join(remoteRoot, 'agents', 'starter', 'agent.md'),
+    );
   });
 
   it('returns no result on cancellation and rejects invalid or failed walkthroughs', async () => {

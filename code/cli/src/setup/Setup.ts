@@ -36,6 +36,9 @@ export interface SetupInput {
   readonly selection: SetupSelection;
   readonly availableAgents: readonly SetupAgentChoice[];
   readonly defaultCatalogRoot?: string;
+  /** Lower-precedence built-in source used only when the pinned default catalog is unavailable. */
+  readonly fallbackCatalogRoot?: string;
+  readonly notices?: readonly string[];
 }
 
 export interface SetupResult {
@@ -159,7 +162,19 @@ const upsertDefaultCatalogSource = (content: string): string => {
   return `${lines.join('\n')}\n`;
 };
 
-const createSettingsContent = (existing: string, selection: SetupSelection): string => {
+const upsertFallbackCatalogSource = (content: string, fallbackCatalogRoot: string): string => {
+  const pathLine = `  - path: ${JSON.stringify(fallbackCatalogRoot)}`;
+  if (content.includes(pathLine)) return content;
+
+  const lines = content.replace(/\s*$/u, '').split('\n');
+  const start = lines.findIndex((line) => /^sources:\s*$/u.test(line));
+  let end = start + 1;
+  while (end < lines.length && (/^\s/u.test(lines[end] ?? '') || (lines[end] ?? '') === '')) end += 1;
+  lines.splice(end, 0, pathLine);
+  return `${lines.join('\n')}\n`;
+};
+
+const createSettingsContent = (existing: string, selection: SetupSelection, fallbackCatalogRoot?: string): string => {
   if (selection.setupMode === 'source') {
     return [
       `default_harness: ${selection.harness}`,
@@ -185,7 +200,9 @@ const createSettingsContent = (existing: string, selection: SetupSelection): str
 
   let content = replaceOrAppendScalar(existing, 'default_agent', String(selection.agentId));
   content = replaceOrAppendScalar(content, 'default_harness', selection.harness);
-  return selection.setupMode === 'default' ? upsertDefaultCatalogSource(content) : content;
+  if (selection.setupMode !== 'default') return content;
+  content = upsertDefaultCatalogSource(content);
+  return fallbackCatalogRoot === undefined ? content : upsertFallbackCatalogSource(content, fallbackCatalogRoot);
 };
 
 const enablePrivateCatalogs = (content: string): string => {
@@ -285,7 +302,7 @@ export const applySetupSelection = (input: SetupInput): SetupResult => {
     }
     const settingsExisted = existsSync(settingsPath);
     const existingSettings = settingsExisted ? readFileSync(settingsPath, 'utf8') : '';
-    atomicWrite(settingsPath, createSettingsContent(existingSettings, input.selection));
+    atomicWrite(settingsPath, createSettingsContent(existingSettings, input.selection, input.fallbackCatalogRoot));
     (settingsExisted ? updated : created).unshift(settingsPath);
   } catch (error) {
     if (createdAgentPath !== undefined) rmSync(createdAgentPath, { force: true });
@@ -303,6 +320,7 @@ export const applySetupSelection = (input: SetupInput): SetupResult => {
     defaultAgent: input.selection.agentId,
     defaultHarness: input.selection.harness,
     messages: [
+      ...(input.notices ?? []),
       ...created.map((path) => `Created ${path}`),
       ...updated.map((path) => `Updated ${path}`),
       ...(input.selection.agentId === undefined
