@@ -1,0 +1,25 @@
+# Rebase Notes
+
+- Strategy: a direct rebase of `origin/backup/local-ports` onto `origin/main` was attempted first. The removed profile architecture made the early commits conflict with current requirements and module boundaries, so the permitted re-apply strategy was used from `origin/main`. Local-only behavior was grouped into small commits and translated to the current `.agents`, `CompositionPlan`, projection, setup, and run shapes.
+- Degraded-offline setup fallback (`3a8243a`, `1fb383e`): `origin/main` won. Current pinned OFTR-010.3 statements 7 and 8 prohibit a bundled fallback catalog and require setup to fail without changing settings when a pinned catalog is unavailable and uncached. The removed profile files and bundled `starter` fallback were not restored. Open question: should a future requirements-governance change authorize degraded-offline setup?
+- Pi bundled-launch update suppression (`e836d74`): `origin/main` won because its current launcher already sets Pi's native skip-version-check environment variable; no duplicate implementation was applied.
+- Claude profile MCP/control projection (`69a163f`, `0923eec`): `origin/main` won. The legacy profile adapters were not restored; current `.agents` composition deliberately defers MCP/hooks projection under RFC #165 follow-up work. Existing current control projection and warning behavior were retained.
+- Claude skill materialization (`2c82285`): `origin/main` won because current `Materialize.ts` already projects composed skills equivalently.
+- Live state-write monitoring and crash journals (`7ff5aad`, `9684350`, `c7c2f6b`): the port won for its unique behavior, re-expressed as projection state declarations plus run-layer monitoring around the current harness-neutral projection. Journal metadata now records the selected agent slug.
+- Docs site source migration (`a593ceb`): not replayed because `doc_site/` changes are explicitly out of scope; no mechanical conflict resolution was required there.
+- Positioning and licensing (`94d8c95`, `a926aff`): the port won only for compatible README licensing/tagline metadata and package keywords. Current main documentation wording and `.agents` terminology won wherever the old profile-oriented copy overlapped.
+- Persona and federated-context examples (`a3755b6`, `dcb295b`): the port's unique examples won, translated from removed profile catalogs into native `.agents` agents, role documents, and atomic context skills.
+- Cross-adapter conformance suite (`c24bdc4`): the port won for the pinned conformance coverage, adapted to assert current `CompositionPlan` projections separately from the published RFC #165 target support matrices.
+- Typed Pi onboarding extension extraction (`a85cc5e`): `origin/main` won because setup now installs a newer bundled JavaScript extension through its current setup flow; the older TypeScript/profile extraction was not restored.
+- Setup/Pi login decomposition and reconciliation (`7f56681`, `6aae153`): `origin/main` won for module shape. Its current `SetupCommand.ts` and setup state machine already provide the equivalent decomposition, so old profile-era modules were not restored.
+- Dead dependency cleanup (`19fd084`): `origin/main` won because the dependencies were already absent. The port's requirements amendment was not replayed; no file under `docs/requirements/` was changed.
+- Claude first-run login handoff (`8bd4d55`, `0eb7f25`): the port won for unique behavior, implemented at the requested `run/RunClaudeOnboarding.ts` boundary without resurrecting legacy run modules or storing Claude credentials.
+- Run command decomposition (`339f1ed`): `origin/main` won for its harness-neutral command structure. Only the unique monitor and onboarding boundaries were added under the current run modules.
+- Setup fallback/home resolution (`40967ae`): the port won for the unique crash-safe behavior, centralized in current `ProcessDefaults` rather than old agent/profile modules.
+- Planning, typo-hygiene, governance, and working-file commits (`97abab9`, `4d36435`, `26cacf7`, `4cbe114`, `88f489e`, `5458b29`, `10474a0`, `55a7d63`, `27514bf`, `f16de84`): the port won for unique in-scope files; path references and governance language were adapted to current `.agents` documentation.
+- Session-log commits (`45b885c`, `e4102ba`, `b648a1f`, `b62c9b4`, `b4b3104`): dropped because they produce no tracked tree changes in the backup branch and their working log files are intentionally ignored.
+- Workspace install lifecycle: `origin/main`'s private root and CLI workspace both ran the same `prepare` build. A package-local `npm ci` therefore invoked the root build without CLI dependencies. The redundant private-root hook was removed; the CLI package's build-on-prepare behavior remains unchanged.
+
+## Open questions
+
+- The requested degraded-offline fallback remains incompatible with current pinned OFTR-010.3. It was intentionally dropped under the conflict priority that gives `origin/main` precedence for the same setup failure boundary. Reintroducing it requires a separately governed requirements and pinned-test change.
