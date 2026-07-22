@@ -169,6 +169,16 @@ describe('layer discovery', () => {
 });
 
 describe('resource resolution', () => {
+  it('returns an empty list when an effective set has no map for the requested kind', () => {
+    const emptySet = {
+      layers: [],
+      resources: new Map(),
+      agentResources: new Map(),
+    };
+
+    expect(listResources(emptySet, 'skill')).toEqual([]);
+  });
+
   const buildTree = (): { home: string; project: string } => {
     const root = createTemporaryRoot();
     const home = join(root, 'home');
