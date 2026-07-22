@@ -56,6 +56,10 @@ Keep the prose focused on durable identity and behavior. Per-capability procedur
 
 Every value is a slug resolved across layers. Skills first check `agents/<agent>/skills/<slug>/` across layer precedence, then fall back to catalog-wide `skills/<slug>/`. This lets an agent own private implementation capabilities without exposing them to every agent in the catalog. See [Skills](./skills.md#agent-local-skills).
 
+`knowledge` and `commands` resolve the same way — an agent may keep private files under `agents/<agent>/knowledge/` and `agents/<agent>/commands/`, local-first over the catalog-wide trees. `subagents` are always catalog-wide (a delegate is a shared agent). `extensions`/`plugins` are harness-native passthroughs with no on-disk namespace, and `model`/`thinking`/`tools` are per-agent already via `config.json` merge — none of these have an `agents/<agent>/` directory.
+
+Two per-agent surfaces are **discovered but not yet projected** (adapter parity is tracked in [#183](https://github.com/ai-outfitter/outfitter/issues/183)): `agents/<agent>/mcp.json` (merges by server id over the tree-root `mcp.json`) and the reserved `agents/<agent>/hooks/` namespace (see [Hooks](./hooks.md)). Both surface a validation warning when present so a selection placed there is never silently dropped.
+
 ## config.json
 
 The optional `config.json` carries structured or harness-specific configuration that is awkward in frontmatter, following the protocol's schema for the pinned revision. JSON files merge across layers per the protocol's JSON merge behavior, so a workspace layer can adjust one field of a globally defined agent — swap the model, add an extension — without copying the whole definition.

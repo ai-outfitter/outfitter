@@ -242,6 +242,79 @@ describe('resource resolution', () => {
     expect(localShadowWarnings).toHaveLength(1); // local-over-local only; catalog fallback is not a collision
   });
 
+  it('resolves agent-local knowledge and commands local-first, and lists them in agent context', () => {
+    const root = createTemporaryRoot();
+    const home = join(root, 'home');
+    const project = join(root, 'project');
+
+    write(join(home, '.agents', 'knowledge', 'shared.md'), 'catalog-wide shared knowledge');
+    write(join(home, '.agents', 'commands', 'deploy.md'), 'catalog-wide deploy');
+    write(join(home, '.agents', 'agents', 'engineer', 'knowledge', 'shared.md'), 'home-local knowledge');
+    write(join(project, '.agents', 'agents', 'engineer', 'agent.md'), agentMd('engineer'));
+    write(join(project, '.agents', 'agents', 'engineer', 'knowledge', 'shared.md'), 'workspace-local knowledge');
+    write(join(project, '.agents', 'agents', 'engineer', 'knowledge', 'private.md'), 'workspace-local private');
+    write(join(project, '.agents', 'agents', 'engineer', 'commands', 'deploy.md'), 'workspace-local deploy');
+
+    const set = setFor(home, project);
+    // Agent-local knowledge shadows the catalog-wide slug for its owner and keeps private entries.
+    const shared = findLoadoutResource(set, 'engineer', 'knowledge', 'shared.md')!;
+    expect(shared.winner.layer.origin).toBe('workspace');
+    expect(shared.winner.ownerAgent).toBe('engineer');
+    expect(shared.shadowed.map((definition) => definition.layer.origin)).toEqual(['global']); // local-over-local
+    expect(listAgentResources(set, 'engineer', 'knowledge').map((resource) => resource.slug)).toEqual([
+      'private.md',
+      'shared.md',
+    ]);
+    expect(listAgentResources(set, 'engineer', 'command').map((resource) => resource.slug)).toEqual(['deploy.md']);
+    // Catalog-wide copies remain resolvable without an agent context.
+    expect(findResource(set, 'knowledge', 'shared.md')?.winner.ownerAgent).toBeUndefined();
+
+    // Generalized shadow finding fires for a non-skill agent-local kind (local-over-local only).
+    const shadowWarnings = validateEffectiveSet(set).filter(
+      (finding) => finding.resource === 'agent:engineer/knowledge:shared.md',
+    );
+    expect(shadowWarnings).toHaveLength(1);
+
+    const listed = executeListCommand({
+      homeDirectory: home,
+      projectDirectory: project,
+      kind: 'knowledge',
+      agent: 'engineer',
+    });
+    expect(listed.messages).toEqual([
+      'knowledge (agent engineer):',
+      '  private.md  [workspace; agent-local]',
+      '  shared.md  [workspace; agent-local]',
+    ]);
+  });
+
+  it('discovers per-agent mcp.json and reserved hooks, warning that they are not yet projected', () => {
+    const root = createTemporaryRoot();
+    const home = join(root, 'home');
+    const project = join(root, 'project');
+
+    write(join(home, '.agents', 'agents', 'engineer', 'agent.md'), agentMd('engineer'));
+    write(join(home, '.agents', 'agents', 'engineer', 'mcp.json'), JSON.stringify({ servers: { gh: {} } }));
+    write(join(home, '.agents', 'agents', 'engineer', 'hooks', 'pre', 'run.sh'), 'echo hi');
+    // A second agent with an empty hooks dir and no mcp.json — neither should be collected.
+    write(join(home, '.agents', 'agents', 'plain', 'agent.md'), agentMd('plain'));
+    mkdirSync(join(home, '.agents', 'agents', 'plain', 'hooks'), { recursive: true });
+
+    const set = setFor(home, project);
+    const engineer = findResource(set, 'agent', 'engineer')!;
+    expect(engineer.mcpPaths).toHaveLength(1);
+    expect(engineer.hookPaths).toHaveLength(1);
+    const plain = findResource(set, 'agent', 'plain')!;
+    expect(plain.mcpPaths).toEqual([]);
+    expect(plain.hookPaths).toEqual([]); // empty hooks/ is not collected
+
+    const findings = validateEffectiveSet(set);
+    expect(findings.some((f) => f.resource === 'agent:engineer' && /mcp\.json/.test(f.message))).toBe(true);
+    expect(findings.some((f) => f.resource === 'agent:engineer' && /hooks/.test(f.message))).toBe(true);
+    // Stubs surface as warnings (fatal only under --strict), never as errors.
+    expect(findings.filter((f) => f.severity === 'error')).toHaveLength(0);
+  });
+
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-003.4).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('merges a workspace config.json over a globally defined agent by ID', () => {

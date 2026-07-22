@@ -11,10 +11,22 @@
       "$ref": "#/$defs/slugList",
       "description": "Skill slugs resolved from agents/<name>/skills first, then catalog-wide skills."
     },
-    "subagents": { "$ref": "#/$defs/slugList" },
-    "mcp": { "$ref": "#/$defs/slugList" },
-    "extensions": { "$ref": "#/$defs/slugList" },
-    "plugins": { "$ref": "#/$defs/slugList" },
+    "subagents": {
+      "$ref": "#/$defs/slugList",
+      "description": "Agent slugs delegated to. Resolved catalog-wide (a delegate is a shared agent, not nested under agents/<name>)."
+    },
+    "mcp": {
+      "$ref": "#/$defs/slugList",
+      "description": "MCP server ids. Per-agent agents/<name>/mcp.json is discovered and merges by id over the tree-root mcp.json; projection into the run is deferred (adapter parity, #183)."
+    },
+    "extensions": {
+      "$ref": "#/$defs/slugList",
+      "description": "Harness-native extension selections passed through to the launch; no on-disk agent-local namespace."
+    },
+    "plugins": {
+      "$ref": "#/$defs/slugList",
+      "description": "Harness-native plugin selections passed through to the launch; no on-disk agent-local namespace."
+    },
     "model": { "type": "string", "minLength": 1 },
     "thinking": { "type": "string", "minLength": 1 },
     "tools": {

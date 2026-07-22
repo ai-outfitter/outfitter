@@ -4,6 +4,7 @@ import { Command } from 'commander';
 
 import type { ResourceKind } from '../../resolver/Resource.js';
 import {
+  agentLocalKinds,
   compareSlugs,
   findResource,
   listAgentResources,
@@ -74,7 +75,7 @@ export const executeListCommand = (input: ListInput): ListResult => {
   }
 
   for (const kind of resolveKindFilter(input.kind)) {
-    const hasAgentContext = input.agent !== undefined && kind === 'skill';
+    const hasAgentContext = input.agent !== undefined && agentLocalKinds.includes(kind);
     const globalResources = listResources(set, kind);
     const localResources = hasAgentContext ? listAgentResources(set, input.agent, kind) : [];
     const resources = new Map(globalResources.map((resource) => [resource.slug, resource]));
@@ -106,7 +107,10 @@ export const createListCommand = (dependencies: ListCommandDependencies = {}): C
       new Command('list')
         .description('List resolvable resources (agents, skills, knowledge, commands).')
         .argument('[kind]', 'Restrict to one kind: agents, skills, knowledge, or commands.')
-        .option('--agent <id>', 'Resolve resources in an agent context, including its local skills.')
+        .option(
+          '--agent <id>',
+          'Resolve resources in an agent context, including its agent-local skills/knowledge/commands.',
+        )
         .action((kind: string | undefined, options: { agent?: string }) => {
           const result = executeListCommand({
             /* v8 ignore next 2 -- process defaults are exercised by the CLI entrypoint, not unit tests. */

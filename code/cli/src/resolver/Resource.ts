@@ -5,6 +5,14 @@ export type ResourceKind = 'agent' | 'skill' | 'knowledge' | 'command';
 
 export const resourceKinds: readonly ResourceKind[] = ['agent', 'skill', 'knowledge', 'command'];
 
+/**
+ * Kinds that also resolve **agent-local** — discovered under `agents/<agent>/<container>/` and
+ * resolved local-first before catalog fallback. Excludes `agent` (no nested subagents; a delegate is
+ * a shared catalog agent). mcp/hooks are handled separately (config file / reserved namespace), not
+ * as slug-container kinds.
+ */
+export const agentLocalKinds: readonly ResourceKind[] = ['skill', 'knowledge', 'command'];
+
 /** Where a layer originates, highest precedence first. */
 export type LayerOrigin = 'workspace' | 'global' | 'source';
 
@@ -59,6 +67,17 @@ export interface ResolvedResource {
    * override one loadout field of a globally defined agent.
    */
   readonly configPaths?: readonly string[];
+  /**
+   * For agents: existing `agents/<slug>/mcp.json` paths across all layers, highest precedence first.
+   * Discovered here so a later projection pass (#183) can merge them over the tree-root `mcp.json`.
+   * Config merges by server id — it does not shadow whole like slug resources.
+   */
+  readonly mcpPaths?: readonly string[];
+  /**
+   * For agents: existing `agents/<slug>/hooks/` directories across all layers. The hooks namespace is
+   * reserved (no protocol hooks entity yet); presence is surfaced as a diagnostic, not resolved.
+   */
+  readonly hookPaths?: readonly string[];
 }
 
 /** Locale-independent, deterministic slug ordering (code-unit comparison). */
