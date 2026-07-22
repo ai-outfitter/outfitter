@@ -70,3 +70,7 @@ review-results/
 # Agent-local planning artifacts
 TASK.md
 PLAN.md
+
+# Session working docs (local only)
+project-log.md
+project-plan.md
