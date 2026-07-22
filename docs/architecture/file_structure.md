@@ -12,8 +12,6 @@ Outfitter is organized around a private npm workspace root, clear TypeScript pac
 ```text
 .                                      # repository root
 ├── .deepreview                        # root DeepWork review rules for project-wide checks
-├── .dockerignore                      # container build context exclusions
-├── Dockerfile                         # local Outfitter container image definition
 ├── .deepwork/                         # DeepWork schemas and generated review instruction scratch files
 │   └── schemas/                       # project-specific DeepSchema definitions
 ├── .github/                           # GitHub automation configuration
@@ -29,7 +27,7 @@ Outfitter is organized around a private npm workspace root, clear TypeScript pac
 ├── .prettierrc.json                   # Prettier formatting configuration
 ├── .snapperrc.toml                    # Snapper Markdown formatting configuration
 ├── CONTRIBUTING.md                    # local install and contributor workflow guide
-├── flake.nix                          # Nix package output for the Outfitter CLI
+├── flake.nix                          # Nix package and container outputs for the Outfitter CLI
 ├── flake.lock                         # pinned Nix flake inputs
 ├── code/                              # npm workspace packages and license-separated code areas
 │   ├── cli/                           # @ai-outfitter/outfitter npm package root

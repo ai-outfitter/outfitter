@@ -1,0 +1,104 @@
+name: Container
+
+on:
+  workflow_call:
+    inputs:
+      version:
+        description: Release version used for package metadata and the image tag
+        required: true
+        type: string
+      publish:
+        description: Push the validated image to GHCR
+        required: false
+        default: false
+        type: boolean
+      prerelease:
+        description: Do not update latest for prereleases
+        required: false
+        default: false
+        type: boolean
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Release version to reproduce
+        required: true
+        default: v1.0.1
+        type: string
+      publish:
+        description: Push the validated image to GHCR
+        required: false
+        default: false
+        type: boolean
+      prerelease:
+        description: Do not update latest
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build:
+    name: Build and smoke test Nix image
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: '.node-version'
+
+      - name: Sync release version
+        run: node scripts/sync-release-version.mjs "${{ inputs.version }}"
+
+      - name: Install Nix
+        uses: DeterminateSystems/determinate-nix-action@v3
+
+      - name: Restore Nix build cache
+        uses: DeterminateSystems/magic-nix-cache-action@v14
+
+      - name: Resolve image name
+        run: |
+          echo "IMAGE=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/outfitter" >> "$GITHUB_ENV"
+          echo "VERSION=${VERSION_INPUT#v}" >> "$GITHUB_ENV"
+        env:
+          VERSION_INPUT: ${{ inputs.version }}
+
+      - name: Build and load image
+        run: |
+          nix build .#container
+          docker load < result
+          docker tag outfitter:latest "$IMAGE:$VERSION"
+
+      - name: Smoke test image
+        run: |
+          output="$(docker run --rm "$IMAGE:$VERSION" --version)"
+          if [ "$output" != "$VERSION" ]; then
+            echo "Expected outfitter --version to print '$VERSION' but got '$output'." >&2
+            exit 1
+          fi
+
+      - name: Log in to GitHub Container Registry
+        if: inputs.publish
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Push version tag
+        if: inputs.publish
+        run: docker push "$IMAGE:$VERSION"
+
+      - name: Push latest tag
+        if: inputs.publish && !inputs.prerelease
+        run: |
+          docker tag "$IMAGE:$VERSION" "$IMAGE:latest"
+          docker push "$IMAGE:latest"
