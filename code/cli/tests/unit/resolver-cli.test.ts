@@ -40,6 +40,10 @@ const project = (): string => {
     join(root, 'project', '.agents', 'agents', 'engineer', 'agent.md'),
     '---\nname: engineer\nskills: [ghost]\n---\n\nBody.\n',
   );
+  write(
+    join(root, 'project', '.agents', 'agents', 'engineer', 'skills', 'private', 'SKILL.md'),
+    '---\nname: private\n---\n',
+  );
   return root;
 };
 
@@ -60,6 +64,12 @@ describe('resolver command objects', () => {
     const lines: string[] = [];
     await buildProgram(project(), lines).parseAsync(['node', 'outfitter', 'list', 'agents']);
     expect(lines.join('\n')).toContain('engineer  [workspace]');
+  });
+
+  it('list forwards --agent and marks local resources', async () => {
+    const lines: string[] = [];
+    await buildProgram(project(), lines).parseAsync(['node', 'outfitter', 'list', 'skills', '--agent', 'engineer']);
+    expect(lines).toEqual(['skills (agent engineer):', '  private  [workspace; agent-local]']);
   });
 
   it('validate forwards --strict/--json and sets a nonzero exit code on failure', async () => {

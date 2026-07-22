@@ -2,7 +2,7 @@
 
 Skills are focused capability packages that an agent loads progressively. An [agent](./agents.md) selects the skills available to a run by slug in its `skills` loadout, while each skill owns the instructions and references needed for one kind of work.
 
-Skills are protocol resources under `skills/<id>/` in any [`.agents` layer](./concepts.md#layers) — workspace, global, or a remote [catalog](./catalogs.md). Outfitter follows the [Agent Skills](https://agentskills.io/specification) package model as incorporated by the pinned protocol revision.
+Reusable skills are catalog-wide resources under `skills/<id>/` in any [`.agents` layer](./concepts.md#layers) — workspace, global, or a remote [catalog](./catalogs.md). A skill used by only one agent can instead live beside its owner under `agents/<agent-id>/skills/<id>/`. Both layouts use the same [Agent Skills](https://agentskills.io/specification) package model.
 
 ## Defining a skill
 
@@ -27,6 +27,28 @@ skills:
 ```
 
 A `skills` entry is a bare slug or, to append references to the selected skill, an `{ id, references }` object ([Loadout-added references](#loadout-added-references)).
+
+### Agent-local skills
+
+Colocate a capability that is meaningful to only one agent:
+
+```text
+.agents/
+  agents/
+    actions/
+      agent.md                 # skills: [actions-automation]
+      skills/
+        actions-automation/
+          SKILL.md
+          references/
+            on-job-failure.md
+          scripts/
+            collect-logs.sh
+```
+
+For `actions`, Outfitter resolves `actions-automation` from `agents/actions/skills/` before falling back to top-level `skills/`. Other agents cannot see that local definition. They need their own local definition or a catalog-wide fallback. Equal local slugs under different agents are intentionally distinct, and a local skill can override a catalog-wide skill for its owner without a collision warning.
+
+Use `outfitter list skills --agent actions` to inspect this local-first view. Plain `outfitter list skills` continues to show the catalog-wide namespace.
 
 ## SKILL.md
 
@@ -201,13 +223,15 @@ Outfitter resolves and normalizes reference targets before launch. Targets MUST 
 
 For each selected skill, Outfitter:
 
-1. Resolves the slug across layers — workspace, global, then remote sources — following [layer precedence](./concepts.md#layer-precedence).
+1. Resolves the slug through the selected agent's local namespace across layers — workspace, global, then remote sources — and then repeats that precedence in the catalog-wide namespace.
 2. Validates `SKILL.md` and confirms `name` matches the directory name.
 3. Resolves `file` and `repo_file` reference entries, expanding glob targets.
 4. Materializes the generated skill (references, scripts, assets) for the run or [dump](./dump-and-bake.md).
 5. Passes the generated skill to the selected agent adapter.
 
 Run `outfitter validate` to diagnose unresolved slugs, invalid frontmatter, missing or zero-match `file` references, escaping paths, and destination collisions before launch.
+
+`outfitter dump --agent <id>` flattens selected local skills into the dumped tree's top-level `skills/<id>/` directory. This closure output is directly discoverable by target harnesses while the authored catalog keeps its agent-local ownership boundary.
 
 ## Progressive disclosure
 

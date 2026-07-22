@@ -22,7 +22,10 @@ ncrmro/.agents/            # repository root
   agents.md
   system-prompt.md
   agents/
-    engineer/agent.md
+    engineer/
+      agent.md
+      skills/                 # skills private to engineer
+        release-debug/SKILL.md
     founder/agent.md
   skills/
     wiki/SKILL.md
@@ -78,7 +81,7 @@ Remote entries additionally accept:
 - `ref:` — a tag, branch, or commit to pin. With a `ref`, `outfitter sync` fetches exactly that ref. Without one, sync fast-forwards the default branch.
 - `path:` — the payload directory inside the repository, for colocated layouts.
 
-Resources from all sources resolve by slug behind local layers, following [layer precedence](./concepts.md#layer-precedence). Outfitter reports shadowed IDs so consumers can see which source supplies a selected resource.
+Resources from all sources resolve by slug behind local layers, following [layer precedence](./concepts.md#layer-precedence). Agent-local skills keep their owning-agent namespace through cache and source merging. Outfitter reports shadowed IDs so consumers can see which source supplies a selected resource.
 
 ## Organization control repositories
 
