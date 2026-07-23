@@ -48,6 +48,7 @@ Each use case is a worked story — a problem, the composition that answers it, 
 - [Flaky-test post-mortems in CI](./usecases/flaky-test-postmortems.md) — an on-failure step that classifies flake vs. regression and comments with evidence.
 - [Grafana alert investigations in-cluster](./usecases/grafana-alert-investigator.md) — a webhook turns each firing alert into one bounded investigation Job.
 - [Self-improving skills](./usecases/self-improving-skills.md) — a weekly loop that proposes skill edits and ships only measured improvements.
+- [Resident agents: a researcher wiki](./usecases/resident-agents.md) — a long-lived agent that turns an email inbox into a compounding, reviewable knowledge base.
 - [Persona reviews](./usecases/persona-reviews.md) — a base review agent plus customer-persona documents for feedback on ideas, docs, and designs.
 - [Organization catalog](./usecases/organization-profile-catalog.md) — publish shared org resources and defaults through an `owner/.outfitter` control repository.
 - [Engineering catalog](./usecases/engineering.md) — package engineering agents and skills for repeatable workflows.

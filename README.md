@@ -106,6 +106,7 @@ Use cases, story first:
 - [Flaky-test post-mortems in CI](./docs/documentation/usecases/flaky-test-postmortems.md) — an on-failure step that classifies flake vs. regression and comments with evidence.
 - [Grafana alert investigations in-cluster](./docs/documentation/usecases/grafana-alert-investigator.md) — a webhook turns each firing alert into one bounded investigation Job.
 - [Self-improving skills](./docs/documentation/usecases/self-improving-skills.md) — a weekly loop that proposes skill edits and ships only measured improvements.
+- [Resident agents: a researcher wiki](./docs/documentation/usecases/resident-agents.md) — a long-lived agent that turns an email inbox into a compounding, reviewable knowledge base.
 - [Persona reviews](./docs/documentation/usecases/persona-reviews.md) — customer personas your whole team can ask for feedback.
 - [Organization catalog](./docs/documentation/usecases/organization-profile-catalog.md) — shared org resources and defaults through a control repository.
 - [Engineering catalog](./docs/documentation/usecases/engineering.md) — engineering agents and skills for repeatable workflows.
