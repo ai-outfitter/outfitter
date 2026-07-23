@@ -24,6 +24,20 @@ Use Conventional Commits for every commit message, with scopes
 
 The same placement works for every ambient rule: secret hygiene, small reversible changes, "write decisions into repository files." The test is the [conventions](../conventions.md) split — if the agent should never _decide_ about it, it belongs in shared context, not in a skill.
 
+## A second fragment: repository layout
+
+The default catalogs ship another ambient rule, `project-repos`, that standardizes where code lives on a machine:
+
+```markdown
+<!-- default catalog shared context -->
+
+Repositories are checked out at `~/repos/<org-or-username>/<repo>/`;
+linked worktrees live beside them at
+`~/repos/<org-or-username>/<repo>.worktrees/`.
+```
+
+The value is ambiguity reduction: every agent — and every skill that clones, opens a worktree, or navigates between projects — knows where a repository lives without asking or guessing, and automation composed from the catalog can rely on the same paths on every machine. A user who keeps a different layout overrides just this fragment in their own `~/.agents` layer and keeps using the shared profiles unchanged — or builds their own profiles from scratch. Either way the catalog never forks over a filesystem preference.
+
 ## Reaching native harness runs
 
 Composition only helps runs that go through it — the rule should also reach a bare `claude` session that never touches Outfitter. [Porting a Claude Code setup](../porting-claude.md) already does this in one direction: `~/.claude/CLAUDE.md` becomes `~/.agents/agents.md` with a symlink back, so native Claude Code reads the protocol tree and editing either view edits the same file. The generalization — projecting composed shared context into each harness's home-level memory file — is tracked in [#187](https://github.com/ai-outfitter/outfitter/issues/187).
