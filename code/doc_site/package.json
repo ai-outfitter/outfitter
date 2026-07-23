@@ -10,7 +10,7 @@
     "lint": "eslint . --config eslint.config.js"
   },
   "dependencies": {
-    "next": "^16.0.0",
+    "next": "^16.2.11",
     "nextra": "^4.3.0",
     "nextra-theme-docs": "^4.3.0",
     "react": "^19.0.0",
