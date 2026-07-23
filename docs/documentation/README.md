@@ -47,6 +47,7 @@ One runbook per rung of [the adoption ramp](../philosophy.md#the-ramp-to-an-auto
 The same composition runs on every surface; only the trigger changes.
 
 - [Running an agent in GitHub Actions](./actions.md) — headless runs on any workflow trigger.
+- [Channels](./channels.md) — add external event sources that wake a resident agent only when work arrives.
 - [Container images](./containers.md) — run the published Debian-based image persistently, extend it with apt, or use the `-nix` variant.
 - [Recurring runs](./recurring-runs.md) — loops three ways: the local loop extension, Actions cron, cluster schedules.
 - [In-cluster agents](./in-cluster.md) — resident agents, CronJobs, and subagent Jobs via Link Operator.
