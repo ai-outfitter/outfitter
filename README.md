@@ -4,8 +4,6 @@ Outfitter is the toolchain for the [Dotagents `.agents` protocol](./docs/documen
 
 Outfitter does not own a configuration format. Your `.agents/` directory is the source of truth — useful without Outfitter, committed and reviewed like any other code.
 
-> These docs are the authoritative description of the `.agents` model Outfitter implements — start with [Concepts](./docs/documentation/concepts.md). For interchange, Outfitter pins draft protocol revision `502a9d5` of the referenced [external protocol site](https://dotagentsprotocol.com/). Implementation is rolling out across releases — a published CLI may lag these docs; [Migration](./docs/documentation/migration.md) covers the legacy profile format. For the design history, see [RFC #165](https://github.com/ai-outfitter/outfitter/issues/165).
-
 ## Why
 
 Your agent setup is configuration: prompts, skills, MCP servers, model choices, permissions. Left alone it lives per tool and per laptop, gets pasted between repos, and drifts. Outfitter treats it like the rest of your infrastructure — layered, composed by slug, pinned by SHA, reviewed through pull requests.
