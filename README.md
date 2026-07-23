@@ -18,10 +18,10 @@ Two ideas carry most of that leverage:
 
   ```mermaid
   flowchart LR
-    A["~/.agents<br/>(you)"] --> B["project/.agents<br/>(your repo)"]
-    B --> C["org catalog<br/>(pinned by SHA)"]
-    C --> D["community catalogs"]
-    D -. "inherited + overridable by ID" .-> A
+    personal["~/.agents<br/>(you)"] -->|port up| project["project/.agents<br/>(your repo)"]
+    project -->|port up| org["org catalog<br/>(pinned by SHA)"]
+    org -->|contribute| community["community catalogs"]
+    community -. "inherited back, specialized downward" .-> personal
   ```
 
   ID-addressed resources — agents, skills, knowledge — override by ID across layers, and root shared context is selected by layer precedence, so you author a rule or skill once at the most general layer where it holds and specialize downward — never copy. See [Conventions](./docs/documentation/conventions.md).

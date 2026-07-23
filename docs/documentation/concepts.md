@@ -4,12 +4,12 @@ How an `outfitter` launch goes from configuration files to a running agent:
 
 ```mermaid
 flowchart LR
-  A[Settings] --> B[Sources]
-  B --> C[.agents layers]
-  C --> D[Resolver]
-  D --> E[Composed agent]
-  E --> F[Adapter]
-  F --> G[Harness]
+  settings[Settings] --> sources[Sources]
+  sources --> layers[".agents layers"]
+  layers --> resolver[Resolver]
+  resolver --> composed["Composed agent"]
+  composed --> adapter[Adapter]
+  adapter --> harness[Harness]
 ```
 
 Settings tell Outfitter where `.agents` resources come from; sources supply protocol resource trees; the resolver merges the layered trees into one effective resource set; the selected agent composes its loadout — skills, subagents, model, and so on — from that set by slug; and an adapter projects the composed agent into harness-specific files, flags, and environment variables before launching the harness (pi or Claude Code).

@@ -8,32 +8,32 @@ Resources come from layered `.agents` trees: the project workspace overlay, the 
 
 ```mermaid
 flowchart LR
-  subgraph layers [.agents layers - precedence high to low]
-    PJ[Workspace<br>project/.agents/]
-    US[Global<br>~/.agents/]
-    CA[Cached catalogs<br>pinned remote sources]
+  subgraph layers [".agents layers — precedence high to low"]
+    workspace["Workspace<br/>project/.agents/"]
+    global["Global<br/>~/.agents/"]
+    catalogs["Cached catalogs<br/>pinned remote sources"]
   end
 
-  subgraph resources [Protocol resources]
-    AG[Agents + loadouts]
-    SK[Skills]
-    KN[Knowledge / commands]
-    JS[mcp.json / models.json]
+  subgraph resources ["Protocol resources"]
+    agents["Agents + loadouts"]
+    skills["Skills"]
+    knowledge["Knowledge / commands"]
+    config["mcp.json / models.json"]
   end
 
-  layers --> RESOLVE[Resolver<br>merge by ID]
-  resources -.stored in.- layers
+  layers --> resolver["Resolver<br/>merge by ID"]
+  resources -. stored in .- layers
 
-  RESOLVE --> SELECT[Composed agent<br>identity + skills, subagents, mcp, model]
+  resolver --> composed["Composed agent<br/>identity + skills, subagents, mcp, model"]
 
-  SELECT --> AD{Adapter}
-  AD -->|full projection| PI[Pi CLI<br>primary adapter]
-  AD -->|partial, warns on gaps| CC[Claude Code CLI]
+  composed --> adapter{Adapter}
+  adapter -->|full projection| pi["Pi CLI<br/>primary adapter"]
+  adapter -->|partial, warns on gaps| claude["Claude Code CLI"]
 
-  SELECT --> DUMP[outfitter dump<br>deterministic .agents/ output]
+  composed --> dump["outfitter dump<br/>deterministic .agents/ output"]
 
-  PI --> RUN([Launched agent process])
-  CC --> RUN
+  pi --> run(["Launched agent process"])
+  claude --> run
 ```
 
 ## Sequence: `outfitter run <agent>`
@@ -42,6 +42,7 @@ flowchart LR
 
 ```mermaid
 sequenceDiagram
+  autonumber
   actor User
   participant CLI as outfitter run
   participant Resolver as Resolver
@@ -77,23 +78,23 @@ sequenceDiagram
 
 ```mermaid
 flowchart TB
-  subgraph declare [Source declarations in settings.yml]
-    GH[github: owner/.agent<br>+ pinned ref, optional path]
-    URI[uri: git+https://...]
-    PATH[path: ../local-checkout]
+  subgraph declare ["Source declarations in settings.yml"]
+    githubsrc["github: owner/.agent<br/>+ pinned ref, optional path"]
+    urisrc["uri: git+https://..."]
+    pathsrc["path: ../local-checkout"]
   end
 
-  SETUP[outfitter setup source] --> DETECT{Existing config?}
-  DETECT -->|.agents tree| ADOPT[Adopt as-is]
-  DETECT -->|~/.claude| PORT[Port + symlink back]
-  DETECT -->|none| ONBOARD[Bootstrap from default catalog]
+  setup["outfitter setup source"] --> detect{"Existing config?"}
+  detect -->|.agents tree| adopt["Adopt as-is"]
+  detect -->|~/.claude| port["Port + symlink back"]
+  detect -->|none| onboard["Bootstrap from default catalog"]
 
-  GH --> SYNCOP[outfitter sync]
-  URI --> SYNCOP
-  SYNCOP --> CACHE[(Local cache)]
-  SYNCOP --> STATUS[Per-source status:<br>updated / unchanged / skipped / failed]
-  CACHE --> VALIDATE[Validate payloads]
-  PATH -->|read live, no cache| LAYERS
-  VALIDATE --> LAYERS[.agents layer stack]
-  LAYERS --> RUN[outfitter run / list / validate / dump]
+  githubsrc --> sync["outfitter sync"]
+  urisrc --> sync
+  sync --> cache[("Local cache")]
+  sync --> status["Per-source status:<br/>updated / unchanged / skipped / failed"]
+  cache --> validate["Validate payloads"]
+  pathsrc -->|read live, no cache| stack
+  validate --> stack[".agents layer stack"]
+  stack --> consumers["outfitter run / list / validate / dump"]
 ```
