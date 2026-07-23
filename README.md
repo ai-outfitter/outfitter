@@ -1,10 +1,10 @@
 # Outfitter
 
-Outfitter is the toolchain for the [Dotagents `.agents` protocol](https://dotagentsprotocol.com/): it resolves agent configuration from local and remote `.agents` trees, composes agents, skills, and knowledge by slug, and launches the result through wrapped agent CLIs like [`pi`](https://github.com/earendil-works/pi-coding-agent) and Claude Code.
+Outfitter is the toolchain for the [Dotagents `.agents` protocol](./docs/documentation/concepts.md): it resolves agent configuration from local and remote `.agents` trees, composes agents, skills, and knowledge by slug, and launches the result through wrapped agent CLIs like [`pi`](https://github.com/earendil-works/pi-coding-agent) and Claude Code.
 
 Outfitter does not own a configuration format. Your `.agents/` directory is the source of truth — useful without Outfitter, committed and reviewed like any other code.
 
-> Outfitter pins and implements Dotagents protocol revision [`502a9d5`](https://github.com/aj47/dotagentsprotocol-website/blob/502a9d5f886d0aad8d3da83c03354bdfa4b389e7/src/components/Structure.astro). For the design history, see [RFC #165](https://github.com/ai-outfitter/outfitter/issues/165).
+> These docs are the authoritative description of the `.agents` model Outfitter implements — start with [Concepts](./docs/documentation/concepts.md). For interchange, Outfitter pins draft protocol revision `502a9d5` of the referenced [external protocol site](https://dotagentsprotocol.com/). For the design history, see [RFC #165](https://github.com/ai-outfitter/outfitter/issues/165).
 
 ## Why
 
