@@ -1,6 +1,6 @@
 # Recurring runs
 
-Recurring agent work — "check this every N minutes", "review what landed overnight", "regenerate the weekly report" — runs three ways in the Outfitter ecosystem. All three share **one primitive**: the loop extension (Pi's `/loop <interval>`), which re-invokes an agent on a tick. What differs is who supplies the clock.
+Recurring agent work — "check this every N minutes", "review what landed overnight", "regenerate the weekly report" — runs three ways in the Outfitter ecosystem. All three run the **same composition** — the agent, its skills, its catalog pins — under the same contract: wake, survey your inputs, work, stop. What differs is the clock and the lifecycle: a loop extension re-invokes a live session on a tick (locally, and inside resident in-cluster agents), while the cron surfaces launch a fresh one-shot process per tick.
 
 | Mechanism                                         | Clock            | Shape                                                                                                         | Use when                                                                                                                        |
 | ------------------------------------------------- | ---------------- | ------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
@@ -12,7 +12,7 @@ The graduation path mirrors [the ladder](./conventions.md): prototype the behavi
 
 ## Local: the loop extension
 
-The loop extension re-invokes the agent at an interval inside a session. Each tick, a well-shaped looping agent surveys its available inputs, turns new items into tasks, and works or delegates them — rather than carrying a growing transcript of stale context. This is also exactly how the in-cluster resident agent runs: the Link Operator runtime bootstraps its long-lived session with the same `/loop` command, defaulting to a 10-minute tick.
+The loop extension re-invokes the agent at an interval inside a session. It is not bundled with a default install — select a loop extension in the agent's loadout (`extensions:`) and pin it like any other extension. Each tick, a well-shaped looping agent surveys its available inputs, turns new items into tasks, and works or delegates them — rather than carrying a growing transcript of stale context. This is also how the in-cluster resident agent runs: the Link Operator runtime bootstraps its long-lived session with the same `/loop` command, defaulting to a 10-minute tick.
 
 ## CI: scheduled one-shots
 

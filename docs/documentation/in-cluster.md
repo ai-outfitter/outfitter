@@ -1,6 +1,8 @@
 # In-cluster agents
 
-The [Link Operator](https://github.com/ai-outfitter/link-operator) runs Outfitter-composed agents inside a Kubernetes cluster. The operator provides **primitives only** — namespace, quota, secrets exposure, pinned catalog resolution, and starting the runtime — while everything behavioral (which agent, which skills, which channels) stays ordinary `.agents` composition, reviewed and pinned like anywhere else.
+The Link Operator runs Outfitter-composed agents inside a Kubernetes cluster. The operator provides **primitives only** — namespace, quota, secrets exposure, pinned catalog resolution, and starting the runtime — while everything behavioral (which agent, which skills, which channels) stays ordinary `.agents` composition, reviewed and pinned like anywhere else.
+
+> **Status:** the Link Operator is under active development and not yet publicly released. This page is the design contract for the in-cluster surface; treat it as a preview until the operator ships.
 
 ## The primitives
 
@@ -17,7 +19,7 @@ The operator never interprets a profile, reads a secret's contents, or invokes t
 | Scheduled recurrence   | CronJob             | The cluster's clock — recurring one-shots in the agent's namespace                              |
 | Delegated / event work | Job (subagent)      | Spawned by the resident agent, or one Job per incoming event (e.g. a firing alert via webhook)  |
 
-Subagent Jobs share the owning agent's service account and quota, so delegation never escalates privilege — the fourth of the [four delegation boundaries](./subagents.md#the-four-delegation-boundaries).
+Subagent Jobs share the owning agent's service account and quota, so delegation never escalates privilege — the cluster-backed entry in the [four delegation boundaries](./subagents.md#the-four-delegation-boundaries).
 
 ## Channels
 

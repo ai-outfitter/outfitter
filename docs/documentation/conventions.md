@@ -10,7 +10,7 @@ The mechanisms already exist — layer inheritance, merge-by-ID overrides, [load
 
 ## Layer homes
 
-Each layer inherits the one above it and can override any resource by ID:
+Each layer inherits the one above it. ID-addressed resources — agents, skills, knowledge — merge and override by ID; root shared context (`agents.md` / `system-prompt.md`) is selected whole-file by layer precedence (see the [roadmap note](#roadmap-a-shareable-prompt-fragment) below):
 
 | Layer            | Location                                                                      | Holds                                                                                       |
 | ---------------- | ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
@@ -37,7 +37,7 @@ Conventional commits "belongs in every profile" — the engineer, the marketing 
 
 - **Author once** — one line in the shared `agents.md` of the highest layer where it holds (the org tree, or your `~/.agents/system-prompt.md` for everything on one machine).
 - **Inherit downward** — every agent composed from that tree carries the rule with zero per-agent cost and no activation decision.
-- **Override by ID** — a project with a different commit convention ships its own shared-context line in `<repo>/.agents/`; workspace precedence wins. No fork, no copy.
+- **Override downward** — a project with a different commit convention ships its own shared context in `<repo>/.agents/`; workspace precedence wins. Today the root file wins _whole_, not line by line — fragment-level override is the [roadmap primitive](#roadmap-a-shareable-prompt-fragment) — so keep shared context lean enough that a deliberate replacement stays cheap and reviewable.
 - **Enforce deterministically** — a `commit-msg` hook or release tooling is the backstop; the ambient line keeps the model writing them right the first time.
 
 The full story, including projection into native harness files, is the [Shared conventions use case](./usecases/shared-conventions.md).

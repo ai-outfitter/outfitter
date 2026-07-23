@@ -4,13 +4,13 @@ Outfitter is the toolchain for the [Dotagents `.agents` protocol](./docs/documen
 
 Outfitter does not own a configuration format. Your `.agents/` directory is the source of truth — useful without Outfitter, committed and reviewed like any other code.
 
-> These docs are the authoritative description of the `.agents` model Outfitter implements — start with [Concepts](./docs/documentation/concepts.md). For interchange, Outfitter pins draft protocol revision `502a9d5` of the referenced [external protocol site](https://dotagentsprotocol.com/). For the design history, see [RFC #165](https://github.com/ai-outfitter/outfitter/issues/165).
+> These docs are the authoritative description of the `.agents` model Outfitter implements — start with [Concepts](./docs/documentation/concepts.md). For interchange, Outfitter pins draft protocol revision `502a9d5` of the referenced [external protocol site](https://dotagentsprotocol.com/). Implementation is rolling out across releases — a published CLI may lag these docs; [Migration](./docs/documentation/migration.md) covers the legacy profile format. For the design history, see [RFC #165](https://github.com/ai-outfitter/outfitter/issues/165).
 
 ## Why
 
 Your agent setup is configuration: prompts, skills, MCP servers, model choices, permissions. Left alone it lives per tool and per laptop, gets pasted between repos, and drifts. Outfitter treats it like the rest of your infrastructure — layered, composed by slug, pinned by SHA, reviewed through pull requests.
 
-That turns one person's improvement into everyone's default. On Monday a platform engineer writes a `grafana-alert-investigate` skill in their own `~/.agents` tree and uses it at their desk. By Friday it is merged into the org catalog, pinned by version, and selected by slug from an agent that also runs on a CI schedule and in the cluster. Nobody else configured anything — their next run composes the new skill, and it costs their context window nothing until it activates.
+That turns one person's improvement into everyone's default. On Monday a platform engineer writes a `grafana-alert-investigate` skill in their own `~/.agents` tree and uses it at their desk. By Friday it is merged into the org catalog, pinned by version, and selected by slug from an agent that also runs on a CI schedule and in the cluster. Nobody else configured anything — their next run composes the new skill, and it costs their context window one line of routing metadata until it activates.
 
 Two ideas carry most of that leverage:
 
@@ -24,9 +24,9 @@ Two ideas carry most of that leverage:
     D -. "inherited + overridable by ID" .-> A
   ```
 
-  Each layer can override any resource by ID, so you author a rule or skill once at the most general layer where it holds and specialize downward — never copy. See [Conventions](./docs/documentation/conventions.md).
+  ID-addressed resources — agents, skills, knowledge — override by ID across layers, and root shared context is selected by layer precedence, so you author a rule or skill once at the most general layer where it holds and specialize downward — never copy. See [Conventions](./docs/documentation/conventions.md).
 
-- **The surfaces.** The same composition runs everywhere work happens: interactively at your desk, [in GitHub Actions](./docs/documentation/actions.md) on any trigger, as [recurring loops](./docs/documentation/recurring-runs.md) — locally, on a CI cron, or on a cluster schedule — and as resident or job-based agents [in Kubernetes](./docs/documentation/in-cluster.md).
+- **The surfaces.** The same composition runs everywhere work happens: interactively at your desk, [in GitHub Actions](./docs/documentation/actions.md) on any trigger, as [recurring loops](./docs/documentation/recurring-runs.md) — locally, on a CI cron, or on a cluster schedule — and as resident or job-based agents [in Kubernetes](./docs/documentation/in-cluster.md). Surface availability varies by release; each page notes its status.
 
 For the full argument, read the [Philosophy](./docs/philosophy.md).
 

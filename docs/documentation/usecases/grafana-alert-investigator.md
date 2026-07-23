@@ -11,7 +11,7 @@ Resource alerts are noisy: CPU pinned where it is always pinned, a pod that quie
 
 ## The wiring
 
-The agent itself is deliberately deployment-agnostic; the [Link Operator](../in-cluster.md) supplies the in-cluster wiring ([link-operator#1](https://github.com/ai-outfitter/link-operator/pull/1)): a webhook receiver channel materializes **one subagent Job per firing alert** in the agent's namespace, sharing its service account and quota — bounded, timeout-enforced, read-only RBAC. This is the push style of channel intake; the same agent could instead be swept up by a resident agent's [loop tick](../recurring-runs.md).
+The agent itself is deliberately deployment-agnostic; the Link Operator's webhook-driven design supplies the in-cluster wiring ([In-cluster agents](../in-cluster.md) — a design preview until the operator ships): a webhook receiver channel materializes **one subagent Job per firing alert** in the agent's namespace, sharing its service account and quota — bounded, timeout-enforced, read-only RBAC. This is the push style of channel intake; the same agent could instead be swept up by a resident agent's [loop tick](../recurring-runs.md).
 
 ## Payoff
 

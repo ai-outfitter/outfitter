@@ -19,14 +19,14 @@ Use Conventional Commits for every commit message, with scopes
 
 - **Every user, every project, every agent** composed from the org catalog now carries the rule — one authored copy, zero activation cost, no per-agent duplication.
 - **A single user** who wants it everywhere on one machine before the org adopts it drops the same line in `~/.agents/system-prompt.md` — the quickest way to give everything you run a shared rule.
-- **A project that differs** (say, a repo that squash-merges with its own title format) ships its own shared-context line in `<repo>/.agents/` — workspace precedence overrides the org rule for that repo only. No fork, no copy, and the override is a reviewable diff in the repo it affects.
+- **A project that differs** (say, a repo that squash-merges with its own title format) ships its own shared context in `<repo>/.agents/` — workspace precedence wins for that repo only. Note the granularity: today the root shared-context file wins _whole_, not line by line (fragment-level override is the [roadmap primitive](../conventions.md#roadmap-a-shareable-prompt-fragment)), so the project file deliberately carries the shared context it still wants — a reviewable replacement in the repo it affects.
 - **Enforcement stays deterministic** — a `commit-msg` [hook](../hooks.md) or release tooling backstops the rule mechanically; the ambient line keeps the model writing it right the first time.
 
 The same placement works for every ambient rule: secret hygiene, small reversible changes, "write decisions into repository files." The test is the [conventions](../conventions.md) split — if the agent should never _decide_ about it, it belongs in shared context, not in a skill.
 
 ## A second fragment: repository layout
 
-The default catalogs ship another ambient rule, `project-repos`, that standardizes where code lives on a machine:
+A second convention of the same shape — illustrative here, and the kind of rule a default catalog adopts as `project-repos` — standardizes where code lives on a machine:
 
 ```markdown
 <!-- default catalog shared context -->
@@ -36,11 +36,11 @@ linked worktrees live beside them at
 `~/repos/<org-or-username>/<repo>.worktrees/`.
 ```
 
-The value is ambiguity reduction: every agent — and every skill that clones, opens a worktree, or navigates between projects — knows where a repository lives without asking or guessing, and automation composed from the catalog can rely on the same paths on every machine. A user who keeps a different layout overrides just this fragment in their own `~/.agents` layer and keeps using the shared profiles unchanged — or builds their own profiles from scratch. Either way the catalog never forks over a filesystem preference.
+The value is ambiguity reduction: every agent — and every skill that clones, opens a worktree, or navigates between projects — knows where a repository lives without asking or guessing, and automation composed from the catalog can rely on the same paths on every machine. A user who keeps a different layout supplies their own amended shared context in `~/.agents` (a whole-file replacement today — per-fragment override is the [roadmap primitive](../conventions.md#roadmap-a-shareable-prompt-fragment)) and keeps using the shared profiles unchanged — or builds their own profiles from scratch. Either way the catalog never forks over a filesystem preference.
 
 ## Reaching native harness runs
 
-Composition only helps runs that go through it — the rule should also reach a bare `claude` session that never touches Outfitter. [Porting a Claude Code setup](../porting-claude.md) already does this in one direction: `~/.claude/CLAUDE.md` becomes `~/.agents/agents.md` with a symlink back, so native Claude Code reads the protocol tree and editing either view edits the same file. The generalization — projecting composed shared context into each harness's home-level memory file — is tracked in [#187](https://github.com/ai-outfitter/outfitter/issues/187).
+Composition only helps runs that go through it — the rule should also reach a bare `claude` session that never touches Outfitter. The porting design ([Porting a Claude Code setup](../porting-claude.md)) maps `~/.claude/CLAUDE.md` to `~/.agents/agents.md` with a symlink back, so native Claude Code reads the protocol tree and editing either view edits the same file; managed porting and persistent harness symlinks — including the generalization of projecting composed shared context into each harness's home-level memory file — are deferred to [#187](https://github.com/ai-outfitter/outfitter/issues/187).
 
 ## Payoff
 
