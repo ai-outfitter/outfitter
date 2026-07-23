@@ -17,6 +17,7 @@ User-facing Outfitter documentation. These docs describe the [RFC #165](https://
 - [Personas](./personas.md) — The base-agent-plus-persona-documents review convention.
 - [Subagents](./subagents.md) — Agents projected as harness delegates; leader-agent delegation.
 - [Skills](./skills.md) — Capability packages with progressive disclosure, references, and routing.
+- [Channels](./channels.md) — Watch a mailbox, Signal, or GitHub notifications; wake an agent on real work via the `channels` extension plus per-channel skills.
 - [Tasks](./tasks.md) — Placeholder for a separate upcoming RFC.
 
 ## Operations
