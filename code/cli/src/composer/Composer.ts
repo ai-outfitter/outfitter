@@ -95,6 +95,7 @@ export const compose = (set: EffectiveResourceSet, agentSlug: string): ComposeRe
       systemPrompt: readRootFile(set, 'system-prompt.md'),
       sharedContext: readRootFile(set, 'agents.md'),
       agentBody: definition.body,
+      label: definition.label,
       description: definition.description,
     },
     loadout: composeLoadout(set, agentSlug, definition.loadout, warnings),

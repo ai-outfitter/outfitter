@@ -9,6 +9,8 @@ export interface ComposedIdentity {
   readonly sharedContext?: string;
   /** The selected agent's `agent.md` markdown body. */
   readonly agentBody: string;
+  /** Human-readable profile name for interactive harness UI. */
+  readonly label?: string;
   readonly description?: string;
 }
 

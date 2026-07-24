@@ -70,6 +70,16 @@ describe('composer', () => {
     expect(plan.warnings).toEqual([]);
   });
 
+  it('composes the selected profile display label', () => {
+    const { home, project } = buildTree();
+    write(
+      join(project, '.agents', 'agents', 'engineer', 'agent.md'),
+      '---\nname: engineer\nlabel: Engineering Lead\n---\n\n# Engineer\n',
+    );
+
+    expect(compose(resolveSet(home, project), 'engineer').plan?.identity.label).toBe('Engineering Lead');
+  });
+
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-005.3).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('composes an agent-local skill before a catalog-wide skill of the same slug', () => {
