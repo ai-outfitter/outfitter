@@ -6,7 +6,7 @@ The alternative is an agent that organizes material _as it arrives_: a long-live
 
 ## The composition
 
-- **Resident, not invoked.** The maintainer is a long-lived in-cluster agent — a resident Deployment in the design previewed in [In-cluster agents](../in-cluster.md) — whose [loop tick](../recurring-runs.md) surveys its channels for new work. An email inbox is the intake: email a paper, an article, or a stray thought to the agent's address, and the next tick picks it up.
+- **Resident, not invoked.** The maintainer is a long-lived in-cluster agent — a resident Deployment from [In-cluster agents](../in-cluster.md) — whose [loop tick](../recurring-runs.md) surveys its channels for new work. An email inbox is the intake: email a paper, an article, or a stray thought to the agent's address, and the next tick picks it up.
 - **Ingest per message.** Each new source becomes one bounded ingest:
   - a summary page written in the wiki's own voice and link style;
   - the entity and concept pages the source touches cross-referenced and updated;
@@ -25,7 +25,7 @@ The agent itself is deployment-agnostic; the resident shape comes from the in-cl
 
 ## Payoff
 
-The wiki compounds instead of being re-derived. A question asked in month six is answered against six months of accumulated, cross-linked, human-reviewable understanding — not a fresh retrieval pass over raw sources — and the maintenance the knowledge base needs arrives as reviewable PRs rather than silent drift. The lint report doubles as a free scoring signal: its findings can gate skill edits exactly the way the CAD benchmark does in [Self-improving skills](./self-improving-skills.md).
+The wiki compounds instead of being re-derived. A question asked in month six is answered against six months of cross-linked, human-reviewable understanding rather than a fresh retrieval pass over raw sources, and the knowledge base's maintenance arrives as reviewable PRs, not silent drift. The lint report doubles as a free scoring signal: its findings can gate skill edits much as the CAD benchmark does in [Self-improving skills](./self-improving-skills.md).
 
 ## Graduation
 
@@ -34,5 +34,3 @@ The profile packaging this — a `wiki-maintainer` agent with agent-local ingest
 1. **Personal** — the same agent at your desk with the local loop extension, pointed at a personal wiki repo.
 2. **Org** — intake moves to an Actions cron over a shared knowledge-base repo when it should run without your laptop.
 3. **Communal** — resident in-cluster, where every contributor's agent runs the same pinned profile against the same wiki.
-
-The composition never changes across the ladder — only the clock and the surface do.

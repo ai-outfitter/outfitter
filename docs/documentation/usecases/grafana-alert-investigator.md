@@ -4,7 +4,7 @@ Resource alerts are noisy: CPU pinned where it is always pinned, a pod that quie
 
 ## The composition
 
-- **Trigger.** A `kube-prometheus-stack` Alertmanager webhook receiver (added with `continue: true`, so human paging is untouched) turns each firing alert into one bounded headless run; alert labels travel as `trigger_context` routing metadata, treated as untrusted data.
+- **Trigger.** A `kube-prometheus-stack` Alertmanager webhook receiver (added with `continue: true`, so human paging is untouched) turns each firing alert into one bounded headless run; alert labels travel as untrusted channel data used only for routing, never as instructions ([trust boundary](../skills.md#trust-boundary)).
 - **Agent.** The community-catalog `grafana-agent` profile ([community-profiles#10](https://github.com/ai-outfitter/community-profiles/pull/10)) routes alert work to two agent-local skills — investigate and issue-triage — plus a per-agent MCP declaration for the already-running [`grafana/mcp-grafana`](https://github.com/grafana/mcp-grafana) server, giving it Loki, Prometheus, Tempo, and Pyroscope, alongside a read-only Kubernetes view. The same profile owns the setup half (provisioning that MCP securely) behind a separate, explicitly-requested-only skill.
 - **Verdict.** The investigation is scoped to the alerting resource and the alert window, and classifies the alert `expected` (known-noisy — recommend tuning or ignoring the rule) or `anomaly` (OOMKill, non-zero exit, a new hot path) with a confidence level.
 - **Safe default.** The agent posts exactly one diagnosis comment on the existing tracking issue. It never mutates a workload and never edits the issue — comment-only is the only mode.
@@ -15,4 +15,4 @@ The agent itself is deliberately deployment-agnostic; the Link Operator's webhoo
 
 ## Payoff
 
-Every alert arrives with a diagnosis already attached: what fired, what the dashboards and logs show for the window, expected or anomaly, and with what confidence — and the on-call human spends attention only on the anomalies. Setting up the observability stack this rides on (provisioning Grafana alerting, the MCP server, read-only RBAC) is platform-profile work — the convention discussed in [#197](https://github.com/ai-outfitter/outfitter/issues/197).
+Every alert arrives with a diagnosis already attached: what fired, what the dashboards and logs show for the window, expected or anomaly, and with what confidence — and the on-call human spends attention only on the anomalies. Setting up the observability stack this rides on (provisioning Grafana alerting, the MCP server, read-only RBAC) is platform-profile work — the [role-profile convention](../conventions.md#worked-example-a-role-profile) ([#197](https://github.com/ai-outfitter/outfitter/issues/197)).

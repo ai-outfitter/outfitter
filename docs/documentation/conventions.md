@@ -19,7 +19,7 @@ Each layer inherits the one above it. ID-addressed resources — agents, skills,
 | Organization     | `owner/.outfitter` [control repo](./usecases/organization-profile-catalog.md) | Bespoke org agents, shared `agents.md`, org-specific skills (brand voice, RBAC, endpoints). |
 | User / project   | `~/.agents`, `<repo>/.agents`                                                 | Personal and repo overrides, loadout-added references, same-ID resource overrides.          |
 
-Generalized: **community publishes the parts, curated catalogs pin an assembly, org and project bind values and override by ID.**
+Generalized, these layers are **the ladder** — you prove an agent profile, skill, or loadout out in your own tree, then move it up a layer each time more people should get it, and every layer below inherits it back: community publishes the parts, curated catalogs pin an assembly, org and project bind values and override by ID.
 
 ## Where each kind of rule lives
 
@@ -48,7 +48,7 @@ The same convention builds a role-scoped profile — a `platform` or `marketing`
 
 - **Inherit the shared baseline** (the tree's `agents.md`), then add role skills on top — `brand-voice`, `content-drafting`, `seo-audit` for marketing; provisioning and observability skills for platform. _Few agents, many skills_ ([Best practices](./best-practices.md)).
 - **Bespoke per org two ways:** as a [subagent](./subagents.md) other agents delegate role work to, or via one org-specific skill (a `brand` or `platform` skill) carrying the values — endpoints, voice, RBAC — that make the shared profile bespoke without duplicating it.
-- **Role separation is the point.** An engineer or a marketer doesn't want the other's machinery in context; they work expeditiously in their own lane and delegate across lanes when needed. Cross-cutting work stays _available_ through inheritance and delegation, not by stuffing every profile.
+- **Role separation is the point.** An engineer or a marketer doesn't want the other's machinery in context; they work in their own lane and delegate across lanes when needed. Cross-cutting work stays _available_ through inheritance and delegation, not by stuffing every profile.
 
 ## Roadmap: a shareable prompt fragment
 

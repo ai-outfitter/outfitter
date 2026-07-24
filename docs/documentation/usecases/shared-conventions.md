@@ -36,7 +36,7 @@ linked worktrees live beside them at
 `~/repos/<org-or-username>/<repo>.worktrees/`.
 ```
 
-The value is ambiguity reduction: every agent — and every skill that clones, opens a worktree, or navigates between projects — knows where a repository lives without asking or guessing, and automation composed from the catalog can rely on the same paths on every machine. A user who keeps a different layout supplies their own amended shared context in `~/.agents` (a whole-file replacement today — per-fragment override is the [roadmap primitive](../conventions.md#roadmap-a-shareable-prompt-fragment)) and keeps using the shared profiles unchanged — or builds their own profiles from scratch. Either way the catalog never forks over a filesystem preference.
+The value is ambiguity reduction: every agent — and every skill that clones, opens a worktree, or navigates between projects — knows where a repository lives without asking or guessing, and automation composed from the catalog can rely on the same paths on every machine. A user who keeps a different layout supplies their own amended shared context in `~/.agents` (again, a whole-file replacement today) and keeps using the shared profiles unchanged — or builds their own profiles from scratch. Either way the catalog never forks over a filesystem preference.
 
 ## Reaching native harness runs
 

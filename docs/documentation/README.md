@@ -1,6 +1,6 @@
 # Outfitter documentation
 
-User-facing Outfitter documentation, organized as a journey: **start** personal, **understand** the model, **grow** it across projects and your org, **automate** it on more surfaces, then contribute back. The docs practice the same progressive disclosure that [skills](./skills.md) do — each page keeps to one concept and links onward when you need the next one, so nothing here has to be read up front.
+Outfitter lays out conventions for iterating on and sharing agent configuration — agent profiles, skills, and loadouts. The docs follow that arc: **set up** your own, **understand** the pieces, **share** them across projects and your org, **automate** them on more surfaces, then contribute back. Each page keeps to one concept and links onward when you need the next one, so nothing here has to be read up front.
 
 ## Start (you)
 
@@ -20,7 +20,7 @@ User-facing Outfitter documentation, organized as a journey: **start** personal,
 - [Settings](./settings.md) — scopes, schema, and the flat `settings.local.yml` override file.
 - [Tasks](./tasks.md) — placeholder for a separate upcoming RFC.
 
-## Grow (project → org → community)
+## Share (project → org → community)
 
 - [Catalogs](./catalogs.md) — publish and consume shareable `.agents` payloads; standalone and colocated layouts.
 - [Conventions](./conventions.md) — place a resource once, specialize downward, never copy.

@@ -8,11 +8,11 @@ Recurring agent work — "check this every N minutes", "review what landed overn
 | **[GitHub Actions](./actions.md) cron**           | The CI scheduler | `on: schedule:` workflow runs a fresh headless one-shot per tick                                              | Repo-scoped recurrences: nightly commit review, weekly KPI reports, scheduled audits                                            |
 | **[In-cluster](./in-cluster.md) (Link Operator)** | Kubernetes       | A scheduled recurring CronJob, or a resident Deployment that bootstraps the same `/loop` extension in-cluster | Always-on agents with channels (email, GitHub, chat) and cluster-local access; recurrences that shouldn't depend on a repo's CI |
 
-The graduation path mirrors [the ladder](./conventions.md): prototype the behavior with the local loop extension, move it to an Actions cron when it should run without your laptop, move it in-cluster when it needs to be resident or cluster-local. The composition — agent, skills, catalog pins — stays the same; only the trigger changes.
+The graduation path mirrors [the ladder](./conventions.md): prototype the behavior with the local loop extension, move it to an Actions cron when it should run without your laptop, move it in-cluster when it needs to be resident or cluster-local.
 
 ## Local: the loop extension
 
-The loop extension re-invokes the agent at an interval inside a session. It is not bundled with a default install — select a loop extension in the agent's loadout (`extensions:`) and pin it like any other extension. Each tick, a well-shaped looping agent surveys its available inputs, turns new items into tasks, and works or delegates them — rather than carrying a growing transcript of stale context. This is also how the in-cluster resident agent runs: the Link Operator runtime bootstraps its long-lived session with the same `/loop` command, defaulting to a 10-minute tick.
+The loop extension re-invokes the agent at an interval inside a session. It is not bundled with a default install — select a loop extension in the agent's loadout (`extensions:`) and pin it like any other extension. Each tick, a well-shaped looping agent surveys its available inputs, turns new items into tasks, and works or delegates them — rather than carrying a growing transcript of stale context. The in-cluster resident agent runs the same way (see below).
 
 ## CI: scheduled one-shots
 
@@ -20,7 +20,7 @@ An Actions cron externalizes the clock to GitHub's scheduler. Each tick is a fre
 
 ## Cluster: CronJobs and residents
 
-Kubernetes supplies two shapes through the [Link Operator](./in-cluster.md): a **CronJob** for scheduled recurring one-shots in the agent's namespace, and a **resident Deployment** for an always-on agent whose `/loop` tick surveys its [channels](./in-cluster.md#channels) — email, GitHub notifications, chat — for new work.
+Kubernetes contributes both a **scheduled** recurrence (a CronJob) and a **resident** one (a Deployment whose `/loop` tick surveys its [channels](./in-cluster.md#channels) for new work). The [in-cluster execution shapes](./in-cluster.md#execution-shapes) table is the reference for how the Link Operator provisions each.
 
 ## Not a loop: event-driven runs
 

@@ -31,7 +31,7 @@ A leader's loadout declares in-run delegates as `subagents`; the other three bou
 
 ## Delegation patterns
 
-Two patterns recur on top of the boundaries; each deserves its own use-case treatment as the ecosystem matures:
+Two patterns recur on top of the boundaries:
 
 - **Adversarial review.** Delegate critique to a _differently composed_ identity than the author — a different model, persona, or loadout, often a machine account, so the review carries no author bias and a visibly separate identity. The [personas convention](./personas.md) supplies the reviewer shape; the CI-backed boundary supplies the separate identity and audit trail.
 - **Singleton coordinator.** Invert the fan-out: you always talk to **one** persistent agent (a machine account listening to its GitHub notifications), which keeps a bounded, prioritized queue and always chooses what to work on next. Everything else — CI runs, cluster Jobs, in-run subagents — is _its_ delegation target. The human interface stays one conversation; concurrency lives below it. "Assign the PR to the agent" becomes the entire UX.

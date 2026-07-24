@@ -1,6 +1,8 @@
 # Running an agent in GitHub Actions
 
-[`ai-outfitter/actions`](https://github.com/ai-outfitter/actions) runs an Outfitter [agent](./agents.md) non-interactively inside a GitHub Actions workflow. The Action asks Outfitter to resolve and compose the selected agent — the same loadout it would compose locally — then launches the harness in headless print mode, so the agent does one unit of work per workflow run and exits. Wire it to any trigger and an agent becomes a CI worker: a PR reviewer, a scheduled commit auditor, an issue triager.
+[`ai-outfitter/actions`](https://github.com/ai-outfitter/actions) is the GitHub Actions execution surface for Outfitter [agents](./agents.md). The planned interface asks Outfitter to resolve and compose the selected agent — the same loadout it would compose locally — then launches the harness in headless print mode, so the agent does one unit of work per workflow run and exits.
+
+> **Status:** the `.agents`-native `ai-outfitter/actions@v2` interface described on this page is a design preview and is not published. The current `@v1` Action uses the removed profile-era `profile`, `prompt`, and `profile-source` inputs and must be pinned to a compatible pre-v1 Outfitter release. Do not copy the workflow below until `@v2` is released.
 
 ```yaml
 # .github/workflows/issue-triage.yml
