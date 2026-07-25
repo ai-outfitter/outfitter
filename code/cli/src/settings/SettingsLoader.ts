@@ -85,6 +85,10 @@ export const createSettingsLoadPlan = (locations: readonly SettingsLocation[]): 
   locations,
 });
 
+/** The one rendering of a settings issue every command reports. */
+export const formatSettingsIssue = (issue: SettingsLoadIssue): string =>
+  `${issue.filePath}#${issue.path} ${issue.message}`;
+
 const agentsSettings = (directory: string, ...rest: string[]): string => join(directory, '.agents', ...rest);
 
 // Ordered lowest-to-highest precedence so later files fold over earlier ones during merge.
@@ -99,13 +103,22 @@ export const discoverSettingsLoadPlan = (input: SettingsDiscoveryInput): Setting
 export const discoverRemoteSettingsLoadPlan = (
   homeDirectory: string,
   remoteSettings: readonly RemoteSettingsReference[],
-): SettingsLoadPlan => discoverRemoteSettingsLocations(homeDirectory, remoteSettings).plan;
+  cacheDirectory?: string,
+): SettingsLoadPlan => discoverRemoteSettingsLocations(homeDirectory, remoteSettings, cacheDirectory).plan;
 
-export const resolveCachedRemoteSettingsPath = (homeDirectory: string, source: RemoteSettingsReference): string => {
-  const repositoryPath = createRemoteRepositoryCachePath(homeDirectory, source);
-  const configuredPath = resolveRemoteRepositorySubpath(repositoryPath, source.path);
+export const resolveCachedRemoteSettingsPath = (
+  homeDirectory: string,
+  source: RemoteSettingsReference,
+  cacheDirectory?: string,
+): string => {
+  const repositoryPath = createRemoteRepositoryCachePath(homeDirectory, source, cacheDirectory);
+  return resolveRemoteSettingsPath(repositoryPath, source.path);
+};
 
-  if (existsSync(configuredPath) || source.path !== 'settings.yml') {
+export const resolveRemoteSettingsPath = (repositoryPath: string, path: string): string => {
+  const configuredPath = resolveRemoteRepositorySubpath(repositoryPath, path);
+
+  if (existsSync(configuredPath) || path !== 'settings.yml') {
     return configuredPath;
   }
 
@@ -135,19 +148,30 @@ export const loadSettings = (plan: SettingsLoadPlan): LoadedSettings => {
   };
 };
 
+export interface CachedRemoteSettingsOptions {
+  /** Remote settings to fold in instead of the ones the local settings declare. */
+  readonly remoteSettingsReferences?: readonly RemoteSettingsReference[];
+  /** An already-loaded local stack, so callers that just read it do not parse every file twice. */
+  readonly localSettings?: LoadedSettings;
+}
+
 export const loadSettingsWithCachedRemoteSettings = (
   input: SettingsDiscoveryInput,
-  remoteSettingsReferencesOverride?: readonly RemoteSettingsReference[],
+  options: CachedRemoteSettingsOptions = {},
 ): LoadedSettings => {
-  const localSettings = loadSettings(discoverSettingsLoadPlan(input));
+  const localSettings = options.localSettings ?? loadSettings(discoverSettingsLoadPlan(input));
 
-  const remoteSettingsReferences = remoteSettingsReferencesOverride ?? localSettings.settings.remoteSettings!;
+  const remoteSettingsReferences = options.remoteSettingsReferences ?? localSettings.settings.remoteSettings!;
 
   if (localSettings.issues.length > 0 || remoteSettingsReferences.length === 0) {
     return localSettings;
   }
 
-  const remoteSettingsLocations = discoverRemoteSettingsLocations(input.homeDirectory, remoteSettingsReferences);
+  const remoteSettingsLocations = discoverRemoteSettingsLocations(
+    input.homeDirectory,
+    remoteSettingsReferences,
+    localSettings.settings.cacheDirectory,
+  );
   const remoteSettings = loadSettings(remoteSettingsLocations.plan);
   const files = [...remoteSettings.files, ...localSettings.files];
   const issues = [...remoteSettingsLocations.issues, ...remoteSettings.issues, ...localSettings.issues];
@@ -162,15 +186,25 @@ export const loadSettingsWithCachedRemoteSettings = (
 const discoverRemoteSettingsLocations = (
   homeDirectory: string,
   remoteSettings: readonly RemoteSettingsReference[],
+  cacheDirectory?: string,
 ): SettingsLocationDiscoveryResult => {
   const locations: SettingsLocation[] = [];
   const issues: SettingsLoadIssue[] = [];
 
   for (const [index, source] of remoteSettings.entries()) {
     try {
+      const path = resolveCachedRemoteSettingsPath(homeDirectory, source, cacheDirectory);
+      if (!existsSync(path)) {
+        issues.push({
+          filePath: `remote_settings[${index}]`,
+          path: `/remote_settings/${index}`,
+          message: `Cached remote settings '${path}' are missing. Run 'outfitter sync' to fetch configured remote settings.`,
+        });
+        continue;
+      }
       locations.push({
         scope: 'remote',
-        path: resolveCachedRemoteSettingsPath(homeDirectory, source),
+        path,
       });
     } catch (error) {
       issues.push({

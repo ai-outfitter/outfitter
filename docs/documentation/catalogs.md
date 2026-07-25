@@ -101,11 +101,19 @@ Remote settings are cached locally and merged at lower precedence than your proj
 
 `outfitter sync` synchronizes every remote source into the local cache:
 
-1. Remote settings repositories are cloned or updated first, then reloaded.
+1. Local settings are validated. Remote settings repositories are cloned or updated first, then
+   merged settings are reloaded.
 2. Remote sources (including any added by remote settings) are cloned or updated.
 3. Each synced source is validated; sync reports `updated`, `unchanged`, `skipped`, or `failed` per source.
 
-Pinned (`ref:`) sources stay on their pinned ref until you change it; unpinned sources fast-forward on every sync.
+All repositories live under `<cache_directory>/repos/<encoded-uri-and-ref>/` (default
+`~/.agents/cache`). Pinned (`ref:`) sources stay on their selected ref until you change it; unpinned
+sources resolve the remote's current default branch on every sync.
+
+Fetch and validation happen in a temporary sibling directory. Outfitter swaps a valid checkout into
+place atomically, so a failed fetch or invalid update preserves the last working cache. A required
+source failure makes sync exit nonzero. `outfitter run` remains offline with respect to source
+synchronization; run sync explicitly when you want network updates.
 
 ## Private repositories
 

@@ -2,7 +2,13 @@
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { encodeRemoteSource, resolveRemoteRepositorySubpath } from '../sources/SourceCache.js';
+import {
+  createRemoteRepositoryCachePath,
+  formatRemoteSourceDisplay,
+  isRemoteSource,
+  resolveRemoteRepositorySubpath,
+} from '../sources/SourceCache.js';
+import type { RemoteSourceReference } from '../sources/SourceCache.js';
 import type { Settings, SourceReference } from '../settings/Settings.js';
 import type { Layer } from './Resource.js';
 
@@ -14,21 +20,33 @@ export interface LayerDiscoveryInput {
 
 const agentsRoot = (directory: string): string => join(directory, '.agents');
 
-// Remote sources cache under the configured cache_directory, defaulting to ~/.agents/cache.
-const cacheRoot = (input: LayerDiscoveryInput): string =>
-  input.settings.cacheDirectory ?? join(input.homeDirectory, '.agents', 'cache');
+/**
+ * Maps an already-materialized repository checkout to the layer `outfitter run` would resolve from
+ * it. `outfitter sync` reuses this against its temporary checkout so both agree on the payload root.
+ */
+export const remoteSourceLayer = (repositoryPath: string, source: RemoteSourceReference): Layer => ({
+  root: source.path === undefined ? repositoryPath : resolveRemoteRepositorySubpath(repositoryPath, source.path),
+  origin: 'source',
+  label: formatRemoteSourceDisplay(source),
+});
 
 const sourceLayer = (input: LayerDiscoveryInput, source: SourceReference): Layer => {
-  if (source.path !== undefined && source.uri === undefined && source.github === undefined) {
+  if (!isRemoteSource(source)) {
     return { root: source.path, origin: 'source', label: source.path };
   }
 
-  const remote = source as { readonly uri?: string; readonly github?: string; readonly ref?: string };
-  const repositoryPath = join(cacheRoot(input), 'repos', encodeRemoteSource(remote as never));
-  const root = source.path === undefined ? repositoryPath : resolveRemoteRepositorySubpath(repositoryPath, source.path);
-  const label = remote.uri ?? `github:${remote.github}`;
+  const layer = remoteSourceLayer(
+    createRemoteRepositoryCachePath(input.homeDirectory, source, input.settings.cacheDirectory),
+    source,
+  );
 
-  return { root, origin: 'source', label };
+  if (!existsSync(layer.root)) {
+    throw new Error(
+      `Configured remote source '${layer.label}' is not synchronized at '${layer.root}'. Run 'outfitter sync' to fetch it.`,
+    );
+  }
+
+  return layer;
 };
 
 /**

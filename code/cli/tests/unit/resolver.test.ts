@@ -184,6 +184,38 @@ describe('layer discovery', () => {
     const set = resolveResources(layers);
     expect(findResource(set, 'agent', 'remote-agent')).toBeDefined();
   });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-003.3, OFTR-004.2.4).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('resolves a configured payload subpath inside a cached remote repository', () => {
+    const root = createTemporaryRoot();
+    const cache = join(root, 'cache');
+    const source = { github: 'example/colocated', ref: 'main', path: '.agents' } as const;
+    const encoded = encodeRemoteSource(source);
+    write(join(cache, 'repos', encoded, '.agents', 'agents', 'nested', 'agent.md'), agentMd('nested'));
+
+    const layers = discoverLayers({
+      homeDirectory: join(root, 'home'),
+      projectDirectory: join(root, 'project'),
+      settings: { cacheDirectory: cache, sources: [source] },
+    });
+
+    expect(layers.find((layer) => layer.origin === 'source')?.root).toBe(join(cache, 'repos', encoded, '.agents'));
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-003.3, OFTR-004.2.3).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('reports a missing configured remote cache before agent lookup', () => {
+    const root = createTemporaryRoot();
+
+    expect(() =>
+      discoverLayers({
+        homeDirectory: join(root, 'home'),
+        projectDirectory: join(root, 'project'),
+        settings: { sources: [{ github: 'example/missing', ref: 'main' }] },
+      }),
+    ).toThrow(/Run 'outfitter sync'/u);
+  });
 });
 
 describe('resource resolution', () => {

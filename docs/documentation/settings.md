@@ -39,13 +39,15 @@ remote_settings:
     path: .agents/settings.yml
     ref: 9c47d1e2b8a05f36c4d7e90a12b3f8c5d6e71a04
 
-cache_directory: ~/.agents/cache
+cache_directory: ./cache # optional; relative to this settings file
 ```
 
 - `default_agent` / `default_harness` — which agent plain `outfitter` runs, and the harness it launches in.
 - `sources` — ordered list of remote or local `.agents` payloads. Remote entries (`github:` / `uri:`) accept `ref:` pinning and an optional `path:` to the payload inside the repository; see [Catalogs](./catalogs.md) for conventions and trust guidance.
 - `remote_settings` — shared settings a repository distributes; cached locally and merged below your project and user settings, so anything you set locally wins.
-- `cache_directory` — where remote sources are cached (`outfitter sync` updates them).
+- `cache_directory` — the repository cache root used consistently by sync, remote settings, remote
+  source resolution, and default-catalog setup. It defaults to `~/.agents/cache`; repositories live
+  below its `repos/` directory.
 
 ## Precedence
 

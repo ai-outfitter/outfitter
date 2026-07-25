@@ -12,6 +12,7 @@ import {
   resourceKinds,
 } from '../../resolver/Resource.js';
 import { resolveEffectiveSet } from '../../resolver/ResolverContext.js';
+import { formatSettingsIssue } from '../../settings/SettingsLoader.js';
 import type { CommandObject } from './CommandObject.js';
 import { resolveHomeDirectory, resolveProjectDirectory } from './ProcessDefaults.js';
 
@@ -64,7 +65,7 @@ export const executeListCommand = (input: ListInput): ListResult => {
   const { set, settingsIssues } = resolveEffectiveSet(input);
 
   if (settingsIssues.length > 0) {
-    const detail = settingsIssues.map((issue) => `${issue.filePath}#${issue.path} ${issue.message}`).join('; ');
+    const detail = settingsIssues.map(formatSettingsIssue).join('; ');
     throw new Error(`Cannot list resources with invalid settings: ${detail}`);
   }
 

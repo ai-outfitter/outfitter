@@ -2,6 +2,7 @@
 
 // Synchronizes package metadata to the GitHub release version before npm publishing.
 import fs from 'node:fs/promises';
+import { writeSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -56,7 +57,7 @@ if (cliPackageJsonPath !== rootPackageJsonPath) {
 }
 await writeJson(cliPackageJsonPath, cliPackageJson);
 
-console.log(`Synchronized Outfitter release metadata to ${version}.`);
+writeSync(1, `Synchronized Outfitter release metadata to ${version}.\n`);
 
 function dirnameFromImportMeta(importMetaUrl) {
   return path.dirname(fileURLToPath(importMetaUrl));

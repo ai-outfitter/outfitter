@@ -5,6 +5,7 @@ import { Command } from 'commander';
 import { resolveEffectiveSet } from '../../resolver/ResolverContext.js';
 import type { ValidationFinding } from '../../resolver/ResolverValidation.js';
 import { validateEffectiveSet } from '../../resolver/ResolverValidation.js';
+import { formatSettingsIssue } from '../../settings/SettingsLoader.js';
 import type { CommandObject } from './CommandObject.js';
 import { resolveHomeDirectory, resolveProjectDirectory } from './ProcessDefaults.js';
 
@@ -32,10 +33,7 @@ const settingsFindings = (messages: readonly string[]): readonly ValidationFindi
 
 export const executeValidateCommand = (input: ValidateInput): ValidateResult => {
   const { set, settingsIssues } = resolveEffectiveSet(input);
-  const findings = [
-    ...settingsFindings(settingsIssues.map((issue) => `${issue.filePath}#${issue.path} ${issue.message}`)),
-    ...validateEffectiveSet(set),
-  ];
+  const findings = [...settingsFindings(settingsIssues.map(formatSettingsIssue)), ...validateEffectiveSet(set)];
 
   const hasErrors = findings.some((finding) => finding.severity === 'error');
   const hasWarnings = findings.some((finding) => finding.severity === 'warning');

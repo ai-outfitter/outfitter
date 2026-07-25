@@ -3,14 +3,15 @@
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
 
 import { Command } from 'commander';
 
 import { launchThroughSpawn, spawnLauncher } from '../../agents/AgentLaunch.js';
+import { readRepositoryCodeAsset } from '../../paths/RepositoryAssets.js';
 import type { AgentLaunchPlan } from '../../projection/Projection.js';
 import type { Harness } from '../../settings/Settings.js';
 import { HARNESSES } from '../../settings/Settings.js';
+import { discoverSettingsLoadPlan, loadSettings } from '../../settings/SettingsLoader.js';
 import type { SetupAgentChoice, SetupResult, SetupSelection } from '../../setup/Setup.js';
 import { applySetupSelection, discoverSetupAgentChoices } from '../../setup/Setup.js';
 import { bootstrapDefaultCatalog } from '../../setup/DefaultCatalog.js';
@@ -23,7 +24,7 @@ export type SetupProcessLauncher = (plan: AgentLaunchPlan) => Promise<number>;
 export interface SetupCommandDependencies {
   readonly homeDirectory?: string;
   readonly projectDirectory?: string;
-  readonly defaultCatalogBootstrap?: (homeDirectory: string) => string;
+  readonly defaultCatalogBootstrap?: (homeDirectory: string, cacheDirectory?: string) => string;
   readonly setupSourceUri?: string;
   readonly interactive?: boolean;
   readonly launcher?: SetupProcessLauncher;
@@ -44,17 +45,6 @@ interface PreparePiSetupLaunchInput {
   readonly availableAgents: readonly SetupAgentChoice[];
   readonly setupSourceUri?: string;
 }
-
-const readRepositoryCodeAsset = (relativePath: string): string => {
-  const sourcePath = fileURLToPath(new URL(`../../../../${relativePath}`, import.meta.url));
-  const packagePath = fileURLToPath(new URL(`../../../code/${relativePath}`, import.meta.url));
-
-  /* v8 ignore else -- packaged layout is exercised by the npm package smoke test. */
-  if (existsSync(sourcePath)) return readFileSync(sourcePath, 'utf8');
-  /* v8 ignore next 3 -- packaged layout is covered by the package smoke test. */
-  if (existsSync(packagePath)) return readFileSync(packagePath, 'utf8');
-  throw new Error(`Outfitter support file '${relativePath}' was not found.`);
-};
 
 export const createPiSetupExtensionContent = (input: {
   readonly homeDirectory: string;
@@ -197,9 +187,13 @@ export const runSetup = async (dependencies: SetupCommandDependencies = {}): Pro
 
   const homeDirectory = resolveHomeDirectory(dependencies.homeDirectory);
   const projectDirectory = resolve(resolveProjectDirectory(dependencies.projectDirectory));
+  const localSettings = loadSettings(discoverSettingsLoadPlan({ homeDirectory, projectDirectory }));
+  const bootstrap =
+    dependencies.defaultCatalogBootstrap ??
+    ((home: string, cacheDirectory?: string) => bootstrapDefaultCatalog(home, cacheDirectory).root);
   const defaultCatalogRoot =
     dependencies.setupSourceUri === undefined
-      ? (dependencies.defaultCatalogBootstrap ?? ((home) => bootstrapDefaultCatalog(home).root))(homeDirectory)
+      ? bootstrap(homeDirectory, localSettings.settings.cacheDirectory)
       : undefined;
   const availableAgents = discoverSetupAgentChoices({ defaultCatalogRoot });
   const setupDirectory = mkdtempSync(join(tmpdir(), 'outfitter-setup-'));

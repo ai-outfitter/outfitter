@@ -85,6 +85,21 @@ describe('default catalog bootstrap', () => {
     expect(bootstrapPinnedCatalog({ homeDirectory, source }).root).toBe(first.root);
   });
 
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-004.2.4).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('honors a configured remote repository cache directory', () => {
+    const sourceRepository = createCatalogRepository();
+    const homeDirectory = mkdtempSync(join(tmpdir(), 'outfitter-default-catalog-home-'));
+    const cacheDirectory = join(homeDirectory, 'selected-cache');
+    temporaryRoots.push(homeDirectory);
+    const source = { uri: sourceRepository.root, ref: sourceRepository.ref } as const;
+
+    const result = bootstrapPinnedCatalog({ homeDirectory, cacheDirectory, source });
+
+    expect(result.root).toBe(createRemoteRepositoryCachePath(homeDirectory, source, cacheDirectory));
+    expect(readFileSync(join(result.root, 'agents', 'founder', 'agent.md'), 'utf8')).toContain('name: founder');
+  });
+
   it('replaces locally modified cache content with the pinned checkout', () => {
     const sourceRepository = createCatalogRepository();
     const homeDirectory = mkdtempSync(join(tmpdir(), 'outfitter-default-catalog-home-'));

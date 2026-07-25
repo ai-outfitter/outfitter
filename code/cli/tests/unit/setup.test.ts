@@ -1,6 +1,6 @@
 /* eslint-disable max-lines */
 // Tests the renderer-independent setup state machine and Pi-hosted command handoff.
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 
@@ -11,6 +11,7 @@ import { createSetupCommand, preparePiSetupLaunch, runSetup } from '../../src/cl
 import type { AgentLaunchPlan } from '../../src/projection/Projection.js';
 import { defaultCatalogSource } from '../../src/setup/DefaultCatalog.js';
 import { applySetupSelection, discoverSetupAgentChoices, sanitizeAgentSlug } from '../../src/setup/Setup.js';
+import { createRemoteRepositoryCachePath } from '../../src/sources/SourceCache.js';
 
 const temporaryRoots: string[] = [];
 
@@ -500,12 +501,20 @@ describe('Pi setup launch', () => {
     expect(extension).toContain('const OUTFITTER_SETUP_SOURCE_URI = "https://example.test/catalog.git";');
   });
 
-  it('runs the Pi walkthrough and applies a custom-profile handoff', async () => {
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-004.2.4, OFTR-010.7).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('passes the selected cache root into setup bootstrap and applies a custom-profile handoff', async () => {
     const { catalog, home, project } = createTree();
+    const selectedCache = join(home, '.agents', 'selected-cache');
+    let bootstrapCache: string | undefined;
+    write(join(home, '.agents', 'settings.yml'), 'cache_directory: ./selected-cache\n');
     const result = await runSetup({
       homeDirectory: home,
       projectDirectory: project,
-      defaultCatalogBootstrap: () => catalog,
+      defaultCatalogBootstrap: (_bootstrapHome, cacheDirectory) => {
+        bootstrapCache = cacheDirectory;
+        return catalog;
+      },
       interactive: true,
       launcher: (plan) => {
         writeFileSync(
@@ -522,6 +531,7 @@ describe('Pi setup launch', () => {
       },
     });
     expect(result?.defaultAgent).toBe('walkthrough');
+    expect(bootstrapCache).toBe(selectedCache);
     expect(existsSync(join(project, '.agents', 'agents', 'walkthrough', 'agent.md'))).toBe(true);
   });
 
@@ -651,7 +661,12 @@ describe('Pi setup launch', () => {
     createSetupCommand({
       homeDirectory: home,
       projectDirectory: project,
-      defaultCatalogBootstrap: () => catalog,
+      defaultCatalogBootstrap: (bootstrapHome, cacheDirectory) => {
+        const cachePath = createRemoteRepositoryCachePath(bootstrapHome, defaultCatalogSource, cacheDirectory);
+        mkdirSync(dirname(cachePath), { recursive: true });
+        cpSync(catalog, cachePath, { recursive: true });
+        return cachePath;
+      },
       interactive: true,
       launcher: (plan) => {
         writeFileSync(
