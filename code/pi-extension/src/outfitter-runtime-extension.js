@@ -1,14 +1,19 @@
+import { VERSION as PI_VERSION } from '@earendil-works/pi-coding-agent';
 import { Key, matchesKey, truncateToWidth, visibleWidth, wrapTextWithAnsi } from '@earendil-works/pi-tui';
 
+const OUTFITTER_ACTIVE_PROFILE = '__OUTFITTER_ACTIVE_PROFILE__';
+const OUTFITTER_VERSION = '__OUTFITTER_VERSION__';
+
 // Outfitter runtime extension. Unlike the setup walkthrough extension
-// (outfitter-extension.js), this file is loaded into the real profile pi session. Its only job is
-// to restore Outfitter's original "no provider connected yet" sign-in prompt: when pi starts with
-// no models available, it offers to connect one and delegates to pi's native /login command, which
-// persists credentials in pi's own agent directory and selects a default model in-session.
+// (outfitter-extension.js), this file is loaded into the real profile pi session. It restores the
+// Outfitter + pi header and active-profile status, plus the original "no provider connected yet"
+// sign-in prompt: when pi starts with no models available, it offers to connect one and delegates
+// to pi's native /login command, which persists credentials in pi's own agent directory and selects
+// a default model in-session.
 //
 // The setup pi stays deliberately model-free and MUST NOT open /login (OFTR-010.1.4); that is why
-// the auto-login lives here instead. This file needs no stamped launch-time values, so the CLI
-// loads it directly by absolute path via --extension.
+// the auto-login lives here instead. The CLI stamps profile and Outfitter-version metadata into a
+// per-run copy before loading it via --extension. PI_VERSION comes from the running pi package.
 
 export default function outfitterRuntime(pi) {
   let loginSubmitted = false;
@@ -72,9 +77,43 @@ export default function outfitterRuntime(pi) {
 
   pi.on('session_start', async (event, ctx) => {
     if (ctx.mode !== 'tui') return;
+    setRuntimeHeader(ctx);
+    updateProfileStatus(ctx);
     if (event.reason === 'startup') await openLoginIfNoModels(ctx);
   });
 }
+
+const setRuntimeHeader = (ctx) => {
+  ctx.ui.setHeader((_tui, theme) => {
+    let cachedWidth;
+    let cachedLines;
+    return {
+      render: (width) => {
+        const maxWidth = typeof width === 'number' && width > 0 ? width : 120;
+        if (cachedLines === undefined || cachedWidth !== maxWidth) {
+          const line =
+            theme.bold(theme.fg('accent', 'Outfitter')) + theme.fg('dim', ` v${OUTFITTER_VERSION} + pi v${PI_VERSION}`);
+          cachedLines = [visibleWidth(line) > maxWidth ? truncateToWidth(line, maxWidth) : line];
+          cachedWidth = maxWidth;
+        }
+        return cachedLines;
+      },
+      invalidate: () => {
+        cachedWidth = undefined;
+        cachedLines = undefined;
+      },
+    };
+  });
+};
+
+const updateProfileStatus = (ctx) => {
+  // Stays a string when the source asset is loaded without Outfitter stamping and is undefined
+  // when a caller intentionally attaches the extension without a resolved profile.
+  if (typeof OUTFITTER_ACTIVE_PROFILE !== 'object' || OUTFITTER_ACTIVE_PROFILE === null) return;
+  const name = OUTFITTER_ACTIVE_PROFILE.label ?? OUTFITTER_ACTIVE_PROFILE.id;
+  if (!name) return;
+  ctx.ui.setStatus('outfitter-profile', ctx.ui.theme.fg('muted', 'profile: ' + name));
+};
 
 // Renders a described-option picker identical to the setup walkthrough's, so the runtime sign-in
 // prompt matches the rest of the Outfitter UI. Falls back to a plain label list when pi does not

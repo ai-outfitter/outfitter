@@ -13,6 +13,7 @@ import {
 } from '../../src/cli/commands/RunAgentCommand.js';
 import type { AgentLaunchPlan } from '../../src/projection/Projection.js';
 import type { SetupResult } from '../../src/setup/Setup.js';
+import { readOutfitterVersion } from '../../src/version/OutfitterVersion.js';
 
 const temporaryRoots: string[] = [];
 let previousExitCode: typeof process.exitCode;
@@ -35,6 +36,7 @@ interface CapturedLaunch {
   readonly systemPrompt?: string;
   readonly skillPresent: boolean;
   readonly skillBody?: string;
+  readonly runtimeExtension?: string;
 }
 
 const captured: CapturedLaunch[] = [];
@@ -43,6 +45,9 @@ const launcher = (plan: AgentLaunchPlan): Promise<number> => {
   const runtimeDir = plan.env.PI_CODING_AGENT_DIR ?? plan.env.CLAUDE_CONFIG_DIR ?? '';
   const promptIndex = plan.args.indexOf('--system-prompt');
   const skillPath = join(runtimeDir, 'skills', 'wiki', 'SKILL.md');
+  const runtimeExtensionPath = plan.args.find(
+    (arg, index) => plan.args[index - 1] === '--extension' && arg.endsWith('outfitter-runtime-extension.js'),
+  );
   captured.push({
     plan,
     runtimeDir,
@@ -50,6 +55,7 @@ const launcher = (plan: AgentLaunchPlan): Promise<number> => {
     systemPrompt: promptIndex >= 0 ? readFileSync(plan.args[promptIndex + 1], 'utf8') : undefined,
     skillPresent: existsSync(skillPath),
     skillBody: existsSync(skillPath) ? readFileSync(skillPath, 'utf8') : undefined,
+    runtimeExtension: runtimeExtensionPath === undefined ? undefined : readFileSync(runtimeExtensionPath, 'utf8'),
   });
   return Promise.resolve(0);
 };
@@ -114,6 +120,29 @@ describe('run agent', () => {
     );
     expect(launch.systemPrompt).toBe('BASE PROMPT'); // composed identity materialized
     expect(launch.skillPresent).toBe(true); // skill content copied, not an empty dir
+  });
+
+  it('stamps the selected profile label and installed Outfitter version into the Pi runtime', async () => {
+    const { home, project } = tree();
+    write(
+      join(project, '.agents', 'agents', 'engineer', 'agent.md'),
+      '---\nname: engineer\nlabel: Engineering Lead\n---\n\n# Engineer\n',
+    );
+
+    await executeRunAgentCommand({
+      homeDirectory: home,
+      projectDirectory: project,
+      agent: 'engineer',
+      harness: 'pi',
+      launcher,
+    });
+
+    expect(captured[0].runtimeExtension).toContain(
+      'const OUTFITTER_ACTIVE_PROFILE = {"id":"engineer","label":"Engineering Lead"};',
+    );
+    expect(captured[0].runtimeExtension).toContain(
+      `const OUTFITTER_VERSION = ${JSON.stringify(readOutfitterVersion())};`,
+    );
   });
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-005.1, OFTR-005.3).

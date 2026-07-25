@@ -1,9 +1,9 @@
-// Attaches the Outfitter runtime pi extension to interactive profile launches. The extension
-// restores Outfitter's original "connect a model provider" sign-in prompt: when pi starts with no
-// models available it offers to connect one and opens pi's native /login. Non-interactive pi
-// launches (--print, --export, --mode json|print|rpc, …) are left untouched so scripted runs never
-// prompt, and non-pi harnesses pass through unchanged.
-import { existsSync } from 'node:fs';
+// Attaches the Outfitter runtime pi extension to interactive profile launches. The extension owns
+// the Outfitter + pi header, active-profile status, and "connect a model provider" sign-in prompt.
+// Non-interactive pi launches (--print, --export, --mode json|print|rpc, …) are left untouched so
+// scripted runs never prompt, and non-pi harnesses pass through unchanged.
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import type { AgentLaunchPlan } from '../../projection/Projection.js';
@@ -12,6 +12,17 @@ const nonInteractivePiLaunchFlags = new Set(['--print', '-p', '--export', '--lis
 const nonInteractivePiModes = new Set(['json', 'print', 'rpc']);
 
 const runtimeExtensionAsset = 'pi-extension/src/outfitter-runtime-extension.js';
+
+export interface PiRuntimeProfileIdentity {
+  readonly id: string;
+  readonly label?: string;
+}
+
+export interface PiRuntimeExtensionInput {
+  readonly outfitterVersion: string;
+  readonly profile?: PiRuntimeProfileIdentity;
+  readonly rootDirectory: string;
+}
 
 export const isNonInteractivePiLaunch = (args: readonly string[]): boolean =>
   args.some((arg, index) => {
@@ -33,17 +44,28 @@ const resolveRuntimeExtensionPath = (): string | undefined => {
   return undefined;
 };
 
-/**
- * Prepends `--extension <runtime>` to a pi launch so the auto sign-in prompt loads. The extension is
- * a no-op whenever a model is already available, so it is safe to attach to every interactive pi
- * run. Non-pi and non-interactive launches are returned unchanged.
- */
-export const attachPiRuntimeExtension = (plan: AgentLaunchPlan): AgentLaunchPlan => {
-  if (plan.command !== 'pi' || isNonInteractivePiLaunch(plan.args)) return plan;
-
+/** Stamps per-run identity metadata into the runtime extension source. */
+export const createPiRuntimeExtensionContent = (input: Omit<PiRuntimeExtensionInput, 'rootDirectory'>): string => {
   const extensionPath = resolveRuntimeExtensionPath();
   /* v8 ignore next -- defensive: the runtime extension ships with the package, so it resolves in practice. */
-  if (extensionPath === undefined) return plan;
+  if (extensionPath === undefined) throw new Error('Outfitter runtime extension was not found.');
+
+  return readFileSync(extensionPath, 'utf8')
+    .replace(/["']__OUTFITTER_VERSION__["']/gu, JSON.stringify(input.outfitterVersion))
+    .replace(/["']__OUTFITTER_ACTIVE_PROFILE__["']/gu, JSON.stringify(input.profile) ?? 'undefined');
+};
+
+/**
+ * Materializes and prepends `--extension <runtime>` to an interactive pi launch. Non-pi and
+ * non-interactive launches are returned unchanged.
+ */
+export const attachPiRuntimeExtension = (plan: AgentLaunchPlan, input: PiRuntimeExtensionInput): AgentLaunchPlan => {
+  if (plan.command !== 'pi' || isNonInteractivePiLaunch(plan.args)) return plan;
+
+  const extensionDirectory = join(input.rootDirectory, '.outfitter');
+  const extensionPath = join(extensionDirectory, 'outfitter-runtime-extension.js');
+  mkdirSync(extensionDirectory, { recursive: true });
+  writeFileSync(extensionPath, createPiRuntimeExtensionContent(input));
 
   return { ...plan, args: ['--extension', extensionPath, ...plan.args] };
 };

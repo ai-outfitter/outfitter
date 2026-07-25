@@ -8,6 +8,8 @@ import { emptyLoadout } from './Resource.js';
 
 export interface AgentDefinition {
   readonly name: string;
+  /** Human-readable profile name shown in interactive harness UI. */
+  readonly label?: string;
   readonly description?: string;
   /** Markdown body after the frontmatter — the agent's identity prose. */
   readonly body: string;
@@ -71,6 +73,8 @@ const asStringArray = (value: unknown): readonly string[] =>
   Array.isArray(value) ? value.filter((entry): entry is string => typeof entry === 'string') : [];
 
 const asString = (value: unknown): string | undefined => (typeof value === 'string' ? value : undefined);
+
+const readMarkdownHeading = (body: string): string | undefined => /^#\s+(.+)$/mu.exec(body)?.[1]?.trim();
 
 const loadoutFromRecord = (record: Readonly<Record<string, unknown>>): Loadout => {
   const tools = record.tools as { readonly allow?: unknown; readonly deny?: unknown } | undefined;
@@ -166,6 +170,7 @@ export const parseAgentDefinition = (
 
   return {
     name: frontmatter.record.name as string,
+    label: asString(frontmatter.record.label)?.trim() || readMarkdownHeading(frontmatter.body),
     description: asString(frontmatter.record.description),
     body: frontmatter.body,
     loadout: loadoutFromRecord(merged),

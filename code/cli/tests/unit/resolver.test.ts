@@ -77,6 +77,24 @@ describe('agent definition parsing', () => {
     expect(parsed.body).toContain('# engineer');
   });
 
+  it('derives the profile display label from frontmatter, then the first H1', () => {
+    const explicit = parseAgentDefinition(
+      '---\nname: engineer\nlabel: Engineering Lead\n---\n\n# Engineer\n',
+      [],
+      '/nowhere/agent.md',
+    );
+    const heading = parseAgentDefinition('---\nname: engineer\n---\n\n# Engineer\n', [], '/nowhere/agent.md');
+    const slugOnly = parseAgentDefinition('---\nname: engineer\n---\n\nNo heading.\n', [], '/nowhere/agent.md');
+
+    expect(isAgentDefinitionIssue(explicit)).toBe(false);
+    expect(isAgentDefinitionIssue(heading)).toBe(false);
+    expect(isAgentDefinitionIssue(slugOnly)).toBe(false);
+    if (isAgentDefinitionIssue(explicit) || isAgentDefinitionIssue(heading) || isAgentDefinitionIssue(slugOnly)) return;
+    expect(explicit.label).toBe('Engineering Lead');
+    expect(heading.label).toBe('Engineer');
+    expect(slugOnly.label).toBeUndefined();
+  });
+
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-003.4).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('merges config.json loadout over frontmatter by key, restricted to loadout fields', () => {
