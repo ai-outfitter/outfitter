@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.3](https://github.com/ai-outfitter/outfitter/compare/v1.0.2...v1.0.3) (2026-07-25)
+
+
+### Bug Fixes
+
+* **run:** restore Pi profile identity UI ([#200](https://github.com/ai-outfitter/outfitter/issues/200)) ([e882a5f](https://github.com/ai-outfitter/outfitter/commit/e882a5fa8d4ff7a89a3f1269f5b6d5a60d489449))
+
 ## [1.0.2](https://github.com/ai-outfitter/outfitter/compare/v1.0.1...v1.0.2) (2026-07-22)
 
 
