@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.0](https://github.com/ai-outfitter/outfitter/compare/v1.0.3...v1.1.0) (2026-07-26)
+
+
+### Features
+
+* **cli:** add remote source sync with private-catalog gating ([#219](https://github.com/ai-outfitter/outfitter/issues/219)) ([72e6d19](https://github.com/ai-outfitter/outfitter/commit/72e6d19972ad06c71fc9319aeb549ce8d0c15fee))
+
 ## [1.0.3](https://github.com/ai-outfitter/outfitter/compare/v1.0.2...v1.0.3) (2026-07-25)
 
 
