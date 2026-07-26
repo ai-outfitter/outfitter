@@ -94,14 +94,24 @@ export const tryReadCleanHead = (root: string): string | undefined => {
   }
 };
 
+/**
+ * Rejects a remote or ref that git would parse as an option. Runs before any filesystem work so a
+ * hostile ref always reports as an invalid ref, rather than as whatever incidental error the cache
+ * path happens to raise first (a long encoded name exceeds the macOS filename limit, for example).
+ */
+const assertFetchableSource = (source: RemoteSourceReference, fetchRef?: string): void => {
+  // Both the remote and the ref are positional arguments to `git fetch`; either one starting with
+  // `-` is parsed as an option, and `--upload-pack=<cmd>` is arbitrary command execution.
+  const remote = normalizeGitUri(normalizeRemoteSourceUri(source));
+  if (remote.startsWith('-')) throw new Error(`Source URI '${remote}' must not begin with '-'.`);
+  // A refspec (`refs/tags/x:refs/tags/x`) is two refs; validate each side.
+  const ref = fetchRef ?? source.ref;
+  if (ref !== undefined) for (const part of ref.split(':')) assertFetchableRef(part);
+};
+
 const fetchSource = (temporaryRoot: string, source: RemoteSourceReference, fetchRef?: string): string => {
   const remote = normalizeGitUri(normalizeRemoteSourceUri(source));
   const ref = fetchRef ?? source.ref;
-  // Both the remote and the ref are positional arguments to `git fetch`; either one starting with
-  // `-` is parsed as an option, and `--upload-pack=<cmd>` is arbitrary command execution.
-  if (remote.startsWith('-')) throw new Error(`Source URI '${remote}' must not begin with '-'.`);
-  // A refspec (`refs/tags/x:refs/tags/x`) is two refs; validate each side.
-  if (ref !== undefined) for (const part of ref.split(':')) assertFetchableRef(part);
 
   runGit(['init', '--quiet', temporaryRoot]);
   // Fetch by URL rather than `remote add origin <url>`: a credential-bearing URL written into
@@ -118,6 +128,7 @@ const fetchSource = (temporaryRoot: string, source: RemoteSourceReference, fetch
  * checkout, validation, or rename leaves an existing cache intact.
  */
 export const syncRemoteRepositoryAtomically = (input: AtomicRepositorySyncInput): AtomicRepositorySyncResult => {
+  assertFetchableSource(input.source, input.fetchRef);
   mkdirSync(dirname(input.cachePath), { recursive: true });
   const nonce = `${process.pid}-${Math.random().toString(16).slice(2)}`;
   const temporaryRoot = `${input.cachePath}.outfitter-${nonce}.tmp`;
