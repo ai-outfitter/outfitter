@@ -49,6 +49,7 @@ Outfitter is organized around a private npm workspace root, clear TypeScript pac
 │   │   │   ├── dump/                  # deterministic self-contained `.agents` tree output
 │   │   │   ├── merge/                 # deterministic value and array merge policy helpers
 │   │   │   ├── agents/                # AgentLaunch: bundled-pi resolution and process launch boundary
+│   │   │   ├── paths/                 # Outfitter cache root and repository/packaged asset resolution
 │   │   │   ├── schemas/               # JSON Schema artifacts for persisted formats
 │   │   │   └── validation/            # shared validation helpers
 │   │   ├── tests/                     # automated CLI package tests and fixtures

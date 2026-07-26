@@ -41,7 +41,7 @@ const agentMd = (name: string, extra = ''): string =>
   `---\nname: ${name}\ndescription: The ${name} agent.\n${extra}---\n\n# ${name}\n\nBody for ${name}.\n`;
 
 const setFor = (home: string, project: string, sources: { path: string }[] = []) =>
-  resolveResources(discoverLayers({ homeDirectory: home, projectDirectory: project, settings: { sources } }));
+  resolveResources(discoverLayers({ homeDirectory: home, projectDirectory: project, settings: { sources } }).layers);
 
 const expectIssueContaining = (result: ReturnType<typeof parseAgentDefinition>, substring: string): void => {
   expect(isAgentDefinitionIssue(result)).toBe(true);
@@ -164,7 +164,7 @@ describe('layer discovery', () => {
       settings: { sources: [{ path: shared }, { path: join(root, 'absent') }] },
     });
 
-    expect(layers.map((layer) => layer.origin)).toEqual(['workspace', 'global', 'source']);
+    expect(layers.layers.map((layer) => layer.origin)).toEqual(['workspace', 'global', 'source']);
   });
 
   it('caches remote sources under cache_directory (default ~/.agents/cache)', () => {
@@ -180,8 +180,8 @@ describe('layer discovery', () => {
       settings: { cacheDirectory: cache, sources: [{ github: 'example/.agent', ref: 'main' }] },
     });
 
-    expect(layers.some((layer) => layer.origin === 'source')).toBe(true);
-    const set = resolveResources(layers);
+    expect(layers.layers.some((layer) => layer.origin === 'source')).toBe(true);
+    const set = resolveResources(layers.layers);
     expect(findResource(set, 'agent', 'remote-agent')).toBeDefined();
   });
 
@@ -200,21 +200,46 @@ describe('layer discovery', () => {
       settings: { cacheDirectory: cache, sources: [source] },
     });
 
-    expect(layers.find((layer) => layer.origin === 'source')?.root).toBe(join(cache, 'repos', encoded, '.agents'));
+    expect(layers.layers.find((layer) => layer.origin === 'source')?.root).toBe(
+      join(cache, 'repos', encoded, '.agents'),
+    );
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-003.3, OFTR-004.2.3).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-003.3, OFTR-004.2.18).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
-  it('reports a missing configured remote cache before agent lookup', () => {
+  // Reported, not raised: OFTR-004.2.15 requires a gate-skipped private catalog to leave other
+  // sources working, and such a catalog is never cached, so aborting resolution would deadlock
+  // every command behind guidance the user cannot act on.
+  it('reports a missing configured remote cache instead of silently dropping it', () => {
     const root = createTemporaryRoot();
 
-    expect(() =>
-      discoverLayers({
-        homeDirectory: join(root, 'home'),
-        projectDirectory: join(root, 'project'),
-        settings: { sources: [{ github: 'example/missing', ref: 'main' }] },
-      }),
-    ).toThrow(/Run 'outfitter sync'/u);
+    const discovered = discoverLayers({
+      homeDirectory: join(root, 'home'),
+      projectDirectory: join(root, 'project'),
+      settings: { sources: [{ github: 'example/missing', ref: 'main' }] },
+    });
+
+    expect(discovered.unsynchronized).toHaveLength(1);
+    expect(discovered.unsynchronized[0]).toMatch(/Run 'outfitter sync'/u);
+    expect(discovered.layers.some((layer) => layer.origin === 'source')).toBe(false);
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-004.2.15).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('keeps other sources resolvable when one remote source is unsynchronized', () => {
+    const root = createTemporaryRoot();
+    const cache = join(root, 'cache');
+    const present = { github: 'example/present', ref: 'main' } as const;
+    write(join(cache, 'repos', encodeRemoteSource(present), 'agents', 'ok', 'agent.md'), agentMd('ok'));
+
+    const discovered = discoverLayers({
+      homeDirectory: join(root, 'home'),
+      projectDirectory: join(root, 'project'),
+      settings: { cacheDirectory: cache, sources: [{ github: 'example/skipped', ref: 'main' }, present] },
+    });
+
+    expect(discovered.unsynchronized).toHaveLength(1);
+    expect(findResource(resolveResources(discovered.layers), 'agent', 'ok')).toBeDefined();
   });
 });
 

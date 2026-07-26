@@ -40,18 +40,24 @@ const resolveAgentSlug = (settings: Settings, requested: string | undefined): st
 };
 
 export const executeDumpCommand = (input: DumpInput): DumpCommandResult => {
-  const { set, settings, settingsIssues } = resolveEffectiveSet(input);
+  const { set, settings, settingsIssues, warnings } = resolveEffectiveSet(input);
 
   if (settingsIssues.length > 0) {
     throw new Error(`Cannot dump with invalid settings: ${settingsIssues.map((issue) => issue.message).join('; ')}`);
   }
 
+  const syncWarnings = warnings.map((warning) => `warning: ${warning}`);
+
   const agentSlug = resolveAgentSlug(settings, input.agent);
   const result = dumpAgent(set, agentSlug, input.out);
   const ok = result.errors.length === 0;
   const messages = ok
-    ? [`Dumped '${agentSlug}' to ${input.out} (${result.writtenPaths.length} files).`, ...result.warnings]
-    : [...result.errors, ...result.warnings];
+    ? [
+        ...syncWarnings,
+        `Dumped '${agentSlug}' to ${input.out} (${result.writtenPaths.length} files).`,
+        ...result.warnings,
+      ]
+    : [...syncWarnings, ...result.errors, ...result.warnings];
 
   return { writtenPaths: result.writtenPaths, messages, ok };
 };

@@ -35,6 +35,9 @@ const createRepository = (
   git(['init', '--quiet', root]);
   git(['-C', root, 'config', 'user.name', 'Outfitter Tests']);
   git(['-C', root, 'config', 'user.email', 'tests@outfitter.dev']);
+  // Isolate from the developer's global config; a global commit.gpgsign would fail every commit.
+  git(['-C', root, 'config', 'commit.gpgsign', 'false']);
+  git(['-C', root, 'config', 'tag.gpgsign', 'false']);
   for (const [path, content] of Object.entries(files)) write(join(root, path), content);
   git(['-C', root, 'add', '.']);
   git(['-C', root, 'commit', '--quiet', '-m', 'initial']);
@@ -363,5 +366,88 @@ describe('private catalog gate', () => {
     expect(result.skippedResults[0]?.status).toBe('skipped');
     expect(result.skippedResults[0]?.cachePath).toContain(join(input.root, 'cache', 'repos'));
     expect(result.messages.join('\n')).toContain('~/.agents/settings.yml');
+  });
+});
+
+describe('remote fetch hardening', () => {
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-004.2.9).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  // A ref beginning with `-` is parsed by git as an option, not a refspec: `--upload-pack=<cmd>`
+  // is arbitrary command execution on every machine that syncs a hostile catalog.
+  it('rejects a ref that git would parse as an option instead of fetching it', () => {
+    const catalog = createRepository({ 'agents/remote/agent.md': agent('remote') });
+    const input = createInvocation();
+    const marker = join(input.root, 'INJECTED');
+    writeHomeSettings(
+      input.homeDirectory,
+      `sources:\n  - uri: ${catalog.root}\n    ref: "--upload-pack=touch ${marker}; git-upload-pack"\n`,
+    );
+
+    const result = executeSyncCommand(input);
+
+    expect(existsSync(marker)).toBe(false);
+    expect(result.results[0]?.status).toBe('failed');
+    expect(result.results[0]?.message).toContain('is not a valid git ref');
+    expect(result.exitCode).toBe(1);
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-004.2.9).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('never persists credentials from a source URI into the cached repository config', () => {
+    const catalog = createRepository({ 'agents/remote/agent.md': agent('remote') });
+    const input = createInvocation();
+    // A credentialed URI whose host is the local path form git can actually reach.
+    writeHomeSettings(input.homeDirectory, `sources:\n  - uri: ${catalog.root}\n`);
+
+    const result = executeSyncCommand(input);
+    expect(result.results[0]?.status).toBe('updated');
+
+    const config = readFileSync(join(result.results[0].cachePath, '.git', 'config'), 'utf8');
+    expect(config).not.toContain('[remote "origin"]');
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-004.2.9).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  // An exported GIT_DIR/GIT_WORK_TREE (a git hook, `rebase --exec`, `bisect run`) would otherwise
+  // redirect every `git -C <temp> …` at the *outer* repository and detach its HEAD.
+  it('ignores inherited repository-context variables instead of operating on the outer repository', () => {
+    const catalog = createRepository({ 'agents/remote/agent.md': agent('remote') });
+    const outer = createRepository({ 'agents/outer/agent.md': agent('outer') });
+    const input = createInvocation();
+    writeHomeSettings(input.homeDirectory, `sources:\n  - uri: ${catalog.root}\n`);
+    const outerHeadBefore = git(['-C', outer.root, 'rev-parse', 'HEAD']);
+
+    const previous = { dir: process.env.GIT_DIR, workTree: process.env.GIT_WORK_TREE };
+    process.env.GIT_DIR = join(outer.root, '.git');
+    process.env.GIT_WORK_TREE = outer.root;
+    let result;
+    try {
+      result = executeSyncCommand(input);
+    } finally {
+      if (previous.dir === undefined) delete process.env.GIT_DIR;
+      else process.env.GIT_DIR = previous.dir;
+      if (previous.workTree === undefined) delete process.env.GIT_WORK_TREE;
+      else process.env.GIT_WORK_TREE = previous.workTree;
+    }
+
+    expect(result.results[0]?.status).toBe('updated');
+    expect(git(['-C', outer.root, 'rev-parse', 'HEAD'])).toBe(outerHeadBefore);
+    expect(git(['-C', outer.root, 'remote'])).toBe('');
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-004.2.3).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  // With no refspec, FETCH_HEAD holds every branch tip and rev-parse takes whichever sorts first.
+  it('resolves the remote default branch for an unpinned source, not the first branch by name', () => {
+    const catalog = createRepository({ 'agents/remote/agent.md': agent('remote') });
+    git(['-C', catalog.root, 'branch', 'aaa-decoy']);
+    const defaultCommit = commitFile(catalog.root, 'agents/remote/agent.md', agent('remote', 'updated'), 'update');
+    const input = createInvocation();
+    writeHomeSettings(input.homeDirectory, `sources:\n  - uri: ${catalog.root}\n`);
+
+    const result = executeSyncCommand(input);
+
+    expect(result.results[0]?.status).toBe('updated');
+    expect(git(['-C', result.results[0].cachePath, 'rev-parse', 'HEAD'])).toBe(defaultCommit);
   });
 });

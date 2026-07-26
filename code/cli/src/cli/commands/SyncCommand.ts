@@ -137,13 +137,12 @@ const syncPhase = <T extends RemoteSourceReference>(input: SyncPhaseInput<T>): S
         source,
         validate: (repositoryPath) => input.validate(repositoryPath, source),
       });
-      const warnings = result.validation ?? 0;
       return {
         kind: input.kind,
         uri,
         cachePath,
         status: result.status,
-        message: warnings === 0 ? undefined : `validated with ${warnings} warning(s)`,
+        message: result.warnings === 0 ? undefined : `validated with ${result.warnings} warning(s)`,
       };
     } catch (error) {
       return {

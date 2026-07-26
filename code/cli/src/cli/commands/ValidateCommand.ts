@@ -32,8 +32,12 @@ const settingsFindings = (messages: readonly string[]): readonly ValidationFindi
   messages.map((message) => ({ severity: 'error' as const, resource: 'settings', message }));
 
 export const executeValidateCommand = (input: ValidateInput): ValidateResult => {
-  const { set, settingsIssues } = resolveEffectiveSet(input);
-  const findings = [...settingsFindings(settingsIssues.map(formatSettingsIssue)), ...validateEffectiveSet(set)];
+  const { set, settingsIssues, warnings } = resolveEffectiveSet(input);
+  const findings = [
+    ...settingsFindings(settingsIssues.map(formatSettingsIssue)),
+    ...warnings.map((message) => ({ severity: 'warning' as const, resource: 'settings', message })),
+    ...validateEffectiveSet(set),
+  ];
 
   const hasErrors = findings.some((finding) => finding.severity === 'error');
   const hasWarnings = findings.some((finding) => finding.severity === 'warning');

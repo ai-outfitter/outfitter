@@ -30,35 +30,46 @@ export const remoteSourceLayer = (repositoryPath: string, source: RemoteSourceRe
   label: formatRemoteSourceDisplay(source),
 });
 
-const sourceLayer = (input: LayerDiscoveryInput, source: SourceReference): Layer => {
-  if (!isRemoteSource(source)) {
-    return { root: source.path, origin: 'source', label: source.path };
-  }
+const sourceLayer = (input: LayerDiscoveryInput, source: SourceReference): Layer =>
+  isRemoteSource(source)
+    ? remoteSourceLayer(
+        createRemoteRepositoryCachePath(input.homeDirectory, source, input.settings.cacheDirectory),
+        source,
+      )
+    : { root: source.path, origin: 'source', label: source.path };
 
-  const layer = remoteSourceLayer(
-    createRemoteRepositoryCachePath(input.homeDirectory, source, input.settings.cacheDirectory),
-    source,
-  );
-
-  if (!existsSync(layer.root)) {
-    throw new Error(
-      `Configured remote source '${layer.label}' is not synchronized at '${layer.root}'. Run 'outfitter sync' to fetch it.`,
-    );
-  }
-
-  return layer;
-};
+export interface LayerDiscoveryResult {
+  readonly layers: readonly Layer[];
+  /**
+   * Configured remote sources whose cache is absent, reported with `outfitter sync` guidance rather
+   * than silently dropped (OFTR-004.2.18). Reported, never fatal: a private catalog the enterprise
+   * gate skips is never cached, so `outfitter sync` skips it again and exits 0 — aborting here
+   * would deadlock every other command behind advice the user cannot act on (OFTR-004.2.15).
+   */
+  readonly unsynchronized: readonly string[];
+}
 
 /**
  * Orders layers highest precedence first: workspace `.agents`, then global `~/.agents`,
  * then configured sources in order. Only layers whose root exists on disk are included.
  */
-export const discoverLayers = (input: LayerDiscoveryInput): readonly Layer[] => {
+export const discoverLayers = (input: LayerDiscoveryInput): LayerDiscoveryResult => {
   const candidates: Layer[] = [
     { root: agentsRoot(input.projectDirectory), origin: 'workspace', label: 'workspace' },
     { root: agentsRoot(input.homeDirectory), origin: 'global', label: 'global' },
-    ...(input.settings.sources ?? []).map((source) => sourceLayer(input, source)),
   ];
+  const unsynchronized: string[] = [];
 
-  return candidates.filter((layer) => existsSync(layer.root));
+  for (const source of input.settings.sources ?? []) {
+    const layer = sourceLayer(input, source);
+    if (isRemoteSource(source) && !existsSync(layer.root)) {
+      unsynchronized.push(
+        `Configured remote source '${layer.label}' is not synchronized at '${layer.root}'. Run 'outfitter sync' to fetch it.`,
+      );
+      continue;
+    }
+    candidates.push(layer);
+  }
+
+  return { layers: candidates.filter((layer) => existsSync(layer.root)), unsynchronized };
 };

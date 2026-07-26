@@ -58,15 +58,15 @@ export const bootstrapPinnedCatalog = (input: PinnedCatalogBootstrapInput): Pinn
         ? `refs/tags/${input.source.ref}:refs/tags/${input.source.ref}`
         : input.source.ref,
       source: input.source,
-      // A fresh checkout is clean by construction, so only the payload and the commit it resolved
-      // to need verifying — no second status/rev-parse pass over the temporary tree.
-      validate: (temporaryRoot, commit) => {
-        if (
-          !existsSync(join(temporaryRoot, 'agents')) ||
-          commit !== resolveExpectedCommit(temporaryRoot, input.source.ref)
-        ) {
+      // Validated with the same predicate the read path uses. A fresh checkout is not clean by
+      // construction — autocrlf, an LFS smudge, or a fileMode difference can leave it dirty — and
+      // accepting a dirty tree here would cache one that `tryReadCleanHead` rejects on every
+      // subsequent read, re-fetching forever.
+      validate: (temporaryRoot) => {
+        if (!isPinnedCatalogCheckout(temporaryRoot, input.source.ref)) {
           throw new Error(`Fetched default catalog did not resolve to ${input.source.ref}.`);
         }
+        return 0;
       },
     });
     return { root, source: input.source };
