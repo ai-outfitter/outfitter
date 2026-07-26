@@ -327,6 +327,46 @@ describe('settings loading', () => {
     expect(localOverrideLoaded.settings.sources).toEqual([{ path: join(homeDirectory, '.agents', 'local-agents') }]);
   });
 
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-002.6, OFTR-004.2.4).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('loads remote settings from the configured cache directory', () => {
+    const root = createTemporaryRoot();
+    const homeDirectory = join(root, 'home');
+    const projectDirectory = join(root, 'project');
+    const cacheDirectory = join(root, 'selected-cache');
+    const source = { github: 'example/configured-cache', path: 'settings.yml' } as const;
+    writeSettings(
+      join(homeDirectory, '.agents', 'settings.yml'),
+      `cache_directory: ${cacheDirectory}\nremote_settings:\n  - github: ${source.github}\n    path: settings.yml\n`,
+    );
+    writeSettings(
+      join(createRemoteRepositoryCachePath(homeDirectory, source, cacheDirectory), 'settings.yml'),
+      'default_agent: from-remote\n',
+    );
+
+    const loaded = loadSettingsWithCachedRemoteSettings({ homeDirectory, projectDirectory });
+
+    expect(loaded.issues).toEqual([]);
+    expect(loaded.settings.defaultAgent).toBe('from-remote');
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-002.6, OFTR-004.2.3).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('reports an actionable issue when a configured remote settings cache is missing', () => {
+    const root = createTemporaryRoot();
+    const homeDirectory = join(root, 'home');
+    const projectDirectory = join(root, 'project');
+    writeSettings(
+      join(homeDirectory, '.agents', 'settings.yml'),
+      'remote_settings:\n  - github: example/missing\n    path: settings.yml\n',
+    );
+
+    const loaded = loadSettingsWithCachedRemoteSettings({ homeDirectory, projectDirectory });
+
+    expect(loaded.issues).toHaveLength(1);
+    expect(loaded.issues[0]?.message).toContain("Run 'outfitter sync'");
+  });
+
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-002.6).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('reports invalid cached remote settings subpaths as settings issues', () => {

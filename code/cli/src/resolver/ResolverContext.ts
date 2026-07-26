@@ -16,12 +16,19 @@ export interface ResolveResult {
   /** The merged settings loaded during resolution, so callers need not reload them. */
   readonly settings: Settings;
   readonly settingsIssues: readonly SettingsLoadIssue[];
+  /** Non-fatal `outfitter sync` guidance for configured remote sources with no cache. */
+  readonly warnings: readonly string[];
 }
 
 /** The single shared resolution path used by list, validate, run, and dump. */
 export const resolveEffectiveSet = (input: ResolveInput): ResolveResult => {
   const loadedSettings = loadSettingsWithCachedRemoteSettings(input);
-  const layers = discoverLayers({ ...input, settings: loadedSettings.settings });
+  const discovered = discoverLayers({ ...input, settings: loadedSettings.settings });
 
-  return { set: resolveResources(layers), settings: loadedSettings.settings, settingsIssues: loadedSettings.issues };
+  return {
+    set: resolveResources(discovered.layers),
+    settings: loadedSettings.settings,
+    settingsIssues: loadedSettings.issues,
+    warnings: discovered.unsynchronized,
+  };
 };

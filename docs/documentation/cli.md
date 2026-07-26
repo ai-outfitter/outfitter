@@ -1,7 +1,5 @@
 # CLI reference
 
-> **Status: RFC [#165](https://github.com/ai-outfitter/outfitter/issues/165) target.** This reference describes the dotagents end-state command surface. The currently released CLI still implements the legacy profile commands; implementation PRs replace them incrementally.
-
 Global options:
 
 | Option          | Description                  |
@@ -41,7 +39,17 @@ fallback.
 
 ## `outfitter sync`
 
-Synchronize remote sources and remote settings into the local cache. Reports a per-source status of `updated`, `unchanged`, `skipped`, or `failed`, and validates synced sources.
+Synchronize remote sources and remote settings into the local cache. Sync validates local settings,
+updates `remote_settings`, reloads the merged settings, and then updates the remote `sources` that
+result. Each repository reports `updated`, `unchanged`, `skipped`, or `failed`.
+
+Fetched content is validated in a temporary checkout before an atomic cache swap, so a failed fetch
+or invalid update leaves the last valid cache available. Required-source failures and invalid
+settings exit nonzero. Credentials embedded in URIs are redacted from status, errors, cache paths,
+and Git output.
+
+Sync is explicit: `outfitter run` never initiates network access. If a configured cache is absent,
+resolution tells you to run `outfitter sync`.
 
 ## `outfitter list [kind]`
 

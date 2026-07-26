@@ -29,7 +29,7 @@ afterEach(() => {
 });
 
 const resolveSet = (home: string, project: string) =>
-  resolveResources(discoverLayers({ homeDirectory: home, projectDirectory: project, settings: {} }));
+  resolveResources(discoverLayers({ homeDirectory: home, projectDirectory: project, settings: {} }).layers);
 
 describe('composer', () => {
   const buildTree = (): { home: string; project: string } => {

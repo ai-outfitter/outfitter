@@ -12,6 +12,7 @@ import {
   resourceKinds,
 } from '../../resolver/Resource.js';
 import { resolveEffectiveSet } from '../../resolver/ResolverContext.js';
+import { formatSettingsIssue } from '../../settings/SettingsLoader.js';
 import type { CommandObject } from './CommandObject.js';
 import { resolveHomeDirectory, resolveProjectDirectory } from './ProcessDefaults.js';
 
@@ -61,14 +62,14 @@ const resolveKindFilter = (kind: string | undefined): readonly ResourceKind[] =>
 };
 
 export const executeListCommand = (input: ListInput): ListResult => {
-  const { set, settingsIssues } = resolveEffectiveSet(input);
+  const { set, settingsIssues, warnings } = resolveEffectiveSet(input);
 
   if (settingsIssues.length > 0) {
-    const detail = settingsIssues.map((issue) => `${issue.filePath}#${issue.path} ${issue.message}`).join('; ');
+    const detail = settingsIssues.map(formatSettingsIssue).join('; ');
     throw new Error(`Cannot list resources with invalid settings: ${detail}`);
   }
 
-  const messages: string[] = [];
+  const messages: string[] = warnings.map((warning) => `warning: ${warning}`);
 
   if (input.agent !== undefined && findResource(set, 'agent', input.agent) === undefined) {
     throw new Error(`Unknown agent '${input.agent}'. Run 'outfitter list agents' to see resolvable agents.`);

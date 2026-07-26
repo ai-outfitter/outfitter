@@ -109,6 +109,29 @@ describe('resolver command objects', () => {
     expect(result.messages).toContain('✓ No issues found.');
   });
 
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-004.2.18).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('surfaces unsynchronized remote sources as non-fatal guidance in list and validate', async () => {
+    const root = createTemporaryRoot();
+    write(join(root, 'project', '.agents', 'agents', 'ok', 'agent.md'), '---\nname: ok\n---\n\nBody.\n');
+    write(join(root, 'project', '.agents', 'settings.yml'), 'sources:\n  - uri: https://example.com/catalog.git\n');
+    const lines: string[] = [];
+
+    // list still resolves the workspace layer and exits normally; the missing cache only warns.
+    await buildProgram(root, lines).parseAsync(['node', 'outfitter', 'list', 'agents']);
+    expect(process.exitCode).not.toBe(1);
+    expect(lines.join('\n')).toContain("Run 'outfitter sync'");
+    expect(lines.join('\n')).toContain('ok  [workspace]');
+
+    const validation = executeValidateCommand({
+      homeDirectory: join(root, 'home'),
+      projectDirectory: join(root, 'project'),
+    });
+    // A warning, never an error: an unsynchronized source must not fail a clean workspace.
+    expect(validation.ok).toBe(true);
+    expect(validation.findings.some((f) => f.severity === 'warning' && /outfitter sync/u.test(f.message))).toBe(true);
+  });
+
   it('validate through parseAsync prints clean text output and leaves the exit code unset', async () => {
     const root = createTemporaryRoot();
     write(join(root, 'project', '.agents', 'agents', 'ok', 'agent.md'), '---\nname: ok\n---\n\nBody.\n');

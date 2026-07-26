@@ -1,11 +1,10 @@
 # OFTR-004: Setup, Sync, and Profile Creation Commands
 
-> **Amended (RFC [#165](https://github.com/ai-outfitter/outfitter/issues/165), 2026-07-17):** the
-> `.agents`-native **`setup`** command is now implemented as an interactive terminal onboarding flow —
-> see [OFTR-010](OFTR-010-onboarding-welcome.md), which supersedes the Pi-native model in OFTR-004.1.
-> **`sync`** (fetching `.agents` sources into `cache_directory`) and the profile-era `profile create` /
-> `profile list` commands (OFTR-004.2/.3/.5) remain **removed/deferred**; the current CLI surface is
-> `run`, `setup`, `list`, `validate`, and `dump`.
+> **Amended (RFC [#165](https://github.com/ai-outfitter/outfitter/issues/165) and
+> [#184](https://github.com/ai-outfitter/outfitter/issues/184), 2026-07-25):** the `.agents`-native
+> `setup` and `sync` commands are implemented. See [OFTR-010](OFTR-010-onboarding-welcome.md) for
+> onboarding. The profile-era `profile create` / `profile list` commands (OFTR-004.3/.5) remain
+> removed/deferred.
 
 ## Overview
 
@@ -24,15 +23,25 @@ Outfitter provides setup and maintenance commands that onboard a new user, synch
 
 1. Outfitter MUST provide a `sync` command.
 2. The `sync` command MUST read and validate settings before synchronizing sources.
-3. The `sync` command MUST fetch or update remote settings sources and URI-based profile sources.
-4. The `sync` command MUST store plain URI-based profile sources without `ref` or repository subpaths under `~/.outfitter/cache/profiles/<encoded-uri>/`, and MUST store URI or GitHub sources with `ref` or repository subpaths under `~/.outfitter/cache/repos/<encoded-uri-and-ref>/`.
+3. The `sync` command MUST synchronize locally configured `remote_settings` first, reload the
+   merged settings, and then synchronize every remote `sources` entry in the resulting settings.
+   Local `path:` sources MUST remain live and MUST NOT be copied into the cache.
+4. The `sync` command MUST store every URI or GitHub repository under
+   `<cache_directory>/repos/<encoded-uri-and-ref>/`. The default `cache_directory` is
+   `~/.agents/cache`; the selected value MUST be shared by sync, remote-settings loading, layer
+   discovery, and default-catalog bootstrap.
 5. The encoded URI cache path MUST support non-GitHub URIs.
-6. The `sync` command MUST validate profiles loaded from synchronized sources.
-7. The `sync` command SHOULD report whether each source was updated, unchanged, skipped, or failed.
-8. The first version of `sync` MUST NOT require lockfile-based profile source reproducibility.
-9. The `sync` command MUST redact credentials embedded in source URIs from user-facing output.
-10. `~/.outfitter/settings.yml` MUST be the source of truth for private GitHub profile catalog enablement, using `enterprise.private_catalogs: true`.
-11. If `enterprise.private_catalogs` is already true in `~/.outfitter/settings.yml`, setup and sync MUST NOT show private-catalog enterprise information or prompts.
+6. The `sync` command MUST validate fetched remote settings against the settings schema and validate
+   fetched `.agents` payloads before making them active.
+7. The `sync` command MUST report `updated`, `unchanged`, `skipped`, or `failed` for each configured
+   remote and MUST exit nonzero when any required remote fails or merged settings are invalid.
+8. Fetch and validation MUST occur in a temporary sibling directory. A successful checkout MUST be
+   swapped into place atomically; any fetch, checkout, validation, or swap failure MUST preserve an
+   existing valid cache. The first version of `sync` MUST NOT require lockfiles or provenance.
+9. The `sync` command MUST redact credentials embedded in source URIs from status, errors, cache
+   identifiers, and captured Git stdout/stderr.
+10. `~/.agents/settings.yml` MUST be the source of truth for private GitHub profile catalog enablement, using `enterprise.private_catalogs: true`.
+11. If `enterprise.private_catalogs` is already true in `~/.agents/settings.yml`, setup and sync MUST NOT show private-catalog enterprise information or prompts.
 12. If setup or sync detects a confirmed-private GitHub catalog while the home setting is not enabled, interactive flows SHOULD ask whether to enable it and MUST include this prompt text:
 
     ```text
@@ -41,13 +50,13 @@ Outfitter provides setup and maintenance commands that onboard a new user, synch
     Private profile catalog support is covered by the Outfitter Enterprise license.
     Review code/enterprise/LICENSE or your enterprise agreement before enabling.
 
-    Enable private profile catalogs in ~/.outfitter/settings.yml? [y/N]
+    Enable private profile catalogs in ~/.agents/settings.yml? [y/N]
     ```
 
-13. If the user accepts, setup or sync MUST write `enterprise.private_catalogs: true` to `~/.outfitter/settings.yml` and show:
+13. If the user accepts, setup or sync MUST write `enterprise.private_catalogs: true` to `~/.agents/settings.yml` and show:
 
     ```text
-    info: Enabled private profile catalogs in ~/.outfitter/settings.yml.
+    info: Enabled private profile catalogs in ~/.agents/settings.yml.
     ```
 
 14. If the user declines, setup or sync MUST skip that private catalog without changing settings and show:
@@ -59,11 +68,15 @@ Outfitter provides setup and maintenance commands that onboard a new user, synch
 15. Non-interactive setup and sync SHOULD skip confirmed-private GitHub catalogs without warning, error, or blocking public/unknown sources, and SHOULD show:
 
     ```text
-    info: Private GitHub profile catalog detected: OWNER/REPO. Enable enterprise.private_catalogs in ~/.outfitter/settings.yml after reviewing code/enterprise/LICENSE or your enterprise agreement.
+    info: Private GitHub profile catalog detected: OWNER/REPO. Enable enterprise.private_catalogs in ~/.agents/settings.yml after reviewing code/enterprise/LICENSE or your enterprise agreement.
     ```
 
 16. GitHub privacy detection MUST only treat an HTTP 200 GitHub API response with JSON `private: true` as private. Public responses, unknown responses, HTTP 403/404, network failures, malformed responses, and non-GitHub sources MUST NOT warn, error, or block.
 17. Private catalog enablement MUST remain informational commercial governance and MUST NOT collect, echo, persist, synthesize, or validate provider credentials.
+18. Resolution MUST report a configured remote source or remote-settings target whose cache is
+    absent with actionable `outfitter sync` guidance instead of silently dropping it.
+19. Automatic network synchronization during `outfitter run` is out of scope. Operators invoke
+    `outfitter sync` explicitly.
 
 ### OFTR-004.3: Create Profile Command
 

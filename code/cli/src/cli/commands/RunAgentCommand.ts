@@ -144,6 +144,7 @@ export const executeRunAgentCommand = async (input: RunAgentInput): Promise<RunA
 
   let resolved = resolveEffectiveSet(input);
   assertNoSettingsIssues(resolved.settingsIssues);
+  emit(resolved.warnings.map((warning) => `warning: ${warning}`));
 
   // First run: nothing selected and no default configured — onboard, then resolve again.
   const setupMessages: string[] = [];

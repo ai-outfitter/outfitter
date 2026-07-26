@@ -1,5 +1,5 @@
 const { spawnSync } = require('node:child_process');
-const { dirname, join } = require('node:path');
+const { join } = require('node:path');
 
 const {
   formatPrivateCatalogCliPrompt,
@@ -10,7 +10,7 @@ const {
 const { enablePrivateProfileCatalogs, isPrivateProfileCatalogsEnabled } = require('./privateCatalogSettings.cjs');
 
 const createPrivateCatalogGate = ({ homeDirectory, classifier, prompt }) => {
-  const settingsPath = join(homeDirectory, '.outfitter', 'settings.yml');
+  const settingsPath = join(homeDirectory, '.agents', 'settings.yml');
 
   return {
     classifier,
@@ -50,7 +50,7 @@ const gatePrivateCatalogSources = (sources, gate, helpers) => {
     }
     skippedResults.push({
       uri: helpers.formatDisplayUri(source),
-      cachePath: helpers.createRemoteRepositoryCachePath(dirname(dirname(gate.settingsPath)), source),
+      cachePath: helpers.resolveCachePath(source),
       status: 'skipped',
       message: formatPrivateCatalogSkipResultMessage(repository),
     });

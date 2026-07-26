@@ -7,11 +7,13 @@ import { createDumpCommand } from './commands/DumpCommand.js';
 import { createListCommand } from './commands/ListCommand.js';
 import { createRunAgentCommand } from './commands/RunAgentCommand.js';
 import { createSetupCommand } from './commands/SetupCommand.js';
+import { createSyncCommand } from './commands/SyncCommand.js';
 import { createValidateCommand } from './commands/ValidateCommand.js';
 
 export const createDefaultCommands = (): CommandObject[] => [
   createRunAgentCommand(),
   createSetupCommand(),
+  createSyncCommand(),
   createListCommand(),
   createValidateCommand(),
   createDumpCommand(),

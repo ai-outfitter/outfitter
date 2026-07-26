@@ -2,10 +2,10 @@
 // the Outfitter + pi header, active-profile status, and "connect a model provider" sign-in prompt.
 // Non-interactive pi launches (--print, --export, --mode json|print|rpc, …) are left untouched so
 // scripted runs never prompt, and non-pi harnesses pass through unchanged.
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
 
+import { findRepositoryCodeAsset } from '../../paths/RepositoryAssets.js';
 import type { AgentLaunchPlan } from '../../projection/Projection.js';
 
 const nonInteractivePiLaunchFlags = new Set(['--print', '-p', '--export', '--list-models']);
@@ -32,21 +32,9 @@ export const isNonInteractivePiLaunch = (args: readonly string[]): boolean =>
     return false;
   });
 
-// Resolves the runtime extension in either the repository layout (code/<asset>) or the packaged npm
-// layout (code/cli/code/<asset>), mirroring SetupCommand's asset resolver.
-const resolveRuntimeExtensionPath = (): string | undefined => {
-  const sourcePath = fileURLToPath(new URL(`../../../../${runtimeExtensionAsset}`, import.meta.url));
-  const packagePath = fileURLToPath(new URL(`../../../code/${runtimeExtensionAsset}`, import.meta.url));
-  /* v8 ignore else -- packaged layout is exercised by the npm package smoke test. */
-  if (existsSync(sourcePath)) return sourcePath;
-  /* v8 ignore next 2 -- packaged layout is covered by the package smoke test. */
-  if (existsSync(packagePath)) return packagePath;
-  return undefined;
-};
-
 /** Stamps per-run identity metadata into the runtime extension source. */
 export const createPiRuntimeExtensionContent = (input: Omit<PiRuntimeExtensionInput, 'rootDirectory'>): string => {
-  const extensionPath = resolveRuntimeExtensionPath();
+  const extensionPath = findRepositoryCodeAsset(runtimeExtensionAsset);
   /* v8 ignore next -- defensive: the runtime extension ships with the package, so it resolves in practice. */
   if (extensionPath === undefined) throw new Error('Outfitter runtime extension was not found.');
 
