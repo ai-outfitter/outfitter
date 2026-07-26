@@ -158,11 +158,13 @@ Generated harness files may use LiquidJS templating with Outfitter-specific deli
 
 ## Runtime Model and State
 
-A launch materializes the composed agent under the system temp directory:
+A launch materializes the composed agent under a per-user runtime directory:
 
 ```text
-$TMPDIR/outfitter-<agent>-<harness>-<random>/
+$XDG_RUNTIME_DIR/outfitter/outfitter-<agent>-<harness>-<pid>-<nonce>/
 ```
+
+Projection location, cleanup, and the cache roots are specified in [`./projection_runtime_layout.md`](./projection_runtime_layout.md), which also records where current behavior still uses the system temp directory.
 
 Adapter-declared state paths symlink to durable native CLI locations (`~/.pi/agent/...`, `~/.claude/...`) per the functional state model — see [`./state_writeback_strategy.md`](./state_writeback_strategy.md). State handling strategies are `symlink`, `discard`, `warn`, `error`, and `prompt`; unknown writes are never silently persisted. `state_persistence` policy lives in settings.
 
