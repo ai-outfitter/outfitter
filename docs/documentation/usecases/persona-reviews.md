@@ -21,6 +21,51 @@ between layers. I check the escape hatch first.
 
 The review method lives in the shared [`persona-reviewer`](https://github.com/ai-outfitter/community-profiles/blob/main/agents/persona-reviewer/agent.md) agent; each persona is a Markdown file you append to it.
 
+## Adopt persona reviews across an engineering organization
+
+A platform engineer installs Outfitter and uses the `platform` profile to
+configure a pinned [organization catalog](./organization-profile-catalog.md).
+The catalog reuses the default `engineer` profile, defines the organization's
+`marketing` profile, and makes the community persona-review components
+available to both. After setup and sync, engineers review products from the
+`engineer` profile while marketers review messaging from the `marketing`
+profile. Both profile loadouts select `persona-review`. When either role is
+asked to run a review, the skill launches the isolated shared reviewer with the
+selected customer persona and saves the report:
+
+```mermaid
+flowchart LR
+  subgraph platformTeam["Platform engineer — platform profile"]
+    install["Install Outfitter"] --> platform["outfitter run platform"]
+    platform --> catalog["Configure pinned org catalog"]
+  end
+
+  subgraph distribution["Organization distribution"]
+    catalog --> defaults["default-profiles<br/>engineer skills: persona-review"]
+    catalog --> marketing["Organization catalog<br/>marketing skills: persona-review"]
+    defaults --> community["community-profiles<br/>persona-review skill<br/>persona-reviewer agent"]
+  end
+
+  subgraph roleTeams["Engineering and marketing teams"]
+    setup["outfitter setup and sync"] --> engineer["outfitter run engineer"]
+    setup --> marketer["outfitter run marketing"]
+    engineer -->|"Product review"| skill["Use persona-review skill"]
+    marketer -->|"Messaging review"| skill
+    persona["Customer persona<br/>docs/personas/customer.md"] --> reviewer["Isolated persona-reviewer"]
+    artifact["Review target"] --> reviewer
+    skill --> reviewer
+    reviewer --> report["Durable customer-review report"]
+  end
+
+  catalog --> setup
+  community --> setup
+  marketing --> setup
+```
+
+The `platform`, `engineer`, and `marketing` profiles are executable roles. A
+customer persona supplies temporary identity context within the isolated
+reviewer process.
+
 ## Author it
 
 Start from the community catalog's [`template.persona.md`](https://github.com/ai-outfitter/community-profiles/blob/main/skills/persona-authoring/assets/template.persona.md) by hand, or let any agent that selects the [`persona-authoring`](https://github.com/ai-outfitter/community-profiles/tree/main/skills/persona-authoring) skill interview you into the file. Commit the result to normal project documentation:
@@ -35,29 +80,30 @@ Prefer generic role archetypes over named individuals. Research and interviews a
 
 ## Run it under Outfitter
 
-Add the community catalog as a source and sync:
+After `outfitter setup`, launch the shared reviewer directly with the persona appended and save its output:
 
-```yaml
-# ~/.agents/settings.yml
-sources:
-  - github: ai-outfitter/community-profiles
-    ref: <tag-or-commit>
-```
-
-Then launch the shared reviewer with the persona appended — directly, or via the `persona-review` skill's launcher:
-
-```bash
-bash skills/persona-review/scripts/persona-review.sh \
-  --persona docs/personas/platform-lead.md \
-  -- --print "Review the onboarding flow and write the report. @README.md"
-
-# the launcher resolves the persona path and runs:
+```sh
+mkdir -p docs/persona-reviews
 outfitter run persona-reviewer -- \
   --append-system-prompt docs/personas/platform-lead.md \
-  --print "Review the onboarding flow and write the report. @README.md"
+  --print "Review the onboarding flow and write the report. @README.md" \
+  > docs/persona-reviews/platform-lead-onboarding.md
 ```
 
-One shared agent adopts the file as its identity for that session only and writes a first-person, sourced report — evidence cited to the exact page or UI moment, assumptions labeled. The catalog agent pins a model (`openai-codex/gpt-5.5`); use the launcher's `--agent` flag to run another agent that selects this skill on whatever you have credentials for.
+This is the portable interface: it works from the project containing the persona and does not assume a particular catalog checkout path. One shared agent adopts the file as its identity for that session only and writes a first-person, sourced report — evidence cited to the exact page or UI moment, assumptions labeled. The reviewer inherits the caller's configured model; reviews benefit from a strong reasoning model.
+
+### Optional orchestration with the skill
+
+Use the [`persona-review`](https://github.com/ai-outfitter/community-profiles/tree/main/skills/persona-review) skill when another agent should manage the review process. The skill owns synchronous or background execution and durable report capture. From a checkout of the community catalog, its repository-relative launcher is an optional convenience:
+
+```sh
+bash skills/persona-review/scripts/persona-review.sh \
+  --persona docs/personas/platform-lead.md \
+  --report docs/persona-reviews/platform-lead-onboarding.md \
+  -- --print "Review the onboarding flow and write the report. @README.md"
+```
+
+The reviewer runs directly as the selected agent. This journey does not require Pi's native subagent projection.
 
 ## Take the same file to the web
 

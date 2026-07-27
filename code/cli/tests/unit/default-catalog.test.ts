@@ -40,7 +40,7 @@ describe('default catalog bootstrap', () => {
   it('ships the canonical catalog at one immutable Release Please tag', () => {
     expect(defaultCatalogSource).toEqual({
       github: 'ai-outfitter/default-profiles',
-      ref: 'v1.0.0',
+      ref: 'v1.1.0',
     });
   });
 
