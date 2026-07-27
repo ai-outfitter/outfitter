@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.1](https://github.com/ai-outfitter/outfitter/compare/v1.1.0...v1.1.1) (2026-07-27)
+
+
+### Bug Fixes
+
+* **setup:** ship the persona review journey ([#227](https://github.com/ai-outfitter/outfitter/issues/227)) ([50c87ba](https://github.com/ai-outfitter/outfitter/commit/50c87ba095fa0179af87bfb462a6a9e7fa2d0b55))
+
 ## [1.1.0](https://github.com/ai-outfitter/outfitter/compare/v1.0.3...v1.1.0) (2026-07-26)
 
 
