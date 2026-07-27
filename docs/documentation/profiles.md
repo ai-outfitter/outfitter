@@ -23,7 +23,7 @@ Settings ([settings.md](./settings.md)) is left with just resolution and launch 
 
 ## Composing from a base
 
-To share behavior across several agents, keep shared operating context in the tree's `system-prompt.md` and `agents.md` — every agent in the tree inherits those — and put shared procedures in [skills](./skills.md) each agent selects. Selecting an agent as a subagent does _not_ share its policy; it only makes that agent available as a delegation target. The [persona](./personas.md) convention builds on the shared-context idea: one base review agent, many interchangeable persona description documents fed as input.
+To share behavior across several agents, keep shared operating context in the tree's `system-prompt.md` and `agents.md` — every agent in the tree inherits those — and put shared procedures in [skills](./skills.md) each agent selects. Selecting an agent as a subagent does _not_ share its policy; it only makes that agent available as a delegation target. The [persona](./personas.md) convention builds on the shared-context idea: one shared review agent, many single-file persona documents appended at launch.
 
 ## Migrating from authored profiles
 

@@ -227,7 +227,7 @@ Validation happens at every file boundary: settings (`settings.schema.json`), pr
 
 - Global coverage threshold: 100% for statements, branches, functions, and lines.
 - **Protocol conformance fixtures**: layered `.agents` trees with expected effective resolution output, pinned to the protocol revision.
-- Deterministic tests for settings precedence, persona composition order, task input validation, bake determinism (content-hash stability), dump byte-identity and hygiene (no credentials/state), cache path encoding, generated launch env/argv, and unsupported elements with `--strict`.
+- Deterministic tests for settings precedence, task input validation, bake determinism (content-hash stability), dump byte-identity and hygiene (no credentials/state), cache path encoding, generated launch env/argv, and unsupported elements with `--strict`.
 - Scenario fixtures for common combinations instead of one-off bespoke setup; conventions in [`./file_structure.md`](./file_structure.md).
 
 ## Settled Decisions

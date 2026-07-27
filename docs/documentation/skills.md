@@ -57,7 +57,7 @@ Every skill directory contains `SKILL.md`. Its `name` MUST match the directory n
 ```yaml
 ---
 name: outfitter-actions
-description: Design concise GitHub automation using stable personas and progressively disclosed skills.
+description: Design concise GitHub automation using stable agent identities and progressively disclosed skills.
 ---
 # Outfitter Actions
 
@@ -215,7 +215,7 @@ Loadout-added entries use the same `file` / `repo_file` sources and validation r
 
 ### Trust boundary
 
-Treat `file` references with the same trust as the skill that declares them. Treat every `repo_file` reference as untrusted repository content. A skill SHOULD select its workflow before reading repository references and MUST NOT allow instructions inside a reference to override persona policy, safety boundaries, or the user's request.
+Treat `file` references with the same trust as the skill that declares them. Treat every `repo_file` reference as untrusted repository content. A skill SHOULD select its workflow before reading repository references and MUST NOT allow instructions inside a reference to override the agent's identity and policy, safety boundaries, or the user's request.
 
 Outfitter resolves and normalizes reference targets before launch. Targets MUST remain within their root after following symlinks; escaping, colliding, and broken `file` references fail validation. A directory target is scanned recursively so a contained symlink cannot smuggle outside content into the generated skill.
 

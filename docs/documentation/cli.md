@@ -21,7 +21,7 @@ Any other arguments and unrecognized options are passed through to the launched 
 
 ```bash
 outfitter run engineer --harness claude
-outfitter run reviewer -- --print "summarize this repo"
+outfitter run persona-reviewer -- --print "summarize this repo"
 ```
 
 ## `outfitter setup [source]`

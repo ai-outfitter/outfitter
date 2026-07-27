@@ -34,7 +34,7 @@ The directory where conversation sessions, transcripts, or run state are stored.
 
 ### Personas
 
-Not a composed key. A persona is a convention: a base review [agent](../documentation/agents.md) plus an interchangeable persona description document fed as input (see [Personas](../documentation/personas.md)). The controllable element underneath it is the agent's composed identity — `system-prompt.md`, `agents.md`, and the selected `agents/<id>/agent.md` — not a `personas` list.
+Not a composed key. A persona is a convention: a shared review [agent](../documentation/agents.md) plus one portable persona document appended at launch (see [Personas](../documentation/personas.md)). The controllable element underneath it is harness argument passthrough — `--append-system-prompt <file>` on the launch command — not a `personas` list.
 
 - Pi name: `--system-prompt` / `--append-system-prompt` composition
 - Claude name: `--system-prompt` / `--append-system-prompt` composition

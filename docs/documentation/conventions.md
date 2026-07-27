@@ -50,6 +50,16 @@ The same convention builds a role-scoped profile — a `platform` or `marketing`
 - **Bespoke per org two ways:** as a [subagent](./subagents.md) other agents delegate role work to, or via one org-specific skill (a `brand` or `platform` skill) carrying the values — endpoints, voice, RBAC — that make the shared profile bespoke without duplicating it.
 - **Role separation is the point.** An engineer or a marketer doesn't want the other's machinery in context; they work in their own lane and delegate across lanes when needed. Cross-cutting work stays _available_ through inheritance and delegation, not by stuffing every profile.
 
+## Worked example: persona documents
+
+The [persona convention](./personas.md) is the ladder's non-technical on-ramp ([#197](https://github.com/ai-outfitter/outfitter/issues/197)): contributing a persona means committing one portable Markdown file, never touching a loadout.
+
+- **Community layer supplies the machinery** — the shared `persona-reviewer` agent and the `persona-authoring` / `persona-review` skills ship once, in [`community-profiles`](https://github.com/ai-outfitter/community-profiles).
+- **The project layer holds only the files** — a marketer or founder authors `docs/personas/platform-lead.md` (with `persona-authoring` interviewing them, or from the template by hand) and commits it as ordinary project documentation. No agent, no YAML, no `.agents` entry.
+- **Never copy** — adding a tenth persona is a tenth file, not a tenth reviewer; the same file also pastes unchanged into web agents as stakeholder context, so the artifact outlives any one harness.
+
+The full story is the [Persona reviews use case](./usecases/persona-reviews.md).
+
 ## Roadmap: a shareable prompt fragment
 
 Today the always-on vehicle is a tree's root `agents.md` / `system-prompt.md` — one file per layer. It inherits and overrides _per layer_, but you cannot yet publish one named fragment from a community catalog and override just that fragment by ID. A first-class, slug-composable shared prompt fragment is the missing primitive; until it lands, a single line per layer's shared context still deduplicates by inheritance — just not as a publishable unit. [Hooks](./hooks.md) carry the analogous gap for portable hook definitions.
