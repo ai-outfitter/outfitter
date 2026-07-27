@@ -4,13 +4,13 @@ A persona review gathers structured feedback on a product, docs, onboarding flow
 
 ## One persona = one file
 
-The whole persona is one portable, self-contained Markdown document — H1 first, no frontmatter, first-person prose. Abridged from the canonical [`priya-nair.md`](https://github.com/ai-outfitter/community-profiles/blob/main/skills/persona-authoring/references/personas/priya-nair.md) reference:
+The whole persona is one portable, self-contained Markdown document — a generic role archetype, H1 first, no frontmatter, first-person prose. Abridged from the canonical [`platform-lead.md`](https://github.com/ai-outfitter/community-profiles/blob/main/skills/persona-authoring/references/personas/platform-lead.md) reference:
 
 ```markdown
-# Priya Nair — Platform Lead
+# Platform Lead
 
-I'm Priya Nair, the platform lead responsible for a consistent, reproducible
-agent setup across a mid-sized engineering organization.
+I'm the platform lead responsible for a consistent, reproducible agent setup
+across a mid-sized engineering organization.
 
 ## My work and context
 
@@ -32,10 +32,11 @@ Start from the community catalog's [`template.persona.md`](https://github.com/ai
 
 ```text
 docs/personas/
-  priya-nair.md
+  platform-lead.md
+  founder-operator.md
 ```
 
-Role archetypes and individual detail are interview inputs; the committed artifact is always the one self-contained file, with nothing invented that the research does not support.
+Prefer generic role archetypes over named individuals; organization research, interviews, and individual detail are authoring inputs, and the committed artifact is always the one self-contained file with nothing invented that the research does not support.
 
 ## Run it under Outfitter
 
@@ -52,12 +53,12 @@ Then launch the shared reviewer with the persona appended — directly, or via t
 
 ```bash
 bash skills/persona-review/scripts/persona-review.sh \
-  --persona docs/personas/priya-nair.md \
+  --persona docs/personas/platform-lead.md \
   -- --print "Review the onboarding flow and write the report. @README.md"
 
 # both paths reduce to:
 outfitter run persona-reviewer -- \
-  --append-system-prompt docs/personas/priya-nair.md \
+  --append-system-prompt docs/personas/platform-lead.md \
   --print "Review the onboarding flow and write the report. @README.md"
 ```
 
@@ -65,7 +66,7 @@ One shared agent adopts the file as its identity for that session only and write
 
 ## Take the same file to the web
 
-Paste or upload `docs/personas/priya-nair.md` unchanged into a claude.ai project's knowledge or a ChatGPT project and say: "Treat this as stakeholder context. Review the attached landing page from her point of view." Same artifact, zero conversion — the file was written to read standalone, so any tool that accepts Markdown context can use it.
+Paste or upload `docs/personas/platform-lead.md` unchanged into a claude.ai project's knowledge or a ChatGPT project and say: "Treat this as stakeholder context. Review the attached landing page from this persona's point of view." Same artifact, zero conversion — the file was written to read standalone, so any tool that accepts Markdown context can use it.
 
 ## Why this shape
 
