@@ -53,7 +53,7 @@ before answering or editing configuration.
   extensions, plugins, model, thinking, tools): read `references/profiles.md`.
 - The `agents/<id>/agent.md` resource format and loadout fields: read
   `references/agents.md`.
-- Personas — the base-agent-plus-persona-documents convention: read
+- Personas — one portable persona document plus the shared reviewer: read
   `references/personas.md`.
 - Subagents and leader-agent delegation: read `references/subagents.md`.
 - Authoring or selecting skills, SKILL.md layout, skill references: read

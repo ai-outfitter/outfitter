@@ -39,7 +39,7 @@ Learn how shared sources work in [Catalogs](./catalogs.md), then see [Agents](./
 
 ```bash
 outfitter run engineer
-outfitter run reviewer --harness claude
+outfitter run persona-reviewer --harness claude
 outfitter sync
 outfitter list agents
 outfitter validate

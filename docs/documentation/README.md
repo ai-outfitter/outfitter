@@ -15,7 +15,7 @@ Outfitter lays out conventions for iterating on and sharing agent configuration 
 - [Agents](./agents.md) — the `agents/<id>/agent.md` resource and its loadout — what you run.
 - [Agent profiles](./profiles.md) — why an agent and its loadout _is_ the profile.
 - [Skills](./skills.md) — capability packages with progressive disclosure, references, and routing.
-- [Personas](./personas.md) — the base-agent-plus-persona-documents review convention.
+- [Personas](./personas.md) — one portable Markdown file per persona; append at launch or paste anywhere.
 - [Subagents and delegation](./subagents.md) — the four delegation boundaries, from in-session helpers to Kubernetes Jobs.
 - [Settings](./settings.md) — scopes, schema, and the flat `settings.local.yml` override file.
 - [Tasks](./tasks.md) — placeholder for a separate upcoming RFC.
@@ -49,7 +49,7 @@ Each use case is a worked story — a problem, the composition that answers it, 
 - [Grafana alert investigations in-cluster](./usecases/grafana-alert-investigator.md) — a webhook turns each firing alert into one bounded investigation Job.
 - [Self-improving skills](./usecases/self-improving-skills.md) — a weekly loop that proposes skill edits and ships only measured improvements.
 - [Resident agents: a researcher wiki](./usecases/resident-agents.md) — a long-lived agent that turns an email inbox into a compounding, reviewable knowledge base.
-- [Persona reviews](./usecases/persona-reviews.md) — a base review agent plus customer-persona documents for feedback on ideas, docs, and designs.
+- [Persona reviews](./usecases/persona-reviews.md) — author one persona file, run it through the shared reviewer, paste the same file into any web agent.
 - [Organization catalog](./usecases/organization-profile-catalog.md) — publish shared org resources and defaults through an `owner/.outfitter` control repository.
 - [Engineering catalog](./usecases/engineering.md) — package engineering agents and skills for repeatable workflows.
 

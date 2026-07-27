@@ -76,7 +76,7 @@ Managed porting and persistent harness symlinks are deferred to
   commands/            # slash commands
 ```
 
-Layers merge by ID: `<project>/.agents/` over `~/.agents/` over pinned remote [catalogs](./docs/documentation/catalogs.md). An [agent](./docs/documentation/agents.md) carries both its identity and its loadout — an [agent profile](./docs/documentation/profiles.md) — and is what you run; a [persona](./docs/documentation/personas.md) is a review convention layered on a base agent; a [subagent](./docs/documentation/subagents.md) is an agent a run delegates to, across [four delegation boundaries](./docs/documentation/subagents.md#the-four-delegation-boundaries) from an in-session helper to a Kubernetes Job.
+Layers merge by ID: `<project>/.agents/` over `~/.agents/` over pinned remote [catalogs](./docs/documentation/catalogs.md). An [agent](./docs/documentation/agents.md) carries both its identity and its loadout — an [agent profile](./docs/documentation/profiles.md) — and is what you run; a [persona](./docs/documentation/personas.md) is one portable Markdown document a shared review agent adopts at launch; a [subagent](./docs/documentation/subagents.md) is an agent a run delegates to, across [four delegation boundaries](./docs/documentation/subagents.md#the-four-delegation-boundaries) from an in-session helper to a Kubernetes Job.
 
 ## Documentation
 

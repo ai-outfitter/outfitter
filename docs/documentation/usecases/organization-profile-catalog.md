@@ -26,7 +26,7 @@ default_agent: engineer
 
 ## Shared operating context
 
-Rules every role shares live in the tree's `agents.md`, inherited by each agent without ordered persona composition:
+Rules every role shares live in the tree's `agents.md`, inherited by each agent:
 
 ```markdown
 <!-- .agents/agents.md -->
