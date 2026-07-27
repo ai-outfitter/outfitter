@@ -1,19 +1,19 @@
 # Personas
 
-A persona is not a resource or a settings key — it is a **convention** built from ordinary pieces:
+A persona is not a resource or a settings key — it is a convention built from ordinary pieces:
 
-1. A **shared review agent** — [`persona-reviewer`](https://github.com/ai-outfitter/community-profiles/blob/main/agents/persona-reviewer/agent.md), a normal [agent](./agents.md) from the community catalog whose prompt says how to review something and what a sourced report looks like. There is one reviewer for all personas, never one agent per persona.
+1. A **shared review agent** — [`persona-reviewer`](https://github.com/ai-outfitter/community-profiles/blob/main/agents/persona-reviewer/agent.md), a normal [agent](./agents.md) from the community catalog that selects the `persona-review` skill, which owns the review method and report shape. One reviewer serves all personas.
 2. **One committed Markdown file per persona** — a portable, self-contained document. The whole persona lives in that one file; swapping the file swaps the persona, and the review rules stay fixed.
 
 ## The format
 
-A persona file is plain Markdown with no frontmatter, no schema, and no classifier:
+A persona file is plain Markdown with no frontmatter and no schema:
 
-- Starts directly with an H1 naming a **generic role archetype**: `# Platform Lead`, `# Founder-operator`. (A named individual — `# Priya Nair — Platform Lead` — is an optional variant for when a specific person's voice is the point; the generic form is canonical.)
-- First-person prose: an unheaded opening paragraph that stands alone as an introduction, then the recommended sections `## My work and context`, `## What I need`, `## How I decide`, and `## How I communicate`. Sections may be renamed or combined; connected prose beats bullet stacks.
-- Everything the persona knows — role, organization, goals, concerns, constraints, decision signals, voice — is ordinary Markdown a human would read.
+- Starts directly with an H1 naming a **generic role archetype**: `# Platform Lead`, `# Founder-operator`. Use a named individual (`# Priya Nair — Platform Lead`) only when a specific person's voice is the point.
+- First-person prose: an unheaded opening paragraph, then the recommended sections `## My work and context`, `## What I need`, `## How I decide`, and `## How I communicate`. Sections may be renamed or combined; connected prose beats bullet stacks.
+- Everything the persona knows — role, goals, constraints, decision signals, voice — is ordinary Markdown.
 
-It lives in normal project documentation, deliberately **outside** `.agents/`:
+It lives in normal project documentation, deliberately outside `.agents/`:
 
 ```text
 docs/personas/
@@ -21,11 +21,11 @@ docs/personas/
   founder-operator.md
 ```
 
-A persona is project steering context, not agent configuration — which is why `outfitter dump` does not carry it, by design. The executable artifacts of this format — an authoring template and completed reference personas — ship in the community catalog's [`persona-authoring`](https://github.com/ai-outfitter/community-profiles/tree/main/skills/persona-authoring) skill.
+A persona is project steering context rather than agent configuration, which is why `outfitter dump` does not carry it. The authoring template and completed reference personas ship in the community catalog's [`persona-authoring`](https://github.com/ai-outfitter/community-profiles/tree/main/skills/persona-authoring) skill.
 
 ## Three ways to consume the same file
 
-- **Appended at launch**: `outfitter run persona-reviewer -- --append-system-prompt docs/personas/platform-lead.md …`, or the [`persona-review`](https://github.com/ai-outfitter/community-profiles/tree/main/skills/persona-review) skill's launcher script that wraps it. The reviewer adopts the file as its identity for that session only.
+- **Appended at launch**: `outfitter run persona-reviewer -- --append-system-prompt docs/personas/platform-lead.md <harness arguments>`, or the [`persona-review`](https://github.com/ai-outfitter/community-profiles/tree/main/skills/persona-review) skill's launcher script that wraps it. The reviewer adopts the file as its identity for that session only.
 - **Pasted into a web agent**: upload or paste the file unchanged into claude.ai project knowledge or a ChatGPT project as stakeholder context. Same artifact, zero conversion.
 - **Ordinary reading context**: any agent doing product planning, research, or writing can read the file to know who the work is for.
 
@@ -37,6 +37,6 @@ Organization research, interviews, and individual detail are **authoring inputs*
 
 ## Status
 
-Personas ride entirely on existing CLI behavior (`outfitter run` plus `--append-system-prompt` passthrough), so no `OFTR-*` requirement covers them — they are a documentation convention, not shipped surface. An `.agents`-native persona form (a protocol resource, or a settings layer pointing at persona documents) is a separate, deferred design; the portable file must never depend on it.
+Personas ride entirely on existing CLI behavior (`outfitter run` plus `--append-system-prompt` passthrough), so no `OFTR-*` requirement covers them. An `.agents`-native persona form (a protocol resource, or a settings layer pointing at persona documents) is a separate, deferred design; the portable file must never depend on it.
 
 See [Persona reviews](./usecases/persona-reviews.md) for the worked author → run → paste-anywhere story, and the community catalog's [persona boundary doc](https://github.com/ai-outfitter/community-profiles/blob/main/docs/persona-review.md) for the setup and runtime responsibility split.

@@ -1,8 +1,8 @@
-# Persona Reviews
+# Persona reviews
 
 A persona review gathers structured feedback on a product, docs, onboarding flow, or UX from the point of view of the people who might use it — before asking real prospects to spend time. It uses the [persona convention](../personas.md): **one shared review agent** plus **one committed Markdown file per persona**. The same file runs under Outfitter, and pastes unchanged into any web agent.
 
-## One persona = one file
+## One persona, one file
 
 The whole persona is one portable, self-contained Markdown document — a generic role archetype, H1 first, no frontmatter, first-person prose. Abridged from the canonical [`platform-lead.md`](https://github.com/ai-outfitter/community-profiles/blob/main/skills/persona-authoring/references/personas/platform-lead.md) reference:
 
@@ -12,19 +12,14 @@ The whole persona is one portable, self-contained Markdown document — a generi
 I'm the platform lead responsible for a consistent, reproducible agent setup
 across a mid-sized engineering organization.
 
-## My work and context
-
-I own shared agent configuration for a roughly 150-engineer B2B SaaS company.
-…
-
 ## How I decide
 
 I look for clear precedence, pinned sources, documented secret boundaries,
 least-privilege access, and tests showing that credentials stay isolated
-between layers. … I check the escape hatch first.
+between layers. I check the escape hatch first.
 ```
 
-There is no `personas:` map and no agent per customer type. The review rules live in the shared [`persona-reviewer`](https://github.com/ai-outfitter/community-profiles/blob/main/agents/persona-reviewer/agent.md) agent; each persona is a cheap Markdown file you append to it.
+The review method lives in the shared [`persona-reviewer`](https://github.com/ai-outfitter/community-profiles/blob/main/agents/persona-reviewer/agent.md) agent; each persona is a Markdown file you append to it.
 
 ## Author it
 
@@ -36,7 +31,7 @@ docs/personas/
   founder-operator.md
 ```
 
-Prefer generic role archetypes over named individuals; organization research, interviews, and individual detail are authoring inputs, and the committed artifact is always the one self-contained file with nothing invented that the research does not support.
+Prefer generic role archetypes over named individuals. Research and interviews are authoring inputs; commit only the self-contained file, and invent nothing the research does not support.
 
 ## Run it under Outfitter
 
@@ -56,22 +51,22 @@ bash skills/persona-review/scripts/persona-review.sh \
   --persona docs/personas/platform-lead.md \
   -- --print "Review the onboarding flow and write the report. @README.md"
 
-# both paths reduce to:
+# the launcher resolves the persona path and runs:
 outfitter run persona-reviewer -- \
   --append-system-prompt docs/personas/platform-lead.md \
   --print "Review the onboarding flow and write the report. @README.md"
 ```
 
-One shared agent adopts the file as its identity for that session only and writes a first-person, sourced report — evidence cited to the exact page or UI moment, assumptions labeled. The catalog agent pins a model (`openai-codex/gpt-5.5`); use the launcher's `--agent` flag or a settings-layer model override to run it on whatever you have credentials for.
+One shared agent adopts the file as its identity for that session only and writes a first-person, sourced report — evidence cited to the exact page or UI moment, assumptions labeled. The catalog agent pins a model (`openai-codex/gpt-5.5`); use the launcher's `--agent` flag to run another agent that selects this skill on whatever you have credentials for.
 
 ## Take the same file to the web
 
-Paste or upload `docs/personas/platform-lead.md` unchanged into a claude.ai project's knowledge or a ChatGPT project and say: "Treat this as stakeholder context. Review the attached landing page from this persona's point of view." Same artifact, zero conversion — the file was written to read standalone, so any tool that accepts Markdown context can use it.
+Paste or upload `docs/personas/platform-lead.md` unchanged into a claude.ai project's knowledge or a ChatGPT project and say: "Treat this as stakeholder context. Review the attached landing page from this persona's point of view." The file was written to read standalone, so a tool that takes Markdown project context can use it unchanged.
 
 ## Why this shape
 
-- **No agent-per-persona fleet**: adding a persona means adding exactly one document, not maintaining another agent.
+- **One file per persona**: adding a persona adds a document, not another agent.
 - **Comparable reports**: one agent fixes the review method and output shape, so feedback from different persona files is directly comparable.
-- **Portable by construction**: the persona never depends on Outfitter, a schema, or runtime fragments — Outfitter is one optional consumer.
+- **No Outfitter dependency**: Outfitter is one optional consumer of a file that does not depend on it.
 
-See the [persona spec](../personas.md) for the format, and the community catalog's [persona boundary doc](https://github.com/ai-outfitter/community-profiles/blob/main/docs/persona-review.md) for the responsibility split between authoring, the shared reviewer, and project wrappers. The result is a reusable customer-persona review loop that reads docs or experiences a UX from many viewpoints without pretending to replace real customer discovery.
+See the [persona spec](../personas.md) for the format, and the community catalog's [persona boundary doc](https://github.com/ai-outfitter/community-profiles/blob/main/docs/persona-review.md) for the responsibility split between authoring, the shared reviewer, and project wrappers.
