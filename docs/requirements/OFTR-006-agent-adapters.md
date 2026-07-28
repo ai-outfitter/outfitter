@@ -1,6 +1,8 @@
 # OFTR-006: Agent Adapters, Pi Support, and Claude Code Support
 
-> **Transition (RFC [#165](https://github.com/ai-outfitter/outfitter/issues/165)):** **OFTR-006.1 is amended (2026-07-17)** to the composition-projection model below (harnesses project a `CompositionPlan`, reporting unsupported _elements_). The pi/claude launch-control sections still describe profile-era behavior and richer parity (mcp reconciliation, session dirs, state persistence) is projected incrementally; the current implementation projects composed identity, skills, model, thinking, Pi extensions, and per-agent Pi configuration overlays. Target design: [docs/architecture/README.md](../architecture/README.md).
+> **Transition (RFC [#165](https://github.com/ai-outfitter/outfitter/issues/165)):** **OFTR-006.1 is amended (2026-07-17)** to the composition-projection model below (harnesses project a `CompositionPlan`, reporting unsupported _elements_).
+> The pi/claude launch-control sections still describe profile-era behavior and richer parity (mcp reconciliation, session dirs, state persistence) is projected incrementally; the current implementation projects composed identity, skills, model, thinking, Pi extensions, and per-agent Pi configuration overlays.
+> Target design: [docs/architecture/README.md](../architecture/README.md).
 
 ## Overview
 
@@ -11,13 +13,14 @@ Pi is the default and primary supported adapter; Claude Code is also supported t
 
 ### OFTR-006.1: Adapter Boundary
 
-_Amended (2026-07-17, RFC #165): adapters project a harness-neutral composition, not a profile._
+Amended (2026-07-17, RFC #165): adapters project a harness-neutral composition, not a profile.
 
 1. Outfitter MUST project a harness-neutral `CompositionPlan` to a native harness launch: a materialized runtime configuration root plus a launch plan (command, args, environment).
 2. Each harness projection MUST be identified by its harness (`pi` or `claude`).
 3. Each harness projection MUST report which composition loadout elements it cannot project (`getUnsupportedElements`).
 4. When a composition selects an element the harness cannot project, Outfitter MUST warn; `--strict` MUST make it fatal before launch.
 5. Composition (resolver + composer) MUST stay independent of harness-specific projection.
+6. Prompt templates MUST be projected only by harnesses that support a native prompt-template control; unsupported prompt-template use MUST be reported through `getUnsupportedElements` and MUST fail before launch under `--strict`.
 
 ### OFTR-006.2: Supported Adapter Availability
 
@@ -47,6 +50,7 @@ _Amended (2026-07-17, RFC #165): adapters project a harness-neutral composition,
 15. The pi adapter MUST NOT treat flat profile source roots as profile-bundled job folders unless a named DeepWork job resolves to a shared jobs root.
 16. The pi adapter MUST ignore inherited external `DEEPWORK_ADDITIONAL_JOBS_FOLDERS` values unless `controls.pi.allow_external_deepwork_jobs` is true.
 17. The pi adapter MUST overlay `agents/<agent>/pi/` directories from contributing `.agents` layers into the temporary `PI_CODING_AGENT_DIR`, with higher-precedence layers replacing matching paths, without following symlinks or projecting the overlay into non-Pi harnesses.
+18. The pi adapter MUST project composed prompt fragments in composition order by passing one `--system-prompt`, ordered `--append-system-prompt` arguments, and `--prompt-template` when the composition declares a prompt template.
 
 ### OFTR-006.4: Pi Startup Boundary
 
@@ -65,6 +69,7 @@ _Amended (2026-07-17, RFC #165): adapters project a harness-neutral composition,
 5. The Claude Code adapter SHOULD support `--model`, `--effort`, `--system-prompt`, `--append-system-prompt`, and `--plugin-dir` where native Claude Code flags exist.
 6. The Claude Code adapter SHOULD support `controls.session_directory` and `controls.claude.session_directory` by routing Claude `projects/` session state through Outfitter state persistence.
 7. The Claude Code adapter MUST return unsupported-control warnings for requested generic or `controls.claude` controls that it cannot translate.
+8. Until native support is implemented and tested, the Claude Code adapter MUST report `prompt_template` as unsupported and MUST NOT pass a pi-style prompt-template argument.
 
 ### OFTR-006.6: Pi Settings Reconciliation
 

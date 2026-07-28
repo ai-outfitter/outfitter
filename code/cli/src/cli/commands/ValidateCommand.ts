@@ -36,7 +36,7 @@ export const executeValidateCommand = (input: ValidateInput): ValidateResult => 
   const findings = [
     ...settingsFindings(settingsIssues.map(formatSettingsIssue)),
     ...warnings.map((message) => ({ severity: 'warning' as const, resource: 'settings', message })),
-    ...validateEffectiveSet(set),
+    ...validateEffectiveSet(set, input.projectDirectory),
   ];
 
   const hasErrors = findings.some((finding) => finding.severity === 'error');

@@ -136,6 +136,12 @@ const resolvePiExtensions = async (
   });
 };
 
+const piConfigurationOverlays = (
+  plan: NonNullable<ReturnType<typeof compose>['plan']>,
+  selectedAgent: NonNullable<ReturnType<typeof findResource>>,
+): readonly string[] =>
+  [...(plan.contributingAgents ?? [selectedAgent])].reverse().flatMap((agent) => agent.piConfigDirectories ?? []);
+
 export const executeRunAgentCommand = async (input: RunAgentInput): Promise<RunAgentResult> => {
   // Flush messages to the terminal (before launch); they are also returned so callers can inspect them.
   const emit = (messages: readonly string[]): void => {
@@ -164,10 +170,10 @@ export const executeRunAgentCommand = async (input: RunAgentInput): Promise<RunA
   const { set, settings } = resolved;
   const agentSlug = resolveAgentSlug(settings.defaultAgent, input.agent);
   const harness = resolveHarness(settings.defaultHarness, input.harness);
-  const composed = compose(set, agentSlug);
+  const composed = compose(set, agentSlug, { projectDirectory: input.projectDirectory });
 
   if (composed.plan === undefined) {
-    const messages = [...setupMessages, ...composed.errors];
+    const messages = [...setupMessages, ...composed.warnings, ...composed.errors];
     emit(messages);
     return { exitCode: 1, messages };
   }
@@ -175,6 +181,7 @@ export const executeRunAgentCommand = async (input: RunAgentInput): Promise<RunA
   // Install/cache the pi extensions into a shared XDG cache and load them at launch (pi only).
   const extensions = await resolvePiExtensions(input, harness, composed.plan.loadout.extensions);
   const selectedAgent = findResource(set, 'agent', agentSlug)!;
+  const configurationOverlays = piConfigurationOverlays(composed.plan, selectedAgent);
 
   const rootDirectory = mkdtempSync(join(tmpdir(), `outfitter-${agentSlug}-${harness}-`));
 
@@ -186,7 +193,7 @@ export const executeRunAgentCommand = async (input: RunAgentInput): Promise<RunA
       passThroughArgs: input.passThroughArgs,
       extensionLoadDirs: harness === 'pi' ? extensions.loadDirs : undefined,
       // ProjectHarness only overlays these for the pi harness, so pass them through unconditionally.
-      configurationOverlayDirectories: selectedAgent.piConfigDirectories,
+      configurationOverlayDirectories: configurationOverlays,
     });
 
     // Composition warnings, unsupported harness elements, and extension-install failures are all

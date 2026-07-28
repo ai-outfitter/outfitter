@@ -3,7 +3,8 @@
 This document records the key repository file and directory structure used by Outfitter.
 See [`./README.md`](./README.md) for runtime file conventions such as `.agents` layers, settings files, and generated composition directories.
 
-> **RFC [#165](https://github.com/ai-outfitter/outfitter/issues/165) status:** the profile-era `profiles/` and `compositeProfile/` modules have been removed; `code/cli/src` now uses the dotagents pipeline (`resolver/`, `composer/`, `projection/`, `dump/`, `sources/`). Interactive `.agents` onboarding and explicit remote synchronization are implemented as `outfitter setup` and `outfitter sync`.
+> **RFC [#165](https://github.com/ai-outfitter/outfitter/issues/165) status:** the profile-era `profiles/` and `compositeProfile/` modules have been removed; `code/cli/src` now uses the dotagents pipeline (`resolver/`, `composer/`, `projection/`, `dump/`, `sources/`).
+> Interactive `.agents` onboarding and explicit remote synchronization are implemented as `outfitter setup` and `outfitter sync`.
 
 ## Repository Layout
 
@@ -67,7 +68,8 @@ Outfitter is organized around a private npm workspace root, clear TypeScript pac
 └── package.json                       # private npm workspace root and delegating scripts
 ```
 
-The exact layout may evolve, but these boundaries should stay recognizable. Root scripts delegate to the `@ai-outfitter/outfitter` workspace so commands such as `npm run check-ci` continue to work from the repository root.
+The exact layout may evolve, but these boundaries should stay recognizable.
+Root scripts delegate to the `@ai-outfitter/outfitter` workspace so commands such as `npm run check-ci` continue to work from the repository root.
 
 Within a resolved `.agents` layer, an agent may include a harness-native Pi configuration overlay:
 
@@ -81,11 +83,16 @@ agents/<agent>/
     └── ...                 # other native Pi configuration files/directories
 ```
 
-The resolver retains every contributing `pi/` directory in layer-precedence order. The Pi projection materializes them from lowest to highest precedence and skips symlinks; other harness projections do not consume them.
+The resolver retains every contributing `pi/` directory in layer-precedence order.
+The Pi projection materializes them from lowest to highest precedence and skips symlinks; other harness projections do not consume them.
+
+A generated dump MAY include `.agents/.outfitter/composition.json`.
+This deterministic, removable audit record contains resolved inheritance and prompt provenance but no prompt contents, absolute paths, credentials, or runtime state; protocol consumers may ignore the `.outfitter/` metadata directory.
 
 ## Published Package Assets
 
-The CLI package root is `code/cli`, but the npm package must still include repository-level notices. The CLI package `prepack` script runs `code/cli/scripts/sync-package-assets.mjs`, which stages `README.md`, `LICENSE.md`, `code/enterprise/LICENSE`, and `code/enterprise/README.md` inside `code/cli` before `npm pack` or `npm publish`.
+The CLI package root is `code/cli`, but the npm package must still include repository-level notices.
+The CLI package `prepack` script runs `code/cli/scripts/sync-package-assets.mjs`, which stages `README.md`, `LICENSE.md`, `code/enterprise/LICENSE`, and `code/enterprise/README.md` inside `code/cli` before `npm pack` or `npm publish`.
 
 ## Test Fixtures
 
@@ -103,4 +110,5 @@ code/cli/tests/fixtures/scenarios/
   profile-precedence/
 ```
 
-The `profile-*` scenarios above are the current profile-era fixtures; per the transition note, the implementation PRs that add the resolver and composition modules replace them with target-state scenarios whose fixtures include realistic `.agents` trees and expected resolution output. Protocol conformance fixtures (layered trees plus expected effective output, pinned to the protocol revision) follow the same convention.
+The `profile-*` scenarios above are the current profile-era fixtures; per the transition note, the implementation PRs that add the resolver and composition modules replace them with target-state scenarios whose fixtures include realistic `.agents` trees and expected resolution output.
+Protocol conformance fixtures (layered trees plus expected effective output, pinned to the protocol revision) follow the same convention.

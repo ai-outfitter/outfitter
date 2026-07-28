@@ -2,7 +2,7 @@
 import { copyFileSync, lstatSync, mkdirSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
-import type { CompositionPlan } from '../composer/Composition.js';
+import type { ComposedSubagent, CompositionPlan } from '../composer/Composition.js';
 import { escapesRoots } from '../dump/Containment.js';
 import { removeTargetTypeConflict } from '../fs/TypeConflict.js';
 import type { AgentDefinition } from '../resolver/AgentDefinition.js';
@@ -49,6 +49,8 @@ const writeGeneratedFile = (path: string, content: string): void => {
   removeTargetTypeConflict(path, 'file');
   writeFileSync(path, content);
 };
+
+const safeName = (value: string): string => value.replace(/[^a-zA-Z0-9._-]+/g, '-');
 
 /**
  * Overlays native harness configuration into the runtime root. Inputs arrive highest precedence
@@ -123,7 +125,41 @@ const serializeSubagent = (subagent: ResolvedResource): string | undefined => {
   return `---\n${frontmatter.join('\n')}\n---\n\n${definition.body}`;
 };
 
-const materializeSubagents = (subagents: readonly ResolvedResource[], rootDirectory: string): readonly string[] => {
+const composedSubagentBody = (subagent: ComposedSubagent): string =>
+  [
+    subagent.identity.systemPrompt,
+    subagent.identity.sharedContext,
+    ...subagent.identity.appendSystemPrompts.map((fragment) => fragment.content),
+    ...subagent.identity.agentBodies.map((fragment) => fragment.content),
+  ]
+    .filter((fragment): fragment is string => fragment !== undefined && fragment.length > 0)
+    .join('\n\n');
+
+const serializeComposedSubagent = (subagent: ComposedSubagent): string => {
+  const denied = new Set(subagent.tools?.deny ?? []);
+  const tools = subagent.tools?.allow?.filter((tool) => !denied.has(tool));
+  const description = subagent.identity.description ?? subagent.identity.label;
+  const frontmatter = [
+    `name: ${JSON.stringify(subagent.resource.slug)}`,
+    `description: ${JSON.stringify(description ?? `Delegated ${subagent.resource.slug} agent.`)}`,
+    ...optionalScalar('model', subagent.model),
+    ...optionalScalar('thinking', subagent.thinking),
+    ...optionalList('tools', tools ?? []),
+    ...optionalList(
+      'skills',
+      subagent.skills.map((skill) => skill.slug),
+    ),
+    ...optionalList('extensions', subagent.extensions),
+  ];
+
+  return `---\n${frontmatter.join('\n')}\n---\n\n${composedSubagentBody(subagent)}`;
+};
+
+const materializeSubagents = (
+  subagents: readonly ResolvedResource[],
+  composedSubagents: readonly ComposedSubagent[] | undefined,
+  rootDirectory: string,
+): readonly string[] => {
   if (subagents.length === 0) {
     return [];
   }
@@ -132,9 +168,13 @@ const materializeSubagents = (subagents: readonly ResolvedResource[], rootDirect
   rmSync(agentsDirectory, { recursive: true, force: true });
   mkdirSync(agentsDirectory, { recursive: true });
   const skipped: string[] = [];
+  const composedBySlug = new Map<string, ComposedSubagent>(
+    (composedSubagents ?? []).map((subagent) => [subagent.resource.slug, subagent]),
+  );
 
   for (const subagent of subagents) {
-    const content = serializeSubagent(subagent);
+    const composed = composedBySlug.get(subagent.slug);
+    const content = composed === undefined ? serializeSubagent(subagent) : serializeComposedSubagent(composed);
     if (content === undefined) {
       skipped.push(subagent.slug);
     } else {
@@ -145,20 +185,12 @@ const materializeSubagents = (subagents: readonly ResolvedResource[], rootDirect
   return skipped;
 };
 
-/**
- * Writes the composed identity, skills, subagents, and selected MCP servers into
- * `rootDirectory`. The base `system-prompt.md` becomes the system prompt; shared `agents.md`
- * context and the agent body are appended in order.
- */
-export const materializeComposition = (
+const materializeIdentity = (
   composition: CompositionPlan,
   rootDirectory: string,
-): MaterializedComposition => {
-  mkdirSync(rootDirectory, { recursive: true });
-
+): { readonly systemPromptPath: string; readonly appendPromptPaths: readonly string[] } => {
   const systemPromptPath = join(rootDirectory, 'system-prompt.md');
   writeGeneratedFile(systemPromptPath, composition.identity.systemPrompt ?? '');
-
   const appendPromptPaths: string[] = [];
 
   if (composition.identity.sharedContext !== undefined) {
@@ -166,11 +198,38 @@ export const materializeComposition = (
     writeGeneratedFile(contextPath, composition.identity.sharedContext);
     appendPromptPaths.push(contextPath);
   }
+  (composition.identity.appendSystemPrompts ?? []).forEach((fragment, index) => {
+    const name = `append-${String(index + 1).padStart(2, '0')}-${safeName(fragment.label)}.md`;
+    writeGeneratedFile(join(rootDirectory, name), fragment.content);
+    appendPromptPaths.push(join(rootDirectory, name));
+  });
 
-  const agentBodyPath = join(rootDirectory, 'agent.md');
-  writeGeneratedFile(agentBodyPath, composition.identity.agentBody);
-  appendPromptPaths.push(agentBodyPath);
+  const bodies = composition.identity.agentBodies ?? [];
+  if (bodies.length <= 1) {
+    const path = join(rootDirectory, 'agent.md');
+    writeGeneratedFile(path, bodies[0]?.content ?? composition.identity.agentBody);
+    appendPromptPaths.push(path);
+  } else {
+    bodies.forEach((fragment, index) => {
+      const name = `${String(index + 1).padStart(2, '0')}-${safeName(fragment.label)}.md`;
+      writeGeneratedFile(join(rootDirectory, name), fragment.content);
+      appendPromptPaths.push(join(rootDirectory, name));
+    });
+  }
 
+  if (composition.identity.promptTemplate !== undefined) {
+    writeGeneratedFile(join(rootDirectory, 'prompt-template.md'), composition.identity.promptTemplate.content);
+  }
+  return { systemPromptPath, appendPromptPaths };
+};
+
+/** Writes composed identity, skills, subagents, and selected MCP servers into the runtime root. */
+export const materializeComposition = (
+  composition: CompositionPlan,
+  rootDirectory: string,
+): MaterializedComposition => {
+  mkdirSync(rootDirectory, { recursive: true });
+  const { systemPromptPath, appendPromptPaths } = materializeIdentity(composition, rootDirectory);
   const skillDirectories: string[] = [];
   const skippedSkills: string[] = [];
 
@@ -183,7 +242,11 @@ export const materializeComposition = (
     }
   }
 
-  const skippedSubagents = materializeSubagents(composition.loadout.subagents, rootDirectory);
+  const skippedSubagents = materializeSubagents(
+    composition.loadout.subagents,
+    composition.loadout.composedSubagents,
+    rootDirectory,
+  );
 
   if (composition.loadout.mcp.length > 0) {
     writeGeneratedFile(

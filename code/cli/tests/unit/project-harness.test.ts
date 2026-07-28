@@ -34,6 +34,40 @@ const planWith = (extensions: readonly string[]): CompositionPlan => ({
   warnings: [],
 });
 
+describe('projectComposition prompt templates', () => {
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-006.1).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('projects prompt_template for pi and reports it unsupported for claude', () => {
+    const piDir = root();
+    const claudeDir = root();
+    const templatePlan: CompositionPlan = {
+      ...planWith([]),
+      identity: {
+        agentBody: 'Body.',
+        promptTemplate: {
+          kind: 'file',
+          content: 'Template {{input}}',
+          label: 'template',
+          trust: 'catalog',
+        },
+      },
+    };
+
+    const pi = projectComposition(templatePlan, { harness: 'pi', rootDirectory: piDir, homeDirectory: piDir });
+    const claude = projectComposition(templatePlan, {
+      harness: 'claude',
+      rootDirectory: claudeDir,
+      homeDirectory: claudeDir,
+    });
+
+    expect(pi.launch.args).toContain('--prompt-template');
+    expect(readFileSync(join(piDir, 'prompt-template.md'), 'utf8')).toBe('Template {{input}}');
+    expect(pi.unsupported).not.toContain('prompt_template');
+    expect(claude.launch.args).not.toContain('--prompt-template');
+    expect(claude.unsupported).toContain('prompt_template');
+  });
+});
+
 describe('projectComposition extensions', () => {
   it('loads pi extension dirs with --extension and drops extensions from unsupported', () => {
     const dir = root();
@@ -322,6 +356,8 @@ describe('projectComposition native configuration overlays', () => {
     expect(readFileSync(join(dir, 'themes', 'shared.json'), 'utf8')).toContain('high');
   });
 
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-005.3, OFTR-006.3.17).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('keeps generated composition files authoritative over native overlay collisions', () => {
     const dir = root();
     const overlay = root();

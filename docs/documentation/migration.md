@@ -1,18 +1,21 @@
 # Migration from legacy profiles
 
-Earlier Outfitter versions used an authored profile system: `.outfitter/` directories, `profile.yml` files, profile inheritance, and `--profile` pointing at profile definitions. [RFC #165](https://github.com/ai-outfitter/outfitter/issues/165) replaces that system with the Dotagents `.agents` protocol as a hard cut: the end-state runtime has **no knowledge of the old format** — no compatibility reader, no migration command, no deprecated aliases. (These docs describe that target; the released CLI still runs the legacy profile format during the transition.) This page is the manual migration reference, and the bundled Outfitter skill can walk an agent session through it interactively.
+Earlier Outfitter versions used an authored profile system: `.outfitter/` directories, `profile.yml` files, profile inheritance, and `--profile` pointing at profile definitions.
+[RFC #165](https://github.com/ai-outfitter/outfitter/issues/165) replaces that system with the Dotagents `.agents` protocol as a hard cut: the end-state runtime has **no knowledge of the old format** — no compatibility reader, no migration command, no deprecated aliases.
+(These docs describe that target; the released CLI still runs the legacy profile format during the transition.)
+This page is the manual migration reference, and the bundled Outfitter skill can walk an agent session through it interactively.
 
 ## Mapping
 
 | Legacy                                                  | End state                                                                                                                                                                                        |
 | ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `.outfitter/profiles/<id>/profile.yml` (or `<id>.yml`)  | Split into resources: identity → `agents/<id>/agent.md`, procedures → `skills/`; the loadout lives in that [agent](./profiles.md)'s frontmatter / `config.json` — there is no separate selection |
-| `controls.system_prompt` / `append_system_prompt`       | `system-prompt.md`, `agents.md`, and the agent's `agent.md` body                                                                                                                                 |
+| `controls.system_prompt` / `append_system_prompt`       | Agent frontmatter `system_prompt` / `append_system_prompt` with explicit `{ file }` or `{ repo_file }` sources; use root `system-prompt.md` / `agents.md` for tree-wide context                  |
 | `controls.model`, `provider`, `thinking`                | `models.json` (and per-agent `config.json`)                                                                                                                                                      |
 | `controls.skills`                                       | The agent's `skills:` loadout; skills live at `skills/<id>/`                                                                                                                                     |
 | `controls.extensions`, `args`, `environment`            | Harness configuration projected by adapters; MCP servers → `mcp.json`                                                                                                                            |
-| Profile inheritance (`inherits:`)                       | Layer merge-by-ID, plus shared context in `system-prompt.md` / `agents.md`                                                                                                                       |
-| `template: true` base profiles                          | A base agent whose shared context lives in `system-prompt.md` / `agents.md` (or a base agent selected as a delegate)                                                                             |
+| Profile inheritance (`inherits:`)                       | Agent frontmatter `inherits:` naming one parent slug or an ordered parent list; manually translate the old profile into an agent first                                                           |
+| `template: true` base profiles                          | A base agent referenced with agent `inherits`; there is no separate template flag                                                                                                                |
 | `~/.outfitter/settings.yml`                             | `~/.agents/settings.yml`                                                                                                                                                                         |
 | `<project>/.outfitter/settings.yml`                     | `<project>/.agents/settings.yml`                                                                                                                                                                 |
 | `<project>/.outfitter/local/settings.yml` (nested dir)  | `<project>/.agents/settings.local.yml` (flat, gitignored)                                                                                                                                        |
@@ -25,14 +28,20 @@ Earlier Outfitter versions used an authored profile system: `.outfitter/` direct
 
 ## Procedure
 
-1. **Inventory** your `.outfitter/profiles`. For each profile, separate what it contains: identity/policy prose, capability procedures, model/provider config, tool wiring.
-2. **Create resources**: one `agents/<id>/agent.md` per durable identity; one `skills/<id>/` per capability (most `append_system_prompt` procedure text belongs in skills); shared context into `agents.md`; model config into `models.json`; MCP into `mcp.json`.
-3. **Rebuild as agents**: for each profile people actually ran, create an `agents/<id>/agent.md` whose frontmatter (or `config.json`) loadout selects the new resources by slug. Set `default_agent` to the one you run most. Inheritance chains become shared context in `system-prompt.md` / `agents.md` (or a base agent selected as a delegate), not an ordered selection.
-4. **Move settings**: relocate `~/.outfitter/settings.yml` content into `~/.agents/settings.yml`, project settings into `<project>/.agents/settings.yml`, and anything under `.outfitter/local/` into a flat `.agents/settings.local.yml` (gitignore it). Rename `profile_sources` to `sources`; sources must now publish `.agents` payloads.
+1. **Inventory** your `.outfitter/profiles`.
+   For each profile, separate what it contains: identity/policy prose, capability procedures, model/provider config, tool wiring.
+2. **Create resources**: one `agents/<id>/agent.md` per durable identity; one `skills/<id>/` per capability; shared context into `agents.md`; model config into `models.json`; MCP into `mcp.json`.
+   Move prompt fragments that must load eagerly into catalog-contained `file` sources or project-contained `repo_file` sources.
+3. **Rebuild as agents**: for each profile people actually ran, create an `agents/<id>/agent.md` whose frontmatter (or `config.json`) loadout selects the new resources by slug.
+   Translate reusable base profiles into base agents and preserve intentional inheritance order with agent `inherits`.
+   Set `default_agent` to the one you run most.
+4. **Move settings**: relocate `~/.outfitter/settings.yml` content into `~/.agents/settings.yml`, project settings into `<project>/.agents/settings.yml`, and anything under `.outfitter/local/` into a flat `.agents/settings.local.yml` (gitignore it).
+   Rename `profile_sources` to `sources`; sources must now publish `.agents` payloads.
 5. **Validate**: `outfitter validate --strict`, then `outfitter dump` and review the tree.
 6. **Delete** the `.outfitter/` directory once the dump matches expectations.
 
-A remote repository _named_ `.outfitter` remains a supported convention for organization control repos — but only when it publishes the new protocol payload. The name is supported; the previous profile layout inside it is not.
+A remote repository _named_ `.outfitter` remains a supported convention for organization control repos — but only when it publishes the new protocol payload.
+The name is supported; the previous profile layout inside it is not.
 
 ## Claude Code users
 

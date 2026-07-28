@@ -77,6 +77,28 @@ describe('agent definition parsing', () => {
     expect(parsed.body).toContain('# engineer');
   });
 
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-003.9, OFTR-003.11).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('parses ordered inheritance and explicit prompt source controls', () => {
+    const parsed = parseAgentDefinition(
+      agentMd(
+        'engineer',
+        'inherits: [base, platform]\nsystem_prompt:\n  file: prompts/system.md\nappend_system_prompt:\n  - repo_file: docs/context.md\nprompt_template:\n  file: prompts/template.md\n',
+      ),
+      [],
+      '/nowhere/agent.md',
+    );
+
+    expect(isAgentDefinitionIssue(parsed)).toBe(false);
+    if (isAgentDefinitionIssue(parsed)) return;
+    expect(parsed.inherits).toEqual(['base', 'platform']);
+    expect(parsed.promptControls).toEqual({
+      systemPrompt: { file: 'prompts/system.md' },
+      appendSystemPrompt: [{ repo_file: 'docs/context.md' }],
+      promptTemplate: { file: 'prompts/template.md' },
+    });
+  });
+
   it('derives the profile display label from frontmatter, then the first H1', () => {
     const explicit = parseAgentDefinition(
       '---\nname: engineer\nlabel: Engineering Lead\n---\n\n# Engineer\n',
@@ -240,6 +262,28 @@ describe('layer discovery', () => {
 
     expect(discovered.unsynchronized).toHaveLength(1);
     expect(findResource(resolveResources(discovered.layers), 'agent', 'ok')).toBeDefined();
+  });
+});
+
+describe('inheritance and prompt validation', () => {
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-003.9, OFTR-003.11, OFTR-005.3).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('reports graph and prompt containment failures without launching a harness', () => {
+    const root = createTemporaryRoot();
+    const project = join(root, 'project');
+    write(join(project, '.agents', 'agents', 'cycle-a', 'agent.md'), agentMd('cycle-a', 'inherits: cycle-b\n'));
+    write(join(project, '.agents', 'agents', 'cycle-b', 'agent.md'), agentMd('cycle-b', 'inherits: cycle-a\n'));
+    write(
+      join(project, '.agents', 'agents', 'escaping', 'agent.md'),
+      agentMd('escaping', 'system_prompt:\n  file: ../outside.md\n'),
+    );
+
+    const result = executeValidateCommand({ homeDirectory: join(root, 'home'), projectDirectory: project });
+    const messages = result.findings.map((finding) => finding.message).join('\n');
+
+    expect(result.ok).toBe(false);
+    expect(messages).toContain('cycle-a -> cycle-b -> cycle-a');
+    expect(messages).toContain('contained relative path');
   });
 });
 
@@ -491,6 +535,11 @@ describe('resource resolution', () => {
       findings.some((finding) => finding.resource === resource && finding.message.includes(substring));
 
     expect(hasFinding('agent:engineer', "unknown skill 'missing'")).toBe(true);
+    expect(
+      findings.filter(
+        (finding) => finding.resource === 'agent:engineer' && finding.message.includes("unknown skill 'missing'"),
+      ),
+    ).toEqual([expect.objectContaining({ severity: 'error' })]);
     expect(hasFinding('agent:mislabeled', 'must match its directory')).toBe(true);
     expect(hasFinding('skill:wrong', 'must match its directory')).toBe(true);
   });
