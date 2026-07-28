@@ -117,6 +117,39 @@ describe('composer', () => {
     expect(result.plan?.warnings).toEqual([]);
   });
 
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-003.10).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it("resolves each inherited MCP selection against only its declaring agent's overlay", () => {
+    const root = createTemporaryRoot();
+    const project = join(root, 'project');
+    write(join(project, '.agents', 'agents', 'alpha', 'agent.md'), '---\nname: alpha\nmcp: [github]\n---\n\nAlpha.\n');
+    write(
+      join(project, '.agents', 'agents', 'alpha', 'mcp.json'),
+      JSON.stringify({ mcpServers: { github: { command: 'alpha-github' } } }),
+    );
+    write(join(project, '.agents', 'agents', 'beta', 'agent.md'), '---\nname: beta\nmcp: [slack]\n---\n\nBeta.\n');
+    write(
+      join(project, '.agents', 'agents', 'beta', 'mcp.json'),
+      JSON.stringify({
+        mcpServers: {
+          github: { command: 'unselected-beta-github' },
+          slack: { command: 'beta-slack' },
+        },
+      }),
+    );
+    write(
+      join(project, '.agents', 'agents', 'lead', 'agent.md'),
+      '---\nname: lead\ninherits: [alpha, beta]\n---\n\nLead.\n',
+    );
+
+    const result = compose(resolveSet(join(root, 'home'), project), 'lead');
+
+    expect(result.plan?.loadout.mcpServers).toEqual({
+      github: { command: 'alpha-github' },
+      slack: { command: 'beta-slack' },
+    });
+  });
+
   it('warns when selected MCP configuration is invalid or does not contain the selected server', () => {
     const { home, project } = buildTree();
     write(join(home, '.agents', 'mcp.json'), 'not json');
@@ -172,6 +205,155 @@ describe('composer', () => {
 
     expect(result.plan?.loadout.skills[0]?.winner.ownerAgent).toBe('actions');
     expect(result.plan?.warnings).toEqual([]);
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-003.9, OFTR-005.3).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('composes inheritance parent-first with stable de-duplication and child scalar overrides', () => {
+    const root = createTemporaryRoot();
+    const project = join(root, 'project');
+    write(join(project, '.agents', 'skills', 'base-skill', 'SKILL.md'), '---\nname: base-skill\n---\n');
+    write(join(project, '.agents', 'skills', 'child-skill', 'SKILL.md'), '---\nname: child-skill\n---\n');
+    write(join(project, '.agents', 'prompts', 'base.md'), 'BASE SYSTEM');
+    write(join(project, '.agents', 'prompts', 'append.md'), 'APPEND');
+    write(
+      join(project, '.agents', 'agents', 'base', 'agent.md'),
+      '---\nname: base\nskills: [base-skill]\nextensions: [base-extension]\nplugins: [shared-plugin]\nmodel: base-model\ntools:\n  allow: [read, bash]\n  deny: [write]\nsystem_prompt:\n  file: prompts/base.md\nappend_system_prompt:\n  - file: prompts/append.md\n---\n\nBase body.\n',
+    );
+    write(
+      join(project, '.agents', 'agents', 'engineer', 'agent.md'),
+      '---\nname: engineer\ninherits: base\nskills: [base-skill, child-skill]\nextensions: [base-extension, child-extension]\nplugins: [shared-plugin, child-plugin]\nmodel: child-model\ntools:\n  allow: [write]\n  deny: [bash]\nappend_system_prompt:\n  - file: prompts/append.md\n---\n\nChild body.\n',
+    );
+
+    const result = compose(resolveSet(join(root, 'home'), project), 'engineer', { projectDirectory: project });
+
+    expect(result.errors).toEqual([]);
+    const plan = result.plan!;
+    expect(plan.inheritanceChain).toEqual(['base', 'engineer']);
+    expect(plan.identity.systemPrompt).toBe('BASE SYSTEM');
+    expect(plan.identity.appendSystemPrompts!.map((fragment) => fragment.content)).toEqual(['APPEND']);
+    expect(plan.identity.agentBodies!.map((fragment) => fragment.declaringAgent)).toEqual(['base', 'engineer']);
+    expect(plan.identity.agentBody).toContain('Base body.');
+    expect(plan.identity.agentBody).toContain('Child body.');
+    expect(plan.loadout.skills.map((skill) => skill.slug)).toEqual(['base-skill', 'child-skill']);
+    expect(plan.loadout.extensions).toEqual(['base-extension', 'child-extension']);
+    expect(plan.loadout.plugins).toEqual(['shared-plugin', 'child-plugin']);
+    expect(plan.loadout.tools).toEqual({ allow: ['read', 'bash', 'write'], deny: ['write', 'bash'] });
+    expect(plan.loadout.model).toBe('child-model');
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-003.9).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('composes diamond inheritance once in deterministic first-encounter order', () => {
+    const root = createTemporaryRoot();
+    const project = join(root, 'project');
+    for (const [slug, frontmatter] of [
+      ['common', 'name: common'],
+      ['left', 'name: left\ninherits: common'],
+      ['right', 'name: right\ninherits: common'],
+      ['child', 'name: child\ninherits: [left, right]'],
+    ]) {
+      write(join(project, '.agents', 'agents', slug, 'agent.md'), `---\n${frontmatter}\n---\n\n${slug}\n`);
+    }
+
+    const result = compose(resolveSet(join(root, 'home'), project), 'child');
+
+    expect(result.errors).toEqual([]);
+    expect(result.plan?.inheritanceChain).toEqual(['common', 'left', 'right', 'child']);
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-003.9).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('fails inherited missing parents and cycles with the relevant chain', () => {
+    const root = createTemporaryRoot();
+    const project = join(root, 'project');
+    write(
+      join(project, '.agents', 'agents', 'missing-child', 'agent.md'),
+      '---\nname: missing-child\ninherits: ghost\n---\n',
+    );
+    write(join(project, '.agents', 'agents', 'self', 'agent.md'), '---\nname: self\ninherits: self\n---\n');
+    write(join(project, '.agents', 'agents', 'a', 'agent.md'), '---\nname: a\ninherits: b\n---\n');
+    write(join(project, '.agents', 'agents', 'b', 'agent.md'), '---\nname: b\ninherits: a\n---\n');
+    const set = resolveSet(join(root, 'home'), project);
+
+    expect(compose(set, 'missing-child').errors[0]).toContain('missing-child -> ghost');
+    expect(compose(set, 'self').errors[0]).toContain('self -> self');
+    expect(compose(set, 'a').errors[0]).toContain('a -> b -> a');
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-003.10, OFTR-005.3).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('resolves inherited agent-local skills from the declaring parent owner', () => {
+    const root = createTemporaryRoot();
+    const project = join(root, 'project');
+    write(join(project, '.agents', 'skills', 'private', 'SKILL.md'), '---\nname: private\n---\n\nglobal\n');
+    write(join(project, '.agents', 'agents', 'base', 'agent.md'), '---\nname: base\nskills: [private]\n---\n');
+    write(
+      join(project, '.agents', 'agents', 'base', 'skills', 'private', 'SKILL.md'),
+      '---\nname: private\n---\n\nbase\n',
+    );
+    write(join(project, '.agents', 'agents', 'child', 'agent.md'), '---\nname: child\ninherits: base\n---\n');
+
+    const result = compose(resolveSet(join(root, 'home'), project), 'child');
+
+    expect(result.plan?.loadout.skills[0]?.winner.ownerAgent).toBe('base');
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-003.11).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('resolves repo_file prompt fragments from the active project with repository trust provenance', () => {
+    const root = createTemporaryRoot();
+    const project = join(root, 'project');
+    write(join(project, 'docs', 'context.md'), 'repo context');
+    write(
+      join(project, '.agents', 'agents', 'engineer', 'agent.md'),
+      '---\nname: engineer\nappend_system_prompt:\n  - repo_file: docs/context.md\n---\n\nBody.\n',
+    );
+
+    const result = compose(resolveSet(join(root, 'home'), project), 'engineer', { projectDirectory: project });
+
+    expect(result.errors).toEqual([]);
+    expect(result.plan?.identity.appendSystemPrompts?.[0]?.content).toBe('repo context');
+    expect(result.plan?.identity.appendSystemPrompts?.[0]?.trust).toBe('repository');
+
+    rmSync(join(project, 'docs', 'context.md'));
+    const missing = compose(resolveSet(join(root, 'home'), project), 'engineer', { projectDirectory: project });
+    expect(missing.plan?.warnings).toContain(
+      "agent 'engineer' optional repo_file prompt source 'docs/context.md' was not found.",
+    );
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-003.11).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('allows repo_file system prompts with a strong trust warning', () => {
+    const root = createTemporaryRoot();
+    const project = join(root, 'project');
+    write(join(project, 'policy.md'), 'repository policy');
+    write(
+      join(project, '.agents', 'agents', 'engineer', 'agent.md'),
+      '---\nname: engineer\nsystem_prompt:\n  repo_file: policy.md\n---\n',
+    );
+
+    const result = compose(resolveSet(join(root, 'home'), project), 'engineer', { projectDirectory: project });
+
+    expect(result.plan?.identity.systemPrompt).toBe('repository policy');
+    expect(result.plan?.warnings).toContain("agent 'engineer' uses untrusted repo_file 'policy.md' as system_prompt.");
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-003.11).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('rejects escaping catalog prompt sources', () => {
+    const root = createTemporaryRoot();
+    const project = join(root, 'project');
+    write(
+      join(project, '.agents', 'agents', 'engineer', 'agent.md'),
+      '---\nname: engineer\nsystem_prompt:\n  file: ../secret.md\n---\n',
+    );
+
+    const result = compose(resolveSet(join(root, 'home'), project), 'engineer', { projectDirectory: project });
+
+    expect(result.plan).toBeUndefined();
+    expect(result.errors[0]).toContain('must be a contained relative path');
   });
 
   it('is deterministic — identical inputs compose to an identical plan', () => {
@@ -263,7 +445,7 @@ describe('composer', () => {
     expect(result.plan?.warnings).toEqual([expect.stringContaining("delegate skill 'review' resolves")]);
   });
 
-  it('does not resolve skills from invalid or mislabeled delegates', () => {
+  it('fails composition for invalid or mislabeled delegates', () => {
     const root = createTemporaryRoot();
     const project = join(root, 'project');
     write(
@@ -278,9 +460,40 @@ describe('composer', () => {
 
     const result = compose(resolveSet(join(root, 'home'), project), 'engineer');
 
-    expect(result.errors).toEqual([]);
-    expect(result.plan?.loadout.delegateSkills).toEqual([]);
-    expect(result.plan?.warnings).toEqual([]);
+    expect(result.plan).toBeUndefined();
+    expect(result.errors).toEqual([
+      expect.stringContaining("Subagent 'broken' is invalid"),
+      expect.stringContaining("Subagent 'mislabeled' is invalid"),
+    ]);
+  });
+
+  it('fails composition when a delegate has a missing parent or inheritance cycle', () => {
+    const root = createTemporaryRoot();
+    const project = join(root, 'project');
+    write(
+      join(project, '.agents', 'agents', 'engineer', 'agent.md'),
+      '---\nname: engineer\nsubagents: [missing-parent, cycle-a]\n---\n\nBody.\n',
+    );
+    write(
+      join(project, '.agents', 'agents', 'missing-parent', 'agent.md'),
+      '---\nname: missing-parent\ninherits: ghost\n---\n\nReview.\n',
+    );
+    write(
+      join(project, '.agents', 'agents', 'cycle-a', 'agent.md'),
+      '---\nname: cycle-a\ninherits: cycle-b\n---\n\nReview.\n',
+    );
+    write(
+      join(project, '.agents', 'agents', 'cycle-b', 'agent.md'),
+      '---\nname: cycle-b\ninherits: cycle-a\n---\n\nReview.\n',
+    );
+
+    const result = compose(resolveSet(join(root, 'home'), project), 'engineer');
+
+    expect(result.plan).toBeUndefined();
+    expect(result.errors).toEqual([
+      expect.stringContaining('missing-parent -> ghost'),
+      expect.stringContaining('cycle-a -> cycle-b -> cycle-a'),
+    ]);
   });
 
   it('does not read delegate definitions through an escaping symlink', () => {

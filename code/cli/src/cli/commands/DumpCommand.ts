@@ -49,7 +49,7 @@ export const executeDumpCommand = (input: DumpInput): DumpCommandResult => {
   const syncWarnings = warnings.map((warning) => `warning: ${warning}`);
 
   const agentSlug = resolveAgentSlug(settings, input.agent);
-  const result = dumpAgent(set, agentSlug, input.out);
+  const result = dumpAgent(set, agentSlug, input.out, input.projectDirectory);
   const ok = result.errors.length === 0;
   const messages = ok
     ? [

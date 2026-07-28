@@ -66,6 +66,7 @@ describe('dump command', () => {
 
     expect(result.ok).toBe(true);
     expect(relativeTree(join(out, '.agents'))).toEqual([
+      '.outfitter/composition.json',
       'agents/engineer/agent.md',
       'agents/reviewer/agent.md',
       'skills/wiki/SKILL.md',
@@ -160,6 +161,93 @@ describe('dump command', () => {
 
     expect(result.ok).toBe(false);
     expect(result.messages.join(' ')).toContain("conflicting definitions for skill 'private'");
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-003.9, OFTR-003.11, OFTR-005.2).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('dumps inherited parent agents, inherited skills, and catalog prompt files', () => {
+    const root = createTemporaryRoot();
+    const project = join(root, 'project');
+    write(join(project, '.agents', 'prompts', 'base.md'), 'BASE');
+    write(join(project, '.agents', 'skills', 'base-skill', 'SKILL.md'), '---\nname: base-skill\n---\n');
+    write(
+      join(project, '.agents', 'agents', 'base', 'agent.md'),
+      '---\nname: base\nskills: [base-skill]\nsystem_prompt:\n  file: prompts/base.md\n---\n\nBase.\n',
+    );
+    write(join(project, '.agents', 'agents', 'child', 'agent.md'), '---\nname: child\ninherits: base\n---\n\nChild.\n');
+    const out = join(root, 'dump');
+
+    const result = executeDumpCommand({
+      homeDirectory: join(root, 'home'),
+      projectDirectory: project,
+      agent: 'child',
+      out,
+    });
+
+    expect(result.ok).toBe(true);
+    expect(relativeTree(join(out, '.agents'))).toEqual([
+      '.outfitter/composition.json',
+      'agents/base/agent.md',
+      'agents/child/agent.md',
+      'prompts/base.md',
+      'skills/base-skill/SKILL.md',
+    ]);
+  });
+
+  it('rejects conflicting prompt contents at one flattened path across layers', () => {
+    const root = createTemporaryRoot();
+    const project = join(root, 'project');
+    const source = join(root, 'source');
+    write(join(project, '.agents', 'prompts', 'shared.md'), 'PROJECT PROMPT');
+    write(
+      join(project, '.agents', 'agents', 'lead', 'agent.md'),
+      '---\nname: lead\nappend_system_prompt:\n  file: prompts/shared.md\nsubagents: [reviewer]\n---\n\nLead.\n',
+    );
+    write(join(source, 'prompts', 'shared.md'), 'SOURCE PROMPT');
+    write(
+      join(source, 'agents', 'reviewer', 'agent.md'),
+      '---\nname: reviewer\nappend_system_prompt:\n  file: prompts/shared.md\n---\n\nReview.\n',
+    );
+    write(join(project, '.agents', 'settings.yml'), `sources:\n  - path: ${JSON.stringify(source)}\n`);
+
+    const result = executeDumpCommand({
+      homeDirectory: join(root, 'home'),
+      projectDirectory: project,
+      agent: 'lead',
+      out: join(root, 'dump'),
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.messages.join(' ')).toContain("conflicting contents for prompt file 'prompts/shared.md'");
+  });
+
+  it('rejects a prompt path that conflicts with another flattened file', () => {
+    const root = createTemporaryRoot();
+    const project = join(root, 'project');
+    const source = join(root, 'source');
+    write(join(project, '.agents', 'system-prompt.md'), 'PROJECT ROOT');
+    write(
+      join(project, '.agents', 'agents', 'lead', 'agent.md'),
+      '---\nname: lead\nsubagents: [reviewer]\n---\n\nLead.\n',
+    );
+    write(join(source, 'system-prompt.md'), 'SOURCE PROMPT');
+    write(
+      join(source, 'agents', 'reviewer', 'agent.md'),
+      '---\nname: reviewer\nsystem_prompt:\n  file: system-prompt.md\n---\n\nReview.\n',
+    );
+    write(join(project, '.agents', 'settings.yml'), `sources:\n  - path: ${JSON.stringify(source)}\n`);
+    const out = join(root, 'dump');
+
+    const result = executeDumpCommand({
+      homeDirectory: join(root, 'home'),
+      projectDirectory: project,
+      agent: 'lead',
+      out,
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.messages.join(' ')).toContain("prompt file 'system-prompt.md' conflicts");
+    expect(() => readFileSync(join(out, '.agents', 'system-prompt.md'), 'utf8')).toThrow();
   });
 
   it('is deterministic — two dumps produce identical trees and contents', () => {
@@ -392,6 +480,55 @@ describe('dump command', () => {
     expect(result.messages.join(' ')).toContain('must match its directory');
     // warnings from closure members are surfaced even on a fatal failure
     expect(result.messages.join(' ')).toContain("unknown skill 'ghost'");
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-005.2).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('writes deterministic inheritance and prompt provenance without prompt contents or absolute paths', () => {
+    const root = createTemporaryRoot();
+    const project = join(root, 'project');
+    write(join(project, '.agents', 'system-prompt.md'), 'SECRET SYSTEM CONTENT');
+    write(join(project, '.agents', 'prompts', 'base.md'), 'SECRET APPEND CONTENT');
+    write(join(project, '.agents', 'prompts', 'template.md'), 'SECRET TEMPLATE CONTENT');
+    write(
+      join(project, '.agents', 'agents', 'base', 'agent.md'),
+      '---\nname: base\nappend_system_prompt:\n  file: prompts/base.md\n---\n\nBase.\n',
+    );
+    write(
+      join(project, '.agents', 'agents', 'engineer', 'agent.md'),
+      '---\nname: engineer\ninherits: base\nprompt_template:\n  file: prompts/template.md\n---\n\nEngineer.\n',
+    );
+    const out = join(createTemporaryRoot(), 'provenance');
+
+    const result = executeDumpCommand({
+      homeDirectory: join(root, 'home'),
+      projectDirectory: project,
+      agent: 'engineer',
+      out,
+    });
+    const metadata = readFileSync(join(out, '.agents', '.outfitter', 'composition.json'), 'utf8');
+    const parsed = JSON.parse(metadata) as {
+      readonly compositions: readonly {
+        readonly inheritanceChain: readonly string[];
+        readonly prompts: readonly { readonly order: number; readonly declaringAgent?: string }[];
+        readonly promptTemplate?: { readonly reference?: string; readonly declaringAgent?: string };
+      }[];
+    };
+
+    expect(result.ok).toBe(true);
+    expect(parsed.compositions[0]?.inheritanceChain).toEqual(['base', 'engineer']);
+    expect(parsed.compositions[0]?.prompts.map((prompt) => prompt.order)).toEqual([0, 1, 2, 3]);
+    expect(parsed.compositions[0]?.prompts.map((prompt) => prompt.declaringAgent)).toEqual([
+      undefined,
+      'base',
+      'base',
+      'engineer',
+    ]);
+    expect(parsed.compositions[0]?.promptTemplate).toEqual(
+      expect.objectContaining({ reference: 'prompts/template.md', declaringAgent: 'engineer' }),
+    );
+    expect(metadata).not.toContain('SECRET');
+    expect(metadata).not.toContain(project);
   });
 
   it('propagates non-fatal loadout warnings from closure members', () => {

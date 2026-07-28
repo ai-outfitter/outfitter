@@ -1,8 +1,9 @@
 // Validates an effective resource set: agent + skill definitions, unresolved loadout slugs, shadowing.
+import { compose } from '../composer/Composer.js';
 import { isSkillDocumentIssue, readSkillDocument } from '../skills/SkillDocument.js';
 import { isAgentDefinitionIssue, readAgentDefinition } from './AgentDefinition.js';
 import type { EffectiveResourceSet, ResolvedResource } from './Resource.js';
-import { agentLocalKinds, findLoadoutResource, findResource, listAgentResources, listResources } from './Resource.js';
+import { agentLocalKinds, findResource, listAgentResources, listResources } from './Resource.js';
 
 export interface ValidationFinding {
   readonly severity: 'error' | 'warning';
@@ -10,22 +11,14 @@ export interface ValidationFinding {
   readonly message: string;
 }
 
-const loadoutSlugReference = (
-  set: EffectiveResourceSet,
-  agentSlug: string,
-  kind: 'agent' | 'skill',
-  field: string,
-  slugs: readonly string[],
-): readonly ValidationFinding[] =>
-  slugs
-    .filter((slug) => findLoadoutResource(set, agentSlug, kind, slug) === undefined)
-    .map((slug) => ({
-      severity: 'error' as const,
-      resource: `agent:${agentSlug}`,
-      message: `loadout ${field} references unknown ${kind} '${slug}'.`,
-    }));
+const compositionWarningSeverity = (message: string): ValidationFinding['severity'] =>
+  /^loadout (?:skills|subagents) references unknown (?:skill|agent) '/.test(message) ? 'error' : 'warning';
 
-const validateAgent = (set: EffectiveResourceSet, agent: ResolvedResource): readonly ValidationFinding[] => {
+const validateAgent = (
+  set: EffectiveResourceSet,
+  agent: ResolvedResource,
+  projectDirectory?: string,
+): readonly ValidationFinding[] => {
   const definition = readAgentDefinition(agent.winner.path, agent.configPaths);
 
   if (isAgentDefinitionIssue(definition)) {
@@ -42,10 +35,17 @@ const validateAgent = (set: EffectiveResourceSet, agent: ResolvedResource): read
     ];
   }
 
-  return [
-    ...loadoutSlugReference(set, agent.slug, 'skill', 'skills', definition.loadout.skills),
-    ...loadoutSlugReference(set, agent.slug, 'agent', 'subagents', definition.loadout.subagents),
+  const composed = compose(set, agent.slug, { projectDirectory });
+  const compositionFindings: ValidationFinding[] = [
+    ...composed.errors.map((message) => ({ severity: 'error' as const, resource: `agent:${agent.slug}`, message })),
+    ...composed.warnings.map((message) => ({
+      severity: compositionWarningSeverity(message),
+      resource: `agent:${agent.slug}`,
+      message,
+    })),
   ];
+
+  return compositionFindings;
 };
 
 const resourceLabel = (resource: ResolvedResource): string =>
@@ -97,15 +97,27 @@ const reservedNamespaceFindings = (agent: ResolvedResource): readonly Validation
   return findings;
 };
 
+const deduplicateFindings = (findings: readonly ValidationFinding[]): readonly ValidationFinding[] => {
+  const deduplicated = new Map<string, ValidationFinding>();
+  for (const finding of findings) {
+    const key = `${finding.resource}\u0000${finding.message}`;
+    if (!deduplicated.has(key)) deduplicated.set(key, finding);
+  }
+  return [...deduplicated.values()];
+};
+
 /**
  * Collects validation findings across the effective set. `error` findings always fail validation;
  * `warning` findings (such as shadowed definitions) fail only under `--strict`.
  */
-export const validateEffectiveSet = (set: EffectiveResourceSet): readonly ValidationFinding[] => {
+export const validateEffectiveSet = (
+  set: EffectiveResourceSet,
+  projectDirectory?: string,
+): readonly ValidationFinding[] => {
   const findings: ValidationFinding[] = [];
 
   for (const agent of listResources(set, 'agent')) {
-    findings.push(...validateAgent(set, agent), ...reservedNamespaceFindings(agent));
+    findings.push(...validateAgent(set, agent, projectDirectory), ...reservedNamespaceFindings(agent));
   }
 
   for (const skill of listResources(set, 'skill')) {
@@ -136,5 +148,5 @@ export const validateEffectiveSet = (set: EffectiveResourceSet): readonly Valida
     }
   }
 
-  return findings;
+  return deduplicateFindings(findings);
 };

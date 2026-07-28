@@ -1,17 +1,15 @@
 # OFTR-003: Agents and Resolution
 
-> **Amendment (2026-07-17, RFC [#165](https://github.com/ai-outfitter/outfitter/issues/165)):**
-> profiles fold into agents. Authored `profile.yml` files, `inherits` inheritance, `template`
-> profiles, and `profile_export` are removed; an agent is `agents/<id>/agent.md` frontmatter plus an
-> optional `config.json`, resolved by slug across `.agents` layers with merge-by-ID. Section IDs are
-> preserved for pinned-test traceability. Target design: [docs/documentation/agents.md](../documentation/agents.md)
-> and [docs/architecture/README.md](../architecture/README.md).
+> **Amendment (2026-07-17, RFC [#165](https://github.com/ai-outfitter/outfitter/issues/165)):** Profiles fold into agents.
+> Authored `profile.yml` files, profile-era inheritance, `template` profiles, and `profile_export` are removed; agent inheritance is declared by `inherits` in `agents/<id>/agent.md` frontmatter.
+> An agent may also have an optional `config.json` and resolves by slug across `.agents` layers with merge-by-ID.
+> Section IDs are preserved for pinned-test traceability.
+> Target design: [docs/documentation/agents.md](../documentation/agents.md) and [docs/architecture/README.md](../architecture/README.md).
 
 ## Overview
 
-An agent is the protocol's identity resource and the thing Outfitter runs. Outfitter resolves agents
-and other resources from layered `.agents` trees into one immutable effective resource set that every
-command shares.
+An agent is the protocol's identity resource and the thing Outfitter runs.
+Outfitter resolves agents and other resources from layered `.agents` trees into one immutable effective resource set that every command shares.
 
 ## Requirements
 
@@ -38,9 +36,10 @@ command shares.
 
 ### OFTR-003.4: Merge by ID
 
-1. Resources MUST merge by ID across layers: the highest-precedence definition of a slug wins and replaces lower ones. Markdown resources are not partially merged.
+1. Resources MUST merge by ID across layers: the highest-precedence definition of a slug wins and replaces lower ones.
+   Markdown resources are not partially merged.
 2. Per-agent `config.json` MUST shallow-merge by key over the `agent.md` frontmatter loadout for the same agent directory.
-3. There is no profile inheritance; shared context lives in tree-level `system-prompt.md`/`agents.md`.
+3. Legacy profile inheritance MUST NOT be restored; agent inheritance follows OFTR-003.9 and shared context lives in tree-level `system-prompt.md`/`agents.md`.
 4. Agent-local resources MUST merge by owner and ID across layers before catalog-wide fallback is considered.
 5. An agent-local skill MAY shadow a catalog-wide skill for its owner without being reported as a catalog collision.
 
@@ -71,3 +70,30 @@ command shares.
 2. `outfitter list <kind>` MUST restrict output to one kind of `agents`, `skills`, `knowledge`, or `commands` and MUST reject unknown kinds.
 3. Listed resources MUST report the winning layer for each slug deterministically.
 4. `outfitter list skills --agent <id>` MUST show the agent's local-first effective skill view and distinguish agent-local winners.
+
+### OFTR-003.9: Agent Inheritance Graph
+
+1. `agent.md` frontmatter MAY declare `inherits` as one parent slug or an ordered non-empty list of parent slugs.
+2. Outfitter MUST resolve every inherited parent through the same effective layered resource set used for the selected child.
+3. Inheritance traversal MUST be recursive, parent-first, and left-to-right for multiple parents.
+4. A diamond inheritance graph MUST compose each ancestor once in deterministic first-encounter order.
+5. Missing parents, self-inheritance, and direct or indirect cycles MUST fail validation and composition with the relevant chain.
+6. Inheritance MUST extend the `.agents` agent model and MUST NOT reintroduce `.outfitter/profiles`, `profile.yml`, profile templates, or legacy profile readers.
+
+### OFTR-003.10: Inherited Merge Policy
+
+1. Agent Markdown bodies MUST compose ancestor-first and selected-child-last.
+2. `skills`, `subagents`, `mcp`, `extensions`, `plugins`, and `append_system_prompt` MUST use stable parent-first de-duplication.
+3. `system_prompt`, `prompt_template`, `model`, `thinking`, `label`, and `description` MUST use the nearest child declaration.
+4. `tools.allow` and `tools.deny` MUST union stably; denied tools MUST win when projected.
+5. Outfitter MUST retain declaring-agent provenance for inherited selections so parent-local skills and configuration resolve against the parent that declared them.
+6. Inheritance MUST NOT support subtraction syntax or arbitrary per-field merge operators.
+
+### OFTR-003.11: Prompt Source Controls
+
+1. `system_prompt`, `append_system_prompt`, and `prompt_template` MUST accept only explicit prompt source objects using exactly one of `file` or `repo_file`.
+2. `file` prompt sources MUST resolve relative to the `.agents` layer that owns the declaring agent and MUST fail on missing files, directories, path traversal, absolute paths, unsafe symlink targets, and reads outside that layer.
+3. `repo_file` prompt sources MUST resolve relative to the active project root, MUST remain contained after symlink resolution, and MUST be attributed as untrusted repository content.
+4. Missing optional `repo_file` prompt fragments SHOULD produce observable composition warnings instead of making reusable catalog agents fail across repositories.
+5. Prompt fragments MUST retain source kind, path or reference, declaring agent, owning layer, content, order, and trust provenance in the composition plan.
+6. Named prompt slug shorthand MUST NOT be accepted until its namespace, layer semantics, protocol compatibility, and dump behavior are specified in these requirements.

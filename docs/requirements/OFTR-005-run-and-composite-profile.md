@@ -1,6 +1,9 @@
 # OFTR-005: Run Command and Composite profile Lifecycle
 
-> **Transition (RFC [#165](https://github.com/ai-outfitter/outfitter/issues/165)):** **OFTR-005.1/005.2/005.3 are amended (2026-07-17)** to the run/composition model (run selects an agent + harness and resolves → composes → projects → launches). The remaining sections (005.4 watching, 005.6 state persistence, 005.7 prompt export) describe profile-era features that are **not yet reprojected** — the current run projects composed identity, skills, model, and thinking into an ephemeral runtime directory. Those features return incrementally with the fuller adapter parity. Target design: [docs/architecture/README.md](../architecture/README.md).
+> **Transition (RFC [#165](https://github.com/ai-outfitter/outfitter/issues/165)):** **OFTR-005.1/005.2/005.3 are amended (2026-07-17)** to the run/composition model (run selects an agent + harness and resolves → composes → projects → launches).
+> The remaining sections (005.4 watching, 005.6 state persistence, 005.7 prompt export) describe profile-era features that are **not yet reprojected** — the current run projects composed identity, skills, model, and thinking into an ephemeral runtime directory.
+> Those features return incrementally with the fuller adapter parity.
+> Target design: [docs/architecture/README.md](../architecture/README.md).
 
 ## Overview
 
@@ -10,7 +13,7 @@ The `run` command assembles a temporary agent-specific configuration directory c
 
 ### OFTR-005.1: Run Command Defaults
 
-_Amended (2026-07-17, RFC #165): `run` selects an agent slug and a harness, not a profile._
+Amended (2026-07-17, RFC #165): `run` selects an agent slug and a harness, not a profile.
 
 1. Outfitter MUST provide a `run` command.
 2. `run` MUST be the default command when no command is specified.
@@ -23,24 +26,27 @@ _Amended (2026-07-17, RFC #165): `run` selects an agent slug and a harness, not 
 
 ### OFTR-005.2: Composition Definition
 
-_Amended (2026-07-17, RFC #165): a run is defined by a harness-neutral composition, not a profile._
+Amended (2026-07-17, RFC #165): a run is defined by a harness-neutral composition, not a profile.
 
 1. Outfitter MUST compose a harness-neutral **composition plan** for a run from the effective resource set and a selected agent.
 2. A composition plan MUST be scoped to one selected agent slug and is projected per harness by an adapter.
-3. A composition plan MUST carry the composed identity (base `system-prompt.md`, shared `agents.md` context, and the agent's `agent.md` body) and the agent's resolved loadout.
+3. A composition plan MUST carry the composed identity (effective system prompt, shared `agents.md` context, appended prompt fragments, inherited agent bodies, prompt template provenance when selected) and the agent's resolved loadout.
 4. Composition MUST be deterministic: identical sources, refs, and selections produce an identical composition plan.
+5. A composition plan MUST expose the selected agent's inheritance chain and prompt-fragment provenance so dump and verbose surfaces can audit where each prompt part came from.
 
 ### OFTR-005.3: Composition Assembly
 
-_Amended (2026-07-17, RFC #165): composition assembles from the effective resource set._
+Amended (2026-07-17, RFC #165): composition assembles from the effective resource set.
 
-1. Outfitter MUST compose identity by layering the winning `system-prompt.md` as the base, the winning `agents.md` as shared context, and the selected agent's body on top, in that deterministic order.
-2. Outfitter MUST resolve each loadout slug (`skills`, `subagents`) against the effective resource set to its winning resource; skills use the selected agent's local namespace before catalog-wide fallback.
+1. Outfitter MUST compose identity in this deterministic order: nearest declared `system_prompt` or the winning root `system-prompt.md`; winning root `agents.md`; inherited then child `append_system_prompt` fragments; inherited then child agent bodies; runtime passthrough append prompts.
+2. Outfitter MUST resolve each inherited loadout slug against the declaring agent's local namespace before catalog-wide fallback; selected-child local resources MUST NOT accidentally satisfy parent-declared selections.
 3. Outfitter MUST report an error when the selected agent slug does not resolve or its definition is invalid.
 4. Outfitter MUST surface a loadout slug that does not resolve as a non-fatal composition warning.
 5. `list`, `validate`, `run`, and `dump` MUST share one resolver (a single effective resource set); the commands that create a selected composition (`run`, `dump`) MUST use the same shared composer.
 6. Runtime projection MUST materialize a selected agent-local skill with the same instructions, references, scripts, and assets as a catalog-wide skill.
 7. Dump MUST place selected agent-local skills under top-level `skills/<id>/` in its closure output so target harnesses discover them.
+8. `outfitter validate` MUST diagnose inheritance graph errors and prompt-source containment errors without requiring a harness launch.
+9. Existing agents that declare no inheritance or prompt-source controls MUST keep the same effective prompt order and equivalent launch arguments.
 
 ### OFTR-005.4: Composite profile Watching
 

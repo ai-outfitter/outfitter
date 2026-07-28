@@ -3,6 +3,8 @@ import { readFileSync } from 'node:fs';
 
 import { validateSchema } from '../validation/SchemaValidator.js';
 import { parseYamlDocument } from '../validation/YamlDocument.js';
+import type { PromptSourceReference } from '../composer/PromptSource.js';
+import { isPromptSourceReference } from '../composer/PromptSource.js';
 import type { Loadout } from './Resource.js';
 import { emptyLoadout } from './Resource.js';
 
@@ -14,6 +16,15 @@ export interface AgentDefinition {
   /** Markdown body after the frontmatter — the agent's identity prose. */
   readonly body: string;
   readonly loadout: Loadout;
+  /** Ordered parent agent slugs declared by `inherits`. */
+  readonly inherits: readonly string[];
+  readonly promptControls: PromptControls;
+}
+
+export interface PromptControls {
+  readonly systemPrompt?: PromptSourceReference;
+  readonly appendSystemPrompt: readonly PromptSourceReference[];
+  readonly promptTemplate?: PromptSourceReference;
 }
 
 export interface AgentDefinitionIssue {
@@ -73,6 +84,21 @@ const asStringArray = (value: unknown): readonly string[] =>
   Array.isArray(value) ? value.filter((entry): entry is string => typeof entry === 'string') : [];
 
 const asString = (value: unknown): string | undefined => (typeof value === 'string' ? value : undefined);
+
+const asSlugListOrScalar = (value: unknown): readonly string[] => {
+  if (typeof value === 'string') return [value];
+  return asStringArray(value);
+};
+
+const promptControlsFromRecord = (record: Readonly<Record<string, unknown>>): PromptControls => ({
+  systemPrompt: isPromptSourceReference(record.system_prompt) ? record.system_prompt : undefined,
+  appendSystemPrompt: Array.isArray(record.append_system_prompt)
+    ? record.append_system_prompt.filter(isPromptSourceReference)
+    : isPromptSourceReference(record.append_system_prompt)
+      ? [record.append_system_prompt]
+      : [],
+  promptTemplate: isPromptSourceReference(record.prompt_template) ? record.prompt_template : undefined,
+});
 
 const readMarkdownHeading = (body: string): string | undefined => /^#\s+(.+)$/mu.exec(body)?.[1]?.trim();
 
@@ -174,6 +200,8 @@ export const parseAgentDefinition = (
     description: asString(frontmatter.record.description),
     body: frontmatter.body,
     loadout: loadoutFromRecord(merged),
+    inherits: asSlugListOrScalar(frontmatter.record.inherits),
+    promptControls: promptControlsFromRecord(frontmatter.record),
   };
 };
 

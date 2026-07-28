@@ -1,6 +1,8 @@
 # Controllable Elements
 
-This document defines the cross-agent-CLI concepts an Outfitter composition may control — the harness-neutral vocabulary adapters project into native mechanisms. Pi is the first supported CLI, and Claude Code is supported as an additional adapter. Other CLIs may be added later while keeping the composition model generic.
+This document defines the cross-agent-CLI concepts an Outfitter composition may control — the harness-neutral vocabulary adapters project into native mechanisms.
+Pi is the first supported CLI, and Claude Code is supported as an additional adapter.
+Other CLIs may be added later while keeping the composition model generic.
 
 Status values:
 
@@ -12,9 +14,11 @@ Status values:
 
 ## How to Read This Matrix
 
-A `Supported` entry means Outfitter can project that concept for the agent CLI through at least one native mechanism: a config-directory boundary, state-path placement, generated files, environment variables, command-line flags, or pass-through arguments. It does not always mean there is a one-to-one native CLI flag.
+A `Supported` entry means Outfitter can project that concept for the agent CLI through at least one native mechanism: a config-directory boundary, state-path placement, generated files, environment variables, command-line flags, or pass-through arguments.
+It does not always mean there is a one-to-one native CLI flag.
 
-For example, Claude Code session/project state lives under Claude's config home rather than a standalone `--session-dir` flag. Outfitter supports the session-directory concept for Claude by setting `CLAUDE_CONFIG_DIR` to the projection root and declaring Claude `projects/` state for persistence.
+For example, Claude Code session/project state lives under Claude's config home rather than a standalone `--session-dir` flag.
+Outfitter supports the session-directory concept for Claude by setting `CLAUDE_CONFIG_DIR` to the projection root and declaring Claude `projects/` state for persistence.
 
 ## Defined Terms
 
@@ -34,7 +38,9 @@ The directory where conversation sessions, transcripts, or run state are stored.
 
 ### Personas
 
-Not a composed key. A persona is a convention: a shared review [agent](../documentation/agents.md) plus one portable persona document appended at launch (see [Personas](../documentation/personas.md)). The controllable element underneath it is harness argument passthrough — `--append-system-prompt <file>` on the launch command — not a `personas` list.
+Not a composed key.
+A persona is a convention: a shared review [agent](../documentation/agents.md) plus one portable persona document appended at launch (see [Personas](../documentation/personas.md)).
+The controllable element underneath it is harness argument passthrough — `--append-system-prompt <file>` on the launch command — not a `personas` list.
 
 - Pi name: `--system-prompt` / `--append-system-prompt` composition
 - Claude name: `--system-prompt` / `--append-system-prompt` composition
@@ -55,10 +61,11 @@ Protocol `skills/<id>/` packages exposed to the agent.
 
 ### Commands / Prompt Templates
 
-Named reusable prompts or slash commands available to the agent runtime, from the tree's `commands/`.
+Named reusable prompts or slash commands may live in the tree's `commands/`.
+Separately, an agent may select one eager `prompt_template` source with an explicit `{ file }` or `{ repo_file }` reference; Outfitter does not treat command slugs as prompt-source shorthand.
 
-- Pi name: prompt templates, `--prompt-template`
-- Claude name: commands under the Claude config directory
+- Pi name: prompt templates, agent `prompt_template`, `--prompt-template`
+- Claude name: commands under the Claude config directory; agent `prompt_template` projection is currently unsupported and follows warning/`--strict` policy
 
 ### Knowledge
 
@@ -82,28 +89,33 @@ Model Context Protocol server configuration from the tree's `mcp.json`.
 
 ### Extensions
 
-Pi extensions selected by an agent's loadout (`extensions:`) and loaded into the run. A first-class, pi-native configuration element in its own right — distinct from the single bootstrap extension Outfitter injects for mode switching. An agent can select any number of extensions; the adapter registers them alongside the bootstrap extension.
+Pi extensions selected by an agent's loadout (`extensions:`) and loaded into the run.
+A first-class, pi-native configuration element in its own right — distinct from the single bootstrap extension Outfitter injects for mode switching.
+An agent can select any number of extensions; the adapter registers them alongside the bootstrap extension.
 
 - Pi name: extensions loaded via `--extension` / `-e`
 - Claude name: no direct equivalent; roadmap adapter mapping
 
 ### Plugins
 
-Pi plugins selected by an agent's loadout (`plugins:`). Also first-class and pi-native, tracked separately from extensions because Pi treats them as a distinct mechanism.
+Pi plugins selected by an agent's loadout (`plugins:`).
+Also first-class and pi-native, tracked separately from extensions because Pi treats them as a distinct mechanism.
 
 - Pi name: plugin loading
 - Claude name: plugin/marketplace mechanism, not mapped by Outfitter yet
 
 ### Credentials and Environment
 
-Environment variables, API keys, auth files, and related secret material needed by providers or tools. Never stored in the tree; supplied at runtime.
+Environment variables, API keys, auth files, and related secret material needed by providers or tools.
+Never stored in the tree; supplied at runtime.
 
 - Pi name: provider env vars, `auth.json`, `--api-key`
 - Claude name: environment variables and config files under `CLAUDE_CONFIG_DIR`
 
 ### Tasks
 
-Named work contracts baked into immutable artifacts for headless execution. The task/bake surface is deferred to a [separate upcoming RFC](../documentation/tasks.md); today headless runs launch an agent in print mode with structured inputs.
+Named work contracts baked into immutable artifacts for headless execution.
+The task/bake surface is deferred to a [separate upcoming RFC](../documentation/tasks.md); today headless runs launch an agent in print mode with structured inputs.
 
 - Pi name: headless print mode (`-p`) with the composed projection
 - Claude name: print mode with the composed projection
@@ -117,7 +129,8 @@ Reusable multi-step procedures selected by an agent's loadout.
 
 ### Hooks
 
-Deterministic code at fixed session points. No protocol resource exists yet; see [Hooks](../documentation/hooks.md) for the roadmap TODO on an Outfitter hooks extension.
+Deterministic code at fixed session points.
+No protocol resource exists yet; see [Hooks](../documentation/hooks.md) for the roadmap TODO on an Outfitter hooks extension.
 
 - Pi name: bootstrap extension via `--extension` / `-e`; per-event hooks are extension territory
 - Claude name: `hooks` in the generated `settings.json`
@@ -182,4 +195,5 @@ An early-startup customization used to register providers, tools, hooks, or addi
 | Pass-through Arguments      | Supported | Supported |
 | Bootstrap Hook              | Supported | Roadmap   |
 
-The user-facing view of this matrix, with per-gap notes, lives in the [adapter support matrix](../documentation/support-matrix.md). Unsupported elements warn at runtime; `--strict` makes those warnings fatal.
+The user-facing view of this matrix, with per-gap notes, lives in the [adapter support matrix](../documentation/support-matrix.md).
+Unsupported elements warn at runtime; `--strict` makes those warnings fatal.

@@ -8,6 +8,29 @@
     "name": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$", "maxLength": 64 },
     "label": { "type": "string", "minLength": 1 },
     "description": { "type": "string" },
+    "inherits": {
+      "oneOf": [
+        { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$", "maxLength": 64 },
+        {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$", "maxLength": 64 }
+        }
+      ],
+      "description": "Parent agent slug or ordered parent slug list composed parent-first before this agent."
+    },
+    "system_prompt": {
+      "$ref": "#/$defs/promptSource",
+      "description": "Prompt fragment that replaces the winning root system-prompt.md; file is trusted catalog content and repo_file is untrusted repository content."
+    },
+    "append_system_prompt": {
+      "oneOf": [{ "$ref": "#/$defs/promptSource" }, { "type": "array", "items": { "$ref": "#/$defs/promptSource" } }],
+      "description": "Prompt fragments appended after root agents.md and before inherited agent bodies."
+    },
+    "prompt_template": {
+      "$ref": "#/$defs/promptSource",
+      "description": "Harness prompt-template source projected only by harnesses that support templates."
+    },
     "skills": {
       "$ref": "#/$defs/slugList",
       "description": "Skill slugs resolved from agents/<name>/skills first, then catalog-wide skills."
@@ -44,6 +67,15 @@
     "slugList": {
       "type": "array",
       "items": { "type": "string", "minLength": 1 }
+    },
+    "promptSource": {
+      "type": "object",
+      "oneOf": [{ "required": ["file"] }, { "required": ["repo_file"] }],
+      "properties": {
+        "file": { "type": "string", "minLength": 1 },
+        "repo_file": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
     }
   }
 }

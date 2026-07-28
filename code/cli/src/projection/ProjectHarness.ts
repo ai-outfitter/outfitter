@@ -13,7 +13,7 @@ import type { AgentLaunchPlan, AgentProjectionPlan, ProjectionInput } from './Pr
 const supportedElements = (input: ProjectionInput): readonly string[] => {
   const baseline = ['skills', 'model', 'thinking'];
   if (input.harness !== 'pi') return baseline;
-  const pi = [...baseline, 'subagents', 'mcp'];
+  const pi = [...baseline, 'subagents', 'mcp', 'prompt_template'];
   return input.extensionLoadDirs === undefined ? pi : [...pi, 'extensions'];
 };
 
@@ -29,6 +29,7 @@ const loadoutElementsInUse = (composition: CompositionPlan): readonly string[] =
   if (loadout.model !== undefined) present.push('model');
   if (loadout.thinking !== undefined) present.push('thinking');
   if (loadout.tools !== undefined) present.push('tools');
+  if (composition.identity.promptTemplate !== undefined) present.push('prompt_template');
 
   return present;
 };
@@ -36,10 +37,18 @@ const loadoutElementsInUse = (composition: CompositionPlan): readonly string[] =
 export const unsupportedElements = (composition: CompositionPlan, input: ProjectionInput): readonly string[] =>
   loadoutElementsInUse(composition).filter((element) => !supportedElements(input).includes(element));
 
-const promptArgs = (systemPromptPath: string, appendPromptPaths: readonly string[]): readonly string[] => [
+const promptArgs = (
+  composition: CompositionPlan,
+  input: ProjectionInput,
+  systemPromptPath: string,
+  appendPromptPaths: readonly string[],
+): readonly string[] => [
   '--system-prompt',
   systemPromptPath,
   ...appendPromptPaths.flatMap((path) => ['--append-system-prompt', path]),
+  ...(input.harness === 'pi' && composition.identity.promptTemplate !== undefined
+    ? ['--prompt-template', `${input.rootDirectory}/prompt-template.md`]
+    : []),
 ];
 
 const modelArgs = (composition: CompositionPlan, harness: Harness): readonly string[] => {
@@ -69,7 +78,7 @@ const buildLaunchPlan = (
   return {
     command: isPi ? 'pi' : 'claude',
     args: [
-      ...promptArgs(systemPromptPath, appendPromptPaths),
+      ...promptArgs(composition, input, systemPromptPath, appendPromptPaths),
       ...skillArgs,
       ...extensionArgs,
       ...modelArgs(composition, input.harness),
