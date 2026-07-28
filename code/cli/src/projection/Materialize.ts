@@ -1,10 +1,12 @@
 // Materializes a CompositionPlan into a runtime configuration directory the harness launches from.
-import { copyFileSync, lstatSync, mkdirSync, readdirSync, writeFileSync } from 'node:fs';
+import { copyFileSync, lstatSync, mkdirSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
 import type { CompositionPlan } from '../composer/Composition.js';
 import { escapesRoots } from '../dump/Containment.js';
 import { removeTargetTypeConflict } from '../fs/TypeConflict.js';
+import type { AgentDefinition } from '../resolver/AgentDefinition.js';
+import { isAgentDefinitionIssue, readAgentDefinition } from '../resolver/AgentDefinition.js';
 import type { ResolvedResource } from '../resolver/Resource.js';
 
 export interface MaterializedComposition {
@@ -17,6 +19,8 @@ export interface MaterializedComposition {
   readonly skillDirectories: readonly string[];
   /** Skills that could not be materialized safely (escaping symlinks). */
   readonly skippedSkills: readonly string[];
+  /** Subagents whose merged agent definition could not be materialized. */
+  readonly skippedSubagents: readonly string[];
 }
 
 /** Recursively copies a directory, skipping symlinked entries so no path escapes the tree. */
@@ -73,10 +77,78 @@ const materializeSkill = (skill: ResolvedResource, rootDirectory: string): strin
   return targetDir;
 };
 
+const optionalScalar = (name: string, value: string | undefined): readonly string[] =>
+  value === undefined ? [] : [`${name}: ${JSON.stringify(value)}`];
+
+const optionalList = (name: string, values: readonly string[]): readonly string[] =>
+  values.length === 0 ? [] : [`${name}: ${JSON.stringify(values.join(', '))}`];
+
+const subagentEscapesRoots = (subagent: ResolvedResource): boolean => {
+  const roots = [
+    subagent.winner.layer.root,
+    ...subagent.shadowed.map((definition) => definition.layer.root),
+    ...(subagent.configLayerRoots ?? []),
+  ];
+  const paths = [subagent.winner.path, ...(subagent.configPaths ?? [])];
+  return paths.some((path) => escapesRoots(path, roots));
+};
+
+const readValidSubagentDefinition = (subagent: ResolvedResource): AgentDefinition | undefined => {
+  if (subagentEscapesRoots(subagent)) {
+    return undefined;
+  }
+
+  const definition = readAgentDefinition(subagent.winner.path, subagent.configPaths);
+
+  return isAgentDefinitionIssue(definition) || definition.name !== subagent.slug ? undefined : definition;
+};
+
+const serializeSubagent = (subagent: ResolvedResource): string | undefined => {
+  const definition = readValidSubagentDefinition(subagent);
+
+  if (definition === undefined) return undefined;
+
+  const denied = new Set(definition.loadout.tools?.deny ?? []);
+  const tools = definition.loadout.tools?.allow?.filter((tool) => !denied.has(tool));
+  const frontmatter = [
+    `name: ${JSON.stringify(subagent.slug)}`,
+    `description: ${JSON.stringify(definition.description ?? definition.label ?? `Delegated ${subagent.slug} agent.`)}`,
+    ...optionalScalar('model', definition.loadout.model),
+    ...optionalScalar('thinking', definition.loadout.thinking),
+    ...optionalList('tools', tools ?? []),
+    ...optionalList('skills', definition.loadout.skills),
+    ...optionalList('extensions', definition.loadout.extensions),
+  ];
+
+  return `---\n${frontmatter.join('\n')}\n---\n\n${definition.body}`;
+};
+
+const materializeSubagents = (subagents: readonly ResolvedResource[], rootDirectory: string): readonly string[] => {
+  if (subagents.length === 0) {
+    return [];
+  }
+
+  const agentsDirectory = join(rootDirectory, 'agents');
+  rmSync(agentsDirectory, { recursive: true, force: true });
+  mkdirSync(agentsDirectory, { recursive: true });
+  const skipped: string[] = [];
+
+  for (const subagent of subagents) {
+    const content = serializeSubagent(subagent);
+    if (content === undefined) {
+      skipped.push(subagent.slug);
+    } else {
+      writeGeneratedFile(join(agentsDirectory, `${subagent.slug}.md`), content);
+    }
+  }
+
+  return skipped;
+};
+
 /**
- * Writes the composed identity and skills into `rootDirectory`. The base `system-prompt.md` becomes
- * the system prompt; shared `agents.md` context and the agent body are appended in order. Each
- * selected skill directory (SKILL.md + scripts/assets) is copied so the harness has real content.
+ * Writes the composed identity, skills, subagents, and selected MCP servers into
+ * `rootDirectory`. The base `system-prompt.md` becomes the system prompt; shared `agents.md`
+ * context and the agent body are appended in order.
  */
 export const materializeComposition = (
   composition: CompositionPlan,
@@ -102,7 +174,7 @@ export const materializeComposition = (
   const skillDirectories: string[] = [];
   const skippedSkills: string[] = [];
 
-  for (const skill of composition.loadout.skills) {
+  for (const skill of [...composition.loadout.skills, ...composition.loadout.delegateSkills]) {
     const materialized = materializeSkill(skill, rootDirectory);
     if (materialized === undefined) {
       skippedSkills.push(skill.slug);
@@ -111,5 +183,21 @@ export const materializeComposition = (
     }
   }
 
-  return { rootDirectory, systemPromptPath, appendPromptPaths, skillDirectories, skippedSkills };
+  const skippedSubagents = materializeSubagents(composition.loadout.subagents, rootDirectory);
+
+  if (composition.loadout.mcp.length > 0) {
+    writeGeneratedFile(
+      join(rootDirectory, 'mcp.json'),
+      `${JSON.stringify({ mcpServers: composition.loadout.mcpServers }, null, 2)}\n`,
+    );
+  }
+
+  return {
+    rootDirectory,
+    systemPromptPath,
+    appendPromptPaths,
+    skillDirectories,
+    skippedSkills,
+    skippedSubagents,
+  };
 };

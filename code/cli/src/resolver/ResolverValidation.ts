@@ -81,18 +81,10 @@ const shadowFindings = (resource: ResolvedResource): readonly ValidationFinding[
     message: `shadowed definition in ${definition.layer.label} is overridden by ${resource.winner.layer.label}.`,
   }));
 
-// Agent-local resource shapes that resolver discovers but does not yet project into a run. Surfaced
-// as warnings (fatal only under --strict) so a selection placed here is never silently dropped.
+// Reserved agent-local resource shapes that resolver discovers but does not yet project into a run.
+// Surfaced as warnings (fatal only under --strict) so content placed here is never silently dropped.
 const reservedNamespaceFindings = (agent: ResolvedResource): readonly ValidationFinding[] => {
   const findings: ValidationFinding[] = [];
-
-  if ((agent.mcpPaths ?? []).length > 0) {
-    findings.push({
-      severity: 'warning',
-      resource: `agent:${agent.slug}`,
-      message: "agent-local 'mcp.json' is discovered but not yet projected into the run (adapter parity, #183).",
-    });
-  }
 
   if ((agent.hookPaths ?? []).length > 0) {
     findings.push({

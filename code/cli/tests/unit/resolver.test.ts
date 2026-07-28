@@ -373,7 +373,7 @@ describe('resource resolution', () => {
     ]);
   });
 
-  it('discovers per-agent mcp.json and reserved hooks, warning that they are not yet projected', () => {
+  it('discovers per-agent mcp.json and warns only for the reserved hooks namespace', () => {
     const root = createTemporaryRoot();
     const home = join(root, 'home');
     const project = join(root, 'project');
@@ -394,7 +394,7 @@ describe('resource resolution', () => {
     expect(plain.hookPaths).toEqual([]); // empty hooks/ is not collected
 
     const findings = validateEffectiveSet(set);
-    expect(findings.some((f) => f.resource === 'agent:engineer' && /mcp\.json/.test(f.message))).toBe(true);
+    expect(findings.some((f) => f.resource === 'agent:engineer' && /mcp\.json/.test(f.message))).toBe(false);
     expect(findings.some((f) => f.resource === 'agent:engineer' && /hooks/.test(f.message))).toBe(true);
     // Stubs surface as warnings (fatal only under --strict), never as errors.
     expect(findings.filter((f) => f.severity === 'error')).toHaveLength(0);
@@ -439,6 +439,7 @@ describe('resource resolution', () => {
     const set = setFor(home, project);
     const engineer = findResource(set, 'agent', 'engineer')!;
     expect(engineer.winner.layer.origin).toBe('global');
+    expect(engineer.configLayerRoots).toEqual([join(project, '.agents')]);
     const definition = readAgentDefinition(engineer.winner.path, engineer.configPaths);
     expect(isAgentDefinitionIssue(definition)).toBe(false);
     if (isAgentDefinitionIssue(definition)) return;

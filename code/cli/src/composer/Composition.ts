@@ -17,8 +17,12 @@ export interface ComposedIdentity {
 /** A loadout with its slug references resolved against the effective set. */
 export interface ComposedLoadout {
   readonly skills: readonly ResolvedResource[];
+  /** Skills selected by delegates, materialized for them without loading them into the leader. */
+  readonly delegateSkills: readonly ResolvedResource[];
   readonly subagents: readonly ResolvedResource[];
   readonly mcp: readonly string[];
+  /** Selected MCP server definitions after layer and per-agent precedence are applied. */
+  readonly mcpServers: Readonly<Record<string, unknown>>;
   readonly extensions: readonly string[];
   readonly plugins: readonly string[];
   readonly model?: string;

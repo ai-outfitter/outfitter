@@ -90,6 +90,9 @@ const discoverDirectoryResources = (
 const collectAgentFiles = (layers: readonly Layer[], slug: string, ...segments: string[]): readonly string[] =>
   layers.map((layer) => join(layer.root, 'agents', slug, ...segments)).filter((path) => resolvesToFile(path));
 
+const collectAgentFileLayerRoots = (layers: readonly Layer[], slug: string, ...segments: string[]): readonly string[] =>
+  layers.filter((layer) => resolvesToFile(join(layer.root, 'agents', slug, ...segments))).map((layer) => layer.root);
+
 const isNonEmptyDirectory = (directory: string): boolean => {
   try {
     return statSync(directory).isDirectory() && readdirSync(directory).length > 0;
@@ -117,6 +120,7 @@ const withAgentResourcePaths = (
       {
         ...resource,
         configPaths: collectAgentFiles(layers, slug, 'config.json'),
+        configLayerRoots: collectAgentFileLayerRoots(layers, slug, 'config.json'),
         mcpPaths: collectAgentFiles(layers, slug, 'mcp.json'),
         hookPaths: collectAgentHookDirs(layers, slug),
         piConfigDirectories: collectAgentPiConfigDirs(layers, slug),

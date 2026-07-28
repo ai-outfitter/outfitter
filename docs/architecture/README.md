@@ -135,7 +135,7 @@ Rules:
 For a selected agent, the composer builds the run's effective configuration from the effective resource set:
 
 1. **Identity**: the tree's `system-prompt.md` is the base; `agents.md` contributes shared operating context; the selected agent's `agent.md` layers on top. Composition order is explicit and deterministic.
-2. **Subagents**: agents named in the selected agent's `subagents` loadout are marked for projection into the harness's delegation surface.
+2. **Subagents**: agents named in the selected agent's `subagents` loadout are marked for projection into the harness's delegation surface; their own selected skills are resolved and materialized separately from the leader's active skills.
 3. **Skills**: skills named in the loadout are materialized (frontmatter `references`/`scripts`/`assets` resolved from their two-root model, validated for escapes and collisions) into generated skill directories.
 4. **Harness elements**: extensions and plugins named in the loadout are marked for the adapter (first-class for pi).
 5. **Structured configuration**: `models.json`, `mcp.json`, and per-agent `config.json` merge per protocol JSON semantics; the loadout's `model`, `thinking`, and `tools` select and constrain within them.

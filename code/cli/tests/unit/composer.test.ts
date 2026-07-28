@@ -1,5 +1,5 @@
 // Tests composition of a harness-neutral CompositionPlan from the effective resource set.
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 
@@ -40,8 +40,16 @@ describe('composer', () => {
     write(join(project, '.agents', 'agents.md'), 'SHARED CONTEXT');
     write(join(project, '.agents', 'skills', 'wiki', 'SKILL.md'), '---\nname: wiki\n---\n');
     write(
+      join(project, '.agents', 'mcp.json'),
+      JSON.stringify({ mcpServers: { github: { command: 'github-mcp-server' } } }),
+    );
+    write(
       join(project, '.agents', 'agents', 'code-reviewer', 'agent.md'),
-      '---\nname: code-reviewer\n---\n\nReview.\n',
+      '---\nname: code-reviewer\nskills: [review-only]\n---\n\nReview.\n',
+    );
+    write(
+      join(project, '.agents', 'agents', 'code-reviewer', 'skills', 'review-only', 'SKILL.md'),
+      '---\nname: review-only\n---\n',
     );
     write(
       join(project, '.agents', 'agents', 'engineer', 'agent.md'),
@@ -63,8 +71,11 @@ describe('composer', () => {
     expect(plan.identity.agentBody).toContain('# Engineer');
     expect(plan.identity.description).toBe('Ships changes.');
     expect(plan.loadout.skills.map((s) => s.slug)).toEqual(['wiki']);
+    expect(plan.loadout.delegateSkills.map((s) => s.slug)).toEqual(['review-only']);
+    expect(plan.loadout.delegateSkills[0]?.winner.ownerAgent).toBe('code-reviewer');
     expect(plan.loadout.subagents.map((s) => s.slug)).toEqual(['code-reviewer']);
     expect(plan.loadout.mcp).toEqual(['github']);
+    expect(plan.loadout.mcpServers).toEqual({ github: { command: 'github-mcp-server' } });
     expect(plan.loadout.model).toBe('gpt-5.2');
     expect(plan.loadout.thinking).toBe('high');
     expect(plan.warnings).toEqual([]);
@@ -78,6 +89,68 @@ describe('composer', () => {
     );
 
     expect(compose(resolveSet(home, project), 'engineer').plan?.identity.label).toBe('Engineering Lead');
+  });
+
+  it('merges layered and agent-local MCP servers by id, then keeps only selected servers', () => {
+    const { home, project } = buildTree();
+    write(
+      join(home, '.agents', 'mcp.json'),
+      JSON.stringify({
+        mcpServers: {
+          github: { command: 'home-github' },
+          unused: { command: 'home-unused' },
+        },
+      }),
+    );
+    write(
+      join(project, '.agents', 'mcp.json'),
+      JSON.stringify({ mcpServers: { github: { command: 'project-github' } } }),
+    );
+    write(
+      join(project, '.agents', 'agents', 'engineer', 'mcp.json'),
+      JSON.stringify({ mcpServers: { github: { command: 'agent-github' } } }),
+    );
+
+    const result = compose(resolveSet(home, project), 'engineer');
+
+    expect(result.plan?.loadout.mcpServers).toEqual({ github: { command: 'agent-github' } });
+    expect(result.plan?.warnings).toEqual([]);
+  });
+
+  it('warns when selected MCP configuration is invalid or does not contain the selected server', () => {
+    const { home, project } = buildTree();
+    write(join(home, '.agents', 'mcp.json'), 'not json');
+    write(join(project, '.agents', 'mcp.json'), JSON.stringify({ mcpServers: [] }));
+    write(join(project, '.agents', 'agents', 'engineer', 'mcp.json'), JSON.stringify([]));
+
+    const result = compose(resolveSet(home, project), 'engineer');
+
+    expect(result.plan?.loadout.mcpServers).toEqual({});
+    expect(result.plan?.warnings).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining('not readable JSON'),
+        expect.stringContaining("object-valued 'mcpServers'"),
+        expect.stringContaining("unknown server 'github'"),
+      ]),
+    );
+  });
+
+  it('does not read selected MCP configuration through a symlink that escapes its layer', () => {
+    const { home, project } = buildTree();
+    const external = join(createTemporaryRoot(), 'outside-mcp.json');
+    write(external, JSON.stringify({ mcpServers: { github: { command: 'outside' } } }));
+    rmSync(join(project, '.agents', 'mcp.json'));
+    symlinkSync(external, join(project, '.agents', 'mcp.json'));
+
+    const result = compose(resolveSet(home, project), 'engineer');
+
+    expect(result.plan?.loadout.mcpServers).toEqual({});
+    expect(result.plan?.warnings).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining('resolves outside the resource layers'),
+        expect.stringContaining("unknown server 'github'"),
+      ]),
+    );
   });
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-005.3).
@@ -144,5 +217,88 @@ describe('composer', () => {
     const result = compose(resolveSet(join(root, 'home'), project), 'engineer');
     expect(result.errors).toEqual([]);
     expect(result.plan!.warnings).toContain("loadout skills references unknown skill 'ghost'.");
+  });
+
+  it('warns when a delegate-only skill does not resolve', () => {
+    const root = createTemporaryRoot();
+    const project = join(root, 'project');
+    write(
+      join(project, '.agents', 'agents', 'engineer', 'agent.md'),
+      '---\nname: engineer\nsubagents: [reviewer]\n---\n\nBody.\n',
+    );
+    write(
+      join(project, '.agents', 'agents', 'reviewer', 'agent.md'),
+      '---\nname: reviewer\nskills: [ghost]\n---\n\nReview.\n',
+    );
+
+    const result = compose(resolveSet(join(root, 'home'), project), 'engineer');
+
+    expect(result.plan?.loadout.delegateSkills).toEqual([]);
+    expect(result.plan?.warnings).toContain("subagent 'reviewer' loadout skills references unknown skill 'ghost'.");
+  });
+
+  it('keeps the first materializable definition when delegate skill slugs conflict', () => {
+    const root = createTemporaryRoot();
+    const project = join(root, 'project');
+    write(
+      join(project, '.agents', 'agents', 'engineer', 'agent.md'),
+      '---\nname: engineer\nsubagents: [alpha, beta]\n---\n\nBody.\n',
+    );
+
+    for (const delegate of ['alpha', 'beta']) {
+      write(
+        join(project, '.agents', 'agents', delegate, 'agent.md'),
+        `---\nname: ${delegate}\nskills: [review]\n---\n\nReview.\n`,
+      );
+      write(
+        join(project, '.agents', 'agents', delegate, 'skills', 'review', 'SKILL.md'),
+        `---\nname: review\n---\n\n${delegate}\n`,
+      );
+    }
+
+    const result = compose(resolveSet(join(root, 'home'), project), 'engineer');
+
+    expect(result.plan?.loadout.delegateSkills).toHaveLength(1);
+    expect(result.plan?.loadout.delegateSkills[0]?.winner.ownerAgent).toBe('alpha');
+    expect(result.plan?.warnings).toEqual([expect.stringContaining("delegate skill 'review' resolves")]);
+  });
+
+  it('does not resolve skills from invalid or mislabeled delegates', () => {
+    const root = createTemporaryRoot();
+    const project = join(root, 'project');
+    write(
+      join(project, '.agents', 'agents', 'engineer', 'agent.md'),
+      '---\nname: engineer\nsubagents: [broken, mislabeled]\n---\n\nBody.\n',
+    );
+    write(join(project, '.agents', 'agents', 'broken', 'agent.md'), 'missing frontmatter');
+    write(
+      join(project, '.agents', 'agents', 'mislabeled', 'agent.md'),
+      '---\nname: other\nskills: [ghost]\n---\n\nReview.\n',
+    );
+
+    const result = compose(resolveSet(join(root, 'home'), project), 'engineer');
+
+    expect(result.errors).toEqual([]);
+    expect(result.plan?.loadout.delegateSkills).toEqual([]);
+    expect(result.plan?.warnings).toEqual([]);
+  });
+
+  it('does not read delegate definitions through an escaping symlink', () => {
+    const root = createTemporaryRoot();
+    const project = join(root, 'project');
+    const external = join(createTemporaryRoot(), 'outside-agent.md');
+    write(
+      join(project, '.agents', 'agents', 'engineer', 'agent.md'),
+      '---\nname: engineer\nsubagents: [reviewer]\n---\n\nBody.\n',
+    );
+    write(external, '---\nname: reviewer\nskills: [ghost]\n---\n\nOutside.\n');
+    mkdirSync(join(project, '.agents', 'agents', 'reviewer'), { recursive: true });
+    symlinkSync(external, join(project, '.agents', 'agents', 'reviewer', 'agent.md'));
+
+    const result = compose(resolveSet(join(root, 'home'), project), 'engineer');
+
+    expect(result.errors).toEqual([]);
+    expect(result.plan?.loadout.delegateSkills).toEqual([]);
+    expect(result.plan?.warnings).toEqual([]);
   });
 });
