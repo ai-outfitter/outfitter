@@ -221,7 +221,7 @@ describe('sync command', () => {
     const input = createInvocation();
     const catalog = createRepository({
       'payload/agents/warned/agent.md': agent('warned'),
-      'payload/agents/warned/mcp.json': '{}\n',
+      'payload/agents/warned/hooks/pre.md': 'reserved hook\n',
     });
     writeHomeSettings(
       input.homeDirectory,

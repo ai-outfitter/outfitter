@@ -7,6 +7,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import type { CompositionPlan } from '../../src/composer/Composition.js';
 import { projectComposition } from '../../src/projection/ProjectHarness.js';
+import type { ResolvedResource } from '../../src/resolver/Resource.js';
 
 const roots: string[] = [];
 const root = (): string => {
@@ -21,7 +22,15 @@ afterEach(() => {
 const planWith = (extensions: readonly string[]): CompositionPlan => ({
   agent: 'agent',
   identity: { agentBody: 'Body.' },
-  loadout: { skills: [], subagents: [], mcp: [], extensions: [...extensions], plugins: [] },
+  loadout: {
+    skills: [],
+    delegateSkills: [],
+    subagents: [],
+    mcp: [],
+    mcpServers: {},
+    extensions: [...extensions],
+    plugins: [],
+  },
   warnings: [],
 });
 
@@ -60,6 +69,228 @@ describe('projectComposition extensions', () => {
     });
     expect(projection.launch.args).not.toContain('--extension');
     expect(projection.unsupported).toContain('extensions');
+  });
+});
+
+const subagentResource = (slug: string, path: string, layerRoot: string): ResolvedResource => ({
+  kind: 'agent',
+  slug,
+  winner: {
+    kind: 'agent',
+    slug,
+    path,
+    layer: { root: layerRoot, origin: 'workspace', label: 'workspace' },
+  },
+  shadowed: [],
+});
+
+const skillResource = (slug: string, path: string, layerRoot: string): ResolvedResource => ({
+  kind: 'skill',
+  slug,
+  winner: {
+    kind: 'skill',
+    slug,
+    path,
+    layer: { root: layerRoot, origin: 'workspace', label: 'workspace' },
+  },
+  shadowed: [],
+});
+
+describe('projectComposition Pi delegates', () => {
+  it('materializes a minimal selected subagent with a usable fallback description', () => {
+    const dir = root();
+    const catalog = root();
+    const path = join(catalog, 'agents', 'reviewer', 'agent.md');
+    mkdirSync(join(catalog, 'agents', 'reviewer'), { recursive: true });
+    writeFileSync(path, '---\nname: reviewer\n---\n\nReview carefully.\n');
+    const plan = planWith([]);
+    const projection = projectComposition(
+      { ...plan, loadout: { ...plan.loadout, subagents: [subagentResource('reviewer', path, catalog)] } },
+      {
+        harness: 'pi',
+        rootDirectory: dir,
+        homeDirectory: dir,
+      },
+    );
+
+    expect(readFileSync(join(dir, 'agents', 'reviewer.md'), 'utf8')).toContain(
+      'description: "Delegated reviewer agent."',
+    );
+    expect(projection.unsupported).not.toContain('subagents');
+  });
+
+  it('serializes selected delegate controls and writes only selected MCP servers', () => {
+    const dir = root();
+    const catalog = root();
+    const path = join(catalog, 'agents', 'reviewer', 'agent.md');
+    mkdirSync(join(catalog, 'agents', 'reviewer'), { recursive: true });
+    writeFileSync(
+      path,
+      [
+        '---',
+        'name: reviewer',
+        'description: Reviews implementation changes.',
+        'skills: [review, style]',
+        'extensions: [npm:review-extension, git:github.com/example/review]',
+        'model: review-model',
+        'thinking: high',
+        'tools:',
+        '  allow: [read, bash, write]',
+        '  deny: [bash]',
+        '---',
+        '',
+        'Review carefully.',
+        '',
+      ].join('\n'),
+    );
+    const reviewSkill = join(catalog, 'skills', 'review', 'SKILL.md');
+    const styleSkill = join(catalog, 'skills', 'style', 'SKILL.md');
+    mkdirSync(join(catalog, 'skills', 'review'), { recursive: true });
+    mkdirSync(join(catalog, 'skills', 'style'), { recursive: true });
+    writeFileSync(reviewSkill, '---\nname: review\n---\n\nReview skill.\n');
+    writeFileSync(styleSkill, '---\nname: style\n---\n\nStyle skill.\n');
+    const plan = planWith([]);
+    const projection = projectComposition(
+      {
+        ...plan,
+        loadout: {
+          ...plan.loadout,
+          delegateSkills: [skillResource('review', reviewSkill, catalog), skillResource('style', styleSkill, catalog)],
+          subagents: [subagentResource('reviewer', path, catalog)],
+          mcp: ['playwright'],
+          mcpServers: { playwright: { command: 'playwright-mcp' } },
+        },
+      },
+      {
+        harness: 'pi',
+        rootDirectory: dir,
+        homeDirectory: dir,
+      },
+    );
+
+    const reviewer = readFileSync(join(dir, 'agents', 'reviewer.md'), 'utf8');
+    expect(reviewer).toContain('description: "Reviews implementation changes."');
+    expect(reviewer).toContain('model: "review-model"');
+    expect(reviewer).toContain('thinking: "high"');
+    expect(reviewer).toContain('tools: "read, write"');
+    expect(reviewer).toContain('skills: "review, style"');
+    expect(reviewer).toContain('extensions: "npm:review-extension, git:github.com/example/review"');
+    expect(reviewer).toContain('Review carefully.');
+    expect(readFileSync(join(dir, 'skills', 'review', 'SKILL.md'), 'utf8')).toContain('Review skill.');
+    expect(readFileSync(join(dir, 'skills', 'style', 'SKILL.md'), 'utf8')).toContain('Style skill.');
+    expect(projection.launch.args).not.toContain('review');
+    expect(projection.launch.args).not.toContain('style');
+    expect(JSON.parse(readFileSync(join(dir, 'mcp.json'), 'utf8'))).toEqual({
+      mcpServers: { playwright: { command: 'playwright-mcp' } },
+    });
+  });
+
+  it('reports a selected subagent whose definition cannot be materialized', () => {
+    const dir = root();
+    const catalog = root();
+    const path = join(catalog, 'agents', 'broken', 'agent.md');
+    mkdirSync(join(catalog, 'agents', 'broken'), { recursive: true });
+    writeFileSync(path, 'missing frontmatter');
+    const plan = planWith([]);
+    const projection = projectComposition(
+      { ...plan, loadout: { ...plan.loadout, subagents: [subagentResource('broken', path, catalog)] } },
+      {
+        harness: 'pi',
+        rootDirectory: dir,
+        homeDirectory: dir,
+      },
+    );
+
+    expect(projection.unsupported).toContain('subagent:broken (invalid definition)');
+  });
+
+  it('reports a selected subagent whose declared name does not match its slug', () => {
+    const dir = root();
+    const catalog = root();
+    const path = join(catalog, 'agents', 'reviewer', 'agent.md');
+    mkdirSync(join(catalog, 'agents', 'reviewer'), { recursive: true });
+    writeFileSync(path, '---\nname: other\n---\n\nReview carefully.\n');
+    const plan = planWith([]);
+    const projection = projectComposition(
+      { ...plan, loadout: { ...plan.loadout, subagents: [subagentResource('reviewer', path, catalog)] } },
+      {
+        harness: 'pi',
+        rootDirectory: dir,
+        homeDirectory: dir,
+      },
+    );
+
+    expect(projection.unsupported).toContain('subagent:reviewer (invalid definition)');
+    expect(() => readFileSync(join(dir, 'agents', 'reviewer.md'), 'utf8')).toThrow();
+  });
+
+  it('accepts a config-only overlay layer for a selected subagent', () => {
+    const dir = root();
+    const catalog = root();
+    const overlay = root();
+    const path = join(catalog, 'agents', 'reviewer', 'agent.md');
+    const configPath = join(overlay, 'agents', 'reviewer', 'config.json');
+    mkdirSync(join(catalog, 'agents', 'reviewer'), { recursive: true });
+    mkdirSync(join(overlay, 'agents', 'reviewer'), { recursive: true });
+    writeFileSync(path, '---\nname: reviewer\n---\n\nReview carefully.\n');
+    writeFileSync(configPath, '{"model":"review-model"}');
+    const plan = planWith([]);
+    const reviewer = {
+      ...subagentResource('reviewer', path, catalog),
+      configPaths: [configPath],
+      configLayerRoots: [overlay],
+    };
+    const projection = projectComposition(
+      { ...plan, loadout: { ...plan.loadout, subagents: [reviewer] } },
+      {
+        harness: 'pi',
+        rootDirectory: dir,
+        homeDirectory: dir,
+      },
+    );
+
+    expect(readFileSync(join(dir, 'agents', 'reviewer.md'), 'utf8')).toContain('model: "review-model"');
+    expect(projection.unsupported).not.toContain('subagents');
+  });
+
+  it('does not materialize a selected subagent through an escaping symlink', () => {
+    const dir = root();
+    const catalog = root();
+    const external = join(root(), 'outside-agent.md');
+    const path = join(catalog, 'agents', 'linked', 'agent.md');
+    writeFileSync(external, '---\nname: linked\n---\n\nOutside.\n');
+    mkdirSync(join(catalog, 'agents', 'linked'), { recursive: true });
+    symlinkSync(external, path);
+    const plan = planWith([]);
+    const linked = subagentResource('linked', path, catalog);
+    const projection = projectComposition(
+      {
+        ...plan,
+        loadout: {
+          ...plan.loadout,
+          subagents: [
+            {
+              ...linked,
+              shadowed: [
+                {
+                  kind: 'agent',
+                  slug: 'linked',
+                  path,
+                  layer: { root: catalog, origin: 'global', label: 'global' },
+                },
+              ],
+            },
+          ],
+        },
+      },
+      {
+        harness: 'pi',
+        rootDirectory: dir,
+        homeDirectory: dir,
+      },
+    );
+
+    expect(projection.unsupported).toContain('subagent:linked (invalid definition)');
   });
 });
 

@@ -6,12 +6,15 @@ import type { AgentLaunchPlan, AgentProjectionPlan, ProjectionInput } from './Pr
 
 // Loadout elements a projection actually maps to native config. Anything else is reported
 // unsupported so `--strict` catches silently-dropped selections. Baseline for both harnesses is
-// identity + skills + model + thinking; pi additionally projects `extensions` once the run path has
-// resolved their install dirs (`extensionLoadDirs`). subagents/mcp/plugins/tools remain unsupported
-// pending incremental parity (#183).
+// identity + skills + model + thinking. Pi also projects selected subagents and MCP servers into
+// its runtime config directory, and projects `extensions` once the run path has resolved their
+// install dirs (`extensionLoadDirs`). plugins/tools remain unsupported pending incremental parity
+// (#183).
 const supportedElements = (input: ProjectionInput): readonly string[] => {
   const baseline = ['skills', 'model', 'thinking'];
-  return input.harness === 'pi' && input.extensionLoadDirs !== undefined ? [...baseline, 'extensions'] : baseline;
+  if (input.harness !== 'pi') return baseline;
+  const pi = [...baseline, 'subagents', 'mcp'];
+  return input.extensionLoadDirs === undefined ? pi : [...pi, 'extensions'];
 };
 
 const loadoutElementsInUse = (composition: CompositionPlan): readonly string[] => {
@@ -86,6 +89,7 @@ export const projectComposition = (composition: CompositionPlan, input: Projecti
   const unsupported = [
     ...unsupportedElements(composition, input),
     ...materialized.skippedSkills.map((slug) => `skill:${slug} (escaping symlink)`),
+    ...materialized.skippedSubagents.map((slug) => `subagent:${slug} (invalid definition)`),
   ];
 
   return { rootDirectory: input.rootDirectory, launch, unsupported };

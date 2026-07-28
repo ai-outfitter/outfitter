@@ -321,25 +321,30 @@ describe('run agent', () => {
     expect(result.launchPlan?.command).toBe('pi');
   });
 
-  it('reports every non-projected loadout element as unsupported', async () => {
+  it('projects Pi subagents and MCP while reporting the remaining unsupported loadout elements', async () => {
     const root = createTemporaryRoot();
+    const home = join(root, 'home');
     const project = join(root, 'project');
+    write(join(home, '.agents', 'mcp.json'), JSON.stringify({ mcpServers: { gh: { command: 'gh-mcp' } } }));
     write(join(project, '.agents', 'agents', 'reviewer', 'agent.md'), '---\nname: reviewer\n---\n\nReview.\n');
     write(
       join(project, '.agents', 'agents', 'lead', 'agent.md'),
       '---\nname: lead\nsubagents: [reviewer]\nmcp: [gh]\nplugins: [p]\nextensions: [e]\nmodel: m\nthinking: high\ntools:\n  allow: [read]\n---\n\nBody.\n',
     );
     const result = await executeRunAgentCommand({
-      homeDirectory: join(root, 'home'),
+      homeDirectory: home,
       projectDirectory: project,
       agent: 'lead',
       harness: 'pi',
       launcher,
     });
     const messages = result.messages.join(' ');
-    for (const element of ['subagents', 'mcp', 'plugins', 'tools']) {
+    for (const element of ['plugins', 'tools']) {
       expect(messages).toContain(`loadout element '${element}'`);
     }
+    expect(messages).not.toContain("loadout element 'subagents'");
+    expect(messages).not.toContain("loadout element 'mcp'");
+    expect(messages).not.toContain('unknown server');
     // pi extensions are now projected, so a non-git/npm specifier is reported as an unsupported
     // source rather than a categorically unsupported loadout element.
     expect(messages).toContain("extension 'e' uses an unsupported source");

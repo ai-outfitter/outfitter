@@ -79,9 +79,20 @@ agents/founder/
 
 The overlay is file-based. Source layers are applied from lowest to highest precedence, so a workspace `agents/founder/pi/keybindings.json` replaces the same file from a global or remote catalog while unrelated lower-layer files remain present. Outfitter does not follow symlinks from the overlay. The folder is ignored when the selected harness is not Pi.
 
-Outfitter writes generated identity and composed skills after applying the native overlay, and seeds durable Pi credentials immediately before launch. Those runtime-owned resources therefore cannot be replaced accidentally by a profile overlay.
+Outfitter writes generated identity, composed skills, selected delegates, and
+selected MCP servers after applying the native overlay, and seeds durable Pi
+credentials immediately before launch. Those runtime-owned resources therefore
+cannot be replaced accidentally by a profile overlay.
 
-Two per-agent surfaces are **discovered but not yet projected** (adapter parity is tracked in [#183](https://github.com/ai-outfitter/outfitter/issues/183)): `agents/<agent>/mcp.json` (merges by server id over the tree-root `mcp.json`) and the reserved `agents/<agent>/hooks/` namespace (see [Hooks](./hooks.md)). Both surface a validation warning when present so a selection placed there is never silently dropped.
+`agents/<agent>/mcp.json` merges by server id over layered tree-root `mcp.json`
+files. The Pi projection writes only the servers selected by the active
+agent's `mcp` loadout into the runtime `mcp.json`.
+
+The per-agent `agents/<agent>/hooks/` namespace remains reserved and is not yet
+projected (adapter parity is tracked in
+[#183](https://github.com/ai-outfitter/outfitter/issues/183)). Its presence
+surfaces a validation warning so content placed there is never silently
+dropped.
 
 ## config.json
 
@@ -112,3 +123,5 @@ Agents resolve by slug across layers — workspace, global, then remote sources 
 ## Agents as delegates
 
 The same agent definition can also be selected as a [subagent](./subagents.md) in another agent's `subagents` list — a delegate the run can hand focused work to. A leader agent's loadout is where that delegation is declared.
+For Pi runs, Outfitter also resolves and materializes the delegate's selected skills. Those skills
+are available to the delegate without being loaded into the leader's active skill set.

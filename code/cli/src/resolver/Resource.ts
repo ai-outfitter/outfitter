@@ -68,6 +68,11 @@ export interface ResolvedResource {
    */
   readonly configPaths?: readonly string[];
   /**
+   * For agents: layer roots corresponding to `configPaths`. Config-only overlay layers do not
+   * appear in `winner` or `shadowed`, so projection retains this provenance for containment checks.
+   */
+  readonly configLayerRoots?: readonly string[];
+  /**
    * For agents: existing `agents/<slug>/mcp.json` paths across all layers, highest precedence first.
    * Discovered here so a later projection pass (#183) can merge them over the tree-root `mcp.json`.
    * Config merges by server id — it does not shadow whole like slug resources.

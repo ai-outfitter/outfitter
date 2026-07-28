@@ -18,7 +18,7 @@
     },
     "mcp": {
       "$ref": "#/$defs/slugList",
-      "description": "MCP server ids. Per-agent agents/<name>/mcp.json is discovered and merges by id over the tree-root mcp.json; projection into the run is deferred (adapter parity, #183)."
+      "description": "MCP server ids. Per-agent agents/<name>/mcp.json merges by id over layered tree-root mcp.json files before selected servers are projected into the run."
     },
     "extensions": {
       "$ref": "#/$defs/slugList",
