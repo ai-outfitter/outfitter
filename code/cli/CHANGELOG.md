@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.2](https://github.com/ai-outfitter/outfitter/compare/v1.1.1...v1.1.2) (2026-07-28)
+
+
+### Bug Fixes
+
+* **pi:** project selected subagents and MCP servers ([#229](https://github.com/ai-outfitter/outfitter/issues/229)) ([68cbcbe](https://github.com/ai-outfitter/outfitter/commit/68cbcbe79a00fa62e6a71b710e07c063a1a85db6))
+
 ## [1.1.1](https://github.com/ai-outfitter/outfitter/compare/v1.1.0...v1.1.1) (2026-07-27)
 
 
