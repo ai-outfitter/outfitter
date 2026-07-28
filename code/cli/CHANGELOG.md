@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.0](https://github.com/ai-outfitter/outfitter/compare/v1.1.2...v1.2.0) (2026-07-28)
+
+
+### Features
+
+* **agents:** restore inheritance and prompt composition ([#232](https://github.com/ai-outfitter/outfitter/issues/232)) ([93afe71](https://github.com/ai-outfitter/outfitter/commit/93afe7177009134640ae013066e95831bb704980))
+
 ## [1.1.2](https://github.com/ai-outfitter/outfitter/compare/v1.1.1...v1.1.2) (2026-07-28)
 
 
