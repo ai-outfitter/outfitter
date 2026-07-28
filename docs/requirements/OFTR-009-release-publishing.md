@@ -39,3 +39,7 @@ Outfitter release publishing prepares package metadata from Conventional Commit 
 1. The flake MUST expose the release container as the `container` package output.
 2. The container MUST use the Nix-built Outfitter package directly as its entrypoint.
 3. The release workflow MUST smoke test the image before publishing it.
+4. The published container MUST include the Nix CLI, a shell, core utilities, Git, SSH, and CA certificates so it can serve as a resident-agent base image.
+5. The flake MUST expose a container builder that accepts caller-selected runtime packages without rebuilding Outfitter through another package manager.
+6. The release workflow MUST smoke test Outfitter, Nix, and the conventional shell and environment executable paths.
+7. Documentation MUST define the persistent Kubernetes invocation and explain that callers own writable Nix state, profile configuration, credentials, and channel-specific extensions.

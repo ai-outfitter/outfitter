@@ -88,6 +88,8 @@ jobs:
             echo "Expected outfitter --version to print '$VERSION' but got '$output'." >&2
             exit 1
           fi
+          docker run --rm --entrypoint /bin/sh "$IMAGE:$VERSION" -c \
+            'nix --version && test -x /bin/bash && test -x /usr/bin/env'
 
       - name: Log in to GitHub Container Registry
         if: inputs.publish
