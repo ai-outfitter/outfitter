@@ -496,6 +496,64 @@ describe('run agent', () => {
     expect(captured[0]?.dirExisted).toBe(true);
   });
 
+  it('forwards -r to the harness when run is the default command', async () => {
+    const { home, project } = tree();
+    write(join(project, '.agents', 'settings.yml'), 'default_agent: engineer\ndefault_harness: pi\n');
+    const program = new Command();
+    createRunAgentCommand({
+      homeDirectory: home,
+      projectDirectory: project,
+      launcher,
+      writeLine: () => undefined,
+    }).register(program);
+    await program.parseAsync(['node', 'outfitter', '-r']);
+    expect(captured[0]?.plan.command).toBe('pi');
+    expect(captured[0]?.plan.args).toEqual(expect.arrayContaining(['-r']));
+  });
+
+  it('forwards --resume to the harness when run is the default command', async () => {
+    const { home, project } = tree();
+    write(join(project, '.agents', 'settings.yml'), 'default_agent: engineer\ndefault_harness: pi\n');
+    const program = new Command();
+    createRunAgentCommand({
+      homeDirectory: home,
+      projectDirectory: project,
+      launcher,
+      writeLine: () => undefined,
+    }).register(program);
+    await program.parseAsync(['node', 'outfitter', '--resume']);
+    expect(captured[0]?.plan.command).toBe('pi');
+    expect(captured[0]?.plan.args).toEqual(expect.arrayContaining(['--resume']));
+  });
+
+  it('preserves explicit agent selection when run is the default command', async () => {
+    const { home, project } = tree();
+    const program = new Command();
+    createRunAgentCommand({
+      homeDirectory: home,
+      projectDirectory: project,
+      launcher,
+      writeLine: () => undefined,
+    }).register(program);
+    await program.parseAsync(['node', 'outfitter', 'engineer']);
+    expect(captured[0]?.plan.command).toBe('pi');
+  });
+
+  it('preserves --harness and --strict with default-command flag forwarding', async () => {
+    const { home, project } = tree();
+    write(join(project, '.agents', 'settings.yml'), 'default_agent: engineer\ndefault_harness: pi\n');
+    const lines: string[] = [];
+    const program = new Command();
+    createRunAgentCommand({
+      homeDirectory: home,
+      projectDirectory: project,
+      launcher,
+      writeLine: (m) => lines.push(m),
+    }).register(program);
+    await program.parseAsync(['node', 'outfitter', 'run', '--harness', 'pi']);
+    expect(captured[0]?.plan.command).toBe('pi');
+  });
+
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-010.1, OFTR-010.4).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('runs implicit setup when nothing is configured, then launches the created agent', async () => {
