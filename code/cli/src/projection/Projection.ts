@@ -19,6 +19,8 @@ export interface ProjectionInput {
   readonly harness: Harness;
   readonly rootDirectory: string;
   readonly homeDirectory: string;
+  /** Durable session store for the run (pi only); omitted to leave the harness default in place. */
+  readonly sessionDirectory?: string;
   readonly passThroughArgs?: readonly string[];
   /** Local pi extension install directories to load with `--extension` (pi only). */
   readonly extensionLoadDirs?: readonly string[];

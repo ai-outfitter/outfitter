@@ -51,6 +51,7 @@ Amended (2026-07-17, RFC #165): adapters project a harness-neutral composition, 
 16. The pi adapter MUST ignore inherited external `DEEPWORK_ADDITIONAL_JOBS_FOLDERS` values unless `controls.pi.allow_external_deepwork_jobs` is true.
 17. The pi adapter MUST overlay `agents/<agent>/pi/` directories from contributing `.agents` layers into the temporary `PI_CODING_AGENT_DIR`, with higher-precedence layers replacing matching paths, without following symlinks or projecting the overlay into non-Pi harnesses.
 18. The pi adapter MUST project composed prompt fragments in composition order by passing one `--system-prompt`, ordered `--append-system-prompt` arguments, and `--prompt-template` when the composition declares a prompt template.
+19. The pi adapter MUST default `PI_CODING_AGENT_SESSION_DIR` to pi's durable per-project session directory under pi's user agent directory, so sessions survive removal of the temporary `PI_CODING_AGENT_DIR`; it MUST leave an inherited `PI_CODING_AGENT_SESSION_DIR` in place, and MUST NOT override a pass-through `--session-dir` or `--no-session`.
 
 ### OFTR-006.4: Pi Startup Boundary
 

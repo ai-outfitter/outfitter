@@ -11,6 +11,7 @@ import {
   resolvePiUserAgentDirectory,
   seedPiCredentials,
 } from '../../agents/PiCredentialPersistence.js';
+import { resolvePiSessionDirectory } from '../../agents/PiSessionDirectory.js';
 import { compose } from '../../composer/Composer.js';
 import { ensurePiExtensions } from '../../extensions/PiExtensionCache.js';
 import type { PiInstallSpawner } from '../../extensions/PiExtensionCache.js';
@@ -122,6 +123,12 @@ const launchWithCredentialPersistence = async (
   return exitCode;
 };
 
+// pi writes sessions inside PI_CODING_AGENT_DIR — the projection root Outfitter deletes after the
+// run — so resolve pi's durable per-project store instead and let `--continue` outlive the run. An
+// inherited PI_CODING_AGENT_SESSION_DIR keeps precedence (undefined), as do non-pi harnesses.
+const resolveSessionDirectory = (input: RunAgentInput, harness: Harness): string | undefined =>
+  harness === 'pi' ? resolvePiSessionDirectory(process.env, input.homeDirectory, input.projectDirectory) : undefined;
+
 // Installs/caches the pi extensions for the composed agent (pi only) so they load at launch.
 const resolvePiExtensions = async (
   input: RunAgentInput,
@@ -190,6 +197,7 @@ export const executeRunAgentCommand = async (input: RunAgentInput): Promise<RunA
       harness,
       rootDirectory,
       homeDirectory: input.homeDirectory,
+      sessionDirectory: resolveSessionDirectory(input, harness),
       passThroughArgs: input.passThroughArgs,
       extensionLoadDirs: harness === 'pi' ? extensions.loadDirs : undefined,
       // ProjectHarness only overlays these for the pi harness, so pass them through unconditionally.
