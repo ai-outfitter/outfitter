@@ -241,6 +241,7 @@ The adapter owns CLI-specific details: env vars, flags, state path declarations,
 Pi is the default adapter.
 Outfitter prefers native pi mechanisms: `PI_CODING_AGENT_DIR`, `PI_CODING_AGENT_SESSION_DIR`/`--session-dir`, `--extension`, `--skill`, `--prompt-template`, `--system-prompt`/`--append-system-prompt`, model/provider/thinking flags, and generated settings reconciliation where flags are not the right mechanism.
 Startup-order-impossible requests surface as adapter warnings (`--strict` makes them fatal).
+Because the projection root is removed after the run, launches default `PI_CODING_AGENT_SESSION_DIR` to pi's durable per-project session folder (`~/.pi/agent/sessions/--<encoded cwd>--`) so sessions outlive the projection and stay shared with a standalone pi; an inherited `PI_CODING_AGENT_SESSION_DIR` is left in place, and pass-through `--session-dir`/`--no-session` still win by pi's own precedence.
 If generic naming conflicts with pi behavior, prefer pi's terminology.
 
 ### Claude Code

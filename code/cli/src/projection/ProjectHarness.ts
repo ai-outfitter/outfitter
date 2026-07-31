@@ -1,4 +1,5 @@
 // Projects a harness-neutral CompositionPlan to a native pi or Claude Code launch.
+import { PI_SESSION_DIRECTORY_ENV } from '../agents/PiSessionDirectory.js';
 import type { CompositionPlan } from '../composer/Composition.js';
 import type { Harness } from '../settings/Settings.js';
 import { materializeComposition, materializeConfigurationOverlays } from './Materialize.js';
@@ -84,7 +85,15 @@ const buildLaunchPlan = (
       ...modelArgs(composition, input.harness),
       ...(input.passThroughArgs ?? []),
     ],
-    env: isPi ? { PI_CODING_AGENT_DIR: input.rootDirectory } : { CLAUDE_CONFIG_DIR: input.rootDirectory },
+    // The projection root is deleted after the run, so pi's default session store (a subdirectory
+    // of PI_CODING_AGENT_DIR) would take every transcript with it. A resolved session directory
+    // moves the store somewhere durable so `--continue`/`--resume` still find the last conversation.
+    env: isPi
+      ? {
+          PI_CODING_AGENT_DIR: input.rootDirectory,
+          ...(input.sessionDirectory === undefined ? {} : { [PI_SESSION_DIRECTORY_ENV]: input.sessionDirectory }),
+        }
+      : { CLAUDE_CONFIG_DIR: input.rootDirectory },
   };
 };
 

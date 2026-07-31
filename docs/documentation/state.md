@@ -161,6 +161,33 @@ state_persistence:
   unknown: warn # Undeclared writes; allowed: discard, warn, error, prompt.
 ```
 
+## Pi sessions
+
+Pi stores conversation transcripts under its agent directory, and Outfitter points `PI_CODING_AGENT_DIR` at a baked composition that is deleted when the run ends. So that sessions are not deleted with it, every Pi launch sets `PI_CODING_AGENT_SESSION_DIR` to Pi's own durable per-project session folder:
+
+```text
+~/.pi/agent/sessions/--<your-project-path>--/
+```
+
+This is the same folder a standalone `pi` uses in that project, so history is shared both ways and resuming works after the baked composition is gone:
+
+```sh
+outfitter run                 # first session
+outfitter run -- --continue   # picks up where the previous run left off
+```
+
+The default applies to every Pi launch, interactive or not, so `outfitter run -p '…'` in a script or CI job records a session in the same place. Nothing is copied back after the run: Pi writes straight to the durable directory.
+
+To change or turn off session storage, pass Pi's native flags through, or set the environment variable yourself — Outfitter never overrides a session directory you have already chosen:
+
+```sh
+outfitter run -- --no-session                    # ephemeral: record nothing
+outfitter run -- --session-dir ./.pi/sessions    # keep this project's sessions in the repo
+PI_CODING_AGENT_SESSION_DIR=/workspace/.pi/agent/sessions outfitter run
+```
+
+The last form is how a resident or in-cluster agent keeps continuity across restarts: point the variable at a persistent volume.
+
 ## Claude Code state paths
 
 The Claude Code adapter declares these paths:
