@@ -39,7 +39,9 @@ Generated entries carry an `x-outfitter-managed` marker so re-linking replaces o
 entries and never disturbs hand-written hooks in the same settings file.
 
 This covers hooks for harnesses Outfitter links persistently. It is settings-level configuration, not
-a protocol resource: a hook still cannot travel inside a shared `.agents` catalog.
+a protocol resource: a hook still cannot travel inside a shared `.agents` catalog — and deliberately
+so. The block is honored only from your own `~/.agents` settings, because a hook a project could
+declare would become a shell command every future agent session runs on your machine.
 
 ## Roadmap
 

@@ -38,7 +38,7 @@ actually differ are commands and hooks.
 | Global instructions | `CLAUDE.md` link          | `AGENTS.md` link         | `GEMINI.md` link                     | Not supported        |
 | Hooks               | `settings.json` merge     | Not written              | `settings.json` merge                | Not supported        |
 
-Global instructions come from `~/.agents/AGENTS.md`, the canonical personal guidance file.
+Global instructions come from `~/.agents/AGENTS.md`, the canonical personal guidance file. If that file does not exist, Outfitter links no instructions and says nothing about it — create it first.
 
 A cell marked "not supported" is a deliberate gap, not an oversight:
 
@@ -50,13 +50,16 @@ A cell marked "not supported" is a deliberate gap, not an oversight:
 
 Requesting an unsupported combination prints a warning; `--strict` makes it fatal.
 
-## Nothing of yours is overwritten
+## What Outfitter will and will not overwrite
 
 Outfitter records every path it creates in an ownership manifest under
-`$XDG_STATE_HOME/outfitter/links.json` (or `~/.local/state/outfitter/links.json`). A path absent
-from that manifest is never replaced or removed — even if it already points exactly where Outfitter
-would have pointed it. Adopting such a path silently would make `--remove` later delete something
-you wrote by hand.
+`$XDG_STATE_HOME/outfitter/links.json` (or `~/.local/state/outfitter/links.json`). Unless you pass
+`--force`, a path absent from that manifest is never replaced or removed — even if it already points
+exactly where Outfitter would have pointed it. Adopting such a path silently would make `--remove`
+later delete something you wrote by hand.
+
+The same applies to a path Outfitter _did_ create but you have since taken over: replace a managed
+link with a real directory and Outfitter reports a conflict instead of deleting your directory.
 
 An unmanaged path at a target location is reported as a conflict and left alone:
 
@@ -65,26 +68,37 @@ An unmanaged path at a target location is reported as a conflict and left alone:
 ✗ Conflicting paths were left untouched. Move them aside, or re-run with --force.
 ```
 
-Hooks are the exception to path ownership, because they merge into a settings file you also edit.
-Each generated entry carries an `x-outfitter-managed` marker, so re-running replaces only Outfitter's
-own entries and leaves your hand-written hooks and every other settings key untouched. A settings
-file that cannot be parsed is reported and left alone rather than replaced.
+`--force` is the single exception: it deletes whatever sits at the conflicting path — recursively,
+if it is a directory — and replaces it, reporting each replacement.
+
+Hooks work differently, because they merge into a settings file you also edit. Each generated entry
+carries an `x-outfitter-managed` marker, so re-running replaces only Outfitter's own entries and
+leaves your hand-written hooks and every other settings key in place. The merge rewrites the whole
+document, so every key and value survives but the file comes back two-space-indented the first time
+Outfitter touches it. Outfitter updates the file in place rather than replacing it, so a
+`settings.json` that is a symlink into your dotfiles repository stays a symlink. A settings file
+that cannot be parsed is reported and left alone.
 
 ## Reconciling and removing
 
 `link` is idempotent: run it again after editing your catalog and only real differences change —
-including hooks, where an unchanged merge leaves `settings.json` byte-for-byte untouched. A skill
+including hooks, where a merge that changes nothing leaves `settings.json` untouched, mtime and all. A skill
 deleted from the catalog has its managed link pruned, and withdrawing your hook declarations strips
 Outfitter's entries on the next run.
 
 `outfitter link --remove` uninstalls: it removes every managed path, strips Outfitter's marked hook
 entries from each settings document it merged into, and forgets the manifest. Settings files
-themselves are never deleted, and nothing unmanaged is touched.
+themselves are never deleted, and nothing unmanaged is touched. Combine it with `--harness` to
+uninstall one harness and leave the rest provisioned.
 
 ## Configuration
 
-Everything is driven from the `harnesses` block in [settings](./settings.md), so it follows the
-usual precedence — project-local over project over user.
+Everything is driven from the `harnesses` block in [settings](./settings.md).
+
+Unlike every other settings block, this one is honored **only from your own `~/.agents/settings.yml`**
+(and its `settings.local.yml` sibling). A project or a remote catalog cannot declare it. The block
+installs shell commands and filesystem targets into configuration every future agent session loads,
+so cloning a repository must not be able to change it.
 
 ```yaml
 # ~/.agents/settings.yml
@@ -127,13 +141,6 @@ be worse than reporting the gap.
 
 ## Options
 
-| Option            | Description                                                               |
-| ----------------- | ------------------------------------------------------------------------- |
-| `--harness <ids>` | Comma-separated harnesses to provision, narrowing the settings selection. |
-| `--dry-run`       | Show what would change; write nothing, including the manifest.            |
-| `--remove`        | Remove every managed path and forget the manifest.                        |
-| `--force`         | Replace paths Outfitter does not manage. Off by default.                  |
-| `--strict`        | Treat unsupported resource/harness combinations as failures.              |
-| `--json`          | Emit the plan and result as JSON.                                         |
+See [`outfitter link`](./cli.md#outfitter-link) in the CLI reference for the full option list.
 
 See also: [Hooks](./hooks.md), [Settings](./settings.md), [Adapter support matrix](./support-matrix.md).

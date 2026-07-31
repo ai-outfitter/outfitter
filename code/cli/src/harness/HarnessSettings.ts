@@ -19,8 +19,6 @@ import type { HookDeclaration } from './HookAdapter.js';
 export type HarnessSelection = 'detected' | 'none' | readonly HarnessId[];
 
 export interface HarnessOverride {
-  /** Include or exclude this harness regardless of what `link` selected. */
-  readonly enabled?: boolean;
   /** Restrict provisioning to these kinds. Defaults to every kind the harness supports. */
   readonly resources?: readonly LinkableKind[];
   /**

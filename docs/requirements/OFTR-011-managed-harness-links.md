@@ -14,8 +14,10 @@ it when the child exits, while `link` writes persistent files into directories t
 then exits. This document governs the persistent path only, and implements the managed-projection
 half of the deferred scope tracked in issue #187.
 
-The governing safety property is that Outfitter must never destroy configuration a user wrote by
-hand. Every rule below follows from it.
+Two governing safety properties. Outfitter must never destroy configuration a user wrote by hand.
+And because this command writes into user-global configuration that every future agent session
+loads — including hooks, which are shell commands — only the user's own settings may drive it.
+Every rule below follows from one of the two.
 
 ## Requirements
 
@@ -35,8 +37,8 @@ hand. Every rule below follows from it.
 ### OFTR-011.2: Ownership and Conflict Safety
 
 1. Outfitter MUST record every path it creates in a persistent ownership manifest.
-2. Outfitter MUST NOT overwrite, adopt, or delete a path absent from that manifest, regardless of
-   the path's current content or link target.
+2. Without `--force`, Outfitter MUST NOT overwrite, adopt, or delete a path absent from that
+   manifest, regardless of the path's current content or link target.
 3. An unmanaged path at a target location MUST be reported as a conflict and left unchanged.
 4. `--force` MUST be required to replace an unmanaged path, and MUST report each replacement.
 5. The ownership manifest MUST be stored as machine-local state outside the `.agents` tree.
@@ -47,6 +49,12 @@ hand. Every rule below follows from it.
 8. Merging hooks MUST preserve every unmanaged key and every hand-written hook entry in the target
    settings document.
 9. A harness settings document that cannot be parsed MUST be left unchanged and reported.
+10. A recorded path whose on-disk kind no longer matches the recorded strategy MUST be reported as
+    a conflict rather than replaced, so taking a managed link over with a real file or directory
+    does not make Outfitter delete it.
+11. Merging into a harness settings document MUST update the file in place rather than replacing
+    the path, so a settings file that is a symlink into a dotfiles repository or a generated
+    configuration tree stays a symlink.
 
 ### OFTR-011.3: Reconciliation
 
@@ -55,11 +63,15 @@ hand. Every rule below follows from it.
 3. A managed path whose catalog resource no longer exists MUST be removed.
 4. `--dry-run` MUST report exactly the changes a real run would make, and MUST write nothing,
    including to the ownership manifest.
-5. `--remove` MUST remove every managed path and forget the manifest.
+5. `--remove` MUST retire every managed path for the harnesses in scope, and MUST forget the
+   manifest once nothing remains managed. Narrowing the run to specific harnesses MUST narrow what
+   is retired.
 6. `--remove` MUST strip Outfitter's marked hook entries from a merged settings document without
    deleting that document or disturbing any other key or hand-written entry.
 7. Withdrawing every hook declaration MUST strip Outfitter's marked entries on the next run, so a
    removed declaration does not linger in harness configuration.
+8. An entry `--remove` could not retire MUST be retained in the manifest, so the record needed to
+   retry it is never discarded.
 
 ### OFTR-011.4: Format Adapters
 
@@ -81,6 +93,9 @@ hand. Every rule below follows from it.
 3. Users MUST be able to declare more than one config directory per harness, because a harness can
    have several live config roots.
 4. Users MUST be able to restrict which resource kinds a harness receives.
-5. The `harnesses` block MUST follow Outfitter's standard settings precedence.
-6. Hook declarations across settings layers MUST accumulate lowest-precedence first, so a project
-   adds to the user's hooks rather than replacing them.
+5. The `harnesses` block MUST be honored only from the user's own home-scope settings. A project
+   or remote catalog MUST NOT be able to declare it, because the block installs shell commands and
+   filesystem targets into user-global harness configuration and would otherwise let cloning a
+   repository change what every future agent session runs.
+6. Hook declarations across the honored settings layers MUST accumulate lowest-precedence first, so
+   a machine-local override adds to the user's hooks rather than replacing them.

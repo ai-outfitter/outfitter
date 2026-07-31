@@ -4,8 +4,7 @@
 // symlink and stay live-editable. Gemini instead reads `~/.gemini/commands/<name>.toml` with
 // `description` and `prompt` keys, so its commands must be generated. This is the one place where
 // a catalog resource cannot be projected by a symlink.
-import { basename, extname } from 'node:path';
-
+import { splitFrontmatter } from '../resolver/AgentDefinition.js';
 import { parseYamlDocument } from '../validation/YamlDocument.js';
 
 export interface CommandDocument {
@@ -13,30 +12,20 @@ export interface CommandDocument {
   readonly prompt: string;
 }
 
-const frontmatterDelimiter = '---';
-
 /**
  * Splits optional YAML frontmatter from the command body. A command file without frontmatter is
  * entirely prompt text, which is the common case for Claude-style commands.
+ *
+ * Reuses the resolver's `splitFrontmatter` so commands, `agent.md`, and `SKILL.md` cannot drift
+ * apart on what counts as a frontmatter block.
  */
 export const parseCommandDocument = (content: string, commandPath: string): CommandDocument => {
-  const lines = content.split('\n');
+  const split = splitFrontmatter(content);
 
-  if (lines[0]?.trimEnd() !== frontmatterDelimiter) {
-    return { prompt: content.trim() };
-  }
+  if (split === undefined) return { prompt: content.trim() };
 
-  const closingIndex = lines.findIndex((line, index) => index > 0 && line.trimEnd() === frontmatterDelimiter);
-
-  if (closingIndex === -1) {
-    return { prompt: content.trim() };
-  }
-
-  const parsed = parseYamlDocument(lines.slice(1, closingIndex).join('\n'), commandPath);
-  const prompt = lines
-    .slice(closingIndex + 1)
-    .join('\n')
-    .trim();
+  const parsed = parseYamlDocument(split.frontmatter, commandPath);
+  const prompt = split.body.trim();
 
   if (!parsed.ok || parsed.document === null || typeof parsed.document !== 'object' || Array.isArray(parsed.document)) {
     return { prompt };
@@ -105,6 +94,3 @@ export const renderGeminiCommand = (document: CommandDocument): string => {
  * (`ks.dev.toml`), matching how a namespaced command is invoked.
  */
 export const geminiCommandFileName = (slug: string): string => `${slug.split('/').join('.')}.toml`;
-
-/** Strips a command file's extension to recover the slug segment used for the generated name. */
-export const commandSlugFromPath = (commandPath: string): string => basename(commandPath, extname(commandPath));

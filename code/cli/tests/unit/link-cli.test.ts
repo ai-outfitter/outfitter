@@ -1,12 +1,15 @@
-// Exercises `outfitter link` end to end against an isolated home, through Commander.
+// Exercises `outfitter link` against an isolated home. The `link command object` block drives the
+// real Commander surface; the rest call executeLinkCommand directly to keep option matrices cheap.
 import {
   existsSync,
+  lstatSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
   readlinkSync,
   rmSync,
   statSync,
+  symlinkSync,
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -103,6 +106,92 @@ describe('outfitter link', () => {
     expect(existsSync(join(home, '.gemini'))).toBe(false);
   });
 
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-011.5.2).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('provisions detected harnesses with no harnesses block in settings at all', () => {
+    const { home, project } = createCatalogHome('default_agent: engineer\n');
+
+    const result = run(home, project);
+
+    expect(result.ok).toBe(true);
+    expect(readlinkSync(join(home, '.claude', 'skills', 'research'))).toBe(join(home, '.agents', 'skills', 'research'));
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-011.5.4).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('withholds every kind a harness resources list does not name', () => {
+    const { home, project } = createCatalogHome('harnesses:\n  link: [claude]\n  claude:\n    resources: [skills]\n');
+
+    run(home, project);
+
+    expect(existsSync(join(home, '.claude', 'skills', 'research'))).toBe(true);
+    // The catalog has both, so their absence is the restriction working rather than missing input.
+    expect(existsSync(join(home, '.claude', 'commands', 'review.md'))).toBe(false);
+    expect(existsSync(join(home, '.claude', 'CLAUDE.md'))).toBe(false);
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-011.2.2).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('writes through a symlinked settings.json instead of detaching it', () => {
+    const { home, project } = createCatalogHome(
+      'harnesses:\n  link: [claude]\n  hooks:\n    - event: before_tool\n      command: guard.sh\n',
+    );
+    // A dotfiles/home-manager-managed settings file: the harness path is a link to the real one.
+    const realSettings = join(home, 'dotfiles', 'claude-settings.json');
+    write(realSettings, JSON.stringify({ model: 'opus' }));
+    symlinkSync(realSettings, join(home, '.claude', 'settings.json'));
+
+    run(home, project);
+
+    expect(lstatSync(join(home, '.claude', 'settings.json')).isSymbolicLink()).toBe(true);
+    // The user's real file received the hooks, so their configuration management still owns it.
+    expect(readFileSync(realSettings, 'utf8')).toContain('guard.sh');
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-011.2.2).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('refuses to delete a managed link the user replaced with a real directory', () => {
+    const { home, project } = createCatalogHome('harnesses:\n  link: [claude]\n  claude:\n    resources: [skills]\n');
+    run(home, project);
+
+    // The user takes the skill over by hand, replacing Outfitter's link with their own copy.
+    const target = join(home, '.claude', 'skills', 'research');
+    rmSync(target, { recursive: true, force: true });
+    write(join(target, 'SKILL.md'), '---\nname: research\n---\n\n# Mine\n');
+
+    const result = run(home, project);
+
+    expect(result.ok).toBe(false);
+    expect(result.messages.join('\n')).toContain('managed path was replaced by a real file or directory');
+    expect(readFileSync(join(target, 'SKILL.md'), 'utf8')).toContain('# Mine');
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-011.3.5).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('scopes --remove to the harnesses --harness names', () => {
+    const { home, project } = createCatalogHome('harnesses:\n  link: [claude, gemini]\n');
+    run(home, project);
+
+    run(home, project, { remove: true, harnesses: ['gemini'] });
+
+    expect(existsSync(join(home, '.gemini', 'skills', 'research'))).toBe(false);
+    // Claude was never named, so its links and its manifest entries survive.
+    expect(existsSync(join(home, '.claude', 'skills', 'research'))).toBe(true);
+    expect(existsSync(join(home, 'state', 'outfitter', 'links.json'))).toBe(true);
+  });
+
+  it('emits JSON on the settings-error path rather than prose', () => {
+    const { home, project } = createCatalogHome('harnesses:\n  link: [not-a-harness]\n');
+
+    const parsed = JSON.parse(run(home, project, { json: true }).messages[0] ?? '{}') as {
+      ok: boolean;
+      errors: readonly string[];
+    };
+
+    expect(parsed.ok).toBe(false);
+    expect(parsed.errors.length).toBeGreaterThan(0);
+  });
+
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-011.3.1).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('is idempotent: a second run reports everything unchanged', () => {
@@ -139,7 +228,7 @@ describe('outfitter link', () => {
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('provisions a second config directory declared in settings', () => {
     const { home, project } = createCatalogHome(
-      'harnesses:\n  claude:\n    enabled: true\n    resources: [skills]\n    config_directories: ["~/.claude", "~/.claude-work"]\n',
+      'harnesses:\n  link: [claude]\n  claude:\n    resources: [skills]\n    config_directories: ["~/.claude", "~/.claude-work"]\n',
     );
 
     run(home, project);
@@ -176,7 +265,7 @@ describe('outfitter link', () => {
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-011.2.3, OFTR-011.2.4).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('refuses to replace an unmanaged path until --force, and exits non-zero', () => {
-    const { home, project } = createCatalogHome('harnesses:\n  claude:\n    enabled: true\n    resources: [skills]\n');
+    const { home, project } = createCatalogHome('harnesses:\n  link: [claude]\n  claude:\n    resources: [skills]\n');
     write(join(home, '.claude', 'skills', 'research'), 'hand written');
 
     const conflicted = run(home, project);
@@ -281,10 +370,8 @@ describe('outfitter link', () => {
     expect(existsSync(join(home, '.claude', 'skills', 'research'))).toBe(false);
   });
 
-  it('lets --harness override a settings-level enabled flag', () => {
-    const { home, project } = createCatalogHome(
-      'harnesses:\n  link: none\n  claude:\n    enabled: true\n  gemini:\n    enabled: true\n',
-    );
+  it('lets --harness widen a settings selection of none', () => {
+    const { home, project } = createCatalogHome('harnesses:\n  link: none\n');
 
     run(home, project, { harnesses: ['gemini'] });
 
@@ -305,7 +392,7 @@ describe('outfitter link', () => {
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('warns on an unsupported combination and fails it only under --strict', () => {
     const { home, project } = createCatalogHome(
-      'harnesses:\n  copilot:\n    enabled: true\n    resources: [instructions]\n',
+      'harnesses:\n  link: [copilot]\n  copilot:\n    resources: [instructions]\n',
     );
 
     const warned = run(home, project);
@@ -370,6 +457,26 @@ describe('link command object', () => {
     expect(existsSync(join(home, '.claude', 'skills', 'research'))).toBe(false);
   });
 
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-011.5.1).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('runs the primary no-flag workflow through Commander: output, effect, and clean exit', async () => {
+    const { home, project } = createCatalogHome('harnesses:\n  link: [claude]\n');
+    const lines: string[] = [];
+    const program = new Command();
+    createLinkCommand({
+      homeDirectory: home,
+      projectDirectory: project,
+      env: { XDG_STATE_HOME: join(home, 'state') },
+      writeLine: (message) => lines.push(message),
+    }).register(program);
+
+    await program.parseAsync(['node', 'outfitter', 'link']);
+
+    expect(lines.join('\n')).toContain('Linked claude:');
+    expect(readlinkSync(join(home, '.claude', 'skills', 'research'))).toBe(join(home, '.agents', 'skills', 'research'));
+    expect(process.exitCode).not.toBe(1);
+  });
+
   it('accepts a comma-separated --harness list', async () => {
     const { home, project } = createCatalogHome('harnesses:\n  link: [claude, gemini, codex]\n');
     const lines: string[] = [];
@@ -404,7 +511,7 @@ describe('link command object', () => {
   });
 
   it('sets a non-zero exit code when the run is not ok', async () => {
-    const { home, project } = createCatalogHome('harnesses:\n  claude:\n    enabled: true\n    resources: [skills]\n');
+    const { home, project } = createCatalogHome('harnesses:\n  link: [claude]\n  claude:\n    resources: [skills]\n');
     write(join(home, '.claude', 'skills', 'research'), 'hand written');
     const program = new Command();
     createLinkCommand({

@@ -125,7 +125,6 @@
           "type": "object",
           "description": "Per-harness overrides applied over the `link` selection.",
           "properties": {
-            "enabled": { "type": "boolean" },
             "resources": {
               "type": "array",
               "items": { "enum": ["skills", "commands", "instructions", "hooks"] },

@@ -82,7 +82,9 @@ describe('link application', () => {
     expect(lstatSync(target).isSymbolicLink()).toBe(true);
   });
 
-  it('writes generated content and tracks it as an update', () => {
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-011.2.1).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('writes generated content and records it in the manifest', () => {
     const root = createRoot();
     const target = join(root, '.gemini', 'commands', 'review.toml');
 
@@ -100,6 +102,8 @@ describe('link application', () => {
 
     expect(readFileSync(target, 'utf8')).toBe('prompt = "hi"\n');
     expect(result.updated).toBe(1);
+    // Without this entry the next run would classify Outfitter's own file as an unmanaged conflict.
+    expect(result.manifest.entries).toEqual([{ target, harness: 'gemini', kind: 'commands', strategy: 'generate' }]);
   });
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-011.2.3).

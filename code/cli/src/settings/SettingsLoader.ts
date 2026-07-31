@@ -72,7 +72,6 @@ type HarnessesDocument = {
 };
 
 interface HarnessOverrideDocument {
-  readonly enabled?: boolean;
   readonly resources?: readonly LinkableKind[];
   readonly config_directories?: readonly string[];
 }
@@ -280,8 +279,9 @@ const addSettingsFile = (
   });
 };
 
-// Enterprise governance controls are honored only from the user's own ~/.agents settings so a
-// checked-in project or remote catalog cannot enable private catalogs on the user's behalf.
+// Enterprise governance controls and managed harness links are honored only from the user's own
+// ~/.agents settings so a checked-in project or remote catalog cannot enable private catalogs, or
+// install hooks into user-global harness configuration, on the user's behalf.
 const isHomeScope = (scope: SettingsLocation['scope']): boolean => scope === 'user' || scope === 'user-local';
 
 const convertSettingsDocument = (
@@ -301,7 +301,11 @@ const convertSettingsDocument = (
   customSettings: document.custom_settings,
   startup: convertStartupSettings(document.startup),
   enterprise: isHomeScope(scope) ? convertEnterpriseSettings(document.enterprise) : undefined,
-  harnesses: convertHarnessSettings(document.harnesses),
+  // Harness links are honored only from the user's own ~/.agents settings. The block writes into
+  // user-global harness configuration — `hooks` become shell commands the harness runs on every
+  // future session, and `config_directories` steers where Outfitter writes inside $HOME — so a
+  // checked-in project or a remote catalog must not be able to install them by being cloned.
+  harnesses: isHomeScope(scope) ? convertHarnessSettings(document.harnesses) : undefined,
 });
 
 const convertHarnessSettings = (harnesses: HarnessesDocument | undefined): HarnessSettings | undefined => {
@@ -322,7 +326,6 @@ const convertHarnessSettings = (harnesses: HarnessesDocument | undefined): Harne
 };
 
 const convertHarnessOverride = (override: HarnessOverrideDocument): HarnessOverride => ({
-  ...(override.enabled === undefined ? {} : { enabled: override.enabled }),
   ...(override.resources === undefined ? {} : { resources: override.resources }),
   ...(override.config_directories === undefined ? {} : { configDirectories: override.config_directories }),
 });

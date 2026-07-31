@@ -27,15 +27,25 @@ const writeSymlink = (target: string, source: string): void => {
 };
 
 /**
- * Writes a generated file in place.
- *
- * Settings merges use this too: the planner already folded the generated hooks into the user's
- * existing document, so the step's content is the complete file. `rmSync` first, because a target
- * that is currently a directory or symlink cannot be overwritten by a plain write.
+ * Writes a file Outfitter owns. `rmSync` first, because a target that is currently a directory or
+ * a symlink cannot be overwritten by a plain write.
  */
 const writeGenerated = (target: string, content: string): void => {
   mkdirSync(dirname(target), { recursive: true });
   rmSync(target, { recursive: true, force: true });
+  writeFileSync(target, content, 'utf8');
+};
+
+/**
+ * Writes a harness settings document Outfitter merged into but does not own.
+ *
+ * Deliberately does NOT unlink first. `~/.claude/settings.json` is frequently a symlink into a
+ * dotfiles repo, a stow target, or a home-manager generation; unlinking it would silently detach
+ * the user's configuration management and orphan the real file. `writeFileSync` follows the link
+ * and updates the file the user actually maintains.
+ */
+const writeSettingsDocument = (target: string, content: string): void => {
+  mkdirSync(dirname(target), { recursive: true });
   writeFileSync(target, content, 'utf8');
 };
 
@@ -106,10 +116,14 @@ export const applyLinkPlan = (
   };
 };
 
-/** `generate` and `settings` steps both carry a complete file body; only symlinks differ. */
 const applyStep = (step: LinkStep): void => {
   if (step.strategy === 'symlink') {
     writeSymlink(step.target, step.source!);
+    return;
+  }
+
+  if (step.strategy === 'settings') {
+    writeSettingsDocument(step.target, step.content!);
     return;
   }
 

@@ -33,8 +33,9 @@ sources:
     ref: v1.2.0
   - path: ../shared-agents # local directory, read live from disk
 
-# Which coding harnesses `outfitter link` provisions, and how.
-# See ./linking.md. 'detected' (the default) links only harnesses already installed.
+# Which coding harnesses `outfitter link` provisions, and how. See ./linking.md.
+# 'detected' (the default) links only harnesses already installed.
+# Honored only from your own ~/.agents settings — a project cannot declare this block.
 harnesses:
   link: [claude, codex, gemini, copilot]
   hooks:

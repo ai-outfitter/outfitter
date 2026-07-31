@@ -2,7 +2,6 @@
 import { describe, expect, it } from 'vitest';
 
 import {
-  commandSlugFromPath,
   geminiCommandFileName,
   parseCommandDocument,
   renderGeminiCommand,
@@ -62,10 +61,5 @@ describe('command adapter', () => {
   it('maps a namespaced command slug onto Gemini dot-separated file names', () => {
     expect(geminiCommandFileName('ks/dev')).toBe('ks.dev.toml');
     expect(geminiCommandFileName('review')).toBe('review.toml');
-  });
-
-  it('recovers the slug segment from a command file path', () => {
-    expect(commandSlugFromPath('/catalog/commands/review.md')).toBe('review');
-    expect(commandSlugFromPath('/catalog/commands/review')).toBe('review');
   });
 });

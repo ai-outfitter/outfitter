@@ -28,8 +28,10 @@ describe('harness registry', () => {
     expect(isLinkableKind('plugins')).toBe(false);
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-011.1.3).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-011.1.1, OFTR-011.1.4).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  // Note: this pins the declared surface, not that the harness reads it. OFTR-011.1.3 (surfaces
+  // verified against an installed release) is a judgment requirement and is reviewed, not tested.
   it('places skills at <config>/skills for every harness, matching the shared SKILL.md layout', () => {
     for (const layout of HARNESS_LAYOUTS) {
       expect(findHarnessSurface(layout, 'skills')).toMatchObject({ strategy: 'symlink', location: 'skills' });

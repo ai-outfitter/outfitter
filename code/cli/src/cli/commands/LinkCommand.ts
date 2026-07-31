@@ -75,7 +75,11 @@ export const executeLinkCommand = (input: LinkInput): LinkResult => {
   const { set, settingsIssues, warnings } = resolved;
 
   if (settingsIssues.length > 0) {
-    return { ok: false, messages: settingsIssues.map((issue) => `✗ ${formatSettingsIssue(issue)}`) };
+    const errors = settingsIssues.map(formatSettingsIssue);
+
+    return input.json === true
+      ? { ok: false, messages: [JSON.stringify({ ok: false, errors }, null, 2)] }
+      : { ok: false, messages: errors.map((error) => `✗ ${error}`) };
   }
 
   const manifestPath = resolveManifestPath(input.env, input.homeDirectory);
@@ -84,10 +88,7 @@ export const executeLinkCommand = (input: LinkInput): LinkResult => {
   const settings = resolved.settings.harnesses ?? {};
 
   // An explicit --harness narrows whatever settings.yml selected, without editing settings.
-  const scopedSettings =
-    input.harnesses === undefined
-      ? settings
-      : { ...settings, link: input.harnesses, overrides: scopeOverrides(settings.overrides, input.harnesses) };
+  const scopedSettings = input.harnesses === undefined ? settings : { ...settings, link: input.harnesses };
 
   const plan = planLinks({
     homeDirectory: input.homeDirectory,
@@ -97,37 +98,37 @@ export const executeLinkCommand = (input: LinkInput): LinkResult => {
     manifest,
     force: input.force,
     remove: input.remove,
+    harnessFilter: input.harnesses,
   });
 
   const applied = applyLinkPlan(plan, manifest, { dryRun: input.dryRun });
-
-  if (input.dryRun !== true) {
-    if (input.remove === true) removeManifest(manifestPath);
-    else writeManifest(manifestPath, applied.manifest);
-  }
-
   const ok = applied.conflicts.length === 0 && !(input.strict === true && plan.unsupported.length > 0);
 
+  if (input.dryRun !== true) persistManifest(manifestPath, input, applied);
+
   if (input.json === true) {
-    return { ok, messages: [JSON.stringify({ ok, plan, applied: summary(applied) }, null, 2)] };
+    return { ok, messages: [JSON.stringify({ ok, warnings, plan, applied: summary(applied) }, null, 2)] };
   }
 
   return { ok, messages: formatMessages(input, plan, applied, warnings) };
 };
 
-const scopeOverrides = (
-  overrides: Readonly<Partial<Record<HarnessId, { readonly enabled?: boolean }>>> | undefined,
-  selected: readonly HarnessId[],
-): Readonly<Partial<Record<HarnessId, object>>> | undefined => {
-  if (overrides === undefined) return undefined;
+/**
+ * Records what Outfitter still owns.
+ *
+ * `--remove` forgets the manifest only when every managed path was actually retired. A settings
+ * document Outfitter could not parse keeps its marked hook entries, so its manifest entry is the
+ * only record that they are there — discarding it would strand those entries with no supported way
+ * to remove them.
+ */
+const persistManifest = (manifestPath: string, input: LinkInput, applied: ReturnType<typeof applyLinkPlan>): void => {
+  if (input.remove !== true) {
+    writeManifest(manifestPath, applied.manifest);
+    return;
+  }
 
-  // Drop `enabled` from harnesses the flag excluded, so a settings-level `enabled: true` cannot
-  // re-add a harness the user just narrowed away on the command line.
-  return Object.fromEntries(
-    Object.entries(overrides).map(([id, override]) =>
-      selected.includes(id as HarnessId) ? [id, override] : [id, { ...override, enabled: false }],
-    ),
-  );
+  if (applied.manifest.entries.length === 0) removeManifest(manifestPath);
+  else writeManifest(manifestPath, applied.manifest);
 };
 
 const summary = (applied: ReturnType<typeof applyLinkPlan>): Record<string, number> => ({

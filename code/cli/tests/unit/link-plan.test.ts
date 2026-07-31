@@ -63,11 +63,12 @@ describe('harness selection', () => {
     expect(selectHarnesses({ link: 'none' }, home)).toEqual([]);
   });
 
-  it('lets a per-harness enabled override win over the selection in both directions', () => {
+  it('ignores per-harness overrides when deciding which harnesses are selected', () => {
     const home = createHome();
 
-    expect(selectHarnesses({ link: 'none', overrides: { claude: { enabled: true } } }, home)).toEqual(['claude']);
-    expect(selectHarnesses({ link: ['claude', 'codex'], overrides: { codex: { enabled: false } } }, home)).toEqual([
+    // Overrides tune how a selected harness is provisioned, never whether it is.
+    expect(selectHarnesses({ link: 'none', overrides: { claude: { resources: ['skills'] } } }, home)).toEqual([]);
+    expect(selectHarnesses({ link: ['claude'], overrides: { codex: { resources: ['skills'] } } }, home)).toEqual([
       'claude',
     ]);
   });
@@ -149,7 +150,7 @@ describe('link planning', () => {
       force: true,
     });
 
-    expect(plan.steps[0]).toMatchObject({ action: 'update', reason: 'replacing unmanaged path (--force)' });
+    expect(plan.steps[0]).toMatchObject({ action: 'update', reason: 'replacing existing path (--force)' });
   });
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-011.3.1, OFTR-011.3.2).
