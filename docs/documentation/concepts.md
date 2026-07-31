@@ -58,11 +58,16 @@ The same agent definition can be run directly or selected as a subagent elsewher
 
 Resources resolve across layers, following the protocol's overlay semantics:
 
-1. `<project>/.agents/` — the workspace layer, committed with a project.
-2. `~/.agents/` — the global layer for one developer.
-3. Remote sources — pinned `.agents` payloads from [catalog repositories](./catalogs.md), in configured order.
+1. Invocation runtime layers passed with `--runtime-layer`, in command-line order.
+2. `<project>/.agents/` — the workspace layer, committed with a project.
+3. `~/.agents/` — the global layer for one developer.
+4. Remote sources — pinned `.agents` payloads from [catalog repositories](./catalogs.md), in configured order.
 
 Resources merge **by ID**: a workspace `skills/wiki/` overrides a global or remote `skills/wiki/`. Agent-local skills merge by owner and ID, so `agents/actions/skills/debug/` is distinct from `agents/reviewer/skills/debug/`; the selected agent's local winner takes precedence over catalog-wide `skills/debug/`. JSON files such as `mcp.json` and `models.json` follow the protocol's JSON merge behavior. Standalone `.agents` repositories — where the repository root _is_ the payload — are the primary way to develop and share layers; see [Catalogs](./catalogs.md) and [Local development](./local-development.md).
+
+Runtime layers use that same standalone payload-root convention. They are invocation-only, resolve
+above the workspace, and are never added to settings. Earlier repeated `--runtime-layer` options
+have higher precedence.
 
 ## Settings scopes
 
@@ -88,10 +93,18 @@ Agents write state during a run — auth, native settings, plugins, sessions. Ea
 
 ## Layer precedence
 
-When several layers define the same resource ID or setting, higher layers win:
+When several layers define the same resource ID, higher layers win:
+
+1. Invocation runtime layers (in command-line order; resources only)
+2. Project (`<project>/.agents/`)
+3. User (`~/.agents/`)
+4. Cached remote sources (in configured source order)
+
+Settings precedence remains independent because runtime layers are not settings inputs:
 
 1. Project-local settings (`<project>/.agents/settings.local.yml`)
-2. Project (`<project>/.agents/`)
-3. User (`~/.agents/`, with `settings.local.yml` above `settings.yml`)
-4. Cached remote sources (in configured source order)
-5. Built-in defaults
+2. Project settings (`<project>/.agents/settings.yml`)
+3. User-local settings (`~/.agents/settings.local.yml`)
+4. User settings (`~/.agents/settings.yml`)
+5. Cached remote settings
+6. Built-in defaults

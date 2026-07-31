@@ -1,6 +1,6 @@
 // Provides `outfitter validate [--strict] [--json]` over the effective resource set.
 
-import { Command } from 'commander';
+import { Command, Option } from 'commander';
 
 import { resolveEffectiveSet } from '../../resolver/ResolverContext.js';
 import type { ValidationFinding } from '../../resolver/ResolverValidation.js';
@@ -12,6 +12,7 @@ import { resolveHomeDirectory, resolveProjectDirectory } from './ProcessDefaults
 export interface ValidateInput {
   readonly homeDirectory: string;
   readonly projectDirectory: string;
+  readonly runtimeLayers?: readonly string[];
   readonly strict?: boolean;
   readonly json?: boolean;
 }
@@ -67,15 +68,24 @@ export const createValidateCommand = (dependencies: ValidateCommandDependencies 
     program.addCommand(
       new Command('validate')
         .description('Validate the resolved .agents tree: schemas, loadout slugs, and shadowing.')
+        .addOption(
+          new Option(
+            '--runtime-layer <path>',
+            'Invocation-only .agents payload root (repeatable; earlier layers take precedence).',
+          )
+            .argParser((path: string, previous: readonly string[]): readonly string[] => [...previous, path])
+            .default([]),
+        )
         .option('--strict', 'Treat warnings (such as shadowed definitions) as failures.')
         .option('--json', 'Emit findings as JSON.')
-        .action((options: { strict?: boolean; json?: boolean }) => {
+        .action((options: { runtimeLayer: readonly string[]; strict?: boolean; json?: boolean }) => {
           /* v8 ignore next 2 -- process defaults are exercised by the CLI entrypoint, not unit tests. */
           const homeDirectory = resolveHomeDirectory(dependencies.homeDirectory);
           const projectDirectory = resolveProjectDirectory(dependencies.projectDirectory);
           const result = executeValidateCommand({
             homeDirectory,
             projectDirectory,
+            runtimeLayers: options.runtimeLayer,
             strict: options.strict,
             json: options.json,
           });

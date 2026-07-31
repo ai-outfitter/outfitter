@@ -1,5 +1,5 @@
 // Exercises the dump command object through Commander and covers copy/closure branches.
-import { existsSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 
@@ -44,6 +44,34 @@ const program = (root: string, lines: string[]): Command => {
 };
 
 describe('dump command object', () => {
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-005.8).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('dumps repeated invocation runtime layers in command-line precedence order', async () => {
+    const root = createTemporaryRoot();
+    const first = join(root, 'first');
+    const second = join(root, 'second');
+    write(join(first, 'agents', 'engineer', 'agent.md'), '---\nname: engineer\n---\n\nFirst runtime.\n');
+    write(join(second, 'agents', 'engineer', 'agent.md'), '---\nname: engineer\n---\n\nSecond runtime.\n');
+    const out = join(createTemporaryRoot(), 'out');
+
+    await program(root, []).parseAsync([
+      'node',
+      'outfitter',
+      'dump',
+      '--agent',
+      'engineer',
+      '--runtime-layer',
+      first,
+      '--runtime-layer',
+      second,
+      '--out',
+      out,
+    ]);
+
+    expect(existsSync(join(root, 'project', '.agents', 'settings.yml'))).toBe(false);
+    expect(readFileSync(join(out, '.agents', 'agents', 'engineer', 'agent.md'), 'utf8')).toContain('First runtime');
+  });
+
   it('dumps via parseAsync using default_agent, copying nested files and skipping inner symlinks', async () => {
     const root = createTemporaryRoot();
     const project = join(root, 'project');

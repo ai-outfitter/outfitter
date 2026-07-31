@@ -60,6 +60,21 @@ const buildProgram = (root: string, lines: string[]): Command => {
 };
 
 describe('resolver command objects', () => {
+  it('accepts the same runtime layer input for list and validate', async () => {
+    const root = createTemporaryRoot();
+    const runtime = join(root, 'runtime');
+    write(join(runtime, 'agents', 'runtime-agent', 'agent.md'), '---\nname: runtime-agent\n---\n\nBody.\n');
+    const lines: string[] = [];
+    const cli = buildProgram(root, lines);
+
+    await cli.parseAsync(['node', 'outfitter', 'list', 'agents', '--runtime-layer', runtime]);
+    expect(lines.join('\n')).toContain('runtime-agent  [' + runtime + ']');
+
+    lines.length = 0;
+    await cli.parseAsync(['node', 'outfitter', 'validate', '--runtime-layer', runtime]);
+    expect(lines).toContain('✓ No issues found.');
+  });
+
   it('list forwards the positional kind and writes through the injected writer', async () => {
     const lines: string[] = [];
     await buildProgram(project(), lines).parseAsync(['node', 'outfitter', 'list', 'agents']);

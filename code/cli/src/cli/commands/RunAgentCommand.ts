@@ -43,6 +43,7 @@ export type SetupRunner = (input: {
 export interface RunAgentInput {
   readonly homeDirectory: string;
   readonly projectDirectory: string;
+  readonly runtimeLayers?: readonly string[];
   readonly agent?: string;
   readonly harness?: string;
   readonly strict?: boolean;
@@ -240,6 +241,8 @@ export { launchThroughSpawn } from '../../agents/AgentLaunch.js';
 /* v8 ignore next -- wiring to the real spawn boundary; launchThroughSpawn itself is unit-tested. */
 const defaultLauncher: AgentProcessLauncher = (plan) => launchThroughSpawn(spawnLauncher, plan);
 
+const collectRuntimeLayer = (path: string, previous: readonly string[]): readonly string[] => [...previous, path];
+
 export const createRunAgentCommand = (dependencies: RunAgentDependencies = {}): CommandObject => ({
   name: 'run',
   description: 'Resolve, compose, and launch an agent in the selected harness.',
@@ -250,13 +253,21 @@ export const createRunAgentCommand = (dependencies: RunAgentDependencies = {}): 
       .argument('[agent]', 'Agent slug to run (default: settings default_agent).')
       .argument('[args...]', 'Arguments passed through to the harness after --.')
       .addOption(new Option('--harness <harness>', 'Harness to launch.').choices([...HARNESSES]))
+      .addOption(
+        new Option(
+          '--runtime-layer <path>',
+          'Invocation-only .agents payload root (repeatable; earlier layers take precedence).',
+        )
+          .argParser(collectRuntimeLayer)
+          .default([]),
+      )
       .option('--strict', 'Treat composition warnings and unsupported loadout elements as fatal.')
       .allowUnknownOption(true)
       .action(
         async (
           agent: string | undefined,
           passThroughArgs: readonly string[],
-          options: { harness?: string; strict?: boolean },
+          options: { harness?: string; runtimeLayer: readonly string[]; strict?: boolean },
         ) => {
           /* v8 ignore next 3 -- process/launcher defaults are exercised by the CLI entrypoint, not unit tests. */
           const homeDirectory = resolveHomeDirectory(dependencies.homeDirectory);
@@ -265,6 +276,7 @@ export const createRunAgentCommand = (dependencies: RunAgentDependencies = {}): 
           const result = await executeRunAgentCommand({
             homeDirectory,
             projectDirectory,
+            runtimeLayers: options.runtimeLayer,
             agent,
             harness: options.harness,
             strict: options.strict,

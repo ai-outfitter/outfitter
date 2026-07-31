@@ -551,7 +551,7 @@ describe('run agent', () => {
   // (regression: the default launcher's agentId once ignored the resolved harness).
   it('reports the launched harness and its install hint when the CLI is missing', async () => {
     const enoent = Object.assign(new Error('spawn claude ENOENT'), { code: 'ENOENT' });
-    const failingSpawn = { launch: (): Promise<number> => Promise.reject(enoent) };
+    const failingSpawn = { launch: () => Promise.reject(enoent) };
     const claudePlan: AgentLaunchPlan = { command: 'claude', args: [], env: { CLAUDE_CONFIG_DIR: '/tmp/x' } };
 
     await expect(launchThroughSpawn(failingSpawn, claudePlan)).rejects.toThrow(

@@ -1,6 +1,6 @@
 // Provides `outfitter list [kind]` over the effective resource set.
 
-import { Command } from 'commander';
+import { Command, Option } from 'commander';
 
 import type { ResourceKind } from '../../resolver/Resource.js';
 import {
@@ -21,6 +21,7 @@ export interface ListInput {
   readonly projectDirectory: string;
   readonly kind?: string;
   readonly agent?: string;
+  readonly runtimeLayers?: readonly string[];
 }
 
 export interface ListResult {
@@ -112,13 +113,22 @@ export const createListCommand = (dependencies: ListCommandDependencies = {}): C
           '--agent <id>',
           'Resolve resources in an agent context, including its agent-local skills/knowledge/commands.',
         )
-        .action((kind: string | undefined, options: { agent?: string }) => {
+        .addOption(
+          new Option(
+            '--runtime-layer <path>',
+            'Invocation-only .agents payload root (repeatable; earlier layers take precedence).',
+          )
+            .argParser((path: string, previous: readonly string[]): readonly string[] => [...previous, path])
+            .default([]),
+        )
+        .action((kind: string | undefined, options: { agent?: string; runtimeLayer: readonly string[] }) => {
           const result = executeListCommand({
             /* v8 ignore next 2 -- process defaults are exercised by the CLI entrypoint, not unit tests. */
             homeDirectory: resolveHomeDirectory(dependencies.homeDirectory),
             projectDirectory: resolveProjectDirectory(dependencies.projectDirectory),
             kind,
             agent: options.agent,
+            runtimeLayers: options.runtimeLayer,
           });
 
           for (const message of result.messages) {
