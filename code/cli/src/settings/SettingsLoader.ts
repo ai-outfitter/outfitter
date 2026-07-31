@@ -2,6 +2,10 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, isAbsolute, join, resolve } from 'node:path';
 
+import { HARNESS_IDS } from '../harness/HarnessLayout.js';
+import type { HarnessId, LinkableKind } from '../harness/HarnessLayout.js';
+import type { HarnessOverride, HarnessSelection, HarnessSettings } from '../harness/HarnessSettings.js';
+import type { HookDeclaration } from '../harness/HookAdapter.js';
 import { createRemoteRepositoryCachePath, resolveRemoteRepositorySubpath } from '../sources/SourceCache.js';
 import type { ValidationIssue } from '../validation/SchemaValidator.js';
 import { validateSchema } from '../validation/SchemaValidator.js';
@@ -52,6 +56,25 @@ interface SettingsDocument {
   readonly custom_settings?: CustomSettings;
   readonly startup?: StartupSettingsDocument;
   readonly enterprise?: EnterpriseSettingsDocument;
+  readonly harnesses?: HarnessesDocument;
+}
+
+/**
+ * The `harnesses:` block mixes two shapes: reserved keys (`link`, `hooks`) and one optional
+ * override object per harness id. The JSON Schema keeps them disjoint, so conversion can split
+ * them by key without further validation.
+ */
+type HarnessesDocument = {
+  readonly link?: HarnessSelection;
+  readonly hooks?: readonly HookDeclaration[];
+} & {
+  readonly [id in HarnessId]?: HarnessOverrideDocument;
+};
+
+interface HarnessOverrideDocument {
+  readonly enabled?: boolean;
+  readonly resources?: readonly LinkableKind[];
+  readonly config_directories?: readonly string[];
 }
 
 interface EnterpriseSettingsDocument {
@@ -278,6 +301,30 @@ const convertSettingsDocument = (
   customSettings: document.custom_settings,
   startup: convertStartupSettings(document.startup),
   enterprise: isHomeScope(scope) ? convertEnterpriseSettings(document.enterprise) : undefined,
+  harnesses: convertHarnessSettings(document.harnesses),
+});
+
+const convertHarnessSettings = (harnesses: HarnessesDocument | undefined): HarnessSettings | undefined => {
+  if (harnesses === undefined) return undefined;
+
+  const overrides: Partial<Record<HarnessId, HarnessOverride>> = {};
+
+  for (const id of HARNESS_IDS) {
+    const override = harnesses[id];
+    if (override !== undefined) overrides[id] = convertHarnessOverride(override);
+  }
+
+  return {
+    ...(harnesses.link === undefined ? {} : { link: harnesses.link }),
+    ...(harnesses.hooks === undefined ? {} : { hooks: harnesses.hooks }),
+    ...(Object.keys(overrides).length === 0 ? {} : { overrides }),
+  };
+};
+
+const convertHarnessOverride = (override: HarnessOverrideDocument): HarnessOverride => ({
+  ...(override.enabled === undefined ? {} : { enabled: override.enabled }),
+  ...(override.resources === undefined ? {} : { resources: override.resources }),
+  ...(override.config_directories === undefined ? {} : { configDirectories: override.config_directories }),
 });
 
 const convertStartupSettings = (startup: StartupSettingsDocument | undefined): Settings['startup'] =>

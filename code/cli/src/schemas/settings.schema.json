@@ -77,6 +77,70 @@
     "custom_settings": {
       "type": "object",
       "description": "Arbitrary YAML-compatible values exposed to Outfitter composition templates as outfitter.custom_settings."
+    },
+    "harnesses": {
+      "type": "object",
+      "description": "Managed harness linking for `outfitter link`: which coding harnesses receive symlinked skills, generated commands, instructions, and hooks.",
+      "properties": {
+        "link": {
+          "description": "Which harnesses to provision. 'detected' (default) provisions every harness whose config directory already exists; 'none' disables linking; a list names harnesses explicitly.",
+          "oneOf": [
+            { "enum": ["detected", "none"] },
+            {
+              "type": "array",
+              "items": { "enum": ["claude", "codex", "gemini", "copilot"] },
+              "uniqueItems": true
+            }
+          ]
+        },
+        "hooks": {
+          "type": "array",
+          "description": "Harness-neutral hooks translated into each selected harness's native hook schema.",
+          "items": {
+            "type": "object",
+            "required": ["event", "command"],
+            "properties": {
+              "event": {
+                "enum": [
+                  "before_tool",
+                  "after_tool",
+                  "before_agent",
+                  "after_agent",
+                  "session_start",
+                  "session_end",
+                  "notification"
+                ]
+              },
+              "command": { "type": "string", "minLength": 1 },
+              "matcher": { "type": "string" },
+              "name": { "type": "string" },
+              "timeout": { "type": "number", "exclusiveMinimum": 0 }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "patternProperties": {
+        "^(claude|codex|gemini|copilot)$": {
+          "type": "object",
+          "description": "Per-harness overrides applied over the `link` selection.",
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "resources": {
+              "type": "array",
+              "items": { "enum": ["skills", "commands", "instructions", "hooks"] },
+              "uniqueItems": true
+            },
+            "config_directories": {
+              "type": "array",
+              "items": { "type": "string", "minLength": 1 },
+              "minItems": 1
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
     }
   },
   "additionalProperties": true

@@ -35,6 +35,7 @@ The same composition runs on every surface; only the trigger changes.
 - [Running an agent in GitHub Actions](./actions.md) — headless runs on any workflow trigger.
 - [Recurring runs](./recurring-runs.md) — loops three ways: the local loop extension, Actions cron, cluster schedules.
 - [In-cluster agents](./in-cluster.md) — resident agents, CronJobs, and subagent Jobs via Link Operator.
+- [Linking harnesses](./linking.md) — provision `~/.claude`, `~/.codex`, `~/.gemini`, and `~/.copilot` from one catalog.
 - [Hooks](./hooks.md) — harness hook wiring and the protocol gap.
 - [Dump](./dump-and-bake.md) — deterministic, self-contained `.agents/` dumps.
 - [State persistence](./state.md)

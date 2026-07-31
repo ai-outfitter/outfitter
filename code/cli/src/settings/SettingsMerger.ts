@@ -1,5 +1,6 @@
 /* eslint-disable complexity */
 // Provides deterministic Settings merge scaffolding.
+import { mergeHarnessSettings } from '../harness/HarnessSettings.js';
 import { mergeObjectsWithPolicy } from '../merge/SettingsValueMerger.js';
 import type { CustomSettings, Settings, StatePersistence } from './Settings.js';
 import { emptySettings } from './Settings.js';
@@ -14,6 +15,7 @@ export const mergeSettingsStack = (settingsStack: readonly Settings[]): Settings
   let customSettings: CustomSettings | undefined;
   let startup: Settings['startup'];
   let enterprise: Settings['enterprise'];
+  let harnesses: Settings['harnesses'];
 
   for (const settings of settingsStack) {
     defaultAgent = settings.defaultAgent ?? defaultAgent;
@@ -29,6 +31,7 @@ export const mergeSettingsStack = (settingsStack: readonly Settings[]): Settings
     customSettings = mergeOptionalCustomSettings(customSettings, settings.customSettings);
     startup = settings.startup === undefined ? startup : { ...startup, ...settings.startup };
     enterprise = settings.enterprise === undefined ? enterprise : { ...enterprise, ...settings.enterprise };
+    harnesses = mergeHarnessSettings(harnesses, settings.harnesses);
   }
 
   return {
@@ -42,6 +45,7 @@ export const mergeSettingsStack = (settingsStack: readonly Settings[]): Settings
     customSettings: customSettings ?? {},
     startup: startup ?? {},
     enterprise: enterprise ?? {},
+    harnesses: harnesses ?? {},
   };
 };
 

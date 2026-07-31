@@ -15,6 +15,32 @@ See the [Claude Code hooks documentation](https://code.claude.com/docs/en/hooks)
 
 Pi supports a bootstrap hook via its extension mechanism: an extension passed with `--extension` runs at session start and can register tools, providers, and runtime behavior. Outfitter's own onboarding flow uses this channel. For recurring per-event behavior, Pi extensions are the native surface.
 
+## Portable hooks for linked harnesses
+
+[`outfitter link`](./linking.md) closes part of this gap for the persistent path. The `harnesses.hooks`
+settings block expresses a hook once in harness-neutral terms, and each adapter translates it into
+that harness's native event names:
+
+```yaml
+# ~/.agents/settings.yml
+harnesses:
+  hooks:
+    - event: before_tool
+      matcher: Bash
+      command: ~/.agents/scripts/guard-bash.sh
+```
+
+Claude Code and Gemini CLI use a structurally identical hook envelope and differ only in event
+naming, so `before_tool` becomes `PreToolUse` for Claude and `BeforeTool` for Gemini. An event with
+no native equivalent is reported rather than mapped to an approximate one — see the
+[event table](./linking.md#hook-events).
+
+Generated entries carry an `x-outfitter-managed` marker so re-linking replaces only Outfitter's own
+entries and never disturbs hand-written hooks in the same settings file.
+
+This covers hooks for harnesses Outfitter links persistently. It is settings-level configuration, not
+a protocol resource: a hook still cannot travel inside a shared `.agents` catalog.
+
 ## Roadmap
 
 > **TODO (protocol gap):** hooks are the one behavioral surface the pinned protocol revision does not model, which means hook definitions cannot yet be expressed portably in a `.agents` tree and projected per harness. The path `agents/<agent-id>/hooks/<hook-id>/` is reserved for a future agent-local hook entity and deliberately has no resolution or projection behavior today. Outfitter may need to ship its own hooks extension that adapters translate to Claude `settings.json` hooks and Pi extensions respectively, or drive the concept into a future protocol revision. Until one of those lands, treat hooks as harness-native configuration and keep them thin: call scripts that live in the tree rather than embedding logic in hook definitions.

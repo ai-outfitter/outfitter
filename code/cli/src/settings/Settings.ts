@@ -1,4 +1,5 @@
 // Defines the internal Settings shape produced from Outfitter settings files.
+import type { HarnessSettings } from '../harness/HarnessSettings.js';
 import type { RemoteSourceReference } from '../sources/SourceCache.js';
 
 export type RemoteSettingsReference = RemoteSourceReference & { readonly path: string };
@@ -44,6 +45,8 @@ export interface Settings {
   readonly customSettings?: CustomSettings;
   readonly startup?: StartupSettings;
   readonly enterprise?: EnterpriseSettings;
+  /** Managed harness linking for `outfitter link`; see harness/HarnessSettings.ts. */
+  readonly harnesses?: HarnessSettings;
 }
 
 export const emptySettings = (): Settings => ({

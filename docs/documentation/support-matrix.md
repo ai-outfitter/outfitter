@@ -34,6 +34,29 @@ Tasks and bake are not in this matrix — they are the subject of a [separate up
 | Pass-through arguments                                                   | Supported | Supported   |
 | Bootstrap hook                                                           | Supported | Roadmap     |
 
+## Managed harness links
+
+The rows above describe what `outfitter run` projects into a temporary composite directory. A
+separate, opt-in command — [`outfitter link`](./linking.md) — provisions the harness's own
+user-global config directory and persists after the command exits.
+
+| What `outfitter link` provisions | Claude Code | Codex CLI   | Gemini CLI                 | Copilot CLI   |
+| -------------------------------- | ----------- | ----------- | -------------------------- | ------------- |
+| Skills (`skills/<id>`)           | Supported   | Supported   | Supported                  | Supported     |
+| Commands                         | Supported   | Supported   | Supported (generated TOML) | Not supported |
+| Global instructions              | Supported   | Supported   | Supported                  | Not supported |
+| Hooks                            | Supported   | Not written | Supported                  | Not supported |
+
+Notes on the gaps, which are deliberate rather than unimplemented:
+
+- **Copilot CLI** discovers `~/.copilot/skills/<id>/SKILL.md`, but loads custom instructions from
+  repository-scoped `AGENTS.md` files rather than a documented user-global path, and exposes no hook
+  or custom-command surface.
+- **Codex hooks** are configured in `config.toml` behind a separate trust prompt. Writing one on the
+  user's behalf would pre-authorize code execution, so Outfitter does not.
+- **Gemini commands** are TOML documents with `description` and `prompt` keys, so they are generated
+  rather than symlinked; every other command surface takes a live symlink to the catalog Markdown.
+
 ## Claude Code notes
 
 - **Config and session state** — Outfitter points `CLAUDE_CONFIG_DIR` at the baked composition, declares Claude state paths (`settings.json`, `agents/`, `skills/`, `commands/`, `plugins/`, `projects/`) for [state persistence](./state.md), and can [symlink a ported `~/.claude`](./porting-claude.md) so native use keeps working.
