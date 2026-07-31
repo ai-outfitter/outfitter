@@ -36,7 +36,8 @@ export const resolvePiUserSessionDirectory = (homeDirectory: string, projectDire
  * Session directory for a pi launch, or `undefined` when the launch should keep whatever
  * `PI_CODING_AGENT_SESSION_DIR` it inherits — an explicitly configured store, such as a resident
  * agent's workspace/PVC path, stays in control. `env`, `homeDirectory`, and `projectDirectory` are
- * injected so the resolution stays pure and unit-testable.
+ * injected so the resolution stays unit-testable; `projectDirectory` is the directory pi runs in
+ * (`process.cwd()`), which is what makes the result pi's own folder for the project.
  */
 export const resolvePiSessionDirectory = (
   env: Readonly<Record<string, string | undefined>>,

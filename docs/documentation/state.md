@@ -152,7 +152,7 @@ state_persistence:
   trust.json: symlink # Pi trust decisions.
   plugins/: symlink # Pi plugins.
   cache/: symlink # Pi cache data.
-  sessions/: symlink # Pi sessions.
+  sessions/: symlink # Pi sessions; the "Pi sessions" section covers how this works today.
   npm/: symlink # Pi npm package installs.
   git/: symlink # Pi git package checkouts.
   tmp/: symlink # Pi temporary runtime tree; allowed: symlink, discard.
