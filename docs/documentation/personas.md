@@ -13,15 +13,22 @@ A persona file is plain Markdown with no frontmatter and no schema:
 - First-person prose: an unheaded opening paragraph, then the recommended sections `## My work and context`, `## What I need`, `## How I decide`, and `## How I communicate`. Sections may be renamed or combined; connected prose beats bullet stacks.
 - Everything the persona knows — role, goals, constraints, decision signals, voice — is ordinary Markdown.
 
-It lives in normal project documentation, deliberately outside `.agents/`:
+The authoring template and completed reference personas ship in the community catalog's [`persona-authoring`](https://github.com/ai-outfitter/community-profiles/tree/main/skills/persona-authoring) skill.
+
+## Where personas live
+
+A persona file lives in normal documentation, deliberately outside `.agents/`, in one of two tiers:
 
 ```text
-docs/personas/
+docs/personas/            # project tier — readers of this project
   platform-lead.md
+~/.agents/personas/       # cross-project tier — readers who outlive one repository
   founder-operator.md
 ```
 
-A persona is project steering context rather than agent configuration, which is why `outfitter dump` does not carry it. The authoring template and completed reference personas ship in the community catalog's [`persona-authoring`](https://github.com/ai-outfitter/community-profiles/tree/main/skills/persona-authoring) skill.
+Use the **project tier** when the persona only makes sense next to the work it describes. Use the **cross-project tier** when the reader exists independently of any single repository — the file is then reachable from any working directory, including `~`. Filenames are lowercase and hyphenated and name the role rather than the person.
+
+Neither tier is a resource Outfitter resolves; both are ordinary directories of Markdown. A persona is project steering context rather than agent configuration, which is why `outfitter dump` does not carry it. The `persona-review` launcher searches the project tier before the cross-project one, so `--persona platform-lead` picks up a project override of a shared role without renaming anything.
 
 ## Three ways to consume the same file
 

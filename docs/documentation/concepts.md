@@ -49,7 +49,7 @@ The protocol resources Outfitter resolves and composes:
 Three related terms, none of which is a settings key or a separate file format:
 
 - A **[profile](./profiles.md)** is just an agent and its loadout. "The engineer profile" is the `engineer` agent with everything it composes. There is no `profile.yml` and no `profiles:` map — the loadout lives on the agent.
-- A **[persona](./personas.md)** is a _convention_, not a resource: one portable, committed Markdown document per persona — for example `docs/personas/platform-lead.md` — appended at launch to a shared review agent, or pasted into any tool as stakeholder context. Swapping the file swaps the persona.
+- A **[persona](./personas.md)** is a _convention_, not a resource: one portable, committed Markdown document per persona — `docs/personas/platform-lead.md` for a project's own readers, or `~/.agents/personas/platform-lead.md` for a reader who outlives one repository — appended at launch to a shared review agent, or pasted into any tool as stakeholder context. Swapping the file swaps the persona.
 - A **[subagent](./subagents.md)** is an agent projected into the harness's native delegation mechanism, selected in another agent's `subagents` loadout. A leader agent delegates to local coding-harness subagents or to issue- and action-backed subagents.
 
 The same agent definition can be run directly or selected as a subagent elsewhere; its loadout decides what it composes.

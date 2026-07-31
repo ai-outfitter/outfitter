@@ -76,6 +76,8 @@ docs/personas/
   founder-operator.md
 ```
 
+A persona whose reader exists independently of any one repository goes in `~/.agents/personas/` instead, where every working directory can reach it. See [Where personas live](../personas.md#where-personas-live).
+
 Prefer generic role archetypes over named individuals. Research and interviews are authoring inputs; commit only the self-contained file, and invent nothing the research does not support.
 
 ## Run it under Outfitter
@@ -98,12 +100,12 @@ Use the [`persona-review`](https://github.com/ai-outfitter/community-profiles/tr
 
 ```sh
 bash skills/persona-review/scripts/persona-review.sh \
-  --persona docs/personas/platform-lead.md \
+  --persona platform-lead \
   --report docs/persona-reviews/platform-lead-onboarding.md \
   -- --print "Review the onboarding flow and write the report. @README.md"
 ```
 
-The reviewer runs directly as the selected agent. This journey does not require Pi's native subagent projection.
+A bare `--persona` name resolves against `docs/personas/`, then `.agents/personas/`, then `~/.agents/personas/`, so the same command works whether the persona is project-local or cross-project; pass a path to name a file directly. The reviewer runs directly as the selected agent. This journey does not require Pi's native subagent projection.
 
 ## Take the same file to the web
 
