@@ -53,10 +53,13 @@ resolution tells you to run `outfitter sync`.
 
 ## `outfitter link`
 
-Provision installed coding harnesses from the resolved catalog: symlink skills, commands, and global
-instructions into `~/.claude`, `~/.codex`, `~/.gemini`, and `~/.copilot`, generate Gemini's TOML
-commands, and merge harness-neutral hooks into each harness's native settings schema. Persistent and
-opt-in — unrelated to the temporary directory `outfitter run` assembles.
+Provision installed coding harnesses from the resolved catalog so they are set up when launched
+**directly**: symlink skills, commands, and global instructions into `~/.pi/agent`, `~/.claude`,
+`~/.codex`, `~/.gemini`, and `~/.copilot`, generate Gemini's TOML commands, and merge
+harness-neutral hooks into each harness's native settings schema.
+
+This is the path most users want. `outfitter run` stays for launches needing a specific composition
+rather than a good default; it assembles a temporary directory and shares no state with `link`.
 
 Outfitter only replaces paths it created and recorded in its ownership manifest; anything else is
 reported as a conflict and left alone. See [Linking harnesses](./linking.md).

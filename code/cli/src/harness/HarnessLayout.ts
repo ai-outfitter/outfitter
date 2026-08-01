@@ -14,12 +14,13 @@ import { join } from 'node:path';
 /**
  * Coding harnesses `outfitter link` can provision.
  *
- * Pi is deliberately absent. Outfitter owns Pi's runtime configuration directly through
- * `PI_CODING_AGENT_DIR`, which `outfitter run` assembles per launch, so Pi has no user-global
- * config Outfitter would need to link into. Persistent Pi projection, if it is ever wanted, is a
- * different design and stays with #187 rather than being claimed here.
+ * Pi is included even though `outfitter run` also drives it through `PI_CODING_AGENT_DIR`. Those
+ * are different directories for different purposes: `run` points that variable at a throwaway
+ * composite, while an unwrapped `pi` reads its durable one. Pi's own `getAgentDir()` falls back to
+ * `join(homedir(), CONFIG_DIR_NAME, 'agent')` when the variable is unset, so a user who launches
+ * `pi` directly needs that directory provisioned exactly like the others.
  */
-export const HARNESS_IDS = ['claude', 'codex', 'gemini', 'copilot'] as const;
+export const HARNESS_IDS = ['pi', 'claude', 'codex', 'gemini', 'copilot'] as const;
 export type HarnessId = (typeof HARNESS_IDS)[number];
 
 export const isHarnessId = (value: string): value is HarnessId => (HARNESS_IDS as readonly string[]).includes(value);
@@ -57,6 +58,12 @@ export interface HarnessLayout {
   readonly displayName: string;
   /** Config directory relative to the user's home, e.g. `.claude`. */
   readonly configDirectory: string;
+  /**
+   * Executable name, used to detect an installed harness that has not been run yet. A config
+   * directory only appears after first launch, which is too late when provisioning a fresh install
+   * is the point.
+   */
+  readonly command: string;
   readonly surfaces: readonly HarnessSurface[];
 }
 
@@ -68,9 +75,27 @@ export interface HarnessLayout {
  */
 export const HARNESS_LAYOUTS: readonly HarnessLayout[] = [
   {
+    id: 'pi',
+    displayName: 'Pi',
+    // `~/.pi/agent`, per pi's own `getAgentDir()`: the durable directory an unwrapped `pi` reads
+    // when PI_CODING_AGENT_DIR is unset. Not the composite `outfitter run` builds.
+    configDirectory: join('.pi', 'agent'),
+    command: 'pi',
+    // Pi resolves skills from `join(globalBaseDir, 'skills')` with `globalBaseDir = agentDir`, the
+    // same `<config>/skills/<slug>` shape as every other harness.
+    //
+    // Only skills are claimed. Pi also has a `commands/` directory and a `hooks/` directory
+    // (`join(baseDir, 'hooks')`), but `baseDir` is ambiguous between the global and project roots in
+    // the shipped build, and the hooks directory's file format is a directory of definitions rather
+    // than the settings-file merge Claude and Gemini use. Declaring either without confirming it
+    // would put a link somewhere Pi never reads — exactly what OFTR-011.1.2 forbids.
+    surfaces: [{ kind: 'skills', strategy: 'symlink', location: 'skills' }],
+  },
+  {
     id: 'claude',
     displayName: 'Claude Code',
     configDirectory: '.claude',
+    command: 'claude',
     surfaces: [
       { kind: 'skills', strategy: 'symlink', location: 'skills' },
       { kind: 'commands', strategy: 'symlink', location: 'commands', extension: '.md' },
@@ -82,6 +107,7 @@ export const HARNESS_LAYOUTS: readonly HarnessLayout[] = [
     id: 'codex',
     displayName: 'Codex CLI',
     configDirectory: '.codex',
+    command: 'codex',
     // Codex reads custom prompts from `prompts/`, not `commands/`, and its instructions file is
     // AGENTS.md. Its hooks are configured inside `config.toml` behind a separate trust prompt, so
     // Outfitter does not write them: silently trusting a hook on the user's behalf is exactly the
@@ -96,6 +122,7 @@ export const HARNESS_LAYOUTS: readonly HarnessLayout[] = [
     id: 'gemini',
     displayName: 'Gemini CLI',
     configDirectory: '.gemini',
+    command: 'gemini',
     // Gemini custom commands are TOML documents with `description` and `prompt` keys, so a symlink
     // to a Markdown command would not load. They are generated instead.
     surfaces: [
@@ -109,6 +136,7 @@ export const HARNESS_LAYOUTS: readonly HarnessLayout[] = [
     id: 'copilot',
     displayName: 'GitHub Copilot CLI',
     configDirectory: '.copilot',
+    command: 'copilot',
     // Copilot CLI discovers `~/.copilot/skills/<slug>/SKILL.md`. It loads custom instructions from
     // AGENTS.md "and related files", but that discovery is repository-scoped rather than a
     // documented user-global path, and it exposes no hook or custom-command surface, so only

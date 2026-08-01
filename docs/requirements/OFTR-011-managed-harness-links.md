@@ -8,10 +8,15 @@ from `~/.claude`, `~/.codex`, `~/.gemini`, and `~/.copilot` back into that catal
 silently drift: a second config directory is missed, a renamed skill leaves a dangling link, and a
 harness that needs a translated format gets a symlink that never loads.
 
-`outfitter link` is the opt-in provisioning command that owns those links. It governs harnesses with
-a user-global configuration directory: Claude Code, Codex, Gemini CLI, and Copilot CLI. Pi is out of
-scope because Outfitter supplies its configuration directly through `PI_CODING_AGENT_DIR` at launch,
-so there is no persistent Pi location to link into; #187's Pi mapping stays open. It is deliberately
+`outfitter link` is the opt-in provisioning command that owns those links. Its purpose is that a
+user can launch a harness **directly** and have a good setup, without a wrapper; `outfitter run`
+remains for launches that need a specific composition rather than a good default.
+
+It governs every harness with a user-global configuration directory, Pi included. Pi is in scope
+even though `run` also drives it: `run` points `PI_CODING_AGENT_DIR` at a throwaway composite, while
+an unwrapped `pi` reads the durable directory its own `getAgentDir()` falls back to. Those are
+different directories serving different purposes, and only the durable one is this document's
+concern. It is deliberately
 separate from `outfitter run`: `run` assembles a temporary composite runtime directory and deletes
 it when the child exits, while `link` writes persistent files into directories the harness owns and
 then exits. This document governs the persistent path only, and implements the managed-projection
@@ -102,8 +107,9 @@ Every rule below follows from one of the two.
 
 1. Users MUST be able to select which harnesses are provisioned through the `harnesses` settings
    block.
-2. The default selection MUST provision only harnesses whose config directory already exists, so
-   Outfitter never creates configuration for an uninstalled harness.
+2. The default selection MUST provision only harnesses the user has installed, and MUST NOT create
+   configuration for an uninstalled harness. Because these harnesses create their configuration
+   directory on first launch, detection MUST also recognize an installed-but-unlaunched harness.
 3. Users MUST be able to declare more than one config directory per harness, because a harness can
    have several live config roots.
 4. Users MUST be able to restrict which resource kinds a harness receives.
@@ -113,3 +119,13 @@ Every rule below follows from one of the two.
    repository change what every future agent session runs.
 6. Hook declarations across the honored settings layers MUST accumulate lowest-precedence first, so
    a machine-local override adds to the user's hooks rather than replacing them.
+
+### OFTR-011.6: Known Scope Limits
+
+1. MCP servers and subagents MUST NOT be described as provisioned for direct launch until they are.
+   `outfitter run` projects both; `outfitter link` does not yet, so a directly launched harness has
+   neither.
+2. A harness surface MUST NOT be declared merely because the harness is known to have that concept.
+   Pi's `commands/` and `hooks/` directories are known to exist, but the shipped build does not make
+   their resolution root unambiguous and its hooks are a directory of definitions rather than the
+   settings merge other harnesses use, so they remain undeclared.

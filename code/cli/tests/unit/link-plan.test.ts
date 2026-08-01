@@ -56,6 +56,21 @@ describe('harness selection', () => {
     expect(selectHarnesses({}, home)).toEqual(['claude', 'gemini']);
   });
 
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-011.5.2).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('detects a harness that is installed but has never been run', () => {
+    const home = createHome();
+    const bin = join(home, 'bin');
+    mkdirSync(bin, { recursive: true });
+    writeFileSync(join(bin, 'gemini'), '#!/bin/sh\n');
+
+    // No ~/.gemini yet: the config directory only appears on first launch, which is exactly the
+    // moment provisioning is most useful.
+    expect(selectHarnesses({}, home, { PATH: bin })).toEqual(['gemini']);
+    expect(selectHarnesses({}, home, {})).toEqual([]);
+    expect(selectHarnesses({}, home, { PATH: '' })).toEqual([]);
+  });
+
   it('honors an explicit list and the none selection', () => {
     const home = createHome();
 

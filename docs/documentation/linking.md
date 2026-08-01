@@ -1,12 +1,19 @@
 # Linking harnesses
 
 `outfitter link` provisions your installed coding harnesses from the resolved `.agents` catalog, so
-`claude`, `codex`, `gemini`, and `copilot` see your skills, commands, instructions, and hooks when
-you run them directly — no `outfitter run` wrapper involved.
+`pi`, `claude`, `codex`, `gemini`, and `copilot` are set up when you launch them **directly**.
 
-This is the persistent counterpart to [`outfitter run`](./cli.md#outfitter-run-agent-args). `run`
-assembles a temporary composite directory and deletes it when the harness exits. `link` writes into
-the directories the harness itself owns, then exits.
+This is the path most people should be on. Run it once, then use your harnesses normally — no
+wrapper, no changed muscle memory, no per-invocation flags. Editing a skill in your catalog takes
+effect immediately in every harness, because managed skills are symlinks rather than copies.
+
+[`outfitter run`](./cli.md#outfitter-run-agent-args) remains the answer when a launch needs more
+than a good default: composing a specific agent and loadout, pinning a catalog for CI, running a
+resident agent, or getting an ephemeral configuration that leaves nothing behind. It assembles a
+temporary directory and deletes it on exit. The two never share state — `link` writes only into the
+directories the harness itself owns.
+
+Put simply: **`link` makes your harnesses good by default; `run` composes something specific.**
 
 ## Why it exists
 
@@ -22,8 +29,10 @@ outfitter link --dry-run   # see exactly what would change
 outfitter link             # apply it
 ```
 
-By default Outfitter provisions only harnesses whose config directory already exists, so it never
-creates configuration for a CLI you have not installed.
+By default Outfitter provisions every harness it can tell you have installed — its config directory
+exists, or its executable is on your `PATH`. The `PATH` check matters on a fresh machine: these
+harnesses create their config directory on first launch, so detecting by directory alone would skip
+the one you just installed. Nothing is ever created for a CLI you do not have.
 
 ## What each harness gets
 
@@ -31,12 +40,15 @@ All four harnesses discover skills the same way — `<config>/skills/<slug>/SKIL
 frontmatter — so skills project as plain per-skill symlinks and stay live-editable. The formats that
 actually differ are commands and hooks.
 
-| Resource            | Claude Code               | Codex CLI                | Gemini CLI                           | Copilot CLI          |
-| ------------------- | ------------------------- | ------------------------ | ------------------------------------ | -------------------- |
-| Skills              | `skills/<slug>` link      | `skills/<slug>` link     | `skills/<slug>` link                 | `skills/<slug>` link |
-| Commands            | `commands/<slug>.md` link | `prompts/<slug>.md` link | `commands/<slug>.toml` **generated** | Not supported        |
-| Global instructions | `CLAUDE.md` link          | `AGENTS.md` link         | `GEMINI.md` link                     | Not supported        |
-| Hooks               | `settings.json` merge     | Not written              | `settings.json` merge                | Not supported        |
+| Resource            | Pi                   | Claude Code               | Codex CLI                | Gemini CLI                           | Copilot CLI          |
+| ------------------- | -------------------- | ------------------------- | ------------------------ | ------------------------------------ | -------------------- |
+| Skills              | `skills/<slug>` link | `skills/<slug>` link      | `skills/<slug>` link     | `skills/<slug>` link                 | `skills/<slug>` link |
+| Commands            | Not yet              | `commands/<slug>.md` link | `prompts/<slug>.md` link | `commands/<slug>.toml` **generated** | Not supported        |
+| Global instructions | Not yet              | `CLAUDE.md` link          | `AGENTS.md` link         | `GEMINI.md` link                     | Not supported        |
+| Hooks               | Not yet              | `settings.json` merge     | Not written              | `settings.json` merge                | Not supported        |
+
+Pi's directory is `~/.pi/agent`, the durable one an unwrapped `pi` reads — not the temporary
+composite `outfitter run` points `PI_CODING_AGENT_DIR` at.
 
 Global instructions come from `~/.agents/AGENTS.md`, the canonical personal guidance file. If that file does not exist, Outfitter links no instructions and says nothing about it — create it first.
 
@@ -48,7 +60,27 @@ A cell marked "not supported" is a deliberate gap, not an oversight:
 - **Codex hooks** live in `config.toml` behind a separate trust prompt. Writing one on your behalf
   would pre-authorize code execution, so Outfitter leaves them to you.
 
+- **Pi** resolves skills from its agent directory, confirmed against the shipped build. It also has
+  `commands/` and `hooks/` directories, but the shipped build does not make it unambiguous whether
+  those resolve against the global or the project root, and its hooks are a directory of definitions
+  rather than the settings merge Claude and Gemini use. Claiming them without confirming would put
+  links where Pi never looks.
+
 Requesting an unsupported combination prints a warning; `--strict` makes it fatal.
+
+## What is not linked yet
+
+Two things `outfitter run` already projects are not yet provisioned for direct launch, and they are
+the gap between "works" and "a genuinely good setup":
+
+- **MCP servers.** A directly-launched harness gets none of your catalog's MCP servers. Every
+  harness stores these differently — Claude and Gemini in their settings documents, Codex in
+  `config.toml`, Copilot in `~/.copilot/mcp-config.json` — so this is a real adapter, not a link.
+- **Subagents.** `agents/<id>` definitions are not projected into the harnesses that support them.
+
+Until those land, a directly-launched harness has your skills, commands, instructions, and hooks,
+but you still need `outfitter run` for a composition that depends on MCP or delegation. Tracked in
+[#187](https://github.com/ai-outfitter/outfitter/issues/187).
 
 ## What Outfitter will and will not overwrite
 

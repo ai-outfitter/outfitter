@@ -4,7 +4,7 @@
 // conflict rules are testable without touching a filesystem beyond inspection. Every decision about
 // an existing path is made here; LinkApply only executes.
 import { existsSync, lstatSync, readFileSync, readlinkSync } from 'node:fs';
-import { isAbsolute, join, resolve } from 'node:path';
+import { delimiter, isAbsolute, join, resolve } from 'node:path';
 
 import {
   collidingCommandSlugs,
@@ -83,6 +83,8 @@ export interface LinkPlanInput {
    * links in its config directory still exist and must still be retired.
    */
   readonly harnessFilter?: readonly HarnessId[];
+  /** Process environment, read for PATH when detecting installed harnesses. */
+  readonly env?: Readonly<Record<string, string | undefined>>;
 }
 
 /** Resolves `~`-prefixed and relative config directories against the user's home. */
@@ -96,20 +98,51 @@ export const resolveConfiguredDirectory = (configured: string, homeDirectory: st
 /**
  * Resolves `harnesses.link` to the harnesses this run provisions.
  *
- * One mechanism, deliberately: `detected` (the default) takes every harness whose config directory
- * already exists, `none` takes nothing, and a list takes exactly what it names. Per-harness
- * overrides tune *how* a selected harness is provisioned, never *whether* it is.
+ * One mechanism, deliberately: `detected` (the default) takes every harness that is installed,
+ * `none` takes nothing, and a list takes exactly what it names. Per-harness overrides tune *how* a
+ * selected harness is provisioned, never *whether* it is.
  */
-export const selectHarnesses = (settings: HarnessSettings, homeDirectory: string): readonly HarnessId[] => {
+export const selectHarnesses = (
+  settings: HarnessSettings,
+  homeDirectory: string,
+  env: Readonly<Record<string, string | undefined>> = {},
+): readonly HarnessId[] => {
   const selection = settings.link ?? 'detected';
 
   return HARNESS_LAYOUTS.filter((layout) => {
     if (selection === 'none') return false;
-    if (selection === 'detected')
-      return configDirectories(layout, settings, homeDirectory).some((directory) => existsSync(directory));
+    if (selection === 'detected') return isInstalled(layout, settings, homeDirectory, env);
 
     return selection.includes(layout.id);
   }).map((layout) => layout.id);
+};
+
+/**
+ * A harness counts as installed when its config directory already exists, or when its executable is
+ * on PATH.
+ *
+ * The executable check matters because provisioning a *fresh* install is the main reason to run
+ * this command, and every one of these harnesses creates its config directory only on first launch.
+ * Detecting by directory alone would silently skip the harness the user just installed.
+ */
+const isInstalled = (
+  layout: HarnessLayout,
+  settings: HarnessSettings,
+  homeDirectory: string,
+  env: Readonly<Record<string, string | undefined>>,
+): boolean =>
+  configDirectories(layout, settings, homeDirectory).some((directory) => existsSync(directory)) ||
+  isOnPath(layout.command, env);
+
+const isOnPath = (command: string, env: Readonly<Record<string, string | undefined>>): boolean => {
+  const path = env.PATH;
+
+  if (path === undefined || path === '') return false;
+
+  return path
+    .split(delimiter)
+    .filter((entry) => entry !== '')
+    .some((entry) => existsSync(join(entry, command)));
 };
 
 const configDirectories = (
@@ -629,7 +662,7 @@ const harnessSteps = (
 };
 
 export const planLinks = (input: LinkPlanInput): LinkPlanResult => {
-  const harnesses = selectHarnesses(input.settings, input.homeDirectory);
+  const harnesses = selectHarnesses(input.settings, input.homeDirectory, input.env);
 
   // `--remove` retires only the harnesses `--harness` named, so `--harness gemini --remove` cannot
   // unlink Claude and Codex as a side effect. Without the flag it retires everything the manifest

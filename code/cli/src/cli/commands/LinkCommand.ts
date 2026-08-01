@@ -109,6 +109,7 @@ export const executeLinkCommand = (input: LinkInput): LinkResult => {
     force: input.force,
     remove: input.remove,
     harnessFilter: input.harnesses,
+    env: input.env,
   });
 
   // A strict run that cannot support something the user asked for must have no side effects at all,

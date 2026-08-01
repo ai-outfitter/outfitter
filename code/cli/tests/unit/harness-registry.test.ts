@@ -79,4 +79,23 @@ describe('harness registry', () => {
   it('falls back to the process home directory when none is injected', () => {
     expect(resolveHarnessConfigDirectory(findHarnessLayout('gemini'))).toContain('.gemini');
   });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-011.1.1).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('provisions Pi at its durable agent directory, not the composite run assembles', () => {
+    const pi = findHarnessLayout('pi');
+
+    // pi's getAgentDir() returns join(homedir(), '.pi', 'agent') when PI_CODING_AGENT_DIR is unset,
+    // and resolves skills from join(globalBaseDir, 'skills') with globalBaseDir = agentDir.
+    expect(resolveHarnessConfigDirectory(pi, '/home/me')).toBe(join('/home/me', '.pi', 'agent'));
+    expect(findHarnessSurface(pi, 'skills')).toMatchObject({ strategy: 'symlink', location: 'skills' });
+    // Only skills are confirmed for Pi; nothing else may be claimed.
+    expect(supportedKinds(pi)).toEqual(['skills']);
+  });
+
+  it('names an executable for every harness so a fresh install is detectable', () => {
+    for (const layout of HARNESS_LAYOUTS) {
+      expect(layout.command).not.toBe('');
+    }
+  });
 });
