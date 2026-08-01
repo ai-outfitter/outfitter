@@ -15,6 +15,7 @@ import { planLinks } from '../../harness/LinkPlan.js';
 import { readManifest, removeManifest, resolveManifestPath, writeManifest } from '../../harness/LinkManifest.js';
 import { resolveEffectiveSet } from '../../resolver/ResolverContext.js';
 import { listResources } from '../../resolver/Resource.js';
+import type { SettingsLoadIssue } from '../../settings/SettingsLoader.js';
 import { formatSettingsIssue } from '../../settings/SettingsLoader.js';
 import { Command } from 'commander';
 import type { CommandObject } from './CommandObject.js';
@@ -35,6 +36,12 @@ export interface LinkInput {
 export interface LinkResult {
   readonly ok: boolean;
   readonly messages: readonly string[];
+  /**
+   * Diagnostics that belong on stderr: unsupported adapter controls and conflicts. AGENTS.md
+   * requires an adapter that cannot support a requested control to warn on stderr, and keeping them
+   * off stdout is also what lets `--json` output stay machine-parseable.
+   */
+  readonly diagnostics: readonly string[];
 }
 
 /**
@@ -70,17 +77,20 @@ const formatStep = (step: LinkStep): string => {
   return `  ${symbol} [${step.harness}/${step.kind}] ${step.target}${detail}${reason}`;
 };
 
+/** Invalid settings stop the run before anything is planned; nothing is written either way. */
+const settingsErrorResult = (settingsIssues: readonly SettingsLoadIssue[], json: boolean): LinkResult => {
+  const errors = settingsIssues.map(formatSettingsIssue);
+
+  return json
+    ? { ok: false, messages: [JSON.stringify({ ok: false, errors }, null, 2)], diagnostics: [] }
+    : { ok: false, messages: [], diagnostics: errors.map((error) => `✗ ${error}`) };
+};
+
 export const executeLinkCommand = (input: LinkInput): LinkResult => {
   const resolved = resolveEffectiveSet(input);
   const { set, settingsIssues, warnings } = resolved;
 
-  if (settingsIssues.length > 0) {
-    const errors = settingsIssues.map(formatSettingsIssue);
-
-    return input.json === true
-      ? { ok: false, messages: [JSON.stringify({ ok: false, errors }, null, 2)] }
-      : { ok: false, messages: errors.map((error) => `✗ ${error}`) };
-  }
+  if (settingsIssues.length > 0) return settingsErrorResult(settingsIssues, input.json === true);
 
   const manifestPath = resolveManifestPath(input.env, input.homeDirectory);
   const manifest = readManifest(manifestPath);
@@ -101,17 +111,40 @@ export const executeLinkCommand = (input: LinkInput): LinkResult => {
     harnessFilter: input.harnesses,
   });
 
-  const applied = applyLinkPlan(plan, manifest, { dryRun: input.dryRun });
-  const ok = applied.conflicts.length === 0 && !(input.strict === true && plan.unsupported.length > 0);
+  // A strict run that cannot support something the user asked for must have no side effects at all,
+  // so the plan is validated before it is applied rather than after.
+  const strictFailure = input.strict === true && plan.unsupported.length > 0;
+  const applied = applyLinkPlan(plan, manifest, { dryRun: input.dryRun === true || strictFailure });
+  const ok = applied.conflicts.length === 0 && !strictFailure;
 
-  if (input.dryRun !== true) persistManifest(manifestPath, input, applied);
+  if (input.dryRun !== true && !strictFailure) persistManifest(manifestPath, input, applied);
+
+  const diagnostics = formatDiagnostics(plan, applied, warnings, strictFailure);
 
   if (input.json === true) {
-    return { ok, messages: [JSON.stringify({ ok, warnings, plan, applied: summary(applied) }, null, 2)] };
+    return { ok, messages: [JSON.stringify({ ok, warnings, plan, applied: summary(applied) }, null, 2)], diagnostics };
   }
 
-  return { ok, messages: formatMessages(input, plan, applied, warnings) };
+  return { ok, messages: formatMessages(input, plan, applied), diagnostics };
 };
+
+/**
+ * Everything that belongs on stderr: sync guidance, unsupported adapter controls (AGENTS.md
+ * requires these to warn on stderr), and the conflict summary.
+ */
+const formatDiagnostics = (
+  plan: ReturnType<typeof planLinks>,
+  applied: ReturnType<typeof applyLinkPlan>,
+  warnings: readonly string[],
+  strictFailure: boolean,
+): readonly string[] => [
+  ...warnings.map((warning) => `⚠ ${warning}`),
+  ...plan.unsupported.map((message) => `⚠ ${message}`),
+  ...(strictFailure ? ['✗ Unsupported resources requested under --strict. Nothing was written.'] : []),
+  ...(applied.conflicts.length > 0
+    ? ['✗ Conflicting paths were left untouched. Move them aside, or re-run with --force.']
+    : []),
+];
 
 /**
  * Records what Outfitter still owns.
@@ -143,31 +176,20 @@ const formatMessages = (
   input: LinkInput,
   plan: ReturnType<typeof planLinks>,
   applied: ReturnType<typeof applyLinkPlan>,
-  warnings: readonly string[],
 ): readonly string[] => {
-  const lines: string[] = [...warnings.map((warning) => `⚠ ${warning}`)];
-  const changes = plan.steps.filter((step) => step.action !== 'unchanged');
-
   if (plan.harnesses.length === 0) {
-    return [...lines, 'No harnesses selected. Set `harnesses.link` in settings.yml or pass --harness.'];
+    return ['No harnesses selected. Set `harnesses.link` in settings.yml or pass --harness.'];
   }
 
-  lines.push(
+  const changes = plan.steps.filter((step) => step.action !== 'unchanged');
+  const lines: string[] = [
     input.dryRun === true
       ? `Planned for ${plan.harnesses.join(', ')} (dry run — nothing written):`
       : `Linked ${plan.harnesses.join(', ')}:`,
-  );
-  lines.push(...(changes.length === 0 ? ['  (already up to date)'] : changes.map(formatStep)));
-  lines.push(...plan.unsupported.map((message) => `⚠ ${message}`));
-
-  lines.push(
+    ...(changes.length === 0 ? ['  (already up to date)'] : changes.map(formatStep)),
     `${applied.created} created, ${applied.updated} updated, ${applied.removed} removed, ` +
       `${applied.unchanged} unchanged, ${applied.conflicts.length} conflicts.`,
-  );
-
-  if (applied.conflicts.length > 0) {
-    lines.push('✗ Conflicting paths were left untouched. Move them aside, or re-run with --force.');
-  }
+  ];
 
   return lines;
 };
@@ -177,6 +199,8 @@ export interface LinkCommandDependencies {
   readonly projectDirectory?: string;
   readonly env?: Readonly<Record<string, string | undefined>>;
   readonly writeLine?: (message: string) => void;
+  /** Warnings and errors. Separate from `writeLine` so stdout stays parseable under `--json`. */
+  readonly writeErrorLine?: (message: string) => void;
 }
 
 const parseHarnesses = (value: string | undefined): readonly HarnessId[] | undefined => {
@@ -238,6 +262,11 @@ export const createLinkCommand = (dependencies: LinkCommandDependencies = {}): C
             for (const message of result.messages) {
               /* v8 ignore next -- console fallback is direct CLI behavior; tests inject a writer. */
               (dependencies.writeLine ?? console.log)(message);
+            }
+
+            for (const message of result.diagnostics) {
+              /* v8 ignore next -- console fallback is direct CLI behavior; tests inject a writer. */
+              (dependencies.writeErrorLine ?? console.error)(message);
             }
 
             if (!result.ok) {

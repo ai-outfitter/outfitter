@@ -180,6 +180,63 @@ describe('outfitter link', () => {
     expect(existsSync(join(home, 'state', 'outfitter', 'links.json'))).toBe(true);
   });
 
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-011.1.5).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('writes nothing at all when --strict rejects an unsupported combination', () => {
+    const { home, project } = createCatalogHome(
+      'harnesses:\n  link: [copilot]\n  copilot:\n    resources: [skills, instructions]\n',
+    );
+
+    const result = run(home, project, { strict: true });
+
+    expect(result.ok).toBe(false);
+    // A fatal validation result must have no filesystem side effects, including the manifest.
+    expect(existsSync(join(home, '.copilot', 'skills', 'research'))).toBe(false);
+    expect(existsSync(join(home, 'state', 'outfitter', 'links.json'))).toBe(false);
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-011.2.10).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('refuses to delete a taken-over managed path during --remove', () => {
+    const { home, project } = createCatalogHome('harnesses:\n  link: [claude]\n  claude:\n    resources: [skills]\n');
+    run(home, project);
+
+    const target = join(home, '.claude', 'skills', 'research');
+    rmSync(target, { recursive: true, force: true });
+    write(join(target, 'notes.md'), 'MY WORK');
+
+    const result = run(home, project, { remove: true });
+
+    expect(result.ok).toBe(false);
+    expect(readFileSync(join(target, 'notes.md'), 'utf8')).toBe('MY WORK');
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-011.5.3).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('detects a harness through any configured directory, not just the first', () => {
+    const { home, project } = createCatalogHome(
+      'harnesses:\n  claude:\n    resources: [skills]\n    config_directories: ["~/.absent", "~/.claude"]\n',
+    );
+
+    // Only the second entry exists; detection must not depend on list order.
+    run(home, project);
+
+    expect(existsSync(join(home, '.claude', 'skills', 'research'))).toBe(true);
+  });
+
+  it('reports colliding Gemini command names instead of letting one silently win', () => {
+    const { home, project } = createCatalogHome('harnesses:\n  link: [gemini]\n  gemini:\n    resources: [commands]\n');
+    // `ks/dev` and `ks.dev` both flatten to ks.dev.toml.
+    write(join(home, '.agents', 'commands', 'ks', 'dev.md'), 'namespaced\n');
+    write(join(home, '.agents', 'commands', 'ks.dev.md'), 'flat\n');
+
+    const result = run(home, project);
+
+    expect(result.ok).toBe(false);
+    expect(result.diagnostics.join('\n')).toContain('Conflicting paths');
+    expect(existsSync(join(home, '.gemini', 'commands', 'ks.dev.toml'))).toBe(false);
+  });
+
   it('emits JSON on the settings-error path rather than prose', () => {
     const { home, project } = createCatalogHome('harnesses:\n  link: [not-a-harness]\n');
 
@@ -270,7 +327,7 @@ describe('outfitter link', () => {
 
     const conflicted = run(home, project);
     expect(conflicted.ok).toBe(false);
-    expect(conflicted.messages.join('\n')).toContain('Conflicting paths were left untouched');
+    expect(conflicted.diagnostics.join('\n')).toContain('Conflicting paths were left untouched');
     expect(readFileSync(join(home, '.claude', 'skills', 'research'), 'utf8')).toBe('hand written');
 
     const forced = run(home, project, { force: true });
@@ -397,7 +454,7 @@ describe('outfitter link', () => {
 
     const warned = run(home, project);
     expect(warned.ok).toBe(true);
-    expect(warned.messages.join('\n')).toContain("'instructions' is not a supported surface");
+    expect(warned.diagnostics.join('\n')).toContain("'instructions' is not a supported surface");
 
     expect(run(home, project, { strict: true }).ok).toBe(false);
   });
@@ -418,14 +475,14 @@ describe('outfitter link', () => {
     const result = run(home, project);
 
     expect(result.ok).toBe(false);
-    expect(result.messages.join('\n')).toContain('harnesses');
+    expect(result.diagnostics.join('\n')).toContain('harnesses');
     expect(existsSync(join(home, '.claude', 'skills', 'research'))).toBe(false);
   });
 
   it('surfaces unsynchronized remote source guidance alongside the plan', () => {
     const { home, project } = createCatalogHome('harnesses:\n  link: [claude]\nsources:\n  - github: acme/catalog\n');
 
-    expect(run(home, project).messages.join('\n')).toContain("Run 'outfitter sync'");
+    expect(run(home, project).diagnostics.join('\n')).toContain("Run 'outfitter sync'");
   });
   it('skips the instructions link when the catalog has no AGENTS.md', () => {
     const { home, project } = createCatalogHome('harnesses:\n  link: [claude]\n');
@@ -449,6 +506,7 @@ describe('link command object', () => {
       projectDirectory: project,
       env: { XDG_STATE_HOME: join(home, 'state') },
       writeLine: (message) => lines.push(message),
+      writeErrorLine: () => undefined,
     }).register(program);
 
     await program.parseAsync(['node', 'outfitter', 'link', '--dry-run']);
@@ -468,6 +526,7 @@ describe('link command object', () => {
       projectDirectory: project,
       env: { XDG_STATE_HOME: join(home, 'state') },
       writeLine: (message) => lines.push(message),
+      writeErrorLine: () => undefined,
     }).register(program);
 
     await program.parseAsync(['node', 'outfitter', 'link']);
@@ -486,6 +545,7 @@ describe('link command object', () => {
       projectDirectory: project,
       env: { XDG_STATE_HOME: join(home, 'state') },
       writeLine: (message) => lines.push(message),
+      writeErrorLine: () => undefined,
     }).register(program);
 
     await program.parseAsync(['node', 'outfitter', 'link', '--harness', 'gemini, codex']);
@@ -503,6 +563,7 @@ describe('link command object', () => {
       projectDirectory: project,
       env: { XDG_STATE_HOME: join(home, 'state') },
       writeLine: () => undefined,
+      writeErrorLine: () => undefined,
     }).register(program);
 
     await expect(program.parseAsync(['node', 'outfitter', 'link', '--harness', 'emacs'])).rejects.toThrow(
@@ -514,15 +575,19 @@ describe('link command object', () => {
     const { home, project } = createCatalogHome('harnesses:\n  link: [claude]\n  claude:\n    resources: [skills]\n');
     write(join(home, '.claude', 'skills', 'research'), 'hand written');
     const program = new Command();
+    const errors: string[] = [];
     createLinkCommand({
       homeDirectory: home,
       projectDirectory: project,
       env: { XDG_STATE_HOME: join(home, 'state') },
       writeLine: () => undefined,
+      writeErrorLine: (message) => errors.push(message),
     }).register(program);
 
     await program.parseAsync(['node', 'outfitter', 'link']);
 
     expect(process.exitCode).toBe(1);
+    // AGENTS.md requires the conflict report on stderr, not stdout.
+    expect(errors.join('\n')).toContain('Conflicting paths were left untouched');
   });
 });

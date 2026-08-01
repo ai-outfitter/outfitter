@@ -137,7 +137,7 @@ const isManagedEntry = (value: unknown): boolean =>
 export const mergeManagedHooks = (
   existingHooks: Readonly<Record<string, unknown>> | undefined,
   generated: NativeHooks,
-): Readonly<Record<string, unknown>> => {
+): Readonly<Record<string, unknown>> | { readonly conflict: string } => {
   const merged: Record<string, unknown> = {};
 
   for (const [event, entries] of Object.entries(existingHooks ?? {})) {
@@ -147,10 +147,46 @@ export const mergeManagedHooks = (
 
   for (const [event, entries] of Object.entries(generated)) {
     const preserved: unknown = merged[event];
+
+    // The user has something under this event that is not a hook array. Appending is impossible and
+    // replacing would destroy it, so the merge fails rather than choosing for them.
+    if (preserved !== undefined && !Array.isArray(preserved)) {
+      return { conflict: `hooks.${event} is not an array; hooks were not written` };
+    }
+
     merged[event] = Array.isArray(preserved) ? [...(preserved as readonly unknown[]), ...entries] : [...entries];
   }
 
   return merged;
+};
+
+export const isMergeConflict = (
+  value: Readonly<Record<string, unknown>> | { readonly conflict: string },
+): value is { readonly conflict: string } => 'conflict' in value;
+
+/**
+ * Parses a harness settings file into a JSON object, or explains why it cannot be touched. Both
+ * entry points share it so "unparseable" and "not an object" read identically wherever they surface.
+ */
+const parseSettingsDocument = (
+  raw: string | undefined,
+  consequence: string,
+): { readonly document: Record<string, unknown> } | { readonly error: string } => {
+  if (raw === undefined) return { document: {} };
+
+  let parsed: unknown;
+
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return { error: `could not be parsed as JSON; ${consequence}` };
+  }
+
+  if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    return { error: `is not a JSON object; ${consequence}` };
+  }
+
+  return { document: parsed as Record<string, unknown> };
 };
 
 export interface HookDocumentMerge {
@@ -171,31 +207,23 @@ export const mergeHookSettingsDocument = (
   existingRaw: string | undefined,
   generated: NativeHooks,
 ): HookDocumentMerge => {
-  let document: Record<string, unknown> = {};
+  const parsed = parseSettingsDocument(existingRaw, 'hooks were not written');
 
-  if (existingRaw !== undefined) {
-    let parsed: unknown;
+  if ('error' in parsed) return parsed;
 
-    try {
-      parsed = JSON.parse(existingRaw);
-    } catch {
-      return { error: 'could not be parsed as JSON; hooks were not written' };
-    }
-
-    if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
-      return { error: 'is not a JSON object; hooks were not written' };
-    }
-
-    document = parsed as Record<string, unknown>;
-  }
+  const document = parsed.document;
 
   const existingHooks = document.hooks;
-  const hooks = mergeManagedHooks(
-    existingHooks !== null && typeof existingHooks === 'object' && !Array.isArray(existingHooks)
-      ? (existingHooks as Record<string, unknown>)
-      : undefined,
-    generated,
-  );
+  const hasUsableHooks =
+    existingHooks === undefined ||
+    (existingHooks !== null && typeof existingHooks === 'object' && !Array.isArray(existingHooks));
+
+  // Replacing a non-object `hooks` value would destroy unmanaged user configuration.
+  if (!hasUsableHooks) return { error: 'has a non-object `hooks` value; hooks were not written' };
+
+  const hooks = mergeManagedHooks(existingHooks as Record<string, unknown> | undefined, generated);
+
+  if (isMergeConflict(hooks)) return { error: hooks.conflict };
 
   return { content: `${JSON.stringify({ ...document, hooks }, null, 2)}\n` };
 };
@@ -211,24 +239,20 @@ export const mergeHookSettingsDocument = (
 export const stripManagedHooks = (existingRaw: string | undefined): HookDocumentMerge => {
   if (existingRaw === undefined) return {};
 
-  let parsed: unknown;
+  const parsed = parseSettingsDocument(existingRaw, 'managed hooks were left in place');
 
-  try {
-    parsed = JSON.parse(existingRaw);
-  } catch {
-    return { error: 'could not be parsed as JSON; managed hooks were left in place' };
-  }
+  if ('error' in parsed) return parsed;
 
-  if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
-    return { error: 'is not a JSON object; managed hooks were left in place' };
-  }
-
-  const document = parsed as Record<string, unknown>;
+  const document = parsed.document;
   const existingHooks = document.hooks;
 
   if (existingHooks === null || typeof existingHooks !== 'object' || Array.isArray(existingHooks)) return {};
 
   const hooks = mergeManagedHooks(existingHooks as Record<string, unknown>, {});
+
+  /* v8 ignore next -- stripping generates no events, so the append branch that conflicts is unreachable. */
+  if (isMergeConflict(hooks)) return { error: hooks.conflict };
+
   const content = `${JSON.stringify({ ...document, hooks }, null, 2)}\n`;
 
   return content === existingRaw ? {} : { content };

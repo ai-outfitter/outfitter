@@ -135,6 +135,18 @@ describe('link application', () => {
     expect(result.created).toBe(1);
   });
 
+  it('forgets a manifest entry on an unchanged step that carries forget', () => {
+    const target = join(createRoot(), 'settings.json');
+
+    const result = applyLinkPlan(
+      planOf({ harness: 'claude', kind: 'hooks', action: 'unchanged', target, strategy: 'settings', forget: true }),
+      { version: MANIFEST_VERSION, entries: [{ target, harness: 'claude', kind: 'hooks', strategy: 'settings' }] },
+    );
+
+    expect(existsSync(target)).toBe(false);
+    expect(result.manifest.entries).toEqual([]);
+  });
+
   it('counts unchanged steps without touching the filesystem', () => {
     const root = createRoot();
     const target = join(root, 'never-created');
@@ -214,10 +226,13 @@ describe('hook settings merge', () => {
     });
   });
 
-  it('ignores a non-object hooks value rather than merging into it', () => {
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-011.2.8).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('refuses to merge into a non-object hooks value rather than replacing it', () => {
     const merged = mergeHookSettingsDocument(JSON.stringify({ hooks: 'unexpected' }), hooksFor('guard'));
 
-    expect((JSON.parse(merged.content ?? '{}') as HookSettings).hooks.PreToolUse).toHaveLength(1);
+    expect(merged.content).toBeUndefined();
+    expect(merged.error).toContain('non-object `hooks` value');
   });
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-011.3.1).

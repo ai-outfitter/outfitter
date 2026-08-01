@@ -8,7 +8,10 @@ from `~/.claude`, `~/.codex`, `~/.gemini`, and `~/.copilot` back into that catal
 silently drift: a second config directory is missed, a renamed skill leaves a dangling link, and a
 harness that needs a translated format gets a symlink that never loads.
 
-`outfitter link` is the opt-in provisioning command that owns those links. It is deliberately
+`outfitter link` is the opt-in provisioning command that owns those links. It governs harnesses with
+a user-global configuration directory: Claude Code, Codex, Gemini CLI, and Copilot CLI. Pi is out of
+scope because Outfitter supplies its configuration directly through `PI_CODING_AGENT_DIR` at launch,
+so there is no persistent Pi location to link into; #187's Pi mapping stays open. It is deliberately
 separate from `outfitter run`: `run` assembles a temporary composite runtime directory and deletes
 it when the child exits, while `link` writes persistent files into directories the harness owns and
 then exits. This document governs the persistent path only, and implements the managed-projection
@@ -32,7 +35,10 @@ Every rule below follows from one of the two.
 4. The registry MUST record which projection strategy each surface uses: a managed symlink, a
    generated file, or a merge into a harness settings document.
 5. Requesting an unsupported resource-and-harness combination MUST be reported to the user, and
-   MUST fail the command under `--strict`.
+   MUST fail the command under `--strict`. A `--strict` failure MUST leave no filesystem changes,
+   including to the ownership manifest.
+6. Reports of unsupported controls MUST be written to standard error, so standard output stays
+   usable for machine-readable results.
 
 ### OFTR-011.2: Ownership and Conflict Safety
 
@@ -55,6 +61,14 @@ Every rule below follows from one of the two.
 11. Merging into a harness settings document MUST update the file in place rather than replacing
     the path, so a settings file that is a symlink into a dotfiles repository or a generated
     configuration tree stays a symlink.
+12. A manifest entry MUST be validated against the declared harness, kind, and strategy registries
+    before it is honored, because a retired entry authorizes a recursive delete of its target.
+13. A settings document holding an unmanaged value where hooks are expected MUST be reported rather
+    than replaced.
+14. A resource whose source has disappeared or become unreadable MUST be reported rather than
+    projected as empty content over a previously valid target.
+15. Two resources that would generate the same target file MUST both be reported rather than one
+    silently overwriting the other.
 
 ### OFTR-011.3: Reconciliation
 

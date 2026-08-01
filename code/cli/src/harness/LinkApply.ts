@@ -3,7 +3,7 @@
 // Everything here is deliberately mechanical: LinkPlan already decided which paths are safe to
 // touch, so apply never re-derives ownership. A step whose action is `conflict` or `unchanged`
 // writes nothing, which is what makes repeated runs idempotent.
-import { mkdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { mkdirSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 
 import type { LinkPlanResult, LinkStep } from './LinkPlan.js';
@@ -19,11 +19,26 @@ export interface ApplyResult {
   readonly conflicts: readonly LinkStep[];
 }
 
-/** Replaces a path with a symlink. `rmSync` first so a stale link or file cannot block creation. */
+/**
+ * Replaces a path with a symlink. `rmSync` first so a stale link or file cannot block creation.
+ *
+ * The link type is passed explicitly because Node defaults to `'file'` on Windows, which produces
+ * an unusable link for a skill (a directory). It is ignored on POSIX.
+ */
 const writeSymlink = (target: string, source: string): void => {
   mkdirSync(dirname(target), { recursive: true });
   rmSync(target, { recursive: true, force: true });
-  symlinkSync(source, target);
+  symlinkSync(source, target, resolvesToDirectory(source) ? 'junction' : 'file');
+};
+
+/** Follows the link: what kind of thing does this source actually point at? */
+const resolvesToDirectory = (source: string): boolean => {
+  try {
+    return statSync(source).isDirectory();
+  } catch {
+    /* v8 ignore next -- the planner only emits symlink steps for sources it resolved. */
+    return false;
+  }
 };
 
 /**
@@ -82,7 +97,10 @@ export const applyLinkPlan = (
       continue;
     }
 
+    // A retire step can be `unchanged` and still need forgetting: the settings document no longer
+    // holds anything of Outfitter's, so the file needs no write but the entry must go.
     if (step.action === 'unchanged') {
+      if (step.forget === true) entries.delete(step.target);
       unchanged += 1;
       continue;
     }
@@ -95,12 +113,7 @@ export const applyLinkPlan = (
     }
 
     if (!dryRun) applyStep(step);
-
-    // A `settings` entry records that Outfitter merged into a file it does not own, so `--remove`
-    // knows where to strip its marked hook entries. It never authorizes deleting that file — see
-    // the `remove` branch above, which only ever runs for path-owning strategies.
-    if (step.forget === true) entries.delete(step.target);
-    else entries.set(step.target, toManifestEntry(step));
+    recordEntry(entries, step);
 
     if (step.action === 'create') created += 1;
     else updated += 1;
@@ -114,6 +127,16 @@ export const applyLinkPlan = (
     unchanged,
     conflicts,
   };
+};
+
+/**
+ * A `settings` entry records that Outfitter merged into a file it does not own, so `--remove` knows
+ * where to strip its marked hook entries. It never authorizes deleting that file — only the
+ * `remove` branch does, and that runs solely for path-owning strategies.
+ */
+const recordEntry = (entries: Map<string, ManifestEntry>, step: LinkStep): void => {
+  if (step.forget === true) entries.delete(step.target);
+  else entries.set(step.target, toManifestEntry(step));
 };
 
 const applyStep = (step: LinkStep): void => {

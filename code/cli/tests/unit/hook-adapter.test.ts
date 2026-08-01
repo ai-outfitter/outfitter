@@ -5,6 +5,8 @@ import {
   HOOK_EVENTS,
   OUTFITTER_HOOK_MARKER,
   isHookEvent,
+  isMergeConflict,
+  mergeHookSettingsDocument,
   mergeManagedHooks,
   nativeHookEvent,
   projectHooks,
@@ -81,9 +83,11 @@ describe('hook adapter', () => {
 
     const merged = mergeManagedHooks({ PreToolUse: [handWritten, stale], SessionEnd: [handWritten] }, generated);
 
-    expect(merged.PreToolUse).toEqual([handWritten, ...(generated.PreToolUse ?? [])]);
+    expect(isMergeConflict(merged)).toBe(false);
+    const hooks = merged as Readonly<Record<string, unknown>>;
+    expect(hooks.PreToolUse).toEqual([handWritten, ...(generated.PreToolUse ?? [])]);
     // An event Outfitter does not manage is carried through untouched.
-    expect(merged.SessionEnd).toEqual([handWritten]);
+    expect(hooks.SessionEnd).toEqual([handWritten]);
   });
 
   it('drops an event whose only entries were generated, and tolerates a missing hooks object', () => {
@@ -97,9 +101,36 @@ describe('hook adapter', () => {
     expect(mergeManagedHooks({ PreToolUse: 'unexpected' }, {})).toEqual({ PreToolUse: 'unexpected' });
   });
 
-  it('adds a generated event alongside an existing non-array value without losing either', () => {
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-011.2.8).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('refuses to merge into an event holding an unmanaged non-array value', () => {
     const generated = projectHooks([{ event: 'notification', command: 'ping' }], 'claude').hooks;
-    expect(mergeManagedHooks({ Notification: 'unexpected' }, generated).Notification).toEqual(generated.Notification);
+
+    // Appending is impossible and replacing would destroy the user's value, so the merge fails.
+    expect(mergeManagedHooks({ Notification: 'unexpected' }, generated)).toEqual({
+      conflict: 'hooks.Notification is not an array; hooks were not written',
+    });
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-011.2.13).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('surfaces an event-level merge conflict through the document merge', () => {
+    const generated = projectHooks([{ event: 'notification', command: 'ping' }], 'claude').hooks;
+    const existing = JSON.stringify({ model: 'opus', hooks: { Notification: 'unexpected' } });
+
+    expect(mergeHookSettingsDocument(existing, generated)).toEqual({
+      error: 'hooks.Notification is not an array; hooks were not written',
+    });
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-011.2.13).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('refuses to write over a non-object hooks value', () => {
+    const generated = projectHooks([{ event: 'notification', command: 'ping' }], 'claude').hooks;
+
+    expect(mergeHookSettingsDocument(JSON.stringify({ hooks: 'unexpected' }), generated)).toEqual({
+      error: 'has a non-object `hooks` value; hooks were not written',
+    });
   });
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-011.3.6).

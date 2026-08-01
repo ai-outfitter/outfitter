@@ -6,7 +6,12 @@
 import { existsSync, lstatSync, readFileSync, readlinkSync } from 'node:fs';
 import { isAbsolute, join, resolve } from 'node:path';
 
-import { renderGeminiCommand, geminiCommandFileName, parseCommandDocument } from './CommandAdapter.js';
+import {
+  collidingCommandSlugs,
+  geminiCommandFileName,
+  parseCommandDocument,
+  renderGeminiCommand,
+} from './CommandAdapter.js';
 import type { HarnessId, HarnessLayout, HarnessSurface, LinkableKind } from './HarnessLayout.js';
 import { HARNESS_LAYOUTS, findHarnessSurface, resolveHarnessConfigDirectory, supportedKinds } from './HarnessLayout.js';
 import type { HarnessSettings } from './HarnessSettings.js';
@@ -100,7 +105,8 @@ export const selectHarnesses = (settings: HarnessSettings, homeDirectory: string
 
   return HARNESS_LAYOUTS.filter((layout) => {
     if (selection === 'none') return false;
-    if (selection === 'detected') return existsSync(configDirectories(layout, settings, homeDirectory)[0]);
+    if (selection === 'detected')
+      return configDirectories(layout, settings, homeDirectory).some((directory) => existsSync(directory));
 
     return selection.includes(layout.id);
   }).map((layout) => layout.id);
@@ -230,13 +236,32 @@ const generateStep = (
   return { harness, kind, action, target, strategy: 'generate', content, ...(reason === undefined ? {} : { reason }) };
 };
 
-/** Reads a file, treating an absent or unreadable path as "no current content". */
-const readFileIfPresent = (path: string): string | undefined => {
+/**
+ * Reads a file that may legitimately be absent.
+ *
+ * `absent` and `unreadable` are kept apart deliberately: treating an existing-but-unreadable
+ * settings.json as absent would build a fresh document and truncate the user's configuration, which
+ * is exactly what OFTR-011.2.9 forbids.
+ */
+type FileRead =
+  | { readonly kind: 'absent' }
+  | { readonly kind: 'read'; readonly content: string }
+  | { readonly kind: 'unreadable'; readonly message: string };
+
+const readFile = (path: string): FileRead => {
   try {
-    return readFileSync(path, 'utf8');
-  } catch {
-    return undefined;
+    return { kind: 'read', content: readFileSync(path, 'utf8') };
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return { kind: 'absent' };
+
+    return { kind: 'unreadable', message: `could not be read: ${(error as Error).message}` };
   }
+};
+
+/** Content of a file that exists and is readable; undefined when it is absent or unreadable. */
+const readFileIfPresent = (path: string): string | undefined => {
+  const read = readFile(path);
+  return read.kind === 'read' ? read.content : undefined;
 };
 
 const skillSteps = (
@@ -267,29 +292,65 @@ const commandSteps = (
   sources: readonly LinkSource[],
   manifestTargets: ReadonlyMap<string, unknown>,
   force: boolean,
-): readonly LinkStep[] =>
-  sources
-    .filter((source) => source.kind === 'commands')
-    .map((source) => {
-      if (surface.strategy === 'symlink') {
-        /* v8 ignore next -- every symlinked command surface in the registry declares an extension. */
-        const fileName = `${source.slug}${surface.extension ?? ''}`;
-        return symlinkStep(
-          harness,
-          'commands',
-          join(configDirectory, surface.location, fileName),
-          source.path,
-          manifestTargets,
-          force,
-        );
-      }
+): readonly LinkStep[] => {
+  const commands = sources.filter((source) => source.kind === 'commands');
 
-      const body = readFileIfPresent(source.path) ?? '';
-      const content = renderGeminiCommand(parseCommandDocument(body, source.path));
+  // Gemini flattens `/` to `.`, so `ks/dev` and `ks.dev` want the same file. Writing both would let
+  // whichever runs last silently win, so neither is written and the clash is reported.
+  const collisions: ReadonlyMap<string, readonly string[]> =
+    surface.strategy === 'generate'
+      ? collidingCommandSlugs(commands.map((command) => command.slug))
+      : new Map<string, readonly string[]>();
+  const collidingSlugs = new Set([...collisions.values()].flat());
+
+  return commands.map((source) => {
+    if (collidingSlugs.has(source.slug)) {
       const target = join(configDirectory, surface.location, geminiCommandFileName(source.slug));
+      const competing = [...collisions.values()].find((slugs) => slugs.includes(source.slug)) ?? [];
 
-      return generateStep(harness, 'commands', target, content, readFileIfPresent(target), manifestTargets, force);
-    });
+      return {
+        harness,
+        kind: 'commands' as const,
+        action: 'conflict' as const,
+        target,
+        strategy: surface.strategy,
+        reason: `commands ${competing.map((slug) => `'${slug}'`).join(' and ')} both generate this file`,
+      };
+    }
+
+    if (surface.strategy === 'symlink') {
+      /* v8 ignore next -- every symlinked command surface in the registry declares an extension. */
+      const fileName = `${source.slug}${surface.extension ?? ''}`;
+      return symlinkStep(
+        harness,
+        'commands',
+        join(configDirectory, surface.location, fileName),
+        source.path,
+        manifestTargets,
+        force,
+      );
+    }
+
+    const target = join(configDirectory, surface.location, geminiCommandFileName(source.slug));
+    const body = readFile(source.path);
+
+    // Rendering an empty prompt would overwrite a previously good generated command with nothing.
+    if (body.kind !== 'read') {
+      return {
+        harness,
+        kind: 'commands' as const,
+        action: 'conflict' as const,
+        target,
+        strategy: 'generate' as const,
+        reason: `command source '${source.path}' ${body.kind === 'absent' ? 'no longer exists' : body.message}`,
+      };
+    }
+
+    const content = renderGeminiCommand(parseCommandDocument(body.content, source.path));
+
+    return generateStep(harness, 'commands', target, content, readFileIfPresent(target), manifestTargets, force);
+  });
+};
 
 const instructionsSteps = (
   harness: HarnessId,
@@ -331,7 +392,22 @@ const hookSteps = (
   const projection = projectHooks(declarations, harness);
   const target = join(configDirectory, surface.location);
   const unsupported = projection.unsupported.map((message) => `${harness}: ${message}`);
-  const current = readFileIfPresent(target);
+
+  // Every declaration was unsupported for this harness. Writing `"hooks": {}` and claiming the
+  // settings file would be a change Outfitter made for no reason; pruning still retires any
+  // entries a previous run left behind.
+  if (Object.keys(projection.hooks).length === 0) return { steps: [], unsupported };
+
+  const read = readFile(target);
+
+  if (read.kind === 'unreadable') {
+    return {
+      steps: [{ harness, kind: 'hooks', action: 'conflict', target, strategy: 'settings', reason: read.message }],
+      unsupported,
+    };
+  }
+
+  const current = read.kind === 'read' ? read.content : undefined;
   const merged = mergeHookSettingsDocument(current, projection.hooks);
 
   if (merged.content === undefined) {
@@ -381,8 +457,26 @@ const removalPlan = (manifest: LinkManifest, harnesses: readonly HarnessId[]): L
  * entries, never delete the file, and report a document that cannot be parsed — is written once.
  * Returning an empty array means there is nothing left to do for that entry.
  */
-const retireEntry = (entry: LinkManifest['entries'][number], reason: string | undefined): readonly LinkStep[] => {
-  if (entry.strategy !== 'settings') {
+const retireEntry = (entry: LinkManifest['entries'][number], reason: string | undefined): readonly LinkStep[] =>
+  entry.strategy === 'settings' ? retireSettingsEntry(entry, reason) : retirePathEntry(entry, reason);
+
+const retirePathEntry = (entry: LinkManifest['entries'][number], reason: string | undefined): readonly LinkStep[] => {
+  {
+    // Same ownership rule as reconciliation: a managed path the user has taken over by replacing it
+    // with a real file or directory is theirs now, and retiring it must not delete their work.
+    if (pathExists(entry.target) && !matchesRecordedKind(entry.target, entry.strategy)) {
+      return [
+        {
+          harness: entry.harness,
+          kind: entry.kind,
+          action: 'conflict',
+          target: entry.target,
+          strategy: entry.strategy,
+          reason: 'managed path was replaced by a real file or directory',
+        },
+      ];
+    }
+
     return [
       {
         harness: entry.harness,
@@ -395,14 +489,36 @@ const retireEntry = (entry: LinkManifest['entries'][number], reason: string | un
       },
     ];
   }
+};
 
-  const stripped = stripManagedHooks(readFileIfPresent(entry.target));
+const retireSettingsEntry = (
+  entry: LinkManifest['entries'][number],
+  reason: string | undefined,
+): readonly LinkStep[] => {
+  const read = readFile(entry.target);
+
+  if (read.kind === 'unreadable') {
+    return [{ ...settingsStepBase(entry), action: 'conflict', reason: read.message }];
+  }
+
+  const stripped = stripManagedHooks(read.kind === 'read' ? read.content : undefined);
 
   if (stripped.error !== undefined) {
     return [{ ...settingsStepBase(entry), action: 'conflict', reason: stripped.error }];
   }
 
-  if (stripped.content === undefined) return [];
+  // Nothing of Outfitter's is left in the document, but the entry still claims otherwise. Forget it
+  // without rewriting the file, so `--remove` can actually finish and drop the manifest.
+  if (stripped.content === undefined) {
+    return [
+      {
+        ...settingsStepBase(entry),
+        action: 'unchanged',
+        forget: true,
+        ...(reason === undefined ? {} : { reason }),
+      },
+    ];
+  }
 
   return [
     {

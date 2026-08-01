@@ -1,10 +1,13 @@
 // The `harnesses:` settings block — the user-facing control surface for `outfitter link`.
 //
 // This is where a user's own configuration enters the link pipeline. Declaring a harness, an extra
-// config directory, or a hook in `~/.agents/settings.yml` is all that is needed; the same
-// deterministic precedence as every other Outfitter setting applies (project-local over project
-// over user over built-in defaults), so a project can narrow what its checkout provisions without
-// editing anything global.
+// config directory, or a hook in `~/.agents/settings.yml` is all that is needed.
+//
+// Unlike every other settings block, only the two home layers are honored — `~/.agents/settings.yml`
+// and its `settings.local.yml` sibling, in that order. `SettingsLoader` discards this block from
+// project, project-local, and remote scopes on purpose: it installs shell commands and filesystem
+// targets into user-global harness configuration, so a checked-in or fetched file must not be able
+// to change what every future agent session runs. Do not "restore" normal precedence here.
 import type { HarnessId, LinkableKind } from './HarnessLayout.js';
 import type { HookDeclaration } from './HookAdapter.js';
 

@@ -92,5 +92,24 @@ export const renderGeminiCommand = (document: CommandDocument): string => {
 /**
  * Command slugs are path-like (`ks/dev`), but Gemini namespaces commands with `.` in the filename
  * (`ks.dev.toml`), matching how a namespaced command is invoked.
+ *
+ * The mapping is not injective: `ks/dev` and `ks.dev` both produce `ks.dev.toml`. Callers must
+ * detect that collision rather than let one command silently overwrite the other — see
+ * `collidingCommandSlugs`.
  */
 export const geminiCommandFileName = (slug: string): string => `${slug.split('/').join('.')}.toml`;
+
+/**
+ * Groups slugs that would generate the same Gemini file name, so the planner can report the clash.
+ * Returns one entry per colliding file name, each listing the slugs competing for it.
+ */
+export const collidingCommandSlugs = (slugs: readonly string[]): ReadonlyMap<string, readonly string[]> => {
+  const byFileName = new Map<string, string[]>();
+
+  for (const slug of slugs) {
+    const fileName = geminiCommandFileName(slug);
+    byFileName.set(fileName, [...(byFileName.get(fileName) ?? []), slug]);
+  }
+
+  return new Map([...byFileName].filter(([, competing]) => competing.length > 1));
+};

@@ -9,9 +9,10 @@
 // Losing the manifest is recoverable but not silent: reconcile then treats existing links as
 // unmanaged and reports them as conflicts instead of clobbering them.
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { dirname, isAbsolute, join } from 'node:path';
 
 import type { HarnessId, LinkableKind } from './HarnessLayout.js';
+import { isHarnessId, isLinkableKind } from './HarnessLayout.js';
 
 export const MANIFEST_VERSION = 1;
 
@@ -71,13 +72,33 @@ export const readManifest = (manifestPath: string): LinkManifest => {
   }
 };
 
-const isManifestEntry = (value: unknown): value is ManifestEntry =>
-  value !== null &&
-  typeof value === 'object' &&
-  typeof (value as ManifestEntry).target === 'string' &&
-  typeof (value as ManifestEntry).harness === 'string' &&
-  typeof (value as ManifestEntry).kind === 'string' &&
-  typeof (value as ManifestEntry).strategy === 'string';
+const STRATEGIES: readonly ManifestEntry['strategy'][] = ['symlink', 'generate', 'settings'];
+
+/**
+ * Validates an entry against the real registries rather than just checking for strings.
+ *
+ * This is a safety check, not tidiness: `--remove` treats any non-`settings` strategy as a path it
+ * may recursively delete, so a corrupted manifest claiming `strategy: "bogus"` for an arbitrary
+ * path must be rejected outright. An entry that fails here is simply not managed.
+ */
+const isManifestEntry = (value: unknown): value is ManifestEntry => {
+  if (value === null || typeof value !== 'object') return false;
+
+  const entry = value as Partial<ManifestEntry>;
+
+  return (
+    isAbsolutePathString(entry.target) &&
+    isKnown(entry.harness, isHarnessId) &&
+    isKnown(entry.kind, isLinkableKind) &&
+    isKnown(entry.strategy, (value) => (STRATEGIES as readonly string[]).includes(value)) &&
+    (entry.source === undefined || typeof entry.source === 'string')
+  );
+};
+
+const isAbsolutePathString = (value: unknown): boolean => typeof value === 'string' && isAbsolute(value);
+
+const isKnown = (value: unknown, isMember: (candidate: string) => boolean): boolean =>
+  typeof value === 'string' && isMember(value);
 
 /** Writes the manifest deterministically: entries sorted by target so diffs stay reviewable. */
 export const writeManifest = (manifestPath: string, manifest: LinkManifest): void => {

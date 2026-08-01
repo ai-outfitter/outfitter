@@ -297,7 +297,9 @@ describe('link planning', () => {
     expect(gemini.steps[0]?.content).toContain('prompt = "Do the review."');
   });
 
-  it('treats an unreadable command source as empty rather than failing the plan', () => {
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-011.2.2).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('reports a conflict for a command source that vanished, rather than generating an empty one', () => {
     const home = createHome();
     const plan = planLinks({
       homeDirectory: home,
@@ -306,7 +308,9 @@ describe('link planning', () => {
       manifest: manifestOf(),
     });
 
-    expect(plan.steps[0]).toMatchObject({ action: 'create', strategy: 'generate' });
+    // Rendering it as an empty prompt would overwrite a previously good generated command.
+    expect(plan.steps[0]).toMatchObject({ action: 'conflict', strategy: 'generate' });
+    expect(plan.steps[0]?.reason).toContain('no longer exists');
   });
 
   it('leaves a generated command unchanged when its rendered content already matches', () => {
@@ -388,8 +392,13 @@ describe('link planning', () => {
       },
     });
 
-    expect(plan.steps.map((step) => step.target)).toEqual(['/a/b', '/a']);
-    expect(plan.steps.every((step) => step.action === 'remove')).toBe(true);
+    // Path-owning entries are removed deepest-first; the settings entry is forgotten, never deleted.
+    expect(plan.steps.filter((step) => step.action === 'remove').map((step) => step.target)).toEqual(['/a/b', '/a']);
+    expect(plan.steps.find((step) => step.strategy === 'settings')).toMatchObject({
+      action: 'unchanged',
+      forget: true,
+      target: '/settings.json',
+    });
     expect(plan.harnesses).toEqual(['claude']);
   });
   it('reports a conflict on a generated command that Outfitter does not own', () => {
@@ -477,7 +486,9 @@ describe('link planning', () => {
     });
   });
 
-  it('omits a settings step from --remove when the file holds nothing of Outfitter own', () => {
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-011.3.5).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('forgets a settings entry whose file holds nothing of Outfitter own, without rewriting it', () => {
     const home = createHome();
     const target = join(home, '.claude', 'settings.json');
     write(target, '{"model":"opus"}');
@@ -493,6 +504,69 @@ describe('link planning', () => {
       },
     });
 
+    // Emitting nothing would strand the entry, so --remove could never drop the manifest.
+    expect(plan.steps).toHaveLength(1);
+    expect(plan.steps[0]).toMatchObject({ action: 'unchanged', forget: true, target });
+    expect(plan.steps[0]?.content).toBeUndefined();
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-011.2.9).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('reports an unreadable settings path instead of treating it as absent', () => {
+    const home = createHome();
+    // A directory where the settings file should be: readFileSync throws EISDIR, not ENOENT.
+    mkdirSync(join(home, '.claude', 'settings.json'), { recursive: true });
+
+    const plan = planLinks({
+      homeDirectory: home,
+      settings: {
+        link: ['claude'],
+        overrides: { claude: { resources: ['hooks'] } },
+        hooks: [{ event: 'before_tool', command: 'guard' }],
+      },
+      sources: [],
+      manifest: manifestOf(),
+    });
+
+    // Building a fresh document here would truncate whatever the path really holds.
+    expect(plan.steps[0]).toMatchObject({ action: 'conflict', strategy: 'settings' });
+    expect(plan.steps[0]?.reason).toContain('could not be read');
+  });
+
+  it('reports an unreadable settings path during --remove rather than rewriting it', () => {
+    const home = createHome();
+    const target = join(home, '.claude', 'settings.json');
+    mkdirSync(target, { recursive: true });
+
+    const plan = planLinks({
+      homeDirectory: home,
+      settings: {},
+      sources: [],
+      remove: true,
+      manifest: {
+        version: MANIFEST_VERSION,
+        entries: [{ target, harness: 'claude', kind: 'hooks', strategy: 'settings' }],
+      },
+    });
+
+    expect(plan.steps[0]).toMatchObject({ action: 'conflict', strategy: 'settings' });
+  });
+
+  it('emits no hook step when every declared event is unsupported for the harness', () => {
+    const home = createHome();
+    const plan = planLinks({
+      homeDirectory: home,
+      settings: {
+        link: ['claude'],
+        overrides: { claude: { resources: ['hooks'] } },
+        hooks: [{ event: 'before_agent', command: 'nope' }],
+      },
+      sources: [],
+      manifest: manifestOf(),
+    });
+
+    // Writing `"hooks": {}` would claim the settings file for no reason.
     expect(plan.steps).toEqual([]);
+    expect(plan.unsupported).toHaveLength(1);
   });
 });

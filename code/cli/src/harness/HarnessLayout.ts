@@ -11,7 +11,14 @@
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 
-/** Coding harnesses `outfitter link` can provision. */
+/**
+ * Coding harnesses `outfitter link` can provision.
+ *
+ * Pi is deliberately absent. Outfitter owns Pi's runtime configuration directly through
+ * `PI_CODING_AGENT_DIR`, which `outfitter run` assembles per launch, so Pi has no user-global
+ * config Outfitter would need to link into. Persistent Pi projection, if it is ever wanted, is a
+ * different design and stays with #187 rather than being claimed here.
+ */
 export const HARNESS_IDS = ['claude', 'codex', 'gemini', 'copilot'] as const;
 export type HarnessId = (typeof HARNESS_IDS)[number];
 
