@@ -76,6 +76,8 @@ docs/personas/
   founder-operator.md
 ```
 
+A persona whose reader exists independently of any one repository goes in `~/.agents/personas/` instead, where every working directory can reach it. See [Where personas live](../personas.md#where-personas-live).
+
 Prefer generic role archetypes over named individuals. Research and interviews are authoring inputs; commit only the self-contained file, and invent nothing the research does not support.
 
 ## Run it under Outfitter
@@ -84,13 +86,12 @@ After `outfitter setup`, launch the shared reviewer directly with the persona ap
 
 ```sh
 mkdir -p docs/persona-reviews
-outfitter run persona-reviewer -- \
-  --append-system-prompt docs/personas/platform-lead.md \
+outfitter run persona-reviewer --append-prompt docs/personas/platform-lead.md -- \
   --print "Review the onboarding flow and write the report. @README.md" \
   > docs/persona-reviews/platform-lead-onboarding.md
 ```
 
-This is the portable interface: it works from the project containing the persona and does not assume a particular catalog checkout path. One shared agent adopts the file as its identity for that session only and writes a first-person, sourced report — evidence cited to the exact page or UI moment, assumptions labeled. The reviewer inherits the caller's configured model; reviews benefit from a strong reasoning model.
+This is the portable interface: it works from the project containing the persona, does not assume a particular catalog checkout path, and does not assume a harness — `--append-prompt` projects the document through whichever flag pi or Claude Code actually reads. Repeat it to compose an identity from several documents; see [When one file is not enough](../personas.md#when-one-file-is-not-enough). One shared agent adopts the file as its identity for that session only and writes a first-person, sourced report — evidence cited to the exact page or UI moment, assumptions labeled. The reviewer inherits the caller's configured model; reviews benefit from a strong reasoning model.
 
 ### Optional orchestration with the skill
 
@@ -98,12 +99,12 @@ Use the [`persona-review`](https://github.com/ai-outfitter/community-profiles/tr
 
 ```sh
 bash skills/persona-review/scripts/persona-review.sh \
-  --persona docs/personas/platform-lead.md \
+  --persona platform-lead \
   --report docs/persona-reviews/platform-lead-onboarding.md \
   -- --print "Review the onboarding flow and write the report. @README.md"
 ```
 
-The reviewer runs directly as the selected agent. This journey does not require Pi's native subagent projection.
+A bare `--persona` name resolves against `docs/personas/`, then `.agents/personas/`, then `~/.agents/personas/`, so the same command works whether the persona is project-local or cross-project; pass a path to name a file directly. The reviewer runs directly as the selected agent. This journey does not require Pi's native subagent projection.
 
 ## Take the same file to the web
 

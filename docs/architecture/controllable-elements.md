@@ -39,11 +39,11 @@ The directory where conversation sessions, transcripts, or run state are stored.
 ### Personas
 
 Not a composed key.
-A persona is a convention: a shared review [agent](../documentation/agents.md) plus one portable persona document appended at launch (see [Personas](../documentation/personas.md)).
-The controllable element underneath it is harness argument passthrough — `--append-system-prompt <file>` on the launch command — not a `personas` list.
+A persona is a convention: a shared review [agent](../documentation/agents.md) plus one or more portable persona documents appended at launch in caller-chosen order (see [Personas](../documentation/personas.md)).
+The controllable element underneath it is prompt append — `--append-prompt <file>` on the launch command, repeatable — not a `personas` list. The flag exists because the harnesses diverge here and passthrough cannot: pi reads a path from `--append-system-prompt` and accumulates repeats, while Claude Code needs `--append-system-prompt-file` and keeps only the last occurrence.
 
-- Pi name: `--system-prompt` / `--append-system-prompt` composition
-- Claude name: `--system-prompt` / `--append-system-prompt` composition
+- Pi name: `--system-prompt` / repeated `--append-system-prompt` composition
+- Claude name: `--system-prompt` / one `--append-system-prompt-file` over a concatenation
 
 ### Subagents
 
