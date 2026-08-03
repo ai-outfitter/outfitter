@@ -67,10 +67,12 @@ Amended (2026-07-17, RFC #165): adapters project a harness-neutral composition, 
 2. The Claude Code adapter MUST launch the native `claude` command.
 3. The Claude Code adapter MUST support profile-controlled environment variables.
 4. The Claude Code adapter MUST support profile-controlled pass-through Claude Code CLI arguments.
-5. The Claude Code adapter SHOULD support `--model`, `--effort`, `--system-prompt`, `--append-system-prompt`, and `--plugin-dir` where native Claude Code flags exist.
-6. The Claude Code adapter SHOULD support `controls.session_directory` and `controls.claude.session_directory` by routing Claude `projects/` session state through Outfitter state persistence.
-7. The Claude Code adapter MUST return unsupported-control warnings for requested generic or `controls.claude` controls that it cannot translate.
-8. Until native support is implemented and tested, the Claude Code adapter MUST report `prompt_template` as unsupported and MUST NOT pass a pi-style prompt-template argument.
+5. The Claude Code adapter SHOULD support `--model`, `--effort`, prompt control, and `--plugin-dir` where native Claude Code flags exist.
+6. The Claude Code adapter MUST pass prompt documents with `--system-prompt-file` and `--append-system-prompt-file`, never the bare `--system-prompt` or `--append-system-prompt`. The bare flags take a prompt string, so a path is appended as literal text and the document is silently discarded.
+7. The Claude Code adapter MUST pass at most one `--append-system-prompt-file`, concatenating the composed fragments in composition order, because a repeated occurrence discards every earlier one.
+8. The Claude Code adapter SHOULD support `controls.session_directory` and `controls.claude.session_directory` by routing Claude `projects/` session state through Outfitter state persistence.
+9. The Claude Code adapter MUST return unsupported-control warnings for requested generic or `controls.claude` controls that it cannot translate.
+10. Until native support is implemented and tested, the Claude Code adapter MUST report `prompt_template` as unsupported and MUST NOT pass a pi-style prompt-template argument.
 
 ### OFTR-006.6: Pi Settings Reconciliation
 

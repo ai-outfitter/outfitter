@@ -74,8 +74,15 @@ describe('run inherited agent', () => {
     expect(result.exitCode).toBe(0);
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-005.3, OFTR-006.3).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-005.3, OFTR-006.5.6, OFTR-006.5.7).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  //
+  // The requirement — deterministic composition order — has not changed. The projection it asserts
+  // against has. This previously expected a repeated `--append-system-prompt` naming each fragment
+  // by path, which Claude cannot honor: that flag takes a prompt *string*, so a path arrives as
+  // literal text, and repeats overwrite instead of accumulating. Order was being verified against a
+  // launch that discarded every fragment. OFTR-006.5.6 and .7 were added for exactly this, and the
+  // composition order is now observable as the order within the single concatenated file.
   it('projects exact inherited prompt order through the Claude adapter', async () => {
     const { home, project } = tree();
     write(join(project, '.agents', 'prompts', 'base.md'), 'BASE APPEND');
@@ -94,15 +101,16 @@ describe('run inherited agent', () => {
       agent: 'engineer',
       harness: 'claude',
       launcher: (plan) => {
-        const appendPaths = plan.args
-          .map((arg, index) => (arg === '--append-system-prompt' ? plan.args[index + 1] : undefined))
+        const composedPaths = plan.args
+          .map((arg, index) => (arg === '--append-system-prompt-file' ? plan.args[index + 1] : undefined))
           .filter((path): path is string => path !== undefined);
-        expect(appendPaths.map((path) => readFileSync(path, 'utf8'))).toEqual([
-          'SHARED',
-          'BASE APPEND',
-          'BASE BODY\n',
-          'CHILD BODY\n',
-        ]);
+        // Exactly one, because a second occurrence would silently discard the first.
+        expect(composedPaths).toHaveLength(1);
+        expect(plan.args).not.toContain('--append-system-prompt');
+        // Blank-line separated, so a fragment ending mid-sentence cannot merge into the next.
+        expect(readFileSync(composedPaths[0], 'utf8')).toBe(
+          ['SHARED', 'BASE APPEND', 'BASE BODY', 'CHILD BODY'].map((fragment) => `${fragment}\n`).join('\n'),
+        );
         return Promise.resolve(0);
       },
     });

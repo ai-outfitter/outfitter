@@ -1,4 +1,6 @@
 // Projects a harness-neutral CompositionPlan to a native pi or Claude Code launch.
+import { readFileSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { PI_SESSION_DIRECTORY_ENV } from '../agents/PiSessionDirectory.js';
 import type { CompositionPlan } from '../composer/Composition.js';
 import type { Harness } from '../settings/Settings.js';
@@ -38,15 +40,48 @@ const loadoutElementsInUse = (composition: CompositionPlan): readonly string[] =
 export const unsupportedElements = (composition: CompositionPlan, input: ProjectionInput): readonly string[] =>
   loadoutElementsInUse(composition).filter((element) => !supportedElements(input).includes(element));
 
+/**
+ * The two harnesses take prompt documents through incompatible flags, verified against pi 0.x via
+ * `outfitter run` and Claude Code 2.1.x directly:
+ *
+ * | | pi | claude |
+ * | `--system-prompt <path>` / `--append-system-prompt <path>` | reads the file | appends the path *text* |
+ * | `--system-prompt-file` / `--append-system-prompt-file` | rejected: `Unknown option` | reads the file |
+ * | repeated append flags | accumulate | last one wins |
+ *
+ * pi therefore takes paths on the bare flags, and Claude takes the `-file` forms. Claude's are
+ * undocumented — neither appears in `claude --help` — but both apply the file's contents, while the
+ * bare flags silently append the path string and drop the document. Getting this wrong produces no
+ * error, just an agent launched without its identity.
+ *
+ * Claude also gets a single append flag over a concatenation, because repeats overwrite.
+ */
+const promptPathArg = (harness: Harness, flag: 'system-prompt' | 'append-system-prompt'): string =>
+  harness === 'pi' ? `--${flag}` : `--${flag}-file`;
+
+const appendPromptArgs = (harness: Harness, rootDirectory: string, paths: readonly string[]): readonly string[] => {
+  /* v8 ignore next 2 -- unreachable through composition, which always contributes the agent body;
+     kept because projectComposition is exported and an empty list must not name an empty file. */
+  if (paths.length === 0) return [];
+  if (harness === 'pi') return paths.flatMap((path) => ['--append-system-prompt', path]);
+
+  const combinedPath = join(rootDirectory, 'append-system-prompt.md');
+  // A blank line between documents: one newline would let a document that ends mid-sentence merge
+  // into the next one's opening paragraph, or turn it into a setext heading.
+  const documents = paths.map((path) => readFileSync(path, 'utf8').replace(/\n*$/, '\n'));
+  writeFileSync(combinedPath, documents.join('\n'));
+  return [promptPathArg(harness, 'append-system-prompt'), combinedPath];
+};
+
 const promptArgs = (
   composition: CompositionPlan,
   input: ProjectionInput,
   systemPromptPath: string,
   appendPromptPaths: readonly string[],
 ): readonly string[] => [
-  '--system-prompt',
+  promptPathArg(input.harness, 'system-prompt'),
   systemPromptPath,
-  ...appendPromptPaths.flatMap((path) => ['--append-system-prompt', path]),
+  ...appendPromptArgs(input.harness, input.rootDirectory, appendPromptPaths),
   ...(input.harness === 'pi' && composition.identity.promptTemplate !== undefined
     ? ['--prompt-template', `${input.rootDirectory}/prompt-template.md`]
     : []),
@@ -103,7 +138,11 @@ export const projectComposition = (composition: CompositionPlan, input: Projecti
     materializeConfigurationOverlays(input.configurationOverlayDirectories ?? [], input.rootDirectory);
   }
   const materialized = materializeComposition(composition, input.rootDirectory);
-  const launch = buildLaunchPlan(composition, input, materialized.systemPromptPath, materialized.appendPromptPaths);
+  // Caller documents follow the composition's own, so a persona is read against the agent it adopts.
+  const launch = buildLaunchPlan(composition, input, materialized.systemPromptPath, [
+    ...materialized.appendPromptPaths,
+    ...(input.appendPromptPaths ?? []),
+  ]);
   const unsupported = [
     ...unsupportedElements(composition, input),
     ...materialized.skippedSkills.map((slug) => `skill:${slug} (escaping symlink)`),

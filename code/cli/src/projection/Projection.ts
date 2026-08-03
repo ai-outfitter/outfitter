@@ -22,6 +22,12 @@ export interface ProjectionInput {
   /** Durable session store for the run (pi only); omitted to leave the harness default in place. */
   readonly sessionDirectory?: string;
   readonly passThroughArgs?: readonly string[];
+  /**
+   * Caller-supplied documents appended to the system prompt after the composition's own, in the
+   * order given — typically a persona, by absolute path from outside the projection root. Projected
+   * per harness, since pi and claude take append-prompt documents through incompatible flags.
+   */
+  readonly appendPromptPaths?: readonly string[];
   /** Local pi extension install directories to load with `--extension` (pi only). */
   readonly extensionLoadDirs?: readonly string[];
   /** Harness-native configuration directories, highest precedence first, overlaid into the root. */
