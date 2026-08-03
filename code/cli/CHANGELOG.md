@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.3.0](https://github.com/ai-outfitter/outfitter/compare/v1.2.0...v1.3.0) (2026-07-31)
+
+
+### Features
+
+* **pi:** persist sessions across runs by default ([#243](https://github.com/ai-outfitter/outfitter/issues/243)) ([a1b2dd0](https://github.com/ai-outfitter/outfitter/commit/a1b2dd00f5a0ee93d43ab07821fe9f25619d9672))
+
 ## [1.2.0](https://github.com/ai-outfitter/outfitter/compare/v1.1.2...v1.2.0) (2026-07-28)
 
 
