@@ -1,4 +1,6 @@
 // Projects a harness-neutral CompositionPlan to a native pi or Claude Code launch.
+import { readFileSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { PI_SESSION_DIRECTORY_ENV } from '../agents/PiSessionDirectory.js';
 import type { CompositionPlan } from '../composer/Composition.js';
 import type { Harness } from '../settings/Settings.js';
@@ -38,6 +40,32 @@ const loadoutElementsInUse = (composition: CompositionPlan): readonly string[] =
 export const unsupportedElements = (composition: CompositionPlan, input: ProjectionInput): readonly string[] =>
   loadoutElementsInUse(composition).filter((element) => !supportedElements(input).includes(element));
 
+/**
+ * The two harnesses take append-prompt documents through incompatible flags, verified against
+ * pi 0.x via `outfitter run` and Claude Code 2.1.x directly:
+ *
+ * | | pi | claude |
+ * | `--append-system-prompt <path>` | reads the file, repeatable, accumulates | appends the path *text* |
+ * | `--append-system-prompt-file <path>` | rejected: `Unknown option` | reads the file |
+ * | repeated flags | accumulate | last one wins |
+ *
+ * So pi gets a repeated flag per document, while Claude gets a single
+ * `--append-system-prompt-file` over a concatenation — one flag because repeats overwrite, and the
+ * `-file` form because the bare flag would otherwise append the literal path and silently drop
+ * every document. Emitting the pi form to Claude loses the content without an error.
+ */
+const appendPromptArgs = (harness: Harness, rootDirectory: string, paths: readonly string[]): readonly string[] => {
+  /* v8 ignore next 2 -- unreachable through composition, which always contributes the agent body;
+     kept because projectComposition is exported and an empty list must not name an empty file. */
+  if (paths.length === 0) return [];
+  if (harness === 'pi') return paths.flatMap((path) => ['--append-system-prompt', path]);
+
+  const combinedPath = join(rootDirectory, 'append-system-prompt.md');
+  // A trailing newline per document so a file that lacks one cannot glue onto the next.
+  writeFileSync(combinedPath, paths.map((path) => `${readFileSync(path, 'utf8')}\n`).join(''));
+  return ['--append-system-prompt-file', combinedPath];
+};
+
 const promptArgs = (
   composition: CompositionPlan,
   input: ProjectionInput,
@@ -46,7 +74,7 @@ const promptArgs = (
 ): readonly string[] => [
   '--system-prompt',
   systemPromptPath,
-  ...appendPromptPaths.flatMap((path) => ['--append-system-prompt', path]),
+  ...appendPromptArgs(input.harness, input.rootDirectory, appendPromptPaths),
   ...(input.harness === 'pi' && composition.identity.promptTemplate !== undefined
     ? ['--prompt-template', `${input.rootDirectory}/prompt-template.md`]
     : []),
@@ -103,7 +131,11 @@ export const projectComposition = (composition: CompositionPlan, input: Projecti
     materializeConfigurationOverlays(input.configurationOverlayDirectories ?? [], input.rootDirectory);
   }
   const materialized = materializeComposition(composition, input.rootDirectory);
-  const launch = buildLaunchPlan(composition, input, materialized.systemPromptPath, materialized.appendPromptPaths);
+  // Caller documents follow the composition's own, so a persona is read against the agent it adopts.
+  const launch = buildLaunchPlan(composition, input, materialized.systemPromptPath, [
+    ...materialized.appendPromptPaths,
+    ...(input.appendPromptPaths ?? []),
+  ]);
   const unsupported = [
     ...unsupportedElements(composition, input),
     ...materialized.skippedSkills.map((slug) => `skill:${slug} (escaping symlink)`),

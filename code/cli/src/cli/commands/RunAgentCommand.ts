@@ -48,6 +48,8 @@ export interface RunAgentInput {
   readonly harness?: string;
   readonly strict?: boolean;
   readonly passThroughArgs?: readonly string[];
+  /** `--append-prompt` documents appended to the system prompt after the agent's own, in order. */
+  readonly appendPromptPaths?: readonly string[];
   readonly launcher: AgentProcessLauncher;
   /** Onboarding to run once when no agent is selected and settings define no `default_agent`. */
   readonly setup?: SetupRunner;
@@ -199,6 +201,7 @@ export const executeRunAgentCommand = async (input: RunAgentInput): Promise<RunA
       homeDirectory: input.homeDirectory,
       sessionDirectory: resolveSessionDirectory(input, harness),
       passThroughArgs: input.passThroughArgs,
+      appendPromptPaths: input.appendPromptPaths,
       extensionLoadDirs: harness === 'pi' ? extensions.loadDirs : undefined,
       // ProjectHarness only overlays these for the pi harness, so pass them through unconditionally.
       configurationOverlayDirectories: configurationOverlays,
@@ -259,12 +262,17 @@ export const createRunAgentCommand = (dependencies: RunAgentDependencies = {}): 
       .argument('[args...]', 'Arguments passed through to the harness after --.')
       .addOption(new Option('--harness <harness>', 'Harness to launch.').choices([...HARNESSES]))
       .option('--strict', 'Treat composition warnings and unsupported loadout elements as fatal.')
+      .option(
+        '--append-prompt <path>',
+        'Append a Markdown document to the system prompt. Repeatable; applied in the order given.',
+        (value: string, previous: readonly string[] = []) => [...previous, value],
+      )
       .allowUnknownOption(true)
       .action(
         async (
           agent: string | undefined,
           passThroughArgs: readonly string[],
-          options: { harness?: string; strict?: boolean },
+          options: { harness?: string; strict?: boolean; appendPrompt?: readonly string[] },
         ) => {
           /* v8 ignore next 3 -- process/launcher defaults are exercised by the CLI entrypoint, not unit tests. */
           const homeDirectory = resolveHomeDirectory(dependencies.homeDirectory);
@@ -277,6 +285,7 @@ export const createRunAgentCommand = (dependencies: RunAgentDependencies = {}): 
             harness: options.harness,
             strict: options.strict,
             passThroughArgs,
+            appendPromptPaths: options.appendPrompt,
             launcher,
             setup: dependencies.setup ?? interactiveSetupRunner,
             // executeRunAgentCommand emits messages (before launch) through this sink.
