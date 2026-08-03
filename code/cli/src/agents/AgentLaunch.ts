@@ -1,13 +1,30 @@
 // Turns a logical agent launch plan into an actual launched process: resolves the bundled pi
 // binary, runs the launcher, and translates a missing agent CLI into actionable install guidance.
 import { existsSync, readFileSync } from 'node:fs';
+import { constants } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import type { AgentLaunchPlan } from '../projection/Projection.js';
 
+export interface AgentSpawnOptions {
+  readonly stdio: 'inherit';
+  readonly env: NodeJS.ProcessEnv;
+  readonly detached: boolean;
+}
+
+export const createAgentSpawnOptions = (plan: AgentLaunchPlan): AgentSpawnOptions => ({
+  stdio: 'inherit',
+  env: { ...process.env, ...plan.env },
+  detached: process.platform !== 'win32',
+});
+
+export type AgentProcessResult =
+  | { readonly status: 'exited'; readonly exitCode: number }
+  | { readonly status: 'signaled'; readonly signal: NodeJS.Signals; readonly exitCode: number };
+
 export interface AgentProcessLauncher {
-  launch(plan: AgentLaunchPlan): Promise<number>;
+  launch(plan: AgentLaunchPlan): Promise<AgentProcessResult>;
 }
 
 export const launchAgentProcess = async (
@@ -16,7 +33,7 @@ export const launchAgentProcess = async (
   agentId: string,
 ): Promise<number> => {
   try {
-    return await launcher.launch(launchPlan);
+    return (await launcher.launch(launchPlan)).exitCode;
   } catch (error) {
     if (isCommandNotFoundError(error)) {
       throw new Error(formatMissingAgentCliMessage(agentId, launchPlan.command), { cause: error });
@@ -24,6 +41,92 @@ export const launchAgentProcess = async (
 
     throw error;
   }
+};
+
+export const signalExitCode = (signal: NodeJS.Signals): number => 128 + constants.signals[signal];
+
+export interface SpawnedAgentProcess {
+  readonly pid?: number;
+  once(event: 'error', listener: (error: Error) => void): this;
+  once(event: 'close', listener: (code: number | null, signal: NodeJS.Signals | null) => void): this;
+  kill(signal?: NodeJS.Signals): boolean;
+}
+
+export interface TerminationSignalSource {
+  on(signal: 'SIGINT' | 'SIGTERM', listener: (signal: NodeJS.Signals) => void): this;
+  off(signal: 'SIGINT' | 'SIGTERM', listener: (signal: NodeJS.Signals) => void): this;
+}
+
+export interface SpawnWaitDependencies {
+  readonly signalSource?: TerminationSignalSource;
+  readonly forwardSignal?: (child: SpawnedAgentProcess, signal: 'SIGINT' | 'SIGTERM') => void;
+}
+
+/* v8 ignore start -- real OS process-group signalling is exercised by smoke usage, not unit tests. */
+const defaultForwardSignal = (child: SpawnedAgentProcess, signal: 'SIGINT' | 'SIGTERM'): void => {
+  if (process.platform === 'win32' || child.pid === undefined) {
+    child.kill(signal);
+    return;
+  }
+
+  try {
+    process.kill(-child.pid, signal);
+  } catch {
+    // A platform may reject process-group signalling even though the child is still addressable.
+    child.kill(signal);
+  }
+};
+/* v8 ignore stop */
+
+/**
+ * Waits for one foreground harness process, forwarding the first parent termination signal to the
+ * whole child process group. Listeners exist only for the lifetime of this child.
+ */
+export const waitForSpawnedAgentProcess = (
+  child: SpawnedAgentProcess,
+  dependencies: SpawnWaitDependencies = {},
+): Promise<AgentProcessResult> => {
+  const signalSource = dependencies.signalSource ?? process;
+  const forwardSignal = dependencies.forwardSignal ?? defaultForwardSignal;
+
+  return new Promise<AgentProcessResult>((resolve, reject) => {
+    let forwardedSignal: 'SIGINT' | 'SIGTERM' | undefined;
+    let settled = false;
+
+    const cleanup = (): void => {
+      signalSource.off('SIGINT', onSignal);
+      signalSource.off('SIGTERM', onSignal);
+    };
+    const settle = (result: AgentProcessResult): void => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      resolve(result);
+    };
+    const fail = (error: Error): void => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      reject(error);
+    };
+    function onSignal(signal: NodeJS.Signals): void {
+      if (forwardedSignal !== undefined || (signal !== 'SIGINT' && signal !== 'SIGTERM')) return;
+      forwardedSignal = signal;
+      forwardSignal(child, signal);
+    }
+
+    signalSource.on('SIGINT', onSignal);
+    signalSource.on('SIGTERM', onSignal);
+    child.once('error', fail);
+    child.once('close', (code, childSignal) => {
+      const signal = childSignal ?? forwardedSignal;
+      settle(
+        signal === undefined
+          ? { status: 'exited', exitCode: code ?? 0 }
+          : { status: 'signaled', signal, exitCode: signalExitCode(signal) },
+      );
+    });
+  });
 };
 
 // Pi is bundled with Outfitter, so prefer the bundled binary launched through the current Node
@@ -57,13 +160,10 @@ export const resolveAgentLaunchExecutable = (launchPlan: AgentLaunchPlan): Agent
 
 /* v8 ignore start -- real process spawn is covered by end-to-end smoke usage, not unit tests. */
 export const spawnLauncher: AgentProcessLauncher = {
-  async launch(plan: AgentLaunchPlan): Promise<number> {
+  async launch(plan: AgentLaunchPlan): Promise<AgentProcessResult> {
     const { default: spawn } = await import('cross-spawn');
-    return await new Promise<number>((resolve, reject) => {
-      const child = spawn(plan.command, [...plan.args], { stdio: 'inherit', env: { ...process.env, ...plan.env } });
-      child.on('error', reject); // ENOENT surfaces as an actionable install message
-      child.on('close', (code, signal) => resolve(code ?? (signal ? 1 : 0)));
-    });
+    const child = spawn(plan.command, [...plan.args], createAgentSpawnOptions(plan));
+    return await waitForSpawnedAgentProcess(child);
   },
 };
 /* v8 ignore stop */

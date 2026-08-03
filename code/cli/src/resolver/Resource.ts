@@ -14,7 +14,7 @@ export const resourceKinds: readonly ResourceKind[] = ['agent', 'skill', 'knowle
 export const agentLocalKinds: readonly ResourceKind[] = ['skill', 'knowledge', 'command'];
 
 /** Where a layer originates, highest precedence first. */
-export type LayerOrigin = 'workspace' | 'global' | 'source';
+export type LayerOrigin = 'runtime' | 'workspace' | 'global' | 'source';
 
 export interface Layer {
   /** Absolute path to the `.agents` payload root for this layer. */

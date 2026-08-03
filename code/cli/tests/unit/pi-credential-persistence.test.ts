@@ -84,4 +84,46 @@ describe('run agent credential write-back', () => {
       '{"anthropic":"logged-in"}',
     );
   });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-005.8).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('persists credentials and removes the projection only after a cancelled child terminates', async () => {
+    const base = root();
+    const home = join(base, 'home');
+    const project = join(base, 'project');
+    write(join(project, '.agents', 'agents', 'engineer', 'agent.md'), '---\nname: engineer\n---\n\nBody.\n');
+    let projection = '';
+    let releaseChild!: (exitCode: number) => void;
+    let markLaunched!: () => void;
+    const childExit = new Promise<number>((resolve) => {
+      releaseChild = resolve;
+    });
+    const launched = new Promise<void>((resolve) => {
+      markLaunched = resolve;
+    });
+
+    const running = executeRunAgentCommand({
+      homeDirectory: home,
+      projectDirectory: project,
+      agent: 'engineer',
+      harness: 'pi',
+      launcher: (plan) => {
+        projection = plan.env.PI_CODING_AGENT_DIR ?? '';
+        writeFileSync(join(projection, 'auth.json'), '{"anthropic":"cancelled-session"}');
+        markLaunched();
+        return childExit;
+      },
+    });
+
+    await launched;
+    expect(existsSync(join(resolvePiUserAgentDirectory(home), 'auth.json'))).toBe(false);
+    expect(existsSync(projection)).toBe(true);
+
+    releaseChild(143);
+    await expect(running).resolves.toMatchObject({ exitCode: 143 });
+    expect(readFileSync(join(resolvePiUserAgentDirectory(home), 'auth.json'), 'utf8')).toBe(
+      '{"anthropic":"cancelled-session"}',
+    );
+    expect(existsSync(projection)).toBe(false);
+  });
 });

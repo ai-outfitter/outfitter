@@ -1,6 +1,6 @@
-// Builds the ordered `.agents` layer stack (workspace over global over remote sources) from settings.
-import { existsSync } from 'node:fs';
-import { join } from 'node:path';
+// Builds the ordered `.agents` layer stack: runtime, workspace, global, then remote sources.
+import { existsSync, statSync } from 'node:fs';
+import { isAbsolute, join, resolve } from 'node:path';
 
 import {
   createRemoteRepositoryCachePath,
@@ -15,6 +15,8 @@ import type { Layer } from './Resource.js';
 export interface LayerDiscoveryInput {
   readonly homeDirectory: string;
   readonly projectDirectory: string;
+  /** Invocation-only `.agents` payload roots, highest precedence first. */
+  readonly runtimeLayers?: readonly string[];
   readonly settings: Settings;
 }
 
@@ -38,6 +40,20 @@ const sourceLayer = (input: LayerDiscoveryInput, source: SourceReference): Layer
       )
     : { root: source.path, origin: 'source', label: source.path };
 
+const runtimeLayer = (projectDirectory: string, path: string): Layer => {
+  const root = isAbsolute(path) ? path : resolve(projectDirectory, path);
+
+  if (!existsSync(root)) {
+    throw new Error(`Runtime layer '${path}' does not exist at '${root}'.`);
+  }
+
+  if (!statSync(root).isDirectory()) {
+    throw new Error(`Runtime layer '${path}' is not a directory.`);
+  }
+
+  return { root, origin: 'runtime', label: path };
+};
+
 export interface LayerDiscoveryResult {
   readonly layers: readonly Layer[];
   /**
@@ -50,11 +66,13 @@ export interface LayerDiscoveryResult {
 }
 
 /**
- * Orders layers highest precedence first: workspace `.agents`, then global `~/.agents`,
- * then configured sources in order. Only layers whose root exists on disk are included.
+ * Orders layers highest precedence first: invocation-only runtime layers in CLI order, workspace
+ * `.agents`, global `~/.agents`, then configured sources in order. Only discovered layers whose
+ * root exists on disk are included; an explicitly requested runtime layer must exist.
  */
 export const discoverLayers = (input: LayerDiscoveryInput): LayerDiscoveryResult => {
   const candidates: Layer[] = [
+    ...(input.runtimeLayers ?? []).map((path) => runtimeLayer(input.projectDirectory, path)),
     { root: agentsRoot(input.projectDirectory), origin: 'workspace', label: 'workspace' },
     { root: agentsRoot(input.homeDirectory), origin: 'global', label: 'global' },
   ];

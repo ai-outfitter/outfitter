@@ -93,3 +93,19 @@ Amended (2026-07-17, RFC #165): composition assembles from the effective resourc
 9. Outfitter MUST NOT mutate cache-backed or remote selected profile owners for generated prompt export and MUST emit an actionable warning when export is skipped for that reason.
 10. Generated prompt export MUST NOT change launch args except for Outfitter's own runtime export extension plumbing, launch environment except for the export-path handoff, composite profile contents, or state persistence behavior.
 11. During live composite profile updates, Outfitter SHOULD refresh generated prompt fallback artifacts when enabled.
+
+### OFTR-005.8: Invocation Layers and Supervised Runtime
+
+Added (2026-07-31): generic invocation-only layers and foreground process behavior for supervised
+runtime integrations.
+
+1. `list`, `validate`, `run`, and `dump` MUST accept a repeatable `--runtime-layer <path>` option whose path names a protocol-shaped `.agents` payload root.
+2. A relative runtime-layer path MUST resolve from the active project directory.
+3. Runtime layers MUST have higher resource precedence than the workspace layer; repeated options MUST retain command-line order with the earlier occurrence at higher precedence.
+4. Runtime layers MUST be invocation-only and MUST NOT be written to settings or mutate the workspace, user, or source trees.
+5. Runtime layers MUST enter the same effective resolver used by `list`, `validate`, `run`, and `dump`; persisted YAML and resource frontmatter MUST continue through their existing schema-validation read boundaries.
+6. `run` MUST launch the selected harness in the foreground with inherited standard I/O and remain alive until the harness process terminates.
+7. While the harness is active, Outfitter MUST forward the first parent `SIGINT` or `SIGTERM` exactly once to the harness process group and MUST remove its signal listeners after the harness terminates or fails to spawn.
+8. A harness exit MUST preserve its numeric status. Harness termination by `SIGINT` and `SIGTERM` MUST map to conventional CLI statuses 130 and 143 respectively; spawn errors MUST remain distinguishable errors.
+9. Outfitter MUST persist declared native credential state and remove its temporary projection only after the harness process has terminated, including a forwarded-signal path.
+10. Outfitter MUST NOT own supervisor liveness, cancellation grace periods, forced termination, retries, registration, or placement cleanup.

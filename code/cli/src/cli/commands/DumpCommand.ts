@@ -1,6 +1,6 @@
 // Provides `outfitter dump --agent <id> --out <dir>` over the effective resource set.
 
-import { Command } from 'commander';
+import { Command, Option } from 'commander';
 
 import { dumpAgent } from '../../dump/Dump.js';
 import { resolveEffectiveSet } from '../../resolver/ResolverContext.js';
@@ -11,6 +11,7 @@ import { resolveHomeDirectory, resolveProjectDirectory } from './ProcessDefaults
 export interface DumpInput {
   readonly homeDirectory: string;
   readonly projectDirectory: string;
+  readonly runtimeLayers?: readonly string[];
   readonly agent?: string;
   readonly out: string;
 }
@@ -70,12 +71,21 @@ export const createDumpCommand = (dependencies: DumpCommandDependencies = {}): C
       new Command('dump')
         .description('Write the composed .agents tree for an agent to a directory.')
         .option('--agent <id>', 'Agent slug to dump (default: settings default_agent).')
+        .addOption(
+          new Option(
+            '--runtime-layer <path>',
+            'Invocation-only .agents payload root (repeatable; earlier layers take precedence).',
+          )
+            .argParser((path: string, previous: readonly string[]): readonly string[] => [...previous, path])
+            .default([]),
+        )
         .option('--out <dir>', 'Output directory.', './outfitter-dump')
-        .action((options: { agent?: string; out: string }) => {
+        .action((options: { agent?: string; runtimeLayer: readonly string[]; out: string }) => {
           const result = executeDumpCommand({
             /* v8 ignore next 2 -- process defaults are exercised by the CLI entrypoint, not unit tests. */
             homeDirectory: resolveHomeDirectory(dependencies.homeDirectory),
             projectDirectory: resolveProjectDirectory(dependencies.projectDirectory),
+            runtimeLayers: options.runtimeLayer,
             agent: options.agent,
             out: options.out,
           });

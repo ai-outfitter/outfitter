@@ -81,12 +81,14 @@ Outfitter resolves protocol resources from layered `.agents` trees:
   settings.local.yml
 ```
 
-Remote sources (catalog repositories) supply additional layers below the local ones, in configured order.
+Invocation-only runtime layers supplied on the command line resolve above the workspace in argument
+order. Remote sources (catalog repositories) supply additional layers below the local ones, in configured order.
 A standalone catalog repository's root _is_ the payload; a colocated source nests it under `.agents/` (selected with the source's `path:`).
 
 ### Resolution semantics
 
-- Resources merge **by ID** across layers: workspace over global over remote sources in configured order.
+- Resources merge **by ID** across layers: invocation runtime layers in argument order, then
+  workspace, global, and remote sources in configured order.
   The winning definition replaces lower ones; there is no partial merge of markdown resources.
 - After layer resolution, an agent's `inherits` graph resolves through that same effective set.
   Traversal is recursive parent-first, multiple parents retain authored order, diamond ancestors contribute once, and cycles or missing parents fail with their chain.
@@ -209,6 +211,10 @@ The Pi adapter reconciles generated runtime `settings.json` and `keybindings.jso
 Interactive Pi launches inject the Outfitter bootstrap extension for build/plan mode switching; non-interactive launches skip it.
 
 During `outfitter run`, the Outfitter process remains alive while the child agent CLI runs and owns the temporary composition lifecycle.
+It inherits standard I/O, forwards the first `SIGINT` or `SIGTERM` to the harness process group,
+waits for termination, then persists declared native credential state and removes the projection.
+The calling supervisor—not Outfitter—owns liveness, cancellation grace/kill policy, retries,
+registration, and placement cleanup.
 
 ## Agent Adapter Boundary
 
