@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.3.1](https://github.com/ai-outfitter/outfitter/compare/v1.3.0...v1.3.1) (2026-08-03)
+
+
+### Bug Fixes
+
+* **claude:** append prompt documents through the flag Claude actually reads ([#248](https://github.com/ai-outfitter/outfitter/issues/248)) ([0b7d20b](https://github.com/ai-outfitter/outfitter/commit/0b7d20b87be6bef3a2fe10dd735f88988a525c1c))
+
 ## [1.3.0](https://github.com/ai-outfitter/outfitter/compare/v1.2.0...v1.3.0) (2026-07-31)
 
 
