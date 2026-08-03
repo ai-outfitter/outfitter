@@ -1,5 +1,5 @@
 // `outfitter run [agent]` — resolve → compose → project → launch on the .agents model.
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, rmSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -151,6 +151,17 @@ const piConfigurationOverlays = (
 ): readonly string[] =>
   [...(plan.contributingAgents ?? [selectedAgent])].reverse().flatMap((agent) => agent.piConfigDirectories ?? []);
 
+// Validated before launch rather than inside projection: pi never reads these paths itself, so an
+// unreadable one would otherwise fail differently per harness — a raw ENOENT out of the Claude
+// concatenation, and a harness-generated error on pi.
+const assertReadableAppendPrompts = (paths: readonly string[] | undefined): void => {
+  const unreadable = (paths ?? []).filter((path) => statSync(path, { throwIfNoEntry: false })?.isFile() !== true);
+
+  if (unreadable.length > 0) {
+    throw new Error(`--append-prompt: not a readable file: ${unreadable.join(', ')}`);
+  }
+};
+
 export const executeRunAgentCommand = async (input: RunAgentInput): Promise<RunAgentResult> => {
   // Flush messages to the terminal (before launch); they are also returned so callers can inspect them.
   const emit = (messages: readonly string[]): void => {
@@ -159,6 +170,7 @@ export const executeRunAgentCommand = async (input: RunAgentInput): Promise<RunA
 
   let resolved = resolveEffectiveSet(input);
   assertNoSettingsIssues(resolved.settingsIssues);
+  assertReadableAppendPrompts(input.appendPromptPaths);
   emit(resolved.warnings.map((warning) => `warning: ${warning}`));
 
   // First run: nothing selected and no default configured — onboard, then resolve again.

@@ -41,19 +41,24 @@ export const unsupportedElements = (composition: CompositionPlan, input: Project
   loadoutElementsInUse(composition).filter((element) => !supportedElements(input).includes(element));
 
 /**
- * The two harnesses take append-prompt documents through incompatible flags, verified against
- * pi 0.x via `outfitter run` and Claude Code 2.1.x directly:
+ * The two harnesses take prompt documents through incompatible flags, verified against pi 0.x via
+ * `outfitter run` and Claude Code 2.1.x directly:
  *
  * | | pi | claude |
- * | `--append-system-prompt <path>` | reads the file, repeatable, accumulates | appends the path *text* |
- * | `--append-system-prompt-file <path>` | rejected: `Unknown option` | reads the file |
- * | repeated flags | accumulate | last one wins |
+ * | `--system-prompt <path>` / `--append-system-prompt <path>` | reads the file | appends the path *text* |
+ * | `--system-prompt-file` / `--append-system-prompt-file` | rejected: `Unknown option` | reads the file |
+ * | repeated append flags | accumulate | last one wins |
  *
- * So pi gets a repeated flag per document, while Claude gets a single
- * `--append-system-prompt-file` over a concatenation — one flag because repeats overwrite, and the
- * `-file` form because the bare flag would otherwise append the literal path and silently drop
- * every document. Emitting the pi form to Claude loses the content without an error.
+ * pi therefore takes paths on the bare flags, and Claude takes the `-file` forms. Claude's are
+ * undocumented — neither appears in `claude --help` — but both apply the file's contents, while the
+ * bare flags silently append the path string and drop the document. Getting this wrong produces no
+ * error, just an agent launched without its identity.
+ *
+ * Claude also gets a single append flag over a concatenation, because repeats overwrite.
  */
+const promptPathArg = (harness: Harness, flag: 'system-prompt' | 'append-system-prompt'): string =>
+  harness === 'pi' ? `--${flag}` : `--${flag}-file`;
+
 const appendPromptArgs = (harness: Harness, rootDirectory: string, paths: readonly string[]): readonly string[] => {
   /* v8 ignore next 2 -- unreachable through composition, which always contributes the agent body;
      kept because projectComposition is exported and an empty list must not name an empty file. */
@@ -61,9 +66,11 @@ const appendPromptArgs = (harness: Harness, rootDirectory: string, paths: readon
   if (harness === 'pi') return paths.flatMap((path) => ['--append-system-prompt', path]);
 
   const combinedPath = join(rootDirectory, 'append-system-prompt.md');
-  // A trailing newline per document so a file that lacks one cannot glue onto the next.
-  writeFileSync(combinedPath, paths.map((path) => `${readFileSync(path, 'utf8')}\n`).join(''));
-  return ['--append-system-prompt-file', combinedPath];
+  // A blank line between documents: one newline would let a document that ends mid-sentence merge
+  // into the next one's opening paragraph, or turn it into a setext heading.
+  const documents = paths.map((path) => readFileSync(path, 'utf8').replace(/\n*$/, '\n'));
+  writeFileSync(combinedPath, documents.join('\n'));
+  return [promptPathArg(harness, 'append-system-prompt'), combinedPath];
 };
 
 const promptArgs = (
@@ -72,7 +79,7 @@ const promptArgs = (
   systemPromptPath: string,
   appendPromptPaths: readonly string[],
 ): readonly string[] => [
-  '--system-prompt',
+  promptPathArg(input.harness, 'system-prompt'),
   systemPromptPath,
   ...appendPromptArgs(input.harness, input.rootDirectory, appendPromptPaths),
   ...(input.harness === 'pi' && composition.identity.promptTemplate !== undefined
