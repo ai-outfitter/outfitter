@@ -1,10 +1,26 @@
-// Tests the launch boundary: bundled-pi resolution, process launch, and missing-CLI guidance.
-import { describe, expect, it } from 'vitest';
+// Tests the launch boundary: bundled-pi resolution, process launch, missing-CLI guidance, and
+// termination forwarding.
+import { EventEmitter } from 'node:events';
 
-import { launchAgentProcess, resolveAgentLaunchExecutable } from '../../src/agents/AgentLaunch.js';
+import { describe, expect, it, vi } from 'vitest';
+
+import {
+  attachSignalForwarding,
+  launchAgentProcess,
+  resolveAgentLaunchExecutable,
+} from '../../src/agents/AgentLaunch.js';
 import type { AgentLaunchPlan } from '../../src/projection/Projection.js';
 
 const plan = (command: string): AgentLaunchPlan => ({ command, args: ['--system-prompt', '/x'], env: { A: '1' } });
+
+const fakeChild = () => ({
+  signals: [] as string[],
+  killed: false,
+  kill(signal?: NodeJS.Signals) {
+    this.signals.push(signal ?? 'SIGTERM');
+    return true;
+  },
+});
 
 describe('agent launch', () => {
   it('passes non-pi launch plans through unchanged', () => {
@@ -37,5 +53,69 @@ describe('agent launch', () => {
     await expect(launchAgentProcess({ launch: async () => Promise.reject(other) }, plan('pi'), 'pi')).rejects.toThrow(
       'boom',
     );
+  });
+});
+
+// A resident agent that cannot be told to stop is SIGKILLed by its orchestrator when the grace
+// period expires, losing credential persistence and projection cleanup. Node forwards nothing by
+// default, so this is the only thing standing between the harness and that outcome — in containers
+// and equally at a terminal or in a cancelled CI job.
+describe('termination forwarding', () => {
+  it.each(['SIGTERM', 'SIGINT', 'SIGHUP'] as const)('forwards %s to the harness', (signal) => {
+    const child = fakeChild();
+    const emitter = new EventEmitter();
+    const detach = attachSignalForwarding(child, emitter);
+
+    emitter.emit(signal);
+
+    expect(child.signals).toEqual([signal]);
+    detach();
+  });
+
+  it('escalates to SIGKILL when the harness ignores the signal', () => {
+    vi.useFakeTimers();
+    try {
+      const child = fakeChild();
+      const emitter = new EventEmitter();
+      const detach = attachSignalForwarding(child, emitter, 50);
+
+      emitter.emit('SIGTERM');
+      expect(child.signals).toEqual(['SIGTERM']);
+
+      vi.advanceTimersByTime(50);
+      expect(child.signals).toEqual(['SIGTERM', 'SIGKILL']);
+      detach();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('does not signal a harness that already exited', () => {
+    const child = { ...fakeChild(), killed: true };
+    const emitter = new EventEmitter();
+    const detach = attachSignalForwarding(child, emitter);
+
+    emitter.emit('SIGTERM');
+
+    expect(child.signals).toEqual([]);
+    detach();
+  });
+
+  // Installing a handler suppresses Node's default termination, so a leaked listener would keep a
+  // later run alive and silently accumulate across launches in one process.
+  it('removes its listeners on detach', () => {
+    const child = fakeChild();
+    const emitter = new EventEmitter();
+
+    const detach = attachSignalForwarding(child, emitter);
+    expect(emitter.listenerCount('SIGTERM')).toBe(1);
+
+    detach();
+    expect(emitter.listenerCount('SIGTERM')).toBe(0);
+    expect(emitter.listenerCount('SIGINT')).toBe(0);
+    expect(emitter.listenerCount('SIGHUP')).toBe(0);
+
+    emitter.emit('SIGTERM');
+    expect(child.signals).toEqual([]);
   });
 });

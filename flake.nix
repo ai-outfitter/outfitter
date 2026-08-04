@@ -12,8 +12,72 @@
         "x86_64-linux"
       ];
       forAllSystems = nixpkgs.lib.genAttrs supportedSystems;
+      mkContainer =
+        {
+          pkgs,
+          outfitterPackage,
+          extraPackages ? [ ],
+          name ? "outfitter",
+          tag ? "latest",
+        }:
+        let
+          runtime = pkgs.buildEnv {
+            name = "${name}-container-runtime";
+            paths = [
+              outfitterPackage
+              pkgs.nix
+              pkgs.bashInteractive
+              pkgs.coreutils
+              pkgs.gnutar
+              pkgs.gzip
+              pkgs.cacert
+              pkgs.gitMinimal
+              pkgs.openssh
+              pkgs.dockerTools.binSh
+              pkgs.dockerTools.usrBinEnv
+            ] ++ extraPackages;
+            pathsToLink = [
+              "/bin"
+              "/etc"
+              "/usr/bin"
+            ];
+            ignoreCollisions = true;
+          };
+        in
+        pkgs.dockerTools.buildLayeredImage {
+          inherit name tag;
+          contents = [ runtime ];
+          extraCommands = ''
+            mkdir -p etc tmp workspace
+            # root must exist even though nothing here runs as root. A derived
+            # image does `USER root` to COPY and chmod its own entrypoint, and
+            # the builder resolves that name against this passwd file — without
+            # an entry, every downstream RUN fails with "unknown user error
+            # looking up user root" before the layer even executes, which makes
+            # the image unusable as the base this exists to be.
+            printf 'root:x:0:0:root:/root:/bin/bash\n' > etc/passwd
+            printf 'outfitter:x:1000:1000:Outfitter:/tmp:/bin/bash\n' >> etc/passwd
+            printf 'nobody:x:65534:65534:nobody:/var/empty:/bin/false\n' >> etc/passwd
+            printf 'root:x:0:\n' > etc/group
+            printf 'outfitter:x:1000:\n' >> etc/group
+            printf 'nogroup:x:65534:\n' >> etc/group
+            chmod 1777 tmp workspace
+          '';
+          config = {
+            Entrypoint = [ "${outfitterPackage}/bin/outfitter" ];
+            Env = [
+              "HOME=/tmp"
+              "PATH=/bin:/usr/bin"
+              "NIX_CONFIG=experimental-features = nix-command flakes"
+            ];
+            User = "1000:1000";
+            WorkingDir = "/workspace";
+          };
+        };
     in
     {
+      lib = { inherit mkContainer; };
+
       packages = forAllSystems (
         system:
         let
@@ -104,19 +168,9 @@
 
           default = outfitter;
 
-          container = pkgs.dockerTools.buildLayeredImage {
-            name = "outfitter";
-            tag = "latest";
-            contents = [ outfitter ];
-            extraCommands = ''
-              mkdir -p tmp workspace
-              chmod 1777 tmp workspace
-            '';
-            config = {
-              Entrypoint = [ "${outfitter}/bin/outfitter" ];
-              Env = [ "HOME=/tmp" ];
-              WorkingDir = "/workspace";
-            };
+          container = mkContainer {
+            inherit pkgs;
+            outfitterPackage = outfitter;
           };
         }
       );

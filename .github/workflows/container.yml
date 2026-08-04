@@ -88,6 +88,33 @@ jobs:
             echo "Expected outfitter --version to print '$VERSION' but got '$output'." >&2
             exit 1
           fi
+          docker run --rm --entrypoint /bin/sh "$IMAGE:$VERSION" -c \
+            'nix --version && test -x /bin/bash && test -x /usr/bin/env'
+
+      # Extension is the workflow this image exists for, and nothing covered it:
+      # the checks above only prove tools are present in the base. Residency is
+      # covered at the CLI level instead — signal forwarding lives in
+      # spawnLauncher, so tests/unit/agent-launch.test.ts asserts it directly
+      # rather than inferring it from container exit codes.
+      - name: Smoke test derivative image
+        run: |
+          set -euo pipefail
+          # A consumer extends the base with its own entrypoint. This failed
+          # before /etc/passwd carried root: the builder resolves USER against
+          # the base image's passwd file, so `USER root` aborted the build with
+          # "unknown user error looking up user root".
+          workdir="$(mktemp -d)"
+          printf '#!/bin/bash\nexec outfitter "$@"\n' > "$workdir/entrypoint"
+          cat > "$workdir/Dockerfile" <<DOCKERFILE
+          FROM $IMAGE:$VERSION
+          USER root
+          COPY entrypoint /opt/agent/entrypoint
+          RUN chmod 0755 /opt/agent/entrypoint
+          USER 1000:1000
+          ENTRYPOINT ["/opt/agent/entrypoint"]
+          DOCKERFILE
+          docker build -t outfitter-derivative:smoke "$workdir"
+          docker run --rm outfitter-derivative:smoke --version
 
       - name: Log in to GitHub Container Registry
         if: inputs.publish

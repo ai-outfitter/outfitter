@@ -21,7 +21,7 @@ Outfitter is organized around a private npm workspace root, clear TypeScript pac
 │   └── skills/outfitter/              # bundled self-documentation skill published into launches
 ├── docs/                              # documentation, architecture, requirements, plans, and specs
 │   ├── architecture/                  # architecture and internal design docs
-│   ├── documentation/                 # user-facing Outfitter docs
+│   ├── documentation/                 # user-facing Outfitter docs, including the container runtime contract
 │   ├── requirements/                  # formal OUTFITTER requirement documents
 │   └── specs/                         # detailed supporting specs
 ├── .prettierignore                    # Prettier ignore rules
