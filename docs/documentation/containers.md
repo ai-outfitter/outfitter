@@ -32,6 +32,14 @@ spec:
       labels:
         app: example-agent
     spec:
+      securityContext:
+        # Pod-level, and not optional. HOME points at the mounted volume, and a
+        # freshly provisioned volume arrives owned by root — runAsUser does not
+        # change that. Extension installs and credential persistence both write
+        # below HOME, so without fsGroup the agent fails with EACCES on first
+        # write rather than at startup. A volume plugin that ignores fsGroup
+        # must be pre-provisioned with UID/GID 1000 ownership instead.
+        fsGroup: 1000
       containers:
         - name: agent
           image: ghcr.io/ai-outfitter/outfitter:<version>
@@ -111,8 +119,20 @@ docker run --rm --entrypoint /bin/sh example-agent:latest \
   -c 'nix --version && jq --version && rg --version'
 ```
 
-The caller owns writable Nix state. If the container must install packages at
-runtime, mount and initialize a writable `/nix` store and state directory
-appropriate to its user and orchestration environment. Prefer adding known
-runtime packages through `extraPackages` so the resulting image stays
-reproducible.
+Prefer adding known runtime packages through `extraPackages`. The resulting
+image stays reproducible, and it avoids the trap below.
+
+**Do not mount an empty volume over `/nix`.** The image *is* its Nix store: the
+entrypoint is an absolute store path and every binary in `/bin` is a symlink
+into `/nix/store`. Mounting a fresh volume there hides all of it, so the
+container cannot start — it fails before it could initialize the very store you
+mounted the volume to populate.
+
+Runtime installation therefore needs one of:
+
+- a volume **pre-populated** with the image's closure, seeded from the image
+  before the agent starts (an init container copying `/nix` into the volume);
+- an **overlay** whose lower layer is the image's `/nix`, so the closure stays
+  visible while writes land in the upper layer; or
+- writable Nix **state** only — `/nix/var` and a per-user profile — leaving the
+  store itself as the image shipped it.

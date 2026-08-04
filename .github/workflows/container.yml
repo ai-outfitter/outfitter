@@ -91,6 +91,60 @@ jobs:
           docker run --rm --entrypoint /bin/sh "$IMAGE:$VERSION" -c \
             'nix --version && test -x /bin/bash && test -x /usr/bin/env'
 
+      # The two workflows this image exists to support. Neither was covered:
+      # the checks above only prove tools exist in the base, so a regression in
+      # extension or residency could still be published.
+      - name: Smoke test derivative image
+        run: |
+          set -euo pipefail
+          # A consumer extends the base with its own entrypoint. This failed
+          # before /etc/passwd carried root: the builder resolves USER against
+          # the base image's passwd file, so `USER root` aborted the build with
+          # "unknown user error looking up user root".
+          workdir="$(mktemp -d)"
+          printf '#!/bin/bash\nexec outfitter "$@"\n' > "$workdir/entrypoint"
+          cat > "$workdir/Dockerfile" <<DOCKERFILE
+          FROM $IMAGE:$VERSION
+          USER root
+          COPY entrypoint /opt/agent/entrypoint
+          RUN chmod 0755 /opt/agent/entrypoint
+          USER 1000:1000
+          ENTRYPOINT ["/opt/agent/entrypoint"]
+          DOCKERFILE
+          docker build -t outfitter-derivative:smoke "$workdir"
+          docker run --rm outfitter-derivative:smoke --version
+
+      - name: Smoke test resident termination
+        run: |
+          set -euo pipefail
+          # A resident agent must stay up until told to stop, then stop
+          # promptly. Outfitter installs no SIGTERM handler, so PID 1 has to
+          # forward the signal; without an init the container ignores
+          # termination and is SIGKILLed when the grace period expires.
+          #
+          # Run through tini, exactly as the shipped Entrypoint does. Using
+          # `--entrypoint /bin/sh` instead would replace PID 1 and bypass the
+          # init being tested, which fails on a correct image and would have
+          # made this check meaningless.
+          id="$(docker run -d --entrypoint /bin/tini "$IMAGE:$VERSION" -g -- /bin/sh -c 'sleep 300')"
+          trap 'docker rm -f "$id" >/dev/null 2>&1 || true' EXIT
+          sleep 2
+          if [ "$(docker inspect -f '{{.State.Running}}' "$id")" != "true" ]; then
+            echo "resident container exited immediately" >&2
+            docker logs "$id" >&2 || true
+            exit 1
+          fi
+          start="$(date +%s)"
+          docker stop --time 15 "$id" >/dev/null
+          elapsed=$(( $(date +%s) - start ))
+          code="$(docker inspect -f '{{.State.ExitCode}}' "$id")"
+          # 137 is SIGKILL: the grace period expired with nothing reacting to
+          # SIGTERM, which is precisely the defect this guards.
+          if [ "$code" = "137" ] || [ "$elapsed" -ge 15 ]; then
+            echo "container did not honor SIGTERM (exit $code after ${elapsed}s)" >&2
+            exit 1
+          fi
+
       - name: Log in to GitHub Container Registry
         if: inputs.publish
         uses: docker/login-action@v3

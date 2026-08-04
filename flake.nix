@@ -25,6 +25,13 @@
             name = "${name}-container-runtime";
             paths = [
               outfitterPackage
+              # PID 1 must reap and forward signals. Outfitter does neither:
+              # spawnLauncher spawns the harness and waits on close, and nothing
+              # in the CLI installs a SIGTERM or SIGINT handler. As PID 1 under
+              # Kubernetes that means termination never reaches the harness, so
+              # a resident agent is SIGKILLed at the end of the grace period
+              # without persisting credentials or cleaning up its projection.
+              pkgs.tini
               pkgs.nix
               pkgs.bashInteractive
               pkgs.coreutils
@@ -64,7 +71,17 @@
             chmod 1777 tmp workspace
           '';
           config = {
-            Entrypoint = [ "${outfitterPackage}/bin/outfitter" ];
+            # `-g` forwards signals to the whole process group, not just the
+            # direct child, so the harness Outfitter spawned also receives
+            # SIGTERM. Argument handling is unchanged: everything after `--`
+            # still reaches `outfitter`, so `args: [run, <agent>, --strict]`
+            # works exactly as documented.
+            Entrypoint = [
+              "${pkgs.tini}/bin/tini"
+              "-g"
+              "--"
+              "${outfitterPackage}/bin/outfitter"
+            ];
             Env = [
               "HOME=/tmp"
               "PATH=/bin:/usr/bin"
