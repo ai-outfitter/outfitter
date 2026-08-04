@@ -1,6 +1,7 @@
 // Turns a logical agent launch plan into an actual launched process: resolves the bundled pi
 // binary, runs the launcher, and translates a missing agent CLI into actionable install guidance.
 import { existsSync, readFileSync } from 'node:fs';
+import os from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -55,14 +56,70 @@ export const resolveAgentLaunchExecutable = (launchPlan: AgentLaunchPlan): Agent
   };
 };
 
+// Signals we forward to the harness. SIGKILL is deliberately absent: it cannot be caught, and the
+// kernel delivers it to us directly.
+const FORWARDED_SIGNALS: readonly NodeJS.Signals[] = ['SIGTERM', 'SIGINT', 'SIGHUP'];
+
+// How long the harness gets to exit after a forwarded signal before we stop being polite. Kubernetes
+// defaults to a 30s grace period and SIGKILLs the pod afterwards, so this has to be comfortably
+// shorter or the escalation never runs.
+const TERMINATION_GRACE_MS = 10_000;
+
+/**
+ * Forwards termination signals from this process to a spawned harness, resolving once the harness
+ * actually exits.
+ *
+ * Without this, a resident agent cannot shut down. Node installs no default forwarding, so the
+ * harness never learns the session is ending: under Kubernetes it is SIGKILLed when the grace period
+ * expires, skipping credential persistence and projection cleanup. The same gap shows up outside
+ * containers — Ctrl-C in a terminal, or a cancelled CI job — which is why this belongs here rather
+ * than in a container init.
+ *
+ * Installing a handler suppresses Node's default termination, so every path must resolve, and the
+ * listeners must come off afterwards or repeated launches in one process leak them.
+ */
+export const attachSignalForwarding = (
+  child: { kill(signal?: NodeJS.Signals): boolean; killed: boolean },
+  emitter: NodeJS.EventEmitter = process,
+  graceMs: number = TERMINATION_GRACE_MS,
+): (() => void) => {
+  let escalation: NodeJS.Timeout | undefined;
+
+  const forward = (signal: NodeJS.Signals) => (): void => {
+    if (child.killed) return;
+    child.kill(signal);
+    // A harness that ignores or hangs on the signal would otherwise keep us alive until the
+    // orchestrator's own SIGKILL, losing the chance to exit cleanly first.
+    escalation ??= setTimeout(() => child.kill('SIGKILL'), graceMs);
+    escalation.unref?.();
+  };
+
+  const handlers = FORWARDED_SIGNALS.map((signal) => [signal, forward(signal)] as const);
+  for (const [signal, handler] of handlers) emitter.on(signal, handler);
+
+  return () => {
+    for (const [signal, handler] of handlers) emitter.removeListener(signal, handler);
+    if (escalation) clearTimeout(escalation);
+  };
+};
+
 /* v8 ignore start -- real process spawn is covered by end-to-end smoke usage, not unit tests. */
 export const spawnLauncher: AgentProcessLauncher = {
   async launch(plan: AgentLaunchPlan): Promise<number> {
     const { default: spawn } = await import('cross-spawn');
     return await new Promise<number>((resolve, reject) => {
       const child = spawn(plan.command, [...plan.args], { stdio: 'inherit', env: { ...process.env, ...plan.env } });
-      child.on('error', reject); // ENOENT surfaces as an actionable install message
-      child.on('close', (code, signal) => resolve(code ?? (signal ? 1 : 0)));
+      const detach = attachSignalForwarding(child);
+      child.on('error', (error) => {
+        detach();
+        reject(error); // ENOENT surfaces as an actionable install message
+      });
+      child.on('close', (code, signal) => {
+        detach();
+        // 128+n is the shell convention for "died on signal n", and it is what a caller inspecting
+        // our exit status expects to see when the harness was terminated rather than returning.
+        resolve(code ?? (signal ? 128 + (os.constants.signals[signal] ?? 0) : 0));
+      });
     });
   },
 };
