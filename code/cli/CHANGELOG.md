@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.4.0](https://github.com/ai-outfitter/outfitter/compare/v1.3.1...v1.4.0) (2026-08-04)
+
+
+### Features
+
+* make the container a reusable agent runtime ([#235](https://github.com/ai-outfitter/outfitter/issues/235)) ([95d271a](https://github.com/ai-outfitter/outfitter/commit/95d271a24650f9e3e3620e0b4b1eb9e9a38338ab))
+
 ## [1.3.1](https://github.com/ai-outfitter/outfitter/compare/v1.3.0...v1.3.1) (2026-08-03)
 
 
