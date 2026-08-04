@@ -122,7 +122,7 @@ docker run --rm --entrypoint /bin/sh example-agent:latest \
 Prefer adding known runtime packages through `extraPackages`. The resulting
 image stays reproducible, and it avoids the trap below.
 
-**Do not mount an empty volume over `/nix`.** The image *is* its Nix store: the
+**Do not mount an empty volume over `/nix`.** The image _is_ its Nix store: the
 entrypoint is an absolute store path and every binary in `/bin` is a symlink
 into `/nix/store`. Mounting a fresh volume there hides all of it, so the
 container cannot start — it fails before it could initialize the very store you
