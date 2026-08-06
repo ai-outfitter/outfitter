@@ -154,6 +154,11 @@ On pi, filtering a tool out of `allow` is sufficient, because the tool then does
 On Claude it is not, because absence from `--allowedTools` means only "using it needs approval", so a denial that rests on the filter alone rests on the approval path.
 Claude therefore always receives `--disallowedTools` when `deny` is declared, which satisfies OFTR-003.10.4 without depending on that path.
 
+Projection puts these names directly into harness argv, so a tool name must not start with `-` or contain a comma or whitespace.
+A leading `-` would become an independent harness flag on Claude, where each name is its own argv element, and a comma would split one name into several inside pi's `--tools` value.
+`agent.schema.json` rejects such names when the agent is read, and projection throws rather than dropping them, because a silently discarded entry in a restriction is worse than a refused launch.
+This also excludes Claude's scoped permission rules such as `Bash(npm run test:*)`, which is deliberate for a harness-neutral field: the same string means nothing to pi.
+
 A deny-only selection has no pi form, because pi has no deny flag and the builtin tool list is not knowable at projection time.
 Pi reports `tools` unsupported in that one case, so it warns and `--strict` fails the launch rather than running unrestricted.
 
@@ -207,7 +212,7 @@ An early-startup customization used to register providers, tools, hooks, or addi
 | Tasks                       | Future    | Future    |
 | DeepWork Jobs               | Supported | Roadmap   |
 | Hooks                       | Partial   | Partial   |
-| Tool Availability           | Roadmap   | Roadmap   |
+| Tool Availability           | Partial   | Supported |
 | Theme / UI Presentation     | Roadmap   | Roadmap   |
 | Working Directory           | Roadmap   | Roadmap   |
 | Pass-through Arguments      | Supported | Supported |
