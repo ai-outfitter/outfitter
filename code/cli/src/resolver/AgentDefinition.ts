@@ -1,6 +1,7 @@
 // Parses `agents/<id>/agent.md` frontmatter and merges per-layer config.json loadout overrides.
 import { readFileSync } from 'node:fs';
 
+import { TOOL_NAME_RULE, invalidToolName } from '../projection/Tools.js';
 import { validateSchema } from '../validation/SchemaValidator.js';
 import { parseYamlDocument } from '../validation/YamlDocument.js';
 import type { PromptSourceReference } from '../composer/PromptSource.js';
@@ -118,6 +119,23 @@ const loadoutFromRecord = (record: Readonly<Record<string, unknown>>): Loadout =
   };
 };
 
+/**
+ * Reports a tool name in the merged loadout that projection cannot carry. `agent.md` frontmatter is
+ * already covered by `agent.schema.json`, but a `config.json` overlay bypasses it, so the invariant
+ * is re-checked here on the merged record against the same rule the projection enforces.
+ */
+const toolNameIssue = (record: Readonly<Record<string, unknown>>, path: string): AgentDefinitionIssue | undefined => {
+  const tools = record.tools as { readonly allow?: unknown; readonly deny?: unknown } | undefined;
+
+  if (tools === undefined) return undefined;
+
+  const offending = invalidToolName({ allow: asStringArray(tools.allow), deny: asStringArray(tools.deny) });
+
+  return offending === undefined
+    ? undefined
+    : { path, message: `declares an unusable tool name ${JSON.stringify(offending)}: ${TOOL_NAME_RULE}` };
+};
+
 /** Reads one config.json, restricting it to loadout keys; parse/read/non-object failures are issues. */
 const readConfigLoadout = (configPath: string): Readonly<Record<string, unknown>> | AgentDefinitionIssue => {
   let parsed: unknown;
@@ -192,6 +210,15 @@ export const parseAgentDefinition = (
     }
 
     merged = { ...merged, ...config };
+  }
+
+  // The JSON Schema only sees the frontmatter, and a config.json overlay can replace `tools`
+  // wholesale after that check. Validate the merged loadout so an unprojectable tool name is an
+  // error from `outfitter validate`, not a surprise at launch.
+  const toolIssue = toolNameIssue(merged, configPaths[0] ?? agentPath);
+
+  if (toolIssue !== undefined) {
+    return toolIssue;
   }
 
   return {
