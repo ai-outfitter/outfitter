@@ -137,10 +137,28 @@ No protocol resource exists yet; see [Hooks](../documentation/hooks.md) for the 
 
 ### Tool Availability
 
-Configuration that enables, disables, or filters tools exposed to the agent.
+The `tools: {allow?, deny?}` loadout element, which filters the tools exposed to the agent.
+Projection removes every `deny` entry from `allow` first, then maps the result to native flags.
 
-- Pi name: tool settings and extension-provided tools
-- Claude name: allowed/disallowed tools, roadmap adapter mapping
+- Pi name: `--no-builtin-tools --tools a,b,c`. `--no-builtin-tools` is required whenever `allow` is set, because `--tools` otherwise only adds to the builtin set.
+- Claude name: `--allowedTools a b c` for the filtered allowlist, plus `--disallowedTools a b c` whenever `deny` is declared. Claude always receives the deny list, including when `allow` is declared too.
+
+The two are not the same kind of control.
+Pi's flags govern **availability**: the tool is not in the session.
+Claude's flags govern **permission**: the tool is in the session, and the flag decides whether use needs approval.
+The same profile therefore gives pi a hard ceiling and Claude a permission profile.
+Read a `tools` allowlist accordingly, and do not rely on the Claude side as a security boundary until the non-interactive denial path is verified.
+
+That difference decides how `deny` is projected.
+On pi, filtering a tool out of `allow` is sufficient, because the tool then does not exist.
+On Claude it is not, because absence from `--allowedTools` means only "using it needs approval", so a denial that rests on the filter alone rests on the approval path.
+Claude therefore always receives `--disallowedTools` when `deny` is declared, which satisfies OFTR-003.10.4 without depending on that path.
+
+A deny-only selection has no pi form, because pi has no deny flag and the builtin tool list is not knowable at projection time.
+Pi reports `tools` unsupported in that one case, so it warns and `--strict` fails the launch rather than running unrestricted.
+
+Claude has no counterpart to `--no-builtin-tools` either.
+An allowlist that `deny` empties therefore projects to the denies alone on Claude, which is not the zero-tool session pi produces for the same selection.
 
 ### Theme / UI Presentation
 

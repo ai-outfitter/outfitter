@@ -31,7 +31,7 @@ export const effectiveToolAllowlist = (tools: Loadout['tools']): readonly string
  * allowlist as a hard ceiling on pi and as a permission profile on Claude. Do not rely on the
  * Claude side as a security boundary until the non-interactive denial path is verified.
  *
- * Three rules follow from the flags themselves:
+ * Four rules follow from the flags themselves:
  *
  * - `--no-builtin-tools` is REQUIRED on pi whenever `allow` is set. Without it `--tools` only adds
  *   to the builtin set, so the allowlist restricts nothing.
@@ -39,24 +39,38 @@ export const effectiveToolAllowlist = (tools: Loadout['tools']): readonly string
  *   knowable at projection time, so it cannot be inverted into an allowlist. That case stays
  *   unsupported (see `toolsProjectable`) instead of being silently dropped: for a security control,
  *   fatal under `--strict` is better than quietly unrestricted.
+ * - On Claude, `deny` is ALWAYS emitted, including when `allow` is also set. Removing a denied tool
+ *   from the allowlist is not enough there: absence from `--allowedTools` only means "using it
+ *   needs approval", so the exclusion would rest on the same unverified prompt path. `deny` is a
+ *   requirement that denied tools win when projected (OFTR-003.10.4), and only `--disallowedTools`
+ *   states it without depending on that path. On pi the filter alone is sufficient, because a tool
+ *   left out of `--tools` does not exist.
  * - Claude's flags are variadic. They consume every following token until the next `--flag`, so
  *   these args must stay ahead of a flag-bearing group in the launch plan and must never sit
- *   immediately before pass-through positionals, which would be eaten as tool names.
+ *   immediately before pass-through positionals, which would be eaten as tool names. Emitting
+ *   `--allowedTools` before `--disallowedTools` terminates the first; the launch plan places the
+ *   whole group ahead of the prompt flags, which terminates the second.
  */
 export const toolArgs = (harness: Harness, tools: ToolSelection): readonly string[] => {
   const allow = effectiveToolAllowlist(tools);
-
-  if (allow === undefined) {
-    const deny = tools.deny ?? [];
-    return harness === 'pi' || deny.length === 0 ? [] : ['--disallowedTools', ...deny];
-  }
+  const deny = tools.deny ?? [];
 
   if (harness === 'pi') {
+    // A deny-only selection has no pi form; `toolsProjectable` reports it unsupported.
+    if (allow === undefined) return [];
     // An allowlist emptied by `deny` is still a request: zero tools, not "no restriction".
     return allow.length === 0 ? ['--no-builtin-tools'] : ['--no-builtin-tools', '--tools', allow.join(',')];
   }
 
-  return allow.length === 0 ? [] : ['--allowedTools', ...allow];
+  return [
+    // An allowlist emptied by `deny` drops `--allowedTools` entirely, because Claude has no
+    // "deny everything" form: an empty list is not accepted as one and there is no counterpart to
+    // `--no-builtin-tools`. All that survives is the explicit `--disallowedTools` below. A
+    // fully-emptied allowlist on Claude is therefore NOT equivalent to pi's zero-tool session; it
+    // denies exactly the named tools and leaves the rest of the builtin set present.
+    ...(allow === undefined || allow.length === 0 ? [] : ['--allowedTools', ...allow]),
+    ...(deny.length === 0 ? [] : ['--disallowedTools', ...deny]),
+  ];
 };
 
 /**
