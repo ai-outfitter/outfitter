@@ -6,6 +6,41 @@ import type { Harness } from '../settings/Settings.js';
 export type ToolSelection = NonNullable<Loadout['tools']>;
 
 /**
+ * A projectable tool name. Kept in lockstep with `$defs/toolName` in `agent.schema.json`, which
+ * rejects the same shapes at the YAML read boundary; a unit test asserts the two stay equal.
+ *
+ * Three characters are excluded, because projection puts these names into harness argv:
+ *
+ * - A leading `-` makes the name an independent flag on Claude, where each entry becomes its own
+ *   argv element. `allow: [Read, --dangerously-skip-permissions]` would not name a tool. It would
+ *   turn off the permission system this element exists to configure. Profiles compose from remote
+ *   catalogs and inheritance chains, so a tool name is not always written by the person who runs
+ *   the agent, which makes this a supply-chain path to arbitrary launch flags.
+ * - A comma splits one name into several entries inside pi's `--tools a,b,c` value.
+ * - Whitespace is not a separator on either path today, because no shell is involved and pi gets a
+ *   single argv element. It is rejected as conservatism, and it keeps names portable between the
+ *   two harnesses. Note that this also excludes Claude's scoped permission rules, such as
+ *   `Bash(npm run test:*)`. That is deliberate for a harness-neutral field: the same string is
+ *   meaningless to pi. Relaxing the pattern later is backward compatible.
+ */
+export const TOOL_NAME_PATTERN = /^[^\s,-][^\s,]*$/;
+
+/**
+ * Rejects a tool name that projection cannot carry as a name. This throws instead of filtering,
+ * because dropping an entry from a security control without saying so is the failure mode this
+ * element must not have. A selection that cannot be projected exactly as written must not launch.
+ */
+const assertProjectableToolNames = (tools: ToolSelection): void => {
+  for (const name of [...(tools.allow ?? []), ...(tools.deny ?? [])]) {
+    if (!TOOL_NAME_PATTERN.test(name)) {
+      throw new Error(
+        `tool name ${JSON.stringify(name)} cannot be projected: a tool name must not start with '-' or contain a comma or whitespace, because projection would make it a separate harness flag or split it into several names.`,
+      );
+    }
+  }
+};
+
+/**
  * The effective tool allowlist: `allow` minus `deny`, per OFTR-003.10.4 ("denied tools MUST win
  * when projected"). `undefined` and `[]` mean different things and callers must keep them apart:
  * `undefined` is "no allowlist declared", `[]` is "an allowlist that `deny` emptied".
@@ -52,6 +87,10 @@ export const effectiveToolAllowlist = (tools: Loadout['tools']): readonly string
  *   whole group ahead of the prompt flags, which terminates the second.
  */
 export const toolArgs = (harness: Harness, tools: ToolSelection): readonly string[] => {
+  // Before filtering, so a poisoned name is rejected even when `deny` would have removed it, and on
+  // both harnesses: `projectComposition` is exported and reachable without schema validation, so
+  // this cannot assume the read boundary already ran.
+  assertProjectableToolNames(tools);
   const allow = effectiveToolAllowlist(tools);
   const deny = tools.deny ?? [];
 

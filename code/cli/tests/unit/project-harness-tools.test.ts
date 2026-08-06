@@ -1,6 +1,6 @@
-// Tests loadout `tools` projection: pi availability flags, claude permission flags, and the
-// deny-only-on-pi case that stays unsupported.
-import { mkdtempSync, rmSync } from 'node:fs';
+// Tests loadout `tools` projection: pi availability flags, claude permission flags, the
+// deny-only-on-pi case that stays unsupported, and tool names that would escape into harness argv.
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -8,7 +8,9 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import type { CompositionPlan } from '../../src/composer/Composition.js';
 import { projectComposition } from '../../src/projection/ProjectHarness.js';
+import { TOOL_NAME_PATTERN } from '../../src/projection/Tools.js';
 import type { Harness } from '../../src/settings/Settings.js';
+import { validateSchema } from '../../src/validation/SchemaValidator.js';
 
 const roots: string[] = [];
 const root = (): string => {
@@ -128,5 +130,47 @@ describe('projectComposition tools', () => {
       expect(projection.launch.args).not.toContain('--allowedTools');
       expect(projection.unsupported).not.toContain('tools');
     }
+  });
+});
+
+const agentDocumentWithTools = (tools: Record<string, readonly string[]>): Record<string, unknown> => ({
+  name: 'lead',
+  tools,
+});
+
+describe('tool name validation', () => {
+  it('throws instead of projecting a tool name that would become a harness flag', () => {
+    for (const harness of ['pi', 'claude'] as const) {
+      expect(() => project(harness, { allow: ['Read', '--dangerously-skip-permissions'] })).toThrow(
+        /--dangerously-skip-permissions.*cannot be projected/,
+      );
+    }
+  });
+
+  it('throws instead of projecting a tool name containing a comma or whitespace', () => {
+    expect(() => project('pi', { allow: ['read,write'] })).toThrow(/"read,write" cannot be projected/);
+    expect(() => project('claude', { allow: ['Bash(npm run test)'] })).toThrow(/cannot be projected/);
+  });
+
+  it('rejects a poisoned deny entry, and rejects one that deny filtering would have removed', () => {
+    expect(() => project('claude', { deny: ['--dangerously-skip-permissions'] })).toThrow(/cannot be projected/);
+    // The name is filtered out of the allowlist, and must still be rejected rather than ignored.
+    expect(() => project('pi', { allow: ['-x'], deny: ['-x'] })).toThrow(/"-x" cannot be projected/);
+  });
+
+  it('rejects the same names at the agent schema read boundary', () => {
+    for (const name of ['--dangerously-skip-permissions', '-x', 'read,write', 'npm run test']) {
+      expect(validateSchema('agent', agentDocumentWithTools({ allow: [name] })).valid).toBe(false);
+      expect(validateSchema('agent', agentDocumentWithTools({ deny: [name] })).valid).toBe(false);
+    }
+    expect(validateSchema('agent', agentDocumentWithTools({ allow: ['read', 'web-search'] })).valid).toBe(true);
+  });
+
+  it('keeps the schema pattern and the projection pattern identical', () => {
+    const schema = JSON.parse(
+      readFileSync(new URL('../../src/schemas/agent.schema.json', import.meta.url), 'utf8'),
+    ) as { readonly $defs: { readonly toolName: { readonly pattern: string } } };
+
+    expect(schema.$defs.toolName.pattern).toBe(TOOL_NAME_PATTERN.source);
   });
 });
