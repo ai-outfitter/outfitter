@@ -140,7 +140,7 @@ No protocol resource exists yet; see [Hooks](../documentation/hooks.md) for the 
 The `tools: {allow?, deny?}` loadout element, which filters the tools exposed to the agent.
 Projection removes every `deny` entry from `allow` first, then maps the result to native flags.
 
-- Pi name: `--no-builtin-tools --tools a,b,c`. `--no-builtin-tools` is required whenever `allow` is set, because `--tools` otherwise only adds to the builtin set.
+- Pi name: `--no-tools --tools a,b,c` for the filtered allowlist, plus `--exclude-tools a,b,c` whenever `deny` is declared. `--tools` is a hard allowlist across built-in, extension, and custom tools. `--no-builtin-tools` is deliberately not used, because it keeps extension and custom tools enabled.
 - Claude name: `--allowedTools a b c` for the filtered allowlist, plus `--disallowedTools a b c` whenever `deny` is declared. Claude always receives the deny list, including when `allow` is declared too.
 
 The two are not the same kind of control.
@@ -149,21 +149,22 @@ Claude's flags govern **permission**: the tool is in the session, and the flag d
 The same profile therefore gives pi a hard ceiling and Claude a permission profile.
 Read a `tools` allowlist accordingly, and do not rely on the Claude side as a security boundary until the non-interactive denial path is verified.
 
-That difference decides how `deny` is projected.
-On pi, filtering a tool out of `allow` is sufficient, because the tool then does not exist.
+That difference decides how much the `deny` projection has to carry.
+On pi, filtering a tool out of `allow` is already sufficient, because the tool then does not exist.
 On Claude it is not, because absence from `--allowedTools` means only "using it needs approval", so a denial that rests on the filter alone rests on the approval path.
-Claude therefore always receives `--disallowedTools` when `deny` is declared, which satisfies OFTR-003.10.4 without depending on that path.
+Both harnesses therefore always receive the deny list when `deny` is declared, which satisfies OFTR-003.10.4 without depending on that path.
 
 Projection puts these names directly into harness argv, so a tool name must not start with `-` or contain a comma or whitespace.
 A leading `-` would become an independent harness flag on Claude, where each name is its own argv element, and a comma would split one name into several inside pi's `--tools` value.
-`agent.schema.json` rejects such names when the agent is read, and projection throws rather than dropping them, because a silently discarded entry in a restriction is worse than a refused launch.
+`agent.schema.json` rejects such names in `agent.md` frontmatter, the agent reader re-checks the loadout after `config.json` overlays merge (the schema does not see those), and projection throws rather than dropping them, because a silently discarded entry in a restriction is worse than a refused launch.
 This also excludes Claude's scoped permission rules such as `Bash(npm run test:*)`, which is deliberate for a harness-neutral field: the same string means nothing to pi.
 
-A deny-only selection has no pi form, because pi has no deny flag and the builtin tool list is not knowable at projection time.
-Pi reports `tools` unsupported in that one case, so it warns and `--strict` fails the launch rather than running unrestricted.
+Both harnesses express every combination, so `tools` is never reported unsupported.
+A deny-only selection projects to `--exclude-tools` on pi and `--disallowedTools` on Claude, and imposes no ceiling on the tools it does not name.
 
-Claude has no counterpart to `--no-builtin-tools` either.
-An allowlist that `deny` empties therefore projects to the denies alone on Claude, which is not the zero-tool session pi produces for the same selection.
+An allowlist that `deny` empties is a request for a session with no tools.
+Pi expresses it as `--no-tools`.
+Claude has no counterpart, so the same selection projects to the denies alone there and is not a zero-tool session.
 
 ### Theme / UI Presentation
 
@@ -212,7 +213,7 @@ An early-startup customization used to register providers, tools, hooks, or addi
 | Tasks                       | Future    | Future    |
 | DeepWork Jobs               | Supported | Roadmap   |
 | Hooks                       | Partial   | Partial   |
-| Tool Availability           | Partial   | Supported |
+| Tool Availability           | Supported | Supported |
 | Theme / UI Presentation     | Roadmap   | Roadmap   |
 | Working Directory           | Roadmap   | Roadmap   |
 | Pass-through Arguments      | Supported | Supported |

@@ -50,12 +50,9 @@ describe('projectComposition tools', () => {
   it('projects an allowlist to pi availability flags', () => {
     const projection = project('pi', { allow: ['read', 'bash'] });
 
-    expect(projection.launch.args.slice(0, 4)).toEqual([
-      '--no-builtin-tools',
-      '--tools',
-      'read,bash',
-      '--system-prompt',
-    ]);
+    // `--no-tools`, not `--no-builtin-tools`: the latter keeps extension and custom tools.
+    expect(projection.launch.args.slice(0, 4)).toEqual(['--no-tools', '--tools', 'read,bash', '--system-prompt']);
+    expect(projection.launch.args).not.toContain('--no-builtin-tools');
     expect(projection.unsupported).not.toContain('tools');
   });
 
@@ -72,7 +69,13 @@ describe('projectComposition tools', () => {
   it('removes denied tools from the projected allowlist on both harnesses', () => {
     const selection = { allow: ['read', 'bash', 'write'], deny: ['bash'] };
 
-    expect(project('pi', selection).launch.args.slice(0, 3)).toEqual(['--no-builtin-tools', '--tools', 'read,write']);
+    expect(project('pi', selection).launch.args.slice(0, 5)).toEqual([
+      '--no-tools',
+      '--tools',
+      'read,write',
+      '--exclude-tools',
+      'bash',
+    ]);
     // Claude also states the denial outright: absence from --allowedTools only means "needs
     // approval", so filtering alone would leave the exclusion resting on the prompt path.
     expect(project('claude', selection).launch.args.slice(0, 5)).toEqual([
@@ -91,21 +94,26 @@ describe('projectComposition tools', () => {
     expect(projection.unsupported).not.toContain('tools');
   });
 
-  it('reports a deny-only selection unsupported on pi and adds no tool flags', () => {
-    const projection = project('pi', { deny: ['bash'] });
+  it('projects a deny-only selection to pi --exclude-tools without capping the rest', () => {
+    const projection = project('pi', { deny: ['bash', 'write'] });
 
-    expect(projection.launch.args).not.toContain('--no-builtin-tools');
+    // No allowlist was declared, so no ceiling is imposed: only the named tools are removed.
+    expect(projection.launch.args.slice(0, 2)).toEqual(['--exclude-tools', 'bash,write']);
+    expect(projection.launch.args).not.toContain('--no-tools');
     expect(projection.launch.args).not.toContain('--tools');
-    expect(projection.unsupported).toContain('tools');
+    expect(projection.unsupported).not.toContain('tools');
   });
 
-  it('keeps --no-builtin-tools when deny empties the allowlist, and leaves claude with only denies', () => {
+  it('gives pi a true zero-tool session when deny empties the allowlist, and claude only denies', () => {
     const selection = { allow: ['bash'], deny: ['bash'] };
     const pi = project('pi', selection);
     const claude = project('claude', selection);
 
-    expect(pi.launch.args[0]).toBe('--no-builtin-tools');
+    // `--no-builtin-tools` would leave every extension-registered tool in the session, so the
+    // "zero tools" request must project to `--no-tools`.
+    expect(pi.launch.args.slice(0, 3)).toEqual(['--no-tools', '--exclude-tools', 'bash']);
     expect(pi.launch.args).not.toContain('--tools');
+    expect(pi.launch.args).not.toContain('--no-builtin-tools');
     expect(pi.unsupported).not.toContain('tools');
     // Claude has no "deny everything" form, so an emptied allowlist survives only as the explicit
     // denies. This is not equivalent to pi's zero-tool session.
@@ -115,18 +123,22 @@ describe('projectComposition tools', () => {
   });
 
   it('adds no tool flags when a selection declares neither allow nor deny', () => {
-    const projection = project('claude', {});
+    for (const harness of ['pi', 'claude'] as const) {
+      const projection = project(harness, {});
 
-    expect(projection.launch.args).not.toContain('--allowedTools');
-    expect(projection.launch.args).not.toContain('--disallowedTools');
-    expect(projection.unsupported).not.toContain('tools');
+      expect(projection.launch.args).not.toContain('--allowedTools');
+      expect(projection.launch.args).not.toContain('--disallowedTools');
+      expect(projection.launch.args).not.toContain('--no-tools');
+      expect(projection.launch.args).not.toContain('--exclude-tools');
+      expect(projection.unsupported).not.toContain('tools');
+    }
   });
 
   it('adds no tool flags and reports nothing unsupported when tools is absent', () => {
     for (const harness of ['pi', 'claude'] as const) {
       const projection = project(harness, undefined);
 
-      expect(projection.launch.args).not.toContain('--no-builtin-tools');
+      expect(projection.launch.args).not.toContain('--no-tools');
       expect(projection.launch.args).not.toContain('--allowedTools');
       expect(projection.unsupported).not.toContain('tools');
     }

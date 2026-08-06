@@ -342,7 +342,7 @@ describe('run agent', () => {
     expect(messages).toContain("loadout element 'plugins'");
     // An allow-list projects to pi's native availability flags, so `tools` is no longer unsupported.
     expect(messages).not.toContain("loadout element 'tools'");
-    expect(result.launchPlan?.args).toContain('--no-builtin-tools');
+    expect(result.launchPlan?.args).toContain('--no-tools');
     expect(messages).not.toContain("loadout element 'subagents'");
     expect(messages).not.toContain("loadout element 'mcp'");
     expect(messages).not.toContain('unknown server');

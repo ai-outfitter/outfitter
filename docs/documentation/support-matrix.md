@@ -28,7 +28,7 @@ Tasks and bake are not in this matrix — they are the subject of a [separate up
 | Credentials and environment                                              | Supported | Supported   |
 | DeepWork job selection                                                   | Supported | Roadmap     |
 | Hooks                                                                    | Partial   | Partial     |
-| Tool availability (agent `tools:` loadout)                               | Partial   | Supported   |
+| Tool availability (agent `tools:` loadout)                               | Supported | Supported   |
 | Theme / UI presentation                                                  | Roadmap   | Roadmap     |
 | Working directory                                                        | Roadmap   | Roadmap     |
 | Pass-through arguments                                                   | Supported | Supported   |
@@ -50,7 +50,7 @@ Tasks and bake are not in this matrix — they are the subject of a [separate up
 - Pi projects the full resource set: agent identity, subagents (via the subagent extension), skills (`--skill`), commands, model configuration, MCP, extensions (`--extension`) and plugins as first-class loadout elements, environment, pass-through args, session directory, and DeepWork job selection.
 - Selected skills resolve across layers following [layer precedence](./concepts.md#layer-precedence); `references`, `scripts`, and `assets` frontmatter materialize into a generated skill passed via `--skill`. `outfitter validate` checks selections and references before launch.
 - **Hooks (Partial)** — bootstrap behavior uses an explicit Pi extension via `--extension`; recurring per-event hooks are extension territory. See [Hooks](./hooks.md).
-- **Tool availability (Partial)** — `tools.allow` (after `tools.deny` removes entries) maps to `--no-builtin-tools --tools a,b,c`, which makes the session's tool set exactly that list. A selection that declares only `tools.deny` cannot be projected: pi has no deny flag and the builtin tool list is not knowable at projection time, so Outfitter warns and `--strict` fails the launch instead of running unrestricted.
+- **Tool availability** — `tools.allow` (after `tools.deny` removes entries) maps to `--no-tools --tools a,b,c`, and `tools.deny` maps to `--exclude-tools a,b,c`. `--tools` is a hard allowlist across built-in, extension, and custom tools, so the session's tool set is exactly that list. An allowlist that `tools.deny` empties maps to `--no-tools` alone, a session with no tools at all. Note that `--no-builtin-tools` is deliberately not used: it keeps extension and custom tools enabled, so it does not express an empty tool set.
 - Every launch also passes Outfitter's own self-documentation skill through `--skill`.
 
 For the architecture-level definitions behind each row, see [Controllable elements](../architecture/controllable-elements.md).
