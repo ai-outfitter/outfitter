@@ -33,7 +33,7 @@ Outfitter lays out conventions for iterating on and sharing agent configuration 
 The same composition runs on every surface; only the trigger changes.
 
 - [Running an agent in GitHub Actions](./actions.md) — headless runs on any workflow trigger.
-- [Container images](./containers.md) — run the published image persistently or add Nix-packaged tools.
+- [Container images](./containers.md) — run the published Debian-based image persistently, extend it with apt, or use the `-nix` variant.
 - [Recurring runs](./recurring-runs.md) — loops three ways: the local loop extension, Actions cron, cluster schedules.
 - [In-cluster agents](./in-cluster.md) — resident agents, CronJobs, and subagent Jobs via Link Operator.
 - [Hooks](./hooks.md) — harness hook wiring and the protocol gap.

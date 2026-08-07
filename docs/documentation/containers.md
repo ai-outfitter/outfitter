@@ -6,10 +6,15 @@ The published image is a generic Outfitter runtime:
 ghcr.io/ai-outfitter/outfitter:<version>
 ```
 
-It uses `outfitter` as its entrypoint and includes the Nix CLI, Bash, core
-utilities, Git, SSH, and CA certificates. It does not include agent profiles,
-credentials, channels, MCP servers, or other use-case behavior. The default
-runtime user and group are both `1000`, with `/tmp` as the home directory.
+It is Debian-based (`node:24-slim`), uses `outfitter` as its entrypoint, and
+includes Node.js, npm, Git, SSH, and CA certificates at their conventional
+Debian paths. It does not include agent profiles, credentials, channels, MCP
+servers, or other use-case behavior. The default runtime user and group are
+both `1000` (named `outfitter`), with `/tmp` as the home directory and
+`/workspace` as the working directory.
+
+A Nix closure variant of the image is also published under the `-nix` suffix;
+see [the `-nix` variant](#the--nix-variant) below.
 
 ## Run a resident agent
 
@@ -42,6 +47,7 @@ spec:
         fsGroup: 1000
       containers:
         - name: agent
+          # The primary Debian-based image; append -nix for the Nix variant.
           image: ghcr.io/ai-outfitter/outfitter:<version>
           stdin: true
           workingDir: /workspace
@@ -75,16 +81,56 @@ resources or impose image, profile, or extension policy.
 
 ## Build a derivative image
 
-Being built with Nix does not normally imply that an image contains the Nix
-CLI. The published Outfitter image includes it intentionally, and the flake also
-exports `lib.mkContainer` for reproducible derivative images:
+The image is a normal Debian base: extend it with an ordinary Dockerfile.
+`apt-get` works, and so does `COPY`ing arbitrary binaries — including
+dynamically linked ones, since the standard ELF interpreter and shared
+libraries are present. Switch to `root` for the layers that install, then drop
+back to `1000`:
+
+```dockerfile
+FROM ghcr.io/ai-outfitter/outfitter:<version>
+
+USER root
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends jq ripgrep \
+  && rm -rf /var/lib/apt/lists/*
+COPY --chmod=0755 my-tool /usr/local/bin/my-tool
+USER 1000
+```
+
+Build and exercise the exact image:
+
+```sh
+docker build -t example-agent .
+docker run --rm example-agent --version
+docker run --rm --entrypoint /bin/sh example-agent \
+  -c 'jq --version && rg --version && my-tool --version'
+```
+
+The entrypoint stays `outfitter`; override `ENTRYPOINT` only when the derived
+image wraps the launch itself.
+
+## The `-nix` variant
+
+The Nix closure image that was previously the primary tag remains published
+for `lib.mkContainer` consumers:
+
+```text
+ghcr.io/ai-outfitter/outfitter:<version>-nix
+```
+
+It is built by the flake, includes the Nix CLI, Bash, core utilities, Git,
+SSH, and CA certificates, and its entrypoint is an absolute `/nix/store` path.
+It is not conventionally extensible — there is no apt, and foreign dynamic
+binaries do not run — so extend it through Nix instead: the flake exports
+`lib.mkContainer` for reproducible derivative images:
 
 ```nix
 {
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     outfitter = {
-      url = "github:ai-outfitter/outfitter/v1.2.0";
+      url = "github:ai-outfitter/outfitter/v1.4.0";
       inputs.nixpkgs.follows = "nixpkgs";
     };
   };
@@ -122,13 +168,14 @@ docker run --rm --entrypoint /bin/sh example-agent:latest \
 Prefer adding known runtime packages through `extraPackages`. The resulting
 image stays reproducible, and it avoids the trap below.
 
-**Do not mount an empty volume over `/nix`.** The image _is_ its Nix store: the
-entrypoint is an absolute store path and every binary in `/bin` is a symlink
-into `/nix/store`. Mounting a fresh volume there hides all of it, so the
-container cannot start — it fails before it could initialize the very store you
-mounted the volume to populate.
+**Do not mount an empty volume over `/nix` of the `-nix` variant.** That image
+_is_ its Nix store: the entrypoint is an absolute store path and every binary
+in `/bin` is a symlink into `/nix/store`. Mounting a fresh volume there hides
+all of it, so the container cannot start — it fails before it could initialize
+the very store you mounted the volume to populate. (The primary Debian image
+has no `/nix` and is not affected.)
 
-Runtime installation therefore needs one of:
+Runtime installation in the `-nix` variant therefore needs one of:
 
 - a volume **pre-populated** with the image's closure, seeded from the image
   before the agent starts (an init container copying `/nix` into the volume);
