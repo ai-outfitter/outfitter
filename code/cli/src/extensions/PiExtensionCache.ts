@@ -17,7 +17,7 @@
 // Offline, a checkout that provably mismatches its pin is dropped with a warning — the same
 // severity the offline path already applies to a missing extension (fatal only under `--strict`).
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, resolve, sep } from 'node:path';
 
 import { launchThroughSpawn, spawnLauncher } from '../agents/AgentLaunch.js';
 import { runGit } from '../sources/GitRepository.js';
@@ -51,12 +51,20 @@ interface PiExtensionSource {
 const exactSemverPattern = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/u;
 const fullShaPattern = /^[0-9a-f]{40}$/iu;
 
+// Specifier text becomes filesystem path segments (and the stale-reinstall path runs `rm -rf` on
+// the joined result), so a segment that traverses (`..`, `.`) or smuggles a separator (`\`, which
+// `join` does not split but Windows resolves) must be rejected before any path is built.
+const unsafePathSegment = (segment: string): boolean => segment === '.' || segment === '..' || segment.includes('\\');
+
 const mapGitSpecifier = (specifier: string): PiExtensionSource | { readonly unsupported: string } => {
   const rest = specifier.slice('git:'.length);
   const pathPart = rest.includes('@') ? rest.slice(0, rest.lastIndexOf('@')) : rest;
   const ref = rest.includes('@') ? rest.slice(rest.lastIndexOf('@') + 1) : '';
   const segments = pathPart.split('/').filter((part) => part !== '');
   if (segments.length < 2) return { unsupported: `extension '${specifier}' is not a valid git source` };
+  if (segments.some(unsafePathSegment)) {
+    return { unsupported: `extension '${specifier}' contains an unsafe path segment` };
+  }
   return {
     source: specifier,
     installSegments: ['git', ...segments],
@@ -70,6 +78,9 @@ export const mapSpecifierToPiSource = (specifier: string): PiExtensionSource | {
     const rest = specifier.slice('npm:'.length);
     const name = rest.replace(/@[^@/]+$/u, ''); // strip a trailing @version, keep a scope's leading @
     if (name === '') return { unsupported: `extension '${specifier}' has no package name` };
+    if (name.split('/').some(unsafePathSegment)) {
+      return { unsupported: `extension '${specifier}' contains an unsafe path segment` };
+    }
     const version = rest.length > name.length ? rest.slice(name.length + 1) : undefined;
     return {
       source: specifier,
@@ -91,6 +102,20 @@ const installedVersion = (installDir: string): string | undefined => {
     return manifest.version;
   } catch {
     return undefined;
+  }
+};
+
+/**
+ * Defense in depth behind segment validation: refuses an install dir that resolves outside the
+ * cache root before any filesystem access (the stale-git path runs `rm -rf` on the install dir).
+ * Strict containment also keeps the `<installDir>.outfitter-ref.json` marker sibling inside the
+ * cache, since a contained install dir is at least one level below the root. Exported for tests;
+ * segment validation in mapSpecifierToPiSource should make this unreachable.
+ */
+export const assertInstallDirInsideCache = (installDir: string, cacheAgentDir: string, specifier: string): void => {
+  const root = resolve(cacheAgentDir);
+  if (!resolve(installDir).startsWith(root + sep)) {
+    throw new Error(`extension '${specifier}' resolves outside the extension cache; refusing to touch it.`);
   }
 };
 
@@ -193,6 +218,7 @@ const ensureOneExtension = async (
   if ('unsupported' in mapped) return { warning: mapped.unsupported };
 
   const installDir = join(input.cacheAgentDir, ...mapped.installSegments);
+  assertInstallDirInsideCache(installDir, input.cacheAgentDir, specifier);
   const decision = evaluateCachedInstall(installDir, mapped, input.offline);
   if (decision.serve) return { loadDir: installDir };
   if (decision.staleWarning !== undefined) return { warning: decision.staleWarning };

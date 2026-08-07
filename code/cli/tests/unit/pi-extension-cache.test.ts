@@ -6,7 +6,11 @@ import { join } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { ensurePiExtensions, mapSpecifierToPiSource } from '../../src/extensions/PiExtensionCache.js';
+import {
+  assertInstallDirInsideCache,
+  ensurePiExtensions,
+  mapSpecifierToPiSource,
+} from '../../src/extensions/PiExtensionCache.js';
 import type { PiInstallSpawner } from '../../src/extensions/PiExtensionCache.js';
 
 const roots: string[] = [];
@@ -94,6 +98,29 @@ describe('mapSpecifierToPiSource', () => {
     expect(mapSpecifierToPiSource('npm:')).toEqual({ unsupported: "extension 'npm:' has no package name" });
     expect(mapSpecifierToPiSource('git:justhost')).toEqual({
       unsupported: "extension 'git:justhost' is not a valid git source",
+    });
+  });
+
+  it('rejects traversal and backslash segments that would escape the cache directory', () => {
+    for (const specifier of [
+      'git:../../victim@v1',
+      'git:host/..@v1',
+      'git:host/./repo@v1',
+      String.raw`git:host/owner\..\x@v1`,
+      'npm:../evil',
+      String.raw`npm:evil\..\x`,
+    ]) {
+      expect(mapSpecifierToPiSource(specifier)).toEqual({
+        unsupported: `extension '${specifier}' contains an unsafe path segment`,
+      });
+    }
+  });
+
+  it('flattens an absolute-path-ish git specifier into relative segments under the cache', () => {
+    expect(mapSpecifierToPiSource('git:/etc/passwd@v1')).toEqual({
+      source: 'git:/etc/passwd@v1',
+      installSegments: ['git', 'etc', 'passwd'],
+      pinnedGitRef: 'v1',
     });
   });
 });
@@ -389,5 +416,41 @@ describe('ensurePiExtensions git revision pinning', () => {
     });
     expect(result.spawned).toBe(1);
     expect(readMarker(cache).ref).toBe('v1.0.0');
+  });
+});
+
+describe('extension cache path containment', () => {
+  it('never deletes a directory outside the cache root for a traversal specifier', async () => {
+    const cache = cacheDir();
+    const victim = join(cache, 'victim');
+    writeFileSync(join(mkdirSync(victim, { recursive: true }) ?? victim, 'keep.txt'), 'data');
+    const root = join(cache, 'agent'); // cache root beside the victim: git/../../victim escapes it
+    let spawned = 0;
+    const result = await ensurePiExtensions(['git:../../victim@v1'], {
+      cacheAgentDir: root,
+      offline: false,
+      spawn: () => {
+        spawned += 1;
+        return Promise.resolve(0);
+      },
+    });
+    expect(spawned).toBe(0);
+    expect(result.loadDirs).toEqual([]);
+    expect(result.warnings[0]).toContain('unsafe path segment');
+    expect(existsSync(join(victim, 'keep.txt'))).toBe(true);
+  });
+
+  it('refuses an install dir that resolves outside the cache root before any filesystem access', () => {
+    const cache = cacheDir();
+    const outside = join(cache, 'outside');
+    mkdirSync(outside, { recursive: true });
+    const root = join(cache, 'agent');
+    expect(() => assertInstallDirInsideCache(join(root, 'git', '..', '..', 'outside'), root, 'git:x/y@v1')).toThrow(
+      "extension 'git:x/y@v1' resolves outside the extension cache",
+    );
+    // The cache root itself is not strictly inside the cache root.
+    expect(() => assertInstallDirInsideCache(root, root, 'git:x/y@v1')).toThrow('outside the extension cache');
+    expect(existsSync(outside)).toBe(true);
+    expect(() => assertInstallDirInsideCache(join(root, 'git', 'h', 'o', 'r'), root, 'git:h/o/r')).not.toThrow();
   });
 });
