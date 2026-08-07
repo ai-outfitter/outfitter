@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.5.0](https://github.com/ai-outfitter/outfitter/compare/v1.4.0...v1.5.0) (2026-08-07)
+
+
+### Features
+
+* **projection:** project loadout `tools` for pi and claude ([#256](https://github.com/ai-outfitter/outfitter/issues/256)) ([4d651ea](https://github.com/ai-outfitter/outfitter/commit/4d651eafcc6397d58ede62b29bf0ef70f8f15ccc))
+
+
+### Bug Fixes
+
+* **extensions:** compare the pinned git ref before trusting a cached extension ([#258](https://github.com/ai-outfitter/outfitter/issues/258)) ([20d658f](https://github.com/ai-outfitter/outfitter/commit/20d658f1d3cd644c42667811f4d864d6219d0a68))
+
 ## [1.4.0](https://github.com/ai-outfitter/outfitter/compare/v1.3.1...v1.4.0) (2026-08-04)
 
 
