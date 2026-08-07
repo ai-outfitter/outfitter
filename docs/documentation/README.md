@@ -2,6 +2,11 @@
 
 Outfitter lays out conventions for iterating on and sharing agent configuration — agent profiles, skills, and loadouts. The docs follow that arc: **set up** your own, **understand** the pieces, **share** them across projects and your org, **automate** them on more surfaces, then contribute back. Each page keeps to one concept and links onward when you need the next one, so nothing here has to be read up front.
 
+Onboarding an organization? Start with
+[Onboard an organization with an SDLC report](./usecases/org-onboarding-sdlc-report.md) —
+one engineer runs the maturity assessment, then creates the org `.agents`
+repository with the baseline report as its first commit.
+
 ## Start (you)
 
 - [Getting started](./getting-started.md) — install, first run, default agent.
