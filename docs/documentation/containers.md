@@ -82,10 +82,12 @@ resources or impose image, profile, or extension policy.
 ## Build a derivative image
 
 The image is a normal Debian base: extend it with an ordinary Dockerfile.
-`apt-get` works, and so does `COPY`ing arbitrary binaries — including
-dynamically linked ones, since the standard ELF interpreter and shared
-libraries are present. Switch to `root` for the layers that install, then drop
-back to `1000`:
+`apt-get` works, and so does `COPY`ing binaries. A dynamically linked binary
+runs when it matches the image — same architecture, glibc-linked, and its
+shared-library dependencies present. The standard ELF interpreter is where
+tools expect it (unlike the `-nix` variant), but the slim base ships a small
+library set: `apt-get install` a binary's runtime libraries when it needs more.
+Switch to `root` for the layers that install, then drop back to `1000`:
 
 ```dockerfile
 FROM ghcr.io/ai-outfitter/outfitter:<version>
