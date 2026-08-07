@@ -61,48 +61,57 @@ export const effectiveToolAllowlist = (tools: Loadout['tools']): readonly string
 };
 
 /**
- * pi and Claude Code both restrict tools, but they restrict *different things*. The pi rows were
- * measured against pi 0.83.0 with a probe extension that registers a uniquely-named tool and prints
- * `pi.getActiveTools()` at `session_start`; the exact runs are recorded in the PR for #255.
+ * pi and Claude Code BOTH have an availability control; Claude additionally has a permission layer
+ * on top of its own. The pi rows were measured against pi 0.83.0 with a probe extension that
+ * registers a uniquely-named tool and prints `pi.getActiveTools()` at `session_start`; the exact
+ * runs are recorded in the PR for #255. The Claude rows come from `claude --help` and
+ * https://code.claude.com/docs/en/cli-reference — documented behaviour, not locally measured.
  *
  * | | pi | claude |
- * | allowlist | `--no-tools --tools a,b,c` (comma-joined) | `--allowedTools a b c` (variadic) |
- * | denylist | `--exclude-tools a,b,c` (comma-joined) | `--disallowedTools a b c` (variadic) |
- * | no tools at all | `--no-tools` | no equivalent |
- * | semantics | **availability**: the tool is not in the session | **permission**: the tool is in the session; the flag decides whether use needs approval |
+ * | availability ceiling | `--no-tools --tools a,b,c` (comma-joined) | `--tools a b c` (variadic; built-in set only) |
+ * | pre-approval within it | n/a — pi has no permission layer | `--allowedTools a b c` (variadic) |
+ * | denylist | `--exclude-tools a,b,c` (comma-joined) | `--disallowedTools a b c` (variadic; a bare name removes the tool from context, per docs) |
+ * | no tools at all | `--no-tools` | `--tools ""` (empties the built-in set only) |
  *
- * The asymmetry is invisible at the config layer, and `tools` is the field a profile reaches for to
- * keep an agent away from a shell. On pi that shell is gone. On Claude the shell is still there and
- * the flag only pre-approves the listed tools; any other tool prompts, and what an unattended
- * session does with a prompt is not something this projection can guarantee. Read a `tools`
- * allowlist as a hard ceiling on pi and as a permission profile on Claude. Do not rely on the
- * Claude side as a security boundary until the non-interactive denial path is verified.
+ * An allowlist therefore projects to TWO flags on Claude: `--tools` is the ceiling (the tool is not
+ * in the session), and `--allowedTools` pre-approves the same names within that ceiling so a
+ * headless session is not stopped by a permission prompt for the very tools the profile granted.
+ * Either flag alone would be wrong: `--allowedTools` alone leaves every unlisted builtin available
+ * (merely unapproved), and `--tools` alone leaves the granted tools prompting for approval.
+ *
+ * Scope caveat, from the CLI reference: `--tools` governs the BUILT-IN set only. MCP tools
+ * (`mcp__server__*`) are untouched by it — they are governed by which servers load (the `mcp`
+ * loadout element) and by `--disallowedTools` patterns such as `mcp__*`. So `--tools ""` is not
+ * pi's zero-tool session when MCP servers are selected: the builtins are gone, the MCP tools
+ * remain. (`mcp__*` does pass TOOL_NAME_PATTERN, but only Claude reads `*` as a wildcard; on pi it
+ * would be a literal name, so a harness-neutral profile cannot lean on it.)
  *
  * Four rules follow from the flags themselves:
  *
- * - `--tools` is a hard allowlist across all three tool categories on pi (built-in, extension, and
+ * - On pi, `--tools` is a hard allowlist across all three tool categories (built-in, extension, and
  *   custom), not an addition to the built-in set. Measured: `--tools read` alone yields exactly
  *   `["read"]`, with the probe extension's own tool gone. No base flag is needed to make an
  *   allowlist restrict. `--no-tools` is emitted with it anyway, because it costs nothing, states
  *   the intent in the argv, and keeps the allowlist a ceiling if a future pi made `--tools`
  *   additive.
- * - `--no-tools` is the empty-session flag, NOT `--no-builtin-tools`. `--no-builtin-tools` keeps
+ * - `--no-tools` is pi's empty-session flag, NOT `--no-builtin-tools`. `--no-builtin-tools` keeps
  *   extension and custom tools by design: measured alone it yields `["probe_marker_tool"]`, the
  *   extension tool, while `--no-tools` yields `[]`. An allowlist that `deny` empties must therefore
- *   project to `--no-tools`, or the "zero tools" request would still expose every tool the selected
- *   extensions register.
+ *   project to `--no-tools` on pi and `--tools ""` on Claude (help: 'Use "" to disable all tools'),
+ *   or the "zero tools" request would fail open and leave the whole builtin set available. The
+ *   empty value is one empty-string argv element — no shell is involved, so it survives as such.
  * - `deny` is ALWAYS emitted on both harnesses, including when `allow` is also set and has already
- *   removed those names. On Claude this is load-bearing: absence from `--allowedTools` only means
- *   "using it needs approval", so the exclusion would otherwise rest on the unverified prompt path.
- *   On pi it is belt and braces, since a tool left out of `--tools` does not exist. Either way it
- *   satisfies OFTR-003.10.4 ("denied tools MUST win when projected") without depending on the
- *   filter alone.
- * - Claude's flags are variadic. They consume every following token until the next `--flag`, so
- *   these args must stay ahead of a flag-bearing group in the launch plan and must never sit
- *   immediately before pass-through positionals, which would be eaten as tool names. Emitting
- *   `--allowedTools` before `--disallowedTools` terminates the first; the launch plan places the
- *   whole group ahead of the prompt flags, which terminates the second. pi's flags take one
- *   comma-joined value each, so they are not exposed to this.
+ *   removed those names. On Claude a bare name in `--disallowedTools` removes the tool from context
+ *   per the docs, which makes the explicit denial an availability statement in its own right rather
+ *   than a bet on the approval path. On pi it is belt and braces, since a tool left out of
+ *   `--tools` does not exist. Either way it satisfies OFTR-003.10.4 ("denied tools MUST win when
+ *   projected") without depending on the filter alone.
+ * - Claude's three flags are all variadic. Each consumes every following token until the next
+ *   `--flag`, so they are emitted in a fixed order — `--tools`, `--allowedTools`,
+ *   `--disallowedTools` — where each present flag is terminated by the next one, and the launch
+ *   plan places the whole group first, ahead of the prompt flags, which terminate the last. They
+ *   must never sit immediately before pass-through positionals, which would be eaten as tool names.
+ *   pi's flags take one comma-joined value each, so they are not exposed to this.
  */
 export const toolArgs = (harness: Harness, tools: ToolSelection): readonly string[] => {
   // Before filtering, so a poisoned name is rejected even when `deny` would have removed it, and on
@@ -121,12 +130,16 @@ export const toolArgs = (harness: Harness, tools: ToolSelection): readonly strin
   }
 
   return [
-    // An allowlist emptied by `deny` drops `--allowedTools` entirely, because Claude has no
-    // "deny everything" form: an empty list is not accepted as one and there is no counterpart to
-    // pi's `--no-tools`. All that survives is the explicit `--disallowedTools` below. A
-    // fully-emptied allowlist on Claude is therefore NOT equivalent to pi's zero-tool session; it
-    // denies exactly the named tools and leaves the rest of the builtin set present.
-    ...(allow === undefined || allow.length === 0 ? [] : ['--allowedTools', ...allow]),
+    // The ceiling and the pre-approval within it. An allowlist emptied by `deny` projects to
+    // `--tools ""` — one empty-string argv element, Claude's documented "disable all tools" form —
+    // with no `--allowedTools`, because there is nothing left to pre-approve. Only the builtin set
+    // is emptied: MCP tools from selected servers survive `--tools ""` (see the scope caveat
+    // above), so this is close to, but not exactly, pi's zero-tool session.
+    ...(allow === undefined
+      ? []
+      : allow.length === 0
+        ? ['--tools', '']
+        : ['--tools', ...allow, '--allowedTools', ...allow]),
     ...(deny.length === 0 ? [] : ['--disallowedTools', ...deny]),
   ];
 };

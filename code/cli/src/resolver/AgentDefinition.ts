@@ -103,33 +103,89 @@ const promptControlsFromRecord = (record: Readonly<Record<string, unknown>>): Pr
 
 const readMarkdownHeading = (body: string): string | undefined => /^#\s+(.+)$/mu.exec(body)?.[1]?.trim();
 
-const loadoutFromRecord = (record: Readonly<Record<string, unknown>>): Loadout => {
-  const tools = record.tools as { readonly allow?: unknown; readonly deny?: unknown } | undefined;
+const loadoutFromRecord = (record: Readonly<Record<string, unknown>>): Loadout => ({
+  ...emptyLoadout(),
+  skills: asStringArray(record.skills),
+  subagents: asStringArray(record.subagents),
+  mcp: asStringArray(record.mcp),
+  extensions: asStringArray(record.extensions),
+  plugins: asStringArray(record.plugins),
+  model: asString(record.model),
+  thinking: asString(record.thinking),
+  tools: toolSelectionFromRecord(record.tools),
+});
+
+/**
+ * Narrows a raw `tools` value that `toolsShapeDefect` has already accepted. Key presence is
+ * preserved: an absent `allow` stays absent, because "no allowlist declared" and "an empty
+ * allowlist" project differently and normalizing one into the other would fabricate a ceiling.
+ */
+const toolSelectionFromRecord = (value: unknown): Loadout['tools'] => {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) return undefined;
+  const record = value as { readonly allow?: unknown; readonly deny?: unknown };
 
   return {
-    ...emptyLoadout(),
-    skills: asStringArray(record.skills),
-    subagents: asStringArray(record.subagents),
-    mcp: asStringArray(record.mcp),
-    extensions: asStringArray(record.extensions),
-    plugins: asStringArray(record.plugins),
-    model: asString(record.model),
-    thinking: asString(record.thinking),
-    tools: tools === undefined ? undefined : { allow: asStringArray(tools.allow), deny: asStringArray(tools.deny) },
+    ...(record.allow === undefined ? {} : { allow: asStringArray(record.allow) }),
+    ...(record.deny === undefined ? {} : { deny: asStringArray(record.deny) }),
   };
 };
 
 /**
- * Reports a tool name in the merged loadout that projection cannot carry. `agent.md` frontmatter is
- * already covered by `agent.schema.json`, but a `config.json` overlay bypasses it, so the invariant
- * is re-checked here on the merged record against the same rule the projection enforces.
+ * The defect in a RAW `tools` value, before any normalization, or `undefined` when the shape is
+ * exactly `{allow?: string[], deny?: string[]}` with non-empty entries. This runs at the read
+ * boundary because silent normalization fails open: `asStringArray` turns an unknown key, a string
+ * where an array was meant, or a non-string entry into an empty or partial selection, and the
+ * agent then launches WITHOUT the restriction the author wrote — under `--strict` included, since
+ * nothing is left to warn about. A malformed selection must be a hard error naming the defect.
+ * `agent.md` frontmatter is shape-checked by `agent.schema.json`; this is the same invariant for
+ * the `config.json` overlay path that bypasses the schema.
  */
-const toolNameIssue = (record: Readonly<Record<string, unknown>>, path: string): AgentDefinitionIssue | undefined => {
-  const tools = record.tools as { readonly allow?: unknown; readonly deny?: unknown } | undefined;
-
+export const toolsShapeDefect = (tools: unknown): string | undefined => {
   if (tools === undefined) return undefined;
 
-  const offending = invalidToolName({ allow: asStringArray(tools.allow), deny: asStringArray(tools.deny) });
+  if (tools === null || typeof tools !== 'object' || Array.isArray(tools)) {
+    return `\`tools\` must be an object of the form {allow?: [...], deny?: [...]}, not ${describeValue(tools)}.`;
+  }
+
+  const record = tools as Readonly<Record<string, unknown>>;
+  const unknownKey = Object.keys(record).find((key) => key !== 'allow' && key !== 'deny');
+
+  if (unknownKey !== undefined) {
+    return `\`tools\` has unknown key ${JSON.stringify(unknownKey)}; only "allow" and "deny" are accepted.`;
+  }
+
+  return toolListDefect('allow', record.allow) ?? toolListDefect('deny', record.deny);
+};
+
+/** Names the value's kind for a shape-defect message. */
+const describeValue = (value: unknown): string =>
+  value === null ? 'null' : Array.isArray(value) ? 'an array' : `a ${typeof value}`;
+
+/** The defect in one raw `tools.allow`/`tools.deny` list, or `undefined` when it is well formed. */
+const toolListDefect = (key: 'allow' | 'deny', value: unknown): string | undefined => {
+  if (value === undefined) return undefined;
+
+  if (!Array.isArray(value)) {
+    return `\`tools.${key}\` must be an array of tool names, not ${describeValue(value)}.`;
+  }
+
+  const badIndex = value.findIndex((entry) => typeof entry !== 'string' || entry === '');
+
+  return badIndex === -1
+    ? undefined
+    : `\`tools.${key}[${badIndex}]\` must be a non-empty string, not ${JSON.stringify(value[badIndex])}.`;
+};
+
+/**
+ * Reports a tool name in the merged loadout that projection cannot carry. The shape is already
+ * guaranteed here — frontmatter by `agent.schema.json`, each `config.json` layer by
+ * `toolsShapeDefect` in `readConfigLoadout` — but the *names* must be re-checked on the merged
+ * record, because a `config.json` overlay can replace `tools` wholesale after the schema check.
+ */
+const toolsIssue = (record: Readonly<Record<string, unknown>>, path: string): AgentDefinitionIssue | undefined => {
+  if (record.tools === undefined) return undefined;
+
+  const offending = invalidToolName(toolSelectionFromRecord(record.tools));
 
   return offending === undefined
     ? undefined
@@ -150,7 +206,19 @@ const readConfigLoadout = (configPath: string): Readonly<Record<string, unknown>
     return { path: configPath, message: 'config.json must be a JSON object of loadout overrides.' };
   }
 
-  return pickLoadoutKeys(parsed as Record<string, unknown>);
+  const picked = pickLoadoutKeys(parsed as Record<string, unknown>);
+
+  // Validate the RAW `tools` shape per layer, before any normalization and before the merge can
+  // hide which file is malformed. See `toolsShapeDefect` for why silent normalization fails open.
+  if ('tools' in picked && picked.tools !== undefined) {
+    const defect = toolsShapeDefect(picked.tools);
+
+    if (defect !== undefined) {
+      return { path: configPath, message: `config.json declares a malformed tool selection: ${defect}` };
+    }
+  }
+
+  return picked;
 };
 
 const parseFrontmatterRecord = (
@@ -215,7 +283,7 @@ export const parseAgentDefinition = (
   // The JSON Schema only sees the frontmatter, and a config.json overlay can replace `tools`
   // wholesale after that check. Validate the merged loadout so an unprojectable tool name is an
   // error from `outfitter validate`, not a surprise at launch.
-  const toolIssue = toolNameIssue(merged, configPaths[0] ?? agentPath);
+  const toolIssue = toolsIssue(merged, configPaths[0] ?? agentPath);
 
   if (toolIssue !== undefined) {
     return toolIssue;

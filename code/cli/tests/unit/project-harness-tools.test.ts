@@ -1,5 +1,5 @@
-// Tests loadout `tools` projection: pi availability flags, claude permission flags, the
-// deny-only-on-pi case that stays unsupported, and tool names that would escape into harness argv.
+// Tests loadout `tools` projection: pi availability flags, claude availability + permission flags,
+// deny-only selections on both harnesses, and tool names that would escape into harness argv.
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -56,10 +56,13 @@ describe('projectComposition tools', () => {
     expect(projection.unsupported).not.toContain('tools');
   });
 
-  it('projects an allowlist to claude permission flags', () => {
+  it('projects an allowlist to claude availability and permission flags', () => {
     const projection = project('claude', { allow: ['Read', 'Bash'] });
 
-    expect(projection.launch.args.slice(0, 3)).toEqual(['--allowedTools', 'Read', 'Bash']);
+    // `--tools` is the availability ceiling; `--allowedTools` pre-approves the same names within
+    // it, so a headless session is not stopped by a prompt for the tools the profile granted.
+    // `--allowedTools` alone would fail open: every unlisted builtin would stay available.
+    expect(projection.launch.args.slice(0, 6)).toEqual(['--tools', 'Read', 'Bash', '--allowedTools', 'Read', 'Bash']);
     expect(projection.launch.args).not.toContain('--no-builtin-tools');
     expect(projection.unsupported).not.toContain('tools');
   });
@@ -76,9 +79,13 @@ describe('projectComposition tools', () => {
       '--exclude-tools',
       'bash',
     ]);
-    // Claude also states the denial outright: absence from --allowedTools only means "needs
-    // approval", so filtering alone would leave the exclusion resting on the prompt path.
-    expect(project('claude', selection).launch.args.slice(0, 5)).toEqual([
+    // Claude also states the denial outright: a bare name in --disallowedTools removes the tool
+    // from context per the docs, so the exclusion does not rest on the filter alone. The denied
+    // name is absent from both the --tools ceiling and the --allowedTools pre-approval.
+    expect(project('claude', selection).launch.args.slice(0, 8)).toEqual([
+      '--tools',
+      'read',
+      'write',
       '--allowedTools',
       'read',
       'write',
@@ -91,6 +98,9 @@ describe('projectComposition tools', () => {
     const projection = project('claude', { deny: ['Bash', 'Write'] });
 
     expect(projection.launch.args.slice(0, 3)).toEqual(['--disallowedTools', 'Bash', 'Write']);
+    // No allowlist was declared, so no availability ceiling is imposed on the rest.
+    expect(projection.launch.args).not.toContain('--tools');
+    expect(projection.launch.args).not.toContain('--allowedTools');
     expect(projection.unsupported).not.toContain('tools');
   });
 
@@ -104,7 +114,7 @@ describe('projectComposition tools', () => {
     expect(projection.unsupported).not.toContain('tools');
   });
 
-  it('gives pi a true zero-tool session when deny empties the allowlist, and claude only denies', () => {
+  it('empties the session on both harnesses when deny empties the allowlist', () => {
     const selection = { allow: ['bash'], deny: ['bash'] };
     const pi = project('pi', selection);
     const claude = project('claude', selection);
@@ -115,10 +125,13 @@ describe('projectComposition tools', () => {
     expect(pi.launch.args).not.toContain('--tools');
     expect(pi.launch.args).not.toContain('--no-builtin-tools');
     expect(pi.unsupported).not.toContain('tools');
-    // Claude has no "deny everything" form, so an emptied allowlist survives only as the explicit
-    // denies. This is not equivalent to pi's zero-tool session.
+    // Claude's documented "disable all tools" form is `--tools ""` — one empty-string argv
+    // element. Emitting only --disallowedTools here would fail open: every non-denied builtin
+    // would stay available though the profile requested zero. There is nothing left to
+    // pre-approve, so --allowedTools is absent. MCP tools from selected servers survive
+    // `--tools ""` per the CLI reference, so this is still not exactly pi's zero-tool session.
+    expect(claude.launch.args.slice(0, 4)).toEqual(['--tools', '', '--disallowedTools', 'bash']);
     expect(claude.launch.args).not.toContain('--allowedTools');
-    expect(claude.launch.args.slice(0, 2)).toEqual(['--disallowedTools', 'bash']);
     expect(claude.unsupported).not.toContain('tools');
   });
 
@@ -126,6 +139,7 @@ describe('projectComposition tools', () => {
     for (const harness of ['pi', 'claude'] as const) {
       const projection = project(harness, {});
 
+      expect(projection.launch.args).not.toContain('--tools');
       expect(projection.launch.args).not.toContain('--allowedTools');
       expect(projection.launch.args).not.toContain('--disallowedTools');
       expect(projection.launch.args).not.toContain('--no-tools');

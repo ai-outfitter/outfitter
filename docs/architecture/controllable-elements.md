@@ -140,31 +140,35 @@ No protocol resource exists yet; see [Hooks](../documentation/hooks.md) for the 
 The `tools: {allow?, deny?}` loadout element, which filters the tools exposed to the agent.
 Projection removes every `deny` entry from `allow` first, then maps the result to native flags.
 
-- Pi name: `--no-tools --tools a,b,c` for the filtered allowlist, plus `--exclude-tools a,b,c` whenever `deny` is declared. `--tools` is a hard allowlist across built-in, extension, and custom tools. `--no-builtin-tools` is deliberately not used, because it keeps extension and custom tools enabled.
-- Claude name: `--allowedTools a b c` for the filtered allowlist, plus `--disallowedTools a b c` whenever `deny` is declared. Claude always receives the deny list, including when `allow` is declared too.
+- Pi name: `--no-tools --tools a,b,c` for the filtered allowlist, plus `--exclude-tools a,b,c` whenever `deny` is declared. `--tools` is a hard allowlist across built-in, extension, and custom tools (measured against pi 0.83.0). `--no-builtin-tools` is deliberately not used, because it keeps extension and custom tools enabled.
+- Claude name: `--tools a b c` (availability) **and** `--allowedTools a b c` (pre-approval) for the filtered allowlist, plus `--disallowedTools a b c` whenever `deny` is declared. Claude always receives the deny list, including when `allow` is declared too. The Claude behavior comes from `claude --help` and the CLI reference, not local measurement.
 
-The two are not the same kind of control.
-Pi's flags govern **availability**: the tool is not in the session.
-Claude's flags govern **permission**: the tool is in the session, and the flag decides whether use needs approval.
-The same profile therefore gives pi a hard ceiling and Claude a permission profile.
-Read a `tools` allowlist accordingly, and do not rely on the Claude side as a security boundary until the non-interactive denial path is verified.
+Both harnesses have an availability control; Claude layers a permission control on top of its own.
+Claude's `--tools` governs **availability** of the built-in set: an unlisted builtin is not in the session, and `--tools ""` empties the set.
+Claude's `--allowedTools` governs **permission**: it pre-approves the granted tools so a headless session is not stopped by an approval prompt.
+An allowlist therefore projects to both flags on Claude, because either alone would be wrong: `--allowedTools` alone leaves every unlisted builtin available (merely unapproved), and `--tools` alone leaves the granted tools prompting.
 
-That difference decides how much the `deny` projection has to carry.
+The scope of Claude's `--tools` is the residual caveat: per the CLI reference it governs the **built-in set only**.
+MCP tools (`mcp__server__*`) are unaffected by it; they are governed by which MCP servers the loadout selects, and by `--disallowedTools` patterns such as `mcp__*` — a Claude-only pattern syntax a harness-neutral profile cannot lean on.
+
+The `deny` projection is still stated outright on both harnesses.
 On pi, filtering a tool out of `allow` is already sufficient, because the tool then does not exist.
-On Claude it is not, because absence from `--allowedTools` means only "using it needs approval", so a denial that rests on the filter alone rests on the approval path.
-Both harnesses therefore always receive the deny list when `deny` is declared, which satisfies OFTR-003.10.4 without depending on that path.
+On Claude, a bare name in `--disallowedTools` removes the tool from context per the docs, so the explicit denial is an availability statement in its own right rather than a bet on the approval path.
+Both harnesses therefore always receive the deny list when `deny` is declared, which satisfies OFTR-003.10.4 without depending on the filter alone.
 
 Projection puts these names directly into harness argv, so a tool name must not start with `-` or contain a comma or whitespace.
 A leading `-` would become an independent harness flag on Claude, where each name is its own argv element, and a comma would split one name into several inside pi's `--tools` value.
 `agent.schema.json` rejects such names in `agent.md` frontmatter, the agent reader re-checks the loadout after `config.json` overlays merge (the schema does not see those), and projection throws rather than dropping them, because a silently discarded entry in a restriction is worse than a refused launch.
+The reader also validates the raw shape of a `config.json` `tools` value — only `allow` and `deny` keys, each an array of non-empty strings — as a hard error per layer, because silently normalizing a malformed selection would launch the agent without the restriction its author wrote.
 This also excludes Claude's scoped permission rules such as `Bash(npm run test:*)`, which is deliberate for a harness-neutral field: the same string means nothing to pi.
 
 Both harnesses express every combination, so `tools` is never reported unsupported.
 A deny-only selection projects to `--exclude-tools` on pi and `--disallowedTools` on Claude, and imposes no ceiling on the tools it does not name.
 
 An allowlist that `deny` empties is a request for a session with no tools.
-Pi expresses it as `--no-tools`.
-Claude has no counterpart, so the same selection projects to the denies alone there and is not a zero-tool session.
+Pi expresses it as `--no-tools`, which removes built-in, extension, and custom tools alike.
+Claude expresses it as `--tools ""`, the documented "disable all tools" form, passed as one empty-string argv element.
+The two are close but not identical: `--tools ""` empties only the built-in set, so MCP tools from selected servers survive it on Claude.
 
 ### Theme / UI Presentation
 
