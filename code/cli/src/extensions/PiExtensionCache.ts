@@ -5,10 +5,22 @@
 //   npm:  <cacheAgentDir>/npm/node_modules/<pkg>
 // Outfitter's `git:`/`npm:` specifiers are already pi's `install` source grammar, so the source is
 // passed through unchanged; only the install directory is reconstructed to check the cache.
-import { existsSync, mkdirSync, readFileSync } from 'node:fs';
+//
+// A cached git checkout is only trusted when it still matches the specifier's `@ref` pin:
+//   - full-SHA ref: `git -C <installDir> rev-parse HEAD` is compared against the pin (offline-safe,
+//     no network); a mismatch or an unreadable HEAD reinstalls when online.
+//   - branch/tag ref: the ref string is recorded in a `<installDir>.outfitter-ref.json` marker at
+//     install time and only a *changed* ref string triggers a reinstall — a moved remote branch tip
+//     is deliberately not chased, so pinned launches never hit the network.
+//   - branch/tag ref with no marker (a pre-marker cache): served as-is when offline (no evidence it
+//     is wrong), refreshed once when online, which writes the marker.
+// Offline, a checkout that provably mismatches its pin is dropped with a warning — the same
+// severity the offline path already applies to a missing extension (fatal only under `--strict`).
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { launchThroughSpawn, spawnLauncher } from '../agents/AgentLaunch.js';
+import { runGit } from '../sources/GitRepository.js';
 
 /** Spawns `pi install <source>` against the cache agent dir; injectable so tests avoid the network. */
 export type PiInstallSpawner = (input: { readonly source: string; readonly cacheAgentDir: string }) => Promise<number>;
@@ -30,11 +42,27 @@ export interface EnsurePiExtensionsResult {
 interface PiExtensionSource {
   readonly source: string;
   readonly installSegments: readonly string[];
-  /** Exact semver to verify against a cached install; undefined for ranges/tags/git refs. */
+  /** Exact semver to verify against a cached npm install; undefined for ranges and tags. */
   readonly pinnedVersion?: string;
+  /** The `@ref` of a git specifier, to verify against a cached checkout; undefined when unpinned. */
+  readonly pinnedGitRef?: string;
 }
 
 const exactSemverPattern = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/u;
+const fullShaPattern = /^[0-9a-f]{40}$/iu;
+
+const mapGitSpecifier = (specifier: string): PiExtensionSource | { readonly unsupported: string } => {
+  const rest = specifier.slice('git:'.length);
+  const pathPart = rest.includes('@') ? rest.slice(0, rest.lastIndexOf('@')) : rest;
+  const ref = rest.includes('@') ? rest.slice(rest.lastIndexOf('@') + 1) : '';
+  const segments = pathPart.split('/').filter((part) => part !== '');
+  if (segments.length < 2) return { unsupported: `extension '${specifier}' is not a valid git source` };
+  return {
+    source: specifier,
+    installSegments: ['git', ...segments],
+    pinnedGitRef: ref === '' ? undefined : ref,
+  };
+};
 
 /** Translates an Outfitter extension specifier to a pi `install` source + its cache install path. */
 export const mapSpecifierToPiSource = (specifier: string): PiExtensionSource | { readonly unsupported: string } => {
@@ -50,13 +78,7 @@ export const mapSpecifierToPiSource = (specifier: string): PiExtensionSource | {
     };
   }
 
-  if (specifier.startsWith('git:')) {
-    const rest = specifier.slice('git:'.length);
-    const pathPart = rest.includes('@') ? rest.slice(0, rest.lastIndexOf('@')) : rest;
-    const segments = pathPart.split('/').filter((part) => part !== '');
-    if (segments.length < 2) return { unsupported: `extension '${specifier}' is not a valid git source` };
-    return { source: specifier, installSegments: ['git', ...segments] };
-  }
+  if (specifier.startsWith('git:')) return mapGitSpecifier(specifier);
 
   return { unsupported: `extension '${specifier}' uses an unsupported source (only git: and npm: project to pi)` };
 };
@@ -70,6 +92,84 @@ const installedVersion = (installDir: string): string | undefined => {
   } catch {
     return undefined;
   }
+};
+
+/** Marker recording which git ref an install satisfied, kept beside (never inside) the checkout. */
+const refMarkerPath = (installDir: string): string => `${installDir}.outfitter-ref.json`;
+
+const cachedGitHead = (installDir: string): string | undefined => {
+  try {
+    return runGit(['-C', installDir, 'rev-parse', 'HEAD']);
+  } catch {
+    return undefined;
+  }
+};
+
+const recordedInstallRef = (installDir: string): string | undefined => {
+  try {
+    const marker = JSON.parse(readFileSync(refMarkerPath(installDir), 'utf8')) as { readonly ref?: string };
+    return marker.ref;
+  } catch {
+    return undefined;
+  }
+};
+
+/** After installing a branch/tag-pinned git extension, records the ref (and resolved SHA). */
+const recordInstalledGitRef = (installDir: string, mapped: PiExtensionSource): void => {
+  if (mapped.pinnedGitRef === undefined || fullShaPattern.test(mapped.pinnedGitRef)) return;
+  const marker = { ref: mapped.pinnedGitRef, headSha: cachedGitHead(installDir) };
+  writeFileSync(refMarkerPath(installDir), JSON.stringify(marker));
+};
+
+// Remove-then-install for a stale git pin: `pi install` owns the directory layout, so
+// GitRepository's atomic fetch-and-swap cannot apply here. A failure between the remove and the
+// install leaves neither a directory nor a marker, which the next run detects as plain missing.
+// The npm path keeps its original behavior: `pi install` is spawned over the existing dir.
+const removeStaleGitInstall = (installDir: string, mapped: PiExtensionSource): void => {
+  if (mapped.pinnedGitRef === undefined) return;
+  rmSync(installDir, { recursive: true, force: true });
+  rmSync(refMarkerPath(installDir), { force: true });
+};
+
+interface GitCacheStatus {
+  readonly state: 'fresh' | 'stale' | 'unverified';
+  /** What the cache actually holds, for the stale warning: the HEAD SHA or the recorded ref. */
+  readonly found: string;
+}
+
+/** Compares a cached checkout against its `@ref` pin per the policy in the file header. */
+const gitCacheStatus = (installDir: string, ref: string): GitCacheStatus => {
+  if (fullShaPattern.test(ref)) {
+    const head = cachedGitHead(installDir);
+    return {
+      state: head?.toLowerCase() === ref.toLowerCase() ? 'fresh' : 'stale',
+      found: head ?? 'no readable git HEAD',
+    };
+  }
+  const recorded = recordedInstallRef(installDir);
+  if (recorded === undefined) return { state: 'unverified', found: 'no recorded install ref' };
+  return { state: recorded === ref ? 'fresh' : 'stale', found: recorded };
+};
+
+type CacheDecision = { readonly serve: true } | { readonly serve: false; readonly staleWarning?: string };
+
+/** Decides whether an existing install satisfies the specifier's pin (git ref or exact semver). */
+const evaluateCachedInstall = (installDir: string, mapped: PiExtensionSource, offline: boolean): CacheDecision => {
+  if (!existsSync(installDir)) return { serve: false };
+  if (mapped.pinnedGitRef === undefined) {
+    return { serve: mapped.pinnedVersion === undefined || installedVersion(installDir) === mapped.pinnedVersion };
+  }
+  const status = gitCacheStatus(installDir, mapped.pinnedGitRef);
+  if (status.state === 'fresh' || (status.state === 'unverified' && offline)) return { serve: true };
+  if (offline) {
+    return {
+      serve: false,
+      staleWarning:
+        `extension '${mapped.source}' is cached at the wrong revision ` +
+        `(pinned ${mapped.pinnedGitRef}, found ${status.found}) and cannot be reinstalled offline.`,
+    };
+  }
+  return { serve: false };
 };
 
 /* v8 ignore start -- real `pi install` subprocess; ensurePiExtensions is unit-tested with a fake spawner. */
@@ -93,13 +193,13 @@ const ensureOneExtension = async (
   if ('unsupported' in mapped) return { warning: mapped.unsupported };
 
   const installDir = join(input.cacheAgentDir, ...mapped.installSegments);
-  const cached =
-    existsSync(installDir) &&
-    (mapped.pinnedVersion === undefined || installedVersion(installDir) === mapped.pinnedVersion);
-  if (cached) return { loadDir: installDir };
+  const decision = evaluateCachedInstall(installDir, mapped, input.offline);
+  if (decision.serve) return { loadDir: installDir };
+  if (decision.staleWarning !== undefined) return { warning: decision.staleWarning };
 
   if (input.offline) return { warning: `extension '${specifier}' is not cached and cannot be installed offline.` };
 
+  removeStaleGitInstall(installDir, mapped);
   mkdirSync(input.cacheAgentDir, { recursive: true });
   try {
     const exitCode = await spawn({ source: mapped.source, cacheAgentDir: input.cacheAgentDir });
@@ -110,6 +210,7 @@ const ensureOneExtension = async (
     return { warning: `extension '${specifier}' failed to install (${String(error)}).` };
   }
 
+  recordInstalledGitRef(installDir, mapped);
   return { loadDir: installDir };
 };
 
