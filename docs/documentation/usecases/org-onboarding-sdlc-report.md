@@ -76,7 +76,7 @@ This repository is also where the org's shared agent configuration grows: an
 `agents.md` with shared operating rules, role agents, skills, and a pinned
 `settings.yml`, following the [organization catalog](./organization-profile-catalog.md)
 conventions. Starting it with the report means the catalog's first commit
-explains *why* the org is adopting agents and what it will measure — every
+explains _why_ the org is adopting agents and what it will measure — every
 later addition traces back to a gap in the baseline.
 
 ## 4. Act on the report
