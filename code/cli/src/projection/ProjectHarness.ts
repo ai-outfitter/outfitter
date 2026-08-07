@@ -6,15 +6,17 @@ import type { CompositionPlan } from '../composer/Composition.js';
 import type { Harness } from '../settings/Settings.js';
 import { materializeComposition, materializeConfigurationOverlays } from './Materialize.js';
 import type { AgentLaunchPlan, AgentProjectionPlan, ProjectionInput } from './Projection.js';
+import { toolArgs } from './Tools.js';
 
 // Loadout elements a projection actually maps to native config. Anything else is reported
 // unsupported so `--strict` catches silently-dropped selections. Baseline for both harnesses is
-// identity + skills + model + thinking. Pi also projects selected subagents and MCP servers into
-// its runtime config directory, and projects `extensions` once the run path has resolved their
-// install dirs (`extensionLoadDirs`). plugins/tools remain unsupported pending incremental parity
-// (#183).
+// identity + skills + model + thinking + tools. Both harnesses express an allowlist and a denylist
+// natively, so `tools` is unconditionally supported; a name projection cannot carry is a hard error
+// from `toolArgs`, not an unsupported element. Pi also projects selected subagents and MCP servers
+// into its runtime config directory, and projects `extensions` once the run path has resolved their
+// install dirs (`extensionLoadDirs`). plugins remain unsupported pending incremental parity (#183).
 const supportedElements = (input: ProjectionInput): readonly string[] => {
-  const baseline = ['skills', 'model', 'thinking'];
+  const baseline = ['skills', 'model', 'thinking', 'tools'];
   if (input.harness !== 'pi') return baseline;
   const pi = [...baseline, 'subagents', 'mcp', 'prompt_template'];
   return input.extensionLoadDirs === undefined ? pi : [...pi, 'extensions'];
@@ -114,6 +116,10 @@ const buildLaunchPlan = (
   return {
     command: isPi ? 'pi' : 'claude',
     args: [
+      // Tool args lead the list on purpose: Claude's `--allowedTools`/`--disallowedTools` are
+      // variadic and stop only at the next `--flag`, and the prompt args that follow always start
+      // with one. Placed later they could swallow a pass-through positional. See Tools.ts.
+      ...(composition.loadout.tools === undefined ? [] : toolArgs(input.harness, composition.loadout.tools)),
       ...promptArgs(composition, input, systemPromptPath, appendPromptPaths),
       ...skillArgs,
       ...extensionArgs,

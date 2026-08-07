@@ -56,14 +56,20 @@
     "tools": {
       "type": "object",
       "properties": {
-        "allow": { "type": "array", "items": { "type": "string", "minLength": 1 } },
-        "deny": { "type": "array", "items": { "type": "string", "minLength": 1 } }
+        "allow": { "type": "array", "items": { "$ref": "#/$defs/toolName" } },
+        "deny": { "type": "array", "items": { "$ref": "#/$defs/toolName" } }
       },
       "additionalProperties": false
     }
   },
   "additionalProperties": true,
   "$defs": {
+    "toolName": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[^\\s,-][^\\s,]*$",
+      "description": "A tool name. A leading '-' would become an independent harness flag when projected, and a comma or whitespace would split the name inside a projected flag value, so all three are rejected."
+    },
     "slugList": {
       "type": "array",
       "items": { "type": "string", "minLength": 1 }

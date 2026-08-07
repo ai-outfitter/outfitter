@@ -8,6 +8,7 @@ import { removeTargetTypeConflict } from '../fs/TypeConflict.js';
 import type { AgentDefinition } from '../resolver/AgentDefinition.js';
 import { isAgentDefinitionIssue, readAgentDefinition } from '../resolver/AgentDefinition.js';
 import type { ResolvedResource } from '../resolver/Resource.js';
+import { effectiveToolAllowlist } from './Tools.js';
 
 export interface MaterializedComposition {
   readonly rootDirectory: string;
@@ -110,8 +111,7 @@ const serializeSubagent = (subagent: ResolvedResource): string | undefined => {
 
   if (definition === undefined) return undefined;
 
-  const denied = new Set(definition.loadout.tools?.deny ?? []);
-  const tools = definition.loadout.tools?.allow?.filter((tool) => !denied.has(tool));
+  const tools = effectiveToolAllowlist(definition.loadout.tools);
   const frontmatter = [
     `name: ${JSON.stringify(subagent.slug)}`,
     `description: ${JSON.stringify(definition.description ?? definition.label ?? `Delegated ${subagent.slug} agent.`)}`,
@@ -136,8 +136,7 @@ const composedSubagentBody = (subagent: ComposedSubagent): string =>
     .join('\n\n');
 
 const serializeComposedSubagent = (subagent: ComposedSubagent): string => {
-  const denied = new Set(subagent.tools?.deny ?? []);
-  const tools = subagent.tools?.allow?.filter((tool) => !denied.has(tool));
+  const tools = effectiveToolAllowlist(subagent.tools);
   const description = subagent.identity.description ?? subagent.identity.label;
   const frontmatter = [
     `name: ${JSON.stringify(subagent.resource.slug)}`,

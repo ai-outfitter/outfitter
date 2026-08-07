@@ -73,7 +73,9 @@ describe('agent definition parsing', () => {
     if (isAgentDefinitionIssue(parsed)) return;
     expect(parsed.name).toBe('engineer');
     expect(parsed.loadout.skills).toEqual(['wiki', 'research']);
-    expect(parsed.loadout.tools).toEqual({ allow: ['read'], deny: [] });
+    // Key presence is preserved: a `deny` the author never wrote must not be fabricated, just as
+    // an absent `allow` must not become an empty (and therefore ceiling-imposing) allowlist.
+    expect(parsed.loadout.tools).toEqual({ allow: ['read'] });
     expect(parsed.body).toContain('# engineer');
   });
 
