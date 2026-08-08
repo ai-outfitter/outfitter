@@ -128,6 +128,8 @@ describe('projectComposition Codex MCP projection', () => {
     );
   });
 
+  // THIS TEST VALIDATES HARD REQUIREMENTS (OFTR-006.6.1 AND OFTR-006.6.2).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('keeps MCP overrides and a root model flag before the exec subcommand', () => {
     const directory = root();
     const base = plan({ local: { command: 'server' } });
@@ -251,6 +253,8 @@ describe('projectComposition Codex MCP projection', () => {
     expect(overrideValues(projection.launch.args)).toEqual([]);
   });
 
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-006.6.4).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('projects an explicitly streamable HTTP server', () => {
     const directory = root();
     const projection = projectComposition(
