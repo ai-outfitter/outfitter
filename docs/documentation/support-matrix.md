@@ -1,6 +1,6 @@
 # Adapter support matrix
 
-What Outfitter can project per agent CLI. Pi is the primary and most complete adapter; Claude Code is supported with gaps.
+What Outfitter can project per agent CLI. Pi is the primary and most complete adapter; Claude Code and Codex CLI are supported with gaps.
 
 Status values:
 
@@ -12,27 +12,34 @@ When a composition requests something an adapter cannot project, Outfitter warns
 
 Tasks and bake are not in this matrix — they are the subject of a [separate upcoming RFC](./tasks.md).
 
-| What Outfitter projects                                                  | Pi        | Claude Code |
-| ------------------------------------------------------------------------ | --------- | ----------- |
-| Agent config directory                                                   | Supported | Supported   |
-| Session directory                                                        | Supported | Supported   |
-| Agent identity (`system-prompt.md`, `agents.md`, `agents/<id>/agent.md`) | Supported | Supported   |
-| Subagents (`agents/<id>` as harness delegates)                           | Supported | Supported   |
-| Skills (`skills/<id>`)                                                   | Supported | Partial     |
-| Commands (`commands/`)                                                   | Supported | Partial     |
-| Knowledge (`knowledge/`)                                                 | Supported | Partial     |
-| Model selection (`models.json`)                                          | Supported | Partial     |
-| MCP servers (`mcp.json`)                                                 | Supported | Supported   |
-| Extensions (agent `extensions:` loadout)                                 | Supported | Roadmap     |
-| Plugins (agent `plugins:` loadout)                                       | Supported | Roadmap     |
-| Credentials and environment                                              | Supported | Supported   |
-| DeepWork job selection                                                   | Supported | Roadmap     |
-| Hooks                                                                    | Partial   | Partial     |
-| Tool availability (agent `tools:` loadout)                               | Supported | Supported   |
-| Theme / UI presentation                                                  | Roadmap   | Roadmap     |
-| Working directory                                                        | Roadmap   | Roadmap     |
-| Pass-through arguments                                                   | Supported | Supported   |
-| Bootstrap hook                                                           | Supported | Roadmap     |
+| What Outfitter projects                                                  | Pi        | Claude Code | Codex CLI |
+| ------------------------------------------------------------------------ | --------- | ----------- | --------- |
+| Agent config directory                                                   | Supported | Supported   | Roadmap   |
+| Session directory                                                        | Supported | Supported   | Roadmap   |
+| Agent identity (`system-prompt.md`, `agents.md`, `agents/<id>/agent.md`) | Supported | Supported   | Roadmap   |
+| Subagents (`agents/<id>` as harness delegates)                           | Supported | Supported   | Roadmap   |
+| Skills (`skills/<id>`)                                                   | Supported | Partial     | Roadmap   |
+| Commands (`commands/`)                                                   | Supported | Partial     | Roadmap   |
+| Knowledge (`knowledge/`)                                                 | Supported | Partial     | Roadmap   |
+| Model selection (`models.json`)                                          | Supported | Partial     | Partial   |
+| MCP servers (`mcp.json`)                                                 | Supported | Supported   | Partial   |
+| Extensions (agent `extensions:` loadout)                                 | Supported | Roadmap     | Roadmap   |
+| Plugins (agent `plugins:` loadout)                                       | Supported | Roadmap     | Roadmap   |
+| Credentials and environment                                              | Supported | Supported   | Roadmap   |
+| DeepWork job selection                                                   | Supported | Roadmap     | Roadmap   |
+| Hooks                                                                    | Partial   | Partial     | Roadmap   |
+| Tool availability (agent `tools:` loadout)                               | Supported | Supported   | Roadmap   |
+| Theme / UI presentation                                                  | Roadmap   | Roadmap     | Roadmap   |
+| Working directory                                                        | Roadmap   | Roadmap     | Roadmap   |
+| Pass-through arguments                                                   | Supported | Supported   | Supported |
+| Bootstrap hook                                                           | Supported | Roadmap     | Roadmap   |
+
+## Codex CLI notes
+
+- **Launch mode** — Outfitter launches `codex` directly. Pass-through arguments choose the native mode: no subcommand keeps the interactive CLI shape, while `-- exec ...` selects non-interactive `codex exec`.
+- **Model selection (Partial)** — an agent's model maps to Codex `-m`. Provider maps, thinking, tools, skills, subagents, extensions, plugins, and prompt templates remain unsupported and warn when selected.
+- **MCP servers (Partial)** — selected stdio fields (`command`, `args`, `env`, `cwd`) and HTTP fields (`url`, `headers`) become repeated TOML-valued `-c mcp_servers.<id>.<key>=...` overrides. Codex merges these overrides with user and project `config.toml`; it has no strict/exclusive MCP mode. Outfitter therefore warns on every MCP-enabled Codex launch, and `--strict` makes the warning fatal under the normal adapter-warning policy.
+- **HTTP header safety** — a header value written as `${ENV_NAME}` becomes an `env_http_headers` reference, while `Authorization: Bearer ${ENV_NAME}` becomes `bearer_token_env_var`, keeping secret values out of argv. Other header values are literal protocol configuration and must be passed through `http_headers`, which makes them visible in process arguments; use environment references for secrets.
 
 ## Claude Code notes
 

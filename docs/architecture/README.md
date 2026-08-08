@@ -121,7 +121,7 @@ Every settings file MUST validate against `settings.schema.json`.
 
 ```yaml
 default_agent: engineer # which agent runs by default
-default_harness: pi # which harness to launch: pi or claude
+default_harness: pi # which harness to launch: pi, claude, or codex
 cache_directory: ./cache
 
 sources:
@@ -148,7 +148,7 @@ Rules:
 - Settings do not carry resource selections.
   An agent's loadout — skills, subagents, mcp, extensions, plugins, model, thinking, tools — is declared on the agent (`agents/<id>/agent.md` frontmatter or `config.json`), not in settings.
   There is no `profiles` map and no `default_profile`.
-- `default_agent` names the agent plain `outfitter` runs; `default_harness` selects the harness (`pi` or `claude`).
+- `default_agent` names the agent plain `outfitter` runs; `default_harness` selects the harness (`pi`, `claude`, or `codex`).
 - `sources` entries MUST specify a local `path`, a remote `uri`, or a `github` shorthand; remote entries accept `ref` and payload-subdirectory `path`.
   Relative `path` values resolve relative to the settings file containing them.
 - `remote_settings` entries point at settings-style YAML files inside synced remote repositories; fetched by `outfitter sync` and loaded at lower precedence.
@@ -249,10 +249,14 @@ If generic naming conflicts with pi behavior, prefer pi's terminology.
 Outfitter launches `claude` with `CLAUDE_CONFIG_DIR` pointing at the projection root and maps the elements supported by the current baseline adapter to native files and flags.
 Persistent state projection and managed harness symlinks are deferred to [#187](https://github.com/ai-outfitter/outfitter/issues/187); setup does not create them.
 
+### Codex CLI
+
+Outfitter launches `codex`, maps model selection to `-m`, and injects selected MCP servers through repeated TOML-valued `-c mcp_servers.<id>.<key>=...` overrides. The overrides merge with Codex user and project configuration because Codex has no exclusive MCP mode, so every MCP-enabled launch warns that lower-layer servers remain active; `--strict` makes that adapter warning fatal. Pass `exec` through to select Codex's non-interactive subcommand; without it, the normal interactive CLI launches. Other loadout elements remain unsupported and use the normal warning mechanism.
+
 ## CLI Commands
 
 - **`outfitter run [agent]`** (default command): resolve → compose → project → launch.
-  A positional agent slug selects what to run (default from settings `default_agent`); `--harness <pi|claude>` selects the harness (default from settings `default_harness`, then `pi`); unknown args pass through to the child CLI; `--strict` makes warnings fatal.
+  A positional agent slug selects what to run (default from settings `default_agent`); `--harness <pi|claude|codex>` selects the harness (default from settings `default_harness`, then `pi`); unknown args pass through to the child CLI; `--strict` makes warnings fatal.
   Interactive clean-home launches start Pi-native onboarding; non-interactive clean-home launches require `outfitter setup` first.
 - **`outfitter setup [source]`**: launch the bundled, model-free Pi walkthrough with the original three setup modes (default catalog, create a profile, or another catalog), original profile/target wording, and optional direct-source path; append only the default CLI-agent choice (Pi/Outfitter preselected); then atomically apply the result through the CLI state machine.
 - **`outfitter sync`**: validate local settings; atomically fetch configured remote settings; reload the merged settings; then atomically fetch every resulting remote source into `<cache_directory>/repos/<encoded-uri-and-ref>/`.

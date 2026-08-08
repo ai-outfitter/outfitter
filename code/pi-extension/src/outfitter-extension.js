@@ -126,6 +126,11 @@ export default function outfitter(pi) {
           label: 'Claude Code',
           description: "Use Anthropic's separately installed Claude Code CLI.",
         },
+        {
+          value: 'codex',
+          label: 'Codex CLI',
+          description: "Use OpenAI's separately installed Codex CLI.",
+        },
       ];
       return selectFromItems(ctx, ['Which CLI agent should Outfitter use by default?'], items, 'pi');
     },
@@ -458,7 +463,9 @@ const selectFromItems = async (ctx, titleLines, items, initialValue) => {
           items.map((item) => item.label),
         );
   if (selected === undefined) return undefined;
-  return items.some((item) => item.value === selected) ? selected : items.find((item) => item.label === selected)?.value;
+  return items.some((item) => item.value === selected)
+    ? selected
+    : items.find((item) => item.label === selected)?.value;
 };
 
 const selectDescribedOption = (ctx, titleLines, items, initialValue) =>

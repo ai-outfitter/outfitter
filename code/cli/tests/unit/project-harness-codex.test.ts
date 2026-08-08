@@ -1,0 +1,158 @@
+// Tests Codex launch planning, additive MCP projection, TOML values, and unsupported elements.
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
+import { afterEach, describe, expect, it } from 'vitest';
+
+import type { CompositionPlan } from '../../src/composer/Composition.js';
+import { projectComposition } from '../../src/projection/ProjectHarness.js';
+
+const roots: string[] = [];
+const root = (): string => {
+  const directory = mkdtempSync(join(tmpdir(), 'outfitter-codex-'));
+  roots.push(directory);
+  return directory;
+};
+
+afterEach(() => {
+  for (const directory of roots.splice(0)) rmSync(directory, { recursive: true, force: true });
+});
+
+const plan = (mcpServers: Readonly<Record<string, unknown>>, mcp = Object.keys(mcpServers)): CompositionPlan => ({
+  agent: 'engineer',
+  identity: { agentBody: 'Engineer.' },
+  loadout: {
+    skills: [],
+    delegateSkills: [],
+    subagents: [],
+    mcp,
+    mcpServers,
+    extensions: [],
+    plugins: [],
+  },
+  warnings: [],
+});
+
+const overrideValues = (args: readonly string[]): readonly string[] =>
+  args.filter((value, index) => args[index - 1] === '-c');
+
+describe('projectComposition Codex MCP projection', () => {
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-006.6).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('projects HTTP URLs and headers as repeated TOML overrides', () => {
+    const directory = root();
+    const projection = projectComposition(
+      plan({
+        'remote.github': {
+          type: 'http',
+          url: 'https://mcp.example.test/rpc',
+          headers: {
+            'X-Literal': 'public-value',
+            'Z-Literal': 'second-value',
+            Authorization: 'Bearer ${GITHUB_TOKEN}',
+            'X-Token': '${SECOND_TOKEN}',
+            Ignored: 42,
+          },
+        },
+      }),
+      { harness: 'codex', rootDirectory: directory, homeDirectory: directory },
+    );
+
+    expect(overrideValues(projection.launch.args)).toEqual([
+      'mcp_servers."remote.github".url="https://mcp.example.test/rpc"',
+      'mcp_servers."remote.github".http_headers={ "X-Literal" = "public-value", "Z-Literal" = "second-value" }',
+      'mcp_servers."remote.github".env_http_headers={ "X-Token" = "SECOND_TOKEN" }',
+      'mcp_servers."remote.github".bearer_token_env_var="GITHUB_TOKEN"',
+    ]);
+    expect(projection.warnings).toContain(
+      'codex MCP projection is additive: user and project MCP servers remain active because Codex has no strict isolation mode.',
+    );
+    expect(projection.unsupported).not.toContain('mcp');
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-006.6).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('projects stdio command, args, env, and cwd as repeated TOML overrides', () => {
+    const directory = root();
+    const projection = projectComposition(
+      plan({
+        local: {
+          command: 'node',
+          args: ['server.js', '--stdio', 3],
+          env: { MODE: 'test', Ignored: false },
+          cwd: '/workspace',
+        },
+      }),
+      {
+        harness: 'codex',
+        rootDirectory: directory,
+        homeDirectory: directory,
+        passThroughArgs: ['exec', 'review this tree'],
+      },
+    );
+
+    expect(projection.launch.command).toBe('codex');
+    expect(overrideValues(projection.launch.args)).toEqual([
+      'mcp_servers.local.command="node"',
+      'mcp_servers.local.args=["server.js", "--stdio"]',
+      'mcp_servers.local.env={ "MODE" = "test" }',
+      'mcp_servers.local.cwd="/workspace"',
+    ]);
+    expect(projection.launch.args.slice(-2)).toEqual(['exec', 'review this tree']);
+    expect(projection.launch.env).toEqual({});
+  });
+
+  it('warns for a selected MCP definition Codex cannot translate', () => {
+    const directory = root();
+    const projection = projectComposition(plan({ broken: { type: 'sse' } }), {
+      harness: 'codex',
+      rootDirectory: directory,
+      homeDirectory: directory,
+    });
+
+    expect(projection.warnings).toContain(
+      "codex adapter cannot project MCP server 'broken': expected a URL or command.",
+    );
+  });
+
+  it('maps only model and MCP and reports the rest of the Codex loadout unsupported', () => {
+    const directory = root();
+    const base = plan({}, []);
+    const projection = projectComposition(
+      {
+        ...base,
+        identity: {
+          ...base.identity,
+          promptTemplate: { kind: 'file', content: '{{input}}', label: 'template', trust: 'catalog' },
+        },
+        loadout: {
+          ...base.loadout,
+          model: 'gpt-5',
+          thinking: 'high',
+          tools: { allow: ['read'] },
+          extensions: ['npm:extension'],
+          plugins: ['plugin'],
+        },
+      },
+      { harness: 'codex', rootDirectory: directory, homeDirectory: directory },
+    );
+
+    expect(projection.launch.args).toEqual(['-m', 'gpt-5']);
+    expect(projection.unsupported).toEqual(['extensions', 'plugins', 'thinking', 'tools', 'prompt_template']);
+    expect(projection.warnings).toEqual([]);
+  });
+
+  it('omits optional empty HTTP and stdio fields', () => {
+    const directory = root();
+    const projection = projectComposition(
+      plan({ remote: { url: 'https://example.test', headers: [] }, local: { command: 'server', env: null } }),
+      { harness: 'codex', rootDirectory: directory, homeDirectory: directory },
+    );
+
+    expect(overrideValues(projection.launch.args)).toEqual([
+      'mcp_servers.remote.url="https://example.test"',
+      'mcp_servers.local.command="server"',
+    ]);
+  });
+});

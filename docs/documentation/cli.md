@@ -14,13 +14,14 @@ Resolve, compose, and launch an agent. `run` is the default command, so plain `o
 | Argument / Option     | Description                                                                      |
 | --------------------- | -------------------------------------------------------------------------------- |
 | `[agent]`             | Agent slug to run. Defaults to the settings `default_agent`.                     |
-| `--harness <harness>` | Harness to launch in: `pi` or `claude`. Defaults to `default_harness`.           |
+| `--harness <harness>` | Harness to launch in: `pi`, `claude`, or `codex`. Defaults to `default_harness`. |
 | `--strict`            | Fail instead of warning when the adapter cannot project part of the composition. |
 
 Any other arguments and unrecognized options are passed through to the launched harness:
 
 ```bash
 outfitter run engineer --harness claude
+outfitter run engineer --harness codex -- exec "review this repo"
 outfitter run persona-reviewer -- --print "summarize this repo"
 ```
 

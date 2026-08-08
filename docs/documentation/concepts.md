@@ -12,7 +12,7 @@ flowchart LR
   adapter --> harness[Harness]
 ```
 
-Settings tell Outfitter where `.agents` resources come from; sources supply protocol resource trees; the resolver merges the layered trees into one effective resource set; the selected agent composes its loadout — skills, subagents, model, and so on — from that set by slug; and an adapter projects the composed agent into harness-specific files, flags, and environment variables before launching the harness (pi or Claude Code).
+Settings tell Outfitter where `.agents` resources come from; sources supply protocol resource trees; the resolver merges the layered trees into one effective resource set; the selected agent composes its loadout — skills, subagents, model, and so on — from that set by slug; and an adapter projects the composed agent into harness-specific files, flags, and environment variables before launching the harness (pi, Claude Code, or Codex CLI).
 
 ## The `.agents` protocol
 
@@ -80,7 +80,7 @@ Listing, validation, running, and dumping all share one resolver. What `outfitte
 
 ## Adapters
 
-An adapter projects composed resources into one agent CLI's native configuration — files, command-line flags, and environment variables. Pi is the primary and most complete adapter; a Claude Code adapter is supported with gaps. When an adapter cannot honor part of a composition it warns to stderr, or fails when `--strict` is set. See the [adapter support matrix](./support-matrix.md).
+An adapter projects composed resources into one agent CLI's native configuration — files, command-line flags, and environment variables. Pi is the primary and most complete adapter; Claude Code and Codex CLI adapters are supported with gaps. When an adapter cannot honor part of a composition it warns to stderr, or fails when `--strict` is set. See the [adapter support matrix](./support-matrix.md).
 
 ## State persistence
 

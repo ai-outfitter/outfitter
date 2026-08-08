@@ -5,7 +5,7 @@
   "type": "object",
   "properties": {
     "default_agent": { "type": "string", "minLength": 1 },
-    "default_harness": { "enum": ["pi", "claude"] },
+    "default_harness": { "enum": ["pi", "claude", "codex"] },
     "cache_directory": { "type": "string", "minLength": 1 },
     "state_persistence": {
       "type": "object",

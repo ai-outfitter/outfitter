@@ -44,7 +44,7 @@ export interface SettingsLoadIssue extends ValidationIssue {
 
 interface SettingsDocument {
   readonly default_agent?: string;
-  readonly default_harness?: 'pi' | 'claude';
+  readonly default_harness?: 'pi' | 'claude' | 'codex';
   readonly sources?: readonly SourceDocument[];
   readonly remote_settings?: readonly RemoteSettingsDocument[];
   readonly cache_directory?: string;

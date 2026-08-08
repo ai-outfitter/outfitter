@@ -1,13 +1,13 @@
-# OFTR-006: Agent Adapters, Pi Support, and Claude Code Support
+# OFTR-006: Agent Adapters and Supported Harnesses
 
 > **Transition (RFC [#165](https://github.com/ai-outfitter/outfitter/issues/165)):** **OFTR-006.1 is amended (2026-07-17)** to the composition-projection model below (harnesses project a `CompositionPlan`, reporting unsupported _elements_).
-> The pi/claude launch-control sections still describe profile-era behavior and richer parity (mcp reconciliation, session dirs, state persistence) is projected incrementally; the current implementation projects composed identity, skills, model, thinking, Pi extensions, and per-agent Pi configuration overlays.
+> Some pi/claude launch-control sections still describe profile-era behavior and richer parity is projected incrementally. The current composition implementation includes Claude's isolated MCP config and Codex's additive MCP CLI overrides alongside the existing identity, skills, model, thinking, Pi extensions, and per-agent Pi configuration overlays.
 > Target design: [docs/architecture/README.md](../architecture/README.md).
 
 ## Overview
 
 Agent adapters translate generic Outfitter profile controls into native configuration files, environment variables, and command-line arguments for specific agent CLIs.
-Pi is the default and primary supported adapter; Claude Code is also supported through a dedicated adapter.
+Pi is the default and primary supported adapter; Claude Code and Codex CLI are also supported through dedicated adapters.
 
 ## Requirements
 
@@ -16,7 +16,7 @@ Pi is the default and primary supported adapter; Claude Code is also supported t
 Amended (2026-07-17, RFC #165): adapters project a harness-neutral composition, not a profile.
 
 1. Outfitter MUST project a harness-neutral `CompositionPlan` to a native harness launch: a materialized runtime configuration root plus a launch plan (command, args, environment).
-2. Each harness projection MUST be identified by its harness (`pi` or `claude`).
+2. Each harness projection MUST be identified by its harness (`pi`, `claude`, or `codex`).
 3. Each harness projection MUST report which composition loadout elements it cannot project (`getUnsupportedElements`).
 4. When a composition selects an element the harness cannot project, Outfitter MUST warn; `--strict` MUST make it fatal before launch.
 5. Composition (resolver + composer) MUST stay independent of harness-specific projection.
@@ -30,6 +30,7 @@ Amended (2026-07-17, RFC #165): adapters project a harness-neutral composition, 
 4. When generic Outfitter terminology conflicts with pi terminology, the pi adapter SHOULD prefer pi naming for generated pi artifacts and user-facing pi diagnostics.
 5. Outfitter MUST keep `pi` as the default adapter when no adapter is selected explicitly or through settings.
 6. Outfitter MUST support Claude Code through a `claude` adapter once implementation and tests are present.
+7. Outfitter MUST support Codex CLI through a `codex` adapter once implementation and tests are present.
 
 ### OFTR-006.3: Pi Launch Controls
 
@@ -73,8 +74,18 @@ Amended (2026-07-17, RFC #165): adapters project a harness-neutral composition, 
 8. The Claude Code adapter SHOULD support `controls.session_directory` and `controls.claude.session_directory` by routing Claude `projects/` session state through Outfitter state persistence.
 9. The Claude Code adapter MUST return unsupported-control warnings for requested generic or `controls.claude` controls that it cannot translate.
 10. Until native support is implemented and tested, the Claude Code adapter MUST report `prompt_template` as unsupported and MUST NOT pass a pi-style prompt-template argument.
+11. When MCP servers are selected, the Claude Code adapter MUST pass the generated `mcp.json` through `--mcp-config` and MUST pass `--strict-mcp-config` so lower-layer MCP sources cannot break composition isolation.
 
-### OFTR-006.6: Pi Settings Reconciliation
+### OFTR-006.6: Codex CLI Launch Controls
+
+1. The Codex adapter MUST launch the native `codex` command and MUST preserve pass-through arguments so callers can select interactive mode or the `exec` subcommand.
+2. The Codex adapter MUST project model selection through `-m`.
+3. The Codex adapter MUST project selected stdio MCP server `command`, `args`, `env`, and `cwd` fields through repeated `-c mcp_servers.<id>.<key>=<toml-value>` overrides.
+4. The Codex adapter MUST project selected HTTP MCP server `url` and `headers` fields through repeated `-c` overrides using `url`, `http_headers`, `env_http_headers` for `${ENV_NAME}` values, and `bearer_token_env_var` for `Authorization: Bearer ${ENV_NAME}`.
+5. The Codex adapter MUST warn that MCP projection is additive because Codex has no strict MCP isolation mode; this adapter warning follows the normal `--strict` warning policy.
+6. The Codex adapter MUST report every selected loadout element other than `model` and `mcp` as unsupported until a native projection is implemented and tested.
+
+### OFTR-006.7: Pi Settings Reconciliation
 
 1. When profile-controlled Pi extensions duplicate native Pi `settings.json` package entries, the pi adapter MUST avoid launching pi with both copies enabled.
 2. The pi adapter MUST compare duplicate Pi extension and package entries by normalized resource identity rather than raw source string.
@@ -82,7 +93,7 @@ Amended (2026-07-17, RFC #165): adapters project a harness-neutral composition, 
 4. The pi adapter MUST keep reconciled runtime `settings.json` writes non-durable and declared so they are discarded without being reported as unknown state.
 5. The pi adapter MUST fall back to native Pi `settings.json` state persistence when reconciliation is unnecessary or the settings file cannot be interpreted safely.
 
-### OFTR-006.7: Outfitter Pi Interaction Defaults
+### OFTR-006.8: Outfitter Pi Interaction Defaults
 
 1. The pi adapter MUST generate a runtime `keybindings.json` that reserves `shift+tab` for Outfitter mode switching and binds Pi thinking-level cycling to `ctrl+shift+t`.
 2. The generated Pi keybindings file MUST preserve valid user or profile keybindings except for keys reserved by Outfitter's mode and thinking controls.

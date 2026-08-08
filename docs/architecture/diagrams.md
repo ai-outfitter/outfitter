@@ -29,11 +29,13 @@ flowchart LR
   composed --> adapter{Adapter}
   adapter -->|full projection| pi["Pi CLI<br/>primary adapter"]
   adapter -->|partial, warns on gaps| claude["Claude Code CLI"]
+  adapter -->|partial, additive MCP| codex["Codex CLI"]
 
   composed --> dump["outfitter dump<br/>deterministic .agents/ output"]
 
   pi --> run(["Launched agent process"])
   claude --> run
+  codex --> run
 ```
 
 ## Sequence: `outfitter run <agent>`
@@ -47,10 +49,10 @@ sequenceDiagram
   participant CLI as outfitter run
   participant Resolver as Resolver
   participant Composer as Composer
-  participant Adapter as Agent adapter (pi / claude)
+  participant Adapter as Agent adapter (pi / claude / codex)
   participant Agent as Agent CLI process
 
-  User->>CLI: outfitter run <agent> [--harness claude] [--strict]
+  User->>CLI: outfitter run <agent> [--harness codex] [--strict]
   CLI->>Resolver: resolve effective resource set
   Resolver->>Resolver: layer .agents trees<br>(workspace > global > pinned remotes)
   Resolver-->>CLI: effective resources + shadow diagnostics

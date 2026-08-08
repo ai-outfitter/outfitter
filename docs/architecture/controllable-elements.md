@@ -1,7 +1,7 @@
 # Controllable Elements
 
 This document defines the cross-agent-CLI concepts an Outfitter composition may control — the harness-neutral vocabulary adapters project into native mechanisms.
-Pi is the first supported CLI, and Claude Code is supported as an additional adapter.
+Pi is the first supported CLI, and Claude Code and Codex CLI are supported as additional adapters.
 Other CLIs may be added later while keeping the composition model generic.
 
 Status values:
@@ -28,6 +28,7 @@ The root directory that stores agent-global configuration, credentials, installe
 
 - Pi name: `PI_CODING_AGENT_DIR` / agent dir
 - Claude name: `CLAUDE_CONFIG_DIR` / Claude config home
+- Codex name: `CODEX_HOME`; Outfitter does not redirect it in the current adapter
 
 ### Session Directory
 
@@ -79,13 +80,15 @@ The selected provider/model and related inference options, from `models.json` an
 
 - Pi name: `--provider`, `--model`, `--models`, `--thinking`
 - Claude name: `--model`, `--effort`
+- Codex name: `-m`; other inference controls are not projected yet
 
 ### MCP Servers
 
 Model Context Protocol server configuration from the tree's `mcp.json`.
 
 - Pi name: `mcp.json` in the agent dir
-- Claude name: MCP configuration under the config directory
+- Claude name: generated `mcp.json` passed through `--mcp-config` with `--strict-mcp-config`
+- Codex name: repeated TOML-valued `-c mcp_servers.<id>.<key>=...` overrides; additive with user/project configuration because Codex has no strict MCP mode
 
 ### Extensions
 
@@ -187,6 +190,8 @@ The directory from which the inner agent CLI is launched.
 ### Pass-through Arguments
 
 Arguments not recognized by Outfitter that are forwarded unmodified to the inner agent CLI.
+
+- Codex uses pass-through `exec` to select its non-interactive subcommand; omitting it retains the interactive launch shape.
 
 - Pi name: native pi CLI args
 - Claude name: native Claude CLI args

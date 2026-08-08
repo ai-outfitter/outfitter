@@ -45,7 +45,7 @@ carry no resource selections — an agent's loadout lives on the agent, not in s
 ### OFTR-002.4: Default Agent and Harness
 
 1. `settings.yml` MAY declare a `default_agent` naming the agent slug that plain `outfitter` runs when no agent is selected.
-2. `settings.yml` MAY declare a `default_harness` of `pi` or `claude` selecting the harness launched when `--harness` is omitted.
+2. `settings.yml` MAY declare a `default_harness` of `pi`, `claude`, or `codex` selecting the harness launched when `--harness` is omitted.
 3. `outfitter run` MUST use the resolved `default_agent` when no agent is selected on the command line.
 4. Outfitter MUST report an actionable error when no selected agent and no `default_agent` are available.
 
