@@ -51,6 +51,33 @@ and Git output.
 Sync is explicit: `outfitter run` never initiates network access. If a configured cache is absent,
 resolution tells you to run `outfitter sync`.
 
+## `outfitter link`
+
+Provision installed coding harnesses from the resolved catalog so they are set up when launched
+**directly**: symlink skills, commands, and global instructions into `~/.pi/agent`, `~/.claude`,
+`~/.codex`, `~/.gemini`, and `~/.copilot`, generate Gemini's TOML commands, and merge
+harness-neutral hooks into each harness's native settings schema.
+
+This is the path most users want. `outfitter run` stays for launches needing a specific composition
+rather than a good default; it assembles a temporary directory and shares no state with `link`.
+
+Outfitter only replaces paths it created and recorded in its ownership manifest; anything else is
+reported as a conflict and left alone. See [Linking harnesses](./linking.md).
+
+| Option            | Description                                                               |
+| ----------------- | ------------------------------------------------------------------------- |
+| `--harness <ids>` | Comma-separated harnesses to provision, narrowing the settings selection. |
+| `--dry-run`       | Show what would change; write nothing, including the manifest.            |
+| `--remove`        | Remove every managed path and forget the manifest.                        |
+| `--force`         | Replace paths Outfitter does not manage. Off by default.                  |
+| `--strict`        | Treat unsupported resource/harness combinations as failures.              |
+| `--json`          | Emit the plan and result as JSON.                                         |
+
+```bash
+outfitter link --dry-run
+outfitter link --harness claude,gemini
+```
+
 ## `outfitter list [kind]`
 
 List resolvable resources across all layers, with the winning source for each slug and any shadowed IDs.

@@ -49,6 +49,7 @@ Outfitter is organized around a private npm workspace root, clear TypeScript pac
 │   │   │   ├── composer/              # harness-neutral CompositionPlan from the effective set
 │   │   │   ├── projection/            # materialize a composition + build a pi/claude launch plan
 │   │   │   ├── dump/                  # deterministic self-contained `.agents` tree output
+│   │   │   ├── harness/               # persistent `outfitter link`: harness registry, adapters, ownership manifest
 │   │   │   ├── merge/                 # deterministic value and array merge policy helpers
 │   │   │   ├── agents/                # bundled-pi resolution, process launch boundary, durable pi credential/session paths
 │   │   │   ├── paths/                 # Outfitter cache root and repository/packaged asset resolution

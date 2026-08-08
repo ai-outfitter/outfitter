@@ -10,6 +10,7 @@ repository with the baseline report as its first commit.
 ## Start (you)
 
 - [Getting started](./getting-started.md) — install, first run, default agent.
+- [Linking harnesses](./linking.md) — set up `pi`, `claude`, `codex`, `gemini`, and `copilot` from one catalog, then launch them directly.
 - [First-time CLI agent users](./first-time-cli-agent-users.md) — new to agent CLIs entirely.
 - [Switching to Outfitter](./switching-to-outfitter.md) — adopt from an existing agent-CLI setup.
 - [Porting a Claude Code setup](./porting-claude.md) — `~/.claude` into `~/.agents/` with symlinks back.

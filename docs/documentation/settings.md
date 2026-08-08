@@ -33,6 +33,19 @@ sources:
     ref: v1.2.0
   - path: ../shared-agents # local directory, read live from disk
 
+# Which coding harnesses `outfitter link` provisions, and how. See ./linking.md.
+# 'detected' (the default) links only harnesses already installed.
+# Honored only from your own ~/.agents settings — a project cannot declare this block.
+harnesses:
+  link: [claude, codex, gemini, copilot]
+  hooks:
+    - event: before_tool # translated to each harness's native event name
+      matcher: Bash
+      command: ~/.agents/scripts/guard-bash.sh
+  claude:
+    resources: [skills, instructions] # defaults to every kind the harness supports
+    config_directories: ['~/.claude', '~/.claude-work'] # a harness may have several config roots
+
 # Organization-distributed settings, layered below local settings.
 remote_settings:
   - github: my-org/.outfitter

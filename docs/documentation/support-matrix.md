@@ -34,6 +34,40 @@ Tasks and bake are not in this matrix — they are the subject of a [separate up
 | Pass-through arguments                                                   | Supported | Supported   |
 | Bootstrap hook                                                           | Supported | Roadmap     |
 
+## Managed harness links
+
+The rows above describe what `outfitter run` projects into a temporary composite directory. A
+separate, opt-in command — [`outfitter link`](./linking.md) — provisions the harness's own
+user-global config directory so a **directly launched** harness is set up without a wrapper.
+
+| What `outfitter link` provisions | Pi        | Claude Code | Codex CLI   | Gemini CLI                 | Copilot CLI   |
+| -------------------------------- | --------- | ----------- | ----------- | -------------------------- | ------------- |
+| Skills (`skills/<id>`)           | Supported | Supported   | Supported   | Supported                  | Supported     |
+| Commands                         | Roadmap   | Supported   | Supported   | Supported (generated TOML) | Not supported |
+| Global instructions              | Roadmap   | Supported   | Supported   | Supported                  | Not supported |
+| Hooks                            | Roadmap   | Supported   | Not written | Supported                  | Not supported |
+| MCP servers                      | Roadmap   | Roadmap     | Roadmap     | Roadmap                    | Roadmap       |
+| Subagents                        | Roadmap   | Roadmap     | Roadmap     | Roadmap                    | Roadmap       |
+
+**MCP servers and subagents are the gap between a linked harness and a composed run.** `run`
+projects both for Pi and Claude; `link` projects neither yet, so a composition depending on MCP or
+delegation still needs `outfitter run`. Tracked in
+[#187](https://github.com/ai-outfitter/outfitter/issues/187).
+
+Notes on the gaps, which are deliberate rather than unimplemented:
+
+- **Copilot CLI** discovers `~/.copilot/skills/<id>/SKILL.md`, but loads custom instructions from
+  repository-scoped `AGENTS.md` files rather than a documented user-global path, and exposes no hook
+  or custom-command surface.
+- **Pi** is provisioned at `~/.pi/agent`, the durable directory an unwrapped `pi` reads — not the
+  temporary composite `run` points `PI_CODING_AGENT_DIR` at. Only skills are confirmed against the
+  shipped build; its `commands/` and `hooks/` directories exist but their resolution root is not
+  unambiguous there.
+- **Codex hooks** are configured in `config.toml` behind a separate trust prompt. Writing one on the
+  user's behalf would pre-authorize code execution, so Outfitter does not.
+- **Gemini commands** are TOML documents with `description` and `prompt` keys, so they are generated
+  rather than symlinked; every other command surface takes a live symlink to the catalog Markdown.
+
 ## Claude Code notes
 
 - **Config and session state** — Outfitter points `CLAUDE_CONFIG_DIR` at the baked composition, declares Claude state paths (`settings.json`, `agents/`, `skills/`, `commands/`, `plugins/`, `projects/`) for [state persistence](./state.md), and can [symlink a ported `~/.claude`](./porting-claude.md) so native use keeps working.
