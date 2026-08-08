@@ -1,5 +1,5 @@
 // Tests Codex launch planning, additive MCP projection, TOML values, and unsupported elements.
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -7,6 +7,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import type { CompositionPlan } from '../../src/composer/Composition.js';
 import { projectComposition } from '../../src/projection/ProjectHarness.js';
+import type { ResolvedResource } from '../../src/resolver/Resource.js';
 
 const roots: string[] = [];
 const root = (): string => {
@@ -36,6 +37,13 @@ const plan = (mcpServers: Readonly<Record<string, unknown>>, mcp = Object.keys(m
 
 const overrideValues = (args: readonly string[]): readonly string[] =>
   args.filter((value, index) => args[index - 1] === '-c');
+
+const resource = (kind: 'agent' | 'skill', slug: string, path: string, layerRoot: string): ResolvedResource => ({
+  kind,
+  slug,
+  winner: { kind, slug, path, layer: { root: layerRoot, origin: 'workspace', label: 'workspace' } },
+  shadowed: [],
+});
 
 describe('projectComposition Codex MCP projection', () => {
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-006.6).
@@ -70,6 +78,12 @@ describe('projectComposition Codex MCP projection', () => {
     );
     expect(projection.warnings).toContain(
       "codex adapter dropped non-string MCP header 'Ignored' from server 'remote.github'.",
+    );
+    expect(projection.warnings).toEqual(
+      expect.arrayContaining([
+        "codex MCP server 'remote.github' header 'X-Literal' is literal and will be visible in process arguments.",
+        "codex MCP server 'remote.github' header 'Z-Literal' is literal and will be visible in process arguments.",
+      ]),
     );
     expect(projection.unsupported).not.toContain('mcp');
   });
@@ -114,16 +128,30 @@ describe('projectComposition Codex MCP projection', () => {
     );
   });
 
-  it('warns for a selected MCP definition Codex cannot translate', () => {
+  it('warns instead of projecting a legacy SSE HTTP server', () => {
     const directory = root();
-    const projection = projectComposition(plan({ broken: { type: 'sse' } }), {
+    const projection = projectComposition(plan({ legacy: { type: 'sse', url: 'https://example.test/sse' } }), {
       harness: 'codex',
       rootDirectory: directory,
       homeDirectory: directory,
     });
 
     expect(projection.warnings).toContain(
-      "codex adapter cannot project MCP server 'broken': expected a URL or command.",
+      "codex adapter cannot project MCP server 'legacy': transport 'sse' is unsupported.",
+    );
+    expect(overrideValues(projection.launch.args)).toEqual([]);
+  });
+
+  it('projects an explicitly streamable HTTP server', () => {
+    const directory = root();
+    const projection = projectComposition(
+      plan({ remote: { type: 'streamable-http', url: 'https://example.test/mcp' } }),
+      { harness: 'codex', rootDirectory: directory, homeDirectory: directory },
+    );
+
+    expect(overrideValues(projection.launch.args)).toEqual(['mcp_servers.remote.url="https://example.test/mcp"']);
+    expect(projection.warnings).not.toContain(
+      "codex adapter cannot project MCP server 'remote': transport 'streamable-http' is unsupported.",
     );
   });
 
@@ -131,6 +159,13 @@ describe('projectComposition Codex MCP projection', () => {
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENTS CHANGE.
   it('maps only model and MCP and reports the rest of the Codex loadout unsupported', () => {
     const directory = root();
+    const catalog = root();
+    const skillPath = join(catalog, 'skills', 'review', 'SKILL.md');
+    const subagentPath = join(catalog, 'agents', 'reviewer', 'agent.md');
+    mkdirSync(join(catalog, 'skills', 'review'), { recursive: true });
+    mkdirSync(join(catalog, 'agents', 'reviewer'), { recursive: true });
+    writeFileSync(skillPath, '---\nname: review\n---\n\nReview skill.\n');
+    writeFileSync(subagentPath, '---\nname: reviewer\n---\n\nReview carefully.\n');
     const base = plan({}, []);
     const projection = projectComposition(
       {
@@ -141,6 +176,8 @@ describe('projectComposition Codex MCP projection', () => {
         },
         loadout: {
           ...base.loadout,
+          skills: [resource('skill', 'review', skillPath, catalog)],
+          subagents: [resource('agent', 'reviewer', subagentPath, catalog)],
           model: 'gpt-5',
           thinking: 'high',
           tools: { allow: ['read'] },
@@ -157,9 +194,17 @@ describe('projectComposition Codex MCP projection', () => {
     );
 
     expect(projection.launch.args).toEqual(['-m', 'gpt-5']);
-    expect(projection.unsupported).toEqual(['extensions', 'plugins', 'thinking', 'tools', 'prompt_template']);
+    expect(projection.unsupported).toEqual([
+      'identity',
+      'skills',
+      'subagents',
+      'extensions',
+      'plugins',
+      'thinking',
+      'tools',
+      'prompt_template',
+    ]);
     expect(projection.warnings).toEqual([
-      'codex adapter does not project agent identity or the composed system prompt.',
       'codex adapter does not project supplied append-prompt documents; they will be dropped.',
     ]);
   });

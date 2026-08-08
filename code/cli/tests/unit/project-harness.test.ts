@@ -132,7 +132,7 @@ describe('projectComposition Claude MCP projection', () => {
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-006.5).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
-  it('does not pass Claude MCP flags when no servers are selected', () => {
+  it('passes an isolated empty Claude MCP config when no servers are selected', () => {
     const dir = root();
     const projection = projectComposition(planWith([]), {
       harness: 'claude',
@@ -140,8 +140,10 @@ describe('projectComposition Claude MCP projection', () => {
       homeDirectory: dir,
     });
 
-    expect(projection.launch.args).not.toContain('--mcp-config');
-    expect(projection.launch.args).not.toContain('--strict-mcp-config');
+    expect(projection.launch.args).toEqual(
+      expect.arrayContaining(['--mcp-config', join(dir, 'mcp.json'), '--strict-mcp-config']),
+    );
+    expect(JSON.parse(readFileSync(join(dir, 'mcp.json'), 'utf8'))).toEqual({ mcpServers: {} });
   });
 });
 

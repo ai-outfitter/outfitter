@@ -6,6 +6,7 @@ import { dirname, join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { executeRunAgentCommand } from '../../src/cli/commands/RunAgentCommand.js';
+import type { AgentLaunchPlan } from '../../src/projection/Projection.js';
 
 const roots: string[] = [];
 const root = (): string => {
@@ -35,8 +36,10 @@ describe('run agent with Codex MCP', () => {
       '---\nname: engineer\nmcp: [gh]\n---\n\nBody.\n',
     );
     let launches = 0;
-    const launcher = (): Promise<number> => {
+    let launchPlan: AgentLaunchPlan | undefined;
+    const launcher = (plan: AgentLaunchPlan): Promise<number> => {
       launches += 1;
+      launchPlan = plan;
       return Promise.resolve(0);
     };
 
@@ -51,6 +54,8 @@ describe('run agent with Codex MCP', () => {
       'codex MCP projection is additive: user and project MCP servers remain active because Codex has no strict isolation mode.',
     );
     expect(launches).toBe(1);
+    expect(launchPlan?.command).toBe('codex');
+    expect(launchPlan?.args).toEqual(expect.arrayContaining(['-c', 'mcp_servers.gh.command="gh-mcp"']));
 
     const strict = await executeRunAgentCommand({
       homeDirectory,
@@ -61,6 +66,36 @@ describe('run agent with Codex MCP', () => {
       launcher,
     });
     expect(strict.exitCode).toBe(1);
+    expect(strict.messages).toContain(
+      'codex MCP projection is additive: user and project MCP servers remain active because Codex has no strict isolation mode.',
+    );
     expect(launches).toBe(1);
+  });
+
+  it('makes the structured identity gap fatal under strict mode without MCP', async () => {
+    const directory = root();
+    const homeDirectory = join(directory, 'home');
+    const projectDirectory = join(directory, 'project');
+    write(join(projectDirectory, '.agents', 'agents', 'engineer', 'agent.md'), '---\nname: engineer\n---\n\nBody.\n');
+    let launches = 0;
+
+    const strict = await executeRunAgentCommand({
+      homeDirectory,
+      projectDirectory,
+      agent: 'engineer',
+      harness: 'codex',
+      strict: true,
+      launcher: () => {
+        launches += 1;
+        return Promise.resolve(0);
+      },
+    });
+
+    expect(strict.exitCode).toBe(1);
+    expect(strict.messages).toContain("harness 'codex' cannot project loadout element 'identity'.");
+    expect(strict.messages).not.toContain(
+      'codex MCP projection is additive: user and project MCP servers remain active because Codex has no strict isolation mode.',
+    );
+    expect(launches).toBe(0);
   });
 });

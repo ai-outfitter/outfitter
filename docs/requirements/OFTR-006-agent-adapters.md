@@ -74,14 +74,14 @@ Amended (2026-07-17, RFC #165): adapters project a harness-neutral composition, 
 8. The Claude Code adapter SHOULD support `controls.session_directory` and `controls.claude.session_directory` by routing Claude `projects/` session state through Outfitter state persistence.
 9. The Claude Code adapter MUST return unsupported-control warnings for requested generic or `controls.claude` controls that it cannot translate.
 10. Until native support is implemented and tested, the Claude Code adapter MUST report `prompt_template` as unsupported and MUST NOT pass a pi-style prompt-template argument.
-11. When MCP servers are selected, the Claude Code adapter MUST pass the generated `mcp.json` through `--mcp-config` and MUST pass `--strict-mcp-config` so lower-layer MCP sources cannot break composition isolation.
+11. The Claude Code adapter MUST always pass the generated `mcp.json` through `--mcp-config` and MUST pass `--strict-mcp-config` so lower-layer MCP sources cannot break composition isolation, including when the composition selects zero MCP servers.
 
 ### OFTR-006.6: Codex CLI Launch Controls
 
 1. The Codex adapter MUST launch the native `codex` command and MUST preserve pass-through arguments so callers can select interactive mode or the `exec` subcommand.
 2. The Codex adapter MUST project model selection through `-m`.
 3. The Codex adapter MUST project selected stdio MCP server `command`, `args`, `env`, and `cwd` fields through repeated `-c mcp_servers.<id>.<key>=<toml-value>` overrides.
-4. The Codex adapter MUST project selected HTTP MCP server `url` and `headers` fields through repeated `-c` overrides using `url`, `http_headers`, `env_http_headers` for `${ENV_NAME}` values, and `bearer_token_env_var` for `Authorization: Bearer ${ENV_NAME}`.
+4. The Codex adapter MUST project selected HTTP MCP server fields through repeated `-c` overrides using `url` and `http_headers`, with `env_http_headers` for `${ENV_NAME}` values and `bearer_token_env_var` for `Authorization: Bearer ${ENV_NAME}`.
 5. The Codex adapter MUST warn that MCP projection is additive because Codex has no strict MCP isolation mode; this adapter warning follows the normal `--strict` warning policy.
 6. The Codex adapter MUST report every selected loadout element other than `model` and `mcp` as unsupported until a native projection is implemented and tested.
 

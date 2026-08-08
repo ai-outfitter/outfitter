@@ -21,7 +21,7 @@ import { toolArgs } from './Tools.js';
 // Switched rather than chained so a harness added to `Harness` fails to compile here instead of
 // silently inheriting another harness's element set — the exact silent drop this function prevents.
 const supportedElements = (input: ProjectionInput): readonly string[] => {
-  const baseline = ['skills', 'model', 'thinking', 'tools'];
+  const baseline = ['identity', 'skills', 'model', 'thinking', 'tools'];
   switch (input.harness) {
     case 'claude':
       return [...baseline, 'mcp'];
@@ -36,7 +36,7 @@ const supportedElements = (input: ProjectionInput): readonly string[] => {
 
 const loadoutElementsInUse = (composition: CompositionPlan): readonly string[] => {
   const { loadout } = composition;
-  const present: string[] = [];
+  const present: string[] = ['identity'];
 
   if (loadout.skills.length > 0) present.push('skills');
   if (loadout.subagents.length > 0) present.push('subagents');
@@ -119,14 +119,18 @@ const buildCodexLaunchPlan = (
   codexMcpArgs: readonly string[],
 ): AgentLaunchPlan => ({
   command: 'codex',
+  // Codex CLI 0.145.0 lists `-c` and `-m` on both root and `exec --help`; root placement is valid.
   args: [...codexMcpArgs, ...modelArg(composition, '-m'), ...(input.passThroughArgs ?? [])],
   env: {},
 });
 
 // Claude's user, project, and plugin MCP sources would otherwise merge into the composition, so the
 // generated config is named explicitly and `--strict-mcp-config` suppresses every other layer.
-const claudeMcpArgs = (mcpConfigPath: string | undefined): readonly string[] =>
-  mcpConfigPath === undefined ? [] : ['--mcp-config', mcpConfigPath, '--strict-mcp-config'];
+const claudeMcpArgs = (mcpConfigPath: string): readonly string[] => [
+  '--mcp-config',
+  mcpConfigPath,
+  '--strict-mcp-config',
+];
 
 const buildPiOrClaudeLaunchPlan = (
   composition: CompositionPlan,
@@ -184,7 +188,6 @@ export const projectComposition = (composition: CompositionPlan, input: Projecti
     const codexMcp = projectCodexMcpServers(composition.loadout.mcp, composition.loadout.mcpServers);
     const launch = buildCodexLaunchPlan(composition, input, codexMcp.args);
     const warnings = [
-      'codex adapter does not project agent identity or the composed system prompt.',
       ...(input.appendPromptPaths?.length
         ? ['codex adapter does not project supplied append-prompt documents; they will be dropped.']
         : []),

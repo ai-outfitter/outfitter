@@ -40,8 +40,10 @@ const projectHttpServer = (
     const bearerToken = bearerTokenReference(header, value);
     const environment = environmentReference(value);
     if (bearerToken !== undefined) bearerTokenEnvironment = bearerToken;
-    else if (environment === undefined) literalHeaders[header] = value;
-    else environmentHeaders[header] = environment;
+    else if (environment === undefined) {
+      literalHeaders[header] = value;
+      warnings.push(`codex MCP server '${id}' header '${header}' is literal and will be visible in process arguments.`);
+    } else environmentHeaders[header] = environment;
   }
   if (Object.keys(literalHeaders).length > 0) {
     args.push(...override(`${prefix}.http_headers`, tomlInlineTable(literalHeaders)));
@@ -133,6 +135,13 @@ export const projectCodexMcpServers = (
   for (const id of selectedIds) {
     const server = asRecord(servers[id]);
     const prefix = `mcp_servers.${tomlKey(id)}`;
+
+    if (server.type !== undefined && server.type !== 'http' && server.type !== 'streamable-http') {
+      const transport =
+        typeof server.type === 'string' ? server.type : (JSON.stringify(server.type) ?? typeof server.type);
+      warnings.push(`codex adapter cannot project MCP server '${id}': transport '${transport}' is unsupported.`);
+      continue;
+    }
 
     if (typeof server.url === 'string') {
       args.push(...projectHttpServer(id, prefix, server.url, server, warnings));
