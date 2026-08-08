@@ -129,7 +129,8 @@ export default function outfitter(pi) {
         {
           value: 'codex',
           label: 'Codex CLI',
-          description: "Use OpenAI's separately installed Codex CLI.",
+          description:
+            "Use OpenAI's separately installed Codex CLI. Projects model and MCP servers only; agent identity is not projected yet.",
         },
       ];
       return selectFromItems(ctx, ['Which CLI agent should Outfitter use by default?'], items, 'pi');
@@ -463,7 +464,9 @@ const selectFromItems = async (ctx, titleLines, items, initialValue) => {
           items.map((item) => item.label),
         );
   if (selected === undefined) return undefined;
-  return items.some((item) => item.value === selected) ? selected : items.find((item) => item.label === selected)?.value;
+  return items.some((item) => item.value === selected)
+    ? selected
+    : items.find((item) => item.label === selected)?.value;
 };
 
 const selectDescribedOption = (ctx, titleLines, items, initialValue) =>

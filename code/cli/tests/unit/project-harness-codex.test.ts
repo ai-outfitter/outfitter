@@ -168,11 +168,11 @@ describe('projectComposition Codex MCP projection', () => {
     );
   });
 
-  it('warns when projected string fields contain references Codex leaves unexpanded', () => {
+  it('warns once per projected string field containing references Codex leaves unexpanded', () => {
     const directory = root();
     const projection = projectComposition(
       plan({
-        local: { command: '${BIN}/server', args: ['--token=${TOKEN}'], cwd: '${ROOT}/work' },
+        local: { command: '${BIN}/${SCRIPT}', args: ['--token=${TOKEN}'], cwd: '${ROOT}/work' },
         remote: { url: 'https://${HOST}/mcp' },
       }),
       { harness: 'codex', rootDirectory: directory, homeDirectory: directory },
@@ -180,12 +180,30 @@ describe('projectComposition Codex MCP projection', () => {
 
     expect(projection.warnings).toEqual(
       expect.arrayContaining([
-        "codex MCP server 'local' field 'command' contains environment reference '${BIN}' that Codex does not expand.",
-        "codex MCP server 'local' field 'args[0]' contains environment reference '${TOKEN}' that Codex does not expand.",
-        "codex MCP server 'local' field 'cwd' contains environment reference '${ROOT}' that Codex does not expand.",
-        "codex MCP server 'remote' field 'url' contains environment reference '${HOST}' that Codex does not expand.",
+        "codex MCP server 'local' field 'command' contains environment references that Codex does not expand.",
+        "codex MCP server 'local' field 'args[0]' contains environment references that Codex does not expand.",
+        "codex MCP server 'local' field 'cwd' contains environment references that Codex does not expand.",
+        "codex MCP server 'remote' field 'url' contains environment references that Codex does not expand.",
       ]),
     );
+    expect(projection.warnings.filter((warning) => warning.includes("server 'local' field 'command'"))).toHaveLength(1);
+  });
+
+  it('escapes DEL and replaces lone surrogates in projected TOML strings', () => {
+    const directory = root();
+    const projection = projectComposition(
+      plan({ local: { command: `serve\u007Fr`, args: ['\uD800', '\uDC00', '😀'] } }),
+      {
+        harness: 'codex',
+        rootDirectory: directory,
+        homeDirectory: directory,
+      },
+    );
+
+    expect(overrideValues(projection.launch.args)).toEqual([
+      'mcp_servers.local.command="serve\\u007Fr"',
+      'mcp_servers.local.args=["�", "�", "😀"]',
+    ]);
   });
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-006.6.3).
@@ -297,6 +315,7 @@ describe('projectComposition Codex MCP projection', () => {
     ]);
     expect(projection.warnings).toEqual([
       'codex adapter does not project supplied append-prompt documents; they will be dropped.',
+      'codex MCP projection is additive: user and project MCP servers remain active because Codex has no strict isolation mode.',
     ]);
   });
 

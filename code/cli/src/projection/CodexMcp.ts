@@ -5,9 +5,12 @@ const asRecord = (value: unknown): Readonly<Record<string, unknown>> =>
     ? (value as Readonly<Record<string, unknown>>)
     : {};
 
-const tomlString = (value: string): string => JSON.stringify(value);
+const tomlString = (value: string): string =>
+  JSON.stringify(
+    value.replace(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/gu, '\uFFFD'),
+  ).replace(/\u007F/gu, '\\u007F');
 const CODEX_MCP_ID = /^[A-Za-z0-9_-]+$/u;
-const ENVIRONMENT_REFERENCE = /\$\{[A-Za-z_][A-Za-z0-9_]*\}/gu;
+const ENVIRONMENT_REFERENCE = /\$\{[A-Za-z_][A-Za-z0-9_]*\}/u;
 
 const tomlInlineTable = (value: Readonly<Record<string, string>>): string =>
   `{ ${Object.entries(value)
@@ -25,9 +28,9 @@ const supportedTransport = (value: unknown): boolean =>
 const override = (key: string, value: string): readonly string[] => ['-c', `${key}=${value}`];
 
 const warnUnexpandedReferences = (id: string, field: string, value: string, warnings: string[]): void => {
-  for (const reference of value.matchAll(ENVIRONMENT_REFERENCE)) {
+  if (ENVIRONMENT_REFERENCE.test(value)) {
     warnings.push(
-      `codex MCP server '${id}' field '${field}' contains environment reference '${reference[0]}' that Codex does not expand.`,
+      `codex MCP server '${id}' field '${field}' contains environment references that Codex does not expand.`,
     );
   }
 };
@@ -163,7 +166,7 @@ export const projectCodexMcpServers = (
   servers: Readonly<Record<string, unknown>>,
 ): CodexMcpProjection => {
   const args: string[] = [];
-  const warnings: string[] = selectedIds.length === 0 ? [] : [ADDITIVE_PROJECTION_WARNING];
+  const warnings: string[] = [ADDITIVE_PROJECTION_WARNING];
 
   for (const id of selectedIds) {
     if (!CODEX_MCP_ID.test(id)) {

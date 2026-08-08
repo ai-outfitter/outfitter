@@ -25,7 +25,7 @@ Formal implementation requirements live in [`../requirements/`](../requirements/
    If a composition asks for something an adapter cannot project, Outfitter warns to stderr; `--strict` makes it fatal.
 7. **Pi-native by design**: pi is not merely the first adapter — targeting pi natively and completely is a deliberate design choice.
    Pi's configuration surface (extensions, plugins, subagents, keybindings, bootstrap) is treated as first-class, and the composition model is validated against it before being generalized to other harnesses.
-   Claude Code is a supported additional adapter with documented gaps, not a co-equal design target.
+   Claude Code and Codex CLI are supported additional adapters with documented gaps, not co-equal design targets; Codex currently projects only model and MCP servers.
 8. **Command objects for complexity**: non-trivial CLI commands are implemented as command objects with explicit dependencies and typed inputs/outputs.
 9. **Schema validation at boundaries**: every persisted file format read by Outfitter is validated at the read boundary (JSON Schema for JSON and YAML files, frontmatter schemas for markdown resources).
 10. **Complete test coverage early**: the project maintains a test framework with a 100% global coverage requirement.
@@ -251,7 +251,7 @@ Persistent state projection and managed harness symlinks are deferred to [#187](
 
 ### Codex CLI
 
-Outfitter launches `codex`, maps model selection to `-m`, and injects selected MCP servers through repeated TOML-valued `-c mcp_servers.<id>.<key>=...` overrides. The overrides merge with Codex user and project configuration because Codex has no way to run with only the projected MCP servers, so every MCP-enabled launch warns that lower-layer servers remain active. Codex cannot project the composition identity and reports it unsupported on every launch, so `--strict` aborts every Codex launch. Pass `exec` through to select Codex's non-interactive subcommand; without it, the normal interactive CLI launches. Other loadout elements remain unsupported and use the normal warning mechanism.
+Outfitter launches `codex`, maps model selection to `-m`, and injects selected MCP servers through repeated TOML-valued `-c mcp_servers.<id>.<key>=...` overrides. The overrides merge with Codex user and project configuration because Codex has no way to run with only the projected MCP servers, so every launch warns that lower-layer servers remain active, including when the composition selects no servers. Codex cannot project the composition identity and reports it unsupported on every launch, so `--strict` aborts every Codex launch. Pass `exec` through to select Codex's non-interactive subcommand; without it, the normal interactive CLI launches. Other loadout elements remain unsupported and use the normal warning mechanism.
 
 ## CLI Commands
 
@@ -294,4 +294,4 @@ Diagnostics point to the file and key that failed where practical.
 4. There is no legacy profile compatibility layer: no readers, writers, aliases, detection, or migration commands.
    The only old-version material is the manual migration reference routed from the bundled Outfitter skill.
 5. A remote repository named `.outfitter` is supported only as a distribution convention for the new protocol payload.
-6. Claude Code is supported as an additional adapter; pi remains the default.
+6. Claude Code and Codex CLI are supported as additional adapters; Codex currently projects only model and MCP servers, and pi remains the default.

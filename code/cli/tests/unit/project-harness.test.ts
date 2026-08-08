@@ -135,8 +135,9 @@ describe('projectComposition Claude MCP projection', () => {
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-006.5.11).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
-  it('passes an isolated empty Claude MCP config when no servers are selected', () => {
+  it('replaces a conflicting directory with an isolated empty Claude MCP config', () => {
     const dir = root();
+    mkdirSync(join(dir, 'mcp.json'));
     const projection = projectComposition(planWith([]), {
       harness: 'claude',
       rootDirectory: dir,

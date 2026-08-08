@@ -51,6 +51,13 @@ const writeGeneratedFile = (path: string, content: string): void => {
   writeFileSync(path, content);
 };
 
+export const serializeMcpConfig = (mcpServers: Readonly<Record<string, unknown>>): string =>
+  `${JSON.stringify({ mcpServers }, null, 2)}\n`;
+
+export const writeMcpConfig = (path: string, mcpServers: Readonly<Record<string, unknown>>): void => {
+  writeGeneratedFile(path, serializeMcpConfig(mcpServers));
+};
+
 const safeName = (value: string): string => value.replace(/[^a-zA-Z0-9._-]+/g, '-');
 
 /**
@@ -247,9 +254,8 @@ export const materializeComposition = (
     rootDirectory,
   );
 
-  const serializedMcp = `${JSON.stringify({ mcpServers: composition.loadout.mcpServers }, null, 2)}\n`;
   if (composition.loadout.mcp.length > 0) {
-    writeGeneratedFile(join(rootDirectory, 'mcp.json'), serializedMcp);
+    writeMcpConfig(join(rootDirectory, 'mcp.json'), composition.loadout.mcpServers);
   }
   return {
     rootDirectory,

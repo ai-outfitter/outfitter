@@ -73,8 +73,8 @@ describe('run agent with Codex MCP', () => {
     expect(launches).toBe(1);
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-006.1.4).
-  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  // THIS TEST VALIDATES HARD REQUIREMENTS (OFTR-006.1.4 AND OFTR-006.6.5).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENTS CHANGE.
   it('makes the structured identity gap fatal under strict mode without MCP', async () => {
     const directory = root();
     const homeDirectory = join(directory, 'home');
@@ -96,7 +96,7 @@ describe('run agent with Codex MCP', () => {
 
     expect(strict.exitCode).toBe(1);
     expect(strict.messages).toContain("harness 'codex' cannot project loadout element 'identity'.");
-    expect(strict.messages).not.toContain(
+    expect(strict.messages).toContain(
       'codex MCP projection is additive: user and project MCP servers remain active because Codex has no strict isolation mode.',
     );
     expect(launches).toBe(0);

@@ -91,7 +91,7 @@ outfitter run persona-reviewer --append-prompt docs/personas/platform-lead.md --
   > docs/persona-reviews/platform-lead-onboarding.md
 ```
 
-This is the portable interface: it works from the project containing the persona, does not assume a particular catalog checkout path, and does not assume a harness — `--append-prompt` projects the document through whichever flag pi or Claude Code actually reads. Repeat it to compose an identity from several documents; see [When one file is not enough](../personas.md#when-one-file-is-not-enough). One shared agent adopts the file as its identity for that session only and writes a first-person, sourced report — evidence cited to the exact page or UI moment, assumptions labeled. The reviewer inherits the caller's configured model; reviews benefit from a strong reasoning model.
+This is the portable interface for pi and Claude Code: it works from the project containing the persona, does not assume a particular catalog checkout path, and projects `--append-prompt` through the native flag each harness reads. The Codex adapter has no native append flag and warns that the document is dropped. Repeat the option to compose an identity from several documents; see [When one file is not enough](../personas.md#when-one-file-is-not-enough). One shared agent adopts the file as its identity for that session only and writes a first-person, sourced report — evidence cited to the exact page or UI moment, assumptions labeled. The reviewer inherits the caller's configured model; reviews benefit from a strong reasoning model.
 
 ### Optional orchestration with the skill
 

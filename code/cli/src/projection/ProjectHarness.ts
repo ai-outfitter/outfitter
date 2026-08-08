@@ -6,7 +6,7 @@ import type { CompositionPlan } from '../composer/Composition.js';
 import type { Harness } from '../settings/Settings.js';
 import { projectCodexMcpServers } from './CodexMcp.js';
 import type { MaterializedComposition } from './Materialize.js';
-import { materializeComposition, materializeConfigurationOverlays } from './Materialize.js';
+import { materializeComposition, materializeConfigurationOverlays, writeMcpConfig } from './Materialize.js';
 import type { AgentLaunchPlan, AgentProjectionPlan, ProjectionInput } from './Projection.js';
 import { toolArgs } from './Tools.js';
 
@@ -199,10 +199,7 @@ export const projectComposition = (composition: CompositionPlan, input: Projecti
   if (input.harness === 'claude') {
     // Claude always receives an explicit config, including an empty one, so strict mode excludes
     // every user, project, `.claude.json`, and plugin MCP source from the launched composition.
-    writeFileSync(
-      join(input.rootDirectory, 'mcp.json'),
-      `${JSON.stringify({ mcpServers: composition.loadout.mcpServers }, null, 2)}\n`,
-    );
+    writeMcpConfig(join(input.rootDirectory, 'mcp.json'), composition.loadout.mcpServers);
   }
 
   // Caller documents follow the composition's own, so a persona is read against the agent it adopts.
