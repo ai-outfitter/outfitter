@@ -18,6 +18,8 @@ export interface MaterializedComposition {
   readonly appendPromptPaths: readonly string[];
   /** Absolute paths to materialized skill directories, in slug order. */
   readonly skillDirectories: readonly string[];
+  /** Absolute path to the generated MCP config, or undefined when no server was selected. */
+  readonly mcpConfigPath: string | undefined;
   /** Skills that could not be materialized safely (escaping symlinks). */
   readonly skippedSkills: readonly string[];
   /** Subagents whose merged agent definition could not be materialized. */
@@ -247,11 +249,9 @@ export const materializeComposition = (
     rootDirectory,
   );
 
-  if (composition.loadout.mcp.length > 0) {
-    writeGeneratedFile(
-      join(rootDirectory, 'mcp.json'),
-      `${JSON.stringify({ mcpServers: composition.loadout.mcpServers }, null, 2)}\n`,
-    );
+  const mcpConfigPath = composition.loadout.mcp.length > 0 ? join(rootDirectory, 'mcp.json') : undefined;
+  if (mcpConfigPath !== undefined) {
+    writeGeneratedFile(mcpConfigPath, `${JSON.stringify({ mcpServers: composition.loadout.mcpServers }, null, 2)}\n`);
   }
 
   return {
@@ -259,6 +259,7 @@ export const materializeComposition = (
     systemPromptPath,
     appendPromptPaths,
     skillDirectories,
+    mcpConfigPath,
     skippedSkills,
     skippedSubagents,
   };

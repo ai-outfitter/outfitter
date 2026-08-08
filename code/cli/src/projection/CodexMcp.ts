@@ -26,8 +26,12 @@ const bearerTokenReference = (header: string, value: string): string | undefined
 
 const override = (key: string, value: string): readonly string[] => ['-c', `${key}=${value}`];
 
-const projectHttpServer = (prefix: string, server: Readonly<Record<string, unknown>>): readonly string[] => {
-  const args = [...override(`${prefix}.url`, tomlString(server.url as string))];
+const projectHttpServer = (
+  prefix: string,
+  url: string,
+  server: Readonly<Record<string, unknown>>,
+): readonly string[] => {
+  const args = [...override(`${prefix}.url`, tomlString(url))];
   const literalHeaders: Record<string, string> = {};
   const environmentHeaders: Record<string, string> = {};
   let bearerTokenEnvironment: string | undefined;
@@ -50,8 +54,12 @@ const projectHttpServer = (prefix: string, server: Readonly<Record<string, unkno
   return args;
 };
 
-const projectStdioServer = (prefix: string, server: Readonly<Record<string, unknown>>): readonly string[] => {
-  const args = [...override(`${prefix}.command`, tomlString(server.command as string))];
+const projectStdioServer = (
+  prefix: string,
+  command: string,
+  server: Readonly<Record<string, unknown>>,
+): readonly string[] => {
+  const args = [...override(`${prefix}.command`, tomlString(command))];
   if (Array.isArray(server.args)) {
     const commandArgs = server.args.filter((value): value is string => typeof value === 'string');
     args.push(...override(`${prefix}.args`, `[${commandArgs.map(tomlString).join(', ')}]`));
@@ -69,6 +77,12 @@ export interface CodexMcpProjection {
   readonly warnings: readonly string[];
 }
 
+// Codex merges `-c` overrides with user and project `config.toml` and has no exclusive MCP mode, so
+// selecting any server leaves lower-layer servers active. Reported as an adapter warning, which
+// `--strict` makes fatal.
+const ADDITIVE_PROJECTION_WARNING =
+  'codex MCP projection is additive: user and project MCP servers remain active because Codex has no strict isolation mode.';
+
 /**
  * Codex CLI `-c` values are TOML, not JSON. HTTP header values written as `${ENV_NAME}` are
  * translated to `env_http_headers`, and `Authorization: Bearer ${ENV_NAME}` becomes
@@ -80,19 +94,19 @@ export const projectCodexMcpServers = (
   servers: Readonly<Record<string, unknown>>,
 ): CodexMcpProjection => {
   const args: string[] = [];
-  const warnings: string[] = [];
+  const warnings: string[] = selectedIds.length === 0 ? [] : [ADDITIVE_PROJECTION_WARNING];
 
   for (const id of selectedIds) {
     const server = asRecord(servers[id]);
     const prefix = `mcp_servers.${tomlKey(id)}`;
 
     if (typeof server.url === 'string') {
-      args.push(...projectHttpServer(prefix, server));
+      args.push(...projectHttpServer(prefix, server.url, server));
       continue;
     }
 
     if (typeof server.command === 'string') {
-      args.push(...projectStdioServer(prefix, server));
+      args.push(...projectStdioServer(prefix, server.command, server));
       continue;
     }
 

@@ -5,6 +5,7 @@ import { PI_SESSION_DIRECTORY_ENV } from '../agents/PiSessionDirectory.js';
 import type { CompositionPlan } from '../composer/Composition.js';
 import type { Harness } from '../settings/Settings.js';
 import { projectCodexMcpServers } from './CodexMcp.js';
+import type { MaterializedComposition } from './Materialize.js';
 import { materializeComposition, materializeConfigurationOverlays } from './Materialize.js';
 import type { AgentLaunchPlan, AgentProjectionPlan, ProjectionInput } from './Projection.js';
 import { toolArgs } from './Tools.js';
@@ -17,12 +18,20 @@ import { toolArgs } from './Tools.js';
 // into its runtime config directory, and projects `extensions` once the run path has resolved their
 // install dirs (`extensionLoadDirs`). Claude projects selected MCP servers through an explicit,
 // isolated `--mcp-config`; plugins remain unsupported pending incremental parity (#183).
+// Switched rather than chained so a harness added to `Harness` fails to compile here instead of
+// silently inheriting another harness's element set — the exact silent drop this function prevents.
 const supportedElements = (input: ProjectionInput): readonly string[] => {
   const baseline = ['skills', 'model', 'thinking', 'tools'];
-  if (input.harness === 'claude') return [...baseline, 'mcp'];
-  if (input.harness === 'codex') return ['model', 'mcp'];
-  const pi = [...baseline, 'subagents', 'mcp', 'prompt_template'];
-  return input.extensionLoadDirs === undefined ? pi : [...pi, 'extensions'];
+  switch (input.harness) {
+    case 'claude':
+      return [...baseline, 'mcp'];
+    case 'codex':
+      return ['model', 'mcp'];
+    case 'pi': {
+      const pi = [...baseline, 'subagents', 'mcp', 'prompt_template'];
+      return input.extensionLoadDirs === undefined ? pi : [...pi, 'extensions'];
+    }
+  }
 };
 
 const loadoutElementsInUse = (composition: CompositionPlan): readonly string[] => {
@@ -92,39 +101,37 @@ const promptArgs = (
     : []),
 ];
 
-const modelArgs = (composition: CompositionPlan, harness: Harness): readonly string[] => {
-  const args: string[] = [];
+// Split from the thinking flag so each builder states positively what it emits: codex reports
+// `thinking` unsupported, and reporting an element unsupported does not by itself suppress it.
+const modelArg = (composition: CompositionPlan, harness: Harness): readonly string[] =>
+  composition.loadout.model === undefined ? [] : [harness === 'codex' ? '-m' : '--model', composition.loadout.model];
 
-  if (composition.loadout.model !== undefined) {
-    args.push(harness === 'codex' ? '-m' : '--model', composition.loadout.model);
-  }
+const thinkingArg = (composition: CompositionPlan, harness: Harness): readonly string[] =>
+  composition.loadout.thinking === undefined
+    ? []
+    : [harness === 'pi' ? '--thinking' : '--effort', composition.loadout.thinking];
 
-  if (composition.loadout.thinking !== undefined) {
-    if (harness !== 'codex') args.push(harness === 'pi' ? '--thinking' : '--effort', composition.loadout.thinking);
-  }
-
-  return args;
-};
-
+// MCP overrides lead and pass-through args trail so a pass-through positional (`exec "<prompt>"`)
+// stays last, where codex expects its subcommand and prompt.
 const buildCodexLaunchPlan = (
   composition: CompositionPlan,
   input: ProjectionInput,
   codexMcpArgs: readonly string[],
 ): AgentLaunchPlan => ({
   command: 'codex',
-  args: [...codexMcpArgs, ...modelArgs(composition, input.harness), ...(input.passThroughArgs ?? [])],
+  args: [...codexMcpArgs, ...modelArg(composition, input.harness), ...(input.passThroughArgs ?? [])],
   env: {},
 });
 
-const claudeMcpArgs = (composition: CompositionPlan, input: ProjectionInput): readonly string[] =>
-  input.harness === 'claude' && composition.loadout.mcp.length > 0
-    ? ['--mcp-config', join(input.rootDirectory, 'mcp.json'), '--strict-mcp-config']
-    : [];
+// Claude's user, project, and plugin MCP sources would otherwise merge into the composition, so the
+// generated config is named explicitly and `--strict-mcp-config` suppresses every other layer.
+const claudeMcpArgs = (mcpConfigPath: string | undefined): readonly string[] =>
+  mcpConfigPath === undefined ? [] : ['--mcp-config', mcpConfigPath, '--strict-mcp-config'];
 
 const buildPiOrClaudeLaunchPlan = (
   composition: CompositionPlan,
   input: ProjectionInput,
-  systemPromptPath: string,
+  materialized: MaterializedComposition,
   appendPromptPaths: readonly string[],
 ): AgentLaunchPlan => {
   const isPi = input.harness === 'pi';
@@ -138,11 +145,12 @@ const buildPiOrClaudeLaunchPlan = (
       // variadic and stop only at the next `--flag`, and the prompt args that follow always start
       // with one. Placed later they could swallow a pass-through positional. See Tools.ts.
       ...(composition.loadout.tools === undefined ? [] : toolArgs(input.harness, composition.loadout.tools)),
-      ...promptArgs(composition, input, systemPromptPath, appendPromptPaths),
+      ...promptArgs(composition, input, materialized.systemPromptPath, appendPromptPaths),
       ...skillArgs,
       ...extensionArgs,
-      ...modelArgs(composition, input.harness),
-      ...claudeMcpArgs(composition, input),
+      ...modelArg(composition, input.harness),
+      ...thinkingArg(composition, input.harness),
+      ...(isPi ? [] : claudeMcpArgs(materialized.mcpConfigPath)),
       ...(input.passThroughArgs ?? []),
     ],
     // The projection root is deleted after the run, so pi's default session store (a subdirectory
@@ -157,54 +165,32 @@ const buildPiOrClaudeLaunchPlan = (
   };
 };
 
-const buildLaunchPlan = (
-  composition: CompositionPlan,
-  input: ProjectionInput,
-  systemPromptPath: string,
-  appendPromptPaths: readonly string[],
-  codexMcpArgs: readonly string[],
-): AgentLaunchPlan =>
-  input.harness === 'codex'
-    ? buildCodexLaunchPlan(composition, input, codexMcpArgs)
-    : buildPiOrClaudeLaunchPlan(composition, input, systemPromptPath, appendPromptPaths);
-
-const codexMcpProjection = (composition: CompositionPlan, harness: Harness) =>
-  harness === 'codex' ? projectCodexMcpServers(composition.loadout.mcp, composition.loadout.mcpServers) : undefined;
-
-const projectionWarnings = (
-  composition: CompositionPlan,
-  harness: Harness,
-  codexMcp: ReturnType<typeof codexMcpProjection>,
-): readonly string[] => [
-  ...(harness === 'codex' && composition.loadout.mcp.length > 0
-    ? [
-        'codex MCP projection is additive: user and project MCP servers remain active because Codex has no strict isolation mode.',
-      ]
-    : []),
-  ...(codexMcp?.warnings ?? []),
-];
-
 /** Materializes the composition into the runtime root and builds the harness launch plan. */
 export const projectComposition = (composition: CompositionPlan, input: ProjectionInput): AgentProjectionPlan => {
   if (input.harness === 'pi') {
     materializeConfigurationOverlays(input.configurationOverlayDirectories ?? [], input.rootDirectory);
   }
+  // Materialization runs for every harness so containment and definition diagnostics are reported
+  // uniformly. Codex reads none of the generated files — it takes its MCP config in argv and has no
+  // config-directory projection yet — but the root is temporary, so the unused writes do not persist.
   const materialized = materializeComposition(composition, input.rootDirectory);
-  const codexMcp = codexMcpProjection(composition, input.harness);
-  // Caller documents follow the composition's own, so a persona is read against the agent it adopts.
-  const launch = buildLaunchPlan(
-    composition,
-    input,
-    materialized.systemPromptPath,
-    [...materialized.appendPromptPaths, ...(input.appendPromptPaths ?? [])],
-    codexMcp?.args ?? [],
-  );
   const unsupported = [
     ...unsupportedElements(composition, input),
     ...materialized.skippedSkills.map((slug) => `skill:${slug} (escaping symlink)`),
     ...materialized.skippedSubagents.map((slug) => `subagent:${slug} (invalid definition)`),
   ];
-  const warnings = projectionWarnings(composition, input.harness, codexMcp);
 
-  return { rootDirectory: input.rootDirectory, launch, unsupported, warnings };
+  if (input.harness === 'codex') {
+    const codexMcp = projectCodexMcpServers(composition.loadout.mcp, composition.loadout.mcpServers);
+    const launch = buildCodexLaunchPlan(composition, input, codexMcp.args);
+    return { rootDirectory: input.rootDirectory, launch, unsupported, warnings: codexMcp.warnings };
+  }
+
+  // Caller documents follow the composition's own, so a persona is read against the agent it adopts.
+  const launch = buildPiOrClaudeLaunchPlan(composition, input, materialized, [
+    ...materialized.appendPromptPaths,
+    ...(input.appendPromptPaths ?? []),
+  ]);
+
+  return { rootDirectory: input.rootDirectory, launch, unsupported, warnings: [] };
 };

@@ -95,7 +95,7 @@ const resolveHarness = (settingsDefault: Harness | undefined, requested: string 
   const harness = requested ?? settingsDefault ?? 'pi';
 
   if (!HARNESSES.includes(harness as Harness)) {
-    throw new Error(`Unknown harness '${harness}'. Use --harness pi, --harness claude, or --harness codex.`);
+    throw new Error(`Unknown harness '${harness}'. Use --harness <${HARNESSES.join('|')}>.`);
   }
 
   return harness as Harness;
