@@ -39,7 +39,7 @@ const rootPackageJson = readJson<PackageJson>('../../../package.json');
 const docSitePackageJson = readJson<PackageJson>('../../../code/doc_site/package.json');
 const packageLockJson = readJson<PackageLockJson>('../../../package-lock.json');
 const nodeVersion = readFileSync(new URL('../../../.node-version', import.meta.url), 'utf8').trim();
-const supportedNodeRange = `>=${nodeVersion} <25`;
+const supportedNodeRange = '>=22.19.0';
 const tsconfig = readJson<TypeScriptConfig>('../tsconfig.json');
 const buildTsconfig = readJson<TypeScriptConfig>('../tsconfig.build.json');
 const eslintConfigSource = readFileSync(new URL('../eslint.config.js', import.meta.url), 'utf8');
