@@ -247,6 +247,7 @@ describe('Pi setup extension', () => {
     expect(context.rendered[1]?.join(' ')).toContain('Where should Outfitter install these settings?');
     expect(context.rendered[2]?.join(' ')).toContain('Which CLI agent should Outfitter use by default?');
     expect(context.rendered[2]?.join('\n')).toContain('→ Pi / Outfitter (Recommended)');
+    expect(context.rendered[2]?.join('\n')).toContain('Codex CLI');
     expect(JSON.parse(readFileSync(resultPath, 'utf8'))).toEqual({
       setupMode: 'default',
       agentId: 'founder',

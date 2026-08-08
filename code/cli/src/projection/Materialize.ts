@@ -8,6 +8,7 @@ import { removeTargetTypeConflict } from '../fs/TypeConflict.js';
 import type { AgentDefinition } from '../resolver/AgentDefinition.js';
 import { isAgentDefinitionIssue, readAgentDefinition } from '../resolver/AgentDefinition.js';
 import type { ResolvedResource } from '../resolver/Resource.js';
+import type { Harness } from '../settings/Settings.js';
 import { effectiveToolAllowlist } from './Tools.js';
 
 export interface MaterializedComposition {
@@ -49,6 +50,13 @@ const copyDirectory = (sourceDir: string, targetDir: string): void => {
 const writeGeneratedFile = (path: string, content: string): void => {
   removeTargetTypeConflict(path, 'file');
   writeFileSync(path, content);
+};
+
+const serializeMcpConfig = (mcpServers: Readonly<Record<string, unknown>>): string =>
+  `${JSON.stringify({ mcpServers }, null, 2)}\n`;
+
+export const writeMcpConfig = (path: string, mcpServers: Readonly<Record<string, unknown>>): void => {
+  writeGeneratedFile(path, serializeMcpConfig(mcpServers));
 };
 
 const safeName = (value: string): string => value.replace(/[^a-zA-Z0-9._-]+/g, '-');
@@ -226,6 +234,7 @@ const materializeIdentity = (
 export const materializeComposition = (
   composition: CompositionPlan,
   rootDirectory: string,
+  harness: Harness,
 ): MaterializedComposition => {
   mkdirSync(rootDirectory, { recursive: true });
   const { systemPromptPath, appendPromptPaths } = materializeIdentity(composition, rootDirectory);
@@ -247,13 +256,9 @@ export const materializeComposition = (
     rootDirectory,
   );
 
-  if (composition.loadout.mcp.length > 0) {
-    writeGeneratedFile(
-      join(rootDirectory, 'mcp.json'),
-      `${JSON.stringify({ mcpServers: composition.loadout.mcpServers }, null, 2)}\n`,
-    );
+  if (harness === 'claude' || (harness === 'pi' && composition.loadout.mcp.length > 0)) {
+    writeMcpConfig(join(rootDirectory, 'mcp.json'), composition.loadout.mcpServers);
   }
-
   return {
     rootDirectory,
     systemPromptPath,

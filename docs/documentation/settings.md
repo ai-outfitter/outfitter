@@ -22,7 +22,7 @@ In a standalone `.agents` repository the repository root is the tree, so the fil
 ```yaml
 # .agents/settings.yml
 default_agent: engineer # which agent runs by default
-default_harness: pi # which harness to launch: pi or claude
+default_harness: pi # which harness to launch: pi, claude, or codex
 
 # Where protocol resources come from, beyond this tree and ~/.agents.
 sources:

@@ -20,12 +20,12 @@ Amended (2026-07-17, RFC #165): `run` selects an agent slug and a harness, not a
 3. The default command behavior MUST be implemented with Commander rather than a custom `process.argv` parser.
 4. The `run` command MUST accept a positional agent slug selecting which agent to run.
 5. The `run` command MUST use the resolved `default_agent` when no agent is provided, and error when neither is available.
-6. The `run` command MUST accept `--harness <pi|claude>`, defaulting to `default_harness` then `pi`.
+6. The `run` command MUST accept `--harness <pi|claude|codex>`, defaulting to `default_harness` then `pi`.
 7. The `run` command MUST pass unrecognized arguments through to the selected harness CLI unaltered.
 8. The `run` command MUST resolve, compose, project, and launch through the shared resolver and composer.
 9. The `run` command MUST accept a repeatable `--append-prompt <path>`, appending each named document to the system prompt after the composition's own fragments, in the order given.
 10. The `run` command MUST reject an `--append-prompt` path that is not a readable file before launching, naming both the flag and the path.
-11. `--append-prompt` MUST project through whichever native flag the selected harness reads, so a caller does not have to know which harness will launch. Passthrough after `--` cannot satisfy this, because it reaches the harness unaltered per OFTR-005.1.7.
+11. For a harness that exposes a native append-prompt flag, `--append-prompt` MUST project through that flag so a caller does not have to know which harness will launch. Passthrough after `--` cannot satisfy this, because it reaches the harness unaltered per OFTR-005.1.7. A harness without a native append flag MUST warn that the prompt cannot be projected, subject to the OFTR-006.1.4 `--strict` policy.
 
 ### OFTR-005.2: Composition Definition
 

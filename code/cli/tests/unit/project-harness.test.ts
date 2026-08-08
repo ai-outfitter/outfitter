@@ -106,6 +106,51 @@ describe('projectComposition extensions', () => {
   });
 });
 
+describe('projectComposition Claude MCP projection', () => {
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-006.5.11).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('passes selected MCP servers through an isolated Claude MCP config', () => {
+    const dir = root();
+    const plan = planWith([]);
+    const projection = projectComposition(
+      {
+        ...plan,
+        loadout: {
+          ...plan.loadout,
+          mcp: ['github'],
+          mcpServers: { github: { command: 'github-mcp-server' } },
+        },
+      },
+      { harness: 'claude', rootDirectory: dir, homeDirectory: dir },
+    );
+
+    expect(projection.launch.args).toEqual(
+      expect.arrayContaining(['--mcp-config', join(dir, 'mcp.json'), '--strict-mcp-config']),
+    );
+    expect(JSON.parse(readFileSync(join(dir, 'mcp.json'), 'utf8'))).toEqual({
+      mcpServers: { github: { command: 'github-mcp-server' } },
+    });
+    expect(projection.unsupported).not.toContain('mcp');
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-006.5.11).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('replaces a conflicting directory with an isolated empty Claude MCP config', () => {
+    const dir = root();
+    mkdirSync(join(dir, 'mcp.json'));
+    const projection = projectComposition(planWith([]), {
+      harness: 'claude',
+      rootDirectory: dir,
+      homeDirectory: dir,
+    });
+
+    expect(projection.launch.args).toEqual(
+      expect.arrayContaining(['--mcp-config', join(dir, 'mcp.json'), '--strict-mcp-config']),
+    );
+    expect(JSON.parse(readFileSync(join(dir, 'mcp.json'), 'utf8'))).toEqual({ mcpServers: {} });
+  });
+});
+
 const subagentResource = (slug: string, path: string, layerRoot: string): ResolvedResource => ({
   kind: 'agent',
   slug,
@@ -375,6 +420,26 @@ describe('projectComposition native configuration overlays', () => {
 
     expect(readFileSync(join(dir, 'agent.md'), 'utf8')).toBe('Body.');
     expect(readFileSync(join(dir, 'skills', 'extra', 'note.md'), 'utf8')).toBe('native extra');
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-006.3.17).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('preserves an overlay MCP config when the composition selects no servers', () => {
+    const dir = root();
+    const overlay = root();
+    writeFileSync(join(overlay, 'mcp.json'), '{"mcpServers":{"native":{"command":"native-mcp"}}}');
+
+    projectComposition(planWith([]), {
+      harness: 'pi',
+      rootDirectory: dir,
+      homeDirectory: dir,
+      extensionLoadDirs: [],
+      configurationOverlayDirectories: [overlay],
+    });
+
+    expect(JSON.parse(readFileSync(join(dir, 'mcp.json'), 'utf8'))).toEqual({
+      mcpServers: { native: { command: 'native-mcp' } },
+    });
   });
 
   it('lets a higher-precedence overlay replace a file with a directory and a directory with a file', () => {

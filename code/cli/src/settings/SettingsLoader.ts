@@ -8,6 +8,7 @@ import { validateSchema } from '../validation/SchemaValidator.js';
 import { parseYamlDocument } from '../validation/YamlDocument.js';
 import type {
   CustomSettings,
+  Harness,
   RemoteSettingsReference,
   Settings,
   SourceReference,
@@ -44,7 +45,7 @@ export interface SettingsLoadIssue extends ValidationIssue {
 
 interface SettingsDocument {
   readonly default_agent?: string;
-  readonly default_harness?: 'pi' | 'claude';
+  readonly default_harness?: Harness;
   readonly sources?: readonly SourceDocument[];
   readonly remote_settings?: readonly RemoteSettingsDocument[];
   readonly cache_directory?: string;

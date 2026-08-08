@@ -7,7 +7,7 @@ export type SettingsValue =
 export type CustomSettings = Readonly<Record<string, SettingsValue>>;
 
 /** Harnesses Outfitter can launch a composed agent in. */
-export const HARNESSES = ['pi', 'claude'] as const;
+export const HARNESSES = ['pi', 'claude', 'codex'] as const;
 export type Harness = (typeof HARNESSES)[number];
 
 /** Functional persistence strategies for adapter-declared state paths. */

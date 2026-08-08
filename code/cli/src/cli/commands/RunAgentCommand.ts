@@ -95,7 +95,7 @@ const resolveHarness = (settingsDefault: Harness | undefined, requested: string 
   const harness = requested ?? settingsDefault ?? 'pi';
 
   if (!HARNESSES.includes(harness as Harness)) {
-    throw new Error(`Unknown harness '${harness}'. Use --harness pi or --harness claude.`);
+    throw new Error(`Unknown harness '${harness}'. Use --harness <${HARNESSES.join('|')}>.`);
   }
 
   return harness as Harness;
@@ -224,6 +224,7 @@ export const executeRunAgentCommand = async (input: RunAgentInput): Promise<RunA
     const warnings = [
       ...composed.plan.warnings,
       ...projection.unsupported.map((element) => `harness '${harness}' cannot project loadout element '${element}'.`),
+      ...projection.warnings,
       ...extensions.warnings,
     ];
 

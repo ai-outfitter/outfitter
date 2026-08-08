@@ -176,6 +176,19 @@ describe('settings loading', () => {
     });
   });
 
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-002.4.2).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('accepts codex as the default harness', () => {
+    const root = createTemporaryRoot();
+    const settingsPath = join(root, 'settings.yml');
+    writeSettings(settingsPath, 'default_harness: codex\n');
+
+    const result = loadSettingsFiles(createSettingsLoadPlan([{ scope: 'user', path: settingsPath }]));
+
+    expect(result.issues).toEqual([]);
+    expect(result.files[0]?.settings.defaultHarness).toBe('codex');
+  });
+
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-002.5, OFTR-002.6).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('validates local, URI, GitHub, and remote settings entries from settings files', () => {

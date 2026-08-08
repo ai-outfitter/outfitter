@@ -13,6 +13,8 @@ export interface AgentProjectionPlan {
   readonly launch: AgentLaunchPlan;
   /** Composition elements the selected harness cannot project. */
   readonly unsupported: readonly string[];
+  /** Adapter limitations or malformed native configuration discovered during projection. */
+  readonly warnings: readonly string[];
 }
 
 export interface ProjectionInput {

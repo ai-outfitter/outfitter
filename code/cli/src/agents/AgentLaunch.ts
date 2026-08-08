@@ -127,8 +127,8 @@ export const spawnLauncher: AgentProcessLauncher = {
 
 /**
  * Launches a resolved plan through the given spawn boundary. The install-hint agentId is derived
- * from the logical launch command ('pi' | 'claude') so a missing-CLI failure always names the
- * harness actually being launched, regardless of how the harness was selected (flag, settings
+ * from the logical launch command ('pi' | 'claude' | 'codex') so a missing-CLI failure always names
+ * the harness actually being launched, regardless of how the harness was selected (flag, settings
  * default, or built-in fallback).
  */
 export const launchThroughSpawn = (spawn: AgentProcessLauncher, plan: AgentLaunchPlan): Promise<number> =>
@@ -139,7 +139,8 @@ const isCommandNotFoundError = (error: unknown): boolean =>
 
 const agentCliInstallHints: Readonly<Record<string, string>> = {
   pi: 'Install Pi with `npm install -g @earendil-works/pi-coding-agent` (see https://pi.dev).',
-  claude: 'Install Claude Code from https://claude.com/claude-code, then rerun with `--agent claude`.',
+  claude: 'Install Claude Code from https://claude.com/claude-code, then rerun with `--harness claude`.',
+  codex: 'Install Codex CLI from https://developers.openai.com/codex/cli, then rerun with `--harness codex`.',
 };
 
 const formatMissingAgentCliMessage = (agentId: string, command: string): string => {

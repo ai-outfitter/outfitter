@@ -25,7 +25,7 @@ Formal implementation requirements live in [`../requirements/`](../requirements/
    If a composition asks for something an adapter cannot project, Outfitter warns to stderr; `--strict` makes it fatal.
 7. **Pi-native by design**: pi is not merely the first adapter — targeting pi natively and completely is a deliberate design choice.
    Pi's configuration surface (extensions, plugins, subagents, keybindings, bootstrap) is treated as first-class, and the composition model is validated against it before being generalized to other harnesses.
-   Claude Code is a supported additional adapter with documented gaps, not a co-equal design target.
+   Claude Code and Codex CLI are supported additional adapters with documented gaps, not co-equal design targets; Codex currently projects only model and MCP servers.
 8. **Command objects for complexity**: non-trivial CLI commands are implemented as command objects with explicit dependencies and typed inputs/outputs.
 9. **Schema validation at boundaries**: every persisted file format read by Outfitter is validated at the read boundary (JSON Schema for JSON and YAML files, frontmatter schemas for markdown resources).
 10. **Complete test coverage early**: the project maintains a test framework with a 100% global coverage requirement.
@@ -121,7 +121,7 @@ Every settings file MUST validate against `settings.schema.json`.
 
 ```yaml
 default_agent: engineer # which agent runs by default
-default_harness: pi # which harness to launch: pi or claude
+default_harness: pi # which harness to launch: pi, claude, or codex
 cache_directory: ./cache
 
 sources:
@@ -148,7 +148,7 @@ Rules:
 - Settings do not carry resource selections.
   An agent's loadout — skills, subagents, mcp, extensions, plugins, model, thinking, tools — is declared on the agent (`agents/<id>/agent.md` frontmatter or `config.json`), not in settings.
   There is no `profiles` map and no `default_profile`.
-- `default_agent` names the agent plain `outfitter` runs; `default_harness` selects the harness (`pi` or `claude`).
+- `default_agent` names the agent plain `outfitter` runs; `default_harness` selects the harness (`pi`, `claude`, or `codex`).
 - `sources` entries MUST specify a local `path`, a remote `uri`, or a `github` shorthand; remote entries accept `ref` and payload-subdirectory `path`.
   Relative `path` values resolve relative to the settings file containing them.
 - `remote_settings` entries point at settings-style YAML files inside synced remote repositories; fetched by `outfitter sync` and loaded at lower precedence.
@@ -249,10 +249,14 @@ If generic naming conflicts with pi behavior, prefer pi's terminology.
 Outfitter launches `claude` with `CLAUDE_CONFIG_DIR` pointing at the projection root and maps the elements supported by the current baseline adapter to native files and flags.
 Persistent state projection and managed harness symlinks are deferred to [#187](https://github.com/ai-outfitter/outfitter/issues/187); setup does not create them.
 
+### Codex CLI
+
+Outfitter launches `codex`, maps model selection to `-m`, and injects selected MCP servers through repeated TOML-valued `-c mcp_servers.<id>.<key>=...` overrides. The overrides merge with Codex user and project configuration because Codex has no way to run with only the projected MCP servers, so every launch warns that lower-layer servers remain active, including when the composition selects no servers. Codex cannot project the composition identity and reports it unsupported on every launch, so `--strict` aborts every Codex launch. Pass `exec` through to select Codex's non-interactive subcommand; without it, the normal interactive CLI launches. Other loadout elements remain unsupported and use the normal warning mechanism.
+
 ## CLI Commands
 
 - **`outfitter run [agent]`** (default command): resolve → compose → project → launch.
-  A positional agent slug selects what to run (default from settings `default_agent`); `--harness <pi|claude>` selects the harness (default from settings `default_harness`, then `pi`); unknown args pass through to the child CLI; `--strict` makes warnings fatal.
+  A positional agent slug selects what to run (default from settings `default_agent`); `--harness <pi|claude|codex>` selects the harness (default from settings `default_harness`, then `pi`); unknown args pass through to the child CLI; `--strict` makes warnings fatal.
   Interactive clean-home launches start Pi-native onboarding; non-interactive clean-home launches require `outfitter setup` first.
 - **`outfitter setup [source]`**: launch the bundled, model-free Pi walkthrough with the original three setup modes (default catalog, create a profile, or another catalog), original profile/target wording, and optional direct-source path; append only the default CLI-agent choice (Pi/Outfitter preselected); then atomically apply the result through the CLI state machine.
 - **`outfitter sync`**: validate local settings; atomically fetch configured remote settings; reload the merged settings; then atomically fetch every resulting remote source into `<cache_directory>/repos/<encoded-uri-and-ref>/`.
@@ -290,4 +294,4 @@ Diagnostics point to the file and key that failed where practical.
 4. There is no legacy profile compatibility layer: no readers, writers, aliases, detection, or migration commands.
    The only old-version material is the manual migration reference routed from the bundled Outfitter skill.
 5. A remote repository named `.outfitter` is supported only as a distribution convention for the new protocol payload.
-6. Claude Code is supported as an additional adapter; pi remains the default.
+6. Claude Code and Codex CLI are supported as additional adapters; Codex currently projects only model and MCP servers, and pi remains the default.

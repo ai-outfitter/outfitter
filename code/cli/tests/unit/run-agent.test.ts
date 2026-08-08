@@ -285,10 +285,10 @@ describe('run agent', () => {
         homeDirectory: home,
         projectDirectory: project,
         agent: 'engineer',
-        harness: 'codex',
+        harness: 'gemini',
         launcher,
       }),
-    ).rejects.toThrow(/Unknown harness 'codex'/);
+    ).rejects.toThrow(/Unknown harness 'gemini'/);
   });
 
   it('skips a skill whose directory escapes the tree via symlink and reports it unsupported', async () => {

@@ -409,7 +409,7 @@ describe('setup state machine', () => {
     expect(() =>
       applySetupSelection({
         ...base,
-        selection: { setupMode: 'create', agentId: 'okay', harness: 'codex' as 'pi', target: 'home' },
+        selection: { setupMode: 'create', agentId: 'okay', harness: 'gemini' as 'pi', target: 'home' },
       }),
     ).toThrow(/unsupported harness/);
     for (const selection of [
@@ -631,7 +631,7 @@ describe('Pi setup launch', () => {
     null,
     {},
     { setupMode: 'unknown', harness: 'pi', target: 'home' },
-    { setupMode: 'default', agentId: 'founder', harness: 'codex', target: 'home' },
+    { setupMode: 'default', agentId: 'founder', harness: 'gemini', target: 'home' },
     { setupMode: 'default', harness: 'pi', target: 'home' },
     { setupMode: 'catalog', ref: 'main', settingsPath: 'settings.yml', harness: 'pi', target: 'home' },
     { setupMode: 'catalog', github: 'ok/repo', settingsPath: 'settings.yml', harness: 'pi', target: 'home' },

@@ -1,6 +1,6 @@
 # Outfitter
 
-Outfitter is the toolchain for [`.agents`](./docs/documentation/concepts.md#the-agents-protocol): it resolves agent configuration from local and remote `.agents` trees, composes agents, skills, and knowledge by slug, and launches the result through wrapped agent CLIs like [`pi`](https://github.com/earendil-works/pi-coding-agent) and Claude Code.
+Outfitter is the toolchain for [`.agents`](./docs/documentation/concepts.md#the-agents-protocol): it resolves agent configuration from local and remote `.agents` trees, composes agents, skills, and knowledge by slug, and launches the result through wrapped agent CLIs like [`pi`](https://github.com/earendil-works/pi-coding-agent), Claude Code, and Codex CLI.
 
 Outfitter does not own a configuration format. Your `.agents/` directory is the source of truth — useful without Outfitter, committed and reviewed like any other code.
 
@@ -34,7 +34,7 @@ outfitter
 ```
 
 Pi is bundled and also hosts Outfitter's setup walkthrough. Install other runtime harnesses, such as
-Claude Code, separately. For the full walkthrough, see [Getting started](./docs/documentation/getting-started.md).
+Claude Code and Codex CLI, separately. For the full walkthrough, see [Getting started](./docs/documentation/getting-started.md).
 
 ## Already have a `.agents/` directory?
 
