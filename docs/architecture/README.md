@@ -251,7 +251,7 @@ Persistent state projection and managed harness symlinks are deferred to [#187](
 
 ### Codex CLI
 
-Outfitter launches `codex`, maps model selection to `-m`, and injects selected MCP servers through repeated TOML-valued `-c mcp_servers.<id>.<key>=...` overrides. The overrides merge with Codex user and project configuration because Codex has no exclusive MCP mode, so every MCP-enabled launch warns that lower-layer servers remain active; `--strict` makes that adapter warning fatal. Pass `exec` through to select Codex's non-interactive subcommand; without it, the normal interactive CLI launches. Other loadout elements remain unsupported and use the normal warning mechanism.
+Outfitter launches `codex`, maps model selection to `-m`, and injects selected MCP servers through repeated TOML-valued `-c mcp_servers.<id>.<key>=...` overrides. The overrides merge with Codex user and project configuration because Codex has no way to run with only the projected MCP servers, so every MCP-enabled launch warns that lower-layer servers remain active; `--strict` makes that adapter warning fatal. Pass `exec` through to select Codex's non-interactive subcommand; without it, the normal interactive CLI launches. Other loadout elements remain unsupported and use the normal warning mechanism.
 
 ## CLI Commands
 

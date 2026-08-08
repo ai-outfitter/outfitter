@@ -455,13 +455,9 @@ const createStartupHeaderLines = (theme, maxWidth) => {
 // Runs the described-option picker when Pi supports custom UI, otherwise falls back to a plain
 // label list, then resolves whichever form's answer back to the chosen item's `value`.
 const selectFromItems = async (ctx, titleLines, items, initialValue) => {
-  const selected =
-    typeof ctx.ui.custom === 'function'
-      ? await selectDescribedOption(ctx, titleLines, items, initialValue)
-      : await ctx.ui.select(
-          titleLines.join('\n'),
-          items.map((item) => item.label),
-        );
+  const selected = typeof ctx.ui.custom === 'function'
+    ? await selectDescribedOption(ctx, titleLines, items, initialValue)
+    : await ctx.ui.select(titleLines.join('\n'), items.map((item) => item.label));
   if (selected === undefined) return undefined;
   return items.some((item) => item.value === selected)
     ? selected

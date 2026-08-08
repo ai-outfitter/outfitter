@@ -88,7 +88,7 @@ Model Context Protocol server configuration from the tree's `mcp.json`.
 
 - Pi name: `mcp.json` in the agent dir
 - Claude name: generated `mcp.json` passed through `--mcp-config` with `--strict-mcp-config`
-- Codex name: repeated TOML-valued `-c mcp_servers.<id>.<key>=...` overrides; additive with user/project configuration because Codex has no strict MCP mode
+- Codex name: repeated TOML-valued `-c mcp_servers.<id>.<key>=...` overrides; additive with user/project configuration because Codex has no way to run with only the projected MCP servers
 
 ### Extensions
 
@@ -191,10 +191,9 @@ The directory from which the inner agent CLI is launched.
 
 Arguments not recognized by Outfitter that are forwarded unmodified to the inner agent CLI.
 
-- Codex uses pass-through `exec` to select its non-interactive subcommand; omitting it retains the interactive launch shape.
-
 - Pi name: native pi CLI args
 - Claude name: native Claude CLI args
+- Codex name: pass-through `exec` selects the non-interactive subcommand; omitting it retains the interactive launch shape
 
 ### Bootstrap Hook
 
@@ -205,28 +204,28 @@ An early-startup customization used to register providers, tools, hooks, or addi
 
 ## Support Matrix
 
-| Controllable Element        | Pi        | Claude    |
-| --------------------------- | --------- | --------- |
-| Agent Config Directory      | Supported | Supported |
-| Session Directory           | Supported | Supported |
-| Personas                    | Supported | Supported |
-| Subagents                   | Supported | Supported |
-| Skills                      | Supported | Partial   |
-| Commands / Prompt Templates | Supported | Partial   |
-| Knowledge                   | Supported | Partial   |
-| Model Selection             | Supported | Partial   |
-| MCP Servers                 | Supported | Supported |
-| Extensions                  | Supported | Roadmap   |
-| Plugins                     | Supported | Roadmap   |
-| Credentials and Environment | Supported | Supported |
-| Tasks                       | Future    | Future    |
-| DeepWork Jobs               | Supported | Roadmap   |
-| Hooks                       | Partial   | Partial   |
-| Tool Availability           | Supported | Supported |
-| Theme / UI Presentation     | Roadmap   | Roadmap   |
-| Working Directory           | Roadmap   | Roadmap   |
-| Pass-through Arguments      | Supported | Supported |
-| Bootstrap Hook              | Supported | Roadmap   |
+| Controllable Element        | Pi        | Claude    | Codex     |
+| --------------------------- | --------- | --------- | --------- |
+| Agent Config Directory      | Supported | Supported | Roadmap   |
+| Session Directory           | Supported | Supported | Roadmap   |
+| Personas                    | Supported | Supported | Roadmap   |
+| Subagents                   | Supported | Supported | Roadmap   |
+| Skills                      | Supported | Partial   | Roadmap   |
+| Commands / Prompt Templates | Supported | Partial   | Roadmap   |
+| Knowledge                   | Supported | Partial   | Roadmap   |
+| Model Selection             | Supported | Partial   | Partial   |
+| MCP Servers                 | Supported | Supported | Partial   |
+| Extensions                  | Supported | Roadmap   | Roadmap   |
+| Plugins                     | Supported | Roadmap   | Roadmap   |
+| Credentials and Environment | Supported | Supported | Roadmap   |
+| Tasks                       | Future    | Future    | Future    |
+| DeepWork Jobs               | Supported | Roadmap   | Roadmap   |
+| Hooks                       | Partial   | Partial   | Roadmap   |
+| Tool Availability           | Supported | Supported | Roadmap   |
+| Theme / UI Presentation     | Roadmap   | Roadmap   | Roadmap   |
+| Working Directory           | Roadmap   | Roadmap   | Roadmap   |
+| Pass-through Arguments      | Supported | Supported | Supported |
+| Bootstrap Hook              | Supported | Roadmap   | Roadmap   |
 
 The user-facing view of this matrix, with per-gap notes, lives in the [adapter support matrix](../documentation/support-matrix.md).
 Unsupported elements warn at runtime; `--strict` makes those warnings fatal.

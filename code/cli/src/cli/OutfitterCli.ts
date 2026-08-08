@@ -24,7 +24,7 @@ export const createOutfitterProgram = (commands: readonly CommandObject[] = crea
 
   program
     .name('outfitter')
-    .description('Resolve, compose, and launch .agents agents in pi, Claude Code, and future harnesses.')
+    .description('Resolve, compose, and launch .agents agents in pi, Claude Code, and Codex CLI.')
     .version(readOutfitterVersion());
 
   for (const command of commands) {

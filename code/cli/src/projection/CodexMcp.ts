@@ -8,11 +8,6 @@ const asRecord = (value: unknown): Readonly<Record<string, unknown>> =>
 const tomlString = (value: string): string => JSON.stringify(value);
 const tomlKey = (value: string): string => (/^[A-Za-z0-9_-]+$/u.test(value) ? value : tomlString(value));
 
-const stringRecord = (value: unknown): Readonly<Record<string, string>> =>
-  Object.fromEntries(
-    Object.entries(asRecord(value)).filter((entry): entry is [string, string] => typeof entry[1] === 'string'),
-  );
-
 const tomlInlineTable = (value: Readonly<Record<string, string>>): string =>
   `{ ${Object.entries(value)
     .sort(([left], [right]) => left.localeCompare(right))
@@ -27,15 +22,21 @@ const bearerTokenReference = (header: string, value: string): string | undefined
 const override = (key: string, value: string): readonly string[] => ['-c', `${key}=${value}`];
 
 const projectHttpServer = (
+  id: string,
   prefix: string,
   url: string,
   server: Readonly<Record<string, unknown>>,
+  warnings: string[],
 ): readonly string[] => {
   const args = [...override(`${prefix}.url`, tomlString(url))];
   const literalHeaders: Record<string, string> = {};
   const environmentHeaders: Record<string, string> = {};
   let bearerTokenEnvironment: string | undefined;
-  for (const [header, value] of Object.entries(stringRecord(server.headers))) {
+  for (const [header, value] of Object.entries(asRecord(server.headers))) {
+    if (typeof value !== 'string') {
+      warnings.push(`codex adapter dropped non-string MCP header '${header}' from server '${id}'.`);
+      continue;
+    }
     const bearerToken = bearerTokenReference(header, value);
     const environment = environmentReference(value);
     if (bearerToken !== undefined) bearerTokenEnvironment = bearerToken;
@@ -55,18 +56,51 @@ const projectHttpServer = (
 };
 
 const projectStdioServer = (
+  id: string,
   prefix: string,
   command: string,
   server: Readonly<Record<string, unknown>>,
+  warnings: string[],
 ): readonly string[] => {
   const args = [...override(`${prefix}.command`, tomlString(command))];
   if (Array.isArray(server.args)) {
-    const commandArgs = server.args.filter((value): value is string => typeof value === 'string');
+    const commandArgs: string[] = [];
+    for (const [index, value] of server.args.entries()) {
+      if (typeof value === 'string') commandArgs.push(value);
+      else warnings.push(`codex adapter dropped non-string MCP arg at index ${index} from server '${id}'.`);
+    }
     args.push(...override(`${prefix}.args`, `[${commandArgs.map(tomlString).join(', ')}]`));
   }
-  const environment = stringRecord(server.env);
-  if (Object.keys(environment).length > 0) {
-    args.push(...override(`${prefix}.env`, tomlInlineTable(environment)));
+  const literalEnvironment: Record<string, string> = {};
+  const environmentVariables: string[] = [];
+  for (const [name, value] of Object.entries(asRecord(server.env))) {
+    if (typeof value !== 'string') {
+      warnings.push(`codex adapter dropped non-string MCP env entry '${name}' from server '${id}'.`);
+      continue;
+    }
+    const environment = environmentReference(value);
+    if (environment === undefined) {
+      literalEnvironment[name] = value;
+      warnings.push(
+        `codex MCP server '${id}' env entry '${name}' is literal and will be visible in process arguments.`,
+      );
+    } else {
+      environmentVariables.push(environment);
+    }
+  }
+  if (Object.keys(literalEnvironment).length > 0) {
+    args.push(...override(`${prefix}.env`, tomlInlineTable(literalEnvironment)));
+  }
+  if (environmentVariables.length > 0) {
+    args.push(
+      ...override(
+        `${prefix}.env_vars`,
+        `[${environmentVariables
+          .sort((left, right) => left.localeCompare(right))
+          .map(tomlString)
+          .join(', ')}]`,
+      ),
+    );
   }
   if (typeof server.cwd === 'string') args.push(...override(`${prefix}.cwd`, tomlString(server.cwd)));
   return args;
@@ -101,12 +135,12 @@ export const projectCodexMcpServers = (
     const prefix = `mcp_servers.${tomlKey(id)}`;
 
     if (typeof server.url === 'string') {
-      args.push(...projectHttpServer(prefix, server.url, server));
+      args.push(...projectHttpServer(id, prefix, server.url, server, warnings));
       continue;
     }
 
     if (typeof server.command === 'string') {
-      args.push(...projectStdioServer(prefix, server.command, server));
+      args.push(...projectStdioServer(id, prefix, server.command, server, warnings));
       continue;
     }
 

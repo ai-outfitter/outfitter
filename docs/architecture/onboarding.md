@@ -25,7 +25,7 @@ The selected branch follows the original order:
   original provided-source path.
 
 Exactly one screen is appended: **Which CLI agent should Outfitter use by default?** Pi/Outfitter is
-the first, preselected recommendation; Claude Code is the other currently runnable adapter.
+the first, preselected recommendation; Claude Code and Codex CLI are the other currently runnable adapters.
 
 ## Runtime flow
 

@@ -103,8 +103,8 @@ const promptArgs = (
 
 // Split from the thinking flag so each builder states positively what it emits: codex reports
 // `thinking` unsupported, and reporting an element unsupported does not by itself suppress it.
-const modelArg = (composition: CompositionPlan, harness: Harness): readonly string[] =>
-  composition.loadout.model === undefined ? [] : [harness === 'codex' ? '-m' : '--model', composition.loadout.model];
+const modelArg = (composition: CompositionPlan, flag: '-m' | '--model'): readonly string[] =>
+  composition.loadout.model === undefined ? [] : [flag, composition.loadout.model];
 
 const thinkingArg = (composition: CompositionPlan, harness: Harness): readonly string[] =>
   composition.loadout.thinking === undefined
@@ -119,7 +119,7 @@ const buildCodexLaunchPlan = (
   codexMcpArgs: readonly string[],
 ): AgentLaunchPlan => ({
   command: 'codex',
-  args: [...codexMcpArgs, ...modelArg(composition, input.harness), ...(input.passThroughArgs ?? [])],
+  args: [...codexMcpArgs, ...modelArg(composition, '-m'), ...(input.passThroughArgs ?? [])],
   env: {},
 });
 
@@ -148,7 +148,7 @@ const buildPiOrClaudeLaunchPlan = (
       ...promptArgs(composition, input, materialized.systemPromptPath, appendPromptPaths),
       ...skillArgs,
       ...extensionArgs,
-      ...modelArg(composition, input.harness),
+      ...modelArg(composition, '--model'),
       ...thinkingArg(composition, input.harness),
       ...(isPi ? [] : claudeMcpArgs(materialized.mcpConfigPath)),
       ...(input.passThroughArgs ?? []),
@@ -183,7 +183,14 @@ export const projectComposition = (composition: CompositionPlan, input: Projecti
   if (input.harness === 'codex') {
     const codexMcp = projectCodexMcpServers(composition.loadout.mcp, composition.loadout.mcpServers);
     const launch = buildCodexLaunchPlan(composition, input, codexMcp.args);
-    return { rootDirectory: input.rootDirectory, launch, unsupported, warnings: codexMcp.warnings };
+    const warnings = [
+      'codex adapter does not project agent identity or the composed system prompt.',
+      ...(input.appendPromptPaths?.length
+        ? ['codex adapter does not project supplied append-prompt documents; they will be dropped.']
+        : []),
+      ...codexMcp.warnings,
+    ];
+    return { rootDirectory: input.rootDirectory, launch, unsupported, warnings };
   }
 
   // Caller documents follow the composition's own, so a persona is read against the agent it adopts.

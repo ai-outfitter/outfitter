@@ -68,6 +68,9 @@ describe('projectComposition Codex MCP projection', () => {
     expect(projection.warnings).toContain(
       'codex MCP projection is additive: user and project MCP servers remain active because Codex has no strict isolation mode.',
     );
+    expect(projection.warnings).toContain(
+      "codex adapter dropped non-string MCP header 'Ignored' from server 'remote.github'.",
+    );
     expect(projection.unsupported).not.toContain('mcp');
   });
 
@@ -80,7 +83,7 @@ describe('projectComposition Codex MCP projection', () => {
         local: {
           command: 'node',
           args: ['server.js', '--stdio', 3],
-          env: { MODE: 'test', Ignored: false },
+          env: { MODE: 'test', MCP_TOKEN: '${MCP_TOKEN}', Ignored: false },
           cwd: '/workspace',
         },
       }),
@@ -97,10 +100,18 @@ describe('projectComposition Codex MCP projection', () => {
       'mcp_servers.local.command="node"',
       'mcp_servers.local.args=["server.js", "--stdio"]',
       'mcp_servers.local.env={ "MODE" = "test" }',
+      'mcp_servers.local.env_vars=["MCP_TOKEN"]',
       'mcp_servers.local.cwd="/workspace"',
     ]);
     expect(projection.launch.args.slice(-2)).toEqual(['exec', 'review this tree']);
     expect(projection.launch.env).toEqual({});
+    expect(projection.warnings).toEqual(
+      expect.arrayContaining([
+        "codex adapter dropped non-string MCP arg at index 2 from server 'local'.",
+        "codex MCP server 'local' env entry 'MODE' is literal and will be visible in process arguments.",
+        "codex adapter dropped non-string MCP env entry 'Ignored' from server 'local'.",
+      ]),
+    );
   });
 
   it('warns for a selected MCP definition Codex cannot translate', () => {
@@ -116,6 +127,8 @@ describe('projectComposition Codex MCP projection', () => {
     );
   });
 
+  // THIS TEST VALIDATES HARD REQUIREMENTS (OFTR-006.6.2 AND OFTR-006.6.6).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENTS CHANGE.
   it('maps only model and MCP and reports the rest of the Codex loadout unsupported', () => {
     const directory = root();
     const base = plan({}, []);
@@ -135,12 +148,20 @@ describe('projectComposition Codex MCP projection', () => {
           plugins: ['plugin'],
         },
       },
-      { harness: 'codex', rootDirectory: directory, homeDirectory: directory },
+      {
+        harness: 'codex',
+        rootDirectory: directory,
+        homeDirectory: directory,
+        appendPromptPaths: ['/caller-prompt.md'],
+      },
     );
 
     expect(projection.launch.args).toEqual(['-m', 'gpt-5']);
     expect(projection.unsupported).toEqual(['extensions', 'plugins', 'thinking', 'tools', 'prompt_template']);
-    expect(projection.warnings).toEqual([]);
+    expect(projection.warnings).toEqual([
+      'codex adapter does not project agent identity or the composed system prompt.',
+      'codex adapter does not project supplied append-prompt documents; they will be dropped.',
+    ]);
   });
 
   it('omits optional empty HTTP and stdio fields', () => {
