@@ -16,7 +16,7 @@ export interface ResolveResult {
   /** The merged settings loaded during resolution, so callers need not reload them. */
   readonly settings: Settings;
   readonly settingsIssues: readonly SettingsLoadIssue[];
-  /** Non-fatal `outfitter sync` guidance for configured remote sources with no cache. */
+  /** Non-fatal guidance: uncached remote sources plus transitive-source skip warnings. */
   readonly warnings: readonly string[];
 }
 
@@ -29,6 +29,6 @@ export const resolveEffectiveSet = (input: ResolveInput): ResolveResult => {
     set: resolveResources(discovered.layers),
     settings: loadedSettings.settings,
     settingsIssues: loadedSettings.issues,
-    warnings: discovered.unsynchronized,
+    warnings: [...discovered.unsynchronized, ...discovered.warnings],
   };
 };

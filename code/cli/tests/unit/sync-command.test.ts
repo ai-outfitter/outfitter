@@ -8,6 +8,7 @@ import { Command } from 'commander';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { createSyncCommand, executeSyncCommand } from '../../src/cli/commands/SyncCommand.js';
+import { syncRemoteRepositoryAtomically } from '../../src/sources/GitRepository.js';
 import { createEnterprisePrivateCatalogGate } from '../../src/sources/PrivateCatalogGate.js';
 import { createRemoteRepositoryCachePath } from '../../src/sources/SourceCache.js';
 
@@ -449,5 +450,204 @@ describe('remote fetch hardening', () => {
 
     expect(result.results[0]?.status).toBe('updated');
     expect(git(['-C', result.results[0].cachePath, 'rev-parse', 'HEAD'])).toBe(defaultCommit);
+  });
+});
+
+describe('transitive source synchronization', () => {
+  const tag = (repository: string, name: string): void => {
+    git(['-C', repository, 'tag', name]);
+  };
+
+  // Transitive sources are `github:`-only (OFTR-004.6.4), which would resolve to github.com. A fake
+  // repository sync maps each `github:` owner/repo to a local fixture repository so the closure is
+  // exercised hermetically; `uri:` sources (only ever direct here) fall through to the real fetch.
+  const githubFixtureSync =
+    (fixtures: Readonly<Record<string, string>>): typeof syncRemoteRepositoryAtomically =>
+    (syncInput) => {
+      if (syncInput.source.github === undefined) return syncRemoteRepositoryAtomically(syncInput);
+      const localRepository = fixtures[syncInput.source.github];
+      if (localRepository === undefined) throw new Error(`No fixture for github:${syncInput.source.github}`);
+      return syncRemoteRepositoryAtomically({
+        ...syncInput,
+        source: { uri: localRepository, ref: syncInput.source.ref },
+      });
+    };
+
+  // A classifier that never calls the network; `public` sources always pass the private-catalog gate.
+  const publicClassifier = { classifier: { classify: () => 'public' as const } };
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-004.6.1, OFTR-004.6.7).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('fetches github: sources declared by synced catalogs until no new sources remain', () => {
+    const input = createInvocation();
+    const depthTwo = createRepository({ 'agents/leaf/agent.md': agent('leaf') });
+    tag(depthTwo.root, 'v1.0.0');
+    const depthOne = createRepository({
+      'agents/middle/agent.md': agent('middle'),
+      'settings.yml': `sources:\n  - github: acme/leaf\n    ref: v1.0.0\n`,
+    });
+    tag(depthOne.root, 'v1.0.0');
+    const direct = createRepository({
+      'agents/top/agent.md': agent('top'),
+      'settings.yml': `sources:\n  - github: acme/middle\n    ref: v1.0.0\n`,
+    });
+    writeHomeSettings(input.homeDirectory, `sources:\n  - uri: ${JSON.stringify(direct.root)}\n`);
+    const dependencies = {
+      ...publicClassifier,
+      syncRepository: githubFixtureSync({ 'acme/middle': depthOne.root, 'acme/leaf': depthTwo.root }),
+    };
+
+    const first = executeSyncCommand(input, dependencies);
+
+    expect(first.exitCode).toBe(0);
+    expect(first.results.map(({ kind, status }) => ({ kind, status }))).toEqual([
+      { kind: 'source', status: 'updated' },
+      { kind: 'transitive', status: 'updated' },
+      { kind: 'transitive', status: 'updated' },
+    ]);
+    const leafCache = createRemoteRepositoryCachePath(input.homeDirectory, { github: 'acme/leaf', ref: 'v1.0.0' });
+    expect(existsSync(join(leafCache, 'agents', 'leaf', 'agent.md'))).toBe(true);
+
+    const second = executeSyncCommand(input, dependencies);
+    expect(second.results.map((result) => result.status)).toEqual(['unchanged', 'unchanged', 'unchanged']);
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-004.6.4).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('warns and skips a declared uri: source instead of fetching it', () => {
+    const input = createInvocation();
+    const dependency = createRepository({ 'agents/dep/agent.md': agent('dep') });
+    const direct = createRepository({
+      'agents/top/agent.md': agent('top'),
+      'settings.yml': `sources:\n  - uri: ${JSON.stringify(dependency.root)}\n    ref: v1.0.0\n`,
+    });
+    writeHomeSettings(input.homeDirectory, `sources:\n  - uri: ${JSON.stringify(direct.root)}\n`);
+
+    const result = executeSyncCommand(input);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.results.map((entry) => entry.kind)).toEqual(['source']);
+    expect(result.messages.join('\n')).toContain("'github:' shorthands");
+    expect(
+      existsSync(createRemoteRepositoryCachePath(input.homeDirectory, { uri: dependency.root, ref: 'v1.0.0' })),
+    ).toBe(false);
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-004.6.4).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('warns and skips a declared github: source that carries a path: subpath', () => {
+    const input = createInvocation();
+    const direct = createRepository({
+      'agents/top/agent.md': agent('top'),
+      'settings.yml': `sources:\n  - github: acme/dep\n    ref: v1.0.0\n    path: sub\n`,
+    });
+    writeHomeSettings(input.homeDirectory, `sources:\n  - uri: ${JSON.stringify(direct.root)}\n`);
+
+    const result = executeSyncCommand(input);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.results.map((entry) => entry.kind)).toEqual(['source']);
+    expect(result.messages.join('\n')).toContain('subpath');
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-004.6.6).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('never re-fetches a source that is already directly configured', () => {
+    const input = createInvocation();
+    const dependency = createRepository({ 'agents/dep/agent.md': agent('dep') });
+    tag(dependency.root, 'v1.0.0');
+    const direct = createRepository({
+      'agents/top/agent.md': agent('top'),
+      'settings.yml': `sources:\n  - github: acme/dep\n    ref: v1.0.0\n`,
+    });
+    writeHomeSettings(
+      input.homeDirectory,
+      `sources:\n  - uri: ${JSON.stringify(direct.root)}\n  - github: acme/dep\n    ref: v1.0.0\n`,
+    );
+    const dependencies = { ...publicClassifier, syncRepository: githubFixtureSync({ 'acme/dep': dependency.root }) };
+
+    const result = executeSyncCommand(input, dependencies);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.results.map((entry) => entry.kind)).toEqual(['source', 'source']);
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-004.6.7).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('reports a failed transitive fetch with the standard status vocabulary and exits nonzero', () => {
+    const input = createInvocation();
+    const direct = createRepository({
+      'agents/top/agent.md': agent('top'),
+      'settings.yml': `sources:\n  - github: acme/broken\n    ref: v1.0.0\n`,
+    });
+    writeHomeSettings(input.homeDirectory, `sources:\n  - uri: ${JSON.stringify(direct.root)}\n`);
+    const dependencies = { ...publicClassifier, syncRepository: githubFixtureSync({}) };
+
+    const result = executeSyncCommand(input, dependencies);
+
+    expect(result.exitCode).toBe(1);
+    expect(result.results.map(({ kind, status }) => ({ kind, status }))).toEqual([
+      { kind: 'source', status: 'updated' },
+      { kind: 'transitive', status: 'failed' },
+    ]);
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-004.6.7).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('does not crash when a preserved-cache source is reconfigured with an escaping path', () => {
+    const input = createInvocation();
+    const top = createRepository({ 'agents/top/agent.md': agent('top') });
+    tag(top.root, 'v1.0.0');
+    const fixtures = { 'acme/top': top.root };
+
+    // First sync caches acme/top at its path-less cache key.
+    writeHomeSettings(input.homeDirectory, `sources:\n  - github: acme/top\n    ref: v1.0.0\n`);
+    executeSyncCommand(input, { ...publicClassifier, syncRepository: githubFixtureSync(fixtures) });
+
+    // Reconfigure the same repo+ref with a path escaping the checkout. The refresh's validation
+    // throws, the path-less cache is preserved and re-admitted for traversal, and resolving the
+    // escaping payload root must be skipped (not crash the closure).
+    writeHomeSettings(input.homeDirectory, `sources:\n  - github: acme/top\n    ref: v1.0.0\n    path: ../escape\n`);
+    const second = executeSyncCommand(input, { ...publicClassifier, syncRepository: githubFixtureSync(fixtures) });
+
+    expect(second.exitCode).toBe(1);
+    expect(second.results.map(({ kind, status }) => ({ kind, status }))).toEqual([
+      { kind: 'source', status: 'failed' },
+    ]);
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-004.6.7).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('still discovers dependencies from a catalog whose refresh failed but whose cache is preserved', () => {
+    const input = createInvocation();
+    const dependency = createRepository({ 'agents/dep/agent.md': agent('dep') });
+    tag(dependency.root, 'v1.0.0');
+    const top = createRepository({
+      'agents/top/agent.md': agent('top'),
+      'settings.yml': `sources:\n  - github: acme/dep\n    ref: v1.0.0\n`,
+    });
+    tag(top.root, 'v1.0.0');
+    writeHomeSettings(input.homeDirectory, `sources:\n  - github: acme/top\n    ref: v1.0.0\n`);
+    const fixtures = { 'acme/top': top.root, 'acme/dep': dependency.root };
+
+    // First sync populates both caches.
+    const first = executeSyncCommand(input, { ...publicClassifier, syncRepository: githubFixtureSync(fixtures) });
+    expect(first.results.map((entry) => entry.status)).toEqual(['updated', 'updated']);
+
+    // Second sync: refreshing acme/top throws, but its prior valid checkout is preserved on disk, so
+    // resolution keeps using it — and its declared dependency acme/dep must still be discovered.
+    const second = executeSyncCommand(input, {
+      ...publicClassifier,
+      syncRepository: (syncInput) => {
+        if (syncInput.source.github === 'acme/top') throw new Error('refresh failed');
+        return githubFixtureSync(fixtures)(syncInput);
+      },
+    });
+
+    expect(second.exitCode).toBe(1);
+    expect(second.results.map(({ kind, status }) => ({ kind, status }))).toEqual([
+      { kind: 'source', status: 'failed' },
+      { kind: 'transitive', status: 'unchanged' },
+    ]);
   });
 });
