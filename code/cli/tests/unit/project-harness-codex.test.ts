@@ -128,6 +128,37 @@ describe('projectComposition Codex MCP projection', () => {
     );
   });
 
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-006.6.3).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('projects a stdio server with an explicit transport type', () => {
+    const directory = root();
+    const projection = projectComposition(plan({ local: { type: 'stdio', command: 'server' } }), {
+      harness: 'codex',
+      rootDirectory: directory,
+      homeDirectory: directory,
+    });
+
+    expect(overrideValues(projection.launch.args)).toEqual(['mcp_servers.local.command="server"']);
+    expect(projection.warnings).not.toContain(
+      "codex adapter cannot project MCP server 'local': transport 'stdio' is unsupported.",
+    );
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-006.6.3).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('warns and omits a stdio environment reference that renames the source variable', () => {
+    const directory = root();
+    const projection = projectComposition(
+      plan({ local: { command: 'server', env: { GH_TOKEN: '${GITHUB_TOKEN}' } } }),
+      { harness: 'codex', rootDirectory: directory, homeDirectory: directory },
+    );
+
+    expect(overrideValues(projection.launch.args)).toEqual(['mcp_servers.local.command="server"']);
+    expect(projection.warnings).toContain(
+      "codex adapter cannot project MCP server 'local' env entry 'GH_TOKEN': environment reference '${GITHUB_TOKEN}' would rename 'GITHUB_TOKEN'.",
+    );
+  });
+
   it('warns instead of projecting a legacy SSE HTTP server', () => {
     const directory = root();
     const projection = projectComposition(plan({ legacy: { type: 'sse', url: 'https://example.test/sse' } }), {

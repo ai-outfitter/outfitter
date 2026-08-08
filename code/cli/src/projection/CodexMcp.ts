@@ -18,8 +18,37 @@ const environmentReference = (value: string): string | undefined =>
   /^\$\{([A-Za-z_][A-Za-z0-9_]*)\}$/u.exec(value)?.[1];
 const bearerTokenReference = (header: string, value: string): string | undefined =>
   header.toLowerCase() === 'authorization' ? /^Bearer \$\{([A-Za-z_][A-Za-z0-9_]*)\}$/iu.exec(value)?.[1] : undefined;
+const supportedTransport = (value: unknown): boolean =>
+  value === undefined || value === 'stdio' || value === 'http' || value === 'streamable-http';
 
 const override = (key: string, value: string): readonly string[] => ['-c', `${key}=${value}`];
+
+const projectStdioEnvironmentEntry = (
+  id: string,
+  name: string,
+  value: unknown,
+  literalEnvironment: Record<string, string>,
+  environmentVariables: string[],
+  warnings: string[],
+): void => {
+  if (typeof value !== 'string') {
+    warnings.push(`codex adapter dropped non-string MCP env entry '${name}' from server '${id}'.`);
+    return;
+  }
+  const environment = environmentReference(value);
+  if (environment === undefined) {
+    literalEnvironment[name] = value;
+    warnings.push(`codex MCP server '${id}' env entry '${name}' is literal and will be visible in process arguments.`);
+    return;
+  }
+  if (name === environment) {
+    environmentVariables.push(environment);
+    return;
+  }
+  warnings.push(
+    `codex adapter cannot project MCP server '${id}' env entry '${name}': environment reference '${value}' would rename '${environment}'.`,
+  );
+};
 
 const projectHttpServer = (
   id: string,
@@ -76,19 +105,7 @@ const projectStdioServer = (
   const literalEnvironment: Record<string, string> = {};
   const environmentVariables: string[] = [];
   for (const [name, value] of Object.entries(asRecord(server.env))) {
-    if (typeof value !== 'string') {
-      warnings.push(`codex adapter dropped non-string MCP env entry '${name}' from server '${id}'.`);
-      continue;
-    }
-    const environment = environmentReference(value);
-    if (environment === undefined) {
-      literalEnvironment[name] = value;
-      warnings.push(
-        `codex MCP server '${id}' env entry '${name}' is literal and will be visible in process arguments.`,
-      );
-    } else {
-      environmentVariables.push(environment);
-    }
+    projectStdioEnvironmentEntry(id, name, value, literalEnvironment, environmentVariables, warnings);
   }
   if (Object.keys(literalEnvironment).length > 0) {
     args.push(...override(`${prefix}.env`, tomlInlineTable(literalEnvironment)));
@@ -136,7 +153,7 @@ export const projectCodexMcpServers = (
     const server = asRecord(servers[id]);
     const prefix = `mcp_servers.${tomlKey(id)}`;
 
-    if (server.type !== undefined && server.type !== 'http' && server.type !== 'streamable-http') {
+    if (!supportedTransport(server.type)) {
       const transport =
         typeof server.type === 'string' ? server.type : (JSON.stringify(server.type) ?? typeof server.type);
       warnings.push(`codex adapter cannot project MCP server '${id}': transport '${transport}' is unsupported.`);

@@ -3,9 +3,10 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 
+import { Command } from 'commander';
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { executeRunAgentCommand } from '../../src/cli/commands/RunAgentCommand.js';
+import { createRunAgentCommand, executeRunAgentCommand } from '../../src/cli/commands/RunAgentCommand.js';
 import type { AgentLaunchPlan } from '../../src/projection/Projection.js';
 
 const roots: string[] = [];
@@ -72,6 +73,8 @@ describe('run agent with Codex MCP', () => {
     expect(launches).toBe(1);
   });
 
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-006.1.4).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('makes the structured identity gap fatal under strict mode without MCP', async () => {
     const directory = root();
     const homeDirectory = join(directory, 'home');
@@ -97,5 +100,39 @@ describe('run agent with Codex MCP', () => {
       'codex MCP projection is additive: user and project MCP servers remain active because Codex has no strict isolation mode.',
     );
     expect(launches).toBe(0);
+  });
+
+  // THIS TEST VALIDATES HARD REQUIREMENTS (OFTR-005.1.3, OFTR-005.1.6, OFTR-006.1.4).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENTS CHANGE.
+  it('accepts codex through Commander and makes its warning fatal under strict mode', async () => {
+    const directory = root();
+    const homeDirectory = join(directory, 'home');
+    const projectDirectory = join(directory, 'project');
+    write(join(projectDirectory, '.agents', 'agents', 'engineer', 'agent.md'), '---\nname: engineer\n---\n\nBody.\n');
+    const lines: string[] = [];
+    let launches = 0;
+    const previousExitCode = process.exitCode;
+
+    try {
+      process.exitCode = undefined;
+      const program = new Command();
+      createRunAgentCommand({
+        homeDirectory,
+        projectDirectory,
+        launcher: () => {
+          launches += 1;
+          return Promise.resolve(0);
+        },
+        writeLine: (message) => lines.push(message),
+      }).register(program);
+
+      await program.parseAsync(['node', 'outfitter', 'run', 'engineer', '--harness', 'codex', '--strict']);
+
+      expect(lines).toContain("harness 'codex' cannot project loadout element 'identity'.");
+      expect(process.exitCode).toBe(1);
+      expect(launches).toBe(0);
+    } finally {
+      process.exitCode = previousExitCode;
+    }
   });
 });

@@ -125,7 +125,7 @@ describe('projectComposition Claude MCP projection', () => {
     );
 
     expect(projection.launch.args).toEqual(
-      expect.arrayContaining(['--mcp-config', join(dir, 'mcp.json'), '--strict-mcp-config']),
+      expect.arrayContaining(['--mcp-config', join(dir, 'claude-mcp.json'), '--strict-mcp-config']),
     );
     expect(projection.unsupported).not.toContain('mcp');
   });
@@ -141,9 +141,9 @@ describe('projectComposition Claude MCP projection', () => {
     });
 
     expect(projection.launch.args).toEqual(
-      expect.arrayContaining(['--mcp-config', join(dir, 'mcp.json'), '--strict-mcp-config']),
+      expect.arrayContaining(['--mcp-config', join(dir, 'claude-mcp.json'), '--strict-mcp-config']),
     );
-    expect(JSON.parse(readFileSync(join(dir, 'mcp.json'), 'utf8'))).toEqual({ mcpServers: {} });
+    expect(JSON.parse(readFileSync(join(dir, 'claude-mcp.json'), 'utf8'))).toEqual({ mcpServers: {} });
   });
 });
 
@@ -416,6 +416,26 @@ describe('projectComposition native configuration overlays', () => {
 
     expect(readFileSync(join(dir, 'agent.md'), 'utf8')).toBe('Body.');
     expect(readFileSync(join(dir, 'skills', 'extra', 'note.md'), 'utf8')).toBe('native extra');
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-006.3.17).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('preserves an overlay MCP config when the composition selects no servers', () => {
+    const dir = root();
+    const overlay = root();
+    writeFileSync(join(overlay, 'mcp.json'), '{"mcpServers":{"native":{"command":"native-mcp"}}}');
+
+    projectComposition(planWith([]), {
+      harness: 'pi',
+      rootDirectory: dir,
+      homeDirectory: dir,
+      extensionLoadDirs: [],
+      configurationOverlayDirectories: [overlay],
+    });
+
+    expect(JSON.parse(readFileSync(join(dir, 'mcp.json'), 'utf8'))).toEqual({
+      mcpServers: { native: { command: 'native-mcp' } },
+    });
   });
 
   it('lets a higher-precedence overlay replace a file with a directory and a directory with a file', () => {

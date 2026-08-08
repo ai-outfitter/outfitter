@@ -18,7 +18,7 @@ export interface MaterializedComposition {
   readonly appendPromptPaths: readonly string[];
   /** Absolute paths to materialized skill directories, in slug order. */
   readonly skillDirectories: readonly string[];
-  /** Absolute path to the generated MCP config. */
+  /** Absolute path to the generated isolated Claude MCP config. */
   readonly mcpConfigPath: string;
   /** Skills that could not be materialized safely (escaping symlinks). */
   readonly skippedSkills: readonly string[];
@@ -249,8 +249,12 @@ export const materializeComposition = (
     rootDirectory,
   );
 
-  const mcpConfigPath = join(rootDirectory, 'mcp.json');
-  writeGeneratedFile(mcpConfigPath, `${JSON.stringify({ mcpServers: composition.loadout.mcpServers }, null, 2)}\n`);
+  const serializedMcp = `${JSON.stringify({ mcpServers: composition.loadout.mcpServers }, null, 2)}\n`;
+  if (composition.loadout.mcp.length > 0) {
+    writeGeneratedFile(join(rootDirectory, 'mcp.json'), serializedMcp);
+  }
+  const mcpConfigPath = join(rootDirectory, 'claude-mcp.json');
+  writeGeneratedFile(mcpConfigPath, serializedMcp);
 
   return {
     rootDirectory,
