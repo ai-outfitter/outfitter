@@ -4,11 +4,13 @@ import { join } from 'node:path';
 
 import {
   createRemoteRepositoryCachePath,
+  encodeRemoteSourceSelection,
   formatRemoteSourceDisplay,
   isRemoteSource,
-  resolveRemoteRepositorySubpath,
+  resolveSourcePayloadRoot,
 } from '../sources/SourceCache.js';
 import type { RemoteSourceReference } from '../sources/SourceCache.js';
+import { expandTransitiveSources } from '../sources/TransitiveSources.js';
 import type { Settings, SourceReference } from '../settings/Settings.js';
 import type { Layer } from './Resource.js';
 
@@ -25,7 +27,7 @@ const agentsRoot = (directory: string): string => join(directory, '.agents');
  * it. `outfitter sync` reuses this against its temporary checkout so both agree on the payload root.
  */
 export const remoteSourceLayer = (repositoryPath: string, source: RemoteSourceReference): Layer => ({
-  root: source.path === undefined ? repositoryPath : resolveRemoteRepositorySubpath(repositoryPath, source.path),
+  root: resolveSourcePayloadRoot(repositoryPath, source),
   origin: 'source',
   label: formatRemoteSourceDisplay(source),
 });
@@ -47,11 +49,14 @@ export interface LayerDiscoveryResult {
    * would deadlock every other command behind advice the user cannot act on (OFTR-004.2.15).
    */
   readonly unsynchronized: readonly string[];
+  /** Non-fatal transitive-source skip warnings (unpinned refs, path sources, invalid settings). */
+  readonly warnings: readonly string[];
 }
 
 /**
- * Orders layers highest precedence first: workspace `.agents`, then global `~/.agents`,
- * then configured sources in order. Only layers whose root exists on disk are included.
+ * Orders layers highest precedence first: workspace `.agents`, then global `~/.agents`, then
+ * configured sources in order, then transitive sources those catalogs declare, breadth-first
+ * (OFTR-004.6.1, OFTR-004.6.3). Only layers whose root exists on disk are included.
  */
 export const discoverLayers = (input: LayerDiscoveryInput): LayerDiscoveryResult => {
   const candidates: Layer[] = [
@@ -59,17 +64,56 @@ export const discoverLayers = (input: LayerDiscoveryInput): LayerDiscoveryResult
     { root: agentsRoot(input.homeDirectory), origin: 'global', label: 'global' },
   ];
   const unsynchronized: string[] = [];
+  const invalid: string[] = [];
 
-  for (const source of input.settings.sources ?? []) {
-    const layer = sourceLayer(input, source);
+  const appendSourceLayer = (source: SourceReference): void => {
+    // An absolute or escaping `path:` makes payload-root resolution throw; skip the source with a
+    // warning rather than crash every resolve command (list/validate/run/dump).
+    let layer: Layer;
+    try {
+      layer = sourceLayer(input, source);
+    } catch {
+      invalid.push(
+        `Configured source '${isRemoteSource(source) ? formatRemoteSourceDisplay(source) : source.path}' has an invalid path and was skipped.`,
+      );
+      return;
+    }
     if (isRemoteSource(source) && !existsSync(layer.root)) {
       unsynchronized.push(
         `Configured remote source '${layer.label}' is not synchronized at '${layer.root}'. Run 'outfitter sync' to fetch it.`,
       );
-      continue;
+      return;
     }
     candidates.push(layer);
+  };
+
+  // Deduplicate exact-duplicate configured sources so an identical entry listed twice yields one
+  // layer, not a self-shadowing pair (OFTR-004.6.6). Distinct subpaths stay distinct (path-aware).
+  const seenSources = new Set<string>();
+  const directSources = (input.settings.sources ?? []).filter((source) => {
+    const key = isRemoteSource(source) ? encodeRemoteSourceSelection(source) : `path\0${source.path}`;
+    if (seenSources.has(key)) return false;
+    seenSources.add(key);
+    return true;
+  });
+  for (const source of directSources) {
+    appendSourceLayer(source);
   }
 
-  return { layers: candidates.filter((layer) => existsSync(layer.root)), unsynchronized };
+  const expansion = expandTransitiveSources({
+    directSources,
+    resolveCachedCheckoutRoot: (source) => {
+      const checkoutRoot = createRemoteRepositoryCachePath(input.homeDirectory, source, input.settings.cacheDirectory);
+      return existsSync(checkoutRoot) ? checkoutRoot : undefined;
+    },
+  });
+  for (const transitive of expansion.sources) {
+    appendSourceLayer(transitive.source);
+  }
+
+  return {
+    layers: candidates.filter((layer) => existsSync(layer.root)),
+    unsynchronized,
+    warnings: [...invalid, ...expansion.warnings],
+  };
 };
