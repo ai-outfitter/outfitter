@@ -119,7 +119,7 @@ const buildCodexLaunchPlan = (
   codexMcpArgs: readonly string[],
 ): AgentLaunchPlan => ({
   command: 'codex',
-  // Codex CLI 0.145.0 lists `-c` and `-m` on both root and `exec --help`; root placement is valid.
+  // Root `-m` propagation through `exec` was verified empirically on codex-cli 0.145.0.
   args: [...codexMcpArgs, ...modelArg(composition, '-m'), ...(input.passThroughArgs ?? [])],
   env: {},
 });
@@ -154,7 +154,7 @@ const buildPiOrClaudeLaunchPlan = (
       ...extensionArgs,
       ...modelArg(composition, '--model'),
       ...thinkingArg(composition, input.harness),
-      ...(isPi ? [] : claudeMcpArgs(materialized.mcpConfigPath)),
+      ...(isPi ? [] : claudeMcpArgs(join(input.rootDirectory, 'mcp.json'))),
       ...(input.passThroughArgs ?? []),
     ],
     // The projection root is deleted after the run, so pi's default session store (a subdirectory
@@ -194,6 +194,15 @@ export const projectComposition = (composition: CompositionPlan, input: Projecti
       ...codexMcp.warnings,
     ];
     return { rootDirectory: input.rootDirectory, launch, unsupported, warnings };
+  }
+
+  if (input.harness === 'claude') {
+    // Claude always receives an explicit config, including an empty one, so strict mode excludes
+    // every user, project, `.claude.json`, and plugin MCP source from the launched composition.
+    writeFileSync(
+      join(input.rootDirectory, 'mcp.json'),
+      `${JSON.stringify({ mcpServers: composition.loadout.mcpServers }, null, 2)}\n`,
+    );
   }
 
   // Caller documents follow the composition's own, so a persona is read against the agent it adopts.

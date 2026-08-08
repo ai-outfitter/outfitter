@@ -6,7 +6,8 @@ const asRecord = (value: unknown): Readonly<Record<string, unknown>> =>
     : {};
 
 const tomlString = (value: string): string => JSON.stringify(value);
-const tomlKey = (value: string): string => (/^[A-Za-z0-9_-]+$/u.test(value) ? value : tomlString(value));
+const CODEX_MCP_ID = /^[A-Za-z0-9_-]+$/u;
+const ENVIRONMENT_REFERENCE = /\$\{[A-Za-z_][A-Za-z0-9_]*\}/gu;
 
 const tomlInlineTable = (value: Readonly<Record<string, string>>): string =>
   `{ ${Object.entries(value)
@@ -22,6 +23,14 @@ const supportedTransport = (value: unknown): boolean =>
   value === undefined || value === 'stdio' || value === 'http' || value === 'streamable-http';
 
 const override = (key: string, value: string): readonly string[] => ['-c', `${key}=${value}`];
+
+const warnUnexpandedReferences = (id: string, field: string, value: string, warnings: string[]): void => {
+  for (const reference of value.matchAll(ENVIRONMENT_REFERENCE)) {
+    warnings.push(
+      `codex MCP server '${id}' field '${field}' contains environment reference '${reference[0]}' that Codex does not expand.`,
+    );
+  }
+};
 
 const projectStdioEnvironmentEntry = (
   id: string,
@@ -57,6 +66,7 @@ const projectHttpServer = (
   server: Readonly<Record<string, unknown>>,
   warnings: string[],
 ): readonly string[] => {
+  warnUnexpandedReferences(id, 'url', url, warnings);
   const args = [...override(`${prefix}.url`, tomlString(url))];
   const literalHeaders: Record<string, string> = {};
   const environmentHeaders: Record<string, string> = {};
@@ -93,12 +103,15 @@ const projectStdioServer = (
   server: Readonly<Record<string, unknown>>,
   warnings: string[],
 ): readonly string[] => {
+  warnUnexpandedReferences(id, 'command', command, warnings);
   const args = [...override(`${prefix}.command`, tomlString(command))];
   if (Array.isArray(server.args)) {
     const commandArgs: string[] = [];
     for (const [index, value] of server.args.entries()) {
-      if (typeof value === 'string') commandArgs.push(value);
-      else warnings.push(`codex adapter dropped non-string MCP arg at index ${index} from server '${id}'.`);
+      if (typeof value === 'string') {
+        warnUnexpandedReferences(id, `args[${index}]`, value, warnings);
+        commandArgs.push(value);
+      } else warnings.push(`codex adapter dropped non-string MCP arg at index ${index} from server '${id}'.`);
     }
     args.push(...override(`${prefix}.args`, `[${commandArgs.map(tomlString).join(', ')}]`));
   }
@@ -121,7 +134,10 @@ const projectStdioServer = (
       ),
     );
   }
-  if (typeof server.cwd === 'string') args.push(...override(`${prefix}.cwd`, tomlString(server.cwd)));
+  if (typeof server.cwd === 'string') {
+    warnUnexpandedReferences(id, 'cwd', server.cwd, warnings);
+    args.push(...override(`${prefix}.cwd`, tomlString(server.cwd)));
+  }
   return args;
 };
 
@@ -150,8 +166,14 @@ export const projectCodexMcpServers = (
   const warnings: string[] = selectedIds.length === 0 ? [] : [ADDITIVE_PROJECTION_WARNING];
 
   for (const id of selectedIds) {
+    if (!CODEX_MCP_ID.test(id)) {
+      warnings.push(
+        `codex adapter cannot project MCP server '${id}': id contains characters Codex -c key paths cannot express.`,
+      );
+      continue;
+    }
     const server = asRecord(servers[id]);
-    const prefix = `mcp_servers.${tomlKey(id)}`;
+    const prefix = `mcp_servers.${id}`;
 
     if (!supportedTransport(server.type)) {
       const transport =

@@ -176,7 +176,7 @@ describe('settings loading', () => {
     });
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-002.4).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-002.4.2).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('accepts codex as the default harness', () => {
     const root = createTemporaryRoot();

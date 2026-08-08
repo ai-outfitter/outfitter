@@ -46,13 +46,13 @@ const resource = (kind: 'agent' | 'skill', slug: string, path: string, layerRoot
 });
 
 describe('projectComposition Codex MCP projection', () => {
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-006.6).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-006.6.4).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('projects HTTP URLs and headers as repeated TOML overrides', () => {
     const directory = root();
     const projection = projectComposition(
       plan({
-        'remote.github': {
+        remote_github: {
           type: 'http',
           url: 'https://mcp.example.test/rpc',
           headers: {
@@ -68,27 +68,27 @@ describe('projectComposition Codex MCP projection', () => {
     );
 
     expect(overrideValues(projection.launch.args)).toEqual([
-      'mcp_servers."remote.github".url="https://mcp.example.test/rpc"',
-      'mcp_servers."remote.github".http_headers={ "X-Literal" = "public-value", "Z-Literal" = "second-value" }',
-      'mcp_servers."remote.github".env_http_headers={ "X-Token" = "SECOND_TOKEN" }',
-      'mcp_servers."remote.github".bearer_token_env_var="GITHUB_TOKEN"',
+      'mcp_servers.remote_github.url="https://mcp.example.test/rpc"',
+      'mcp_servers.remote_github.http_headers={ "X-Literal" = "public-value", "Z-Literal" = "second-value" }',
+      'mcp_servers.remote_github.env_http_headers={ "X-Token" = "SECOND_TOKEN" }',
+      'mcp_servers.remote_github.bearer_token_env_var="GITHUB_TOKEN"',
     ]);
     expect(projection.warnings).toContain(
       'codex MCP projection is additive: user and project MCP servers remain active because Codex has no strict isolation mode.',
     );
     expect(projection.warnings).toContain(
-      "codex adapter dropped non-string MCP header 'Ignored' from server 'remote.github'.",
+      "codex adapter dropped non-string MCP header 'Ignored' from server 'remote_github'.",
     );
     expect(projection.warnings).toEqual(
       expect.arrayContaining([
-        "codex MCP server 'remote.github' header 'X-Literal' is literal and will be visible in process arguments.",
-        "codex MCP server 'remote.github' header 'Z-Literal' is literal and will be visible in process arguments.",
+        "codex MCP server 'remote_github' header 'X-Literal' is literal and will be visible in process arguments.",
+        "codex MCP server 'remote_github' header 'Z-Literal' is literal and will be visible in process arguments.",
       ]),
     );
     expect(projection.unsupported).not.toContain('mcp');
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-006.6).
+  // THIS TEST VALIDATES HARD REQUIREMENTS (OFTR-006.6.1 AND OFTR-006.6.3).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('projects stdio command, args, env, and cwd as repeated TOML overrides', () => {
     const directory = root();
@@ -124,6 +124,66 @@ describe('projectComposition Codex MCP projection', () => {
         "codex adapter dropped non-string MCP arg at index 2 from server 'local'.",
         "codex MCP server 'local' env entry 'MODE' is literal and will be visible in process arguments.",
         "codex adapter dropped non-string MCP env entry 'Ignored' from server 'local'.",
+      ]),
+    );
+  });
+
+  it('keeps MCP overrides and a root model flag before the exec subcommand', () => {
+    const directory = root();
+    const base = plan({ local: { command: 'server' } });
+    const projection = projectComposition(
+      { ...base, loadout: { ...base.loadout, model: 'gpt-5' } },
+      {
+        harness: 'codex',
+        rootDirectory: directory,
+        homeDirectory: directory,
+        passThroughArgs: ['exec', 'review this repo'],
+      },
+    );
+
+    expect(projection.launch.args).toEqual([
+      '-c',
+      'mcp_servers.local.command="server"',
+      '-m',
+      'gpt-5',
+      'exec',
+      'review this repo',
+    ]);
+  });
+
+  // Codex CLI 0.145.0 empirically split a quoted dotted id at `mcp_servers."a` and rejected it.
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-006.6.3).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('warns and skips server ids that Codex dotted key paths cannot express', () => {
+    const directory = root();
+    const projection = projectComposition(plan({ 'remote.github': { command: 'server' } }), {
+      harness: 'codex',
+      rootDirectory: directory,
+      homeDirectory: directory,
+    });
+
+    expect(overrideValues(projection.launch.args)).toEqual([]);
+    expect(projection.warnings).toContain(
+      "codex adapter cannot project MCP server 'remote.github': id contains characters Codex -c key paths cannot express.",
+    );
+  });
+
+  it('warns when projected string fields contain references Codex leaves unexpanded', () => {
+    const directory = root();
+    const projection = projectComposition(
+      plan({
+        local: { command: '${BIN}/server', args: ['--token=${TOKEN}'], cwd: '${ROOT}/work' },
+        remote: { url: 'https://${HOST}/mcp' },
+      }),
+      { harness: 'codex', rootDirectory: directory, homeDirectory: directory },
+    );
+
+    expect(projection.warnings).toEqual(
+      expect.arrayContaining([
+        "codex MCP server 'local' field 'command' contains environment reference '${BIN}' that Codex does not expand.",
+        "codex MCP server 'local' field 'args[0]' contains environment reference '${TOKEN}' that Codex does not expand.",
+        "codex MCP server 'local' field 'cwd' contains environment reference '${ROOT}' that Codex does not expand.",
+        "codex MCP server 'remote' field 'url' contains environment reference '${HOST}' that Codex does not expand.",
       ]),
     );
   });

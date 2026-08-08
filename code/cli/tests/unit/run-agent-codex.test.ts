@@ -25,7 +25,7 @@ afterEach(() => {
 });
 
 describe('run agent with Codex MCP', () => {
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-006.6).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-006.6.5).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('emits the additive warning and makes it fatal under strict mode', async () => {
     const directory = root();

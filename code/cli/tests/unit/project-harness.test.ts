@@ -107,7 +107,7 @@ describe('projectComposition extensions', () => {
 });
 
 describe('projectComposition Claude MCP projection', () => {
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-006.5).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-006.5.11).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('passes selected MCP servers through an isolated Claude MCP config', () => {
     const dir = root();
@@ -125,12 +125,15 @@ describe('projectComposition Claude MCP projection', () => {
     );
 
     expect(projection.launch.args).toEqual(
-      expect.arrayContaining(['--mcp-config', join(dir, 'claude-mcp.json'), '--strict-mcp-config']),
+      expect.arrayContaining(['--mcp-config', join(dir, 'mcp.json'), '--strict-mcp-config']),
     );
+    expect(JSON.parse(readFileSync(join(dir, 'mcp.json'), 'utf8'))).toEqual({
+      mcpServers: { github: { command: 'github-mcp-server' } },
+    });
     expect(projection.unsupported).not.toContain('mcp');
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-006.5).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-006.5.11).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('passes an isolated empty Claude MCP config when no servers are selected', () => {
     const dir = root();
@@ -141,9 +144,9 @@ describe('projectComposition Claude MCP projection', () => {
     });
 
     expect(projection.launch.args).toEqual(
-      expect.arrayContaining(['--mcp-config', join(dir, 'claude-mcp.json'), '--strict-mcp-config']),
+      expect.arrayContaining(['--mcp-config', join(dir, 'mcp.json'), '--strict-mcp-config']),
     );
-    expect(JSON.parse(readFileSync(join(dir, 'claude-mcp.json'), 'utf8'))).toEqual({ mcpServers: {} });
+    expect(JSON.parse(readFileSync(join(dir, 'mcp.json'), 'utf8'))).toEqual({ mcpServers: {} });
   });
 });
 
