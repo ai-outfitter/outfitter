@@ -45,8 +45,8 @@ Tasks and bake are not in this matrix — they are the subject of a [separate up
 
 ## Claude Code notes
 
-- **Config and session state** — Outfitter points `CLAUDE_CONFIG_DIR` at the baked composition, declares Claude state paths (`settings.json`, `agents/`, `skills/`, `commands/`, `plugins/`, `projects/`) for [state persistence](./state.md), and can [symlink a ported `~/.claude`](./porting-claude.md) so native use keeps working. MCP configuration from that port remains available to native Claude but is ignored by Outfitter-launched Claude runs; see the next bullet.
-- **MCP servers** — every Claude launch passes the generated `mcp.json` through `--mcp-config` with `--strict-mcp-config`. MCP servers from user or project configuration, `.claude.json`, plugins, and a [ported `~/.claude`](./porting-claude.md) are therefore excluded; only servers selected by the composition are active.
+- **Config and session state** — Outfitter points `CLAUDE_CONFIG_DIR` at the baked composition, declares Claude state paths (`settings.json`, `agents/`, `skills/`, `commands/`, `plugins/`, `projects/`) for [state persistence](./state.md), and can [symlink a ported `~/.claude`](./porting-claude.md) so native use keeps working. MCP configuration from that port is no longer auto-discovered by Outfitter-launched Claude runs; those servers apply only when an agent selects them by slug. See the next bullet.
+- **MCP servers** — every Claude launch passes the generated `mcp.json` through `--mcp-config` with `--strict-mcp-config`. MCP servers from user or project configuration, `.claude.json`, and plugins are therefore excluded; only servers selected by the composition are active.
 - **Subagents** — selected `agents/<id>` definitions are materialized into Claude's native agents directory.
 - **Skills (Partial)** — selected skills are materialized into the config directory's skills surface; remaining gaps are tracked per release. The bundled Outfitter skill ships through the plugin channel.
 - **Model selection (Partial)** — model maps to `--model` and thinking level to `--effort`; provider selection is not projected for Claude and warns if requested.
