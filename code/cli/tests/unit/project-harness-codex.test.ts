@@ -253,6 +253,36 @@ describe('projectComposition Codex MCP projection', () => {
     expect(overrideValues(projection.launch.args)).toEqual([]);
   });
 
+  it('describes unsupported non-string transports without projecting them', () => {
+    const directory = root();
+    const projection = projectComposition(
+      plan({ numeric: { type: 7, url: 'https://example.test' }, symbolic: { type: Symbol('custom') } }),
+      { harness: 'codex', rootDirectory: directory, homeDirectory: directory },
+    );
+
+    expect(projection.warnings).toEqual(
+      expect.arrayContaining([
+        "codex adapter cannot project MCP server 'numeric': transport '7' is unsupported.",
+        "codex adapter cannot project MCP server 'symbolic': transport 'symbol' is unsupported.",
+      ]),
+    );
+    expect(overrideValues(projection.launch.args)).toEqual([]);
+  });
+
+  it('warns when a selected server has neither a URL nor a command', () => {
+    const directory = root();
+    const projection = projectComposition(plan({ incomplete: { type: 'stdio' } }), {
+      harness: 'codex',
+      rootDirectory: directory,
+      homeDirectory: directory,
+    });
+
+    expect(projection.warnings).toContain(
+      "codex adapter cannot project MCP server 'incomplete': expected a URL or command.",
+    );
+    expect(overrideValues(projection.launch.args)).toEqual([]);
+  });
+
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-006.6.4).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('projects an explicitly streamable HTTP server', () => {
