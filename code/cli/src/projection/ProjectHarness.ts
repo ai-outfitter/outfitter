@@ -14,9 +14,11 @@ import { toolArgs } from './Tools.js';
 // natively, so `tools` is unconditionally supported; a name projection cannot carry is a hard error
 // from `toolArgs`, not an unsupported element. Pi also projects selected subagents and MCP servers
 // into its runtime config directory, and projects `extensions` once the run path has resolved their
-// install dirs (`extensionLoadDirs`). plugins remain unsupported pending incremental parity (#183).
+// install dirs (`extensionLoadDirs`). Claude projects selected MCP servers through an explicit,
+// isolated `--mcp-config`; plugins remain unsupported pending incremental parity (#183).
 const supportedElements = (input: ProjectionInput): readonly string[] => {
   const baseline = ['skills', 'model', 'thinking', 'tools'];
+  if (input.harness === 'claude') return [...baseline, 'mcp'];
   if (input.harness !== 'pi') return baseline;
   const pi = [...baseline, 'subagents', 'mcp', 'prompt_template'];
   return input.extensionLoadDirs === undefined ? pi : [...pi, 'extensions'];
@@ -124,6 +126,9 @@ const buildLaunchPlan = (
       ...skillArgs,
       ...extensionArgs,
       ...modelArgs(composition, input.harness),
+      ...(input.harness === 'claude' && composition.loadout.mcp.length > 0
+        ? ['--mcp-config', join(input.rootDirectory, 'mcp.json'), '--strict-mcp-config']
+        : []),
       ...(input.passThroughArgs ?? []),
     ],
     // The projection root is deleted after the run, so pi's default session store (a subdirectory

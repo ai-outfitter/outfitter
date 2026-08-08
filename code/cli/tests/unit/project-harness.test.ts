@@ -106,6 +106,45 @@ describe('projectComposition extensions', () => {
   });
 });
 
+describe('projectComposition Claude MCP projection', () => {
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-006.5).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('passes selected MCP servers through an isolated Claude MCP config', () => {
+    const dir = root();
+    const plan = planWith([]);
+    const projection = projectComposition(
+      {
+        ...plan,
+        loadout: {
+          ...plan.loadout,
+          mcp: ['github'],
+          mcpServers: { github: { command: 'github-mcp-server' } },
+        },
+      },
+      { harness: 'claude', rootDirectory: dir, homeDirectory: dir },
+    );
+
+    expect(projection.launch.args).toEqual(
+      expect.arrayContaining(['--mcp-config', join(dir, 'mcp.json'), '--strict-mcp-config']),
+    );
+    expect(projection.unsupported).not.toContain('mcp');
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-006.5).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('does not pass Claude MCP flags when no servers are selected', () => {
+    const dir = root();
+    const projection = projectComposition(planWith([]), {
+      harness: 'claude',
+      rootDirectory: dir,
+      homeDirectory: dir,
+    });
+
+    expect(projection.launch.args).not.toContain('--mcp-config');
+    expect(projection.launch.args).not.toContain('--strict-mcp-config');
+  });
+});
+
 const subagentResource = (slug: string, path: string, layerRoot: string): ResolvedResource => ({
   kind: 'agent',
   slug,
