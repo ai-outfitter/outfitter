@@ -1,5 +1,5 @@
 // Tests system-scope hook discovery, schema validation, and fail-closed file loading.
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 
@@ -93,6 +93,58 @@ describe('readSystemExtensionHooks', () => {
 
     expect(loaded.hooks.map((hook) => hook.name)).toEqual(['first', 'second']);
     expect(loaded.hooks.map((hook) => hook.harnesses.pi?.extensions?.[0])).toEqual([extensionA, extensionB]);
+  });
+
+  it('resolves source, hook document, and extension symlinks to physical paths', () => {
+    const root = temporaryRoot();
+    const physicalDirectory = join(root, 'physical-system');
+    const sourceLink = join(root, 'system-link');
+    const physicalDocument = join(root, 'physical-hook.yml');
+    const physicalExtension = join(root, 'physical-extension');
+    mkdirSync(physicalDirectory);
+    mkdirSync(physicalExtension);
+    write(
+      physicalDocument,
+      `name: linked\nharnesses:\n  pi:\n    extensions: [${join(physicalDirectory, 'extension-link')}]\n`,
+    );
+    symlinkSync(physicalDocument, join(physicalDirectory, 'linked.yml'));
+    symlinkSync(physicalExtension, join(physicalDirectory, 'extension-link'));
+    symlinkSync(physicalDirectory, sourceLink);
+
+    const loaded = readSystemExtensionHooks({ environment: { OUTFITTER_SYSTEM_DIR: sourceLink } });
+
+    expect(loaded.source).toEqual({
+      directory: physicalDirectory,
+      stamp: `env-override:${physicalDirectory}`,
+    });
+    expect(loaded.hooks[0]?.filePath).toBe(physicalDocument);
+    expect(loaded.hooks[0]?.harnesses.pi?.extensions).toEqual([physicalExtension]);
+  });
+
+  it('fails closed for dangling source, hook document, and extension symlinks', () => {
+    const sourceRoot = temporaryRoot();
+    const danglingSource = join(sourceRoot, 'dangling-source');
+    symlinkSync(join(sourceRoot, 'missing-source'), danglingSource);
+    expect(() => readSystemExtensionHooks({ environment: { OUTFITTER_SYSTEM_DIR: danglingSource } })).toThrow(
+      /source .*cannot be resolved/u,
+    );
+
+    const documentDirectory = temporaryRoot();
+    symlinkSync(join(documentDirectory, 'missing-hook'), join(documentDirectory, 'dangling.yml'));
+    expect(() => readSystemExtensionHooks({ environment: { OUTFITTER_SYSTEM_DIR: documentDirectory } })).toThrow(
+      /hook .*cannot be resolved/u,
+    );
+
+    const extensionDirectory = temporaryRoot();
+    const danglingExtension = join(extensionDirectory, 'dangling-extension');
+    symlinkSync(join(extensionDirectory, 'missing-extension'), danglingExtension);
+    write(
+      join(extensionDirectory, 'dangling.yml'),
+      `name: dangling\nharnesses:\n  pi:\n    extensions: [${danglingExtension}]\n`,
+    );
+    expect(() => readSystemExtensionHooks({ environment: { OUTFITTER_SYSTEM_DIR: extensionDirectory } })).toThrow(
+      /extension path cannot be resolved/u,
+    );
   });
 
   it('fails closed for malformed YAML and schema-invalid documents', () => {

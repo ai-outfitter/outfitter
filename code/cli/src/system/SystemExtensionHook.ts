@@ -10,7 +10,10 @@
 // would silently run the fleet without collection, which downstream verifiers must classify as
 // unattested rather than clean. Hook environment also denies Node and native dynamic-loader
 // controls: they could execute code before Pi starts and change what runs rather than what observes.
-import { readFileSync, readdirSync, statSync } from 'node:fs';
+// Symlinks are resolved to physical paths and dangling links are fatal. Ownership and mode checks
+// stay with deployment policy because supported paths include platform-specific package stores and
+// the explicit development override, which do not share one portable owner or permission model.
+import { lstatSync, readFileSync, readdirSync, realpathSync, statSync } from 'node:fs';
 import { isAbsolute, join } from 'node:path';
 
 import type { AgentLaunchPlan } from '../projection/Projection.js';
@@ -88,14 +91,43 @@ const formatValidationIssues = (
   issues: readonly { readonly path: string; readonly message: string }[],
 ): string => issues.map((issue) => `${filePath}#${issue.path} ${issue.message}`).join('; ');
 
-const assertExtensionPathsExist = (document: SystemExtensionHookDocument, filePath: string): void => {
-  for (const hook of Object.values(document.harnesses)) {
-    for (const extensionPath of hook.extensions ?? []) {
-      if (!isAbsolute(extensionPath) || statSync(extensionPath, { throwIfNoEntry: false }) === undefined) {
-        throw new Error(`Invalid system extension hook '${filePath}': extension path does not exist: ${extensionPath}`);
-      }
-    }
+const resolvePhysicalPath = (path: string, errorMessage: string): string => {
+  try {
+    return realpathSync(path);
+  } catch (error) {
+    throw new Error(`${errorMessage}: ${String(error)}`, { cause: error });
   }
+};
+
+const resolveExtensionPaths = (
+  document: SystemExtensionHookDocument,
+  filePath: string,
+): SystemExtensionHookDocument => {
+  const harnesses: Partial<Record<Harness, SystemExtensionHarnessHook>> = {};
+
+  for (const [harness, hook] of Object.entries(document.harnesses) as [Harness, SystemExtensionHarnessHook][]) {
+    if (hook.extensions === undefined) {
+      harnesses[harness] = hook;
+      continue;
+    }
+
+    harnesses[harness] = {
+      ...hook,
+      extensions: hook.extensions.map((extensionPath) => {
+        if (!isAbsolute(extensionPath) || lstatSync(extensionPath, { throwIfNoEntry: false }) === undefined) {
+          throw new Error(
+            `Invalid system extension hook '${filePath}': extension path does not exist: ${extensionPath}`,
+          );
+        }
+        return resolvePhysicalPath(
+          extensionPath,
+          `Invalid system extension hook '${filePath}': extension path cannot be resolved: ${extensionPath}`,
+        );
+      }),
+    };
+  }
+
+  return { ...document, harnesses };
 };
 
 const assertNoProtectedPiEnvironment = (document: SystemExtensionHookDocument, filePath: string): void => {
@@ -124,29 +156,33 @@ const assertNoRuntimeControlEnvironment = (document: SystemExtensionHookDocument
 };
 
 const readSystemExtensionHook = (filePath: string): SystemExtensionHook => {
+  if (lstatSync(filePath, { throwIfNoEntry: false }) === undefined) {
+    /* v8 ignore next -- the path was returned by the immediately preceding readdirSync call. */
+    throw new Error(`System extension hook '${filePath}' disappeared while loading.`);
+  }
+  const physicalFilePath = resolvePhysicalPath(filePath, `System extension hook '${filePath}' cannot be resolved`);
   let content: string;
 
   try {
-    content = readFileSync(filePath, 'utf8');
+    content = readFileSync(physicalFilePath, 'utf8');
   } catch (error) {
-    throw new Error(`System extension hook '${filePath}' is unreadable: ${String(error)}`, { cause: error });
+    throw new Error(`System extension hook '${physicalFilePath}' is unreadable: ${String(error)}`, { cause: error });
   }
 
-  const parsed = parseYamlDocument(content, filePath);
+  const parsed = parseYamlDocument(content, physicalFilePath);
   if (!parsed.ok) {
-    throw new Error(`Invalid system extension hook '${filePath}': ${parsed.issue.message}`);
+    throw new Error(`Invalid system extension hook '${physicalFilePath}': ${parsed.issue.message}`);
   }
 
   const validation = validateSchema('system-extension-hook', parsed.document);
   if (!validation.valid) {
-    throw new Error(`Invalid system extension hook: ${formatValidationIssues(filePath, validation.issues)}`);
+    throw new Error(`Invalid system extension hook: ${formatValidationIssues(physicalFilePath, validation.issues)}`);
   }
 
   const document = parsed.document as SystemExtensionHookDocument;
-  assertNoProtectedPiEnvironment(document, filePath);
-  assertNoRuntimeControlEnvironment(document, filePath);
-  assertExtensionPathsExist(document, filePath);
-  return { filePath, ...document };
+  assertNoProtectedPiEnvironment(document, physicalFilePath);
+  assertNoRuntimeControlEnvironment(document, physicalFilePath);
+  return { filePath: physicalFilePath, ...resolveExtensionPaths(document, physicalFilePath) };
 };
 
 const assertNoEnvironmentCollisions = (hooks: readonly SystemExtensionHook[]): void => {
@@ -172,20 +208,29 @@ export const readSystemExtensionHooks = (input: SystemExtensionHookDiscoveryInpu
   const source = resolveSystemExtensionHookSource(input);
   if (source === undefined) return { hooks: [] };
 
-  const sourceStat = statSync(source.directory, { throwIfNoEntry: false });
-  if (sourceStat === undefined) return { hooks: [], source };
+  const sourceEntry = lstatSync(source.directory, { throwIfNoEntry: false });
+  if (sourceEntry === undefined) return { hooks: [], source };
+  const physicalDirectory = resolvePhysicalPath(
+    source.directory,
+    `System extension hook source '${source.directory}' cannot be resolved`,
+  );
+  const sourceStat = statSync(physicalDirectory);
   if (!sourceStat.isDirectory()) {
-    throw new Error(`System extension hook source '${source.directory}' is not a directory.`);
+    throw new Error(`System extension hook source '${physicalDirectory}' is not a directory.`);
   }
+  const physicalSource = {
+    directory: physicalDirectory,
+    stamp: `${source.stamp.slice(0, source.stamp.length - source.directory.length)}${physicalDirectory}`,
+  };
 
-  const filePaths = readdirSync(source.directory)
+  const filePaths = readdirSync(physicalDirectory)
     .filter((name) => name.endsWith('.yml'))
     .sort()
-    .map((name) => join(source.directory, name));
+    .map((name) => join(physicalDirectory, name));
   const hooks = filePaths.map(readSystemExtensionHook);
   assertNoEnvironmentCollisions(hooks);
 
-  return { hooks, source };
+  return { hooks, source: physicalSource };
 };
 
 const unsupportedHarnessWarnings = (hooks: readonly SystemExtensionHook[]): readonly string[] =>
