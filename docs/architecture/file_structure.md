@@ -53,7 +53,8 @@ Outfitter is organized around a private npm workspace root, clear TypeScript pac
 │   │   │   ├── merge/                 # deterministic value and array merge policy helpers
 │   │   │   ├── agents/                # bundled-pi resolution, process launch boundary, durable pi credential/session paths
 │   │   │   ├── paths/                 # Outfitter cache root and repository/packaged asset resolution
-│   │   │   ├── schemas/               # JSON Schema artifacts for persisted formats
+│   │   │   ├── system/                 # root-owned launcher-scope system extension hook loading
+│   │   │   ├── schemas/                # JSON Schema artifacts for persisted settings, agents, and system hooks
 │   │   │   └── validation/            # shared validation helpers
 │   │   ├── tests/                     # automated CLI package tests and fixtures
 │   │   ├── tsconfig.json              # strict package typecheck configuration
