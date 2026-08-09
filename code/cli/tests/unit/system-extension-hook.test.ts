@@ -234,6 +234,7 @@ describe('readSystemExtensionHooks', () => {
     'LD_AUDIT',
     'LD_LIBRARY_PATH',
     'DYLD_INSERT_LIBRARIES',
+    'OPENSSL_CONF',
   ])('rejects process-loader and runtime-control variable %s at load time', (name) => {
     const directory = temporaryRoot();
     write(join(directory, 'loader.yml'), `name: loader\nharnesses:\n  pi:\n    env:\n      ${name}: exploit\n`);

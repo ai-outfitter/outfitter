@@ -30,6 +30,9 @@ const runtimeControlEnvironmentVariables = new Set([
   'LD_PRELOAD',
   'NODE_OPTIONS',
   'NODE_REPL_EXTERNAL_MODULE',
+  // Node reads this before startup and OpenSSL configuration can activate an
+  // arbitrary native provider, so it executes code exactly like the loaders above.
+  'OPENSSL_CONF',
 ]);
 
 export interface SystemExtensionHarnessHook {
