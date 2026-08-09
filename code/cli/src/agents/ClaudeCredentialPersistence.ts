@@ -1,8 +1,9 @@
 // Persists Claude Code credentials across runs. CLAUDE_CONFIG_DIR points Claude at an ephemeral
-// projection root, but its durable credentials normally live in ~/.claude/.credentials.json while
-// account metadata and workspace trust live in ~/.claude.json. Seed only the credential-shaped
-// state and the current workspace's existing trust decision; merge credential changes back without
-// exposing or replacing the rest of Claude's machine-local state.
+// projection root, but its durable Claude and MCP OAuth credentials normally live in
+// ~/.claude/.credentials.json while account metadata, onboarding state, and workspace trust live in
+// ~/.claude.json. Seed only the required top-level state and the current workspace's existing trust
+// decision; merge credential changes back without exposing or replacing the rest of Claude's
+// machine-local state.
 import { createHash, randomUUID } from 'node:crypto';
 import {
   chmodSync,
@@ -75,7 +76,7 @@ const resolveClaudeUserConfigDirectory = (homeDirectory: string): string => join
 /** Claude's durable machine-local state file (`~/.claude.json`). */
 const resolveClaudeUserStatePath = (homeDirectory: string): string => join(homeDirectory, STATE_FILE);
 
-/** Seeds credentials and the current workspace's existing trust decision into the projection. */
+/** Seeds credentials, onboarding/account state, and the current workspace's trust decision. */
 export const seedClaudeCredentials = (
   projectionRoot: string,
   homeDirectory: string,
@@ -90,6 +91,9 @@ export const seedClaudeCredentials = (
 
   const seededState: JsonObject = {};
   if (Object.hasOwn(durableState, 'oauthAccount')) seededState.oauthAccount = durableState.oauthAccount;
+  if (Object.hasOwn(durableState, 'hasCompletedOnboarding')) {
+    seededState.hasCompletedOnboarding = durableState.hasCompletedOnboarding;
+  }
 
   const projects = durableState.projects;
   const project = isJsonObject(projects) ? projects[workingDirectory] : undefined;

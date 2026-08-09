@@ -27,11 +27,15 @@ The user-facing state update lifecycle is:
 
 - Projections remain temporary and reproducible by default.
 - Outfitter does not do generic post-run copy-back or JSON/YAML merge-back. The Pi and Claude
-  adapters have narrow credential bridges as the exceptions. Pi copies its credential files
-  between the durable agent directory and the ephemeral projection. Claude copies a changed
-  `.credentials.json` because the projection root is ephemeral, and merges `oauthAccount` because
-  its durable home `~/.claude.json` sits outside `~/.claude` and holds machine-local state that must
-  not be copied wholesale.
+  adapters have narrow credential bridges as exceptions because the current launch flow does not
+  connect those files to durable storage through materialized declared-state symlinks. Pi declares
+  `auth.json` and `models.json` with a `symlink` default, but currently copies them from the durable
+  agent directory into the projection before launch and back from the projection afterward. Claude
+  similarly copies `.credentials.json` from `~/.claude` into the projection and copies a changed
+  file back afterward. Claude's separate `~/.claude.json` sits outside `~/.claude`, so it cannot be
+  symlinked with the rest of the config directory; Outfitter seeds a narrow whitelist into the
+  projected file and merges only `oauthAccount` back rather than copying machine-local state
+  wholesale.
 - Persistent state is represented by symlinking a projection path to the native CLI fallback path.
 - Adapters may generate a concrete runtime file for a declared state path when they need deterministic launch-time reconciliation. For example, the Pi adapter can generate a transformed `settings.json` that removes native `packages` entries already supplied by composition-controlled extensions, and then mark that declared path as `discard` for write detection during the run.
 - Every adapter-declared state path has a resolved strategy before launch: settings overrides win, otherwise the adapter `default_strategy` is used, except for adapter-generated reconciliation files that are intentionally treated as discarded runtime files.
@@ -186,7 +190,7 @@ Settings may override persistence by mapping adapter-declared paths to strategy 
 
 ```yaml
 state_persistence:
-  auth.json: symlink
+  auth.json: symlink # Intended policy; Pi's current launch flow uses its explicit copy bridge.
   settings.json: symlink
   plugins/: symlink
   cache/: discard
@@ -203,7 +207,7 @@ Functional examples:
 ```yaml
 # Persist logins and settings, but make caches and sessions run-local.
 state_persistence:
-  auth.json: symlink
+  auth.json: symlink # Intended policy; Pi's current launch flow uses its explicit copy bridge.
   settings.json: symlink
   cache/: discard
   sessions/: discard

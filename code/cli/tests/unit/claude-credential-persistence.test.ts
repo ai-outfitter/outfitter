@@ -38,7 +38,7 @@ describe('Claude credential persistence', () => {
     const otherProject = join(base, 'other');
     const credentials = join(home, '.claude', '.credentials.json');
     write(credentials, '{"claudeAiOauth":{"accessToken":"secret"}}');
-    chmodSync(credentials, 0o600);
+    chmodSync(credentials, 0o644);
     write(
       join(home, '.claude.json'),
       JSON.stringify({
@@ -58,6 +58,26 @@ describe('Claude credential persistence', () => {
     expect(readJson(join(projection, '.claude.json'))).toEqual({
       oauthAccount: { accountUuid: 'account' },
       projects: { [project]: { hasTrustDialogAccepted: true } },
+    });
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-006.5.12).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('seeds hasCompletedOnboarding only when durable state contains it', () => {
+    const base = root();
+    const home = join(base, 'home');
+    const withOnboarding = join(base, 'with-onboarding');
+    const withoutOnboarding = join(base, 'without-onboarding');
+    const project = join(base, 'project');
+
+    write(join(home, '.claude.json'), JSON.stringify({ hasCompletedOnboarding: true }));
+    seedClaudeCredentials(withOnboarding, home, project);
+    expect(readJson(join(withOnboarding, '.claude.json'))).toEqual({ hasCompletedOnboarding: true });
+
+    write(join(home, '.claude.json'), JSON.stringify({ oauthAccount: { accountUuid: 'account' } }));
+    seedClaudeCredentials(withoutOnboarding, home, project);
+    expect(readJson(join(withoutOnboarding, '.claude.json'))).toEqual({
+      oauthAccount: { accountUuid: 'account' },
     });
   });
 
@@ -96,14 +116,32 @@ describe('Claude credential persistence', () => {
     expect(existsSync(join(projection, '.claude.json'))).toBe(false);
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-006.5.14, OFTR-006.5.15).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-006.5.14, OFTR-006.5.15, OFTR-006.5.16).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('copies credentials back at 0600 and atomically merges account metadata without clobbering keys', () => {
     const base = root();
     const projection = join(base, 'projection');
     const home = join(base, 'home');
-    write(join(projection, '.credentials.json'), '{"new":"credential"}');
-    write(join(projection, '.claude.json'), JSON.stringify({ oauthAccount: { accountUuid: 'new' }, projects: {} }));
+    const projectedCredentials = {
+      claudeAiOauth: { accessToken: 'claude-token' },
+      mcpOAuth: {
+        'example|hash': {
+          serverName: 'example',
+          serverUrl: 'https://mcp.example.test',
+          accessToken: 'mcp-token',
+          discoveryState: {},
+        },
+      },
+    };
+    write(join(projection, '.credentials.json'), JSON.stringify(projectedCredentials));
+    write(
+      join(projection, '.claude.json'),
+      JSON.stringify({
+        oauthAccount: { accountUuid: 'new' },
+        projects: {},
+        mcpOAuth: { 'not-a-credential-location': { accessToken: 'do-not-merge' } },
+      }),
+    );
     write(
       join(home, '.claude.json'),
       JSON.stringify({ oauthAccount: { accountUuid: 'old' }, numStartups: 42, projects: { keep: { value: true } } }),
@@ -112,7 +150,7 @@ describe('Claude credential persistence', () => {
     persistClaudeCredentials(projection, home);
 
     const durableCredentials = join(home, '.claude', '.credentials.json');
-    expect(readFileSync(durableCredentials, 'utf8')).toBe('{"new":"credential"}');
+    expect(readJson(durableCredentials)).toEqual(projectedCredentials);
     expect(statSync(durableCredentials).mode & 0o777).toBe(0o600);
     expect(readJson(join(home, '.claude.json'))).toEqual({
       oauthAccount: { accountUuid: 'new' },
