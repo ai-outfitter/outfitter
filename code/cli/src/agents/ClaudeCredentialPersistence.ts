@@ -1,0 +1,116 @@
+// Persists Claude Code credentials across runs. CLAUDE_CONFIG_DIR points Claude at an ephemeral
+// projection root, but its durable credentials normally live in ~/.claude/.credentials.json while
+// account metadata and workspace trust live in ~/.claude.json. Seed only the credential-shaped
+// state and the current workspace's existing trust decision; merge credential changes back without
+// exposing or replacing the rest of Claude's machine-local state.
+import { randomUUID } from 'node:crypto';
+import {
+  chmodSync,
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  renameSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
+import { dirname, join } from 'node:path';
+
+const CREDENTIALS_FILE = '.credentials.json';
+const STATE_FILE = '.claude.json';
+const CREDENTIAL_MODE = 0o600;
+
+type JsonObject = Record<string, unknown>;
+
+const isJsonObject = (value: unknown): value is JsonObject =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
+
+const readJsonObject = (path: string): JsonObject | undefined => {
+  if (!existsSync(path)) return undefined;
+
+  try {
+    const value: unknown = JSON.parse(readFileSync(path, 'utf8'));
+    return isJsonObject(value) ? value : undefined;
+  } catch {
+    return undefined;
+  }
+};
+
+const atomicCopy = (sourcePath: string, destinationPath: string): void => {
+  if (!existsSync(sourcePath)) return;
+  const destinationDirectory = dirname(destinationPath);
+  mkdirSync(destinationDirectory, { recursive: true });
+  const temporaryPath = join(destinationDirectory, `.outfitter-${randomUUID()}`);
+
+  try {
+    copyFileSync(sourcePath, temporaryPath);
+    chmodSync(temporaryPath, CREDENTIAL_MODE);
+    renameSync(temporaryPath, destinationPath);
+  } finally {
+    rmSync(temporaryPath, { force: true });
+  }
+};
+
+const atomicWriteJson = (path: string, value: JsonObject): void => {
+  const directory = dirname(path);
+  mkdirSync(directory, { recursive: true });
+  const temporaryPath = join(directory, `.outfitter-${randomUUID()}`);
+
+  try {
+    writeFileSync(temporaryPath, `${JSON.stringify(value, null, 2)}\n`, { mode: CREDENTIAL_MODE });
+    renameSync(temporaryPath, path);
+  } finally {
+    rmSync(temporaryPath, { force: true });
+  }
+};
+
+/** Claude's durable configuration directory (`~/.claude`). */
+export const resolveClaudeUserConfigDirectory = (homeDirectory: string): string => join(homeDirectory, '.claude');
+
+/** Claude's durable machine-local state file (`~/.claude.json`). */
+export const resolveClaudeUserStatePath = (homeDirectory: string): string => join(homeDirectory, STATE_FILE);
+
+/** Seeds credentials and the current workspace's existing trust decision into the projection. */
+export const seedClaudeCredentials = (
+  projectionRoot: string,
+  homeDirectory: string,
+  workingDirectory: string,
+): void => {
+  atomicCopy(
+    join(resolveClaudeUserConfigDirectory(homeDirectory), CREDENTIALS_FILE),
+    join(projectionRoot, CREDENTIALS_FILE),
+  );
+
+  const durableState = readJsonObject(resolveClaudeUserStatePath(homeDirectory));
+  if (durableState === undefined) return;
+
+  const seededState: JsonObject = {};
+  if (Object.hasOwn(durableState, 'oauthAccount')) seededState.oauthAccount = durableState.oauthAccount;
+
+  const projects = durableState.projects;
+  const project = isJsonObject(projects) ? projects[workingDirectory] : undefined;
+  if (isJsonObject(project) && project.hasTrustDialogAccepted === true) {
+    seededState.projects = { [workingDirectory]: { hasTrustDialogAccepted: true } };
+  }
+
+  if (Object.keys(seededState).length > 0) {
+    atomicWriteJson(join(projectionRoot, STATE_FILE), seededState);
+  }
+};
+
+/** Copies changed credentials back and atomically merges account metadata into durable state. */
+export const persistClaudeCredentials = (projectionRoot: string, homeDirectory: string): void => {
+  atomicCopy(
+    join(projectionRoot, CREDENTIALS_FILE),
+    join(resolveClaudeUserConfigDirectory(homeDirectory), CREDENTIALS_FILE),
+  );
+
+  const projectionState = readJsonObject(join(projectionRoot, STATE_FILE));
+  if (projectionState === undefined || !Object.hasOwn(projectionState, 'oauthAccount')) return;
+
+  const durableStatePath = resolveClaudeUserStatePath(homeDirectory);
+  const durableState = readJsonObject(durableStatePath);
+  if (durableState === undefined && existsSync(durableStatePath)) return;
+
+  atomicWriteJson(durableStatePath, { ...(durableState ?? {}), oauthAccount: projectionState.oauthAccount });
+};

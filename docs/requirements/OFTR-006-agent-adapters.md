@@ -75,6 +75,10 @@ Amended (2026-07-17, RFC #165): adapters project a harness-neutral composition, 
 9. The Claude Code adapter MUST return unsupported-control warnings for requested generic or `controls.claude` controls that it cannot translate.
 10. Until native support is implemented and tested, the Claude Code adapter MUST report `prompt_template` as unsupported and MUST NOT pass a pi-style prompt-template argument.
 11. The Claude Code adapter MUST always pass the generated `mcp.json` through `--mcp-config` and MUST pass `--strict-mcp-config` so lower-layer MCP sources cannot break composition isolation, including when the composition selects zero MCP servers.
+12. Before launch, the Claude Code adapter MUST seed an existing `~/.claude/.credentials.json` into the temporary `CLAUDE_CONFIG_DIR` as `.credentials.json` with mode `0600`, and MUST seed only the `oauthAccount` top-level key from `~/.claude.json` rather than copying the complete machine-local state file; missing or unreadable durable state MUST remain absent from the projection.
+13. The Claude Code adapter MUST mirror `projects[<working-directory>].hasTrustDialogAccepted = true` into the projected `.claude.json` only when the durable `~/.claude.json` already records that accepted trust decision for the exact launch working directory; it MUST NOT project other project entries or grant trust for a path without that durable decision.
+14. After a Claude Code launch exits or throws, the adapter MUST copy a projected `.credentials.json` back to `~/.claude/.credentials.json` with mode `0600`.
+15. After a Claude Code launch exits or throws, the adapter MUST atomically merge a projected `oauthAccount` into `~/.claude.json` without replacing unrelated top-level or project state, and MUST leave malformed durable state untouched rather than clobbering it.
 
 ### OFTR-006.6: Codex CLI Launch Controls
 

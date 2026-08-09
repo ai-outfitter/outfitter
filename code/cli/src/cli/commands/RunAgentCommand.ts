@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import { Command, Option } from 'commander';
 
 import { launchThroughSpawn, spawnLauncher } from '../../agents/AgentLaunch.js';
+import { persistClaudeCredentials, seedClaudeCredentials } from '../../agents/ClaudeCredentialPersistence.js';
 import {
   persistPiCredentials,
   resolvePiUserAgentDirectory,
@@ -107,9 +108,9 @@ const assertNoSettingsIssues = (issues: readonly { readonly message: string }[])
   }
 };
 
-// pi stores credentials under PI_CODING_AGENT_DIR (the ephemeral projection root), so seed them from
-// pi's durable agent dir before launch and copy any /login changes back afterward. Non-pi harnesses
-// launch unchanged.
+// Pi and Claude both read credentials from their ephemeral projection root. Seed their durable
+// credentials before launch and persist changes in a finally block so login changes survive both a
+// normal exit and a failed launcher.
 const launchWithCredentialPersistence = async (
   input: RunAgentInput,
   harness: Harness,
@@ -118,11 +119,16 @@ const launchWithCredentialPersistence = async (
 ): Promise<number> => {
   const piUserAgentDirectory = harness === 'pi' ? resolvePiUserAgentDirectory(input.homeDirectory) : undefined;
   if (piUserAgentDirectory !== undefined) seedPiCredentials(rootDirectory, piUserAgentDirectory);
+  if (harness === 'claude') {
+    seedClaudeCredentials(rootDirectory, input.homeDirectory, input.projectDirectory);
+  }
 
-  const exitCode = await input.launcher(launch);
-  if (piUserAgentDirectory !== undefined) persistPiCredentials(rootDirectory, piUserAgentDirectory);
-
-  return exitCode;
+  try {
+    return await input.launcher(launch);
+  } finally {
+    if (piUserAgentDirectory !== undefined) persistPiCredentials(rootDirectory, piUserAgentDirectory);
+    if (harness === 'claude') persistClaudeCredentials(rootDirectory, input.homeDirectory);
+  }
 };
 
 // pi writes sessions inside PI_CODING_AGENT_DIR — the projection root Outfitter deletes after the

@@ -190,6 +190,13 @@ The last form is how a resident or in-cluster agent keeps continuity across rest
 
 ## Claude Code state paths
 
+Claude credentials need a narrow adapter bridge in addition to the path-keyed state below because
+Claude reads `.credentials.json` and `.claude.json` directly from `CLAUDE_CONFIG_DIR`, while their
+durable native locations do not share those relative paths. Outfitter seeds `.credentials.json`,
+`oauthAccount`, and only the current working directory's existing accepted-trust bit before launch;
+afterward it copies credentials back and atomically merges `oauthAccount`. It never copies the full
+machine-local `~/.claude.json` into a projection.
+
 The Claude Code adapter declares these paths:
 
 ```yaml
