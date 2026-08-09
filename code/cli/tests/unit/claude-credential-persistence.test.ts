@@ -6,12 +6,7 @@ import { dirname, join } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import {
-  persistClaudeCredentials,
-  resolveClaudeUserConfigDirectory,
-  resolveClaudeUserStatePath,
-  seedClaudeCredentials,
-} from '../../src/agents/ClaudeCredentialPersistence.js';
+import { persistClaudeCredentials, seedClaudeCredentials } from '../../src/agents/ClaudeCredentialPersistence.js';
 import { executeRunAgentCommand } from '../../src/cli/commands/RunAgentCommand.js';
 import type { AgentLaunchPlan } from '../../src/projection/Projection.js';
 
@@ -33,11 +28,6 @@ afterEach(() => {
 });
 
 describe('Claude credential persistence', () => {
-  it("resolves Claude's durable paths under home", () => {
-    expect(resolveClaudeUserConfigDirectory('/home/u')).toBe(join('/home/u', '.claude'));
-    expect(resolveClaudeUserStatePath('/home/u')).toBe(join('/home/u', '.claude.json'));
-  });
-
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-006.5.12, OFTR-006.5.13).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('seeds credentials, account metadata, and trust for only the exact working directory', () => {

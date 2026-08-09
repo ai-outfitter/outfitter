@@ -26,8 +26,6 @@ const isJsonObject = (value: unknown): value is JsonObject =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
 
 const readJsonObject = (path: string): JsonObject | undefined => {
-  if (!existsSync(path)) return undefined;
-
   try {
     const value: unknown = JSON.parse(readFileSync(path, 'utf8'));
     return isJsonObject(value) ? value : undefined;
@@ -36,39 +34,38 @@ const readJsonObject = (path: string): JsonObject | undefined => {
   }
 };
 
-const atomicCopy = (sourcePath: string, destinationPath: string): void => {
-  if (!existsSync(sourcePath)) return;
+const atomicReplace = (destinationPath: string, fillTemporary: (temporaryPath: string) => void): void => {
   const destinationDirectory = dirname(destinationPath);
   mkdirSync(destinationDirectory, { recursive: true });
   const temporaryPath = join(destinationDirectory, `.outfitter-${randomUUID()}`);
 
   try {
-    copyFileSync(sourcePath, temporaryPath);
-    chmodSync(temporaryPath, CREDENTIAL_MODE);
+    fillTemporary(temporaryPath);
     renameSync(temporaryPath, destinationPath);
   } finally {
     rmSync(temporaryPath, { force: true });
   }
 };
 
-const atomicWriteJson = (path: string, value: JsonObject): void => {
-  const directory = dirname(path);
-  mkdirSync(directory, { recursive: true });
-  const temporaryPath = join(directory, `.outfitter-${randomUUID()}`);
+const atomicCopy = (sourcePath: string, destinationPath: string): void => {
+  if (!existsSync(sourcePath)) return;
+  atomicReplace(destinationPath, (temporaryPath) => {
+    copyFileSync(sourcePath, temporaryPath);
+    chmodSync(temporaryPath, CREDENTIAL_MODE);
+  });
+};
 
-  try {
+const atomicWriteJson = (path: string, value: JsonObject): void => {
+  atomicReplace(path, (temporaryPath) => {
     writeFileSync(temporaryPath, `${JSON.stringify(value, null, 2)}\n`, { mode: CREDENTIAL_MODE });
-    renameSync(temporaryPath, path);
-  } finally {
-    rmSync(temporaryPath, { force: true });
-  }
+  });
 };
 
 /** Claude's durable configuration directory (`~/.claude`). */
-export const resolveClaudeUserConfigDirectory = (homeDirectory: string): string => join(homeDirectory, '.claude');
+const resolveClaudeUserConfigDirectory = (homeDirectory: string): string => join(homeDirectory, '.claude');
 
 /** Claude's durable machine-local state file (`~/.claude.json`). */
-export const resolveClaudeUserStatePath = (homeDirectory: string): string => join(homeDirectory, STATE_FILE);
+const resolveClaudeUserStatePath = (homeDirectory: string): string => join(homeDirectory, STATE_FILE);
 
 /** Seeds credentials and the current workspace's existing trust decision into the projection. */
 export const seedClaudeCredentials = (
@@ -111,6 +108,7 @@ export const persistClaudeCredentials = (projectionRoot: string, homeDirectory: 
   const durableStatePath = resolveClaudeUserStatePath(homeDirectory);
   const durableState = readJsonObject(durableStatePath);
   if (durableState === undefined && existsSync(durableStatePath)) return;
+  if (JSON.stringify(projectionState.oauthAccount) === JSON.stringify(durableState?.oauthAccount)) return;
 
   atomicWriteJson(durableStatePath, { ...(durableState ?? {}), oauthAccount: projectionState.oauthAccount });
 };
