@@ -12,6 +12,7 @@
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { isAbsolute, join } from 'node:path';
 
+import type { AgentLaunchPlan } from '../projection/Projection.js';
 import type { Harness } from '../settings/Settings.js';
 import { validateSchema } from '../validation/SchemaValidator.js';
 import { parseYamlDocument } from '../validation/YamlDocument.js';
@@ -38,6 +39,11 @@ export interface SystemExtensionHookSource {
 export interface LoadedSystemExtensionHooks {
   readonly hooks: readonly SystemExtensionHook[];
   readonly source?: SystemExtensionHookSource;
+}
+
+export interface AttachedSystemExtensionHooks {
+  readonly launch: AgentLaunchPlan;
+  readonly warnings: readonly string[];
 }
 
 interface SystemExtensionHookDocument {
@@ -144,4 +150,49 @@ export const readSystemExtensionHooks = (input: SystemExtensionHookDiscoveryInpu
   assertNoEnvironmentCollisions(hooks);
 
   return { hooks, source };
+};
+
+const unsupportedHarnessWarnings = (hooks: readonly SystemExtensionHook[]): readonly string[] =>
+  hooks.flatMap((hook) =>
+    (['claude', 'codex'] as const)
+      .filter((harness) => hook.harnesses[harness] !== undefined)
+      .map(
+        (harness) =>
+          `warning: System extension hook '${hook.name}' configures unsupported harness '${harness}'; ignoring it.`,
+      ),
+  );
+
+/**
+ * Prepends every system Pi extension after projection, including for RPC/print launches. Hook env
+ * stays beneath the projected plan env so it cannot replace Outfitter's runtime/session paths.
+ */
+export const attachSystemExtensionHooks = (
+  plan: AgentLaunchPlan,
+  loaded: LoadedSystemExtensionHooks = readSystemExtensionHooks(),
+): AttachedSystemExtensionHooks => {
+  const warnings = unsupportedHarnessWarnings(loaded.hooks);
+  if (loaded.source === undefined) return { launch: plan, warnings };
+
+  const piHooks = loaded.hooks.flatMap((hook) => (hook.harnesses.pi === undefined ? [] : [hook.harnesses.pi]));
+  const extensionArgs =
+    plan.command === 'pi'
+      ? piHooks.flatMap((hook) => (hook.extensions ?? []).flatMap((path) => ['--extension', path]))
+      : [];
+  const hookEnvironment: Record<string, string> =
+    plan.command === 'pi'
+      ? piHooks.reduce<Record<string, string>>((environment, hook) => ({ ...environment, ...hook.env }), {})
+      : {};
+
+  return {
+    launch: {
+      ...plan,
+      args: [...extensionArgs, ...plan.args],
+      env: {
+        ...hookEnvironment,
+        OUTFITTER_SYSTEM_HOOK_SOURCE: loaded.source.stamp,
+        ...plan.env,
+      },
+    },
+    warnings,
+  };
 };

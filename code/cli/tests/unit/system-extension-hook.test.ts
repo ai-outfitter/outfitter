@@ -3,9 +3,15 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { readSystemExtensionHooks, resolveSystemExtensionHookSource } from '../../src/system/SystemExtensionHook.js';
+import { executeRunAgentCommand } from '../../src/cli/commands/RunAgentCommand.js';
+import type { AgentLaunchPlan } from '../../src/projection/Projection.js';
+import {
+  attachSystemExtensionHooks,
+  readSystemExtensionHooks,
+  resolveSystemExtensionHookSource,
+} from '../../src/system/SystemExtensionHook.js';
 import { validateSchema } from '../../src/validation/SchemaValidator.js';
 
 const temporaryRoots: string[] = [];
@@ -22,8 +28,20 @@ const write = (path: string, content: string): void => {
 };
 
 afterEach(() => {
+  vi.unstubAllEnvs();
   for (const root of temporaryRoots.splice(0)) rmSync(root, { recursive: true, force: true });
 });
+
+const agentTree = (): { readonly home: string; readonly project: string } => {
+  const root = temporaryRoot();
+  const home = join(root, 'home');
+  const project = join(root, 'project');
+  write(
+    join(project, '.agents', 'agents', 'engineer', 'agent.md'),
+    '---\nname: engineer\nextensions: []\n---\n\n# Engineer\n',
+  );
+  return { home, project };
+};
 
 describe('system extension hook discovery', () => {
   it('prefers OUTFITTER_SYSTEM_DIR and stamps it as an environment override', () => {
@@ -139,5 +157,182 @@ describe('readSystemExtensionHooks', () => {
         harnesses: { claude: { env: { PENSIEVE_INSTALL_SCOPE: 'launcher' } } },
       }),
     ).toEqual({ valid: true, issues: [] });
+  });
+});
+
+describe('attachSystemExtensionHooks', () => {
+  it('prepends Pi extensions in file order and layers hook env beneath the launch plan', () => {
+    const plan: AgentLaunchPlan = {
+      command: 'pi',
+      args: ['--mode', 'rpc'],
+      env: { PI_CODING_AGENT_DIR: '/projection', PI_CODING_AGENT_SESSION_DIR: '/sessions' },
+    };
+    const result = attachSystemExtensionHooks(plan, {
+      source: { directory: '/system', stamp: '/system' },
+      hooks: [
+        {
+          filePath: '/system/10-a.yml',
+          name: 'a',
+          harnesses: {
+            pi: {
+              extensions: ['/extensions/a'],
+              env: { FIRST: '1', PI_CODING_AGENT_DIR: '/malicious' },
+            },
+          },
+        },
+        {
+          filePath: '/system/20-b.yml',
+          name: 'b',
+          harnesses: {
+            pi: {
+              extensions: ['/extensions/b'],
+              env: { SECOND: '2', PI_CODING_AGENT_SESSION_DIR: '/malicious' },
+            },
+          },
+        },
+      ],
+    });
+
+    expect(result.launch.args).toEqual([
+      '--extension',
+      '/extensions/a',
+      '--extension',
+      '/extensions/b',
+      '--mode',
+      'rpc',
+    ]);
+    expect(result.launch.env).toEqual({
+      FIRST: '1',
+      SECOND: '2',
+      OUTFITTER_SYSTEM_HOOK_SOURCE: '/system',
+      PI_CODING_AGENT_DIR: '/projection',
+      PI_CODING_AGENT_SESSION_DIR: '/sessions',
+    });
+  });
+
+  it('leaves unsupported platforms unchanged and warns for non-Pi hook sections', () => {
+    const plan: AgentLaunchPlan = { command: 'claude', args: ['--model', 'x'], env: {} };
+    expect(attachSystemExtensionHooks(plan, { hooks: [] })).toEqual({ launch: plan, warnings: [] });
+
+    const attached = attachSystemExtensionHooks(plan, {
+      source: { directory: '/system', stamp: 'env-override:/system' },
+      hooks: [
+        {
+          filePath: '/system/observer.yml',
+          name: 'observer',
+          harnesses: { claude: {}, codex: {} },
+        },
+      ],
+    });
+    expect(attached.launch.args).toEqual(plan.args);
+    expect(attached.warnings).toEqual([
+      "warning: System extension hook 'observer' configures unsupported harness 'claude'; ignoring it.",
+      "warning: System extension hook 'observer' configures unsupported harness 'codex'; ignoring it.",
+    ]);
+  });
+});
+
+describe('run agent with system extension hooks', () => {
+  it('attaches the system extension to a Pi RPC launch', async () => {
+    const { home, project } = agentTree();
+    const systemDirectory = temporaryRoot();
+    const extensionDirectory = join(systemDirectory, 'observer');
+    mkdirSync(extensionDirectory);
+    write(
+      join(systemDirectory, 'observer.yml'),
+      `name: observer\nharnesses:\n  pi:\n    extensions: [${extensionDirectory}]\n`,
+    );
+    vi.stubEnv('OUTFITTER_SYSTEM_DIR', systemDirectory);
+    let launch: AgentLaunchPlan | undefined;
+
+    const result = await executeRunAgentCommand({
+      homeDirectory: home,
+      projectDirectory: project,
+      agent: 'engineer',
+      passThroughArgs: ['--mode', 'rpc'],
+      launcher: (plan) => {
+        launch = plan;
+        return Promise.resolve(0);
+      },
+    });
+
+    expect(result.exitCode).toBe(0);
+    expect(launch?.args.slice(0, 4)).toEqual([
+      '--extension',
+      extensionDirectory,
+      '--system-prompt',
+      expect.any(String),
+    ]);
+    expect(launch?.args).toEqual(expect.arrayContaining(['--mode', 'rpc']));
+    expect(launch?.args.some((arg) => arg.endsWith('outfitter-runtime-extension.js'))).toBe(false);
+    expect(launch?.env.OUTFITTER_SYSTEM_HOOK_SOURCE).toBe(`env-override:${systemDirectory}`);
+  });
+
+  it('does not make a system hook fatal under strict mode or let its env replace Pi runtime paths', async () => {
+    const { home, project } = agentTree();
+    const systemDirectory = temporaryRoot();
+    const extensionDirectory = join(systemDirectory, 'observer');
+    mkdirSync(extensionDirectory);
+    write(
+      join(systemDirectory, 'observer.yml'),
+      [
+        'name: observer',
+        'harnesses:',
+        '  pi:',
+        `    extensions: [${extensionDirectory}]`,
+        '    env:',
+        '      PI_CODING_AGENT_DIR: /replaced',
+        '      PI_CODING_AGENT_SESSION_DIR: /replaced',
+        '      OBSERVER_SINK: https://observer.example.test',
+        '',
+      ].join('\n'),
+    );
+    vi.stubEnv('OUTFITTER_SYSTEM_DIR', systemDirectory);
+
+    const result = await executeRunAgentCommand({
+      homeDirectory: home,
+      projectDirectory: project,
+      agent: 'engineer',
+      strict: true,
+      launcher: (plan) => {
+        expect(plan.env.PI_CODING_AGENT_DIR).not.toBe('/replaced');
+        expect(plan.env.PI_CODING_AGENT_SESSION_DIR).not.toBe('/replaced');
+        expect(plan.env.OBSERVER_SINK).toBe('https://observer.example.test');
+        return Promise.resolve(0);
+      },
+    });
+
+    expect(result.exitCode).toBe(0);
+    expect(result.messages).toEqual([]);
+  });
+
+  it('warns and does not change argv when a Claude system hook is present', async () => {
+    const { home, project } = agentTree();
+    const systemDirectory = temporaryRoot();
+    const extensionDirectory = join(systemDirectory, 'observer');
+    mkdirSync(extensionDirectory);
+    write(
+      join(systemDirectory, 'observer.yml'),
+      `name: observer\nharnesses:\n  claude:\n    extensions: [${extensionDirectory}]\n`,
+    );
+    vi.stubEnv('OUTFITTER_SYSTEM_DIR', systemDirectory);
+    let launch: AgentLaunchPlan | undefined;
+
+    const result = await executeRunAgentCommand({
+      homeDirectory: home,
+      projectDirectory: project,
+      agent: 'engineer',
+      harness: 'claude',
+      launcher: (plan) => {
+        launch = plan;
+        return Promise.resolve(0);
+      },
+    });
+
+    expect(result.exitCode).toBe(0);
+    expect(launch?.args).not.toContain('--extension');
+    expect(result.messages).toEqual([
+      "warning: System extension hook 'observer' configures unsupported harness 'claude'; ignoring it.",
+    ]);
   });
 });

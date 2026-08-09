@@ -23,6 +23,7 @@ import { resolveEffectiveSet } from '../../resolver/ResolverContext.js';
 import type { Harness } from '../../settings/Settings.js';
 import { HARNESSES } from '../../settings/Settings.js';
 import type { SetupResult } from '../../setup/Setup.js';
+import { attachSystemExtensionHooks } from '../../system/SystemExtensionHook.js';
 import { readOutfitterVersion } from '../../version/OutfitterVersion.js';
 import type { CommandObject } from './CommandObject.js';
 import { attachPiRuntimeExtension } from './PiRuntimeLaunch.js';
@@ -243,14 +244,16 @@ export const executeRunAgentCommand = async (input: RunAgentInput): Promise<RunA
     emit(messages);
 
     // Attach the Outfitter runtime UI and sign-in extension to interactive pi sessions.
-    const launch = attachPiRuntimeExtension(projection.launch, {
+    const runtimeLaunch = attachPiRuntimeExtension(projection.launch, {
       outfitterVersion: readOutfitterVersion(),
       profile: { id: agentSlug, label: composed.plan.identity.label },
       rootDirectory,
     });
-    const exitCode = await launchWithCredentialPersistence(input, harness, rootDirectory, launch);
+    const systemHooks = attachSystemExtensionHooks(runtimeLaunch);
+    emit(systemHooks.warnings);
+    const exitCode = await launchWithCredentialPersistence(input, harness, rootDirectory, systemHooks.launch);
 
-    return { launchPlan: launch, exitCode, messages };
+    return { launchPlan: systemHooks.launch, exitCode, messages: [...messages, ...systemHooks.warnings] };
   } finally {
     if (input.retainProjection !== true) {
       rmSync(rootDirectory, { recursive: true, force: true });
