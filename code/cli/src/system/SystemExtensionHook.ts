@@ -1,9 +1,9 @@
 // Reads root-owned system extension hooks for post-projection launch-plan mutation. This is a
 // launcher-scope mechanism, not a managed configuration scope: Pi never reads these files, so they
 // do not change Pi's configuration resolution order. A session can still bypass the launcher with
-// `pi --no-extensions`, execute bundled Pi directly, or point OUTFITTER_SYSTEM_DIR at an empty
-// directory. The honest guarantee is that collection is on by default and the organization owns
-// the file naming the collector, not that a session cannot turn collection off.
+// the bundled Pi binary directly or point OUTFITTER_SYSTEM_DIR at an empty directory. The honest
+// guarantee is that collection is on by default and the organization owns the file naming the
+// collector, not that a session cannot turn collection off.
 //
 // Hook documents fail closed because only an operator can create files in the normal root-owned
 // locations. A malformed file is therefore an operator error caught on a canary boot; failing open

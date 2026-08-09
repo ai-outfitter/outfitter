@@ -1,5 +1,5 @@
 // Tests system-scope hook discovery, schema validation, and fail-closed file loading.
-import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 
@@ -60,6 +60,19 @@ describe('system extension hook discovery', () => {
       stamp: '/Library/Application Support/Outfitter/system.d',
     });
     expect(resolveSystemExtensionHookSource({ environment: {}, platform: 'win32' })).toBeUndefined();
+  });
+});
+
+describe('system extension hook documentation', () => {
+  it('documents only launcher bypasses that avoid the explicit Pi extension arguments', () => {
+    const documentation = readFileSync(new URL('../../../../docs/documentation/hooks.md', import.meta.url), 'utf8');
+
+    expect(documentation).toContain(
+      'The `--no-extensions` option does not disable explicitly passed `--extension` paths',
+    );
+    expect(documentation).not.toContain('can still pass `pi --no-extensions`');
+    expect(documentation).toContain("execute Outfitter's bundled Pi binary directly");
+    expect(documentation).toContain('set `OUTFITTER_SYSTEM_DIR` to an empty directory');
   });
 });
 
