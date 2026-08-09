@@ -162,6 +162,22 @@ describe('readSystemExtensionHooks', () => {
     },
   );
 
+  it.each([
+    'NODE_OPTIONS',
+    'NODE_REPL_EXTERNAL_MODULE',
+    'LD_PRELOAD',
+    'LD_AUDIT',
+    'LD_LIBRARY_PATH',
+    'DYLD_INSERT_LIBRARIES',
+  ])('rejects process-loader and runtime-control variable %s at load time', (name) => {
+    const directory = temporaryRoot();
+    write(join(directory, 'loader.yml'), `name: loader\nharnesses:\n  pi:\n    env:\n      ${name}: exploit\n`);
+
+    expect(() => readSystemExtensionHooks({ environment: { OUTFITTER_SYSTEM_DIR: directory } })).toThrow(
+      `environment variable '${name}' controls process loading and is forbidden`,
+    );
+  });
+
   it('registers the persisted document with the shared schema validator', () => {
     expect(
       validateSchema('system-extension-hook', {

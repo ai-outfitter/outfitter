@@ -8,7 +8,8 @@
 // Hook documents fail closed because only an operator can create files in the normal root-owned
 // locations. A malformed file is therefore an operator error caught on a canary boot; failing open
 // would silently run the fleet without collection, which downstream verifiers must classify as
-// unattested rather than clean.
+// unattested rather than clean. Hook environment also denies Node and native dynamic-loader
+// controls: they could execute code before Pi starts and change what runs rather than what observes.
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { isAbsolute, join } from 'node:path';
 
@@ -20,6 +21,13 @@ import { parseYamlDocument } from '../validation/YamlDocument.js';
 const linuxSystemDirectory = '/etc/outfitter/system.d';
 const macosSystemDirectory = '/Library/Application Support/Outfitter/system.d';
 const protectedPiEnvironmentVariables = new Set(['PI_CODING_AGENT_DIR', 'PI_CODING_AGENT_SESSION_DIR']);
+const runtimeControlEnvironmentVariables = new Set([
+  'LD_AUDIT',
+  'LD_LIBRARY_PATH',
+  'LD_PRELOAD',
+  'NODE_OPTIONS',
+  'NODE_REPL_EXTERNAL_MODULE',
+]);
 
 export interface SystemExtensionHarnessHook {
   readonly extensions?: readonly string[];
@@ -102,6 +110,19 @@ const assertNoProtectedPiEnvironment = (document: SystemExtensionHookDocument, f
   }
 };
 
+const assertNoRuntimeControlEnvironment = (document: SystemExtensionHookDocument, filePath: string): void => {
+  for (const hook of Object.values(document.harnesses)) {
+    for (const name of Object.keys(hook.env ?? {})) {
+      const normalizedName = name.toUpperCase();
+      if (runtimeControlEnvironmentVariables.has(normalizedName) || normalizedName.startsWith('DYLD_')) {
+        throw new Error(
+          `Invalid system extension hook '${filePath}': environment variable '${name}' controls process loading and is forbidden.`,
+        );
+      }
+    }
+  }
+};
+
 const readSystemExtensionHook = (filePath: string): SystemExtensionHook => {
   let content: string;
 
@@ -123,6 +144,7 @@ const readSystemExtensionHook = (filePath: string): SystemExtensionHook => {
 
   const document = parsed.document as SystemExtensionHookDocument;
   assertNoProtectedPiEnvironment(document, filePath);
+  assertNoRuntimeControlEnvironment(document, filePath);
   assertExtensionPathsExist(document, filePath);
   return { filePath, ...document };
 };
