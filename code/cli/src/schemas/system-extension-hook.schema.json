@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://outfitter.dev/schemas/system-extension-hook.schema.json",
+  "title": "Outfitter system extension hook",
+  "type": "object",
+  "required": ["name", "harnesses"],
+  "properties": {
+    "name": { "type": "string", "minLength": 1 },
+    "harnesses": {
+      "type": "object",
+      "minProperties": 1,
+      "properties": {
+        "pi": { "$ref": "#/$defs/harnessHook" },
+        "claude": { "$ref": "#/$defs/harnessHook" },
+        "codex": { "$ref": "#/$defs/harnessHook" }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "harnessHook": {
+      "type": "object",
+      "properties": {
+        "extensions": {
+          "type": "array",
+          "items": { "type": "string", "pattern": "^/" }
+        },
+        "env": {
+          "type": "object",
+          "propertyNames": { "minLength": 1 },
+          "additionalProperties": { "type": "string" }
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}
