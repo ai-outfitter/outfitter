@@ -70,3 +70,6 @@ review-results/
 # Agent-local planning artifacts
 TASK.md
 PLAN.md
+
+# Delegation scratchpad, per the subagent-delegation skill.
+TASKS.md
