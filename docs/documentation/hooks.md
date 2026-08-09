@@ -38,7 +38,7 @@ harnesses:
 
 Extension entries must be absolute paths that already exist. Package and Git specifiers are rejected, so a launch never installs a system extension from the network. Only `name` and `harnesses` are accepted at the document root, and each harness entry can contain only `extensions` and `env`; a system hook cannot select an agent, harness, model, tool, skill, or prompt.
 
-For Pi, Outfitter prepends the configured `--extension <path>` arguments after projection on every launch, including `--mode rpc`, print, and other non-interactive launches. Hook environment is below the launch plan's own environment, so it cannot replace `PI_CODING_AGENT_DIR` or `PI_CODING_AGENT_SESSION_DIR`, but it is above the parent process environment at spawn. `harnesses.claude` and `harnesses.codex` documents validate but are ignored with a warning; Outfitter has no equivalent extension argument for those adapters. Their native managed configuration is the stronger policy surface.
+For Pi, Outfitter prepends the configured `--extension <path>` arguments after projection on every launch, including `--mode rpc`, print, and other non-interactive launches. Hook documents cannot name the Outfitter-controlled `PI_CODING_AGENT_DIR` or `PI_CODING_AGENT_SESSION_DIR` variables; other hook environment is below the launch plan's own environment but above the parent process environment at spawn. `harnesses.claude` and `harnesses.codex` documents validate but are ignored with a warning; Outfitter has no equivalent extension argument for those adapters. Their native managed configuration is the stronger policy surface.
 
 ### Launcher scope, not managed scope
 

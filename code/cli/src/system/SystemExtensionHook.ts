@@ -19,6 +19,7 @@ import { parseYamlDocument } from '../validation/YamlDocument.js';
 
 const linuxSystemDirectory = '/etc/outfitter/system.d';
 const macosSystemDirectory = '/Library/Application Support/Outfitter/system.d';
+const protectedPiEnvironmentVariables = new Set(['PI_CODING_AGENT_DIR', 'PI_CODING_AGENT_SESSION_DIR']);
 
 export interface SystemExtensionHarnessHook {
   readonly extensions?: readonly string[];
@@ -89,6 +90,18 @@ const assertExtensionPathsExist = (document: SystemExtensionHookDocument, filePa
   }
 };
 
+const assertNoProtectedPiEnvironment = (document: SystemExtensionHookDocument, filePath: string): void => {
+  for (const hook of Object.values(document.harnesses)) {
+    for (const name of Object.keys(hook.env ?? {})) {
+      if (protectedPiEnvironmentVariables.has(name.toUpperCase())) {
+        throw new Error(
+          `Invalid system extension hook '${filePath}': environment variable '${name}' is reserved by Outfitter.`,
+        );
+      }
+    }
+  }
+};
+
 const readSystemExtensionHook = (filePath: string): SystemExtensionHook => {
   let content: string;
 
@@ -109,6 +122,7 @@ const readSystemExtensionHook = (filePath: string): SystemExtensionHook => {
   }
 
   const document = parsed.document as SystemExtensionHookDocument;
+  assertNoProtectedPiEnvironment(document, filePath);
   assertExtensionPathsExist(document, filePath);
   return { filePath, ...document };
 };

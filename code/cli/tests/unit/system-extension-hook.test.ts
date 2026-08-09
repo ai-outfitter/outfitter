@@ -150,6 +150,18 @@ describe('readSystemExtensionHooks', () => {
     );
   });
 
+  it.each(['PI_CODING_AGENT_DIR', 'PI_CODING_AGENT_SESSION_DIR'])(
+    'rejects protected Pi runtime variable %s at load time',
+    (name) => {
+      const directory = temporaryRoot();
+      write(join(directory, 'protected.yml'), `name: protected\nharnesses:\n  pi:\n    env:\n      ${name}: /tmp\n`);
+
+      expect(() => readSystemExtensionHooks({ environment: { OUTFITTER_SYSTEM_DIR: directory } })).toThrow(
+        `environment variable '${name}' is reserved by Outfitter`,
+      );
+    },
+  );
+
   it('registers the persisted document with the shared schema validator', () => {
     expect(
       validateSchema('system-extension-hook', {
@@ -165,7 +177,11 @@ describe('attachSystemExtensionHooks', () => {
     const plan: AgentLaunchPlan = {
       command: 'pi',
       args: ['--mode', 'rpc'],
-      env: { PI_CODING_AGENT_DIR: '/projection', PI_CODING_AGENT_SESSION_DIR: '/sessions' },
+      env: {
+        PI_CODING_AGENT_DIR: '/projection',
+        PI_CODING_AGENT_SESSION_DIR: '/sessions',
+        SHARED: 'plan',
+      },
     };
     const result = attachSystemExtensionHooks(plan, {
       source: { directory: '/system', stamp: '/system' },
@@ -176,7 +192,7 @@ describe('attachSystemExtensionHooks', () => {
           harnesses: {
             pi: {
               extensions: ['/extensions/a'],
-              env: { FIRST: '1', PI_CODING_AGENT_DIR: '/malicious' },
+              env: { FIRST: '1', SHARED: 'hook' },
             },
           },
         },
@@ -186,7 +202,7 @@ describe('attachSystemExtensionHooks', () => {
           harnesses: {
             pi: {
               extensions: ['/extensions/b'],
-              env: { SECOND: '2', PI_CODING_AGENT_SESSION_DIR: '/malicious' },
+              env: { SECOND: '2' },
             },
           },
         },
@@ -207,6 +223,7 @@ describe('attachSystemExtensionHooks', () => {
       OUTFITTER_SYSTEM_HOOK_SOURCE: '/system',
       PI_CODING_AGENT_DIR: '/projection',
       PI_CODING_AGENT_SESSION_DIR: '/sessions',
+      SHARED: 'plan',
     });
   });
 
@@ -268,7 +285,7 @@ describe('run agent with system extension hooks', () => {
     expect(launch?.env.OUTFITTER_SYSTEM_HOOK_SOURCE).toBe(`env-override:${systemDirectory}`);
   });
 
-  it('does not make a system hook fatal under strict mode or let its env replace Pi runtime paths', async () => {
+  it('does not make a valid system hook fatal under strict mode', async () => {
     const { home, project } = agentTree();
     const systemDirectory = temporaryRoot();
     const extensionDirectory = join(systemDirectory, 'observer');
@@ -281,8 +298,6 @@ describe('run agent with system extension hooks', () => {
         '  pi:',
         `    extensions: [${extensionDirectory}]`,
         '    env:',
-        '      PI_CODING_AGENT_DIR: /replaced',
-        '      PI_CODING_AGENT_SESSION_DIR: /replaced',
         '      OBSERVER_SINK: https://observer.example.test',
         '',
       ].join('\n'),
@@ -295,8 +310,6 @@ describe('run agent with system extension hooks', () => {
       agent: 'engineer',
       strict: true,
       launcher: (plan) => {
-        expect(plan.env.PI_CODING_AGENT_DIR).not.toBe('/replaced');
-        expect(plan.env.PI_CODING_AGENT_SESSION_DIR).not.toBe('/replaced');
         expect(plan.env.OBSERVER_SINK).toBe('https://observer.example.test');
         return Promise.resolve(0);
       },
