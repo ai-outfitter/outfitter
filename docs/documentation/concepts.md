@@ -58,9 +58,10 @@ The same agent definition can be run directly or selected as a subagent elsewher
 
 Resources resolve across layers, following the protocol's overlay semantics:
 
-1. `<project>/.agents/` — the workspace layer, committed with a project.
-2. `~/.agents/` — the global layer for one developer.
-3. Remote sources — pinned `.agents` payloads from [catalog repositories](./catalogs.md), in configured order.
+1. `--runtime-layer` roots — optional, invocation-only inputs to `run`, in command-line order.
+2. `<project>/.agents/` — the workspace layer, committed with a project.
+3. `~/.agents/` — the global layer for one developer.
+4. Remote sources — pinned `.agents` payloads from [catalog repositories](./catalogs.md), in configured order.
 
 Resources merge **by ID**: a workspace `skills/wiki/` overrides a global or remote `skills/wiki/`. Agent-local skills merge by owner and ID, so `agents/actions/skills/debug/` is distinct from `agents/reviewer/skills/debug/`; the selected agent's local winner takes precedence over catalog-wide `skills/debug/`. JSON files such as `mcp.json` and `models.json` follow the protocol's JSON merge behavior. Standalone `.agents` repositories — where the repository root _is_ the payload — are the primary way to develop and share layers; see [Catalogs](./catalogs.md) and [Local development](./local-development.md).
 

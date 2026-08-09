@@ -48,6 +48,8 @@ export interface RunAgentInput {
   readonly harness?: string;
   readonly strict?: boolean;
   readonly passThroughArgs?: readonly string[];
+  /** Invocation-only protocol resource roots, highest precedence first. */
+  readonly runtimeLayers?: readonly string[];
   /** `--append-prompt` documents appended to the system prompt after the agent's own, in order. */
   readonly appendPromptPaths?: readonly string[];
   readonly launcher: AgentProcessLauncher;
@@ -276,6 +278,11 @@ export const createRunAgentCommand = (dependencies: RunAgentDependencies = {}): 
       .addOption(new Option('--harness <harness>', 'Harness to launch.').choices([...HARNESSES]))
       .option('--strict', 'Treat composition warnings and unsupported loadout elements as fatal.')
       .option(
+        '--runtime-layer <path>',
+        'Add an invocation-only resource layer. Repeatable; earlier layers take precedence.',
+        (value: string, previous: readonly string[] = []) => [...previous, value],
+      )
+      .option(
         '--append-prompt <path>',
         'Append a Markdown document to the system prompt. Repeatable; applied in the order given.',
         (value: string, previous: readonly string[] = []) => [...previous, value],
@@ -285,7 +292,12 @@ export const createRunAgentCommand = (dependencies: RunAgentDependencies = {}): 
         async (
           agent: string | undefined,
           passThroughArgs: readonly string[],
-          options: { harness?: string; strict?: boolean; appendPrompt?: readonly string[] },
+          options: {
+            harness?: string;
+            strict?: boolean;
+            runtimeLayer?: readonly string[];
+            appendPrompt?: readonly string[];
+          },
         ) => {
           /* v8 ignore next 3 -- process/launcher defaults are exercised by the CLI entrypoint, not unit tests. */
           const homeDirectory = resolveHomeDirectory(dependencies.homeDirectory);
@@ -298,6 +310,7 @@ export const createRunAgentCommand = (dependencies: RunAgentDependencies = {}): 
             harness: options.harness,
             strict: options.strict,
             passThroughArgs,
+            runtimeLayers: options.runtimeLayer,
             appendPromptPaths: options.appendPrompt,
             launcher,
             setup: dependencies.setup ?? interactiveSetupRunner,

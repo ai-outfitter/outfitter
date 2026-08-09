@@ -9,6 +9,8 @@ import { resolveResources } from './Resolver.js';
 export interface ResolveInput {
   readonly homeDirectory: string;
   readonly projectDirectory: string;
+  /** Invocation-only protocol resource roots, highest precedence first. */
+  readonly runtimeLayers?: readonly string[];
 }
 
 export interface ResolveResult {

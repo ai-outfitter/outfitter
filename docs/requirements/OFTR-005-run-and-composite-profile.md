@@ -26,6 +26,7 @@ Amended (2026-07-17, RFC #165): `run` selects an agent slug and a harness, not a
 9. The `run` command MUST accept a repeatable `--append-prompt <path>`, appending each named document to the system prompt after the composition's own fragments, in the order given.
 10. The `run` command MUST reject an `--append-prompt` path that is not a readable file before launching, naming both the flag and the path.
 11. For a harness that exposes a native append-prompt flag, `--append-prompt` MUST project through that flag so a caller does not have to know which harness will launch. Passthrough after `--` cannot satisfy this, because it reaches the harness unaltered per OFTR-005.1.7. A harness without a native append flag MUST warn that the prompt cannot be projected, subject to the OFTR-006.1.4 `--strict` policy.
+12. The `run` command MUST accept repeatable `--runtime-layer <path>` protocol resource roots for that invocation only. Runtime layers MUST resolve above the workspace in command-line order and MUST NOT modify the supplied roots or persistent settings.
 
 ### OFTR-005.2: Composition Definition
 
