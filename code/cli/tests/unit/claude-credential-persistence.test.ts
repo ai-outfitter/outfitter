@@ -78,6 +78,8 @@ describe('Claude credential persistence', () => {
     expect(existsSync(join(projection, '.claude.json'))).toBe(false);
   });
 
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-006.5.12).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('ignores malformed, non-object, and structurally unrelated durable state', () => {
     const base = root();
     const projection = join(base, 'projection');
@@ -119,6 +121,40 @@ describe('Claude credential persistence', () => {
     });
   });
 
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-006.5.14).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('does not copy back an unchanged seeded credentials file', () => {
+    const base = root();
+    const projection = join(base, 'projection');
+    const home = join(base, 'home');
+    const durableCredentials = join(home, '.claude', '.credentials.json');
+    write(durableCredentials, '{"token":"launch-time"}');
+
+    const seededHash = seedClaudeCredentials(projection, home, join(base, 'project'));
+    write(durableCredentials, '{"token":"refreshed-concurrently"}');
+    persistClaudeCredentials(projection, home, seededHash);
+
+    expect(readFileSync(durableCredentials, 'utf8')).toBe('{"token":"refreshed-concurrently"}');
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-006.5.14).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('copies back a credentials file changed after seeding', () => {
+    const base = root();
+    const projection = join(base, 'projection');
+    const home = join(base, 'home');
+    const durableCredentials = join(home, '.claude', '.credentials.json');
+    write(durableCredentials, '{"token":"before"}');
+
+    const seededHash = seedClaudeCredentials(projection, home, join(base, 'project'));
+    write(join(projection, '.credentials.json'), '{"token":"after"}');
+    persistClaudeCredentials(projection, home, seededHash);
+
+    expect(readFileSync(durableCredentials, 'utf8')).toBe('{"token":"after"}');
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-006.5.15).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('creates durable account metadata when absent but preserves an invalid durable file', () => {
     const base = root();
     const projection = join(base, 'projection');
@@ -133,6 +169,8 @@ describe('Claude credential persistence', () => {
     expect(readFileSync(join(home, '.claude.json'), 'utf8')).toBe('{invalid');
   });
 
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-006.5.15).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('does not rewrite durable state when projected account metadata is absent or invalid', () => {
     const base = root();
     const projection = join(base, 'projection');
@@ -150,7 +188,7 @@ describe('Claude credential persistence', () => {
 });
 
 describe('run agent Claude credential write-back', () => {
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-006.5.12, OFTR-006.5.14).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-006.5.12, OFTR-006.5.13, OFTR-006.5.14).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('seeds before launch and persists credentials after a successful Claude run', async () => {
     const base = root();
@@ -158,10 +196,19 @@ describe('run agent Claude credential write-back', () => {
     const project = join(base, 'project');
     write(join(project, '.agents', 'agents', 'engineer', 'agent.md'), '---\nname: engineer\n---\n\nBody.\n');
     write(join(home, '.claude', '.credentials.json'), '{"before":true}');
+    write(
+      join(home, '.claude.json'),
+      JSON.stringify({
+        projects: { [project]: { hasTrustDialogAccepted: true }, [home]: { hasTrustDialogAccepted: false } },
+      }),
+    );
 
     const launcher = (plan: AgentLaunchPlan): Promise<number> => {
       const configDirectory = plan.env.CLAUDE_CONFIG_DIR ?? '';
       expect(readFileSync(join(configDirectory, '.credentials.json'), 'utf8')).toBe('{"before":true}');
+      expect(readJson(join(configDirectory, '.claude.json'))).toEqual({
+        projects: { [project]: { hasTrustDialogAccepted: true } },
+      });
       writeFileSync(join(configDirectory, '.credentials.json'), '{"after":true}');
       return Promise.resolve(0);
     };
@@ -177,7 +224,7 @@ describe('run agent Claude credential write-back', () => {
     expect(readFileSync(join(home, '.claude', '.credentials.json'), 'utf8')).toBe('{"after":true}');
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-006.5.14).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-006.5.14, OFTR-006.5.15).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('persists credentials when the Claude launcher fails', async () => {
     const base = root();
@@ -187,6 +234,10 @@ describe('run agent Claude credential write-back', () => {
 
     const launcher = (plan: AgentLaunchPlan): Promise<number> => {
       writeFileSync(join(plan.env.CLAUDE_CONFIG_DIR ?? '', '.credentials.json'), '{"afterFailure":true}');
+      writeFileSync(
+        join(plan.env.CLAUDE_CONFIG_DIR ?? '', '.claude.json'),
+        JSON.stringify({ oauthAccount: { accountUuid: 'after-failure' } }),
+      );
       return Promise.reject(new Error('launch failed'));
     };
 
@@ -200,5 +251,54 @@ describe('run agent Claude credential write-back', () => {
       }),
     ).rejects.toThrow('launch failed');
     expect(readFileSync(join(home, '.claude', '.credentials.json'), 'utf8')).toBe('{"afterFailure":true}');
+    expect(readJson(join(home, '.claude.json'))).toEqual({ oauthAccount: { accountUuid: 'after-failure' } });
+  });
+
+  it('preserves a launcher exit code when Claude credential persistence fails', async () => {
+    const base = root();
+    const home = join(base, 'home');
+    const project = join(base, 'project');
+    const warnings: string[] = [];
+    write(join(project, '.agents', 'agents', 'engineer', 'agent.md'), '---\nname: engineer\n---\n\nBody.\n');
+    write(join(home, '.claude'), 'not a directory');
+
+    const result = await executeRunAgentCommand({
+      homeDirectory: home,
+      projectDirectory: project,
+      agent: 'engineer',
+      harness: 'claude',
+      launcher: (plan) => {
+        writeFileSync(join(plan.env.CLAUDE_CONFIG_DIR ?? '', '.credentials.json'), '{"changed":true}');
+        return Promise.resolve(23);
+      },
+      writeLine: (line) => warnings.push(line),
+    });
+
+    expect(result.exitCode).toBe(23);
+    expect(warnings).toEqual([expect.stringContaining('failed to persist Claude credentials')]);
+  });
+
+  it('preserves a launcher error when Claude credential persistence fails', async () => {
+    const base = root();
+    const home = join(base, 'home');
+    const project = join(base, 'project');
+    const warnings: string[] = [];
+    write(join(project, '.agents', 'agents', 'engineer', 'agent.md'), '---\nname: engineer\n---\n\nBody.\n');
+    write(join(home, '.claude'), 'not a directory');
+
+    await expect(
+      executeRunAgentCommand({
+        homeDirectory: home,
+        projectDirectory: project,
+        agent: 'engineer',
+        harness: 'claude',
+        launcher: (plan) => {
+          writeFileSync(join(plan.env.CLAUDE_CONFIG_DIR ?? '', '.credentials.json'), '{"changed":true}');
+          return Promise.reject(new Error('original launcher diagnostic'));
+        },
+        writeLine: (line) => warnings.push(line),
+      }),
+    ).rejects.toThrow('original launcher diagnostic');
+    expect(warnings).toEqual([expect.stringContaining('failed to persist Claude credentials')]);
   });
 });

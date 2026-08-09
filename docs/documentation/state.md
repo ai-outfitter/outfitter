@@ -194,10 +194,13 @@ Claude credentials need a narrow adapter bridge in addition to the path-keyed st
 reads `.credentials.json` and `.claude.json` directly from `CLAUDE_CONFIG_DIR`; the ephemeral
 projection gives `.credentials.json` no durable home, and `.claude.json`'s native location
 (`~/.claude.json`, outside `~/.claude`) does not share its config-dir-relative path. Outfitter
-seeds `.credentials.json`, `oauthAccount`, and only the current working directory's existing
-accepted-trust bit before launch;
-afterward it copies credentials back and atomically merges `oauthAccount`. It never copies the full
-machine-local `~/.claude.json` into a projection.
+seeds `.credentials.json` before launch. It seeds `oauthAccount` when that key exists in durable
+state. It also seeds the current working directory's accepted-trust bit only when that exact trust
+decision already exists in durable state. Afterward it copies back credentials changed by the run
+and atomically merges `oauthAccount`. It never copies the full machine-local `~/.claude.json` into a
+projection. Trust accepted inside an Outfitter session is discarded, so Claude prompts for trust on
+every run in a workspace that was never trusted natively. MCP OAuth tokens are also discarded because
+their `.claude.json` schema is not stable, so OAuth-backed MCP servers must be re-authorized each run.
 
 The Claude Code adapter declares these paths:
 

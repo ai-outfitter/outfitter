@@ -3,7 +3,7 @@
 // account metadata and workspace trust live in ~/.claude.json. Seed only the credential-shaped
 // state and the current workspace's existing trust decision; merge credential changes back without
 // exposing or replacing the rest of Claude's machine-local state.
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import {
   chmodSync,
   copyFileSync,
@@ -21,6 +21,14 @@ const STATE_FILE = '.claude.json';
 const CREDENTIAL_MODE = 0o600;
 
 type JsonObject = Record<string, unknown>;
+
+const hashFile = (path: string): string | undefined => {
+  try {
+    return createHash('sha256').update(readFileSync(path)).digest('hex');
+  } catch {
+    return undefined;
+  }
+};
 
 const isJsonObject = (value: unknown): value is JsonObject =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -72,14 +80,13 @@ export const seedClaudeCredentials = (
   projectionRoot: string,
   homeDirectory: string,
   workingDirectory: string,
-): void => {
-  atomicCopy(
-    join(resolveClaudeUserConfigDirectory(homeDirectory), CREDENTIALS_FILE),
-    join(projectionRoot, CREDENTIALS_FILE),
-  );
+): string | undefined => {
+  const projectionCredentialsPath = join(projectionRoot, CREDENTIALS_FILE);
+  atomicCopy(join(resolveClaudeUserConfigDirectory(homeDirectory), CREDENTIALS_FILE), projectionCredentialsPath);
+  const seededCredentialsHash = hashFile(projectionCredentialsPath);
 
   const durableState = readJsonObject(resolveClaudeUserStatePath(homeDirectory));
-  if (durableState === undefined) return;
+  if (durableState === undefined) return seededCredentialsHash;
 
   const seededState: JsonObject = {};
   if (Object.hasOwn(durableState, 'oauthAccount')) seededState.oauthAccount = durableState.oauthAccount;
@@ -93,14 +100,21 @@ export const seedClaudeCredentials = (
   if (Object.keys(seededState).length > 0) {
     atomicWriteJson(join(projectionRoot, STATE_FILE), seededState);
   }
+
+  return seededCredentialsHash;
 };
 
 /** Copies changed credentials back and atomically merges account metadata into durable state. */
-export const persistClaudeCredentials = (projectionRoot: string, homeDirectory: string): void => {
-  atomicCopy(
-    join(projectionRoot, CREDENTIALS_FILE),
-    join(resolveClaudeUserConfigDirectory(homeDirectory), CREDENTIALS_FILE),
-  );
+export const persistClaudeCredentials = (
+  projectionRoot: string,
+  homeDirectory: string,
+  seededCredentialsHash?: string,
+): void => {
+  const projectionCredentialsPath = join(projectionRoot, CREDENTIALS_FILE);
+  const projectedCredentialsHash = hashFile(projectionCredentialsPath);
+  if (projectedCredentialsHash !== undefined && projectedCredentialsHash !== seededCredentialsHash) {
+    atomicCopy(projectionCredentialsPath, join(resolveClaudeUserConfigDirectory(homeDirectory), CREDENTIALS_FILE));
+  }
 
   const projectionState = readJsonObject(join(projectionRoot, STATE_FILE));
   if (projectionState === undefined || !Object.hasOwn(projectionState, 'oauthAccount')) return;

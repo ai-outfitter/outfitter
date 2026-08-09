@@ -118,16 +118,29 @@ const launchWithCredentialPersistence = async (
   launch: AgentLaunchPlan,
 ): Promise<number> => {
   const piUserAgentDirectory = harness === 'pi' ? resolvePiUserAgentDirectory(input.homeDirectory) : undefined;
+  let seededClaudeCredentialsHash: string | undefined;
   if (piUserAgentDirectory !== undefined) seedPiCredentials(rootDirectory, piUserAgentDirectory);
   if (harness === 'claude') {
-    seedClaudeCredentials(rootDirectory, input.homeDirectory, input.projectDirectory);
+    seededClaudeCredentialsHash = seedClaudeCredentials(rootDirectory, input.homeDirectory, input.projectDirectory);
   }
 
   try {
     return await input.launcher(launch);
   } finally {
-    if (piUserAgentDirectory !== undefined) persistPiCredentials(rootDirectory, piUserAgentDirectory);
-    if (harness === 'claude') persistClaudeCredentials(rootDirectory, input.homeDirectory);
+    if (piUserAgentDirectory !== undefined) {
+      try {
+        persistPiCredentials(rootDirectory, piUserAgentDirectory);
+      } catch (error) {
+        input.writeLine?.(`Warning: failed to persist Pi credentials: ${String(error)}`);
+      }
+    }
+    if (harness === 'claude') {
+      try {
+        persistClaudeCredentials(rootDirectory, input.homeDirectory, seededClaudeCredentialsHash);
+      } catch (error) {
+        input.writeLine?.(`Warning: failed to persist Claude credentials: ${String(error)}`);
+      }
+    }
   }
 };
 
