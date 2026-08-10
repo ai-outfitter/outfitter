@@ -186,9 +186,30 @@ describe('Claude credential persistence', () => {
 
     const seededHash = seedClaudeCredentials(projection, home, join(base, 'project'));
     write(join(projection, '.credentials.json'), '{"token":"after"}');
-    persistClaudeCredentials(projection, home, seededHash);
+    const warning = persistClaudeCredentials(projection, home, seededHash);
 
     expect(readFileSync(durableCredentials, 'utf8')).toBe('{"token":"after"}');
+    expect(warning).toBeUndefined();
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-006.5.14).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('preserves concurrently refreshed durable credentials when the projection also changed', () => {
+    const base = root();
+    const projection = join(base, 'projection');
+    const home = join(base, 'home');
+    const durableCredentials = join(home, '.claude', '.credentials.json');
+    write(durableCredentials, '{"token":"before"}');
+
+    const seededHash = seedClaudeCredentials(projection, home, join(base, 'project'));
+    write(durableCredentials, '{"token":"refreshed-concurrently"}');
+    write(join(projection, '.credentials.json'), '{"token":"changed-by-run"}');
+    const warning = persistClaudeCredentials(projection, home, seededHash);
+
+    expect(readFileSync(durableCredentials, 'utf8')).toBe('{"token":"refreshed-concurrently"}');
+    expect(warning).toBe(
+      'Warning: durable Claude credentials changed during the run; skipped the credential copy-back to preserve the concurrent refresh.',
+    );
   });
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-006.5.15).
@@ -290,6 +311,34 @@ describe('run agent Claude credential write-back', () => {
     ).rejects.toThrow('launch failed');
     expect(readFileSync(join(home, '.claude', '.credentials.json'), 'utf8')).toBe('{"afterFailure":true}');
     expect(readJson(join(home, '.claude.json'))).toEqual({ oauthAccount: { accountUuid: 'after-failure' } });
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-006.5.14).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('returns a warning when concurrent durable and projected credential refreshes conflict', async () => {
+    const base = root();
+    const home = join(base, 'home');
+    const project = join(base, 'project');
+    const durableCredentials = join(home, '.claude', '.credentials.json');
+    write(join(project, '.agents', 'agents', 'engineer', 'agent.md'), '---\nname: engineer\n---\n\nBody.\n');
+    write(durableCredentials, '{"token":"before"}');
+
+    const result = await executeRunAgentCommand({
+      homeDirectory: home,
+      projectDirectory: project,
+      agent: 'engineer',
+      harness: 'claude',
+      launcher: (plan) => {
+        write(durableCredentials, '{"token":"refreshed-concurrently"}');
+        writeFileSync(join(plan.env.CLAUDE_CONFIG_DIR ?? '', '.credentials.json'), '{"token":"changed-by-run"}');
+        return Promise.resolve(0);
+      },
+    });
+
+    expect(readFileSync(durableCredentials, 'utf8')).toBe('{"token":"refreshed-concurrently"}');
+    expect(result.messages).toContain(
+      'Warning: durable Claude credentials changed during the run; skipped the credential copy-back to preserve the concurrent refresh.',
+    );
   });
 
   it('preserves a launcher exit code when Claude credential persistence fails', async () => {

@@ -197,7 +197,9 @@ projection gives `.credentials.json` no durable home, and `.claude.json`'s nativ
 seeds `.credentials.json` before launch. It seeds `oauthAccount` and `hasCompletedOnboarding` when
 those keys exist in durable state. It also seeds the current working directory's accepted-trust bit
 only when that exact trust decision already exists in durable state. Afterward it copies back the
-whole `.credentials.json` when changed and atomically merges `oauthAccount`. Claude MCP OAuth tokens
+whole `.credentials.json` when changed and atomically merges `oauthAccount`. If the durable
+credentials also changed after seeding, Outfitter preserves that concurrent refresh and warns
+instead of copying the projected credentials back. Claude MCP OAuth tokens
 live under `mcpOAuth` in `.credentials.json`, keyed by `<serverName>|<hash>`, so server
 authorizations acquired in an Outfitter-launched Claude session persist across runs through that
 whole-file copy-back. Outfitter never copies the full machine-local `~/.claude.json` into a

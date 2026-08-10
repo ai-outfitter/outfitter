@@ -76,6 +76,26 @@ const resolveClaudeUserConfigDirectory = (homeDirectory: string): string => join
 /** Claude's durable machine-local state file (`~/.claude.json`). */
 const resolveClaudeUserStatePath = (homeDirectory: string): string => join(homeDirectory, STATE_FILE);
 
+const persistCredentialFile = (
+  projectionRoot: string,
+  homeDirectory: string,
+  seededCredentialsHash?: string,
+): string | undefined => {
+  const projectionCredentialsPath = join(projectionRoot, CREDENTIALS_FILE);
+  const projectedCredentialsHash = hashFile(projectionCredentialsPath);
+  if (projectedCredentialsHash === undefined || projectedCredentialsHash === seededCredentialsHash) return undefined;
+
+  const durableCredentialsPath = join(resolveClaudeUserConfigDirectory(homeDirectory), CREDENTIALS_FILE);
+  if (hashFile(durableCredentialsPath) !== seededCredentialsHash) {
+    // Both this run and another process changed the credentials since seeding. The durable copy
+    // is the newer refresh; overwriting it with this projection would revert it.
+    return 'Warning: durable Claude credentials changed during the run; skipped the credential copy-back to preserve the concurrent refresh.';
+  }
+
+  atomicCopy(projectionCredentialsPath, durableCredentialsPath);
+  return undefined;
+};
+
 /** Seeds credentials, onboarding/account state, and the current workspace's trust decision. */
 export const seedClaudeCredentials = (
   projectionRoot: string,
@@ -108,25 +128,26 @@ export const seedClaudeCredentials = (
   return seededCredentialsHash;
 };
 
-/** Copies changed credentials back and atomically merges account metadata into durable state. */
+/**
+ * Copies changed credentials back and atomically merges account metadata into durable state.
+ * Returns a warning when a concurrent writer changed the durable credentials during the run, in
+ * which case the copy-back is skipped so the newer concurrent refresh is not overwritten.
+ */
 export const persistClaudeCredentials = (
   projectionRoot: string,
   homeDirectory: string,
   seededCredentialsHash?: string,
-): void => {
-  const projectionCredentialsPath = join(projectionRoot, CREDENTIALS_FILE);
-  const projectedCredentialsHash = hashFile(projectionCredentialsPath);
-  if (projectedCredentialsHash !== undefined && projectedCredentialsHash !== seededCredentialsHash) {
-    atomicCopy(projectionCredentialsPath, join(resolveClaudeUserConfigDirectory(homeDirectory), CREDENTIALS_FILE));
-  }
+): string | undefined => {
+  const warning = persistCredentialFile(projectionRoot, homeDirectory, seededCredentialsHash);
 
   const projectionState = readJsonObject(join(projectionRoot, STATE_FILE));
-  if (projectionState === undefined || !Object.hasOwn(projectionState, 'oauthAccount')) return;
+  if (projectionState === undefined || !Object.hasOwn(projectionState, 'oauthAccount')) return warning;
 
   const durableStatePath = resolveClaudeUserStatePath(homeDirectory);
   const durableState = readJsonObject(durableStatePath);
-  if (durableState === undefined && existsSync(durableStatePath)) return;
-  if (JSON.stringify(projectionState.oauthAccount) === JSON.stringify(durableState?.oauthAccount)) return;
+  if (durableState === undefined && existsSync(durableStatePath)) return warning;
+  if (JSON.stringify(projectionState.oauthAccount) === JSON.stringify(durableState?.oauthAccount)) return warning;
 
   atomicWriteJson(durableStatePath, { ...(durableState ?? {}), oauthAccount: projectionState.oauthAccount });
+  return warning;
 };

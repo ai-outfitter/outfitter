@@ -116,7 +116,14 @@ const launchWithCredentialPersistence = async (
   harness: Harness,
   rootDirectory: string,
   launch: AgentLaunchPlan,
+  lateMessages: string[],
 ): Promise<number> => {
+  // Persist warnings surface after launch, and writeLine alone can be a dropped sink (setup's
+  // auto-launch passes none), so they also go into lateMessages to reach the returned result.
+  const warn = (message: string): void => {
+    lateMessages.push(message);
+    input.writeLine?.(message);
+  };
   const piUserAgentDirectory = harness === 'pi' ? resolvePiUserAgentDirectory(input.homeDirectory) : undefined;
   let seededClaudeCredentialsHash: string | undefined;
   if (piUserAgentDirectory !== undefined) seedPiCredentials(rootDirectory, piUserAgentDirectory);
@@ -131,14 +138,19 @@ const launchWithCredentialPersistence = async (
       try {
         persistPiCredentials(rootDirectory, piUserAgentDirectory);
       } catch (error) {
-        input.writeLine?.(`Warning: failed to persist Pi credentials: ${String(error)}`);
+        warn(`Warning: failed to persist Pi credentials: ${String(error)}`);
       }
     }
     if (harness === 'claude') {
       try {
-        persistClaudeCredentials(rootDirectory, input.homeDirectory, seededClaudeCredentialsHash);
+        const conflictWarning = persistClaudeCredentials(
+          rootDirectory,
+          input.homeDirectory,
+          seededClaudeCredentialsHash,
+        );
+        if (conflictWarning !== undefined) warn(conflictWarning);
       } catch (error) {
-        input.writeLine?.(`Warning: failed to persist Claude credentials: ${String(error)}`);
+        warn(`Warning: failed to persist Claude credentials: ${String(error)}`);
       }
     }
   }
@@ -267,7 +279,7 @@ export const executeRunAgentCommand = async (input: RunAgentInput): Promise<RunA
       profile: { id: agentSlug, label: composed.plan.identity.label },
       rootDirectory,
     });
-    const exitCode = await launchWithCredentialPersistence(input, harness, rootDirectory, launch);
+    const exitCode = await launchWithCredentialPersistence(input, harness, rootDirectory, launch, messages);
 
     return { launchPlan: launch, exitCode, messages };
   } finally {
