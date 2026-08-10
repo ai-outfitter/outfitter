@@ -84,4 +84,28 @@ describe('run agent credential write-back', () => {
       '{"anthropic":"logged-in"}',
     );
   });
+
+  it('persists an auth.json when the pi launcher throws', async () => {
+    const base = root();
+    const home = join(base, 'home');
+    const project = join(base, 'project');
+    write(join(project, '.agents', 'agents', 'engineer', 'agent.md'), '---\nname: engineer\n---\n\nBody.\n');
+
+    await expect(
+      executeRunAgentCommand({
+        homeDirectory: home,
+        projectDirectory: project,
+        agent: 'engineer',
+        harness: 'pi',
+        launcher: (plan) => {
+          writeFileSync(join(plan.env.PI_CODING_AGENT_DIR ?? '', 'auth.json'), '{"anthropic":"failed-run"}');
+          return Promise.reject(new Error('pi launch failed'));
+        },
+      }),
+    ).rejects.toThrow('pi launch failed');
+
+    expect(readFileSync(join(resolvePiUserAgentDirectory(home), 'auth.json'), 'utf8')).toBe(
+      '{"anthropic":"failed-run"}',
+    );
+  });
 });

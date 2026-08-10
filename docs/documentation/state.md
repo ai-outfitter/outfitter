@@ -190,6 +190,23 @@ The last form is how a resident or in-cluster agent keeps continuity across rest
 
 ## Claude Code state paths
 
+Claude credentials need a narrow adapter bridge in addition to the path-keyed state below. Claude
+reads `.credentials.json` and `.claude.json` directly from `CLAUDE_CONFIG_DIR`; the ephemeral
+projection gives `.credentials.json` no durable home, and `.claude.json`'s native location
+(`~/.claude.json`, outside `~/.claude`) does not share its config-dir-relative path. Outfitter
+seeds `.credentials.json` before launch. It seeds `oauthAccount` and `hasCompletedOnboarding` when
+those keys exist in durable state. It also seeds the current working directory's accepted-trust bit
+only when that exact trust decision already exists in durable state. Afterward it copies back the
+whole `.credentials.json` when changed and atomically merges `oauthAccount`. If the durable
+credentials also changed after seeding, Outfitter preserves that concurrent refresh and warns
+instead of copying the projected credentials back. Claude MCP OAuth tokens
+live under `mcpOAuth` in `.credentials.json`, keyed by `<serverName>|<hash>`, so server
+authorizations acquired in an Outfitter-launched Claude session persist across runs through that
+whole-file copy-back. Outfitter never copies the full machine-local `~/.claude.json` into a
+projection or merges its other projected state back. Trust accepted inside an Outfitter session is
+therefore discarded, so Claude prompts for trust on every run in a workspace that was never trusted
+natively.
+
 The Claude Code adapter declares these paths:
 
 ```yaml
