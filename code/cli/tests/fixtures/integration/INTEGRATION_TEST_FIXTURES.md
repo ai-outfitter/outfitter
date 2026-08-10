@@ -57,7 +57,7 @@ Use it to verify missing inherited profile diagnostics.
 Template-profile behavior is intentionally covered by unit-level command, profile-loading, and profile-resolution tests rather than a full-directory integration fixture because templates affect profile selection/listing semantics but do not add adapter-specific launch translation, composite profile materialization, or state write-back behavior beyond the selected runnable profile.
 If template profiles gain adapter-visible filesystem behavior, add a dedicated integration fixture before treating that behavior as stable.
 
-Unit coverage is sufficient for OFTR-006.5 items 12–19 because the Claude credential and session bridges are fully determined by isolated filesystem inputs and outputs plus launcher success or failure; a full profile fixture would not exercise any additional composition or adapter translation behavior.
+Unit coverage is sufficient for OFTR-006.5 items 12–19 because the Claude credential and recursive session bridges are fully determined by isolated filesystem inputs and outputs plus launcher success or failure; a full profile fixture would not exercise any additional composition or adapter translation behavior. A live two-invocation resume test remains outside the committed suite because it requires an installed, authenticated Claude CLI and this repository has no opt-in/local CLI integration-test pattern.
 
 ## Integration fixtures
 

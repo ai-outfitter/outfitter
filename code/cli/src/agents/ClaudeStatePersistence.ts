@@ -16,12 +16,17 @@ import {
   rmSync,
   writeFileSync,
 } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { dirname, join, relative } from 'node:path';
 
 const CREDENTIALS_FILE = '.credentials.json';
 const STATE_FILE = '.claude.json';
 const CREDENTIAL_MODE = 0o600;
 const PROJECTS_DIRECTORY = 'projects';
+
+export interface ClaudeSessionSeed {
+  readonly hashes: ReadonlyMap<string, string>;
+  readonly warning?: string;
+}
 
 type JsonObject = Record<string, unknown>;
 
@@ -66,6 +71,26 @@ const atomicCopy = (sourcePath: string, destinationPath: string): void => {
   });
 };
 
+const atomicCopyIfUnchanged = (
+  sourcePath: string,
+  destinationPath: string,
+  expectedDestinationHash: string | undefined,
+): boolean => {
+  const destinationDirectory = dirname(destinationPath);
+  mkdirSync(destinationDirectory, { recursive: true });
+  const temporaryPath = join(destinationDirectory, `.outfitter-${randomUUID()}`);
+
+  try {
+    copyFileSync(sourcePath, temporaryPath);
+    chmodSync(temporaryPath, CREDENTIAL_MODE);
+    if (hashFile(destinationPath) !== expectedDestinationHash) return false;
+    renameSync(temporaryPath, destinationPath);
+    return true;
+  } finally {
+    rmSync(temporaryPath, { force: true });
+  }
+};
+
 const atomicWriteJson = (path: string, value: JsonObject): void => {
   atomicReplace(path, (temporaryPath) => {
     writeFileSync(temporaryPath, `${JSON.stringify(value, null, 2)}\n`, { mode: CREDENTIAL_MODE });
@@ -76,41 +101,117 @@ const atomicWriteJson = (path: string, value: JsonObject): void => {
 export const resolveClaudeProjectSlug = (workingDirectory: string): string =>
   workingDirectory.replace(/[^a-zA-Z0-9]/g, '-');
 
-const copyChangedFiles = (sourceDirectory: string, destinationDirectory: string): void => {
-  if (!existsSync(sourceDirectory)) return;
+const summarizePaths = (kind: 'conflicts' | 'failures', paths: readonly string[]): string | undefined =>
+  paths.length === 0
+    ? undefined
+    : `Warning: Claude session persistence ${kind === 'conflicts' ? 'skipped concurrently changed files' : 'failed for files'}: ${paths.join(', ')}.`;
 
-  for (const entry of readdirSync(sourceDirectory, { withFileTypes: true })) {
-    if (!entry.isFile()) continue;
-    const sourcePath = join(sourceDirectory, entry.name);
-    const destinationPath = join(destinationDirectory, entry.name);
-    // Hash the destination first: seeding targets a fresh projection where it never exists, so the
-    // seed copies every transcript without a wasted read-and-hash pass over the session history.
-    const destinationHash = hashFile(destinationPath);
-    if (destinationHash === undefined || destinationHash !== hashFile(sourcePath)) {
-      atomicCopy(sourcePath, destinationPath);
+const walkRegularFiles = (
+  root: string,
+  visit: (path: string, relativePath: string) => void,
+  failures: string[],
+  current = root,
+): void => {
+  let entries;
+  try {
+    entries = readdirSync(current, { withFileTypes: true });
+  } catch {
+    failures.push(relative(root, current) || '.');
+    return;
+  }
+
+  for (const entry of entries) {
+    const path = join(current, entry.name);
+    const relativePath = relative(root, path);
+    if (entry.isDirectory()) walkRegularFiles(root, visit, failures, path);
+    else if (entry.isFile()) {
+      try {
+        visit(path, relativePath);
+      } catch {
+        failures.push(relativePath);
+      }
     }
   }
 };
 
 /** Seeds only the current working directory's durable Claude session history. */
-export const seedClaudeSessions = (projectionRoot: string, homeDirectory: string, workingDirectory: string): void => {
+export const seedClaudeSessions = (
+  projectionRoot: string,
+  homeDirectory: string,
+  workingDirectory: string,
+): ClaudeSessionSeed => {
   const slug = resolveClaudeProjectSlug(workingDirectory);
-  copyChangedFiles(
-    join(resolveClaudeUserConfigDirectory(homeDirectory), PROJECTS_DIRECTORY, slug),
-    join(projectionRoot, PROJECTS_DIRECTORY, slug),
-  );
+  const source = join(resolveClaudeUserConfigDirectory(homeDirectory), PROJECTS_DIRECTORY, slug);
+  const destination = join(projectionRoot, PROJECTS_DIRECTORY, slug);
+  const hashes = new Map<string, string>();
+  const failures: string[] = [];
+  if (existsSync(source)) {
+    walkRegularFiles(
+      source,
+      (sourcePath, relativePath) => {
+        const hash = hashFile(sourcePath);
+        if (hash === undefined) throw new Error('unreadable session artifact');
+        atomicCopy(sourcePath, join(destination, relativePath));
+        hashes.set(join(slug, relativePath), hash);
+      },
+      failures,
+    );
+  }
+  return {
+    hashes,
+    warning: summarizePaths(
+      'failures',
+      failures.map((path) => join(slug, path)),
+    ),
+  };
 };
 
-/** Merges every projected Claude session file into durable storage without deleting files. */
-export const persistClaudeSessions = (projectionRoot: string, homeDirectory: string): void => {
+/** Recursively merges projected Claude session artifacts without deleting durable files. */
+export const persistClaudeSessions = (
+  projectionRoot: string,
+  homeDirectory: string,
+  seededHashes: ReadonlyMap<string, string> = new Map(),
+): string | undefined => {
   const projectionProjects = join(projectionRoot, PROJECTS_DIRECTORY);
-  if (!existsSync(projectionProjects)) return;
+  if (!existsSync(projectionProjects)) return undefined;
 
   const durableProjects = join(resolveClaudeUserConfigDirectory(homeDirectory), PROJECTS_DIRECTORY);
-  for (const entry of readdirSync(projectionProjects, { withFileTypes: true })) {
-    if (!entry.isDirectory()) continue;
-    copyChangedFiles(join(projectionProjects, entry.name), join(durableProjects, entry.name));
+  const conflicts: string[] = [];
+  const failures: string[] = [];
+  let slugs;
+  try {
+    slugs = readdirSync(projectionProjects, { withFileTypes: true });
+  } catch {
+    return summarizePaths('failures', ['.']);
   }
+  for (const slug of slugs) {
+    if (!slug.isDirectory()) continue;
+    const slugFailures: string[] = [];
+    walkRegularFiles(
+      join(projectionProjects, slug.name),
+      (projectionPath, nestedPath) => {
+        const relativePath = join(slug.name, nestedPath);
+        const projectedHash = hashFile(projectionPath);
+        if (projectedHash === undefined) throw new Error('unreadable session artifact');
+        const seededHash = seededHashes.get(relativePath);
+        if (projectedHash === seededHash) return;
+
+        const durablePath = join(durableProjects, relativePath);
+        const durableHash = hashFile(durablePath);
+        if (durableHash !== seededHash) {
+          conflicts.push(relativePath);
+          return;
+        }
+        if (!atomicCopyIfUnchanged(projectionPath, durablePath, durableHash)) conflicts.push(relativePath);
+      },
+      slugFailures,
+    );
+    failures.push(...slugFailures.map((path) => join(slug.name, path)));
+  }
+  return (
+    [summarizePaths('conflicts', conflicts), summarizePaths('failures', failures)].filter(Boolean).join(' ') ||
+    undefined
+  );
 };
 
 /** Claude's durable configuration directory (`~/.claude`). */

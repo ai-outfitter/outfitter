@@ -128,7 +128,11 @@ const launchWithStatePersistence = async (
   // auto-launch passes none), so they also go into lateMessages to reach the returned result.
   const warn = (message: string): void => {
     lateMessages.push(message);
-    input.writeLine?.(message);
+    try {
+      input.writeLine?.(message);
+    } catch {
+      // The returned late-message channel is authoritative; output sinks must never mask launch.
+    }
   };
   const attempt = (label: string, action: () => void): void => {
     try {
@@ -139,12 +143,15 @@ const launchWithStatePersistence = async (
   };
   const piUserAgentDirectory = harness === 'pi' ? resolvePiUserAgentDirectory(input.homeDirectory) : undefined;
   let seededClaudeCredentialsHash: string | undefined;
+  let seededClaudeSessionHashes: ReadonlyMap<string, string> = new Map();
   if (piUserAgentDirectory !== undefined) seedPiCredentials(rootDirectory, piUserAgentDirectory);
   if (harness === 'claude') {
     seededClaudeCredentialsHash = seedClaudeCredentials(rootDirectory, input.homeDirectory, input.projectDirectory);
-    attempt('seed Claude session history', () =>
-      seedClaudeSessions(rootDirectory, input.homeDirectory, input.projectDirectory),
-    );
+    attempt('seed Claude session history', () => {
+      const seed = seedClaudeSessions(rootDirectory, input.homeDirectory, input.projectDirectory);
+      seededClaudeSessionHashes = seed.hashes;
+      if (seed.warning !== undefined) warn(seed.warning);
+    });
   }
 
   try {
@@ -162,7 +169,10 @@ const launchWithStatePersistence = async (
         );
         if (conflictWarning !== undefined) warn(conflictWarning);
       });
-      attempt('persist Claude session history', () => persistClaudeSessions(rootDirectory, input.homeDirectory));
+      attempt('persist Claude session history', () => {
+        const warning = persistClaudeSessions(rootDirectory, input.homeDirectory, seededClaudeSessionHashes);
+        if (warning !== undefined) warn(warning);
+      });
     }
   }
 };
