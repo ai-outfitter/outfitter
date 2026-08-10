@@ -35,7 +35,7 @@ npx @ai-outfitter/link@1 report <org> \
 Or with Docker, if you would rather not install anything:
 
 ```sh
-docker run --rm -e GH_TOKEN -v "$PWD:/work" \
+docker run --rm -e GH_TOKEN="$(gh auth token)" -v "$PWD:/work" \
   ghcr.io/ai-outfitter/link:1 report <org>
 ```
 
@@ -50,6 +50,13 @@ The scan is read-only: it lists repositories, reads git trees, and reads
 effective branch rules. It never clones and never writes to the forge. It
 samples at most the 30 most recently pushed repositories, and takes seconds
 rather than minutes.
+
+Check the `orgs` array before you commit the result. A named target is added
+to the sources already registered with `link report add`, not used in place
+of them, so a report can carry more organizations than you asked for — and
+this file is about to land in `<org>`'s repository. Run `link report add`
+against nothing you would not commit there, or scan from a clean
+`XDG_CONFIG_HOME`.
 
 You get one file, `report.json`, plus a copy in
 `$XDG_DATA_HOME/outfitter-link/`. It contains, for each repository, a
@@ -69,11 +76,12 @@ the repository and run `link web`.
 ### What the scan does not measure
 
 The scanner decides everything from file trees and branch rules, so it is
-fast, free, and reproducible — two runs of the same org agree byte for byte,
-which is what makes report diffs a progress measure. The cost is that it
-reads no pull request history and makes no judgments: no cycle time, no
-rework rate, no inventory of which harnesses and model vendors are actually
-in use, and no duplication analysis across teams.
+fast, free, and reproducible — two runs of the same org agree apart from the
+`generated_at` and `scanned_at` timestamps, which is what makes report diffs
+a progress measure. The cost is that it reads no pull request history and
+makes no judgments: no cycle time, no rework rate, no inventory of which
+harnesses and model vendors are actually in use, and no duplication analysis
+across teams.
 
 When you want those, run the `sdlc-report` skill on a local coding harness as
 a second, deeper pass. It answers the same question with an agent's judgment
