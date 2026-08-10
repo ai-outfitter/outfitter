@@ -51,12 +51,8 @@ effective branch rules. It never clones and never writes to the forge. It
 samples at most the 30 most recently pushed repositories, and takes seconds
 rather than minutes.
 
-Check the `orgs` array before you commit the result. A named target is added
-to the sources already registered with `link report add`, not used in place
-of them, so a report can carry more organizations than you asked for — and
-this file is about to land in `<org>`'s repository. Run `link report add`
-against nothing you would not commit there, or scan from a clean
-`XDG_CONFIG_HOME`.
+Naming a target scopes the report to it, so the file you are about to commit
+into `<org>`'s repository describes `<org>` and nothing else.
 
 You get one file, `report.json`, plus a copy in
 `$XDG_DATA_HOME/outfitter-link/`. It contains, for each repository, a
