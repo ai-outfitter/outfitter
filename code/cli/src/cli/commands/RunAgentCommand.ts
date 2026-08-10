@@ -118,8 +118,7 @@ const launchWithCredentialPersistence = async (
   launch: AgentLaunchPlan,
   lateMessages: string[],
 ): Promise<number> => {
-  // Persist warnings surface after launch, and writeLine alone can be a dropped sink (setup's
-  // auto-launch passes none), so they also go into lateMessages to reach the returned result.
+  // Persist warnings surface after launch, so retain them in the result as well as emitting them.
   const warn = (message: string): void => {
     lateMessages.push(message);
     input.writeLine?.(message);

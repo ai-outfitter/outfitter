@@ -243,8 +243,8 @@ const autoLaunchSelectedProfile = async (
     projectDirectory: resolve(resolveProjectDirectory(dependencies.projectDirectory)),
     harness: result.defaultHarness,
     launcher: dependencies.runLauncher ?? defaultRunLauncher,
+    writeLine,
   });
-  for (const message of runResult.messages) writeLine(message);
   /* v8 ignore next -- surfaces a nonzero profile-launch exit to the shell; happy path returns 0. */
   if (runResult.exitCode !== 0) process.exitCode = runResult.exitCode;
 };

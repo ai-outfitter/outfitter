@@ -6,7 +6,11 @@ import { dirname, join } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { persistClaudeCredentials, seedClaudeCredentials } from '../../src/agents/ClaudeCredentialPersistence.js';
+import {
+  atomicReplace,
+  persistClaudeCredentials,
+  seedClaudeCredentials,
+} from '../../src/agents/ClaudeCredentialPersistence.js';
 import { executeRunAgentCommand } from '../../src/cli/commands/RunAgentCommand.js';
 import type { AgentLaunchPlan } from '../../src/projection/Projection.js';
 
@@ -28,6 +32,37 @@ afterEach(() => {
 });
 
 describe('Claude credential persistence', () => {
+  it('declines an atomic replacement when the destination changes after staging', () => {
+    const base = root();
+    const destination = join(base, 'credentials.json');
+    write(destination, '{"token":"seeded"}');
+
+    const replaced = atomicReplace(
+      destination,
+      (temporaryPath) => {
+        writeFileSync(temporaryPath, '{"token":"projected"}', { mode: 0o600 });
+        write(destination, '{"token":"refreshed-during-staging"}');
+      },
+      () => readFileSync(destination, 'utf8') === '{"token":"seeded"}',
+    );
+
+    expect(replaced).toBe(false);
+    expect(readFileSync(destination, 'utf8')).toBe('{"token":"refreshed-during-staging"}');
+  });
+
+  it('creates copied credential destinations at 0600 even when the source is 0644', () => {
+    const base = root();
+    const home = join(base, 'home');
+    const projection = join(base, 'projection');
+    const source = join(home, '.claude', '.credentials.json');
+    write(source, '{"token":"secret"}');
+    chmodSync(source, 0o644);
+
+    seedClaudeCredentials(projection, home, join(base, 'project'));
+
+    expect(statSync(join(projection, '.credentials.json')).mode & 0o777).toBe(0o600);
+  });
+
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-006.5.12, OFTR-006.5.13).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('seeds credentials, account metadata, and trust for only the exact working directory', () => {

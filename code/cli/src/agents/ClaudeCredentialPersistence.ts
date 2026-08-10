@@ -5,16 +5,7 @@
 // decision; merge credential changes back without exposing or replacing the rest of Claude's
 // machine-local state.
 import { createHash, randomUUID } from 'node:crypto';
-import {
-  chmodSync,
-  copyFileSync,
-  existsSync,
-  mkdirSync,
-  readFileSync,
-  renameSync,
-  rmSync,
-  writeFileSync,
-} from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
 const CREDENTIALS_FILE = '.credentials.json';
@@ -43,25 +34,34 @@ const readJsonObject = (path: string): JsonObject | undefined => {
   }
 };
 
-const atomicReplace = (destinationPath: string, fillTemporary: (temporaryPath: string) => void): void => {
+export const atomicReplace = (
+  destinationPath: string,
+  fillTemporary: (temporaryPath: string) => void,
+  shouldReplace: () => boolean = () => true,
+): boolean => {
   const destinationDirectory = dirname(destinationPath);
   mkdirSync(destinationDirectory, { recursive: true });
   const temporaryPath = join(destinationDirectory, `.outfitter-${randomUUID()}`);
 
   try {
     fillTemporary(temporaryPath);
+    if (!shouldReplace()) return false;
     renameSync(temporaryPath, destinationPath);
+    return true;
   } finally {
     rmSync(temporaryPath, { force: true });
   }
 };
 
-const atomicCopy = (sourcePath: string, destinationPath: string): void => {
-  if (!existsSync(sourcePath)) return;
-  atomicReplace(destinationPath, (temporaryPath) => {
-    copyFileSync(sourcePath, temporaryPath);
-    chmodSync(temporaryPath, CREDENTIAL_MODE);
-  });
+const atomicCopy = (sourcePath: string, destinationPath: string, shouldReplace?: () => boolean): boolean => {
+  if (!existsSync(sourcePath)) return false;
+  return atomicReplace(
+    destinationPath,
+    (temporaryPath) => {
+      writeFileSync(temporaryPath, readFileSync(sourcePath), { mode: CREDENTIAL_MODE });
+    },
+    shouldReplace,
+  );
 };
 
 const atomicWriteJson = (path: string, value: JsonObject): void => {
@@ -92,8 +92,17 @@ const persistCredentialFile = (
     return 'Warning: durable Claude credentials changed during the run; skipped the credential copy-back to preserve the concurrent refresh.';
   }
 
-  atomicCopy(projectionCredentialsPath, durableCredentialsPath);
-  return undefined;
+  // Re-check after staging, immediately before the rename. A native Claude writer does not honor
+  // our staging protocol, so without cross-process locking an irreducible race remains; this
+  // narrows that window to the single rename operation.
+  const replaced = atomicCopy(
+    projectionCredentialsPath,
+    durableCredentialsPath,
+    () => hashFile(durableCredentialsPath) === seededCredentialsHash,
+  );
+  return replaced
+    ? undefined
+    : 'Warning: durable Claude credentials changed during the run; skipped the credential copy-back to preserve the concurrent refresh.';
 };
 
 /** Seeds credentials, onboarding/account state, and the current workspace's trust decision. */

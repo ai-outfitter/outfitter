@@ -722,6 +722,40 @@ describe('Pi setup launch', () => {
     expect(runLaunches).toEqual(['pi']); // setup auto-started the selected profile
   });
 
+  it('emits a late persistence warning when the setup auto-launcher throws', async () => {
+    const { catalog, home, project } = createTree();
+    const lines: string[] = [];
+    const program = new Command();
+    writeFileSync(join(home, '.claude'), 'not a directory');
+    createSetupCommand({
+      homeDirectory: home,
+      projectDirectory: project,
+      defaultCatalogBootstrap: () => catalog,
+      interactive: true,
+      launcher: (plan) => {
+        writeFileSync(
+          selectionPathFromPlan(plan),
+          JSON.stringify({
+            setupMode: 'create',
+            agentId: 'myagent',
+            agentLabel: 'My Agent',
+            harness: 'claude',
+            target: 'home',
+          }),
+        );
+        return Promise.resolve(0);
+      },
+      runLauncher: (plan) => {
+        writeFileSync(join(plan.env.CLAUDE_CONFIG_DIR ?? '', '.credentials.json'), '{"changed":true}');
+        return Promise.reject(new Error('auto-launch failed'));
+      },
+      writeLine: (message) => lines.push(message),
+    }).register(program);
+
+    await expect(program.parseAsync(['node', 'outfitter', 'setup'])).rejects.toThrow('auto-launch failed');
+    expect(lines).toContainEqual(expect.stringContaining('failed to persist Claude credentials'));
+  });
+
   it('does not auto-launch a catalog setup that still needs a sync', async () => {
     const { catalog, home, project } = createTree();
     const lines: string[] = [];
