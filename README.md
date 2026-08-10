@@ -36,6 +36,14 @@ outfitter
 Pi is bundled and also hosts Outfitter's setup walkthrough. Install other runtime harnesses, such as
 Claude Code and Codex CLI, separately. For the full walkthrough, see [Getting started](./docs/documentation/getting-started.md).
 
+## Climb the ramp
+
+Three runbooks, one per rung of [the adoption ramp](./docs/philosophy.md#the-ramp-to-an-autonomous-lifecycle). Each starts where the previous one ended and closes with the one concrete step that begins the next rung. Their success checks are the signals an [SDLC assessment](./docs/documentation/usecases/org-onboarding-sdlc-report.md) reports, so "done" is something you run rather than something you judge.
+
+1. [**Share one catalog**](./docs/runbooks/share-one-catalog.md) — one pinned catalog the organization shares, instead of per-laptop configuration. → **delegated**
+2. [**Run it without your laptop**](./docs/runbooks/run-without-your-laptop.md) — an event triggers the workflow, its output lands through review, and the session is captured. → **automated**
+3. [**Give the agent a residence**](./docs/runbooks/give-the-agent-a-residence.md) — a named, assignable agent with an account and somewhere to live. → **governed**
+
 ## Already have a `.agents/` directory?
 
 Then you already have Outfitter configuration. Each agent's loadout references your existing skills, subagents, MCP, knowledge, and commands by slug with zero porting:
@@ -82,6 +90,7 @@ Layers merge by ID: `<project>/.agents/` over `~/.agents/` over pinned remote [c
 
 The [documentation index](./docs/documentation/README.md) follows the same arc — set up your own, understand the pieces, share across your org, automate more surfaces, contribute back:
 
+- **Climb:** [Share one catalog](./docs/runbooks/share-one-catalog.md) · [Run it without your laptop](./docs/runbooks/run-without-your-laptop.md) · [Give the agent a residence](./docs/runbooks/give-the-agent-a-residence.md)
 - **Start:** [Getting started](./docs/documentation/getting-started.md) · [First-time CLI agent users](./docs/documentation/first-time-cli-agent-users.md) · [Switching to Outfitter](./docs/documentation/switching-to-outfitter.md)
 - **Understand:** [Concepts](./docs/documentation/concepts.md) · [Agents](./docs/documentation/agents.md) · [Skills](./docs/documentation/skills.md) · [Personas](./docs/documentation/personas.md) · [Subagents and delegation](./docs/documentation/subagents.md)
 - **Share:** [Catalogs](./docs/documentation/catalogs.md) · [Conventions](./docs/documentation/conventions.md) · [Organization catalog](./docs/documentation/usecases/organization-profile-catalog.md) · [Best practices](./docs/documentation/best-practices.md)
