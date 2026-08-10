@@ -11,6 +11,8 @@ The Link Operator runs Outfitter-composed agents inside a Kubernetes cluster. Th
 
 The operator never interprets a profile, reads a secret's contents, or invokes the model — it provisions and starts; the agent layer does the rest.
 
+Because the operator does not look inside a Secret, the credentials a resident agent carries are the deployment's decision. A resident agent needs two forge tokens rather than one: the notification wake path accepts only a classic token, while its repository work should carry the narrowest credential available. [Give the agent a residence](../runbooks/give-the-agent-a-residence.md) is the procedure; [the forge credential model](../architecture/forge-credential-model.md) is the reasoning.
+
 ## Execution shapes
 
 | Shape                  | Kubernetes resource | Trigger                                                                                         |

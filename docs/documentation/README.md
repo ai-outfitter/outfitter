@@ -7,6 +7,14 @@ Onboarding an organization? Start with
 one engineer runs the maturity assessment, then creates the org `.agents`
 repository with the baseline report as its first commit.
 
+## Climb the ramp (runbooks)
+
+One runbook per rung of [the adoption ramp](../philosophy.md#the-ramp-to-an-autonomous-lifecycle). Each starts where the previous one ended and closes with the one concrete step that begins the next rung. Their success checks are the signals an SDLC assessment reports, so "done" is something you run rather than something you judge.
+
+- [Share one catalog](../runbooks/share-one-catalog.md) — one pinned catalog the organization shares, instead of per-laptop configuration. (→ delegated)
+- [Run it without your laptop](../runbooks/run-without-your-laptop.md) — an event triggers the workflow, its output lands through review, and the session is captured. (→ automated)
+- [Give the agent a residence](../runbooks/give-the-agent-a-residence.md) — a named, assignable agent with an account and somewhere to live. (→ governed)
+
 ## Start (you)
 
 - [Getting started](./getting-started.md) — install, first run, default agent.
