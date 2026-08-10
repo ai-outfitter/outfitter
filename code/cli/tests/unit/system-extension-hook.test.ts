@@ -244,6 +244,23 @@ describe('readSystemExtensionHooks', () => {
     );
   });
 
+  // A name containing '=' would slip past the denylist and still reach the child
+  // as a real variable: Node serializes each entry as `name=value`, and the child
+  // splits on the FIRST '=', so `NODE_OPTIONS=--import=...` becomes NODE_OPTIONS.
+  // Verified against a real spawn before this guard was added.
+  it.each(['NODE_OPTIONS=--import=data:text/javascript,0', 'A B', 'NUL\u0000NAME', '1LEADING_DIGIT'])(
+    'rejects the non-identifier environment name %j',
+    (name) => {
+      const directory = temporaryRoot();
+      write(
+        join(directory, 'smuggled.yml'),
+        `name: smuggled\nharnesses:\n  pi:\n    env:\n      ${JSON.stringify(name)}: value\n`,
+      );
+
+      expect(() => readSystemExtensionHooks({ environment: { OUTFITTER_SYSTEM_DIR: directory } })).toThrow();
+    },
+  );
+
   it('registers the persisted document with the shared schema validator', () => {
     expect(
       validateSchema('system-extension-hook', {
