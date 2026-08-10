@@ -1,5 +1,5 @@
 // Tests system-scope hook discovery, schema validation, and fail-closed file loading.
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 
@@ -17,7 +17,10 @@ import { validateSchema } from '../../src/validation/SchemaValidator.js';
 const temporaryRoots: string[] = [];
 
 const temporaryRoot = (): string => {
-  const root = mkdtempSync(join(tmpdir(), 'outfitter-system-hook-'));
+  // Resolved, because the loader resolves too. On macOS `/var` is a symlink to
+  // `/private/var`, so an unresolved temp path would never equal what the loader
+  // returns and these tests would only pass on Linux.
+  const root = realpathSync(mkdtempSync(join(tmpdir(), 'outfitter-system-hook-')));
   temporaryRoots.push(root);
   return root;
 };
