@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import { Command, Option } from 'commander';
 
 import { launchThroughSpawn, spawnLauncher } from '../../agents/AgentLaunch.js';
+import { persistClaudeCredentials, seedClaudeCredentials } from '../../agents/ClaudeCredentialPersistence.js';
 import {
   persistPiCredentials,
   resolvePiUserAgentDirectory,
@@ -108,22 +109,52 @@ const assertNoSettingsIssues = (issues: readonly { readonly message: string }[])
   }
 };
 
-// pi stores credentials under PI_CODING_AGENT_DIR (the ephemeral projection root), so seed them from
-// pi's durable agent dir before launch and copy any /login changes back afterward. Non-pi harnesses
-// launch unchanged.
+// Pi and Claude both read credentials from their ephemeral projection root. Seed their durable
+// credentials before launch and persist changes in a finally block so login changes survive both a
+// normal exit and a failed launcher.
 const launchWithCredentialPersistence = async (
   input: RunAgentInput,
   harness: Harness,
   rootDirectory: string,
   launch: AgentLaunchPlan,
+  lateMessages: string[],
 ): Promise<number> => {
+  // Persist warnings surface after launch, and writeLine alone can be a dropped sink (setup's
+  // auto-launch passes none), so they also go into lateMessages to reach the returned result.
+  const warn = (message: string): void => {
+    lateMessages.push(message);
+    input.writeLine?.(message);
+  };
   const piUserAgentDirectory = harness === 'pi' ? resolvePiUserAgentDirectory(input.homeDirectory) : undefined;
+  let seededClaudeCredentialsHash: string | undefined;
   if (piUserAgentDirectory !== undefined) seedPiCredentials(rootDirectory, piUserAgentDirectory);
+  if (harness === 'claude') {
+    seededClaudeCredentialsHash = seedClaudeCredentials(rootDirectory, input.homeDirectory, input.projectDirectory);
+  }
 
-  const exitCode = await input.launcher(launch);
-  if (piUserAgentDirectory !== undefined) persistPiCredentials(rootDirectory, piUserAgentDirectory);
-
-  return exitCode;
+  try {
+    return await input.launcher(launch);
+  } finally {
+    if (piUserAgentDirectory !== undefined) {
+      try {
+        persistPiCredentials(rootDirectory, piUserAgentDirectory);
+      } catch (error) {
+        warn(`Warning: failed to persist Pi credentials: ${String(error)}`);
+      }
+    }
+    if (harness === 'claude') {
+      try {
+        const conflictWarning = persistClaudeCredentials(
+          rootDirectory,
+          input.homeDirectory,
+          seededClaudeCredentialsHash,
+        );
+        if (conflictWarning !== undefined) warn(conflictWarning);
+      } catch (error) {
+        warn(`Warning: failed to persist Claude credentials: ${String(error)}`);
+      }
+    }
+  }
 };
 
 // pi writes sessions inside PI_CODING_AGENT_DIR — the projection root Outfitter deletes after the
@@ -244,16 +275,20 @@ export const executeRunAgentCommand = async (input: RunAgentInput): Promise<RunA
     emit(messages);
 
     // Attach the Outfitter runtime UI and sign-in extension to interactive pi sessions.
-    const runtimeLaunch = attachPiRuntimeExtension(projection.launch, {
+    const launch = attachPiRuntimeExtension(projection.launch, {
       outfitterVersion: readOutfitterVersion(),
       profile: { id: agentSlug, label: composed.plan.identity.label },
       rootDirectory,
     });
-    const systemHooks = attachSystemExtensionHooks(runtimeLaunch);
+    // System hooks attach last, after projection and after the runtime extension,
+    // so an organization's collector applies to every launch — including
+    // `--mode rpc`, which fleet agents run — and cannot trip strict mode.
+    const systemHooks = attachSystemExtensionHooks(launch);
+    messages.push(...systemHooks.warnings);
     emit(systemHooks.warnings);
-    const exitCode = await launchWithCredentialPersistence(input, harness, rootDirectory, systemHooks.launch);
+    const exitCode = await launchWithCredentialPersistence(input, harness, rootDirectory, systemHooks.launch, messages);
 
-    return { launchPlan: systemHooks.launch, exitCode, messages: [...messages, ...systemHooks.warnings] };
+    return { launchPlan: systemHooks.launch, exitCode, messages };
   } finally {
     if (input.retainProjection !== true) {
       rmSync(rootDirectory, { recursive: true, force: true });
