@@ -1,7 +1,17 @@
 // Verifies Claude credentials, exact-workspace trust, and project session history survive the
 // isolated CLAUDE_CONFIG_DIR without copying or replacing unrelated machine-local state.
 /* eslint-disable max-lines -- one cohesive state-persistence contract across helpers and command wiring. */
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import {
+  chmodSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 
@@ -399,6 +409,28 @@ describe('Claude session persistence', () => {
     seedClaudeSessions(projection, home, join(base, 'project'));
     persistClaudeSessions(projection, home);
     expect(existsSync(join(home, '.claude', 'projects'))).toBe(false);
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-006.5.17, OFTR-006.5.18).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('ignores symlinks while traversing session artifacts', () => {
+    const base = root();
+    const home = join(base, 'home');
+    const projection = join(base, 'projection');
+    const project = join(base, 'project');
+    const slug = resolveClaudeProjectSlug(project);
+    const outside = join(base, 'outside.jsonl');
+    write(outside, 'outside');
+    mkdirSync(join(home, '.claude', 'projects', slug), { recursive: true });
+    symlinkSync(outside, join(home, '.claude', 'projects', slug, 'linked.jsonl'));
+
+    seedClaudeSessions(projection, home, project);
+    expect(existsSync(join(projection, 'projects', slug, 'linked.jsonl'))).toBe(false);
+
+    mkdirSync(join(projection, 'projects', slug), { recursive: true });
+    symlinkSync(outside, join(projection, 'projects', slug, 'linked.jsonl'));
+    persistClaudeSessions(projection, home);
+    expect(readFileSync(outside, 'utf8')).toBe('outside');
   });
 });
 
