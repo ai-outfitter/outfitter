@@ -80,6 +80,9 @@ Amended (2026-07-17, RFC #165): adapters project a harness-neutral composition, 
 14. After a Claude Code launch exits or throws, the adapter MUST copy a projected `.credentials.json` back to `~/.claude/.credentials.json` with mode `0600` when the run changed it, except when the durable credentials also changed after seeding; in that concurrent-writer case, the adapter MUST preserve the durable file and return a warning.
 15. After a Claude Code launch exits or throws, the adapter MUST atomically merge a projected `oauthAccount` into `~/.claude.json` without replacing unrelated top-level or project state, and MUST leave malformed durable state untouched rather than clobbering it.
 16. The adapter MUST NOT merge projected `.claude.json` top-level state other than `oauthAccount` back into durable `~/.claude.json`. This restriction does not discard Claude MCP authorizations: their OAuth tokens live under `mcpOAuth` in `~/.claude/.credentials.json`, keyed by `<serverName>|<hash>`, and persist through the whole-file credential copy-back required by item 14 rather than through `.claude.json` merging.
+17. Before launch, the Claude Code adapter MUST seed only the current working directory's existing session-history directory from `~/.claude/projects/<project-slug>/` into the temporary `CLAUDE_CONFIG_DIR/projects/<project-slug>/`, so native `--continue` and `--resume` can find earlier sessions without exposing other projects' histories.
+18. After a Claude Code launch exits or throws, the adapter MUST merge every regular session file under the projected `projects/` slug directories into `~/.claude/projects/`, atomically copying files that are absent or content-different with mode `0600`, without deleting any durable file.
+19. Claude session seed or persistence failures MUST warn through the launch result's late-message channel and MUST NOT replace the launcher exit code or thrown error.
 
 ### OFTR-006.6: Codex CLI Launch Controls
 

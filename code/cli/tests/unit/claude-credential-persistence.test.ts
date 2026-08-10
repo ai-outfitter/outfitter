@@ -6,7 +6,13 @@ import { dirname, join } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { persistClaudeCredentials, seedClaudeCredentials } from '../../src/agents/ClaudeCredentialPersistence.js';
+import {
+  persistClaudeCredentials,
+  persistClaudeSessions,
+  resolveClaudeProjectSlug,
+  seedClaudeCredentials,
+  seedClaudeSessions,
+} from '../../src/agents/ClaudeCredentialPersistence.js';
 import { executeRunAgentCommand } from '../../src/cli/commands/RunAgentCommand.js';
 import type { AgentLaunchPlan } from '../../src/projection/Projection.js';
 
@@ -246,6 +252,65 @@ describe('Claude credential persistence', () => {
   });
 });
 
+describe('Claude session persistence', () => {
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-006.5.17).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('seeds only the current project slug and preserves session mode 0600', () => {
+    const base = root();
+    const home = join(base, 'home');
+    const projection = join(base, 'projection');
+    const project = join(base, 'project.with spaces');
+    const otherProject = join(base, 'private-project');
+    const slug = resolveClaudeProjectSlug(project);
+    const currentSession = join(home, '.claude', 'projects', slug, 'current.jsonl');
+    write(currentSession, '{"session":"current"}\n');
+    chmodSync(currentSession, 0o644);
+    write(
+      join(home, '.claude', 'projects', resolveClaudeProjectSlug(otherProject), 'private.jsonl'),
+      '{"session":"private"}\n',
+    );
+
+    seedClaudeSessions(projection, home, project);
+
+    const projectedSession = join(projection, 'projects', slug, 'current.jsonl');
+    expect(readFileSync(projectedSession, 'utf8')).toBe('{"session":"current"}\n');
+    expect(statSync(projectedSession).mode & 0o777).toBe(0o600);
+    expect(existsSync(join(projection, 'projects', resolveClaudeProjectSlug(otherProject)))).toBe(false);
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-006.5.18).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('merges changed sessions from every projected slug without deleting durable files', () => {
+    const base = root();
+    const home = join(base, 'home');
+    const projection = join(base, 'projection');
+    const durableProjects = join(home, '.claude', 'projects');
+    write(join(durableProjects, 'slug-a', 'keep.jsonl'), 'keep');
+    write(join(durableProjects, 'slug-a', 'changed.jsonl'), 'before');
+    write(join(projection, 'projects', 'slug-a', 'changed.jsonl'), 'after');
+    write(join(projection, 'projects', 'slug-b', 'new.jsonl'), 'new');
+    mkdirSync(join(projection, 'projects', 'slug-b', 'nested'), { recursive: true });
+    write(join(projection, 'projects', 'ignored-file'), 'not a slug directory');
+
+    persistClaudeSessions(projection, home);
+
+    expect(readFileSync(join(durableProjects, 'slug-a', 'keep.jsonl'), 'utf8')).toBe('keep');
+    expect(readFileSync(join(durableProjects, 'slug-a', 'changed.jsonl'), 'utf8')).toBe('after');
+    expect(readFileSync(join(durableProjects, 'slug-b', 'new.jsonl'), 'utf8')).toBe('new');
+    expect(statSync(join(durableProjects, 'slug-a', 'changed.jsonl')).mode & 0o777).toBe(0o600);
+    expect(statSync(join(durableProjects, 'slug-b', 'new.jsonl')).mode & 0o777).toBe(0o600);
+  });
+
+  it('does nothing when projected or durable session history is absent', () => {
+    const base = root();
+    const home = join(base, 'home');
+    const projection = join(base, 'projection');
+    seedClaudeSessions(projection, home, join(base, 'project'));
+    persistClaudeSessions(projection, home);
+    expect(existsSync(join(home, '.claude', 'projects'))).toBe(false);
+  });
+});
+
 describe('run agent Claude credential write-back', () => {
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-006.5.12, OFTR-006.5.13, OFTR-006.5.14).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
@@ -313,6 +378,66 @@ describe('run agent Claude credential write-back', () => {
     expect(readJson(join(home, '.claude.json'))).toEqual({ oauthAccount: { accountUuid: 'after-failure' } });
   });
 
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-006.5.17, OFTR-006.5.18).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('makes a session written by one run resumable by the next run', async () => {
+    const base = root();
+    const home = join(base, 'home');
+    const project = join(base, 'project');
+    const slug = resolveClaudeProjectSlug(project);
+    const transcript = '{"sessionId":"first-run"}\n';
+    write(join(project, '.agents', 'agents', 'engineer', 'agent.md'), '---\nname: engineer\n---\n\nBody.\n');
+
+    await executeRunAgentCommand({
+      homeDirectory: home,
+      projectDirectory: project,
+      agent: 'engineer',
+      harness: 'claude',
+      launcher: (plan) => {
+        write(join(plan.env.CLAUDE_CONFIG_DIR ?? '', 'projects', slug, 'session.jsonl'), transcript);
+        return Promise.resolve(0);
+      },
+    });
+
+    expect(readFileSync(join(home, '.claude', 'projects', slug, 'session.jsonl'), 'utf8')).toBe(transcript);
+    await executeRunAgentCommand({
+      homeDirectory: home,
+      projectDirectory: project,
+      agent: 'engineer',
+      harness: 'claude',
+      launcher: (plan) => {
+        expect(readFileSync(join(plan.env.CLAUDE_CONFIG_DIR ?? '', 'projects', slug, 'session.jsonl'), 'utf8')).toBe(
+          transcript,
+        );
+        return Promise.resolve(0);
+      },
+    });
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-006.5.18).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('persists session history when the Claude launcher throws', async () => {
+    const base = root();
+    const home = join(base, 'home');
+    const project = join(base, 'project');
+    const slug = resolveClaudeProjectSlug(project);
+    write(join(project, '.agents', 'agents', 'engineer', 'agent.md'), '---\nname: engineer\n---\n\nBody.\n');
+
+    await expect(
+      executeRunAgentCommand({
+        homeDirectory: home,
+        projectDirectory: project,
+        agent: 'engineer',
+        harness: 'claude',
+        launcher: (plan) => {
+          write(join(plan.env.CLAUDE_CONFIG_DIR ?? '', 'projects', slug, 'failed.jsonl'), 'saved');
+          return Promise.reject(new Error('launch failed'));
+        },
+      }),
+    ).rejects.toThrow('launch failed');
+    expect(readFileSync(join(home, '.claude', 'projects', slug, 'failed.jsonl'), 'utf8')).toBe('saved');
+  });
+
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-006.5.14).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('returns a warning when concurrent durable and projected credential refreshes conflict', async () => {
@@ -339,6 +464,34 @@ describe('run agent Claude credential write-back', () => {
     expect(result.messages).toContain(
       'Warning: durable Claude credentials changed during the run; skipped the credential copy-back to preserve the concurrent refresh.',
     );
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-006.5.19).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('warns for session bridge failures without replacing the launcher exit code', async () => {
+    const base = root();
+    const home = join(base, 'home');
+    const project = join(base, 'project');
+    const slug = resolveClaudeProjectSlug(project);
+    write(join(project, '.agents', 'agents', 'engineer', 'agent.md'), '---\nname: engineer\n---\n\nBody.\n');
+    write(join(home, '.claude', 'projects', slug), 'not a directory');
+
+    const result = await executeRunAgentCommand({
+      homeDirectory: home,
+      projectDirectory: project,
+      agent: 'engineer',
+      harness: 'claude',
+      launcher: (plan) => {
+        write(join(plan.env.CLAUDE_CONFIG_DIR ?? '', 'projects'), 'not a directory');
+        return Promise.resolve(29);
+      },
+    });
+
+    expect(result.exitCode).toBe(29);
+    expect(result.messages).toEqual([
+      expect.stringContaining('failed to seed Claude session history'),
+      expect.stringContaining('failed to persist Claude session history'),
+    ]);
   });
 
   it('preserves a launcher exit code when Claude credential persistence fails', async () => {

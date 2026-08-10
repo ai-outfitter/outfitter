@@ -1,15 +1,16 @@
-// Persists Claude Code credentials across runs. CLAUDE_CONFIG_DIR points Claude at an ephemeral
-// projection root, but its durable Claude and MCP OAuth credentials normally live in
+// Persists Claude Code credentials and sessions across runs. CLAUDE_CONFIG_DIR points Claude at an
+// ephemeral projection root, but its durable Claude and MCP OAuth credentials normally live in
 // ~/.claude/.credentials.json while account metadata, onboarding state, and workspace trust live in
 // ~/.claude.json. Seed only the required top-level state and the current workspace's existing trust
-// decision; merge credential changes back without exposing or replacing the rest of Claude's
-// machine-local state.
+// decision; merge credential and project-session changes back without exposing or replacing the
+// rest of Claude's machine-local state.
 import { createHash, randomUUID } from 'node:crypto';
 import {
   chmodSync,
   copyFileSync,
   existsSync,
   mkdirSync,
+  readdirSync,
   readFileSync,
   renameSync,
   rmSync,
@@ -20,6 +21,7 @@ import { dirname, join } from 'node:path';
 const CREDENTIALS_FILE = '.credentials.json';
 const STATE_FILE = '.claude.json';
 const CREDENTIAL_MODE = 0o600;
+const PROJECTS_DIRECTORY = 'projects';
 
 type JsonObject = Record<string, unknown>;
 
@@ -68,6 +70,43 @@ const atomicWriteJson = (path: string, value: JsonObject): void => {
   atomicReplace(path, (temporaryPath) => {
     writeFileSync(temporaryPath, `${JSON.stringify(value, null, 2)}\n`, { mode: CREDENTIAL_MODE });
   });
+};
+
+/** Claude replaces every non-alphanumeric character in an absolute project path with `-`. */
+export const resolveClaudeProjectSlug = (workingDirectory: string): string =>
+  workingDirectory.replace(/[^a-zA-Z0-9]/g, '-');
+
+const copyChangedFiles = (sourceDirectory: string, destinationDirectory: string): void => {
+  if (!existsSync(sourceDirectory)) return;
+
+  for (const entry of readdirSync(sourceDirectory, { withFileTypes: true })) {
+    if (!entry.isFile()) continue;
+    const sourcePath = join(sourceDirectory, entry.name);
+    const destinationPath = join(destinationDirectory, entry.name);
+    const sourceHash = hashFile(sourcePath);
+    if (sourceHash === undefined || sourceHash !== hashFile(destinationPath)) atomicCopy(sourcePath, destinationPath);
+  }
+};
+
+/** Seeds only the current working directory's durable Claude session history. */
+export const seedClaudeSessions = (projectionRoot: string, homeDirectory: string, workingDirectory: string): void => {
+  const slug = resolveClaudeProjectSlug(workingDirectory);
+  copyChangedFiles(
+    join(resolveClaudeUserConfigDirectory(homeDirectory), PROJECTS_DIRECTORY, slug),
+    join(projectionRoot, PROJECTS_DIRECTORY, slug),
+  );
+};
+
+/** Merges every projected Claude session file into durable storage without deleting files. */
+export const persistClaudeSessions = (projectionRoot: string, homeDirectory: string): void => {
+  const projectionProjects = join(projectionRoot, PROJECTS_DIRECTORY);
+  if (!existsSync(projectionProjects)) return;
+
+  const durableProjects = join(resolveClaudeUserConfigDirectory(homeDirectory), PROJECTS_DIRECTORY);
+  for (const entry of readdirSync(projectionProjects, { withFileTypes: true })) {
+    if (!entry.isDirectory()) continue;
+    copyChangedFiles(join(projectionProjects, entry.name), join(durableProjects, entry.name));
+  }
 };
 
 /** Claude's durable configuration directory (`~/.claude`). */

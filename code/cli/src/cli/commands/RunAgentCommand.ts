@@ -6,7 +6,12 @@ import { join } from 'node:path';
 import { Command, Option } from 'commander';
 
 import { launchThroughSpawn, spawnLauncher } from '../../agents/AgentLaunch.js';
-import { persistClaudeCredentials, seedClaudeCredentials } from '../../agents/ClaudeCredentialPersistence.js';
+import {
+  persistClaudeCredentials,
+  persistClaudeSessions,
+  seedClaudeCredentials,
+  seedClaudeSessions,
+} from '../../agents/ClaudeCredentialPersistence.js';
 import {
   persistPiCredentials,
   resolvePiUserAgentDirectory,
@@ -109,6 +114,39 @@ const assertNoSettingsIssues = (issues: readonly { readonly message: string }[])
   }
 };
 
+const seedClaudeLaunchState = (
+  input: RunAgentInput,
+  rootDirectory: string,
+  warn: (message: string) => void,
+): string | undefined => {
+  const credentialsHash = seedClaudeCredentials(rootDirectory, input.homeDirectory, input.projectDirectory);
+  try {
+    seedClaudeSessions(rootDirectory, input.homeDirectory, input.projectDirectory);
+  } catch (error) {
+    warn(`Warning: failed to seed Claude session history: ${String(error)}`);
+  }
+  return credentialsHash;
+};
+
+const persistClaudeLaunchState = (
+  input: RunAgentInput,
+  rootDirectory: string,
+  credentialsHash: string | undefined,
+  warn: (message: string) => void,
+): void => {
+  try {
+    const conflictWarning = persistClaudeCredentials(rootDirectory, input.homeDirectory, credentialsHash);
+    if (conflictWarning !== undefined) warn(conflictWarning);
+  } catch (error) {
+    warn(`Warning: failed to persist Claude credentials: ${String(error)}`);
+  }
+  try {
+    persistClaudeSessions(rootDirectory, input.homeDirectory);
+  } catch (error) {
+    warn(`Warning: failed to persist Claude session history: ${String(error)}`);
+  }
+};
+
 // Pi and Claude both read credentials from their ephemeral projection root. Seed their durable
 // credentials before launch and persist changes in a finally block so login changes survive both a
 // normal exit and a failed launcher.
@@ -129,7 +167,7 @@ const launchWithCredentialPersistence = async (
   let seededClaudeCredentialsHash: string | undefined;
   if (piUserAgentDirectory !== undefined) seedPiCredentials(rootDirectory, piUserAgentDirectory);
   if (harness === 'claude') {
-    seededClaudeCredentialsHash = seedClaudeCredentials(rootDirectory, input.homeDirectory, input.projectDirectory);
+    seededClaudeCredentialsHash = seedClaudeLaunchState(input, rootDirectory, warn);
   }
 
   try {
@@ -143,16 +181,7 @@ const launchWithCredentialPersistence = async (
       }
     }
     if (harness === 'claude') {
-      try {
-        const conflictWarning = persistClaudeCredentials(
-          rootDirectory,
-          input.homeDirectory,
-          seededClaudeCredentialsHash,
-        );
-        if (conflictWarning !== undefined) warn(conflictWarning);
-      } catch (error) {
-        warn(`Warning: failed to persist Claude credentials: ${String(error)}`);
-      }
+      persistClaudeLaunchState(input, rootDirectory, seededClaudeCredentialsHash, warn);
     }
   }
 };

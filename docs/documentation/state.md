@@ -207,6 +207,16 @@ projection or merges its other projected state back. Trust accepted inside an Ou
 therefore discarded, so Claude prompts for trust on every run in a workspace that was never trusted
 natively.
 
+Claude session history has a second narrow bridge because `CLAUDE_CONFIG_DIR` also redirects
+Claude's native `projects/` tree into the temporary projection. Before launch, Outfitter derives
+Claude's project slug from the absolute working directory and copies only that slug directory from
+`~/.claude/projects/`. This keeps other projects' transcripts out of the projection while making
+`claude --continue` and `claude --resume` see earlier native or Outfitter-launched sessions. After
+the run exits or throws, Outfitter merges every new or content-changed regular session file from
+the projection's slug directories back into `~/.claude/projects/` atomically with mode `0600`.
+Durable files are never deleted. A seed or copy-back failure emits a warning and does not replace
+Claude's exit code or error.
+
 The Claude Code adapter declares these paths:
 
 ```yaml
