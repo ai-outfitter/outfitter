@@ -119,6 +119,23 @@ synchronization; run sync explicitly when you want network updates.
 
 Private GitHub catalogs are an enterprise feature. When sync detects a private GitHub repository, it asks for confirmation before use and records the decision in your user settings. Review the Outfitter Enterprise license or your enterprise agreement before enabling private catalogs. Non-GitHub `uri:` sources use whatever git credentials your environment already has; credentials embedded in URIs are redacted from sync output.
 
+### How sync authenticates
+
+Outfitter does not collect, store, or validate credentials. It delegates to `git`, so a private catalog clones with whatever credentials the surrounding environment already gives `git` — which differs by where sync runs:
+
+| Where          | Credential                                                                                                                                        |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Your machine   | Your existing git configuration: SSH agent, credential helper, or `.netrc`.                                                                       |
+| GitHub Actions | The workflow token, configured for git — see [token-permissions.md](https://github.com/ai-outfitter/actions/blob/main/docs/token-permissions.md). |
+| A cluster pod  | Supplied by the deployment: `GIT_ASKPASS` over HTTPS, or `GIT_SSH_COMMAND` for a deploy key.                                                      |
+
+Two failure modes are worth knowing before you hit them:
+
+- **Credentials belong in the environment, not the URI.** Outfitter redacts credentials from a source URI before deriving its cache path, so a URI carrying a username produces a cache entry that later runs do not read. The source URI must be byte-identical everywhere it appears.
+- **`outfitter run` does not sync.** A runtime that has never synced has an empty cache and cannot resolve a profile from it, however good its credentials are.
+
+[The forge credential model](../architecture/forge-credential-model.md) covers which credential to use where, and why.
+
 ## Trust and review
 
 Adding a catalog source means trusting its authors with your agent runtime. A catalog's resources can shape prompts and policy (agents, `agents.md`, `system-prompt.md`), add MCP servers (`mcp.json`), and ship skills whose scripts execute on your machine.
