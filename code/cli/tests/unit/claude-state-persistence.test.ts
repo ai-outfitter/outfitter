@@ -1,5 +1,5 @@
-// Verifies Claude credentials and exact-workspace trust survive the isolated CLAUDE_CONFIG_DIR
-// without copying or replacing unrelated machine-local ~/.claude.json state.
+// Verifies Claude credentials, exact-workspace trust, and project session history survive the
+// isolated CLAUDE_CONFIG_DIR without copying or replacing unrelated machine-local state.
 import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
@@ -12,7 +12,7 @@ import {
   resolveClaudeProjectSlug,
   seedClaudeCredentials,
   seedClaudeSessions,
-} from '../../src/agents/ClaudeCredentialPersistence.js';
+} from '../../src/agents/ClaudeStatePersistence.js';
 import { executeRunAgentCommand } from '../../src/cli/commands/RunAgentCommand.js';
 import type { AgentLaunchPlan } from '../../src/projection/Projection.js';
 

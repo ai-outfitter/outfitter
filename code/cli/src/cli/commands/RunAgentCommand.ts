@@ -11,7 +11,7 @@ import {
   persistClaudeSessions,
   seedClaudeCredentials,
   seedClaudeSessions,
-} from '../../agents/ClaudeCredentialPersistence.js';
+} from '../../agents/ClaudeStatePersistence.js';
 import {
   persistPiCredentials,
   resolvePiUserAgentDirectory,
@@ -114,43 +114,10 @@ const assertNoSettingsIssues = (issues: readonly { readonly message: string }[])
   }
 };
 
-const seedClaudeLaunchState = (
-  input: RunAgentInput,
-  rootDirectory: string,
-  warn: (message: string) => void,
-): string | undefined => {
-  const credentialsHash = seedClaudeCredentials(rootDirectory, input.homeDirectory, input.projectDirectory);
-  try {
-    seedClaudeSessions(rootDirectory, input.homeDirectory, input.projectDirectory);
-  } catch (error) {
-    warn(`Warning: failed to seed Claude session history: ${String(error)}`);
-  }
-  return credentialsHash;
-};
-
-const persistClaudeLaunchState = (
-  input: RunAgentInput,
-  rootDirectory: string,
-  credentialsHash: string | undefined,
-  warn: (message: string) => void,
-): void => {
-  try {
-    const conflictWarning = persistClaudeCredentials(rootDirectory, input.homeDirectory, credentialsHash);
-    if (conflictWarning !== undefined) warn(conflictWarning);
-  } catch (error) {
-    warn(`Warning: failed to persist Claude credentials: ${String(error)}`);
-  }
-  try {
-    persistClaudeSessions(rootDirectory, input.homeDirectory);
-  } catch (error) {
-    warn(`Warning: failed to persist Claude session history: ${String(error)}`);
-  }
-};
-
-// Pi and Claude both read credentials from their ephemeral projection root. Seed their durable
-// credentials before launch and persist changes in a finally block so login changes survive both a
-// normal exit and a failed launcher.
-const launchWithCredentialPersistence = async (
+// Pi and Claude both read credentials — and Claude its session history — from their ephemeral
+// projection root. Seed the durable state before launch and persist changes in a finally block so
+// login and session changes survive both a normal exit and a failed launcher.
+const launchWithStatePersistence = async (
   input: RunAgentInput,
   harness: Harness,
   rootDirectory: string,
@@ -163,25 +130,39 @@ const launchWithCredentialPersistence = async (
     lateMessages.push(message);
     input.writeLine?.(message);
   };
+  const attempt = (label: string, action: () => void): void => {
+    try {
+      action();
+    } catch (error) {
+      warn(`Warning: failed to ${label}: ${String(error)}`);
+    }
+  };
   const piUserAgentDirectory = harness === 'pi' ? resolvePiUserAgentDirectory(input.homeDirectory) : undefined;
   let seededClaudeCredentialsHash: string | undefined;
   if (piUserAgentDirectory !== undefined) seedPiCredentials(rootDirectory, piUserAgentDirectory);
   if (harness === 'claude') {
-    seededClaudeCredentialsHash = seedClaudeLaunchState(input, rootDirectory, warn);
+    seededClaudeCredentialsHash = seedClaudeCredentials(rootDirectory, input.homeDirectory, input.projectDirectory);
+    attempt('seed Claude session history', () =>
+      seedClaudeSessions(rootDirectory, input.homeDirectory, input.projectDirectory),
+    );
   }
 
   try {
     return await input.launcher(launch);
   } finally {
     if (piUserAgentDirectory !== undefined) {
-      try {
-        persistPiCredentials(rootDirectory, piUserAgentDirectory);
-      } catch (error) {
-        warn(`Warning: failed to persist Pi credentials: ${String(error)}`);
-      }
+      attempt('persist Pi credentials', () => persistPiCredentials(rootDirectory, piUserAgentDirectory));
     }
     if (harness === 'claude') {
-      persistClaudeLaunchState(input, rootDirectory, seededClaudeCredentialsHash, warn);
+      attempt('persist Claude credentials', () => {
+        const conflictWarning = persistClaudeCredentials(
+          rootDirectory,
+          input.homeDirectory,
+          seededClaudeCredentialsHash,
+        );
+        if (conflictWarning !== undefined) warn(conflictWarning);
+      });
+      attempt('persist Claude session history', () => persistClaudeSessions(rootDirectory, input.homeDirectory));
     }
   }
 };
@@ -315,7 +296,7 @@ export const executeRunAgentCommand = async (input: RunAgentInput): Promise<RunA
     const systemHooks = attachSystemExtensionHooks(launch);
     messages.push(...systemHooks.warnings);
     emit(systemHooks.warnings);
-    const exitCode = await launchWithCredentialPersistence(input, harness, rootDirectory, systemHooks.launch, messages);
+    const exitCode = await launchWithStatePersistence(input, harness, rootDirectory, systemHooks.launch, messages);
 
     return { launchPlan: systemHooks.launch, exitCode, messages };
   } finally {

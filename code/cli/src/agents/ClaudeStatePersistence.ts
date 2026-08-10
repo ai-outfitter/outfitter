@@ -83,8 +83,12 @@ const copyChangedFiles = (sourceDirectory: string, destinationDirectory: string)
     if (!entry.isFile()) continue;
     const sourcePath = join(sourceDirectory, entry.name);
     const destinationPath = join(destinationDirectory, entry.name);
-    const sourceHash = hashFile(sourcePath);
-    if (sourceHash === undefined || sourceHash !== hashFile(destinationPath)) atomicCopy(sourcePath, destinationPath);
+    // Hash the destination first: seeding targets a fresh projection where it never exists, so the
+    // seed copies every transcript without a wasted read-and-hash pass over the session history.
+    const destinationHash = hashFile(destinationPath);
+    if (destinationHash === undefined || destinationHash !== hashFile(sourcePath)) {
+      atomicCopy(sourcePath, destinationPath);
+    }
   }
 };
 
