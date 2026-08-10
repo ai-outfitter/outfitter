@@ -41,7 +41,7 @@ The same composition runs on every surface; only the trigger changes.
 - [Container images](./containers.md) — run the published Debian-based image persistently, extend it with apt, or use the `-nix` variant.
 - [Recurring runs](./recurring-runs.md) — loops three ways: the local loop extension, Actions cron, cluster schedules.
 - [In-cluster agents](./in-cluster.md) — resident agents, CronJobs, and subagent Jobs via Link Operator.
-- [Hooks](./hooks.md) — harness hook wiring and the protocol gap.
+- [Hooks](./hooks.md) — harness hook wiring, launcher-scope system observers, and the protocol gap.
 - [Dump](./dump-and-bake.md) — deterministic, self-contained `.agents/` dumps.
 - [State persistence](./state.md)
 - [Adapter support matrix](./support-matrix.md)

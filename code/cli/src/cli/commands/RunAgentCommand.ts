@@ -24,6 +24,7 @@ import { resolveEffectiveSet } from '../../resolver/ResolverContext.js';
 import type { Harness } from '../../settings/Settings.js';
 import { HARNESSES } from '../../settings/Settings.js';
 import type { SetupResult } from '../../setup/Setup.js';
+import { attachSystemExtensionHooks } from '../../system/SystemExtensionHook.js';
 import { readOutfitterVersion } from '../../version/OutfitterVersion.js';
 import type { CommandObject } from './CommandObject.js';
 import { attachPiRuntimeExtension } from './PiRuntimeLaunch.js';
@@ -279,9 +280,15 @@ export const executeRunAgentCommand = async (input: RunAgentInput): Promise<RunA
       profile: { id: agentSlug, label: composed.plan.identity.label },
       rootDirectory,
     });
-    const exitCode = await launchWithCredentialPersistence(input, harness, rootDirectory, launch, messages);
+    // System hooks attach last, after projection and after the runtime extension,
+    // so an organization's collector applies to every launch — including
+    // `--mode rpc`, which fleet agents run — and cannot trip strict mode.
+    const systemHooks = attachSystemExtensionHooks(launch);
+    messages.push(...systemHooks.warnings);
+    emit(systemHooks.warnings);
+    const exitCode = await launchWithCredentialPersistence(input, harness, rootDirectory, systemHooks.launch, messages);
 
-    return { launchPlan: launch, exitCode, messages };
+    return { launchPlan: systemHooks.launch, exitCode, messages };
   } finally {
     if (input.retainProjection !== true) {
       rmSync(rootDirectory, { recursive: true, force: true });

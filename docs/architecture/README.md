@@ -207,6 +207,7 @@ State handling strategies are `symlink`, `discard`, `warn`, `error`, and `prompt
 
 The Pi adapter reconciles generated runtime `settings.json` and `keybindings.json` (reserving `Shift+Tab` for Outfitter mode switching) as non-durable generated files.
 Interactive Pi launches inject the Outfitter bootstrap extension for build/plan mode switching; non-interactive launches skip it.
+After projection and bootstrap attachment, Outfitter reads root-owned [system extension hooks](../documentation/hooks.md#system-extension-hooks) and prepends their Pi extensions to every launch plan, including non-interactive and RPC launches. This post-projection boundary keeps the hook out of `.agents` layers, settings, composition, loadout support checks, and `--strict` handling. It is launcher-scope default injection rather than managed enforcement; the hook source is stamped into the child environment so downstream evidence can identify system-path versus session-provided configuration.
 
 During `outfitter run`, the Outfitter process remains alive while the child agent CLI runs and owns the temporary composition lifecycle.
 
