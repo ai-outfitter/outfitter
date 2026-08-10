@@ -27,7 +27,7 @@ The user-facing state update lifecycle is:
 
 - Projections remain temporary and reproducible by default.
 - Outfitter does not do generic post-run copy-back or JSON/YAML merge-back. The Pi and Claude
-  adapters have narrow credential bridges as exceptions because the current launch flow does not
+  adapters have narrow credential and session bridges as exceptions because the current launch flow does not
   connect those files to durable storage through materialized declared-state symlinks. Pi declares
   `auth.json` and `models.json` with a `symlink` default, but currently copies them from the durable
   agent directory into the projection before launch and back from the projection afterward. Claude
@@ -35,7 +35,10 @@ The user-facing state update lifecycle is:
   file back afterward. Claude's separate `~/.claude.json` sits outside `~/.claude`, so it cannot be
   symlinked with the rest of the config directory; Outfitter seeds a narrow whitelist into the
   projected file and merges only `oauthAccount` back rather than copying machine-local state
-  wholesale.
+  wholesale. Claude's `CLAUDE_CONFIG_DIR` also redirects session transcripts into the projection,
+  so Outfitter seeds only the current working directory's `projects/<slug>/` before launch and
+  atomically merges projected session files from every slug back afterward. This per-file merge
+  never deletes durable history and runs after both normal and thrown launcher exits.
 - Persistent state is represented by symlinking a projection path to the native CLI fallback path.
 - Adapters may generate a concrete runtime file for a declared state path when they need deterministic launch-time reconciliation. For example, the Pi adapter can generate a transformed `settings.json` that removes native `packages` entries already supplied by composition-controlled extensions, and then mark that declared path as `discard` for write detection during the run.
 - Every adapter-declared state path has a resolved strategy before launch: settings overrides win, otherwise the adapter `default_strategy` is used, except for adapter-generated reconciliation files that are intentionally treated as discarded runtime files.
