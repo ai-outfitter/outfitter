@@ -56,7 +56,7 @@ jobs:
           mkdir -p "$HOME/.pi/agent"
           cp .github/models.json "$HOME/.pi/agent/models.json"
 
-      - uses: ai-outfitter/actions@98afa6db3de774a2ccb8c0a8e7a1106861e34d1f
+      - uses: ai-outfitter/actions@75ad9d37b968a8af76e15fac4d708a01dd802066
         id: agent
         with:
           # Fallback when no `agent:<slug>` label routes the issue.
