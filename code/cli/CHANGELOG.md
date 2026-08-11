@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.6.0](https://github.com/ai-outfitter/outfitter/compare/v1.5.0...v1.6.0) (2026-08-11)
+
+
+### Features
+
+* project MCP servers into Claude launches and add Codex harness ([#264](https://github.com/ai-outfitter/outfitter/issues/264)) ([f35fa28](https://github.com/ai-outfitter/outfitter/commit/f35fa28529dc0a2c5565c0696cdcdf24c0ef7c53))
+* resolve catalog-declared sources transitively (OFTR-004.6) ([#262](https://github.com/ai-outfitter/outfitter/issues/262)) ([b2dd1aa](https://github.com/ai-outfitter/outfitter/commit/b2dd1aa55177aad04f8e27e5e435aa560da25f63))
+* **system:** system-scope extension hooks for outfitter run ([#268](https://github.com/ai-outfitter/outfitter/issues/268)) ([9f51540](https://github.com/ai-outfitter/outfitter/commit/9f5154093e0aa1fec85d7069481594916894ec4a))
+
+
+### Bug Fixes
+
+* **claude:** persist session history across the ephemeral projection root ([#272](https://github.com/ai-outfitter/outfitter/issues/272)) ([#273](https://github.com/ai-outfitter/outfitter/issues/273)) ([999693b](https://github.com/ai-outfitter/outfitter/commit/999693b02c85191a23fdd49464de5dae9a4f6f04))
+* **claude:** seed credentials and workspace trust into the projection root ([#266](https://github.com/ai-outfitter/outfitter/issues/266)) ([#267](https://github.com/ai-outfitter/outfitter/issues/267)) ([256be0d](https://github.com/ai-outfitter/outfitter/commit/256be0d4942fc5e2a0938e5217ba7b8d9a439fbc))
+
 ## [1.5.0](https://github.com/ai-outfitter/outfitter/compare/v1.4.0...v1.5.0) (2026-08-07)
 
 
