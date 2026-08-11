@@ -11,12 +11,31 @@ export interface ValidationFinding {
   readonly message: string;
 }
 
-const compositionWarningSeverity = (message: string): ValidationFinding['severity'] =>
-  /^loadout (?:skills|subagents) references unknown (?:skill|agent) '/.test(message) ? 'error' : 'warning';
+/**
+ * Options for {@link validateEffectiveSet}. `deferLoadoutResolution` downgrades an unresolved
+ * loadout slug reference from an error to a warning — used when validating a single remote source
+ * in isolation during `outfitter sync`, where a catalog may legitimately reference a skill supplied
+ * by a catalog it declares as a dependency (OFTR-004.6). Loadout wholeness is then authoritatively
+ * enforced against the merged effective set by `outfitter validate`; the run-time composer surfaces
+ * an unresolved reference as a non-fatal warning (OFTR-005.3.4), fatal only under `run --strict`.
+ */
+export interface ValidationOptions {
+  readonly deferLoadoutResolution?: boolean;
+}
+
+// Matches the composer's top-level unresolved-loadout warning wording (see `compose` in Composer.ts).
+// It is deliberately coupled to that message; `resolver-validation.test.ts` drives the real composer,
+// so a wording drift fails that test rather than silently disabling deferral.
+const isUnresolvedLoadoutReference = (message: string): boolean =>
+  /^loadout (?:skills|subagents) references unknown (?:skill|agent) '/.test(message);
+
+const compositionWarningSeverity = (message: string, options: ValidationOptions): ValidationFinding['severity'] =>
+  isUnresolvedLoadoutReference(message) && !options.deferLoadoutResolution ? 'error' : 'warning';
 
 const validateAgent = (
   set: EffectiveResourceSet,
   agent: ResolvedResource,
+  options: ValidationOptions,
   projectDirectory?: string,
 ): readonly ValidationFinding[] => {
   const definition = readAgentDefinition(agent.winner.path, agent.configPaths);
@@ -39,7 +58,7 @@ const validateAgent = (
   const compositionFindings: ValidationFinding[] = [
     ...composed.errors.map((message) => ({ severity: 'error' as const, resource: `agent:${agent.slug}`, message })),
     ...composed.warnings.map((message) => ({
-      severity: compositionWarningSeverity(message),
+      severity: compositionWarningSeverity(message, options),
       resource: `agent:${agent.slug}`,
       message,
     })),
@@ -106,6 +125,29 @@ const deduplicateFindings = (findings: readonly ValidationFinding[]): readonly V
   return [...deduplicated.values()];
 };
 
+// Validates one agent's local resources: the owning agent must resolve, and each local skill is
+// document-checked; knowledge/commands are opaque file trees today, so only shadowing is surfaced.
+const validateAgentLocalResources = (set: EffectiveResourceSet, agentSlug: string): readonly ValidationFinding[] => {
+  const findings: ValidationFinding[] = [];
+
+  if (findResource(set, 'agent', agentSlug) === undefined) {
+    findings.push({
+      severity: 'error',
+      resource: `agent:${agentSlug}`,
+      message: 'agent-local resources require a resolvable owning agent.',
+    });
+  }
+
+  for (const kind of agentLocalKinds) {
+    for (const resource of listAgentResources(set, agentSlug, kind)) {
+      findings.push(...shadowFindings(resource));
+      if (kind === 'skill') findings.push(...validateSkill(resource));
+    }
+  }
+
+  return findings;
+};
+
 /**
  * Collects validation findings across the effective set. `error` findings always fail validation;
  * `warning` findings (such as shadowed definitions) fail only under `--strict`.
@@ -113,11 +155,12 @@ const deduplicateFindings = (findings: readonly ValidationFinding[]): readonly V
 export const validateEffectiveSet = (
   set: EffectiveResourceSet,
   projectDirectory?: string,
+  options: ValidationOptions = {},
 ): readonly ValidationFinding[] => {
   const findings: ValidationFinding[] = [];
 
   for (const agent of listResources(set, 'agent')) {
-    findings.push(...validateAgent(set, agent, projectDirectory), ...reservedNamespaceFindings(agent));
+    findings.push(...validateAgent(set, agent, options, projectDirectory), ...reservedNamespaceFindings(agent));
   }
 
   for (const skill of listResources(set, 'skill')) {
@@ -125,21 +168,7 @@ export const validateEffectiveSet = (
   }
 
   for (const [agentSlug] of set.agentResources) {
-    if (findResource(set, 'agent', agentSlug) === undefined) {
-      findings.push({
-        severity: 'error',
-        resource: `agent:${agentSlug}`,
-        message: 'agent-local resources require a resolvable owning agent.',
-      });
-    }
-
-    for (const kind of agentLocalKinds) {
-      for (const resource of listAgentResources(set, agentSlug, kind)) {
-        findings.push(...shadowFindings(resource));
-        // Only skills have a document reader today; knowledge/commands are opaque file trees.
-        if (kind === 'skill') findings.push(...validateSkill(resource));
-      }
-    }
+    findings.push(...validateAgentLocalResources(set, agentSlug));
   }
 
   for (const kind of ['agent', 'skill', 'knowledge', 'command'] as const) {
