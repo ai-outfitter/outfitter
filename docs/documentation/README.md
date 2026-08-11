@@ -9,11 +9,12 @@ repository with the baseline report as its first commit.
 
 ## Climb the ramp (runbooks)
 
-One runbook per rung of [the adoption ramp](../philosophy.md#the-ramp-to-an-autonomous-lifecycle). Each starts where the previous one ended and closes with the one concrete step that begins the next rung. Their success checks are the signals an SDLC assessment reports, so "done" is something you run rather than something you judge.
+One runbook per rung of [the adoption ramp](../philosophy.md#the-ramp-to-an-autonomous-lifecycle). Each starts where the previous one ended and closes with the one concrete step that begins the next rung. Every runbook ends in a check you run rather than a judgement you make — the first three against the signals an SDLC assessment reports, the last against the cluster directly.
 
 - [Share one catalog](../runbooks/share-one-catalog.md) — one pinned catalog the organization shares, instead of per-laptop configuration. (→ delegated)
 - [Run it without your laptop](../runbooks/run-without-your-laptop.md) — an event triggers the workflow, its output lands through review, and the session is captured. (→ automated)
 - [Give the agent a residence](../runbooks/give-the-agent-a-residence.md) — a named, assignable agent with an account and somewhere to live. (→ governed)
+- [Continuously deployed Kubernetes agents with Actions](../runbooks/continuously-deployed-kubernetes-agents-with-actions.md) — a merge to the catalog moves the fleet, with no stored cluster credential. (deepens governed)
 
 ## Start (you)
 
