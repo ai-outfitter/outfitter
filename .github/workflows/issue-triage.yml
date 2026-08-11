@@ -68,8 +68,13 @@ jobs:
 
             trigger_context:
               repository: ${{ github.repository }}
-              event_name: ${{ github.event_name }}
-              event_action: ${{ github.event.action || '' }}
+              # A manual dispatch exists to triage an issue that was missed or
+              # needs re-running, so it presents the same routing metadata a
+              # fresh issue would. Passing `workflow_dispatch` here selects no
+              # skill: the agent declines with "not a supported issues/opened
+              # trigger" and the run reports success having done nothing.
+              event_name: ${{ github.event_name == 'workflow_dispatch' && 'issues' || github.event_name }}
+              event_action: ${{ github.event_name == 'workflow_dispatch' && 'opened' || github.event.action }}
               issue_number: ${{ github.event.issue.number || inputs.issue }}
               issue_author: ${{ github.event.issue.user.login || '' }}
         env:
