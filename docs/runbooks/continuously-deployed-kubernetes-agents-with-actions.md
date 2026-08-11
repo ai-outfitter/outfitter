@@ -13,7 +13,7 @@ Continuous deployment of an agent is narrower than it sounds. Divide the work in
 - **CI moves objects that already exist.** It patches an `Organization` to a new catalog revision and patches each `Agent` whose setup step pins that same revision. Nothing else.
 - **An administrator bootstraps.** Namespaces, Secrets, the operator itself, the runtime image, and the RBAC that CI runs under are all created by a human with a credential CI never holds.
 
-Every rule below follows from that split. The deploy identity is scoped to the first list, and step 3 asserts it cannot reach the second.
+Every rule below follows from that split. The deploy identity is scoped to the first list, and step 4 asserts it cannot reach the second.
 
 ## 1. Give CI an identity with no stored credential
 
@@ -26,13 +26,21 @@ Both forges support this. What differs is only how the token becomes cluster acc
 | GitHub Actions | `permissions: id-token: write`, then a cloud credential action | The cloud's Kubernetes access mapping — for example an EKS access entry bound to a Kubernetes group |
 | Forgejo Actions | `enable-openid-connect: true` | A cluster RoleBinding that accepts the OIDC subject directly |
 
-Grant the deploy role its own identity rather than reusing a broad deployment role. A role that can create namespaces and install charts is far more than moving one agent to a new revision, and the whole point of step 3 is to prove that difference holds.
+Grant the deploy role its own identity rather than reusing a broad deployment role. A role that can create namespaces and install charts is far more than moving one agent to a new revision, and the whole point of step 4 is to prove that difference holds.
 
 **The workflow file's path is part of your identity.** The OIDC subject embeds the repository, the ref, and — on Forgejo — the workflow file path. Renaming the file or deploying from a branch other than the default mints a subject your trust policy does not list, and every exchange fails. Change the trust policy or RoleBinding *first*, then rename. Record this at the top of the workflow, because the failure appears as an authorization error with nothing to suggest a rename caused it.
 
 On GitHub, do not attach an `environment:` to the job unless your trust policy expects one. A job with an environment presents `repo:<owner>/<repo>:environment:<name>` as its subject, which can never match a policy pinning `repo:<owner>/<repo>:ref:refs/heads/main`.
 
-## 2. Pin the revision once, render it everywhere
+## 2. Let the tree decide what deploys
+
+Discover manifests by globbing `agents/*/deployment.yaml`. Do not name them in the workflow.
+
+This is not a convenience. It makes the set of agents a pipeline manages a fact anyone can read off the repository, rather than a list buried in a script that only its author knows to update. Adding an agent becomes a directory and a file, reviewed like any other change. Step 4 then derives both halves of the permission check from that same tree, which a hand-written list cannot give you.
+
+**Keep the `Organization` out of the agent directories.** It is catalog-level: several agents share one, and an `Organization` living inside `agents/luce/deployment.yaml` makes every other agent silently depend on that file being present and applied. Give it its own manifest outside the glob and apply it alongside.
+
+## 3. Pin the revision once, render it everywhere
 
 Commit manifests that carry a placeholder rather than a revision:
 
@@ -73,26 +81,39 @@ fi
 
 Take the revision from the commit being deployed — the catalog is the repository, so its own SHA is the pin. Require the full 40 characters and reject anything else; a short SHA resolves locally and silently produces a cache entry the runtime never reads.
 
-## 3. Assert the permissions in both directions
+## 4. Assert the permissions in both directions
 
-Before applying anything, check what the deploy identity may do **and what it may not**:
+Before applying anything, check what the deploy identity may do **and what it may not**. Derive both halves from the glob:
 
 ```sh
+# Positive: every agent the tree declares must be patchable.
+for agent in $discovered; do
+  require_allowed patch "agents.aioutfitter.com/$agent"
+done
 require_allowed patch "organizations.aioutfitter.com/$organization"
-require_allowed patch "agents.aioutfitter.com/$agent"
-require_denied  get secrets --namespace="$namespace"
-require_denied  create agents.aioutfitter.com
-require_denied  delete "agents.aioutfitter.com/$agent"
-require_denied  patch deployments.apps --namespace=<operator-namespace>
+
+# Negative: every agent the cluster has that the tree does not declare must not be.
+for agent in $(kubectl get agents.aioutfitter.com -o name); do
+  case " $discovered " in *" ${agent##*/} "*) continue ;; esac
+  require_denied patch "$agent"
+done
+
+# Standing negatives: the administrator column of the split above.
+require_denied get secrets --namespace="$namespace"
+require_denied create agents.aioutfitter.com
+require_denied delete agents.aioutfitter.com/"$any_agent"
+require_denied patch deployments.apps --namespace=<operator-namespace>
 ```
 
-Both directions earn their place, for different reasons. The positive checks catch RBAC that drifted narrower and would otherwise fail halfway through an apply, leaving the fleet split across two revisions. The negative checks catch RBAC that drifted **wider** — which nothing else in your system would ever notice, because a deploy that gained the ability to read Secrets still succeeds.
+The positive half catches RBAC that drifted narrower and would otherwise fail halfway through an apply, leaving the fleet split across two revisions.
 
-Write the negative list from the administrator column of the split above. If CI can do something only a bootstrap should do, that is the finding.
+The negative half is the one worth dwelling on, because **the glob is what makes it exhaustive**. Written by hand, a denied-list is a guess that rots: it names the things someone thought of, and says nothing about the agent added to the cluster last month. Derived from the tree, it is a complete statement — this pipeline may move these agents and provably no others. RBAC that drifted wider is otherwise invisible, because a deploy that quietly gained the ability to patch a neighbouring team's agent still succeeds.
+
+That is the argument for globbing rather than listing. A hand-maintained list of what to deploy can only ever produce a hand-maintained list of what to forbid.
 
 `kubectl` 1.35 removed `auth can-i --resource-name`; use `verb resource/name` instead.
 
-## 4. Dry-run, apply, then prove it converged
+## 5. Dry-run, apply, then prove it converged
 
 Server-side dry-run the whole rendered set first. A rejected `Agent` must not leave the `Organization` already pointing at a revision nothing resolved:
 
@@ -120,7 +141,7 @@ converged() {
 
 The operator has observed this spec, the agent is up, and the catalog it actually resolved is the revision you pushed. Any two of the three can hold while the deploy has not landed.
 
-## 5. Trigger it on the right changes
+## 6. Trigger it on the right changes
 
 Filter the trigger to the paths that change composition, so an unrelated README edit does not roll the fleet:
 
@@ -146,6 +167,34 @@ concurrency:
 Include the workflow and the deploy script in the filter — a change to how you deploy should deploy. Keep `cancel-in-progress: false`: cancelling a deploy mid-apply is the one way to produce the split-revision state everything above is written to prevent.
 
 Pin and checksum `kubectl` rather than resolving `latest` at run time. A deploy identity should not be handed a binary chosen by whoever published most recently.
+
+## Adding an agent is a two-person change
+
+The first time someone adds an agent, the deploy fails. That is the design, and it is worth stating plainly before it surprises anyone.
+
+1. An engineer adds `agents/<id>/deployment.yaml` and opens a pull request.
+2. The deploy runs, discovers the new directory, and the preflight denies it: the deploy role's `resourceNames` does not list the new agent.
+3. An administrator adds the name to the role and applies it.
+4. The re-run deploys the agent.
+
+Resist the urge to remove that friction. If adding a directory silently granted a pipeline the right to create and move a new agent identity in your cluster, then anyone who can merge a pull request could mint one. The RBAC gate is exactly what makes "anyone can propose an agent" safe to allow — the proposal is a merge, the grant is an administrator's.
+
+What you *should* remove is the confusion. A raw authorization denial names a resource and a verb; it does not say "an administrator must widen a role." Have the deploy print the remedy it already knows:
+
+```text
+deploy: not authorized to patch agents.aioutfitter.com/researcher
+deploy: agents/researcher/deployment.yaml is declared but not granted.
+deploy: an administrator must add it to the deploy role:
+
+  - apiGroups: ["aioutfitter.com"]
+    resources: ["agents"]
+    resourceNames: ["luce", "researcher"]
+    verbs: ["get", "patch", "update"]
+```
+
+The handshake is inherent — CI cannot widen its own permissions, and a process that could would defeat the split. Making it a paste instead of an investigation is the whole of the ergonomics available, and it is enough.
+
+Note also what the glob changes about blast radius. A catalog revision moves **every** agent that resolves from it, so path filters no longer narrow anything: they decide whether the fleet moves, not which part of it does. Dry-run the whole rendered set before applying any of it, and check convergence per agent, so a single rejected manifest cannot leave half the fleet on the new revision.
 
 ## Done when
 
