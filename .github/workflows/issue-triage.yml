@@ -51,11 +51,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Configure GitHub Models provider for pi
-        run: |
-          mkdir -p "$HOME/.pi/agent"
-          cp .github/models.json "$HOME/.pi/agent/models.json"
-
       - uses: ai-outfitter/actions@75ad9d37b968a8af76e15fac4d708a01dd802066
         id: agent
         with:
@@ -77,6 +72,11 @@ jobs:
               event_action: ${{ github.event.action || '' }}
               issue_number: ${{ github.event.issue.number || inputs.issue }}
               issue_author: ${{ github.event.issue.user.login || '' }}
+        env:
+          # The provider config lives in the org catalog (ai-outfitter/.agents
+          # models.json) and names this key by variable, so only the value is
+          # supplied here. Org-wide secret; nothing is written to disk.
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
 
       # The action saved the agent's full session as a workflow artifact.
       # Append the link to the agent's own comment so the decision trail is one
