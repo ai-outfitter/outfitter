@@ -223,7 +223,6 @@ export const executeRunAgentCommand = async (input: RunAgentInput): Promise<RunA
   let resolved = resolveEffectiveSet(input);
   assertNoSettingsIssues(resolved.settingsIssues);
   assertReadableAppendPrompts(input.appendPromptPaths);
-  emit(resolved.warnings.map((warning) => `warning: ${warning}`));
 
   // First run: nothing selected and no default configured — onboard, then resolve again.
   const setupMessages: string[] = [];
@@ -240,13 +239,19 @@ export const executeRunAgentCommand = async (input: RunAgentInput): Promise<RunA
     }
   }
 
+  // Warnings from the FINAL resolved state (after any onboarding), folded into every returned message
+  // array after the setup notices — so a dependency that best-effort bootstrap could not fetch
+  // surfaces its actionable `outfitter sync` guidance to both the terminal and programmatic callers,
+  // not just a generic unknown-skill warning at composition (OFTR-004.6.10).
+  const resolutionWarnings = resolved.warnings.map((warning) => `warning: ${warning}`);
+
   const { set, settings } = resolved;
   const agentSlug = resolveAgentSlug(settings.defaultAgent, input.agent);
   const harness = resolveHarness(settings.defaultHarness, input.harness);
   const composed = compose(set, agentSlug, { projectDirectory: input.projectDirectory });
 
   if (composed.plan === undefined) {
-    const messages = [...setupMessages, ...composed.warnings, ...composed.errors];
+    const messages = [...setupMessages, ...resolutionWarnings, ...composed.warnings, ...composed.errors];
     emit(messages);
     return { exitCode: 1, messages };
   }
@@ -283,6 +288,7 @@ export const executeRunAgentCommand = async (input: RunAgentInput): Promise<RunA
     if (input.strict === true && warnings.length > 0) {
       const messages = [
         ...setupMessages,
+        ...resolutionWarnings,
         ...warnings,
         'Strict mode: composition warnings and unsupported elements are fatal.',
       ];
@@ -290,8 +296,9 @@ export const executeRunAgentCommand = async (input: RunAgentInput): Promise<RunA
       return { exitCode: 1, messages };
     }
 
-    // Emit setup notices and warnings before launch so they precede the pi session on the terminal.
-    const messages = [...setupMessages, ...warnings];
+    // Emit setup notices, resolution warnings, and composition warnings before launch so they precede
+    // the pi session on the terminal (and are returned to programmatic callers).
+    const messages = [...setupMessages, ...resolutionWarnings, ...warnings];
     emit(messages);
 
     // Attach the Outfitter runtime UI and sign-in extension to interactive pi sessions.

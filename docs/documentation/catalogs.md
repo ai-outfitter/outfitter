@@ -83,6 +83,43 @@ Remote entries additionally accept:
 
 Resources from all sources resolve by slug behind local layers, following [layer precedence](./concepts.md#layer-precedence). Agent-local skills keep their owning-agent namespace through cache and source merging. Outfitter reports shadowed IDs so consumers can see which source supplies a selected resource.
 
+### Catalog dependencies (transitive sources)
+
+A catalog can depend on other catalogs by declaring `sources` in its own settings file
+(`settings.yml` at its payload root, or `.agents/settings.yml`). Outfitter resolves those
+declarations transitively: syncing and resolving a catalog also fetches and layers the catalogs it
+declares, so one pinned root pulls in its dependency closure.
+
+Transitive sources are deliberately the narrowest safe subset — a `github:` shorthand pinned to an
+immutable ref — while the [remote-catalog trust model](https://github.com/ai-outfitter/outfitter/issues/212)
+is defined. Anything else a catalog declares is skipped with a warning:
+
+- **`github:` shorthand only.** A transitive source must be a `github: owner/repo` shorthand. A
+  `uri:` source declared by a catalog is skipped, because a URI can name an arbitrary git transport
+  (for example a local path or a remote helper) that a dependency should not be able to choose on
+  your behalf. Keeping to `github:` also routes every transitive fetch that `outfitter sync`
+  performs through the same private-catalog gate as your own sources. (The one exception is the
+  first-party default catalog's own closure, fetched during setup — see the note below.)
+- **Whole repository only.** A transitive `github:` source may not carry a `path:` subpath, so a
+  declaration can never point outside the repository it fetches.
+- **Pinned only.** A transitive source must pin an immutable `ref:` — a full commit SHA, or a
+  version tag such as `v1.2.0`. A commit SHA is truly immutable; a version tag is a pin the
+  dependency's maintainer could later move, in which case the next `outfitter sync` fetches the
+  new commit and reports it as `updated`. Pin dependencies you rely on to a SHA when you need the
+  closure to never change underneath you.
+- **Content only.** A depended-on catalog contributes `.agents` payload resources. Nothing else in
+  its settings file — default agent, default harness, cache directory, `remote_settings` — takes
+  effect transitively.
+- **Lower precedence.** Every source you configure directly outranks every transitive source;
+  deeper dependencies rank below shallower ones.
+- Cycles and duplicates resolve once — the first occurrence wins and resolution terminates.
+
+A fresh `outfitter` install fetches this closure during setup, so a default profile whose skills
+live in a depended-on catalog works without a manual sync. Because the default catalog is the
+first-party catalog Outfitter ships (pinned in the CLI), its bootstrap fetches the declared closure
+directly; the interactive private-catalog prompt is a property of `outfitter sync`, which is where
+you add your own third-party sources.
+
 ## Organization control repositories
 
 An `owner/.outfitter` repository distributes organization-wide resources plus shared settings that Outfitter layers below each user's local settings:
@@ -104,7 +141,10 @@ Remote settings are cached locally and merged at lower precedence than your proj
 1. Local settings are validated. Remote settings repositories are cloned or updated first, then
    merged settings are reloaded.
 2. Remote sources (including any added by remote settings) are cloned or updated.
-3. Each synced source is validated; sync reports `updated`, `unchanged`, `skipped`, or `failed` per source.
+3. Sources declared by the synced catalogs themselves (see
+   [catalog dependencies](#catalog-dependencies-transitive-sources)) are fetched next, repeating
+   until the whole dependency closure is cached.
+4. Each synced source is validated; sync reports `updated`, `unchanged`, `skipped`, or `failed` per source.
 
 All repositories live under `<cache_directory>/repos/<encoded-uri-and-ref>/` (default
 `~/.agents/cache`). Pinned (`ref:`) sources stay on their selected ref until you change it; unpinned
@@ -146,6 +186,8 @@ Before adding a source, review it:
 2. Read every skill you will select, including its scripts and catalog-owned `file` references (see the [trust boundary](./skills.md#trust-boundary)).
 3. Review `mcp.json` — MCP servers are code with whatever access you grant them.
 4. Check `remote_settings` targets: a settings file can add further sources you did not review.
-5. Confirm the repository's ownership and that its maintainers are who you expect.
+5. Check the catalog's own `sources`: its pinned `github:` dependencies are fetched transitively, so
+   review each one like the catalog itself.
+6. Confirm the repository's ownership and that its maintainers are who you expect.
 
 **Pin a `ref:`** — ideally a full commit SHA — for any catalog you do not maintain yourself, and always for catalogs consumed in CI (see [Running tasks in GitHub Actions](./actions.md)). A pinned ref makes updates an explicit, reviewable action — bump the ref after reviewing the diff — instead of silently pulling whatever the catalog publishes next.
