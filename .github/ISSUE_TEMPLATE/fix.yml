@@ -2,8 +2,8 @@ name: Something is broken
 description: >-
   A command, profile, adapter, or catalog resolution does not behave as
   documented. The triage agent will label it and comment with a suggested plan.
-title: "fix: "
-labels: ["bug"]
+title: 'fix: '
+labels: ['bug']
 body:
   - type: dropdown
     id: area
