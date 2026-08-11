@@ -15,6 +15,8 @@ Continuous deployment of an agent is narrower than it sounds. Divide the work in
 
 Every rule below follows from that split. The deploy identity is scoped to the first list, and step 4 asserts it cannot reach the second.
 
+**Steps 2 through 5 ship as a published action:** [`ai-outfitter/agent-operator/actions/deploy-catalog`](https://github.com/ai-outfitter/agent-operator/tree/main/actions/deploy-catalog) — glob, render (its placeholder is `__REVISION__`), the bidirectional permission preflight, dry-run, apply, and per-agent convergence, exactly as this runbook describes them. It lives in the operator's repository because it patches the custom resources that repository versions, and you pin it to an exact ref for the same reason. Step 1 — identity — is deliberately not part of it: that is the one genuinely per-deployment piece, so your workflow establishes the cluster context and the action asserts what that identity can and cannot do. Read the steps anyway; when the preflight fails, they are the explanation.
+
 ## 1. Give CI an identity with no stored credential
 
 Use your forge's OIDC. A workflow presents a short-lived token, the cluster or cloud exchanges it for a scoped role, and no kubeconfig, service-account token, or static cloud key is ever stored as a secret.
