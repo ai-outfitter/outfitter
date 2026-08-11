@@ -1,0 +1,68 @@
+name: New capability or change
+description: >-
+  Request a new command, adapter, resolution behaviour, or a change to an
+  existing one. The triage agent will label it and comment with a suggested
+  plan.
+title: "feat: "
+body:
+  - type: dropdown
+    id: area
+    attributes:
+      label: What part of Outfitter does this touch?
+      options:
+        - Command surface (run, sync, setup, link, other)
+        - Profile composition or resolution
+        - Catalog sources (github, path, transitive)
+        - Harness adapter (pi, Claude Code, Codex, other)
+        - settings.yml schema or precedence
+        - Documentation
+        - Something else
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: What can you not do today?
+      description: >-
+        The situation you are in, not the solution you have in mind. A request
+        stated as a problem survives a better idea than yours.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What should it do?
+      description: >-
+        The behaviour you want, in a few sentences. Include the command shape
+        if you have one in mind.
+    validations:
+      required: true
+  - type: input
+    id: requirement
+    attributes:
+      label: Related requirement
+      description: >-
+        If this changes a stated obligation, name it — `OFTR-NNN.M`. A change
+        that contradicts a requirement amends the requirement first.
+      placeholder: e.g. OFTR-004.6
+    validations:
+      required: false
+  - type: input
+    id: harnesses
+    attributes:
+      label: Harnesses affected
+      description: >-
+        Which agent CLIs this needs to work with. "All" is a valid answer, and
+        so is one.
+      placeholder: e.g. pi and Claude Code
+    validations:
+      required: false
+  - type: textarea
+    id: workaround
+    attributes:
+      label: What are you doing instead?
+      description: >-
+        The workaround, if you have one. It tells a reviewer how urgent this is
+        and often shows the shape the real fix should take.
+    validations:
+      required: false
