@@ -1,0 +1,72 @@
+name: Something is broken
+description: >-
+  A command, profile, adapter, or catalog resolution does not behave as
+  documented. The triage agent will label it and comment with a suggested plan.
+title: 'fix: '
+labels: ['bug']
+body:
+  - type: dropdown
+    id: area
+    attributes:
+      label: Where does it break?
+      options:
+        - Command (run, sync, setup, link, other)
+        - Profile composition or resolution
+        - Catalog sources (github, path, transitive)
+        - Harness adapter (pi, Claude Code, Codex, other)
+        - settings.yml parsing or precedence
+        - Documentation is wrong or out of date
+        - Something else
+    validations:
+      required: true
+  - type: input
+    id: command
+    attributes:
+      label: Command you ran
+      description: The full command, including flags.
+      placeholder: e.g. outfitter run sdlc-planner --profile reviewer
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Output of `outfitter --version`. Say "from source" plus the commit if you built it.
+      placeholder: e.g. 1.5.0
+    validations:
+      required: true
+  - type: input
+    id: harness
+    attributes:
+      label: Harness and version
+      description: Which agent CLI it launched, if the failure involves one.
+      placeholder: e.g. pi 0.4.2, or Claude Code 2.1.0
+    validations:
+      required: false
+  - type: textarea
+    id: expected
+    attributes:
+      label: What should happen?
+      description: >-
+        If a numbered requirement covers this, quote it — `OFTR-NNN.M`. An
+        issue that names the obligation it breaks is one nobody has to
+        adjudicate first.
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: What happens instead?
+      description: Include the error output verbatim, not a paraphrase.
+    validations:
+      required: true
+  - type: textarea
+    id: settings
+    attributes:
+      label: Relevant settings
+      description: >-
+        The part of your `settings.yml` or profile that reproduces it. Redact
+        tokens and private source URLs — never paste a credential here.
+      render: yaml
+    validations:
+      required: false

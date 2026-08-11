@@ -1,0 +1,10 @@
+# Blank issues stay enabled: the triage agent can classify free-form issues
+# too — templates just give it (and contributors) more structure to work with.
+blank_issues_enabled: true
+contact_links:
+  - name: Documentation
+    url: https://github.com/ai-outfitter/outfitter/tree/main/docs
+    about: Architecture, requirements, and the ramp runbooks.
+  - name: Requirements
+    url: https://github.com/ai-outfitter/outfitter/tree/main/docs/requirements
+    about: The numbered OFTR-NNN obligations. Quote one if your issue is about a stated requirement.
