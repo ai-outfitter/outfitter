@@ -3,8 +3,8 @@ description: >-
   Request a new command, adapter, resolution behaviour, or a change to an
   existing one. The triage agent will label it and comment with a suggested
   plan.
-title: "feat: "
-labels: ["enhancement"]
+title: 'feat: '
+labels: ['enhancement']
 body:
   - type: dropdown
     id: area
