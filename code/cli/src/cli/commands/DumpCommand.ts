@@ -3,6 +3,7 @@
 import { Command } from 'commander';
 
 import { dumpAgent } from '../../dump/Dump.js';
+import { strictAmbiguityFailureMessage } from '../../resolver/AmbiguityWarnings.js';
 import { resolveEffectiveSet } from '../../resolver/ResolverContext.js';
 import type { Settings } from '../../settings/Settings.js';
 import type { CommandObject } from './CommandObject.js';
@@ -13,6 +14,7 @@ export interface DumpInput {
   readonly projectDirectory: string;
   readonly agent?: string;
   readonly out: string;
+  readonly strict?: boolean;
 }
 
 export interface DumpCommandResult {
@@ -40,13 +42,21 @@ const resolveAgentSlug = (settings: Settings, requested: string | undefined): st
 };
 
 export const executeDumpCommand = (input: DumpInput): DumpCommandResult => {
-  const { set, settings, settingsIssues, warnings } = resolveEffectiveSet(input);
+  const { set, settings, settingsIssues, warnings, ambiguityWarnings } = resolveEffectiveSet(input);
 
   if (settingsIssues.length > 0) {
     throw new Error(`Cannot dump with invalid settings: ${settingsIssues.map((issue) => issue.message).join('; ')}`);
   }
 
   const syncWarnings = warnings.map((warning) => `warning: ${warning}`);
+
+  if (input.strict === true && ambiguityWarnings.length > 0) {
+    return {
+      writtenPaths: [],
+      messages: [...syncWarnings, `error: ${strictAmbiguityFailureMessage}`],
+      ok: false,
+    };
+  }
 
   const agentSlug = resolveAgentSlug(settings, input.agent);
   const result = dumpAgent(set, agentSlug, input.out, input.projectDirectory);
@@ -71,13 +81,15 @@ export const createDumpCommand = (dependencies: DumpCommandDependencies = {}): C
         .description('Write the composed .agents tree for an agent to a directory.')
         .option('--agent <id>', 'Agent slug to dump (default: settings default_agent).')
         .option('--out <dir>', 'Output directory.', './outfitter-dump')
-        .action((options: { agent?: string; out: string }) => {
+        .option('--strict', 'Treat ambiguous source resolution as fatal.')
+        .action((options: { agent?: string; out: string; strict?: boolean }) => {
           const result = executeDumpCommand({
             /* v8 ignore next 2 -- process defaults are exercised by the CLI entrypoint, not unit tests. */
             homeDirectory: resolveHomeDirectory(dependencies.homeDirectory),
             projectDirectory: resolveProjectDirectory(dependencies.projectDirectory),
             agent: options.agent,
             out: options.out,
+            strict: options.strict,
           });
 
           for (const message of result.messages) {

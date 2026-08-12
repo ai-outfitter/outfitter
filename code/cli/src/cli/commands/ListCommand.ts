@@ -2,7 +2,8 @@
 
 import { Command } from 'commander';
 
-import type { ResourceKind } from '../../resolver/Resource.js';
+import { strictAmbiguityFailureMessage } from '../../resolver/AmbiguityWarnings.js';
+import type { EffectiveResourceSet, ResourceKind } from '../../resolver/Resource.js';
 import {
   agentLocalKinds,
   compareSlugs,
@@ -21,9 +22,11 @@ export interface ListInput {
   readonly projectDirectory: string;
   readonly kind?: string;
   readonly agent?: string;
+  readonly strict?: boolean;
 }
 
 export interface ListResult {
+  readonly exitCode: number;
   readonly messages: readonly string[];
 }
 
@@ -61,8 +64,14 @@ const resolveKindFilter = (kind: string | undefined): readonly ResourceKind[] =>
   return [resolved];
 };
 
+const assertKnownAgent = (set: EffectiveResourceSet, agent: string | undefined): void => {
+  if (agent !== undefined && findResource(set, 'agent', agent) === undefined) {
+    throw new Error(`Unknown agent '${agent}'. Run 'outfitter list agents' to see resolvable agents.`);
+  }
+};
+
 export const executeListCommand = (input: ListInput): ListResult => {
-  const { set, settingsIssues, warnings } = resolveEffectiveSet(input);
+  const { set, settingsIssues, warnings, ambiguityWarnings } = resolveEffectiveSet(input);
 
   if (settingsIssues.length > 0) {
     const detail = settingsIssues.map(formatSettingsIssue).join('; ');
@@ -71,9 +80,11 @@ export const executeListCommand = (input: ListInput): ListResult => {
 
   const messages: string[] = warnings.map((warning) => `warning: ${warning}`);
 
-  if (input.agent !== undefined && findResource(set, 'agent', input.agent) === undefined) {
-    throw new Error(`Unknown agent '${input.agent}'. Run 'outfitter list agents' to see resolvable agents.`);
+  if (input.strict === true && ambiguityWarnings.length > 0) {
+    return { exitCode: 1, messages: [...messages, `error: ${strictAmbiguityFailureMessage}`] };
   }
+
+  assertKnownAgent(set, input.agent);
 
   for (const kind of resolveKindFilter(input.kind)) {
     const hasAgentContext = input.agent !== undefined && agentLocalKinds.includes(kind);
@@ -97,7 +108,7 @@ export const executeListCommand = (input: ListInput): ListResult => {
     );
   }
 
-  return { messages };
+  return { exitCode: 0, messages };
 };
 
 export const createListCommand = (dependencies: ListCommandDependencies = {}): CommandObject => ({
@@ -108,23 +119,27 @@ export const createListCommand = (dependencies: ListCommandDependencies = {}): C
       new Command('list')
         .description('List resolvable resources (agents, skills, knowledge, commands).')
         .argument('[kind]', 'Restrict to one kind: agents, skills, knowledge, or commands.')
+        .option('--strict', 'Treat ambiguous source resolution as fatal.')
         .option(
           '--agent <id>',
           'Resolve resources in an agent context, including its agent-local skills/knowledge/commands.',
         )
-        .action((kind: string | undefined, options: { agent?: string }) => {
+        .action((kind: string | undefined, options: { agent?: string; strict?: boolean }) => {
           const result = executeListCommand({
             /* v8 ignore next 2 -- process defaults are exercised by the CLI entrypoint, not unit tests. */
             homeDirectory: resolveHomeDirectory(dependencies.homeDirectory),
             projectDirectory: resolveProjectDirectory(dependencies.projectDirectory),
             kind,
             agent: options.agent,
+            strict: options.strict,
           });
 
           for (const message of result.messages) {
             /* v8 ignore next -- console fallback is direct CLI behavior; tests inject a writer. */
             (dependencies.writeLine ?? console.log)(message);
           }
+
+          if (result.exitCode !== 0) process.exitCode = result.exitCode;
         }),
     );
   },

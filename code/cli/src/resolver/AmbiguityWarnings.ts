@@ -17,6 +17,8 @@ interface SourceDeclaration {
   readonly declaredBy: string;
 }
 
+export const strictAmbiguityFailureMessage = 'Strict mode: ambiguous resolution is fatal.';
+
 const repositoryKey = (source: RemoteSourceReference): string =>
   redactSourceUriCredentials(normalizeGitUri(normalizeRemoteSourceUri(source)));
 

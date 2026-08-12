@@ -24,6 +24,7 @@ import type { PiInstallSpawner } from '../../extensions/PiExtensionCache.js';
 import { resolveOutfitterCacheDir } from '../../paths/OutfitterCache.js';
 import { projectComposition } from '../../projection/ProjectHarness.js';
 import type { AgentLaunchPlan } from '../../projection/Projection.js';
+import { strictAmbiguityFailureMessage } from '../../resolver/AmbiguityWarnings.js';
 import { findResource } from '../../resolver/Resource.js';
 import { resolveEffectiveSet } from '../../resolver/ResolverContext.js';
 import type { Harness } from '../../settings/Settings.js';
@@ -214,6 +215,12 @@ const assertReadableAppendPrompts = (paths: readonly string[] | undefined): void
   }
 };
 
+const shouldRunSetup = (
+  input: RunAgentInput,
+  resolved: ReturnType<typeof resolveEffectiveSet>,
+): input is RunAgentInput & { readonly setup: NonNullable<RunAgentInput['setup']> } =>
+  input.agent === undefined && resolved.settings.defaultAgent === undefined && input.setup !== undefined;
+
 export const executeRunAgentCommand = async (input: RunAgentInput): Promise<RunAgentResult> => {
   // Flush messages to the terminal (before launch); they are also returned so callers can inspect them.
   const emit = (messages: readonly string[]): void => {
@@ -226,7 +233,7 @@ export const executeRunAgentCommand = async (input: RunAgentInput): Promise<RunA
 
   // First run: nothing selected and no default configured — onboard, then resolve again.
   const setupMessages: string[] = [];
-  if (input.agent === undefined && resolved.settings.defaultAgent === undefined && input.setup !== undefined) {
+  if (shouldRunSetup(input, resolved)) {
     const setupResult = await input.setup({
       homeDirectory: input.homeDirectory,
       projectDirectory: input.projectDirectory,
@@ -244,6 +251,12 @@ export const executeRunAgentCommand = async (input: RunAgentInput): Promise<RunA
   // surfaces its actionable `outfitter sync` guidance to both the terminal and programmatic callers,
   // not just a generic unknown-skill warning at composition (OFTR-004.6.10).
   const resolutionWarnings = resolved.warnings.map((warning) => `warning: ${warning}`);
+
+  if (input.strict === true && resolved.ambiguityWarnings.length > 0) {
+    const messages = [...setupMessages, ...resolutionWarnings, strictAmbiguityFailureMessage];
+    emit(messages);
+    return { exitCode: 1, messages };
+  }
 
   const { set, settings } = resolved;
   const agentSlug = resolveAgentSlug(settings.defaultAgent, input.agent);
@@ -339,7 +352,7 @@ export const createRunAgentCommand = (dependencies: RunAgentDependencies = {}): 
       .argument('[agent]', 'Agent slug to run (default: settings default_agent).')
       .argument('[args...]', 'Arguments passed through to the harness after --.')
       .addOption(new Option('--harness <harness>', 'Harness to launch.').choices([...HARNESSES]))
-      .option('--strict', 'Treat composition warnings and unsupported loadout elements as fatal.')
+      .option('--strict', 'Treat ambiguity, composition warnings, and unsupported loadout elements as fatal.')
       .option(
         '--append-prompt <path>',
         'Append a Markdown document to the system prompt. Repeatable; applied in the order given.',
