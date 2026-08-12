@@ -66,6 +66,12 @@ describe('resolver command objects', () => {
     expect(lines.join('\n')).toContain('engineer  [workspace]');
   });
 
+  it('list prints (none) for a kind with no resources', async () => {
+    const lines: string[] = [];
+    await buildProgram(project(), lines).parseAsync(['node', 'outfitter', 'list', 'skills']);
+    expect(lines).toEqual(['skills:', '  (none)']);
+  });
+
   it('list forwards --agent and marks local resources', async () => {
     const lines: string[] = [];
     await buildProgram(project(), lines).parseAsync(['node', 'outfitter', 'list', 'skills', '--agent', 'engineer']);

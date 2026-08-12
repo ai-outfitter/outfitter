@@ -5,6 +5,7 @@ import { Command } from 'commander';
 
 import { remoteSourceLayer } from '../../resolver/Layer.js';
 import { resolveResources } from '../../resolver/Resolver.js';
+import { resolveEffectiveSet } from '../../resolver/ResolverContext.js';
 import { validateEffectiveSet } from '../../resolver/ResolverValidation.js';
 import {
   createSettingsLoadPlan,
@@ -350,7 +351,9 @@ export const executeSyncCommand = (
     directRemoteSources,
     sourcePhase,
   });
-  return finishSync(merged.issues, remoteSettingsPhase, sourcePhase, transitiveClosure);
+  const result = finishSync(merged.issues, remoteSettingsPhase, sourcePhase, transitiveClosure);
+  const ambiguityWarnings = resolveEffectiveSet(input).ambiguityWarnings.map((warning) => `warning: ${warning}`);
+  return { ...result, messages: [...result.messages, ...ambiguityWarnings] };
 };
 
 export const createSyncCommand = (dependencies: SyncCommandDependencies = {}): CommandObject => ({

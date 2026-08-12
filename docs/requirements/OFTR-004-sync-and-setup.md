@@ -159,3 +159,23 @@ bootstrap is the one gate exemption — see OFTR-004.6.10.)
     Consistent with OFTR-005.3.4, the run-time composer surfaces an unresolved loadout reference as a
     non-fatal warning (fatal only under `outfitter run --strict`); `outfitter validate` is the
     command that fails on it.
+
+### OFTR-004.7: Ambiguous Source Resolution
+
+Resolution precedence exists to compose layers, not to hide disagreement. When two declarations
+disagree about the same thing, the selected declaration must be visible.
+
+1. Resolution MUST detect when the same source repository is declared more than once with different
+   refs across all declared configuration — every loaded settings scope plus the transitive
+   declarations of effective sources — MUST report a warning naming each declaring layer and its
+   ref, and MUST name the declaration that won.
+2. Resolution MUST detect when a settings scope's `sources` list replaces a lower-precedence scope's
+   list and drops a declared repository entirely, and MUST report a warning naming the dropped
+   source, its declaring scope, and the replacing scope.
+3. Resolution MUST detect when the same agent or skill slug is supplied by more than one source,
+   MUST report a warning naming each supplying source, and MUST name the definition that won. A slug
+   intentionally overridden by a higher-precedence layer is still reported; visibility, not
+   prohibition, is the requirement.
+4. These warnings MUST be surfaced by every command that resolves the effective set, including
+   `sync`, `validate`, `list agents`, and `run`, not only by a dedicated diagnostic.
+5. Detection MUST NOT change which declaration wins; precedence rules are unchanged.

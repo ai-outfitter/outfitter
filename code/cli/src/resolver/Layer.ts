@@ -11,6 +11,7 @@ import {
 } from '../sources/SourceCache.js';
 import type { RemoteSourceReference } from '../sources/SourceCache.js';
 import { expandTransitiveSources } from '../sources/TransitiveSources.js';
+import type { DeclaredRemoteSource } from '../sources/TransitiveSources.js';
 import type { Settings, SourceReference } from '../settings/Settings.js';
 import type { Layer } from './Resource.js';
 
@@ -42,6 +43,8 @@ const sourceLayer = (input: LayerDiscoveryInput, source: SourceReference): Layer
 
 export interface LayerDiscoveryResult {
   readonly layers: readonly Layer[];
+  /** Accepted transitive declarations, including duplicates, retained for ambiguity diagnostics. */
+  readonly transitiveDeclarations: readonly DeclaredRemoteSource[];
   /**
    * Configured remote sources whose cache is absent, reported with `outfitter sync` guidance rather
    * than silently dropped (OFTR-004.2.18). Reported, never fatal: a private catalog the enterprise
@@ -113,6 +116,7 @@ export const discoverLayers = (input: LayerDiscoveryInput): LayerDiscoveryResult
 
   return {
     layers: candidates.filter((layer) => existsSync(layer.root)),
+    transitiveDeclarations: expansion.declarations,
     unsynchronized,
     warnings: [...invalid, ...expansion.warnings],
   };
