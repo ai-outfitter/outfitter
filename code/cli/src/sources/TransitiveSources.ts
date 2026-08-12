@@ -158,6 +158,8 @@ export interface TransitiveExpansionInput {
 export interface TransitiveExpansionResult {
   /** Newly discovered remote sources, breadth-first by depth then declaration order (OFTR-004.6.3). */
   readonly sources: readonly DeclaredRemoteSource[];
+  /** Every accepted declaration, including duplicates suppressed from the resolved source graph. */
+  readonly declarations: readonly DeclaredRemoteSource[];
   readonly warnings: readonly string[];
 }
 
@@ -190,6 +192,7 @@ const declarationsFromParent = (
 
 export const expandTransitiveSources = (input: TransitiveExpansionInput): TransitiveExpansionResult => {
   const sources: DeclaredRemoteSource[] = [];
+  const declarations: DeclaredRemoteSource[] = [];
   const warnings: string[] = [];
   const visited = new Set<string>();
 
@@ -214,6 +217,7 @@ export const expandTransitiveSources = (input: TransitiveExpansionInput): Transi
       warnings.push(...declared.warnings);
 
       for (const entry of declared.sources) {
+        declarations.push(entry);
         const key = encodeRemoteSourceSelection(entry.source);
         if (visited.has(key)) continue;
         visited.add(key);
@@ -225,5 +229,5 @@ export const expandTransitiveSources = (input: TransitiveExpansionInput): Transi
     frontier = next;
   }
 
-  return { sources, warnings };
+  return { sources, declarations, warnings };
 };
