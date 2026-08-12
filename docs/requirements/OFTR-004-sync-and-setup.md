@@ -179,3 +179,7 @@ disagree about the same thing, the selected declaration must be visible.
 4. These warnings MUST be surfaced by every command that resolves the effective set, including
    `sync`, `validate`, `list agents`, and `run`, not only by a dedicated diagnostic.
 5. Detection MUST NOT change which declaration wins; precedence rules are unchanged.
+6. Under strict mode, every command that resolves the effective set MUST report every detected
+   ambiguity and then fail with a nonzero exit status. All three ambiguity classes above gate
+   uniformly. A deliberate divergence under strict mode MUST be resolved by making the
+   configuration unambiguous, not by suppressing the error.

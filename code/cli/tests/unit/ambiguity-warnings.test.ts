@@ -2,11 +2,13 @@ import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 
+import { Command } from 'commander';
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { executeListCommand } from '../../src/cli/commands/ListCommand.js';
+import { createDumpCommand } from '../../src/cli/commands/DumpCommand.js';
+import { createListCommand, executeListCommand } from '../../src/cli/commands/ListCommand.js';
 import { executeRunAgentCommand } from '../../src/cli/commands/RunAgentCommand.js';
-import { executeSyncCommand } from '../../src/cli/commands/SyncCommand.js';
+import { createSyncCommand, executeSyncCommand } from '../../src/cli/commands/SyncCommand.js';
 import { executeValidateCommand } from '../../src/cli/commands/ValidateCommand.js';
 import { findResource } from '../../src/resolver/Resource.js';
 import { resolveEffectiveSet } from '../../src/resolver/ResolverContext.js';
@@ -32,7 +34,19 @@ const resource = (root: string, kind: 'agents' | 'skills', slug: string): void =
 const resolve = (root: string) =>
   resolveEffectiveSet({ homeDirectory: join(root, 'home'), projectDirectory: join(root, 'project') });
 
+const runnableAgent = (root: string): void => resource(join(root, 'project', '.agents'), 'agents', 'engineer');
+
+const run = (root: string, strict: boolean) =>
+  executeRunAgentCommand({
+    homeDirectory: join(root, 'home'),
+    projectDirectory: join(root, 'project'),
+    agent: 'engineer',
+    strict,
+    launcher: () => Promise.resolve(0),
+  });
+
 afterEach(() => {
+  process.exitCode = undefined;
   for (const root of temporaryRoots.splice(0)) {
     rmSync(root, { recursive: true, force: true });
   }
@@ -170,5 +184,216 @@ describe('ambiguous source resolution warnings', () => {
     expect(warnings[0]).toContain("source 'github:acme/catalog'");
     expect(warnings[0]).toContain(join(root, 'home', '.agents', 'settings.yml'));
     expect(warnings[0]).toContain(join(root, 'project', '.agents', 'settings.yml'));
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-004.7.1, OFTR-004.7.6).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('makes a source ref conflict fatal for run under strict mode', async () => {
+    const root = createTemporaryRoot();
+    runnableAgent(root);
+    write(
+      join(root, 'project', '.agents', 'settings.yml'),
+      'sources:\n  - github: acme/catalog\n    ref: v1\n  - github: acme/catalog\n    ref: v2\n',
+    );
+
+    const result = await run(root, true);
+
+    expect(result.exitCode).not.toBe(0);
+    expect(
+      result.messages.some((message) => message.includes("Ambiguous source repository 'github:acme/catalog'")),
+    ).toBe(true);
+    expect(result.messages.at(-1)).toBe('Strict mode: ambiguous resolution is fatal.');
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-004.7.3, OFTR-004.7.6).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('makes a supplier slug collision fatal for run under strict mode', async () => {
+    const root = createTemporaryRoot();
+    const first = join(root, 'first');
+    const second = join(root, 'second');
+    runnableAgent(root);
+    resource(first, 'skills', 'shared');
+    resource(second, 'skills', 'shared');
+    write(join(root, 'project', '.agents', 'settings.yml'), `sources:\n  - path: ${first}\n  - path: ${second}\n`);
+
+    const result = await run(root, true);
+
+    expect(result.exitCode).not.toBe(0);
+    expect(result.messages.some((message) => message.includes("Ambiguous skill slug 'shared'"))).toBe(true);
+    expect(result.messages.at(-1)).toBe('Strict mode: ambiguous resolution is fatal.');
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-004.7.2, OFTR-004.7.6).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('makes a dropped-source replacement fatal for run under strict mode', async () => {
+    const root = createTemporaryRoot();
+    runnableAgent(root);
+    write(join(root, 'home', '.agents', 'settings.yml'), 'sources:\n  - github: acme/user-catalog\n');
+    write(join(root, 'project', '.agents', 'settings.yml'), 'sources: []\n');
+
+    const result = await run(root, true);
+
+    expect(result.exitCode).not.toBe(0);
+    expect(result.messages.some((message) => message.includes("source 'github:acme/user-catalog'"))).toBe(true);
+    expect(result.messages.at(-1)).toBe('Strict mode: ambiguous resolution is fatal.');
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-004.7.4, OFTR-004.7.6).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('gates ambiguity in strict sync, validate, and list while a clean strict configuration succeeds', async () => {
+    const ambiguousRoot = createTemporaryRoot();
+    const first = join(ambiguousRoot, 'first');
+    const second = join(ambiguousRoot, 'second');
+    resource(first, 'skills', 'shared');
+    resource(second, 'skills', 'shared');
+    write(
+      join(ambiguousRoot, 'project', '.agents', 'settings.yml'),
+      `sources:\n  - path: ${first}\n  - path: ${second}\n`,
+    );
+    const ambiguousInput = {
+      homeDirectory: join(ambiguousRoot, 'home'),
+      projectDirectory: join(ambiguousRoot, 'project'),
+      strict: true,
+    };
+
+    expect(executeSyncCommand(ambiguousInput).exitCode).not.toBe(0);
+    expect(executeValidateCommand(ambiguousInput).ok).toBe(false);
+    expect(executeListCommand({ ...ambiguousInput, kind: 'agents' }).exitCode).not.toBe(0);
+
+    const cleanRoot = createTemporaryRoot();
+    runnableAgent(cleanRoot);
+    const cleanInput = {
+      homeDirectory: join(cleanRoot, 'home'),
+      projectDirectory: join(cleanRoot, 'project'),
+      strict: true,
+    };
+
+    expect(executeSyncCommand(cleanInput).exitCode).toBe(0);
+    expect(executeValidateCommand(cleanInput).ok).toBe(true);
+    expect(executeListCommand({ ...cleanInput, kind: 'agents' }).exitCode).toBe(0);
+    expect((await run(cleanRoot, true)).exitCode).toBe(0);
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-004.7.4, OFTR-004.7.6).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('accepts --strict through the sync and list command-line interfaces', async () => {
+    const root = createTemporaryRoot();
+    const first = join(root, 'first');
+    const second = join(root, 'second');
+    resource(first, 'skills', 'shared');
+    resource(second, 'skills', 'shared');
+    write(join(root, 'project', '.agents', 'settings.yml'), `sources:\n  - path: ${first}\n  - path: ${second}\n`);
+    const lines: string[] = [];
+    const dependencies = {
+      homeDirectory: join(root, 'home'),
+      projectDirectory: join(root, 'project'),
+      writeLine: (message: string) => lines.push(message),
+    };
+
+    const syncProgram = new Command();
+    createSyncCommand(dependencies).register(syncProgram);
+    await syncProgram.parseAsync(['node', 'outfitter', 'sync', '--strict']);
+    expect(process.exitCode).toBe(1);
+    expect(lines.at(-1)).toBe('failed: Strict mode: ambiguous resolution is fatal.');
+
+    process.exitCode = undefined;
+    lines.length = 0;
+    const listProgram = new Command();
+    createListCommand(dependencies).register(listProgram);
+    await listProgram.parseAsync(['node', 'outfitter', 'list', 'agents', '--strict']);
+    expect(process.exitCode).toBe(1);
+    expect(lines.at(-1)).toBe('error: Strict mode: ambiguous resolution is fatal.');
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-004.7.4, OFTR-004.7.6).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('gates dump ambiguity under --strict while keeping it advisory by default', async () => {
+    const root = createTemporaryRoot();
+    const first = join(root, 'first');
+    const second = join(root, 'second');
+    resource(first, 'agents', 'engineer');
+    resource(second, 'agents', 'engineer');
+    write(join(root, 'project', '.agents', 'settings.yml'), `sources:\n  - path: ${first}\n  - path: ${second}\n`);
+    const lines: string[] = [];
+    const dependencies = {
+      homeDirectory: join(root, 'home'),
+      projectDirectory: join(root, 'project'),
+      writeLine: (message: string) => lines.push(message),
+    };
+
+    const strictProgram = new Command();
+    createDumpCommand(dependencies).register(strictProgram);
+    await strictProgram.parseAsync([
+      'node',
+      'outfitter',
+      'dump',
+      '--agent',
+      'engineer',
+      '--out',
+      join(root, 'strict-dump'),
+      '--strict',
+    ]);
+    expect(process.exitCode).toBe(1);
+    expect(lines.some((message) => message.includes("Ambiguous agent slug 'engineer'"))).toBe(true);
+    expect(lines.at(-1)).toBe('error: Strict mode: ambiguous resolution is fatal.');
+
+    process.exitCode = undefined;
+    lines.length = 0;
+    const advisoryProgram = new Command();
+    createDumpCommand(dependencies).register(advisoryProgram);
+    await advisoryProgram.parseAsync([
+      'node',
+      'outfitter',
+      'dump',
+      '--agent',
+      'engineer',
+      '--out',
+      join(root, 'advisory-dump'),
+    ]);
+    expect(process.exitCode).toBeUndefined();
+    expect(lines.some((message) => message.includes("Ambiguous agent slug 'engineer'"))).toBe(true);
+    expect(lines.some((message) => message.startsWith("Dumped 'engineer'"))).toBe(true);
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-004.7.4, OFTR-004.7.6).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('keeps ambiguity advisory outside strict mode', async () => {
+    const root = createTemporaryRoot();
+    runnableAgent(root);
+    write(join(root, 'home', '.agents', 'settings.yml'), 'sources:\n  - github: acme/user-catalog\n');
+    write(join(root, 'project', '.agents', 'settings.yml'), 'sources: []\n');
+
+    const result = await run(root, false);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.messages.some((message) => message.includes("source 'github:acme/user-catalog'"))).toBe(true);
+    expect(result.messages).not.toContain('Strict mode: ambiguous resolution is fatal.');
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-004.7.1, OFTR-004.7.2, OFTR-004.7.3, OFTR-004.7.6).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('reports every ambiguity before strict mode fails', async () => {
+    const root = createTemporaryRoot();
+    const first = join(root, 'first');
+    const second = join(root, 'second');
+    runnableAgent(root);
+    resource(first, 'skills', 'shared');
+    resource(second, 'skills', 'shared');
+    write(join(root, 'home', '.agents', 'settings.yml'), 'sources:\n  - github: acme/dropped\n');
+    write(
+      join(root, 'project', '.agents', 'settings.yml'),
+      `sources:\n  - github: acme/catalog\n    ref: v1\n  - github: acme/catalog\n    ref: v2\n  - path: ${first}\n  - path: ${second}\n`,
+    );
+
+    const result = await run(root, true);
+    const failureIndex = result.messages.indexOf('Strict mode: ambiguous resolution is fatal.');
+    const ambiguityIndexes = [
+      result.messages.findIndex((message) => message.includes("source 'github:acme/dropped'")),
+      result.messages.findIndex((message) => message.includes("Ambiguous source repository 'github:acme/catalog'")),
+      result.messages.findIndex((message) => message.includes("Ambiguous skill slug 'shared'")),
+    ];
+
+    expect(ambiguityIndexes.every((index) => index >= 0 && index < failureIndex)).toBe(true);
+    expect(failureIndex).toBe(result.messages.length - 1);
   });
 });
