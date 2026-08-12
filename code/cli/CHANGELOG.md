@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.7.0](https://github.com/ai-outfitter/outfitter/compare/v1.6.0...v1.7.0) (2026-08-12)
+
+
+### Features
+
+* **sources:** fail on ambiguous resolution under --strict ([#289](https://github.com/ai-outfitter/outfitter/issues/289)) ([0ec08b2](https://github.com/ai-outfitter/outfitter/commit/0ec08b2da4a88319e05f0382ffb4bc687a84663d))
+* **sources:** warn when sources disagree on a version or a slug ([#287](https://github.com/ai-outfitter/outfitter/issues/287)) ([e07ed28](https://github.com/ai-outfitter/outfitter/commit/e07ed28e39e5ef563263cc4aefead06a3fa5f28d))
+
 ## [1.6.0](https://github.com/ai-outfitter/outfitter/compare/v1.5.0...v1.6.0) (2026-08-11)
 
 
