@@ -21,7 +21,7 @@ export const defaultCatalogSource = {
   github: 'ai-outfitter/default-profiles',
   // TODO(release-automation): when default-profiles publishes a new Release Please tag, open a
   // conventional dependency-bump commit in Outfitter so its next Release Please release ships it.
-  ref: 'v1.1.0',
+  ref: 'v1.1.1',
 } as const satisfies RemoteSourceReference;
 
 export interface PinnedCatalogBootstrapInput {
