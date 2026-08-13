@@ -116,3 +116,22 @@ jobs:
           else
             printf '%s' "$footer" | gh issue comment "$ISSUE_NUMBER" --repo "$REPO" --body-file -
           fi
+
+      # A green agent run is not proof of work: the model can exit
+      # successfully having done nothing. Assert the side effects —
+      # exactly one triage label and a comment. Pinned to a release tag
+      # of ai-outfitter/actions.
+      - name: Validate triage side effects
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # Authenticated fetch: unauthenticated raw.githubusercontent.com
+          # requests from runners get 429'd.
+          gh api -H "Accept: application/vnd.github.raw" \
+            "repos/ai-outfitter/actions/contents/scripts/validate-triage.sh?ref=v1.2.1" \
+            > /tmp/validate-triage.sh
+          chmod +x /tmp/validate-triage.sh
+          /tmp/validate-triage.sh \
+            --repo "${{ github.repository }}" \
+            --issue "$ISSUE_NUMBER" \
+            --labels bug,enhancement,question,documentation
