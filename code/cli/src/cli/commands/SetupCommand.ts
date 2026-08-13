@@ -237,7 +237,6 @@ const autoLaunchSelectedProfile = async (
 ): Promise<void> => {
   if (result.defaultAgent === undefined) return;
 
-  writeLine(`Starting '${result.defaultAgent}' in ${result.defaultHarness}…`);
   const runResult = await executeRunAgentCommand({
     homeDirectory: resolveHomeDirectory(dependencies.homeDirectory),
     projectDirectory: resolve(resolveProjectDirectory(dependencies.projectDirectory)),
@@ -265,7 +264,11 @@ export const createSetupCommand = (dependencies: SetupCommandDependencies = {}):
             writeLine('Outfitter setup made no changes. Run it from an interactive terminal to configure .agents.');
             return;
           }
-          for (const message of result.messages) writeLine(message);
+          // Concrete profile selections launch immediately, so their profile UI is the success
+          // confirmation. Setups that still need sync retain their actionable filesystem notices.
+          if (result.defaultAgent === undefined) {
+            for (const message of result.messages) writeLine(message);
+          }
           await autoLaunchSelectedProfile(dependencies, result, writeLine);
         }),
     );

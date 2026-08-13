@@ -20,7 +20,6 @@ type Handler = (event: Record<string, unknown>, context: MockContext) => Promise
 type MockContext = ReturnType<typeof createMockContext>;
 
 interface RuntimeFixtureInput {
-  readonly outfitterVersion?: string;
   readonly profile?: PiRuntimeProfileIdentity;
 }
 
@@ -44,13 +43,8 @@ afterEach(() => {
 // Evaluates a stamped runtime extension in a sandbox with Pi's supported imports stubbed out.
 const evaluateRuntimeExtension = (input: RuntimeFixtureInput = {}): ((pi: MockPi) => void) => {
   const executable = createPiRuntimeExtensionContent({
-    outfitterVersion: input.outfitterVersion ?? '1.2.3',
     profile: input.profile,
   })
-    .replace(
-      /import \{ VERSION as PI_VERSION \} from ['"]@earendil-works\/pi-coding-agent['"];/u,
-      "const PI_VERSION = '0.80.3';",
-    )
     .replace(
       /import \{ Key, matchesKey, truncateToWidth, visibleWidth, wrapTextWithAnsi \} from ['"]@earendil-works\/pi-tui['"];/u,
       [
@@ -149,29 +143,28 @@ const fireSessionStart = async (
 };
 
 describe('Pi runtime extension identity UI', () => {
-  it('shows both runtime versions and the active profile label', async () => {
+  it('shows one compact Outfitter and active profile header', async () => {
     const context = createMockContext({ models: [{ id: 'm' }] });
     await fireSessionStart(
       context,
       { reason: 'startup' },
       {
-        outfitterVersion: '1.2.3',
         profile: { id: 'engineer', label: 'Engineer' },
       },
     );
 
-    expect(context.header?.render(80)).toEqual(['Outfitter v1.2.3 + pi v0.80.3']);
-    expect(context.statuses['outfitter-profile']).toBe('profile: Engineer');
+    expect(context.header?.render(80)).toEqual(['Outfitter · Engineer']);
+    expect(context.statuses).toEqual({});
   });
 
-  it('falls back to the profile id and omits the status when no profile is stamped', async () => {
+  it('falls back to the profile id and shows only Outfitter when no profile is stamped', async () => {
     const fallbackContext = createMockContext({ models: [{ id: 'm' }] });
     await fireSessionStart(fallbackContext, { reason: 'startup' }, { profile: { id: 'engineer' } });
-    expect(fallbackContext.statuses['outfitter-profile']).toBe('profile: engineer');
+    expect(fallbackContext.header?.render(80)).toEqual(['Outfitter · engineer']);
 
     const absentContext = createMockContext({ models: [{ id: 'm' }] });
     await fireSessionStart(absentContext);
-    expect(absentContext.statuses['outfitter-profile']).toBeUndefined();
+    expect(absentContext.header?.render(80)).toEqual(['Outfitter']);
   });
 
   it('keeps the header within the terminal width and re-renders after invalidation', async () => {
@@ -182,7 +175,7 @@ describe('Pi runtime extension identity UI', () => {
     const narrow = header.render(20);
     expect(narrow.every((line) => line.length <= 20)).toBe(true);
     expect(header.render(20)).toBe(narrow);
-    expect(header.render()).toEqual(['Outfitter v1.2.3 + pi v0.80.3']);
+    expect(header.render()).toEqual(['Outfitter']);
     header.invalidate();
     expect(header.render(20)).not.toBe(narrow);
   });
@@ -227,14 +220,13 @@ describe('Pi runtime extension auto sign-in', () => {
     await fireSessionStart(context, { reason: 'reload' }, { profile: { id: 'engineer' } });
     expect(context.editorText).toBe('');
     expect(context.header).toBeDefined();
-    expect(context.statuses['outfitter-profile']).toBe('profile: engineer');
+    expect(context.header?.render(80)).toEqual(['Outfitter · engineer']);
   });
 });
 
 describe('attachPiRuntimeExtension', () => {
   const piPlan = (args: readonly string[] = []): AgentLaunchPlan => ({ command: 'pi', args, env: {} });
   const runtimeInput = (profile?: PiRuntimeProfileIdentity) => ({
-    outfitterVersion: '1.2.3',
     profile,
     rootDirectory: createTemporaryRoot(),
   });
@@ -249,13 +241,11 @@ describe('attachPiRuntimeExtension', () => {
     expect(result.args.slice(2)).toEqual(['--system-prompt', '/x']);
     const extension = readFileSync(result.args[1], 'utf8');
     expect(extension).toContain('const OUTFITTER_ACTIVE_PROFILE = {"id":"engineer","label":"Engineer"};');
-    expect(extension).toContain('const OUTFITTER_VERSION = "1.2.3";');
     expect(extension).not.toContain('__OUTFITTER_');
   });
 
   it('does not reinterpret placeholder-shaped profile metadata while stamping', () => {
     const extension = createPiRuntimeExtensionContent({
-      outfitterVersion: '1.2.3',
       profile: { id: 'engineer', label: '__OUTFITTER_VERSION__' },
     });
 

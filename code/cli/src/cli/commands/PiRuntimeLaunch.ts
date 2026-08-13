@@ -19,7 +19,6 @@ export interface PiRuntimeProfileIdentity {
 }
 
 export interface PiRuntimeExtensionInput {
-  readonly outfitterVersion: string;
   readonly profile?: PiRuntimeProfileIdentity;
   readonly rootDirectory: string;
 }
@@ -38,9 +37,10 @@ export const createPiRuntimeExtensionContent = (input: Omit<PiRuntimeExtensionIn
   /* v8 ignore next -- defensive: the runtime extension ships with the package, so it resolves in practice. */
   if (extensionPath === undefined) throw new Error('Outfitter runtime extension was not found.');
 
-  return readFileSync(extensionPath, 'utf8')
-    .replace(/["']__OUTFITTER_VERSION__["']/gu, JSON.stringify(input.outfitterVersion))
-    .replace(/["']__OUTFITTER_ACTIVE_PROFILE__["']/gu, JSON.stringify(input.profile) ?? 'undefined');
+  return readFileSync(extensionPath, 'utf8').replace(
+    /["']__OUTFITTER_ACTIVE_PROFILE__["']/gu,
+    JSON.stringify(input.profile) ?? 'undefined',
+  );
 };
 
 /**

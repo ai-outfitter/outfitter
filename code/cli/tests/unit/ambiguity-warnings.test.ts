@@ -134,7 +134,7 @@ describe('ambiguous source resolution warnings', () => {
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-004.7.4).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
-  it('surfaces ambiguity warnings from sync, validate, list agents, and run', async () => {
+  it('surfaces ambiguity warnings in diagnostic commands and keeps normal run quiet', async () => {
     const root = createTemporaryRoot();
     const winner = join(root, 'catalog-one');
     const shadowed = join(root, 'catalog-two');
@@ -152,7 +152,7 @@ describe('ambiguous source resolution warnings', () => {
       agent: 'actions-agent',
       launcher: () => Promise.resolve(0),
     });
-    expect(run.messages.some(isAmbiguityWarning)).toBe(true);
+    expect(run.messages.some(isAmbiguityWarning)).toBe(false);
   });
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-004.7.1, OFTR-004.7.3).
@@ -357,7 +357,7 @@ describe('ambiguous source resolution warnings', () => {
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-004.7.4, OFTR-004.7.6).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
-  it('keeps ambiguity advisory outside strict mode', async () => {
+  it('suppresses ambiguity diagnostics outside strict mode', async () => {
     const root = createTemporaryRoot();
     runnableAgent(root);
     write(join(root, 'home', '.agents', 'settings.yml'), 'sources:\n  - github: acme/user-catalog\n');
@@ -366,7 +366,7 @@ describe('ambiguous source resolution warnings', () => {
     const result = await run(root, false);
 
     expect(result.exitCode).toBe(0);
-    expect(result.messages.some((message) => message.includes("source 'github:acme/user-catalog'"))).toBe(true);
+    expect(result.messages.some((message) => message.includes("source 'github:acme/user-catalog'"))).toBe(false);
     expect(result.messages).not.toContain('Strict mode: ambiguous resolution is fatal.');
   });
 

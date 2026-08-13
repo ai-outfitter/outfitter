@@ -31,7 +31,6 @@ import type { Harness } from '../../settings/Settings.js';
 import { HARNESSES } from '../../settings/Settings.js';
 import type { SetupResult } from '../../setup/Setup.js';
 import { attachSystemExtensionHooks } from '../../system/SystemExtensionHook.js';
-import { readOutfitterVersion } from '../../version/OutfitterVersion.js';
 import type { CommandObject } from './CommandObject.js';
 import { attachPiRuntimeExtension } from './PiRuntimeLaunch.js';
 import { resolveHomeDirectory, resolveProjectDirectory } from './ProcessDefaults.js';
@@ -221,6 +220,27 @@ const shouldRunSetup = (
 ): input is RunAgentInput & { readonly setup: NonNullable<RunAgentInput['setup']> } =>
   input.agent === undefined && resolved.settings.defaultAgent === undefined && input.setup !== undefined;
 
+const resolutionWarningsForRun = (
+  resolved: ReturnType<typeof resolveEffectiveSet>,
+  strict: boolean | undefined,
+): readonly string[] => (strict === true ? resolved.warnings.map((warning) => `warning: ${warning}`) : []);
+
+const failedCompositionMessages = (
+  resolved: ReturnType<typeof resolveEffectiveSet>,
+  agentSlug: string,
+  composed: ReturnType<typeof compose>,
+): readonly string[] => {
+  const unknownAgent = composed.errors.some((error) => error.includes(`Unknown agent '${agentSlug}'`));
+  const unsynchronizedSource = resolved.warnings.some((warning) => warning.includes('is not synchronized'));
+  if (!unknownAgent || !unsynchronizedSource) return [...composed.warnings, ...composed.errors];
+
+  return [
+    ...composed.warnings,
+    `Agent '${agentSlug}' is not ready. Run 'outfitter sync', then try again.`,
+    ...composed.errors.filter((error) => !error.includes('Unknown agent')),
+  ];
+};
+
 export const executeRunAgentCommand = async (input: RunAgentInput): Promise<RunAgentResult> => {
   // Flush messages to the terminal (before launch); they are also returned so callers can inspect them.
   const emit = (messages: readonly string[]): void => {
@@ -232,7 +252,6 @@ export const executeRunAgentCommand = async (input: RunAgentInput): Promise<RunA
   assertReadableAppendPrompts(input.appendPromptPaths);
 
   // First run: nothing selected and no default configured — onboard, then resolve again.
-  const setupMessages: string[] = [];
   if (shouldRunSetup(input, resolved)) {
     const setupResult = await input.setup({
       homeDirectory: input.homeDirectory,
@@ -240,20 +259,18 @@ export const executeRunAgentCommand = async (input: RunAgentInput): Promise<RunA
     });
 
     if (setupResult !== undefined) {
-      setupMessages.push(...setupResult.messages);
+      // Keep the transition quiet so the real profile UI is the first persistent output.
       resolved = resolveEffectiveSet(input);
       assertNoSettingsIssues(resolved.settingsIssues);
     }
   }
 
-  // Warnings from the FINAL resolved state (after any onboarding), folded into every returned message
-  // array after the setup notices — so a dependency that best-effort bootstrap could not fetch
-  // surfaces its actionable `outfitter sync` guidance to both the terminal and programmatic callers,
-  // not just a generic unknown-skill warning at composition (OFTR-004.6.10).
-  const resolutionWarnings = resolved.warnings.map((warning) => `warning: ${warning}`);
+  // Strict mode exposes the complete final resolution state. Normal startup uses these diagnostics
+  // only to turn an unavailable selected agent into a concise synchronization action.
+  const resolutionWarnings = resolutionWarningsForRun(resolved, input.strict);
 
   if (input.strict === true && resolved.ambiguityWarnings.length > 0) {
-    const messages = [...setupMessages, ...resolutionWarnings, strictAmbiguityFailureMessage];
+    const messages = [...resolutionWarnings, strictAmbiguityFailureMessage];
     emit(messages);
     return { exitCode: 1, messages };
   }
@@ -264,7 +281,7 @@ export const executeRunAgentCommand = async (input: RunAgentInput): Promise<RunA
   const composed = compose(set, agentSlug, { projectDirectory: input.projectDirectory });
 
   if (composed.plan === undefined) {
-    const messages = [...setupMessages, ...resolutionWarnings, ...composed.warnings, ...composed.errors];
+    const messages = [...resolutionWarnings, ...failedCompositionMessages(resolved, agentSlug, composed)];
     emit(messages);
     return { exitCode: 1, messages };
   }
@@ -300,7 +317,6 @@ export const executeRunAgentCommand = async (input: RunAgentInput): Promise<RunA
 
     if (input.strict === true && warnings.length > 0) {
       const messages = [
-        ...setupMessages,
         ...resolutionWarnings,
         ...warnings,
         'Strict mode: composition warnings and unsupported elements are fatal.',
@@ -309,14 +325,13 @@ export const executeRunAgentCommand = async (input: RunAgentInput): Promise<RunA
       return { exitCode: 1, messages };
     }
 
-    // Emit setup notices, resolution warnings, and composition warnings before launch so they precede
-    // the pi session on the terminal (and are returned to programmatic callers).
-    const messages = [...setupMessages, ...resolutionWarnings, ...warnings];
+    // Normal startup stays quiet. Strict mode retains the complete resolution diagnostics, while
+    // composition/projection warnings stay visible because they describe a degraded launch.
+    const messages = [...resolutionWarnings, ...warnings];
     emit(messages);
 
     // Attach the Outfitter runtime UI and sign-in extension to interactive pi sessions.
     const launch = attachPiRuntimeExtension(projection.launch, {
-      outfitterVersion: readOutfitterVersion(),
       profile: { id: agentSlug, label: composed.plan.identity.label },
       rootDirectory,
     });

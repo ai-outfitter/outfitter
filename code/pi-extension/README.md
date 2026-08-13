@@ -10,9 +10,9 @@ It brands the startup header and owns the Outfitter interactive shortcuts
 `/login`, so this file is deliberately free of any credential prompt.
 
 `src/outfitter-runtime-extension.js` is the **real-session runtime** extension.
-The CLI loads it into the selected profile's Pi session. It renders the combined
-Outfitter and Pi version header, shows the active profile in Pi's status line,
-and, when Pi starts with no models available, restores Outfitter's original
+The CLI loads it into the selected profile's Pi session. It renders one compact
+`Outfitter · <profile>` header and, when Pi starts with no models available,
+restores Outfitter's original
 "Pi does not have a model provider connected yet — Connect a model provider"
 confirmation before delegating to Pi's native `/login`. It never runs for
 non-interactive Pi launches (`--print`, `--export`, `--mode json|print|rpc`).
@@ -28,11 +28,9 @@ Pi never imports these files from the repository or the npm package directly.
   launch-specific value, then writes the stamped file into the isolated Pi agent
   directory and passes it to pi via `--extension`.
 - The runtime extension is stamped by
-  `code/cli/src/cli/commands/PiRuntimeLaunch.ts` with the active profile and
-  installed Outfitter version, then written inside the ephemeral runtime tree
-  and passed to interactive pi launches via `--extension`. The Pi version is
-  imported through Pi's supported `@earendil-works/pi-coding-agent` extension
-  alias, so it describes the Pi process that is actually running.
+  `code/cli/src/cli/commands/PiRuntimeLaunch.ts` with the active profile, then
+  written inside the ephemeral runtime tree and passed to interactive pi
+  launches via `--extension`.
 
 The `@ai-outfitter/outfitter` package ships this workspace's `src/` folder under
 `code/pi-extension/` (staged by `code/cli/scripts/sync-package-assets.mjs`) so
@@ -41,7 +39,7 @@ the packaged CLI can resolve the same sources after install.
 ## Editing notes
 
 - Keep both files dependency-free apart from Pi's supported runtime imports
-  (`@earendil-works/pi-tui` and `@earendil-works/pi-coding-agent`) and, for the
+  (`@earendil-works/pi-tui`) and, for the
   setup extension, the enterprise support modules copied next to the written
   extension (`./pi-extension/privateCatalogOnboarding.js`).
 - `src/outfitter-extension.js` (setup) is intentionally excluded from Prettier so
