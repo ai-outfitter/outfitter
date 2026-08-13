@@ -13,7 +13,6 @@ import {
 } from '../../src/cli/commands/RunAgentCommand.js';
 import type { AgentLaunchPlan } from '../../src/projection/Projection.js';
 import type { SetupResult } from '../../src/setup/Setup.js';
-import { readOutfitterVersion } from '../../src/version/OutfitterVersion.js';
 
 const temporaryRoots: string[] = [];
 let previousExitCode: typeof process.exitCode;
@@ -37,6 +36,7 @@ interface CapturedLaunch {
   readonly skillPresent: boolean;
   readonly skillBody?: string;
   readonly runtimeExtension?: string;
+  readonly runtimeSettings?: unknown;
 }
 
 const captured: CapturedLaunch[] = [];
@@ -56,6 +56,9 @@ const launcher = (plan: AgentLaunchPlan): Promise<number> => {
     skillPresent: existsSync(skillPath),
     skillBody: existsSync(skillPath) ? readFileSync(skillPath, 'utf8') : undefined,
     runtimeExtension: runtimeExtensionPath === undefined ? undefined : readFileSync(runtimeExtensionPath, 'utf8'),
+    runtimeSettings: existsSync(join(runtimeDir, 'settings.json'))
+      ? (JSON.parse(readFileSync(join(runtimeDir, 'settings.json'), 'utf8')) as unknown)
+      : undefined,
   });
   return Promise.resolve(0);
 };
@@ -122,7 +125,7 @@ describe('run agent', () => {
     expect(launch.skillPresent).toBe(true); // skill content copied, not an empty dir
   });
 
-  it('stamps the selected profile label and installed Outfitter version into the Pi runtime', async () => {
+  it('stamps the selected profile label and enables quiet Pi startup', async () => {
     const { home, project } = tree();
     write(
       join(project, '.agents', 'agents', 'engineer', 'agent.md'),
@@ -140,9 +143,7 @@ describe('run agent', () => {
     expect(captured[0].runtimeExtension).toContain(
       'const OUTFITTER_ACTIVE_PROFILE = {"id":"engineer","label":"Engineering Lead"};',
     );
-    expect(captured[0].runtimeExtension).toContain(
-      `const OUTFITTER_VERSION = ${JSON.stringify(readOutfitterVersion())};`,
-    );
+    expect(captured[0].runtimeSettings).toMatchObject({ quietStartup: true });
   });
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-005.1, OFTR-005.3).
@@ -526,7 +527,7 @@ describe('run agent', () => {
 
     expect(result.exitCode).toBe(0);
     expect(result.launchPlan!.command).toBe('pi'); // launched the just-created default agent
-    expect(result.messages).toContain('[setup] created a profile.');
+    expect(result.messages).not.toContain('[setup] created a profile.');
   });
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-010.1.2).

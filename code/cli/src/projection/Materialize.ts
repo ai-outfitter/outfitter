@@ -1,5 +1,14 @@
 // Materializes a CompositionPlan into a runtime configuration directory the harness launches from.
-import { copyFileSync, lstatSync, mkdirSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  copyFileSync,
+  existsSync,
+  lstatSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { dirname, join } from 'node:path';
 
 import type { ComposedSubagent, CompositionPlan } from '../composer/Composition.js';
@@ -73,6 +82,27 @@ export const materializeConfigurationOverlays = (sourceDirectories: readonly str
     if (lstatSync(sourceDirectory).isSymbolicLink()) continue;
     copyDirectory(sourceDirectory, rootDirectory);
   }
+};
+
+/** Adds Outfitter's quiet Pi startup default without overriding an explicit profile choice. */
+export const applyPiRuntimeDefaults = (rootDirectory: string): void => {
+  const settingsPath = join(rootDirectory, 'settings.json');
+  if (!existsSync(settingsPath)) {
+    writeGeneratedFile(settingsPath, `${JSON.stringify({ quietStartup: true }, null, 2)}\n`);
+    return;
+  }
+
+  let settings: unknown;
+  try {
+    settings = JSON.parse(readFileSync(settingsPath, 'utf8')) as unknown;
+  } catch {
+    // Preserve invalid native configuration so Pi can report it through its normal diagnostics.
+    return;
+  }
+  if (typeof settings !== 'object' || settings === null || Array.isArray(settings)) return;
+  if ('quietStartup' in settings) return;
+
+  writeGeneratedFile(settingsPath, `${JSON.stringify({ ...settings, quietStartup: true }, null, 2)}\n`);
 };
 
 const materializeSkill = (skill: ResolvedResource, rootDirectory: string): string | undefined => {

@@ -397,8 +397,48 @@ describe('projectComposition native configuration overlays', () => {
     });
 
     expect(readFileSync(join(dir, 'keybindings.json'), 'utf8')).toContain('ctrl+shift+y');
-    expect(readFileSync(join(dir, 'settings.json'), 'utf8')).toContain('dark');
+    expect(JSON.parse(readFileSync(join(dir, 'settings.json'), 'utf8'))).toEqual({
+      theme: 'dark',
+      quietStartup: true,
+    });
     expect(readFileSync(join(dir, 'themes', 'shared.json'), 'utf8')).toContain('high');
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-010.6).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('defaults Pi to quiet startup while preserving an explicit profile override', () => {
+    const quietDir = root();
+    projectComposition(planWith([]), { harness: 'pi', rootDirectory: quietDir, homeDirectory: quietDir });
+    expect(JSON.parse(readFileSync(join(quietDir, 'settings.json'), 'utf8'))).toEqual({ quietStartup: true });
+
+    const verboseDir = root();
+    const overlay = root();
+    writeFileSync(join(overlay, 'settings.json'), '{"quietStartup":false,"theme":"light"}');
+    projectComposition(planWith([]), {
+      harness: 'pi',
+      rootDirectory: verboseDir,
+      homeDirectory: verboseDir,
+      configurationOverlayDirectories: [overlay],
+    });
+    expect(JSON.parse(readFileSync(join(verboseDir, 'settings.json'), 'utf8'))).toEqual({
+      quietStartup: false,
+      theme: 'light',
+    });
+  });
+
+  it('preserves malformed and non-object native Pi settings for Pi to diagnose', () => {
+    for (const content of ['not json', 'null', '[]', 'true']) {
+      const dir = root();
+      const overlay = root();
+      writeFileSync(join(overlay, 'settings.json'), content);
+      projectComposition(planWith([]), {
+        harness: 'pi',
+        rootDirectory: dir,
+        homeDirectory: dir,
+        configurationOverlayDirectories: [overlay],
+      });
+      expect(readFileSync(join(dir, 'settings.json'), 'utf8')).toBe(content);
+    }
   });
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-005.3, OFTR-006.3.17).

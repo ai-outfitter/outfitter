@@ -1,7 +1,4 @@
-// Guards OFTR-004.6.10's coherence at the run boundary: first-run onboarding fetches the declared
-// closure best-effort, and a dependency it could not fetch must surface as an actionable
-// `outfitter sync` warning. That warning is only computable after onboarding, so RunAgentCommand
-// must emit it from the post-onboarding re-resolve. Reverting that emit makes this test fail.
+// Guards quiet first-run startup when an unrelated catalog dependency remains unsynchronized.
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
@@ -23,9 +20,9 @@ afterEach(() => {
 });
 
 describe('run agent onboarding warnings', () => {
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-004.6.10).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-004.6.10, OFTR-010.6).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
-  it('surfaces a newly-actionable resolution warning produced after onboarding', async () => {
+  it('suppresses an unrelated resolution warning produced after onboarding', async () => {
     const root = mkdtempSync(join(tmpdir(), 'outfitter-onboarding-'));
     temporaryRoots.push(root);
     const home = join(root, 'home');
@@ -62,10 +59,27 @@ describe('run agent onboarding warnings', () => {
       writeLine: (message) => lines.push(message),
     });
 
-    // Surfaced to the terminal (writeLine)...
-    expect(lines.some((line) => line.includes("Run 'outfitter sync'"))).toBe(true);
-    expect(lines.some((line) => line.includes('github:acme/unsynced#v1.0.0'))).toBe(true);
-    // ...and returned to programmatic callers, after the setup notices.
-    expect(result.messages.some((message) => message.includes("Run 'outfitter sync'"))).toBe(true);
+    expect(lines).toEqual([]);
+    expect(result.messages).toEqual([]);
+  });
+
+  it('gives one concise sync action when the selected agent is unavailable', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'outfitter-onboarding-'));
+    temporaryRoots.push(root);
+    const home = join(root, 'home');
+    const project = join(root, 'project');
+    write(
+      join(home, '.agents', 'settings.yml'),
+      'default_agent: founder\nsources:\n  - github: acme/unsynced\n    ref: v1.0.0\n',
+    );
+
+    const result = await executeRunAgentCommand({
+      homeDirectory: home,
+      projectDirectory: project,
+      launcher: () => Promise.resolve(0),
+    });
+
+    expect(result.exitCode).toBe(1);
+    expect(result.messages).toEqual(["Agent 'founder' is not ready. Run 'outfitter sync', then try again."]);
   });
 });

@@ -6,7 +6,7 @@ import type { CompositionPlan } from '../composer/Composition.js';
 import type { Harness } from '../settings/Settings.js';
 import { projectCodexMcpServers } from './CodexMcp.js';
 import type { MaterializedComposition } from './Materialize.js';
-import { materializeComposition, materializeConfigurationOverlays } from './Materialize.js';
+import { applyPiRuntimeDefaults, materializeComposition, materializeConfigurationOverlays } from './Materialize.js';
 import type { AgentLaunchPlan, AgentProjectionPlan, ProjectionInput } from './Projection.js';
 import { toolArgs } from './Tools.js';
 
@@ -173,6 +173,7 @@ const buildPiOrClaudeLaunchPlan = (
 export const projectComposition = (composition: CompositionPlan, input: ProjectionInput): AgentProjectionPlan => {
   if (input.harness === 'pi') {
     materializeConfigurationOverlays(input.configurationOverlayDirectories ?? [], input.rootDirectory);
+    applyPiRuntimeDefaults(input.rootDirectory);
   }
   // Materialization runs for every harness so containment and definition diagnostics are reported
   // uniformly. Codex reads none of the generated files — it takes its MCP config in argv and has no

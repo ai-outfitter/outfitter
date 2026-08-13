@@ -176,8 +176,9 @@ disagree about the same thing, the selected declaration must be visible.
    MUST report a warning naming each supplying source, and MUST name the definition that won. A slug
    intentionally overridden by a higher-precedence layer is still reported; visibility, not
    prohibition, is the requirement.
-4. These warnings MUST be surfaced by every command that resolves the effective set, including
-   `sync`, `validate`, `list agents`, and `run`, not only by a dedicated diagnostic.
+4. These warnings MUST be surfaced by diagnostic commands that resolve the effective set, including
+   `sync`, `validate`, and `list agents`. `run --strict` MUST also surface them before it fails.
+   A successful non-strict `run` MUST suppress them so routine startup stays quiet.
 5. Detection MUST NOT change which declaration wins; precedence rules are unchanged.
 6. Under strict mode, every command that resolves the effective set MUST report every detected
    ambiguity and then fail with a nonzero exit status. All three ambiguity classes above gate

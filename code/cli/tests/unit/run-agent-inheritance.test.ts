@@ -258,7 +258,10 @@ describe('run inherited agent', () => {
       agent: 'engineer',
       harness: 'pi',
       launcher: (plan) => {
-        expect(readFileSync(join(plan.env.PI_CODING_AGENT_DIR, 'settings.json'), 'utf8')).toBe('{"owner":"child"}');
+        expect(JSON.parse(readFileSync(join(plan.env.PI_CODING_AGENT_DIR, 'settings.json'), 'utf8'))).toEqual({
+          owner: 'child',
+          quietStartup: true,
+        });
         return Promise.resolve(0);
       },
     });
