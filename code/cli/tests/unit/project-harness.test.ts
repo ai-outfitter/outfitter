@@ -1,5 +1,5 @@
 // Tests pi/claude extension projection: --extension args and extension unsupported-set handling.
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -375,6 +375,7 @@ describe('projectComposition Pi delegates', () => {
 
 describe('projectComposition native configuration overlays', () => {
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-006.3.17).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-010.6.7).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('materializes lower-precedence Pi configuration before higher-precedence configuration', () => {
     const dir = root();
@@ -383,7 +384,9 @@ describe('projectComposition native configuration overlays', () => {
     mkdirSync(join(low, 'themes'), { recursive: true });
     mkdirSync(join(high, 'themes'), { recursive: true });
     writeFileSync(join(low, 'keybindings.json'), '{"tui.editor.yank":"alt+y"}');
-    writeFileSync(join(low, 'settings.json'), '{"theme":"dark"}');
+    const settingsPath = join(low, 'settings.json');
+    writeFileSync(settingsPath, '{"theme":"dark"}');
+    chmodSync(settingsPath, 0o444);
     writeFileSync(join(low, 'themes', 'shared.json'), '{"name":"low"}');
     writeFileSync(join(high, 'keybindings.json'), '{"tui.editor.yank":"ctrl+shift+y"}');
     writeFileSync(join(high, 'themes', 'shared.json'), '{"name":"high"}');

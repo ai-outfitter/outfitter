@@ -104,11 +104,11 @@ export const attachSignalForwarding = (
 };
 
 /* v8 ignore start -- real process spawn is covered by end-to-end smoke usage, not unit tests. */
-export const spawnLauncher: AgentProcessLauncher = {
+export const createSpawnLauncher = (stdio: 'inherit' | 'ignore'): AgentProcessLauncher => ({
   async launch(plan: AgentLaunchPlan): Promise<number> {
     const { default: spawn } = await import('cross-spawn');
     return await new Promise<number>((resolve, reject) => {
-      const child = spawn(plan.command, [...plan.args], { stdio: 'inherit', env: { ...process.env, ...plan.env } });
+      const child = spawn(plan.command, [...plan.args], { stdio, env: { ...process.env, ...plan.env } });
       const detach = attachSignalForwarding(child);
       child.on('error', (error) => {
         detach();
@@ -122,7 +122,9 @@ export const spawnLauncher: AgentProcessLauncher = {
       });
     });
   },
-};
+});
+
+export const spawnLauncher: AgentProcessLauncher = createSpawnLauncher('inherit');
 /* v8 ignore stop */
 
 /**

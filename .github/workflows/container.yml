@@ -191,10 +191,35 @@ jobs:
             exit 1
           fi
           docker run --rm --entrypoint /bin/sh "$IMAGE:$VERSION-nix" -c \
-            'nix --version && test -x /bin/bash && test -x /usr/bin/env'
+            'nix --version && node --version && npm --version && test -x /bin/bash && test -x /usr/bin/env && test -r "$SSL_CERT_FILE"'
+          docker run --rm --entrypoint /bin/sh "$IMAGE:$VERSION-nix" -c \
+            'git ls-remote --exit-code https://github.com/ai-outfitter/default-profiles.git HEAD'
 
-      # The checks above only prove tools are present in the base. Residency is
-      # covered at the CLI level instead — signal forwarding lives in
+      - name: Smoke test quiet extension loading
+        run: |
+          workdir="$(mktemp -d)"
+          mkdir -p "$workdir/.agents/agents/smoke"
+          printf '%s\n' \
+            '---' \
+            'name: smoke' \
+            'extensions: ["npm:pi-nolo"]' \
+            '---' \
+            '' \
+            'Container extension smoke test.' \
+            > "$workdir/.agents/agents/smoke/agent.md"
+
+          output="$(docker run --rm -v "$workdir:/workspace:ro" "$IMAGE:$VERSION-nix" run smoke -- --help 2>&1)"
+          grep -q 'pi - AI coding assistant' <<< "$output"
+          if grep -Eq 'Installing npm:|spawn npm ENOENT' <<< "$output"; then
+            echo 'Normal startup exposed extension installer output.' >&2
+            printf '%s\n' "$output" >&2
+            exit 1
+          fi
+
+          debug_output="$(docker run --rm -v "$workdir:/workspace:ro" "$IMAGE:$VERSION-nix" run smoke --log-level debug -- --help 2>&1)"
+          grep -q 'Installing npm:pi-nolo' <<< "$debug_output"
+
+      # Process residency is covered at the CLI level instead — signal forwarding lives in
       # spawnLauncher, so tests/unit/agent-launch.test.ts asserts it directly
       # rather than inferring it from container exit codes.
       - name: Smoke test derivative image

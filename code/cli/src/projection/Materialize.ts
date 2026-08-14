@@ -6,6 +6,7 @@ import {
   mkdirSync,
   readFileSync,
   readdirSync,
+  renameSync,
   rmSync,
   writeFileSync,
 } from 'node:fs';
@@ -102,7 +103,13 @@ export const applyPiRuntimeDefaults = (rootDirectory: string): void => {
   if (typeof settings !== 'object' || settings === null || Array.isArray(settings)) return;
   if ('quietStartup' in settings) return;
 
-  writeGeneratedFile(settingsPath, `${JSON.stringify({ ...settings, quietStartup: true }, null, 2)}\n`);
+  const temporaryPath = `${settingsPath}.outfitter-${process.pid}-${Math.random().toString(16).slice(2)}.tmp`;
+  try {
+    writeFileSync(temporaryPath, `${JSON.stringify({ ...settings, quietStartup: true }, null, 2)}\n`, { flag: 'wx' });
+    renameSync(temporaryPath, settingsPath);
+  } finally {
+    rmSync(temporaryPath, { force: true });
+  }
 };
 
 const materializeSkill = (skill: ResolvedResource, rootDirectory: string): string | undefined => {

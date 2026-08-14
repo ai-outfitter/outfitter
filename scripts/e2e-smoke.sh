@@ -120,4 +120,53 @@ case "$validate_output" in
 esac
 log 'validate OK'
 
+# Replace the bundled Pi entrypoint inside the throwaway install with a process-boundary capture.
+# Outfitter still resolves and launches its bundled dependency through the published CLI path; the
+# capture avoids opening a TUI while preserving the projected environment and arguments for checks.
+pi_manifest="$(find "$install_prefix/lib/node_modules" -path '*/@earendil-works/pi-coding-agent/package.json' -print -quit)"
+[ -n "$pi_manifest" ] || fail 'bundled Pi manifest was not installed'
+pi_package_root="$(dirname "$pi_manifest")"
+pi_bin_relative="$(node -p "require('$pi_manifest').bin.pi")"
+pi_bin="$pi_package_root/$pi_bin_relative"
+capture_dir="$work_dir/run-capture"
+mkdir -p "$capture_dir"
+cat >"$pi_bin" <<'FAKE_PI'
+#!/usr/bin/env node
+import { copyFileSync, mkdirSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
+
+const captureDirectory = process.env.OUTFITTER_E2E_CAPTURE_DIR;
+const runtimeDirectory = process.env.PI_CODING_AGENT_DIR;
+if (!captureDirectory || !runtimeDirectory) process.exit(91);
+mkdirSync(captureDirectory, { recursive: true });
+copyFileSync(join(runtimeDirectory, 'settings.json'), join(captureDirectory, 'settings.json'));
+copyFileSync(
+  join(runtimeDirectory, '.outfitter', 'outfitter-runtime-extension.js'),
+  join(captureDirectory, 'outfitter-runtime-extension.js'),
+);
+writeFileSync(join(captureDirectory, 'args.json'), JSON.stringify(process.argv.slice(2)));
+FAKE_PI
+chmod +x "$pi_bin"
+
+log 'Checking installed `outfitter run` quiet-startup projection'
+run_output="$({
+  cd "$project_dir"
+  OUTFITTER_E2E_CAPTURE_DIR="$capture_dir" run_outfitter run
+} 2>&1)" || fail "outfitter run exited non-zero: $run_output"
+[ -z "$run_output" ] || fail "outfitter run printed unexpected startup output: $run_output"
+node -e '
+  const fs = require("node:fs");
+  const path = require("node:path");
+  const capture = process.argv[1];
+  const settings = JSON.parse(fs.readFileSync(path.join(capture, "settings.json"), "utf8"));
+  if (settings.quietStartup !== true) throw new Error("quietStartup was not projected");
+  const extension = fs.readFileSync(path.join(capture, "outfitter-runtime-extension.js"), "utf8");
+  if (!extension.includes(`const OUTFITTER_ACTIVE_PROFILE = {"id":"smoke"`)) {
+    throw new Error("runtime extension was not stamped with the selected profile");
+  }
+  const args = JSON.parse(fs.readFileSync(path.join(capture, "args.json"), "utf8"));
+  if (!args.includes("--extension")) throw new Error("runtime extension was not passed to Pi");
+' "$capture_dir" || fail 'installed run did not project quiet settings and the runtime extension'
+log 'installed run quiet-startup projection OK'
+
 log "All packaged smoke checks passed (cold ${cold_duration}ms, warm ${warm_duration}ms)"
