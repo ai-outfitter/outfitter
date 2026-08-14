@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.7.1](https://github.com/ai-outfitter/outfitter/compare/v1.7.0...v1.7.1) (2026-08-14)
+
+
+### Bug Fixes
+
+* **engines:** publish an unbounded node range ([#263](https://github.com/ai-outfitter/outfitter/issues/263)) ([3fc2b6b](https://github.com/ai-outfitter/outfitter/commit/3fc2b6bde2235bfe5b9d94eef2acb54a97cb810c))
+* harden quiet profile startup ([#297](https://github.com/ai-outfitter/outfitter/issues/297)) ([1f268cd](https://github.com/ai-outfitter/outfitter/commit/1f268cdf6a55909d53869b1da4db21a819f760c5))
+* quiet successful profile startup ([#296](https://github.com/ai-outfitter/outfitter/issues/296)) ([3165ac6](https://github.com/ai-outfitter/outfitter/commit/3165ac60b6ea206851809d55d53d74fec358d6b3))
+
 ## [1.7.0](https://github.com/ai-outfitter/outfitter/compare/v1.6.0...v1.7.0) (2026-08-12)
 
 
