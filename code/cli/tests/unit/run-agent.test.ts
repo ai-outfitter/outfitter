@@ -363,6 +363,7 @@ describe('run agent', () => {
       '---\nname: dev\nextensions: ["npm:pi-nolo", "git:github.com/ai-outfitter/deepwork"]\n---\n\nBody.\n',
     );
     const installed: string[] = [];
+    const loading: string[] = [];
     const extensionInstallSpawner = ({ source, cacheAgentDir }: { source: string; cacheAgentDir: string }) => {
       installed.push(source);
       const segments = source.startsWith('npm:')
@@ -382,6 +383,10 @@ describe('run agent', () => {
         harness: 'pi',
         launcher,
         extensionInstallSpawner,
+        startLoading: (label) => {
+          loading.push(label);
+          return () => loading.push('stopped');
+        },
       });
 
       expect(result.exitCode).toBe(0);
@@ -392,6 +397,7 @@ describe('run agent', () => {
       expect(args[args.indexOf(nolo) - 1]).toBe('--extension');
       expect(args[args.indexOf(deepwork) - 1]).toBe('--extension');
       expect(installed).toEqual(['npm:pi-nolo', 'git:github.com/ai-outfitter/deepwork']);
+      expect(loading).toEqual(['Loading dev profile…', 'stopped']);
       expect(result.messages.join(' ')).not.toContain("loadout element 'extensions'");
 
       // Second run reuses the cache: no reinstall.
@@ -402,6 +408,7 @@ describe('run agent', () => {
         projectDirectory: project,
         agent: 'dev',
         harness: 'pi',
+        logLevel: 'debug',
         launcher,
         extensionInstallSpawner,
       });

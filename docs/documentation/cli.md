@@ -15,7 +15,11 @@ Resolve, compose, and launch an agent. `run` is the default command, so plain `o
 | --------------------- | -------------------------------------------------------------------------------- |
 | `[agent]`             | Agent slug to run. Defaults to the settings `default_agent`.                     |
 | `--harness <harness>` | Harness to launch in: `pi`, `claude`, or `codex`. Defaults to `default_harness`. |
+| `--log-level <level>` | Use `info` for quiet loading or `debug` for installer output.                    |
 | `--strict`            | Fail instead of warning when the adapter cannot project part of the composition. |
+
+Set `OUTFITTER_LOG_LEVEL=debug` to enable debug startup output without passing the option. The
+`setup` command also accepts `--log-level` for its automatic profile launch.
 
 Any other arguments and unrecognized options are passed through to the launched harness:
 

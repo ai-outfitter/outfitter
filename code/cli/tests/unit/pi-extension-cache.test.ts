@@ -167,6 +167,21 @@ describe('ensurePiExtensions', () => {
     ]);
   });
 
+  it('passes debug logging through to the installer', async () => {
+    const dir = cacheDir();
+    let debug: boolean | undefined;
+    await ensurePiExtensions(['npm:pi-nolo'], {
+      cacheAgentDir: dir,
+      offline: false,
+      debug: true,
+      spawn: (input) => {
+        debug = input.debug;
+        return spawnCreating(input);
+      },
+    });
+    expect(debug).toBe(true);
+  });
+
   it('warns and drops a missing extension when offline, without spawning', async () => {
     const dir = cacheDir();
     let spawned = 0;

@@ -19,6 +19,8 @@ export interface ResolveResult {
   readonly settingsIssues: readonly SettingsLoadIssue[];
   /** Non-fatal guidance: uncached remote sources plus transitive-source skip warnings. */
   readonly warnings: readonly string[];
+  /** Configured remote sources whose cache is absent. */
+  readonly unsynchronizedWarnings: readonly string[];
   /** Ambiguity-only subset, exposed so sync can report shared resolution diagnostics after fetching. */
   readonly ambiguityWarnings: readonly string[];
 }
@@ -43,6 +45,7 @@ export const resolveEffectiveSet = (input: ResolveInput): ResolveResult => {
     settings: loadedSettings.settings,
     settingsIssues: loadedSettings.issues,
     warnings: [...discovered.unsynchronized, ...discovered.warnings, ...ambiguityWarnings],
+    unsynchronizedWarnings: discovered.unsynchronized,
     ambiguityWarnings,
   };
 };

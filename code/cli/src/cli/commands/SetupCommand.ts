@@ -4,7 +4,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
-import { Command } from 'commander';
+import { Command, Option } from 'commander';
 
 import { launchThroughSpawn, spawnLauncher } from '../../agents/AgentLaunch.js';
 import { readRepositoryCodeAsset } from '../../paths/RepositoryAssets.js';
@@ -13,11 +13,14 @@ import type { Harness } from '../../settings/Settings.js';
 import { HARNESSES } from '../../settings/Settings.js';
 import { discoverSettingsLoadPlan, loadSettings } from '../../settings/SettingsLoader.js';
 import type { SetupAgentChoice, SetupResult, SetupSelection } from '../../setup/Setup.js';
-import { applySetupSelection, discoverSetupAgentChoices } from '../../setup/Setup.js';
+import { applySetupSelection, discoverSetupAgentChoices, setupNextStepMessage } from '../../setup/Setup.js';
 import { bootstrapDefaultCatalog } from '../../setup/DefaultCatalog.js';
+import { startTerminalLoading } from '../TerminalLoading.js';
+import type { LoadingStarter } from '../TerminalLoading.js';
 import type { CommandObject } from './CommandObject.js';
 import { resolveHomeDirectory, resolveProjectDirectory } from './ProcessDefaults.js';
 import { executeRunAgentCommand } from './RunAgentCommand.js';
+import type { RunLogLevel } from './RunAgentCommand.js';
 
 export type SetupProcessLauncher = (plan: AgentLaunchPlan) => Promise<number>;
 
@@ -31,6 +34,8 @@ export interface SetupCommandDependencies {
   /** Launcher for the profile pi started after setup; defaults to the real spawn boundary. */
   readonly runLauncher?: SetupProcessLauncher;
   readonly writeLine?: (message: string) => void;
+  readonly startLoading?: LoadingStarter;
+  readonly logLevel?: RunLogLevel;
 }
 
 export interface PiSetupLaunch {
@@ -241,7 +246,9 @@ const autoLaunchSelectedProfile = async (
     homeDirectory: resolveHomeDirectory(dependencies.homeDirectory),
     projectDirectory: resolve(resolveProjectDirectory(dependencies.projectDirectory)),
     harness: result.defaultHarness,
+    logLevel: dependencies.logLevel,
     launcher: dependencies.runLauncher ?? defaultRunLauncher,
+    startLoading: dependencies.startLoading ?? startTerminalLoading,
   });
   for (const message of runResult.messages) writeLine(message);
   /* v8 ignore next -- surfaces a nonzero profile-launch exit to the shell; happy path returns 0. */
@@ -256,7 +263,13 @@ export const createSetupCommand = (dependencies: SetupCommandDependencies = {}):
       new Command('setup')
         .description('Configure .agents through the bundled Pi walkthrough.')
         .argument('[source]', 'Optional setup source URI or path.')
-        .action(async (source?: string) => {
+        .addOption(
+          new Option('--log-level <level>', 'Set startup log detail.')
+            .choices(['info', 'debug'])
+            .default('info')
+            .env('OUTFITTER_LOG_LEVEL'),
+        )
+        .action(async (source: string | undefined, options: { logLevel: RunLogLevel }) => {
           const result = await runSetup({ ...dependencies, setupSourceUri: source ?? dependencies.setupSourceUri });
           /* v8 ignore next -- console fallback is direct CLI behavior. */
           const writeLine = dependencies.writeLine ?? console.log;
@@ -265,11 +278,11 @@ export const createSetupCommand = (dependencies: SetupCommandDependencies = {}):
             return;
           }
           // Concrete profile selections launch immediately, so their profile UI is the success
-          // confirmation. Setups that still need sync retain their actionable filesystem notices.
+          // confirmation. Setups that still need sync receive one concise next action.
           if (result.defaultAgent === undefined) {
-            for (const message of result.messages) writeLine(message);
+            writeLine(setupNextStepMessage);
           }
-          await autoLaunchSelectedProfile(dependencies, result, writeLine);
+          await autoLaunchSelectedProfile({ ...dependencies, logLevel: options.logLevel }, result, writeLine);
         }),
     );
   },

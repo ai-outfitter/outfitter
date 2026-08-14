@@ -753,7 +753,7 @@ describe('Pi setup launch', () => {
       writeLine: (message) => lines.push(message),
     }).register(program);
     await program.parseAsync(['node', 'outfitter', 'setup']);
-    expect(lines.join('\n')).not.toContain('Starting');
+    expect(lines).toEqual(["Run 'outfitter sync', then run 'outfitter' again."]);
     expect(runLaunches).toEqual([]); // catalog setup reports next-launch instead of launching
   });
 

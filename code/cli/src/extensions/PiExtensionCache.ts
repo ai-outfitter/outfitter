@@ -19,16 +19,22 @@
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join, resolve, sep } from 'node:path';
 
-import { launchThroughSpawn, spawnLauncher } from '../agents/AgentLaunch.js';
+import { createSpawnLauncher, launchThroughSpawn, spawnLauncher } from '../agents/AgentLaunch.js';
 import { runGit } from '../sources/GitRepository.js';
 
 /** Spawns `pi install <source>` against the cache agent dir; injectable so tests avoid the network. */
-export type PiInstallSpawner = (input: { readonly source: string; readonly cacheAgentDir: string }) => Promise<number>;
+export type PiInstallSpawner = (input: {
+  readonly source: string;
+  readonly cacheAgentDir: string;
+  readonly debug?: boolean;
+}) => Promise<number>;
 
 export interface EnsurePiExtensionsInput {
   readonly cacheAgentDir: string;
   /** When true, missing extensions are never installed — they warn and are dropped. */
   readonly offline: boolean;
+  /** Show the underlying pi/git/npm installer output. Normal startup keeps it behind loading UI. */
+  readonly debug?: boolean;
   readonly spawn?: PiInstallSpawner;
 }
 
@@ -198,8 +204,9 @@ const evaluateCachedInstall = (installDir: string, mapped: PiExtensionSource, of
 };
 
 /* v8 ignore start -- real `pi install` subprocess; ensurePiExtensions is unit-tested with a fake spawner. */
-const defaultSpawner: PiInstallSpawner = ({ source, cacheAgentDir }) =>
-  launchThroughSpawn(spawnLauncher, {
+const quietSpawnLauncher = createSpawnLauncher('ignore');
+const defaultSpawner: PiInstallSpawner = ({ source, cacheAgentDir, debug }) =>
+  launchThroughSpawn(debug === true ? spawnLauncher : quietSpawnLauncher, {
     command: 'pi',
     args: ['install', source],
     env: { PI_CODING_AGENT_DIR: cacheAgentDir, GIT_TERMINAL_PROMPT: '0' },
@@ -228,7 +235,7 @@ const ensureOneExtension = async (
   removeStaleGitInstall(installDir, mapped);
   mkdirSync(input.cacheAgentDir, { recursive: true });
   try {
-    const exitCode = await spawn({ source: mapped.source, cacheAgentDir: input.cacheAgentDir });
+    const exitCode = await spawn({ source: mapped.source, cacheAgentDir: input.cacheAgentDir, debug: input.debug });
     if (exitCode !== 0 || !existsSync(installDir)) {
       return { warning: `extension '${specifier}' failed to install (pi install exited ${exitCode}).` };
     }

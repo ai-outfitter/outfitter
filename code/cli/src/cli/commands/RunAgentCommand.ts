@@ -29,14 +29,18 @@ import { findResource } from '../../resolver/Resource.js';
 import { resolveEffectiveSet } from '../../resolver/ResolverContext.js';
 import type { Harness } from '../../settings/Settings.js';
 import { HARNESSES } from '../../settings/Settings.js';
+import { setupNextStepMessage } from '../../setup/Setup.js';
 import type { SetupResult } from '../../setup/Setup.js';
 import { attachSystemExtensionHooks } from '../../system/SystemExtensionHook.js';
+import { startTerminalLoading } from '../TerminalLoading.js';
+import type { LoadingStarter } from '../TerminalLoading.js';
 import type { CommandObject } from './CommandObject.js';
 import { attachPiRuntimeExtension } from './PiRuntimeLaunch.js';
 import { resolveHomeDirectory, resolveProjectDirectory } from './ProcessDefaults.js';
 import { runSetup } from './SetupCommand.js';
 
 export type AgentProcessLauncher = (plan: AgentLaunchPlan) => Promise<number>;
+export type RunLogLevel = 'info' | 'debug';
 
 /**
  * Runs first-run onboarding when `run` finds nothing configured. Returns the setup result, or
@@ -54,6 +58,7 @@ export interface RunAgentInput {
   readonly agent?: string;
   readonly harness?: string;
   readonly strict?: boolean;
+  readonly logLevel?: RunLogLevel;
   readonly passThroughArgs?: readonly string[];
   /** `--append-prompt` documents appended to the system prompt after the agent's own, in order. */
   readonly appendPromptPaths?: readonly string[];
@@ -66,6 +71,8 @@ export interface RunAgentInput {
   readonly writeLine?: (message: string) => void;
   /** Test seam for the `pi install` boundary used to cache pi extensions. */
   readonly extensionInstallSpawner?: PiInstallSpawner;
+  /** Optional loading UI. The command wires a terminal spinner; tests can observe this boundary. */
+  readonly startLoading?: LoadingStarter;
 }
 
 export interface RunAgentResult {
@@ -80,6 +87,7 @@ export interface RunAgentDependencies {
   readonly launcher?: AgentProcessLauncher;
   readonly setup?: SetupRunner;
   readonly writeLine?: (message: string) => void;
+  readonly startLoading?: LoadingStarter;
 }
 
 /* v8 ignore start -- real-TTY onboarding wiring; the setup state machine is tested via an injected runner. */
@@ -193,8 +201,26 @@ const resolvePiExtensions = async (
   return ensurePiExtensions(extensionSpecs, {
     cacheAgentDir: join(resolveOutfitterCacheDir(process.env, input.homeDirectory), 'pi-extensions'),
     offline: process.env.PI_OFFLINE === '1' || process.env.PI_OFFLINE === 'true',
+    debug: input.logLevel === 'debug',
     spawn: input.extensionInstallSpawner,
   });
+};
+
+const loadPiExtensions = async (
+  input: RunAgentInput,
+  harness: Harness,
+  agentSlug: string,
+  extensionSpecs: readonly string[],
+): ReturnType<typeof resolvePiExtensions> => {
+  const showLoading = harness === 'pi' && input.logLevel !== 'debug' && extensionSpecs.length > 0;
+  const stopLoading = showLoading
+    ? (input.startLoading?.(`Loading ${agentSlug} profile…`) ?? (() => undefined))
+    : () => undefined;
+  try {
+    return await resolvePiExtensions(input, harness, extensionSpecs);
+  } finally {
+    stopLoading();
+  }
 };
 
 const piConfigurationOverlays = (
@@ -220,6 +246,9 @@ const shouldRunSetup = (
 ): input is RunAgentInput & { readonly setup: NonNullable<RunAgentInput['setup']> } =>
   input.agent === undefined && resolved.settings.defaultAgent === undefined && input.setup !== undefined;
 
+const setupDidNotSelectAgent = (result: SetupResult | undefined): result is SetupResult =>
+  result !== undefined && result.defaultAgent === undefined;
+
 const resolutionWarningsForRun = (
   resolved: ReturnType<typeof resolveEffectiveSet>,
   strict: boolean | undefined,
@@ -227,17 +256,14 @@ const resolutionWarningsForRun = (
 
 const failedCompositionMessages = (
   resolved: ReturnType<typeof resolveEffectiveSet>,
-  agentSlug: string,
   composed: ReturnType<typeof compose>,
 ): readonly string[] => {
-  const unknownAgent = composed.errors.some((error) => error.includes(`Unknown agent '${agentSlug}'`));
-  const unsynchronizedSource = resolved.warnings.some((warning) => warning.includes('is not synchronized'));
-  if (!unknownAgent || !unsynchronizedSource) return [...composed.warnings, ...composed.errors];
-
   return [
     ...composed.warnings,
-    `Agent '${agentSlug}' is not ready. Run 'outfitter sync', then try again.`,
-    ...composed.errors.filter((error) => !error.includes('Unknown agent')),
+    ...composed.errors,
+    ...(resolved.unsynchronizedWarnings.length === 0
+      ? []
+      : ["Some configured sources are not synchronized. Run 'outfitter sync', then try again."]),
   ];
 };
 
@@ -258,11 +284,14 @@ export const executeRunAgentCommand = async (input: RunAgentInput): Promise<RunA
       projectDirectory: input.projectDirectory,
     });
 
-    if (setupResult !== undefined) {
-      // Keep the transition quiet so the real profile UI is the first persistent output.
-      resolved = resolveEffectiveSet(input);
-      assertNoSettingsIssues(resolved.settingsIssues);
+    if (setupDidNotSelectAgent(setupResult)) {
+      const messages = [setupNextStepMessage];
+      emit(messages);
+      return { exitCode: 0, messages };
     }
+    // Keep the transition quiet so the real profile UI is the first persistent output.
+    resolved = resolveEffectiveSet(input);
+    assertNoSettingsIssues(resolved.settingsIssues);
   }
 
   // Strict mode exposes the complete final resolution state. Normal startup uses these diagnostics
@@ -281,13 +310,14 @@ export const executeRunAgentCommand = async (input: RunAgentInput): Promise<RunA
   const composed = compose(set, agentSlug, { projectDirectory: input.projectDirectory });
 
   if (composed.plan === undefined) {
-    const messages = [...resolutionWarnings, ...failedCompositionMessages(resolved, agentSlug, composed)];
+    const messages = [...resolutionWarnings, ...failedCompositionMessages(resolved, composed)];
     emit(messages);
     return { exitCode: 1, messages };
   }
 
   // Install/cache the pi extensions into a shared XDG cache and load them at launch (pi only).
-  const extensions = await resolvePiExtensions(input, harness, composed.plan.loadout.extensions);
+  // Normal startup keeps installer chatter behind one loading state. Debug mode exposes it.
+  const extensions = await loadPiExtensions(input, harness, agentSlug, composed.plan.loadout.extensions);
   const selectedAgent = findResource(set, 'agent', agentSlug)!;
   const configurationOverlays = piConfigurationOverlays(composed.plan, selectedAgent);
 
@@ -367,6 +397,12 @@ export const createRunAgentCommand = (dependencies: RunAgentDependencies = {}): 
       .argument('[agent]', 'Agent slug to run (default: settings default_agent).')
       .argument('[args...]', 'Arguments passed through to the harness after --.')
       .addOption(new Option('--harness <harness>', 'Harness to launch.').choices([...HARNESSES]))
+      .addOption(
+        new Option('--log-level <level>', 'Set startup log detail.')
+          .choices(['info', 'debug'])
+          .default('info')
+          .env('OUTFITTER_LOG_LEVEL'),
+      )
       .option('--strict', 'Treat ambiguity, composition warnings, and unsupported loadout elements as fatal.')
       .option(
         '--append-prompt <path>',
@@ -378,7 +414,12 @@ export const createRunAgentCommand = (dependencies: RunAgentDependencies = {}): 
         async (
           agent: string | undefined,
           passThroughArgs: readonly string[],
-          options: { harness?: string; strict?: boolean; appendPrompt?: readonly string[] },
+          options: {
+            harness?: string;
+            logLevel: RunLogLevel;
+            strict?: boolean;
+            appendPrompt?: readonly string[];
+          },
         ) => {
           /* v8 ignore next 3 -- process/launcher defaults are exercised by the CLI entrypoint, not unit tests. */
           const homeDirectory = resolveHomeDirectory(dependencies.homeDirectory);
@@ -389,6 +430,7 @@ export const createRunAgentCommand = (dependencies: RunAgentDependencies = {}): 
             projectDirectory,
             agent,
             harness: options.harness,
+            logLevel: options.logLevel,
             strict: options.strict,
             passThroughArgs,
             appendPromptPaths: options.appendPrompt,
@@ -397,6 +439,7 @@ export const createRunAgentCommand = (dependencies: RunAgentDependencies = {}): 
             // executeRunAgentCommand emits messages (before launch) through this sink.
             /* v8 ignore next -- console.error fallback is direct CLI behavior; tests inject a writer. */
             writeLine: dependencies.writeLine ?? console.error,
+            startLoading: dependencies.startLoading ?? startTerminalLoading,
           });
 
           process.exitCode = result.exitCode;

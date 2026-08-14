@@ -32,6 +32,7 @@
               pkgs.gzip
               pkgs.cacert
               pkgs.gitMinimal
+              pkgs.nodejs_24
               pkgs.openssh
               pkgs.dockerTools.binSh
               pkgs.dockerTools.usrBinEnv
@@ -68,6 +69,8 @@
             Env = [
               "HOME=/tmp"
               "PATH=/bin:/usr/bin"
+              "SSL_CERT_FILE=/etc/ssl/certs/ca-bundle.crt"
+              "NIX_SSL_CERT_FILE=/etc/ssl/certs/ca-bundle.crt"
               "NIX_CONFIG=experimental-features = nix-command flakes"
             ];
             User = "1000:1000";

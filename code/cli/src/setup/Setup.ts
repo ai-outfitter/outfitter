@@ -47,6 +47,8 @@ export interface SetupResult {
   readonly messages: readonly string[];
 }
 
+export const setupNextStepMessage = "Run 'outfitter sync', then run 'outfitter' again.";
+
 const defaultAgentSlug = 'assistant';
 const maxSlugLength = 64;
 const agentSlugPattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;

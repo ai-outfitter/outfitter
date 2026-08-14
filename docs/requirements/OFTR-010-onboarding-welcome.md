@@ -45,6 +45,12 @@
 5. A successful non-strict run MUST suppress resolver hygiene diagnostics. It MUST continue to
    report blocking errors and warnings that describe a degraded launch. Diagnostic commands and
    strict mode MUST retain complete resolution diagnostics.
+6. A setup mode that cannot launch a concrete profile MUST report one concise sync-and-rerun action.
+7. Applying the quiet-startup default MUST work when the selected profile's native settings file is
+   read-only, as it can be when a profile comes from the Nix store.
+8. Normal startup MUST hide profile-extension installer output behind one loading state. Debug log
+   level MUST expose the underlying Pi, Git, and npm output. Installation failures MUST remain
+   visible as concise warnings after the loading state stops.
 
 ## OFTR-010.2: Exact walkthrough
 
