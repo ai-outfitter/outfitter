@@ -45,6 +45,7 @@
     "commander": "^14.0.3",
     "cross-spawn": "^7.0.6",
     "liquidjs": "^10.27.0",
+    "posthog-node": "^5.49.1",
     "yaml": "^2.9.0"
   },
   "devDependencies": {
