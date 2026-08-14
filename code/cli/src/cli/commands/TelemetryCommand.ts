@@ -37,7 +37,7 @@ export const updateTelemetrySetting = (settingsPath: string, enabled: boolean): 
 };
 
 const changeGuidance =
-  'Change it with `outfitter telemetry enable|disable`, `OUTFITTER_TELEMETRY=0`, `DO_NOT_TRACK=1`, or `CI=true`.';
+  'Change with `outfitter telemetry enable|disable`; process opt-outs: `OUTFITTER_TELEMETRY=0` or `DO_NOT_TRACK=1`.';
 
 export const formatTelemetryStatus = (loaded: SettingsLoadResult, env: TelemetryEnvironment): string => {
   const consent = resolveTelemetryConsent(loaded, env);

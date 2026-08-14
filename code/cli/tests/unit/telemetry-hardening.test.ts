@@ -13,9 +13,14 @@ import type { SettingsLoadResult } from '../../src/settings/SettingsLoader.js';
 import { TELEMETRY_SHUTDOWN_BUDGET_MS } from '../../src/telemetry/TelemetryConstants.js';
 import { createTelemetryContext } from '../../src/telemetry/TelemetryContext.js';
 import { createBoundedTelemetryFetch, createTelemetryService } from '../../src/telemetry/TelemetryService.js';
-import type { TelemetryCommandContext, TelemetryService } from '../../src/telemetry/TelemetryService.js';
+import type {
+  TelemetryClient,
+  TelemetryCommandContext,
+  TelemetryService,
+} from '../../src/telemetry/TelemetryService.js';
 import { resolveTelemetryStatePath } from '../../src/telemetry/TelemetryState.js';
 import type { TelemetryStateStore } from '../../src/telemetry/TelemetryState.js';
+import { readOutfitterVersion } from '../../src/version/OutfitterVersion.js';
 
 const temporaryRoots: string[] = [];
 const previousExitCode = process.exitCode;
@@ -108,16 +113,20 @@ describe('telemetry failure and wiring hardening', () => {
   });
 
   it('maps non-success fetch responses to synthetic success responses', async () => {
+    const rejectedResponse = new Response('unavailable', { status: 503 });
+    const cancel = vi.spyOn(rejectedResponse.body!, 'cancel').mockRejectedValue(new Error('cancel failed'));
     const fetch = createBoundedTelemetryFetch(
-      vi.fn(() => Promise.resolve(new Response('unavailable', { status: 503 }))),
+      vi.fn(() => Promise.resolve(rejectedResponse)),
       20,
     );
     const response = await fetch('https://example.test/e', { method: 'POST', headers: {} });
+    await Promise.resolve();
     expect(response.status).toBe(200);
     expect(await response.text()).toBe('');
     expect(await response.json()).toEqual({});
     expect(response.headers?.get('x-test')).toBeNull();
     expect(response.body).toBeNull();
+    expect(cancel).toHaveBeenCalledOnce();
   });
 
   it('wires temp-home consent through runCli without constructing a client for kill switches or opt-out', async () => {
@@ -159,6 +168,92 @@ describe('telemetry failure and wiring hardening', () => {
       expect(clientFactory).not.toHaveBeenCalled();
       expect(existsSync(resolveTelemetryStatePath(home, testCase.env))).toBe(false);
     }
+  });
+
+  it('captures the default-consent lifecycle through the runCli preAction hook', async () => {
+    process.exitCode = undefined;
+    const root = temporaryRoot();
+    const home = join(root, 'home');
+    const project = join(root, 'project');
+    const context = createTelemetryContext({ homeDirectory: home, projectDirectory: project, env: {} });
+    const captures: Array<Parameters<TelemetryClient['capture']>[0]> = [];
+    const clientFactory = vi.fn((): TelemetryClient => ({
+      capture: (message) => {
+        captures.push(message);
+      },
+      shutdown: () => Promise.resolve(),
+    }));
+    const notices: string[] = [];
+    const telemetry = createTelemetryService({
+      settingsReader: context.settingsReader,
+      stateStore: context.stateStore,
+      env: {},
+      writeError: (message) => notices.push(message),
+      apiKey: 'phc_test',
+      clientFactory,
+    });
+    const command: CommandObject = {
+      name: 'sample',
+      description: 'sample',
+      register(program): void {
+        program.addCommand(
+          new Command('sample')
+            .option('--harness <harness>')
+            .option('--strict')
+            .action(() => undefined),
+        );
+      },
+    };
+    vi.spyOn(Date, 'now').mockReturnValueOnce(100).mockReturnValueOnce(1300);
+
+    await runCli(createOutfitterProgram([command]), ['node', 'outfitter', 'sample', '--harness', 'pi', '--strict'], {
+      telemetry,
+    });
+
+    expect(clientFactory).toHaveBeenCalledOnce();
+    expect(notices).toEqual([expect.stringContaining('outfitter telemetry status')]);
+    expect(captures).toHaveLength(2);
+    const distinctId = captures[0]?.distinctId;
+    const outfitterVersion = readOutfitterVersion();
+    expect(distinctId).toMatch(/^[0-9a-f-]{36}$/u);
+    expect(outfitterVersion).toMatch(/^\d+\.\d+\.\d+/u);
+    expect(captures).toEqual([
+      {
+        distinctId,
+        event: 'cli command started',
+        properties: {
+          command: 'sample',
+          outfitter_version: outfitterVersion,
+          node_major: Number.parseInt(process.versions.node.split('.')[0], 10),
+          os_family: process.platform,
+          arch: process.arch,
+          interactive: Boolean(process.stdin.isTTY && process.stdout.isTTY),
+          harness: 'pi',
+          strict: true,
+          $process_person_profile: false,
+        },
+      },
+      {
+        distinctId,
+        event: 'cli command completed',
+        properties: {
+          command: 'sample',
+          outfitter_version: outfitterVersion,
+          node_major: Number.parseInt(process.versions.node.split('.')[0], 10),
+          os_family: process.platform,
+          arch: process.arch,
+          interactive: Boolean(process.stdin.isTTY && process.stdout.isTTY),
+          harness: 'pi',
+          strict: true,
+          $process_person_profile: false,
+          outcome: 'success',
+          duration_bucket: '1-5s',
+          exit_code_class: 'success',
+          warning_count_bucket: 'unknown',
+        },
+      },
+    ]);
+    expect(existsSync(resolveTelemetryStatePath(home, {}))).toBe(true);
   });
 
   it('captures process lifecycle metadata without public context overrides', async () => {

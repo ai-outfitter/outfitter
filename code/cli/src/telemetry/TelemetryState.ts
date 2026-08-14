@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
 import { resolveOutfitterStateDir } from '../paths/OutfitterCache.js';
@@ -28,15 +28,26 @@ const isTelemetryState = (value: unknown): value is TelemetryState => {
 
 export const createTelemetryStateStore = (path: string, createId: () => string = randomUUID): TelemetryStateStore => {
   const write = (state: TelemetryState): void => {
-    mkdirSync(dirname(path), { recursive: true });
-    writeFileSync(path, `${JSON.stringify(state, null, 2)}\n`, { mode: 0o600 });
+    const directory = dirname(path);
+    const temporaryPath = join(directory, `.telemetry-${randomUUID()}.tmp`);
+    mkdirSync(directory, { recursive: true });
+    try {
+      writeFileSync(temporaryPath, `${JSON.stringify(state, null, 2)}\n`, { mode: 0o600 });
+      renameSync(temporaryPath, path);
+    } finally {
+      rmSync(temporaryPath, { force: true });
+    }
   };
 
   return {
     readOrCreate(): TelemetryState {
       if (existsSync(path)) {
-        const parsed: unknown = JSON.parse(readFileSync(path, 'utf8'));
-        if (isTelemetryState(parsed)) return parsed;
+        try {
+          const parsed: unknown = JSON.parse(readFileSync(path, 'utf8'));
+          if (isTelemetryState(parsed)) return parsed;
+        } catch {
+          // A partial or corrupt state file is replaced with a fresh pseudonymous identifier.
+        }
       }
       const state = { installation_id: createId(), notice_shown: false };
       write(state);

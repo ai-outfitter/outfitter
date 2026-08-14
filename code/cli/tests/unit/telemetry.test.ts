@@ -22,7 +22,6 @@ import type {
 import { createTelemetryStateStore, resolveTelemetryStatePath } from '../../src/telemetry/TelemetryState.js';
 import type { TelemetryStateStore } from '../../src/telemetry/TelemetryState.js';
 import { validateSchema } from '../../src/validation/SchemaValidator.js';
-import { allowTestConsoleOutput } from '../test-console.js';
 
 const temporaryRoots: string[] = [];
 const previousExitCode = process.exitCode;
@@ -343,6 +342,12 @@ describe('PostHog CLI telemetry', () => {
     expect(store.readOrCreate()).toEqual({ installation_id: 'fixed-id', notice_shown: false });
     writeFileSync(statePath, 'null\n');
     expect(store.readOrCreate()).toEqual({ installation_id: 'fixed-id', notice_shown: false });
+    writeFileSync(statePath, '{"installation_id":');
+    expect(store.readOrCreate()).toEqual({ installation_id: 'fixed-id', notice_shown: false });
+    expect(JSON.parse(readFileSync(statePath, 'utf8'))).toEqual({
+      installation_id: 'fixed-id',
+      notice_shown: false,
+    });
     store.delete();
     expect(existsSync(statePath)).toBe(false);
   });
@@ -451,13 +456,31 @@ describe('PostHog CLI telemetry', () => {
 
   it('uses default status dependencies without mutating settings', async () => {
     const root = temporaryRoot();
-    allowTestConsoleOutput((message) => message.method === 'log' && message.text.startsWith('Telemetry is enabled'));
-    await createOutfitterProgram([createTelemetryCommand({ homeDirectory: root, projectDirectory: root })]).parseAsync([
-      'node',
-      'outfitter',
-      'telemetry',
-      'status',
-    ]);
+    const writeLine = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    await createOutfitterProgram([
+      createTelemetryCommand({
+        homeDirectory: root,
+        projectDirectory: root,
+        env: {},
+      }),
+    ]).parseAsync(['node', 'outfitter', 'telemetry', 'status']);
+    expect(writeLine).toHaveBeenCalledWith(expect.stringContaining('Telemetry is enabled (source: default).'));
+  });
+
+  it('reads the process environment by default without using a real home', async () => {
+    const root = temporaryRoot();
+    const lines: string[] = [];
+    vi.stubEnv('OUTFITTER_TELEMETRY', '');
+    vi.stubEnv('DO_NOT_TRACK', '');
+    vi.stubEnv('CI', '');
+    await createOutfitterProgram([
+      createTelemetryCommand({
+        homeDirectory: root,
+        projectDirectory: root,
+        writeLine: (line) => lines.push(line),
+      }),
+    ]).parseAsync(['node', 'outfitter', 'telemetry', 'status']);
+    expect(lines).toEqual([expect.stringContaining('Telemetry is enabled (source: default).')]);
   });
 });
 

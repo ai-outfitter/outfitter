@@ -36,7 +36,7 @@
     "test": "vitest --run",
     "coverage": "vitest --run --coverage",
     "check": "npm run lint:fix && npm run coverage",
-    "check-ci": "prettier --check . && npm run lint && npm run coverage"
+    "check-ci": "prettier --check . --ignore-path ../../.prettierignore && npm run lint && npm run coverage"
   },
   "dependencies": {
     "@earendil-works/pi-coding-agent": "^0.80.3",

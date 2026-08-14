@@ -1,4 +1,5 @@
 import { HARNESSES } from '../settings/Settings.js';
+import type { PostHogOptions } from 'posthog-node';
 import type { SettingsLoadResult } from '../settings/SettingsLoader.js';
 import { POSTHOG_API_KEY, POSTHOG_HOST, TELEMETRY_SHUTDOWN_BUDGET_MS } from './TelemetryConstants.js';
 import { resolveTelemetryConsent } from './TelemetryConsent.js';
@@ -58,22 +59,8 @@ export interface TelemetryClientOptions {
   readonly fetch: TelemetryFetch;
 }
 
-export interface TelemetryFetchOptions {
-  readonly method: 'GET' | 'POST' | 'PUT' | 'PATCH';
-  readonly headers: Readonly<Record<string, string>>;
-  readonly body?: string | Blob;
-  readonly signal?: AbortSignal;
-}
-
-export interface TelemetryFetchResponse {
-  readonly status: number;
-  readonly text: () => Promise<string>;
-  readonly json: () => Promise<unknown>;
-  readonly headers?: { readonly get: (name: string) => string | null };
-  readonly body?: ReadableStream<Uint8Array> | null;
-}
-
-export type TelemetryFetch = (url: string, options: TelemetryFetchOptions) => Promise<TelemetryFetchResponse>;
+export type TelemetryFetch = NonNullable<PostHogOptions['fetch']>;
+type TelemetryFetchResponse = Awaited<ReturnType<TelemetryFetch>>;
 
 export type TelemetryClientFactory = (
   apiKey: string,
@@ -160,7 +147,7 @@ export const buildCommandCompletedProperties = (context: TelemetryCompletionCont
 });
 
 const NOTICE =
-  'Outfitter collects pseudonymous command adoption and reliability analytics. No content, paths, or arguments are collected. Disable with `outfitter telemetry disable`, `OUTFITTER_TELEMETRY=0`, or `DO_NOT_TRACK=1`.';
+  'Outfitter sends pseudonymous command adoption and reliability analytics to PostHog. No content, paths, or arguments are collected. Review with `outfitter telemetry status`; details: https://github.com/ai-outfitter/outfitter/blob/main/docs/documentation/telemetry.md. Disable with `outfitter telemetry disable`, `OUTFITTER_TELEMETRY=0`, or `DO_NOT_TRACK=1`.';
 
 export const createTelemetryService = (dependencies: TelemetryServiceDependencies): TelemetryService => {
   /* v8 ignore next -- tests never consume a compiled production key; they inject an empty or test key. */
