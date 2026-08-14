@@ -97,7 +97,8 @@ export const formatSettingsIssue = (issue: SettingsLoadIssue): string =>
 
 const agentsSettings = (directory: string, ...rest: string[]): string => join(directory, '.agents', ...rest);
 
-// Ordered lowest-to-highest precedence so later files fold over earlier ones during merge.
+// Ordered lowest-to-highest precedence so later files fold over earlier ones during merge; telemetry
+// consent (TelemetryConsent.ts) also relies on this ordering when scanning the loaded files.
 export const discoverSettingsLoadPlan = (input: SettingsDiscoveryInput): SettingsLoadPlan =>
   createSettingsLoadPlan([
     { scope: 'user', path: agentsSettings(input.homeDirectory, 'settings.yml') },

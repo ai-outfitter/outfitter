@@ -1,5 +1,3 @@
-import { PostHog } from 'posthog-node';
-
 import { HARNESSES } from '../settings/Settings.js';
 import type { SettingsLoadResult } from '../settings/SettingsLoader.js';
 import { POSTHOG_API_KEY, POSTHOG_HOST, TELEMETRY_SHUTDOWN_BUDGET_MS } from './TelemetryConstants.js';
@@ -7,22 +5,8 @@ import { resolveTelemetryConsent } from './TelemetryConsent.js';
 import type { TelemetryEnvironment } from './TelemetryConsent.js';
 import type { TelemetryStateStore } from './TelemetryState.js';
 
-export const DURATION_BUCKETS = ['<1s', '1-5s', '5-30s', '30s+'] as const;
-export const WARNING_COUNT_BUCKETS = ['0', '1-5', '5+', 'unknown'] as const;
-export const EXIT_CODE_CLASSES = ['success', 'error'] as const;
-export const OUTCOMES = ['success', 'error'] as const;
-export const OS_FAMILIES = [
-  'aix',
-  'android',
-  'darwin',
-  'freebsd',
-  'linux',
-  'openbsd',
-  'sunos',
-  'win32',
-  'unknown',
-] as const;
-export const ARCHITECTURES = [
+const OS_FAMILIES = ['aix', 'android', 'darwin', 'freebsd', 'linux', 'openbsd', 'sunos', 'win32', 'unknown'] as const;
+const ARCHITECTURES = [
   'arm',
   'arm64',
   'ia32',
@@ -38,12 +22,9 @@ export const ARCHITECTURES = [
   'unknown',
 ] as const;
 
-export type DurationBucket = (typeof DURATION_BUCKETS)[number];
-export type WarningCountBucket = (typeof WARNING_COUNT_BUCKETS)[number];
-export type ExitCodeClass = (typeof EXIT_CODE_CLASSES)[number];
-export type TelemetryOutcome = (typeof OUTCOMES)[number];
-export type OsFamily = (typeof OS_FAMILIES)[number];
-export type Architecture = (typeof ARCHITECTURES)[number];
+export type DurationBucket = '<1s' | '1-5s' | '5-30s' | '30s+';
+export type WarningCountBucket = '0' | '1-5' | '5+' | 'unknown';
+export type TelemetryOutcome = 'success' | 'error';
 
 export interface TelemetryCommandContext {
   readonly command: string;
@@ -76,7 +57,10 @@ export interface TelemetryClientOptions {
   readonly disableGeoip: true;
 }
 
-export type TelemetryClientFactory = (apiKey: string, options: TelemetryClientOptions) => TelemetryClient;
+export type TelemetryClientFactory = (
+  apiKey: string,
+  options: TelemetryClientOptions,
+) => TelemetryClient | Promise<TelemetryClient>;
 
 export interface TelemetryService {
   captureCommandStarted(context: TelemetryCommandContext): Promise<void>;
@@ -95,7 +79,11 @@ export interface TelemetryServiceDependencies {
   readonly shutdownBudgetMs?: number;
 }
 
-const defaultClientFactory: TelemetryClientFactory = (apiKey, options) => new PostHog(apiKey, options);
+/* v8 ignore next 4 -- tests inject a client factory so they never load the network SDK. */
+const defaultClientFactory: TelemetryClientFactory = async (apiKey, options) => {
+  const { PostHog } = await import('posthog-node');
+  return new PostHog(apiKey, options);
+};
 
 const durationBucket = (milliseconds: number): DurationBucket => {
   if (milliseconds < 1000) return '<1s';
@@ -107,7 +95,7 @@ const durationBucket = (milliseconds: number): DurationBucket => {
 const knownValue = <T extends string>(values: readonly T[], value: string): T | 'unknown' =>
   values.includes(value as T) ? (value as T) : 'unknown';
 
-const commonProperties = (context: TelemetryCommandContext) => ({
+export const buildCommandStartedProperties = (context: TelemetryCommandContext): Record<string, unknown> => ({
   command: context.command,
   outfitter_version: context.outfitterVersion,
   node_major: Number.parseInt(context.nodeVersion.split('.')[0], 10),
@@ -119,12 +107,8 @@ const commonProperties = (context: TelemetryCommandContext) => ({
   $process_person_profile: false,
 });
 
-export const buildCommandStartedProperties = (context: TelemetryCommandContext): Record<string, unknown> => ({
-  ...commonProperties(context),
-});
-
 export const buildCommandCompletedProperties = (context: TelemetryCompletionContext): Record<string, unknown> => ({
-  ...commonProperties(context),
+  ...buildCommandStartedProperties(context),
   outcome: context.outcome,
   duration_bucket: durationBucket(context.durationMs),
   exit_code_class: context.exitCode === 0 ? 'success' : 'error',
@@ -140,35 +124,37 @@ export const createTelemetryService = (dependencies: TelemetryServiceDependencie
   const clientFactory = dependencies.clientFactory ?? defaultClientFactory;
   let client: TelemetryClient | undefined;
   let distinctId: string | undefined;
+  let prepared: boolean | undefined;
 
-  const prepare = (): boolean => {
+  // Consent, client, and state are resolved once per process; captures never re-read settings from disk.
+  const prepare = async (): Promise<boolean> => {
+    if (prepared !== undefined) return prepared;
+    prepared = false;
     if (apiKey === '') return false;
     if (!resolveTelemetryConsent(dependencies.settingsReader(), dependencies.env).enabled) return false;
-    if (client === undefined) {
-      client = clientFactory(apiKey, {
-        host: dependencies.host ?? POSTHOG_HOST,
-        disableGeoip: true,
-      });
-    }
+    client = await clientFactory(apiKey, {
+      host: dependencies.host ?? POSTHOG_HOST,
+      disableGeoip: true,
+    });
     const state = dependencies.stateStore.readOrCreate();
     distinctId = state.installation_id;
     if (!state.notice_shown) {
       dependencies.stateStore.recordNoticeShown(state);
       dependencies.writeError(NOTICE);
     }
+    prepared = true;
     return true;
   };
 
-  const capture = (event: string, properties: Record<string, unknown>): Promise<void> => {
+  const capture = async (event: string, properties: Record<string, unknown>): Promise<void> => {
     try {
-      if (!prepare()) return Promise.resolve();
+      if (!(await prepare())) return;
       const result = client!.capture({ distinctId: distinctId!, event, properties });
       // The SDK queues synchronously. A non-standard client promise is observed but never allowed to delay the CLI.
       void Promise.resolve(result).catch(() => undefined);
     } catch {
       // Analytics must never affect command behavior or emit diagnostics.
     }
-    return Promise.resolve();
   };
 
   return {

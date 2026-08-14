@@ -2,17 +2,15 @@
 
 // Defines the initial Outfitter executable entrypoint.
 import { realpathSync } from 'node:fs';
-import { homedir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 
 import type { Command } from 'commander';
 
+import { resolveHomeDirectory, resolveProjectDirectory } from './cli/commands/ProcessDefaults.js';
 import { createOutfitterProgram } from './cli/OutfitterCli.js';
-import { discoverSettingsLoadPlan, loadSettingsFiles } from './settings/SettingsLoader.js';
-import { HARNESSES } from './settings/Settings.js';
+import { createTelemetryContext } from './telemetry/TelemetryContext.js';
 import { createTelemetryService } from './telemetry/TelemetryService.js';
 import type { TelemetryCommandContext, TelemetryService } from './telemetry/TelemetryService.js';
-import { createTelemetryStateStore, resolveTelemetryStatePath } from './telemetry/TelemetryState.js';
 import { readOutfitterVersion } from './version/OutfitterVersion.js';
 
 export const createProgram = createOutfitterProgram;
@@ -46,10 +44,8 @@ const commandContext = (
 ): TelemetryCommandContext => {
   const command = resolveTelemetryCommandName(program, actionCommand);
   const options = actionCommand.opts<{ harness?: unknown; strict?: unknown }>();
-  const harness =
-    typeof options.harness === 'string' && HARNESSES.some((candidate) => candidate === options.harness)
-      ? options.harness
-      : undefined;
+  // The telemetry property builder maps the harness through its allowlist; pass the raw option through.
+  const harness = typeof options.harness === 'string' ? options.harness : undefined;
 
   return {
     command,
@@ -64,29 +60,16 @@ const commandContext = (
 };
 
 export const createProcessTelemetryService = (): TelemetryService => {
-  const homeDirectory = homedir();
-  const projectDirectory = process.cwd();
+  const context = createTelemetryContext({
+    homeDirectory: resolveHomeDirectory(),
+    projectDirectory: resolveProjectDirectory(),
+    env: process.env,
+  });
   return createTelemetryService({
-    settingsReader: () => loadSettingsFiles(discoverSettingsLoadPlan({ homeDirectory, projectDirectory })),
-    stateStore: createTelemetryStateStore(resolveTelemetryStatePath(homeDirectory, process.env)),
+    settingsReader: context.settingsReader,
+    stateStore: context.stateStore,
     env: process.env,
     writeError: (message) => console.error(message),
-  });
-};
-
-const captureCompletion = async (
-  telemetry: TelemetryService,
-  context: TelemetryCommandContext | undefined,
-  startedAt: number | undefined,
-  now: () => number,
-  exitCode: number,
-): Promise<void> => {
-  if (context === undefined || startedAt === undefined) return;
-  await telemetry.captureCommandCompleted({
-    ...context,
-    outcome: exitCode === 0 ? 'success' : 'error',
-    durationMs: now() - startedAt,
-    exitCode,
   });
 };
 
@@ -106,14 +89,19 @@ export const runCli = async (
     await telemetry.captureCommandStarted(context);
   });
 
+  let exitCode = 1;
   try {
     await program.parseAsync(argv);
-    const exitCode = typeof process.exitCode === 'number' ? process.exitCode : 0;
-    await captureCompletion(telemetry, context, startedAt, now, exitCode);
-  } catch (error) {
-    await captureCompletion(telemetry, context, startedAt, now, 1);
-    throw error;
+    exitCode = typeof process.exitCode === 'number' ? process.exitCode : 0;
   } finally {
+    if (context !== undefined && startedAt !== undefined) {
+      await telemetry.captureCommandCompleted({
+        ...context,
+        outcome: exitCode === 0 ? 'success' : 'error',
+        durationMs: now() - startedAt,
+        exitCode,
+      });
+    }
     await telemetry.shutdown();
   }
 };

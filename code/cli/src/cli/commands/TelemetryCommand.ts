@@ -1,14 +1,13 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { dirname } from 'node:path';
 
 import { Command } from 'commander';
 import { parseDocument } from 'yaml';
 
-import { discoverSettingsLoadPlan, loadSettingsFiles } from '../../settings/SettingsLoader.js';
 import type { SettingsLoadResult } from '../../settings/SettingsLoader.js';
 import { resolveTelemetryConsent } from '../../telemetry/TelemetryConsent.js';
 import type { TelemetryEnvironment } from '../../telemetry/TelemetryConsent.js';
-import { createTelemetryStateStore, resolveTelemetryStatePath } from '../../telemetry/TelemetryState.js';
+import { createTelemetryContext } from '../../telemetry/TelemetryContext.js';
 import type { TelemetryStateStore } from '../../telemetry/TelemetryState.js';
 import type { CommandObject } from './CommandObject.js';
 import { resolveHomeDirectory, resolveProjectDirectory } from './ProcessDefaults.js';
@@ -44,18 +43,22 @@ export const createTelemetryCommand = (dependencies: TelemetryCommandDependencie
   description: 'Inspect or change anonymous product analytics.',
   register(program: Command): void {
     const command = new Command('telemetry').description('Inspect or change anonymous product analytics.');
+    /* v8 ignore next -- console fallback is direct CLI behavior; tests inject a writer. */
+    const writeLine = dependencies.writeLine ?? console.log;
 
     const resolveDependencies = () => {
-      const homeDirectory = resolveHomeDirectory(dependencies.homeDirectory);
-      const projectDirectory = resolveProjectDirectory(dependencies.projectDirectory);
       const env = dependencies.env ?? process.env;
-      const settingsPath = join(homeDirectory, '.agents', 'settings.yml');
-      const settingsReader =
-        dependencies.settingsReader ??
-        (() => loadSettingsFiles(discoverSettingsLoadPlan({ homeDirectory, projectDirectory })));
-      const stateStore =
-        dependencies.stateStore ?? createTelemetryStateStore(resolveTelemetryStatePath(homeDirectory, env));
-      return { env, settingsPath, settingsReader, stateStore };
+      const context = createTelemetryContext({
+        homeDirectory: resolveHomeDirectory(dependencies.homeDirectory),
+        projectDirectory: resolveProjectDirectory(dependencies.projectDirectory),
+        env,
+      });
+      return {
+        env,
+        settingsPath: context.userSettingsPath,
+        settingsReader: dependencies.settingsReader ?? context.settingsReader,
+        stateStore: dependencies.stateStore ?? context.stateStore,
+      };
     };
 
     command
@@ -63,8 +66,7 @@ export const createTelemetryCommand = (dependencies: TelemetryCommandDependencie
       .description('Show whether telemetry is enabled and why.')
       .action(() => {
         const resolved = resolveDependencies();
-        /* v8 ignore next -- console fallback is direct CLI behavior; tests inject a writer. */
-        (dependencies.writeLine ?? console.log)(formatTelemetryStatus(resolved.settingsReader(), resolved.env));
+        writeLine(formatTelemetryStatus(resolved.settingsReader(), resolved.env));
       });
 
     command
@@ -73,8 +75,7 @@ export const createTelemetryCommand = (dependencies: TelemetryCommandDependencie
       .action(() => {
         const resolved = resolveDependencies();
         updateTelemetrySetting(resolved.settingsPath, true);
-        /* v8 ignore next -- console fallback is direct CLI behavior; tests inject a writer. */
-        (dependencies.writeLine ?? console.log)('Telemetry enabled in user settings.');
+        writeLine('Telemetry enabled in user settings.');
       });
 
     command
@@ -84,8 +85,7 @@ export const createTelemetryCommand = (dependencies: TelemetryCommandDependencie
         const resolved = resolveDependencies();
         updateTelemetrySetting(resolved.settingsPath, false);
         resolved.stateStore.delete();
-        /* v8 ignore next -- console fallback is direct CLI behavior; tests inject a writer. */
-        (dependencies.writeLine ?? console.log)('Telemetry disabled and installation identifier removed.');
+        writeLine('Telemetry disabled and installation identifier removed.');
       });
 
     program.addCommand(command);
