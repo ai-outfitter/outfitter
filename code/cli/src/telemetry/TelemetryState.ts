@@ -2,6 +2,8 @@ import { randomUUID } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
+import { resolveOutfitterStateDir } from '../paths/OutfitterCache.js';
+
 export interface TelemetryState {
   readonly installation_id: string;
   readonly notice_shown: boolean;
@@ -16,7 +18,7 @@ export interface TelemetryStateStore {
 export const resolveTelemetryStatePath = (
   homeDirectory: string,
   env: Readonly<Record<string, string | undefined>>,
-): string => join(env.XDG_STATE_HOME ?? join(homeDirectory, '.local', 'state'), 'outfitter', 'telemetry.json');
+): string => join(resolveOutfitterStateDir(env, homeDirectory), 'telemetry.json');
 
 const isTelemetryState = (value: unknown): value is TelemetryState => {
   if (value === null || typeof value !== 'object') return false;

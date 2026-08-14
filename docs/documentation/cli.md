@@ -7,7 +7,7 @@ Global options:
 | `-V, --version` | Print the Outfitter version. |
 | `-h, --help`    | Show help for a command.     |
 
-See [Telemetry](./telemetry.md) for the privacy-preserving analytics event contract and opt-out controls.
+See [Telemetry](./telemetry.md) for the pseudonymous analytics event contract and opt-out controls.
 
 ## `outfitter run [agent] [args...]`
 
@@ -88,4 +88,4 @@ Write the composed resource tree as a self-contained `.agents/` directory for re
 
 ## `outfitter telemetry`
 
-Inspect or change anonymous product analytics. Use `status` to show the effective state and source, `enable` to write `telemetry.enabled: true` in user settings, and `disable` to opt out and remove the pseudonymous installation identifier. See [Telemetry](./telemetry.md) for the complete contract.
+Inspect or change pseudonymous product analytics. Use `status` to show the effective state and source, `enable` to write `telemetry.enabled: true` in user settings, and `disable` to opt out and remove the installation identifier. See [Telemetry](./telemetry.md) for the complete contract.

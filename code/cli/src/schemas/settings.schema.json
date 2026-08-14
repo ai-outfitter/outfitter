@@ -36,7 +36,7 @@
     },
     "telemetry": {
       "type": "object",
-      "description": "Controls privacy-preserving Outfitter product analytics.",
+      "description": "Controls pseudonymous Outfitter product analytics.",
       "properties": {
         "enabled": {
           "type": "boolean",

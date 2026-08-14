@@ -55,7 +55,25 @@ export interface TelemetryClient {
 export interface TelemetryClientOptions {
   readonly host: string;
   readonly disableGeoip: true;
+  readonly fetch: TelemetryFetch;
 }
+
+export interface TelemetryFetchOptions {
+  readonly method: 'GET' | 'POST' | 'PUT' | 'PATCH';
+  readonly headers: Readonly<Record<string, string>>;
+  readonly body?: string | Blob;
+  readonly signal?: AbortSignal;
+}
+
+export interface TelemetryFetchResponse {
+  readonly status: number;
+  readonly text: () => Promise<string>;
+  readonly json: () => Promise<unknown>;
+  readonly headers?: { readonly get: (name: string) => string | null };
+  readonly body?: ReadableStream<Uint8Array> | null;
+}
+
+export type TelemetryFetch = (url: string, options: TelemetryFetchOptions) => Promise<TelemetryFetchResponse>;
 
 export type TelemetryClientFactory = (
   apiKey: string,
@@ -74,16 +92,42 @@ export interface TelemetryServiceDependencies {
   readonly env: TelemetryEnvironment;
   readonly writeError: (message: string) => void;
   readonly apiKey?: string;
-  readonly host?: string;
   readonly clientFactory?: TelemetryClientFactory;
   readonly shutdownBudgetMs?: number;
 }
 
-/* v8 ignore next 4 -- tests inject a client factory so they never load the network SDK. */
 const defaultClientFactory: TelemetryClientFactory = async (apiKey, options) => {
   const { PostHog } = await import('posthog-node');
   return new PostHog(apiKey, options);
 };
+
+const syntheticSuccess = (): TelemetryFetchResponse => ({
+  status: 200,
+  text: () => Promise.resolve(''),
+  json: () => Promise.resolve({}),
+  headers: { get: () => null },
+  body: null,
+});
+
+export const createBoundedTelemetryFetch =
+  (fetchImplementation: typeof globalThis.fetch, budgetMs: number): TelemetryFetch =>
+  async (url, options) => {
+    try {
+      // Leave a small margin for the SDK to finish its queue drain before its own shutdown timer fires.
+      const requestBudgetMs = Math.max(1, budgetMs - Math.min(50, budgetMs / 10));
+      const signal = AbortSignal.timeout(requestBudgetMs);
+      const deadline = new Promise<TelemetryFetchResponse>((resolve) => {
+        signal.addEventListener('abort', () => resolve(syntheticSuccess()), { once: true });
+      });
+      const request = fetchImplementation(url, { ...options, signal });
+      const response = await Promise.race([request, deadline]);
+      if (response.status >= 200 && response.status < 300) return response;
+      void response.body?.cancel().catch(() => undefined);
+      return syntheticSuccess();
+    } catch {
+      return syntheticSuccess();
+    }
+  };
 
 const durationBucket = (milliseconds: number): DurationBucket => {
   if (milliseconds < 1000) return '<1s';
@@ -116,11 +160,12 @@ export const buildCommandCompletedProperties = (context: TelemetryCompletionCont
 });
 
 const NOTICE =
-  'Outfitter collects anonymous command adoption and reliability analytics. No content, paths, or arguments are collected. Disable with `outfitter telemetry disable`, `OUTFITTER_TELEMETRY=0`, or `DO_NOT_TRACK=1`.';
+  'Outfitter collects pseudonymous command adoption and reliability analytics. No content, paths, or arguments are collected. Disable with `outfitter telemetry disable`, `OUTFITTER_TELEMETRY=0`, or `DO_NOT_TRACK=1`.';
 
 export const createTelemetryService = (dependencies: TelemetryServiceDependencies): TelemetryService => {
+  /* v8 ignore next -- tests never consume a compiled production key; they inject an empty or test key. */
   const apiKey = dependencies.apiKey ?? POSTHOG_API_KEY;
-  /* v8 ignore next -- tests inject a client factory so they never construct the network SDK. */
+  const shutdownBudgetMs = dependencies.shutdownBudgetMs ?? TELEMETRY_SHUTDOWN_BUDGET_MS;
   const clientFactory = dependencies.clientFactory ?? defaultClientFactory;
   let client: TelemetryClient | undefined;
   let distinctId: string | undefined;
@@ -133,8 +178,9 @@ export const createTelemetryService = (dependencies: TelemetryServiceDependencie
     if (apiKey === '') return false;
     if (!resolveTelemetryConsent(dependencies.settingsReader(), dependencies.env).enabled) return false;
     client = await clientFactory(apiKey, {
-      host: dependencies.host ?? POSTHOG_HOST,
+      host: POSTHOG_HOST,
       disableGeoip: true,
+      fetch: createBoundedTelemetryFetch(globalThis.fetch.bind(globalThis), shutdownBudgetMs),
     });
     const state = dependencies.stateStore.readOrCreate();
     distinctId = state.installation_id;
@@ -162,17 +208,10 @@ export const createTelemetryService = (dependencies: TelemetryServiceDependencie
     captureCommandCompleted: (context) => capture('cli command completed', buildCommandCompletedProperties(context)),
     async shutdown(): Promise<void> {
       if (client === undefined) return;
-      let timeout: ReturnType<typeof setTimeout> | undefined;
       try {
-        const budget = dependencies.shutdownBudgetMs ?? TELEMETRY_SHUTDOWN_BUDGET_MS;
-        const deadline = new Promise<void>((resolve) => {
-          timeout = setTimeout(resolve, budget);
-        });
-        await Promise.race([Promise.resolve(client.shutdown(budget)).catch(() => undefined), deadline]);
+        await client.shutdown(shutdownBudgetMs);
       } catch {
         // Analytics must never affect command behavior or emit diagnostics.
-      } finally {
-        clearTimeout(timeout);
       }
     },
   };

@@ -1,6 +1,6 @@
 # Telemetry
 
-Outfitter collects privacy-preserving product analytics to measure command adoption and reliability. Telemetry is enabled by default and can be disabled at any time.
+Outfitter collects pseudonymous product analytics to measure command adoption and reliability. Telemetry is enabled by default and can be disabled at any time.
 
 The first command that would send an event prints a one-time notice to stderr. The notice explains what is collected, what is excluded, and how to opt out. When the distributed build has no configured PostHog API key, telemetry is inert: it creates no client or state, sends no events, and prints no notice.
 
@@ -37,7 +37,7 @@ The CLI boundary does not currently have a warning counter, so `warning_count_bu
 
 Outfitter never sends command arguments, pass-through arguments, prompts or responses, paths, repository data, agent or profile names, settings, environment values, error text, stack traces, session identifiers, child-process output, hostnames, usernames, or hardware identifiers.
 
-The pseudonymous installation identifier is a random UUID. It is created lazily on the first capture and stored with the one-time-notice flag at `$XDG_STATE_HOME/outfitter/telemetry.json`, or `~/.local/state/outfitter/telemetry.json` when `XDG_STATE_HOME` is unset. It is deliberately kept outside `~/.agents` so it cannot be committed with shared configuration.
+The pseudonymous installation identifier is a random UUID. It is created lazily on the first capture and stored with the one-time-notice flag at `$XDG_STATE_HOME/outfitter/telemetry.json`, or `~/.local/state/outfitter/telemetry.json` when `XDG_STATE_HOME` is unset or blank. It is deliberately kept outside `~/.agents` so it cannot be committed with shared configuration.
 
 ## Control telemetry
 
@@ -49,6 +49,8 @@ telemetry:
 ```
 
 Telemetry defaults to enabled when the setting is absent. Only user and user-local settings can enable it. A `false` value in user, user-local, project, or project-local settings disables it; remote or catalog settings cannot enable telemetry.
+
+If an applicable settings file cannot be parsed or validated, telemetry fails closed. `outfitter telemetry status` reports the source as `invalid settings` until the settings error is corrected.
 
 Use the CLI to inspect or change the setting:
 
@@ -66,4 +68,4 @@ These environment variables disable capture for the current process:
 - `DO_NOT_TRACK=1`
 - `CI=true` or `CI=1`
 
-At exit, Outfitter gives queued analytics at most 1000 ms to shut down. Analytics failures or dropped networks never change command output, behavior, exit status, or delay exit beyond that budget.
+At exit, Outfitter gives queued analytics at most 1000 ms to shut down. Analytics failures or dropped networks never change command output, behavior, or exit status. They never delay exit beyond that budget.

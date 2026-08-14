@@ -17,12 +17,6 @@ export const createProgram = createOutfitterProgram;
 
 export interface CliTelemetryDependencies {
   readonly telemetry?: TelemetryService;
-  readonly now?: () => number;
-  readonly version?: string;
-  readonly nodeVersion?: string;
-  readonly platform?: string;
-  readonly architecture?: string;
-  readonly interactive?: boolean;
 }
 
 const topLevelAction = (program: Command, actionCommand: Command): Command => {
@@ -37,11 +31,7 @@ export const resolveTelemetryCommandName = (program: Command, actionCommand: Com
   return registered.has(topLevel.name()) ? topLevel.name() : 'unknown';
 };
 
-const commandContext = (
-  program: Command,
-  actionCommand: Command,
-  dependencies: CliTelemetryDependencies,
-): TelemetryCommandContext => {
+const commandContext = (program: Command, actionCommand: Command): TelemetryCommandContext => {
   const command = resolveTelemetryCommandName(program, actionCommand);
   const options = actionCommand.opts<{ harness?: unknown; strict?: unknown }>();
   // The telemetry property builder maps the harness through its allowlist; pass the raw option through.
@@ -49,11 +39,11 @@ const commandContext = (
 
   return {
     command,
-    outfitterVersion: dependencies.version ?? readOutfitterVersion(),
-    nodeVersion: dependencies.nodeVersion ?? process.versions.node,
-    platform: dependencies.platform ?? process.platform,
-    architecture: dependencies.architecture ?? process.arch,
-    interactive: dependencies.interactive ?? Boolean(process.stdin.isTTY && process.stdout.isTTY),
+    outfitterVersion: readOutfitterVersion(),
+    nodeVersion: process.versions.node,
+    platform: process.platform,
+    architecture: process.arch,
+    interactive: Boolean(process.stdin.isTTY && process.stdout.isTTY),
     harness,
     strict: options.strict === true,
   };
@@ -79,13 +69,12 @@ export const runCli = async (
   dependencies: CliTelemetryDependencies = {},
 ): Promise<void> => {
   const telemetry = dependencies.telemetry ?? createProcessTelemetryService();
-  const now = dependencies.now ?? Date.now;
   let startedAt: number | undefined;
   let context: TelemetryCommandContext | undefined;
 
   program.hook('preAction', async (_thisCommand, actionCommand) => {
-    startedAt = now();
-    context = commandContext(program, actionCommand, dependencies);
+    startedAt = Date.now();
+    context = commandContext(program, actionCommand);
     await telemetry.captureCommandStarted(context);
   });
 
@@ -98,7 +87,7 @@ export const runCli = async (
       await telemetry.captureCommandCompleted({
         ...context,
         outcome: exitCode === 0 ? 'success' : 'error',
-        durationMs: now() - startedAt,
+        durationMs: Date.now() - startedAt,
         exitCode,
       });
     }

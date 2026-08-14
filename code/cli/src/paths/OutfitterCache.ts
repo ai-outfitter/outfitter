@@ -18,3 +18,15 @@ export const resolveOutfitterCacheDir = (
   }
   return join(homeDirectory, '.cache', 'outfitter');
 };
+
+/** Standard machine-local state root for Outfitter, with blank XDG values treated as unset. */
+export const resolveOutfitterStateDir = (
+  env: Readonly<Record<string, string | undefined>>,
+  homeDirectory: string,
+): string => {
+  const xdgStateHome = env.XDG_STATE_HOME;
+  if (xdgStateHome !== undefined && xdgStateHome.trim() !== '') {
+    return join(xdgStateHome, 'outfitter');
+  }
+  return join(homeDirectory, '.local', 'state', 'outfitter');
+};

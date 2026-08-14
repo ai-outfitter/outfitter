@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 
 import { Command } from 'commander';
-import { parseDocument } from 'yaml';
+import { isMap, parseDocument } from 'yaml';
 
 import type { SettingsLoadResult } from '../../settings/SettingsLoader.js';
 import { resolveTelemetryConsent } from '../../telemetry/TelemetryConsent.js';
@@ -25,7 +25,13 @@ export const updateTelemetrySetting = (settingsPath: string, enabled: boolean): 
   const source = existsSync(settingsPath) ? readFileSync(settingsPath, 'utf8') : '';
   const document = parseDocument(source);
   if (document.errors.length > 0) throw new Error(`Cannot update invalid YAML in ${settingsPath}.`);
-  document.setIn(['telemetry', 'enabled'], enabled);
+  try {
+    const telemetry = document.get('telemetry', true);
+    if (telemetry !== undefined && !isMap(telemetry)) document.set('telemetry', document.createNode({}));
+    document.setIn(['telemetry', 'enabled'], enabled);
+  } catch {
+    throw new Error(`Cannot update invalid YAML in ${settingsPath}.`);
+  }
   mkdirSync(dirname(settingsPath), { recursive: true });
   writeFileSync(settingsPath, document.toString());
 };
@@ -40,9 +46,9 @@ export const formatTelemetryStatus = (loaded: SettingsLoadResult, env: Telemetry
 
 export const createTelemetryCommand = (dependencies: TelemetryCommandDependencies = {}): CommandObject => ({
   name: 'telemetry',
-  description: 'Inspect or change anonymous product analytics.',
+  description: 'Inspect or change pseudonymous product analytics.',
   register(program: Command): void {
-    const command = new Command('telemetry').description('Inspect or change anonymous product analytics.');
+    const command = new Command('telemetry').description('Inspect or change pseudonymous product analytics.');
     /* v8 ignore next -- console fallback is direct CLI behavior; tests inject a writer. */
     const writeLine = dependencies.writeLine ?? console.log;
 

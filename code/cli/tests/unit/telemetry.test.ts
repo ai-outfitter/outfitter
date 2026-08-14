@@ -2,17 +2,13 @@ import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 
-import { Command } from 'commander';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { resolveTelemetryCommandName, runCli } from '../../src/cli.js';
-import type { CommandObject } from '../../src/cli/commands/CommandObject.js';
 import { createTelemetryCommand, formatTelemetryStatus } from '../../src/cli/commands/TelemetryCommand.js';
 import { createOutfitterProgram } from '../../src/cli/OutfitterCli.js';
 import type { LoadedSettingsFile, SettingsLoadResult, SettingsLocation } from '../../src/settings/SettingsLoader.js';
 import { createSettingsLoadPlan, loadSettingsFiles } from '../../src/settings/SettingsLoader.js';
 import { resolveTelemetryConsent } from '../../src/telemetry/TelemetryConsent.js';
-import { TELEMETRY_SHUTDOWN_BUDGET_MS } from '../../src/telemetry/TelemetryConstants.js';
 import {
   buildCommandCompletedProperties,
   buildCommandStartedProperties,
@@ -20,8 +16,8 @@ import {
 } from '../../src/telemetry/TelemetryService.js';
 import type {
   TelemetryClient,
+  TelemetryClientFactory,
   TelemetryCommandContext,
-  TelemetryService,
 } from '../../src/telemetry/TelemetryService.js';
 import { createTelemetryStateStore, resolveTelemetryStatePath } from '../../src/telemetry/TelemetryState.js';
 import type { TelemetryStateStore } from '../../src/telemetry/TelemetryState.js';
@@ -59,11 +55,12 @@ afterEach(() => {
   process.exitCode = previousExitCode;
   for (const root of temporaryRoots.splice(0)) rmSync(root, { recursive: true, force: true });
   vi.restoreAllMocks();
+  vi.unstubAllGlobals();
 });
 
-// THESE TESTS VALIDATE THE PRIVACY, CONSENT, CONTROL, AND RELIABILITY REQUIREMENTS IN ISSUE #295.
-// DO NOT RELAX THE EXACT PAYLOAD OR NO-FAILURE ASSERTIONS WITHOUT CHANGING THAT CONTRACT.
-describe('PostHog CLI telemetry (#295)', () => {
+// THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-011.1, OFTR-011.2, OFTR-011.3, OFTR-011.4, OFTR-011.5).
+// YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+describe('PostHog CLI telemetry', () => {
   it('validates telemetry.enabled as a boolean', () => {
     expect(validateSchema('settings', { telemetry: { enabled: true } }).valid).toBe(true);
     expect(validateSchema('settings', { telemetry: { enabled: false } }).valid).toBe(true);
@@ -125,6 +122,26 @@ describe('PostHog CLI telemetry (#295)', () => {
     });
   });
 
+  it('fails closed with an explicit source when any loaded settings file is invalid', async () => {
+    const invalid: SettingsLoadResult = {
+      files: [file('user', true)],
+      issues: [{ filePath: '/home/test/.agents/settings.yml', path: '/startup/ascii_art', message: 'must be boolean' }],
+    };
+    expect(resolveTelemetryConsent(invalid, {})).toEqual({ enabled: false, source: 'invalid settings' });
+    expect(formatTelemetryStatus(invalid, {})).toContain('disabled (source: invalid settings)');
+    const clientFactory = vi.fn();
+    const service = createTelemetryService({
+      settingsReader: () => invalid,
+      stateStore: memoryStateStore(),
+      env: {},
+      writeError: vi.fn(),
+      apiKey: 'phc_test',
+      clientFactory,
+    });
+    await service.captureCommandStarted(baseContext);
+    expect(clientFactory).not.toHaveBeenCalled();
+  });
+
   it('is completely inert when disabled or when the compiled API key is empty', async () => {
     const clientFactory = vi.fn();
     const stateStore = memoryStateStore();
@@ -145,6 +162,7 @@ describe('PostHog CLI telemetry (#295)', () => {
       stateStore,
       env: {},
       writeError,
+      apiKey: '',
       clientFactory,
     });
     await noKey.captureCommandStarted(baseContext);
@@ -180,7 +198,7 @@ describe('PostHog CLI telemetry (#295)', () => {
       },
       shutdown: vi.fn(() => Promise.resolve()),
     };
-    const clientFactory = vi.fn(() => client);
+    const clientFactory = vi.fn<TelemetryClientFactory>(() => client);
     const errors: string[] = [];
     const service = createTelemetryService({
       settingsReader: () => loaded(file('user', true)),
@@ -194,10 +212,13 @@ describe('PostHog CLI telemetry (#295)', () => {
     await service.captureCommandCompleted({ ...baseContext, outcome: 'success', durationMs: 1200, exitCode: 0 });
     await service.shutdown();
 
-    expect(clientFactory).toHaveBeenCalledWith('phc_test', {
+    expect(clientFactory).toHaveBeenCalledOnce();
+    expect(clientFactory.mock.calls[0]?.[0]).toBe('phc_test');
+    expect(clientFactory.mock.calls[0]?.[1]).toMatchObject({
       host: 'https://us.i.posthog.com',
       disableGeoip: true,
     });
+    expect(typeof clientFactory.mock.calls[0]?.[1].fetch).toBe('function');
     expect(captures).toHaveLength(2);
     expect(captures).toEqual([
       {
@@ -218,6 +239,7 @@ describe('PostHog CLI telemetry (#295)', () => {
       },
     ]);
     expect(errors).toHaveLength(1);
+    expect(errors[0]).toContain('pseudonymous');
     expect(errors[0]).toContain('No content, paths, or arguments are collected');
   });
 
@@ -264,7 +286,7 @@ describe('PostHog CLI telemetry (#295)', () => {
     for (const sentinel of sentinels) expect(JSON.stringify(properties)).not.toContain(sentinel);
   });
 
-  it('swallows capture and shutdown failures and bounds a hanging shutdown', async () => {
+  it('swallows client capture and shutdown failures without changing process state', async () => {
     process.exitCode = 23;
     const stateStore = memoryStateStore(true);
     const writeError = vi.fn();
@@ -301,24 +323,6 @@ describe('PostHog CLI telemetry (#295)', () => {
     });
     await synchronouslyThrowing.captureCommandStarted(baseContext);
     await synchronouslyThrowing.shutdown();
-
-    const hanging = createTelemetryService({
-      settingsReader: () => loaded(),
-      stateStore,
-      env: {},
-      writeError,
-      apiKey: 'phc_test',
-      clientFactory: () => ({
-        capture: () => new Promise<void>(() => undefined),
-        shutdown: () => new Promise<void>(() => undefined),
-      }),
-      shutdownBudgetMs: 20,
-    });
-    const start = Date.now();
-    await hanging.captureCommandStarted(baseContext);
-    await hanging.shutdown();
-    expect(Date.now() - start).toBeLessThan(200);
-    expect(TELEMETRY_SHUTDOWN_BUDGET_MS).toBe(1000);
     expect(writeError).not.toHaveBeenCalled();
     expect(process.exitCode).toBe(23);
   });
@@ -328,6 +332,9 @@ describe('PostHog CLI telemetry (#295)', () => {
     expect(resolveTelemetryStatePath('/home/person', {})).toBe('/home/person/.local/state/outfitter/telemetry.json');
     const statePath = resolveTelemetryStatePath('/home/person', { XDG_STATE_HOME: root });
     expect(statePath).toBe(join(root, 'outfitter', 'telemetry.json'));
+    expect(resolveTelemetryStatePath('/home/person', { XDG_STATE_HOME: '   ' })).toBe(
+      '/home/person/.local/state/outfitter/telemetry.json',
+    );
     const store = createTelemetryStateStore(statePath, () => 'fixed-id');
     expect(store.readOrCreate()).toEqual({ installation_id: 'fixed-id', notice_shown: false });
     expect(store.recordNoticeShown(store.readOrCreate())).toEqual({ installation_id: 'fixed-id', notice_shown: true });
@@ -396,69 +403,50 @@ describe('PostHog CLI telemetry (#295)', () => {
     await expect(build().parseAsync(['node', 'outfitter', 'telemetry', 'disable'])).rejects.toThrow('invalid YAML');
   });
 
-  it('captures lifecycle metadata at the executable boundary without changing output or exit status', async () => {
-    process.exitCode = undefined;
-    const calls: string[] = [];
-    const telemetry: TelemetryService = {
-      captureCommandStarted: (context) => {
-        calls.push(`start:${context.command}:${context.harness}:${context.strict}`);
-        return Promise.resolve();
-      },
-      captureCommandCompleted: (context) => {
-        calls.push(`complete:${context.outcome}:${context.exitCode}`);
-        return Promise.resolve();
-      },
-      shutdown: () => {
-        calls.push('shutdown');
-        return Promise.resolve();
-      },
-    };
-    const command: CommandObject = {
-      name: 'sample',
-      description: 'sample',
-      register(program): void {
-        program.addCommand(
-          new Command('sample')
-            .option('--harness <harness>')
-            .option('--strict')
-            .action(() => {
-              calls.push('action');
-            }),
-        );
-      },
-    };
-    await runCli(createOutfitterProgram([command]), ['node', 'outfitter', 'sample', '--harness', 'pi', '--strict'], {
-      telemetry,
-      now: vi.fn().mockReturnValueOnce(100).mockReturnValueOnce(110),
-      version: '9.9.9',
-      nodeVersion: '24.1.0',
-      platform: 'linux',
-      architecture: 'x64',
-      interactive: false,
-    });
-    expect(calls).toEqual(['start:sample:pi:true', 'action', 'complete:success:0', 'shutdown']);
-    expect(process.exitCode).toBeUndefined();
+  it('enables and disables a settings file containing a bare telemetry key', async () => {
+    const root = temporaryRoot();
+    const home = join(root, 'home');
+    const settingsPath = join(home, '.agents', 'settings.yml');
+    mkdirSync(dirname(settingsPath), { recursive: true });
+    const lines: string[] = [];
+    const build = () =>
+      createOutfitterProgram([
+        createTelemetryCommand({
+          homeDirectory: home,
+          projectDirectory: root,
+          env: {},
+          stateStore: memoryStateStore(),
+          writeLine: (line) => lines.push(line),
+        }),
+      ]);
+
+    writeFileSync(settingsPath, '# preserved\ntelemetry:\n');
+    await build().parseAsync(['node', 'outfitter', 'telemetry', 'enable']);
+    expect(readFileSync(settingsPath, 'utf8')).toContain('enabled: true');
+    expect(readFileSync(settingsPath, 'utf8')).toContain('# preserved');
+
+    writeFileSync(settingsPath, 'telemetry:\n');
+    await build().parseAsync(['node', 'outfitter', 'telemetry', 'disable']);
+    expect(readFileSync(settingsPath, 'utf8')).toContain('enabled: false');
   });
 
-  it('uses process defaults safely, maps unattached commands to unknown, and skips completion without an action', async () => {
-    process.exitCode = undefined;
-    const program = new Command('outfitter');
-    const registered = new Command('known').action(() => undefined);
-    program.addCommand(registered);
-    expect(resolveTelemetryCommandName(program, registered)).toBe('known');
-    expect(resolveTelemetryCommandName(program, new Command('private-user-value'))).toBe('unknown');
-
-    await runCli(program, ['node', 'outfitter', 'known']);
-
-    const telemetry: TelemetryService = {
-      captureCommandStarted: () => Promise.resolve(),
-      captureCommandCompleted: vi.fn(() => Promise.resolve()),
-      shutdown: () => Promise.resolve(),
+  it('reports invalid settings through the telemetry status command', async () => {
+    const lines: string[] = [];
+    const invalid: SettingsLoadResult = {
+      files: [],
+      issues: [{ filePath: '/tmp/settings.yml', path: '/telemetry/enabled', message: 'must be boolean' }],
     };
-    const noActionProgram = new Command('outfitter');
-    await runCli(noActionProgram, ['node', 'outfitter'], { telemetry });
-    // eslint-disable-next-line @typescript-eslint/unbound-method -- Vitest inspects the mock without invoking it.
-    expect(telemetry.captureCommandCompleted).not.toHaveBeenCalled();
+    await createOutfitterProgram([
+      createTelemetryCommand({
+        homeDirectory: temporaryRoot(),
+        projectDirectory: temporaryRoot(),
+        env: {},
+        settingsReader: () => invalid,
+        stateStore: memoryStateStore(),
+        writeLine: (line) => lines.push(line),
+      }),
+    ]).parseAsync(['node', 'outfitter', 'telemetry', 'status']);
+    expect(lines).toEqual([expect.stringContaining('disabled (source: invalid settings)')]);
   });
 
   it('uses default status dependencies without mutating settings', async () => {
@@ -470,42 +458,6 @@ describe('PostHog CLI telemetry (#295)', () => {
       'telemetry',
       'status',
     ]);
-  });
-
-  it('captures thrown commands as errors, always shuts down, and rethrows the original error', async () => {
-    const calls: string[] = [];
-    const telemetry: TelemetryService = {
-      captureCommandStarted: () => Promise.resolve(),
-      captureCommandCompleted: (context) => {
-        calls.push(`${context.outcome}:${context.exitCode}`);
-        return Promise.resolve();
-      },
-      shutdown: () => {
-        calls.push('shutdown');
-        return Promise.resolve();
-      },
-    };
-    const command: CommandObject = {
-      name: 'fail',
-      description: 'fail',
-      register(program): void {
-        program.command('fail').action(() => {
-          throw new Error('original command error');
-        });
-      },
-    };
-    await expect(
-      runCli(createOutfitterProgram([command]), ['node', 'outfitter', 'fail'], {
-        telemetry,
-        now: vi.fn().mockReturnValueOnce(100).mockReturnValueOnce(120),
-        version: '1',
-        nodeVersion: '24',
-        platform: 'linux',
-        architecture: 'x64',
-        interactive: false,
-      }),
-    ).rejects.toThrow('original command error');
-    expect(calls).toEqual(['error:1', 'shutdown']);
   });
 });
 

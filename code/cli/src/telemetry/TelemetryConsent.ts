@@ -6,6 +6,7 @@ export type TelemetryConsentSource =
   | 'user-local settings'
   | 'project settings'
   | 'project-local settings'
+  | 'invalid settings'
   | 'OUTFITTER_TELEMETRY'
   | 'DO_NOT_TRACK'
   | 'CI';
@@ -42,6 +43,7 @@ const environmentConsent = (env: TelemetryEnvironment): TelemetryConsent | undef
 export const resolveTelemetryConsent = (loaded: SettingsLoadResult, env: TelemetryEnvironment): TelemetryConsent => {
   const killed = environmentConsent(env);
   if (killed !== undefined) return killed;
+  if (loaded.issues.length > 0) return { enabled: false, source: 'invalid settings' };
 
   // Any local opt-out wins. Remote settings are deliberately excluded from consent.
   const disabled = loaded.files.findLast(
