@@ -29,6 +29,13 @@ outfitter run engineer --harness codex -- exec "review this repo"
 outfitter run persona-reviewer -- --print "summarize this repo"
 ```
 
+Because `run` is the default command, leading flags that Outfitter does not own are forwarded to the harness automatically. With a configured `default_agent`, the following forms pass flags directly to Pi:
+
+```bash
+outfitter -r            # equivalent to: outfitter run -- -r
+outfitter --resume      # equivalent to: outfitter run -- --resume
+```
+
 ## `outfitter setup [source]`
 
 Open the bundled Pi walkthrough using the original setup wording and sequence. Choose **Use the

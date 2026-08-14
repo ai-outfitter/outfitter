@@ -421,6 +421,16 @@ export const createRunAgentCommand = (dependencies: RunAgentDependencies = {}): 
             appendPrompt?: readonly string[];
           },
         ) => {
+          // When run is the default command, Commander consumes leading flags like `-r` or `--resume`
+          // as the optional [agent] positional. Reclassify option-shaped agent values as pass-through
+          // arguments so they reach the harness CLI instead of failing agent resolution.
+          let effectiveAgent = agent;
+          let effectivePassThrough = passThroughArgs;
+          if (agent !== undefined && agent.startsWith('-')) {
+            effectiveAgent = undefined;
+            effectivePassThrough = [agent, ...passThroughArgs];
+          }
+
           /* v8 ignore next 3 -- process/launcher defaults are exercised by the CLI entrypoint, not unit tests. */
           const homeDirectory = resolveHomeDirectory(dependencies.homeDirectory);
           const projectDirectory = resolveProjectDirectory(dependencies.projectDirectory);
@@ -428,11 +438,11 @@ export const createRunAgentCommand = (dependencies: RunAgentDependencies = {}): 
           const result = await executeRunAgentCommand({
             homeDirectory,
             projectDirectory,
-            agent,
+            agent: effectiveAgent,
             harness: options.harness,
             logLevel: options.logLevel,
             strict: options.strict,
-            passThroughArgs,
+            passThroughArgs: effectivePassThrough,
             appendPromptPaths: options.appendPrompt,
             launcher,
             setup: dependencies.setup ?? interactiveSetupRunner,
