@@ -6,6 +6,8 @@ REPO_ROOT="$(cd -- "$SCRIPT_DIR/.." && pwd)"
 
 IMAGE="outfitter-dev:local"
 PI_VOLUME="outfitter-pi-agent"
+CLAUDE_VOLUME="outfitter-claude-agent"
+CODEX_VOLUME="outfitter-codex-agent"
 SETUP_SOURCE=""
 SKIP_BUILD=0
 
@@ -18,12 +20,12 @@ usage() {
   cat <<'USAGE'
 Usage: bin/dev-container-setup [options] [setup-source] [-- <outfitter setup args>]
 
-Build the local Outfitter Nix image, start in /workspace, and run Outfitter.
+Build the local all-harness Outfitter Nix image, start in /workspace, and run Outfitter.
 With no setup-source, this opens `outfitter`. With setup-source, it opens
 Pi-native setup through `outfitter setup <setup-source>`.
 
-Pi credentials and settings are stored in a named container volume mounted at
-~/.pi/agent. They are not copied from the host.
+Pi, Claude Code, and Codex credentials and sessions are stored in named
+container volumes. They are not copied from the host.
 
 When setup-source is a local directory, it is mounted read-only into the
 container. Remote Git URLs are passed through unchanged.
@@ -68,9 +70,9 @@ command -v docker >/dev/null 2>&1 || die "docker is required"
 command -v nix >/dev/null 2>&1 || die "nix is required"
 
 if [[ "$SKIP_BUILD" -eq 0 ]]; then
-  nix build "$REPO_ROOT#container" --out-link "$REPO_ROOT/result"
+  nix build --accept-flake-config "$REPO_ROOT#container-dev" --out-link "$REPO_ROOT/result"
   docker load < "$REPO_ROOT/result"
-  docker tag outfitter:latest "$IMAGE"
+  docker tag outfitter-dev:latest "$IMAGE"
 fi
 
 RUN_FLAGS=(--rm)
@@ -79,8 +81,11 @@ if [[ -t 0 && -t 1 ]]; then
 fi
 
 RUN_FLAGS+=(
+  -e ANTHROPIC_API_KEY
   -e OPENAI_API_KEY
-  --mount "type=volume,source=$PI_VOLUME,target=/tmp/.pi/agent"
+  --mount "type=volume,source=$PI_VOLUME,target=/home/outfitter/.pi/agent"
+  --mount "type=volume,source=$CLAUDE_VOLUME,target=/home/outfitter/.claude"
+  --mount "type=volume,source=$CODEX_VOLUME,target=/home/outfitter/.codex"
   -w /workspace
 )
 

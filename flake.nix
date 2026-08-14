@@ -1,10 +1,20 @@
 {
   description = "Outfitter — reproducible configuration for agent CLIs";
 
-  inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+  nixConfig = {
+    extra-substituters = [ "https://cache.numtide.com" ];
+    extra-trusted-public-keys = [
+      "niks3.numtide.com-1:DTx8wZduET09hRmMtKdQDxNNthLQETkc/yaX7M4qK0g="
+    ];
+  };
+
+  inputs = {
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+    llm-agents.url = "github:numtide/llm-agents.nix";
+  };
 
   outputs =
-    { nixpkgs, ... }:
+    { nixpkgs, llm-agents, ... }:
     let
       supportedSystems = [
         "aarch64-darwin"
@@ -17,6 +27,7 @@
           pkgs,
           outfitterPackage,
           extraPackages ? [ ],
+          home ? "/tmp",
           name ? "outfitter",
           tag ? "latest",
         }:
@@ -50,6 +61,7 @@
           contents = [ runtime ];
           extraCommands = ''
             mkdir -p etc tmp workspace
+            ${nixpkgs.lib.optionalString (home != "/tmp") ''mkdir -p ".${home}"''}
             # root must exist even though nothing here runs as root. A derived
             # image does `USER root` to COPY and chmod its own entrypoint, and
             # the builder resolves that name against this passwd file — without
@@ -57,17 +69,20 @@
             # looking up user root" before the layer even executes, which makes
             # the image unusable as the base this exists to be.
             printf 'root:x:0:0:root:/root:/bin/bash\n' > etc/passwd
-            printf 'outfitter:x:1000:1000:Outfitter:/tmp:/bin/bash\n' >> etc/passwd
+            printf 'outfitter:x:1000:1000:Outfitter:${home}:/bin/bash\n' >> etc/passwd
             printf 'nobody:x:65534:65534:nobody:/var/empty:/bin/false\n' >> etc/passwd
             printf 'root:x:0:\n' > etc/group
             printf 'outfitter:x:1000:\n' >> etc/group
             printf 'nogroup:x:65534:\n' >> etc/group
             chmod 1777 tmp workspace
           '';
+          fakeRootCommands = nixpkgs.lib.optionalString (home != "/tmp") ''
+            chown 1000:1000 ".${home}"
+          '';
           config = {
             Entrypoint = [ "${outfitterPackage}/bin/outfitter" ];
             Env = [
-              "HOME=/tmp"
+              "HOME=${home}"
               "PATH=/bin:/usr/bin"
               "SSL_CERT_FILE=/etc/ssl/certs/ca-bundle.crt"
               "NIX_SSL_CERT_FILE=/etc/ssl/certs/ca-bundle.crt"
@@ -174,6 +189,19 @@
           container = mkContainer {
             inherit pkgs;
             outfitterPackage = outfitter;
+          };
+
+          # The interactive setup smoke image includes every harness offered by onboarding. Keep
+          # the published generic container lean; Numtide owns the fast-moving CLI packages here.
+          container-dev = mkContainer {
+            inherit pkgs;
+            outfitterPackage = outfitter;
+            home = "/home/outfitter";
+            name = "outfitter-dev";
+            extraPackages = [
+              llm-agents.packages.${system}.claude-code
+              llm-agents.packages.${system}.codex
+            ];
           };
         }
       );
