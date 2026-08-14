@@ -37,6 +37,8 @@ The fine-grained work token has exactly one resource owner as a property of the 
 
 [`ai-outfitter/agent-operator`](https://github.com/ai-outfitter/agent-operator) runs resident agents on Kubernetes: an `Organization` names the catalog and its pin, an `Agent` names the profile and the credentials it projects. [In-cluster agents](../documentation/in-cluster.md) covers the primitives.
 
+Commit those manifests at `agents/<id>/deployment.yaml`, beside the agent's profile, one directory per agent. The next runbook deploys by globbing exactly that path — so putting them there now makes continuous deployment a workflow you point at a tree you already have, instead of a migration you perform first. A directory may hold a `deployment.yaml` and no `agent.md`, which is how you deploy an agent whose profile a different catalog defines.
+
 Two things to get right, because both fail quietly:
 
 - **Pin the catalog to a full commit SHA**, and move every copy of that revision together. A revision that differs between the organization pin and anything that reads it produces an agent resolving a catalog nobody meant to ship.
