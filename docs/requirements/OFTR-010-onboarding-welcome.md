@@ -33,6 +33,19 @@
    first-run setup → relaunch → `/login`, later launches start with an active model and do not
    re-prompt.
 
+## OFTR-010.6: Quiet runtime startup
+
+1. An Outfitter-managed interactive Pi session MUST default `quietStartup` to `true` when the
+   selected profile does not set it explicitly.
+2. A profile's explicit `quietStartup` value MUST take precedence over the Outfitter default.
+3. Normal startup MUST render one identity header in the form `Outfitter · <profile label>` and
+   MUST NOT render a duplicate profile status or runtime version text.
+4. A successful setup that immediately launches a concrete profile MUST NOT print file-write or
+   transition notices before the profile UI.
+5. A successful non-strict run MUST suppress resolver hygiene diagnostics. It MUST continue to
+   report blocking errors and warnings that describe a degraded launch. Diagnostic commands and
+   strict mode MUST retain complete resolution diagnostics.
+
 ## OFTR-010.2: Exact walkthrough
 
 1. The first prompt MUST be `How would you like to set up Outfitter?` with, in order:

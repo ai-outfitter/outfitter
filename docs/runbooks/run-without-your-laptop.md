@@ -8,7 +8,11 @@
 
 ## 1. Pick a workflow you already do by hand
 
-Not the most valuable one — the one you understand best. Issue triage, a release note, a dependency bump, a first-pass review.
+Not the most valuable one — the one you understand best.
+
+**Start with issue triage, then pull-request review.** Both are cheap to run in Actions: the trigger is a forge event the platform already delivers, and the credential is the job's own `GITHUB_TOKEN`. Both also have a prerequisite that decides how well they work. Add issue templates at `.github/ISSUE_TEMPLATE/` before triage, so the agent reads a typed form rather than guessing at prose; add `CODEOWNERS` before review, so the agent respects routing the forge already applies. `ai-outfitter/actions` ships both as examples — [`issue-triage-dispatch.yml`](https://github.com/ai-outfitter/actions/blob/main/examples/issue-triage-dispatch.yml) and [`review-undrafted-pr.yml`](https://github.com/ai-outfitter/actions/blob/main/examples/review-undrafted-pr.yml). Model configuration comes from your catalog's `models.json`, and the provider key is passed to the step as `env:`.
+
+Run these two in Actions even if you already have a Kubernetes cluster. A cluster buys persistence between runs, runtimes longer than a job, and scope across repositories; triaging one issue and reviewing one pull request need none of the three, and a resident agent must first receive the event through a webhook receiver you build and a standing credential you rotate. Give an agent a residence when a job needs what a workflow cannot do — not for these two.
 
 Never automate a workflow you have not first done manually. If you cannot write down what a good result looks like, you cannot tell whether the automated version worked, and you will end up trusting it because it ran rather than because it was right.
 
@@ -40,7 +44,7 @@ An agent that can merge its own work is not automated, it is unsupervised. Prote
 
 Keep the bot out of `CODEOWNERS`, so its approval never satisfies a required review by itself.
 
-## 4. Capture the session
+## 4. Capture the session, then require it
 
 The transcript is the difference between "the agent did something" and an auditable record. The action uploads the full session as a workflow artifact:
 
@@ -55,13 +59,23 @@ The transcript is the difference between "the agent did something" and an audita
 
 Capture the session before the change lands, not after. A transcript attached to a merged change nobody read is a log; a transcript on the pull request is evidence a reviewer can use.
 
+**Uploading is not yet a gate.** An artifact nothing requires is a courtesy — the next branch can drop the step and its change still lands. Make the capture report a status check, then require that check:
+
+- Name the check so the convention is legible: a context under `evidence/`, or one containing `transcript`, `session-capture`, `audit-trail`, or `audit-log`.
+- Require it on the default branch through a ruleset or branch protection. A ruleset file committed in the repository is an import source, not an active rule.
+- Block direct pushes to the default branch. Requiring a pull request is the only preventive control available, because github.com runs no pre-receive hook; without it a commit lands having passed nothing.
+- Give no actor an unconditional ruleset bypass. A break-glass path is fine, but it must be recorded and produce its own evidence — a silent exemption is not one.
+- Let the check run at least once. Required and reporting are different facts, and a required check that never reports leaves a pending status and gates nothing.
+
+The assessment reads the required check, not the uploaded file. A repository carrying every workflow and policy file that no rule requires is reported as **declared only**.
+
 ## Done when
 
 Run an organization SDLC assessment. Three signals define this rung:
 
 - `triggered-agents` — agents run from events rather than from a laptop.
 - `protected-landing` — every repository where an agent lands changes enforces branch protection.
-- `session-capture` — sessions are captured before a change lands.
+- `session-capture` — the capture reports a required check, direct pushes are blocked, no actor bypasses the ruleset unconditionally, and the check has actually reported on what landed.
 
 ## Your first step on the next rung
 

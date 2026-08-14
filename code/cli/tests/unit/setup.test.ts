@@ -680,7 +680,7 @@ describe('Pi setup launch', () => {
       writeLine: (message) => lines.push(message),
     }).register(program);
     await program.parseAsync(['node', 'outfitter', 'setup']);
-    expect(lines.join('\n')).toContain("Default agent 'founder'");
+    expect(lines).toEqual([]);
     expect(readFileSync(join(home, '.agents', 'settings.yml'), 'utf8')).toContain(
       `github: ${defaultCatalogSource.github}\n    ref: ${defaultCatalogSource.ref}`,
     );
@@ -718,7 +718,7 @@ describe('Pi setup launch', () => {
       writeLine: (message) => lines.push(message),
     }).register(program);
     await program.parseAsync(['node', 'outfitter', 'setup']);
-    expect(lines.join('\n')).toContain("Starting 'myagent' in pi");
+    expect(lines).toEqual([]);
     expect(runLaunches).toEqual(['pi']); // setup auto-started the selected profile
   });
 

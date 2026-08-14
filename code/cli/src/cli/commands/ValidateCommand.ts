@@ -67,7 +67,7 @@ export const createValidateCommand = (dependencies: ValidateCommandDependencies 
     program.addCommand(
       new Command('validate')
         .description('Validate the resolved .agents tree: schemas, loadout slugs, and shadowing.')
-        .option('--strict', 'Treat warnings (such as shadowed definitions) as failures.')
+        .option('--strict', 'Treat warnings, including ambiguous source resolution, as failures.')
         .option('--json', 'Emit findings as JSON.')
         .action((options: { strict?: boolean; json?: boolean }) => {
           /* v8 ignore next 2 -- process defaults are exercised by the CLI entrypoint, not unit tests. */

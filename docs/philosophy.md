@@ -38,7 +38,7 @@ Outfitter's destination is a fully autonomous software development lifecycle: hu
 
 1. **Assisted** — autocomplete and chat; a human's hands stay on the keyboard.
 2. **Delegated** — a local agent does the task; the human defines the idea and reviews the PR.
-3. **Automated** — a workflow runs without a laptop: an issue, a message, or a schedule triggers agents in CI or a cluster, adversarial review is part of the pipeline, and session logs are captured before merge.
+3. **Automated** — a workflow runs without a laptop: an issue, a message, or a schedule triggers agents in CI or a cluster, and adversarial review is part of the pipeline.
 4. **Governed** — the organization shares one pinned catalog of agents, skills, and policy; every agent action lands in an auditable record; resident agents work as onboarded teammates.
 5. **Self-improving** — the audit record feeds evals and model improvement; humans set goals and acceptance gates, agents own the middle.
 

@@ -1,6 +1,6 @@
 {
   "name": "@ai-outfitter/outfitter",
-  "version": "1.5.0",
+  "version": "1.7.0",
   "description": "Profile-oriented wrapper for launching pi, Claude Code, and future agent CLIs with reproducible configuration.",
   "type": "module",
   "repository": {
@@ -60,7 +60,7 @@
     "vitest": "^4.1.7"
   },
   "engines": {
-    "node": ">=24.18.0 <25"
+    "node": ">=22.19.0"
   },
   "keywords": [
     "agent",

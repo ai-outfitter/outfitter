@@ -9,13 +9,24 @@ This document specifies the baseline runtime, language, test, lint, and document
 
 ### OFTR-001.1: Runtime, Package Manager, and Language
 
+Amendment (2026-08-08): statement 2 tied the published `engines.node` range to
+the pinned development runtime, which shipped `>=24.18.0 <25` in every 1.x
+release. npm resolves a bare `npm install -g @ai-outfitter/outfitter` as a
+version range and silently selects the newest release whose `engines` the
+running Node satisfies, so the upper bound did not warn — it installed 0.11.0
+on Node 22.19+, 23.x, and 25+. Statement 2 now separates the two concerns and
+statements 8 and 9 forbid an upper bound, because `.node-version` already
+pins the tested runtime for CI.
+
 1. The project MUST use TypeScript as its primary implementation language.
-2. The project MUST declare Node.js `>=24.18.0 <25` as the supported runtime range and pin the exact tested version in `.node-version`.
+2. The project MUST pin the exact tested development and CI runtime version in `.node-version`.
 3. TypeScript configuration MUST enable strict type checking.
 4. The CLI workspace MUST provide a separate build TypeScript configuration that emits production files from `code/cli/src/` to `code/cli/dist/`.
 5. The project MUST use npm as its package manager for the first version.
 6. The project MUST commit `package-lock.json` after dependency installation or updates.
 7. When an implementation library choice remains unclear, the project SHOULD prefer the same library or convention used by pi.dev.
+8. Every published manifest MUST declare the same `engines.node` range, and that range MUST be `>=22.19.0`.
+9. The `engines.node` range MUST NOT declare an upper bound, because npm answers an unsatisfiable bound by installing an older major release instead of failing.
 
 ### OFTR-001.2: Test Framework and Coverage
 
