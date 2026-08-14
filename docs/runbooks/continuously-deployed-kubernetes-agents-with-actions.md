@@ -23,14 +23,14 @@ Use your forge's OIDC. A workflow presents a short-lived token, the cluster or c
 
 Both forges support this. What differs is only how the token becomes cluster access:
 
-| Forge | Mechanism | Cluster access |
-| --- | --- | --- |
-| GitHub Actions | `permissions: id-token: write`, then a cloud credential action | The cloud's Kubernetes access mapping — for example an EKS access entry bound to a Kubernetes group |
-| Forgejo Actions | `enable-openid-connect: true` | A cluster RoleBinding that accepts the OIDC subject directly |
+| Forge           | Mechanism                                                      | Cluster access                                                                                      |
+| --------------- | -------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| GitHub Actions  | `permissions: id-token: write`, then a cloud credential action | The cloud's Kubernetes access mapping — for example an EKS access entry bound to a Kubernetes group |
+| Forgejo Actions | `enable-openid-connect: true`                                  | A cluster RoleBinding that accepts the OIDC subject directly                                        |
 
 Grant the deploy role its own identity rather than reusing a broad deployment role. A role that can create namespaces and install charts is far more than moving one agent to a new revision, and the whole point of step 4 is to prove that difference holds.
 
-**The workflow file's path is part of your identity.** The OIDC subject embeds the repository, the ref, and — on Forgejo — the workflow file path. Renaming the file or deploying from a branch other than the default mints a subject your trust policy does not list, and every exchange fails. Change the trust policy or RoleBinding *first*, then rename. Record this at the top of the workflow, because the failure appears as an authorization error with nothing to suggest a rename caused it.
+**The workflow file's path is part of your identity.** The OIDC subject embeds the repository, the ref, and — on Forgejo — the workflow file path. Renaming the file or deploying from a branch other than the default mints a subject your trust policy does not list, and every exchange fails. Change the trust policy or RoleBinding _first_, then rename. Record this at the top of the workflow, because the failure appears as an authorization error with nothing to suggest a rename caused it.
 
 On GitHub, do not attach an `environment:` to the job unless your trust policy expects one. A job with an environment presents `repo:<owner>/<repo>:environment:<name>` as its subject, which can never match a policy pinning `repo:<owner>/<repo>:ref:refs/heads/main`.
 
@@ -127,7 +127,7 @@ kubectl apply --server-side --force-conflicts \
   --field-manager=acme-catalog-deploy --filename="$rendered"
 ```
 
-Then wait for convergence — and be precise about what that means. **`Ready` alone lies.** It reports that a workload is running, not that the workload is running *this* composition; it stays `True` throughout a rollout while the old pod still serves the previous profile. Require all three:
+Then wait for convergence — and be precise about what that means. **`Ready` alone lies.** It reports that a workload is running, not that the workload is running _this_ composition; it stays `True` throughout a rollout while the old pod still serves the previous profile. Require all three:
 
 ```sh
 converged() {
@@ -181,7 +181,7 @@ The first time someone adds an agent, the deploy fails. That is the design, and 
 
 Resist the urge to remove that friction. If adding a directory silently granted a pipeline the right to create and move a new agent identity in your cluster, then anyone who can merge a pull request could mint one. The RBAC gate is exactly what makes "anyone can propose an agent" safe to allow — the proposal is a merge, the grant is an administrator's.
 
-What you *should* remove is the confusion. A raw authorization denial names a resource and a verb; it does not say "an administrator must widen a role." Have the deploy print the remedy it already knows:
+What you _should_ remove is the confusion. A raw authorization denial names a resource and a verb; it does not say "an administrator must widen a role." Have the deploy print the remedy it already knows:
 
 ```text
 deploy: not authorized to patch agents.aioutfitter.com/researcher
@@ -237,6 +237,6 @@ Forgejo Actions consumes GitHub-hosted actions by URL, so most steps are portabl
 
 ## Your first step on the next rung
 
-You now deploy composition changes without touching the cluster. The revision that reaches your agents is whatever passed review — which means review is the only gate, and nothing yet checks that the catalog is *valid* before it ships.
+You now deploy composition changes without touching the cluster. The revision that reaches your agents is whatever passed review — which means review is the only gate, and nothing yet checks that the catalog is _valid_ before it ships.
 
 Add `outfitter validate` as a required check on the catalog's pull requests. It costs one job and turns a class of failure that currently presents as "the agent cannot find its own definition" into a red check on the change that caused it.
