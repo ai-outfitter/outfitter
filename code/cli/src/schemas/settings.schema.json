@@ -34,6 +34,17 @@
       },
       "additionalProperties": false
     },
+    "telemetry": {
+      "type": "object",
+      "description": "Controls privacy-preserving Outfitter product analytics.",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enable or disable Outfitter product analytics. Defaults to enabled."
+        }
+      },
+      "additionalProperties": false
+    },
     "sources": {
       "type": "array",
       "items": {

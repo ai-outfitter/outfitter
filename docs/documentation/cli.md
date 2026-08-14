@@ -7,6 +7,8 @@ Global options:
 | `-V, --version` | Print the Outfitter version. |
 | `-h, --help`    | Show help for a command.     |
 
+See [Telemetry](./telemetry.md) for the privacy-preserving analytics event contract and opt-out controls.
+
 ## `outfitter run [agent] [args...]`
 
 Resolve, compose, and launch an agent. `run` is the default command, so plain `outfitter` and `outfitter run` are equivalent.
@@ -83,3 +85,7 @@ Write the composed resource tree as a self-contained `.agents/` directory for re
 | `--out <dir>`  | Destination directory (default `./.agents`).         |
 
 > **Tasks and `outfitter task bake`** — baking a task and its inputs into an immutable execution artifact — are the subject of a separate upcoming RFC and are not part of this command surface yet. See [Tasks](./tasks.md).
+
+## `outfitter telemetry`
+
+Inspect or change anonymous product analytics. Use `status` to show the effective state and source, `enable` to write `telemetry.enabled: true` in user settings, and `disable` to opt out and remove the pseudonymous installation identifier. See [Telemetry](./telemetry.md) for the complete contract.

@@ -8,6 +8,7 @@ import { createListCommand } from './commands/ListCommand.js';
 import { createRunAgentCommand } from './commands/RunAgentCommand.js';
 import { createSetupCommand } from './commands/SetupCommand.js';
 import { createSyncCommand } from './commands/SyncCommand.js';
+import { createTelemetryCommand } from './commands/TelemetryCommand.js';
 import { createValidateCommand } from './commands/ValidateCommand.js';
 
 export const createDefaultCommands = (): CommandObject[] => [
@@ -17,6 +18,7 @@ export const createDefaultCommands = (): CommandObject[] => [
   createListCommand(),
   createValidateCommand(),
   createDumpCommand(),
+  createTelemetryCommand(),
 ];
 
 export const createOutfitterProgram = (commands: readonly CommandObject[] = createDefaultCommands()): Command => {

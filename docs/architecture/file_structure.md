@@ -43,6 +43,7 @@ Outfitter is organized around a private npm workspace root, clear TypeScript pac
 │   │   │   ├── cli/                   # CLI parser construction and command objects
 │   │   │   │   └── commands/          # run, setup, sync, list, validate, dump command objects
 │   │   │   ├── settings/              # settings loading and merging
+│   │   │   ├── telemetry/             # consent, pseudonymous state, allowlisted events, and PostHog boundary
 │   │   │   ├── setup/                 # onboarding state + pinned default-catalog bootstrap
 │   │   │   ├── sources/               # cache paths, atomic Git checkout, redaction, private-catalog gating, and transitive catalog-source expansion
 │   │   │   ├── resolver/              # .agents layer resolution into one effective resource set

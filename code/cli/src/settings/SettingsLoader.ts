@@ -53,6 +53,7 @@ interface SettingsDocument {
   readonly custom_settings?: CustomSettings;
   readonly startup?: StartupSettingsDocument;
   readonly enterprise?: EnterpriseSettingsDocument;
+  readonly telemetry?: TelemetrySettingsDocument;
 }
 
 interface EnterpriseSettingsDocument {
@@ -61,6 +62,10 @@ interface EnterpriseSettingsDocument {
 
 interface StartupSettingsDocument {
   readonly ascii_art?: boolean;
+}
+
+interface TelemetrySettingsDocument {
+  readonly enabled?: boolean;
 }
 
 interface SourceDocument {
@@ -279,6 +284,7 @@ const convertSettingsDocument = (
   customSettings: document.custom_settings,
   startup: convertStartupSettings(document.startup),
   enterprise: isHomeScope(scope) ? convertEnterpriseSettings(document.enterprise) : undefined,
+  telemetry: convertTelemetrySettings(document.telemetry),
 });
 
 const convertStartupSettings = (startup: StartupSettingsDocument | undefined): Settings['startup'] =>
@@ -286,6 +292,9 @@ const convertStartupSettings = (startup: StartupSettingsDocument | undefined): S
 
 const convertEnterpriseSettings = (enterprise: EnterpriseSettingsDocument | undefined): Settings['enterprise'] =>
   enterprise === undefined ? undefined : { privateCatalogs: enterprise.private_catalogs };
+
+const convertTelemetrySettings = (telemetry: TelemetrySettingsDocument | undefined): Settings['telemetry'] =>
+  telemetry === undefined ? undefined : { enabled: telemetry.enabled };
 
 const convertRemoteSettingsSource = (source: RemoteSettingsDocument): RemoteSettingsReference => {
   if (source.uri !== undefined) {
