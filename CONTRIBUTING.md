@@ -113,7 +113,11 @@ Because this command writes to the active home or project target, use it only wh
 
 ### Run the local container smoke test
 
-Use `bin/dev-container-setup` to build the local development image and run Outfitter in a container. Pi credentials and settings are stored in the named container volume `outfitter-pi-agent`, not copied from the host:
+Use `bin/dev-container-setup` to build the local development image and run Outfitter in a container. The image includes Pi plus Claude Code and Codex from Numtide's `llm-agents.nix` flake. Named container volumes preserve each harness's credentials and sessions without copying them from the host:
+
+- `outfitter-pi-agent` mounts at `/home/outfitter/.pi/agent`.
+- `outfitter-claude-agent` mounts at `/home/outfitter/.claude`.
+- `outfitter-codex-agent` mounts at `/home/outfitter/.codex`.
 
 ```sh
 bin/dev-container-setup
