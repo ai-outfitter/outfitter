@@ -1,3 +1,4 @@
+/* eslint-disable max-lines -- Per-requirement traceability comments keep the telemetry contract auditable. */
 import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
@@ -23,6 +24,7 @@ import { createTelemetryStateStore, resolveTelemetryStatePath } from '../../src/
 import type { TelemetryStateStore } from '../../src/telemetry/TelemetryState.js';
 import { validateSchema } from '../../src/validation/SchemaValidator.js';
 
+const nonCi = { isCI: false, vendorId: null } as const;
 const temporaryRoots: string[] = [];
 const previousExitCode = process.exitCode;
 
@@ -57,15 +59,17 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-// THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-011.1, OFTR-011.2, OFTR-011.3, OFTR-011.4, OFTR-011.5, OFTR-011.6).
-// YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
 describe('PostHog CLI telemetry', () => {
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-011.1).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('validates telemetry.enabled as a boolean', () => {
     expect(validateSchema('settings', { telemetry: { enabled: true } }).valid).toBe(true);
     expect(validateSchema('settings', { telemetry: { enabled: false } }).valid).toBe(true);
     expect(validateSchema('settings', { telemetry: { enabled: 'yes' } }).valid).toBe(false);
   });
 
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-011.1).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('loads and merges telemetry settings while retaining each source scope', () => {
     const root = temporaryRoot();
     const user = join(root, 'user.yml');
@@ -81,6 +85,8 @@ describe('PostHog CLI telemetry', () => {
     expect(result.files.map((entry) => entry.settings.telemetry)).toEqual([{ enabled: true }, { enabled: false }]);
   });
 
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-011.1).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('enforces scope-aware consent precedence and environment kill switches', () => {
     expect(resolveTelemetryConsent(loaded(), {})).toEqual({ enabled: true, source: 'default' });
     expect(resolveTelemetryConsent(loaded(file('project', true), file('project-local', true)), {})).toEqual({
@@ -121,17 +127,20 @@ describe('PostHog CLI telemetry', () => {
     });
   });
 
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-011.1).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('fails closed with an explicit source when any loaded settings file is invalid', async () => {
     const invalid: SettingsLoadResult = {
       files: [file('user', true)],
       issues: [{ filePath: '/home/test/.agents/settings.yml', path: '/startup/ascii_art', message: 'must be boolean' }],
     };
     expect(resolveTelemetryConsent(invalid, {})).toEqual({ enabled: false, source: 'invalid settings' });
-    expect(formatTelemetryStatus(invalid, {})).toContain('disabled (source: invalid settings)');
+    expect(formatTelemetryStatus(invalid, {}, nonCi)).toContain('disabled (source: invalid settings)');
     const clientFactory = vi.fn();
     const service = createTelemetryService({
       settingsReader: () => invalid,
       stateStore: memoryStateStore(),
+      ci: nonCi,
       env: {},
       writeError: vi.fn(),
       apiKey: 'phc_test',
@@ -141,6 +150,8 @@ describe('PostHog CLI telemetry', () => {
     expect(clientFactory).not.toHaveBeenCalled();
   });
 
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-011.1, OFTR-011.4).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('is completely inert when disabled or when the compiled API key is empty', async () => {
     const clientFactory = vi.fn();
     const stateStore = memoryStateStore();
@@ -148,6 +159,7 @@ describe('PostHog CLI telemetry', () => {
     const disabled = createTelemetryService({
       settingsReader: () => loaded(file('project', false)),
       stateStore,
+      ci: nonCi,
       env: {},
       writeError,
       apiKey: 'phc_test',
@@ -159,6 +171,7 @@ describe('PostHog CLI telemetry', () => {
     const noKey = createTelemetryService({
       settingsReader: () => loaded(),
       stateStore,
+      ci: nonCi,
       env: {},
       writeError,
       apiKey: '',
@@ -173,6 +186,8 @@ describe('PostHog CLI telemetry', () => {
     expect(writeError).not.toHaveBeenCalled();
   });
 
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-011.1).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('constructs no client under each process environment kill switch, including in CI', async () => {
     for (const env of [
       { OUTFITTER_TELEMETRY: '0' },
@@ -184,6 +199,7 @@ describe('PostHog CLI telemetry', () => {
       const service = createTelemetryService({
         settingsReader: () => loaded(file('user', true)),
         stateStore: memoryStateStore(),
+        ci: nonCi,
         env,
         writeError: vi.fn(),
         apiKey: 'phc_test',
@@ -194,6 +210,8 @@ describe('PostHog CLI telemetry', () => {
     }
   });
 
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-011.1, OFTR-011.2).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('sends only the two exact allowlisted events, disables GeoIP, and prints the notice once', async () => {
     const captures: unknown[] = [];
     const client: TelemetryClient = {
@@ -207,6 +225,7 @@ describe('PostHog CLI telemetry', () => {
     const service = createTelemetryService({
       settingsReader: () => loaded(file('user', true)),
       stateStore: memoryStateStore(),
+      ci: nonCi,
       env: {},
       writeError: (message) => errors.push(message),
       apiKey: 'phc_test',
@@ -244,37 +263,51 @@ describe('PostHog CLI telemetry', () => {
     ]);
     expect(errors).toHaveLength(1);
     expect(errors[0]).toContain('pseudonymous');
-    expect(errors[0]).toContain('No content, paths, or arguments are collected');
+    expect(errors[0]).toContain('No content, paths, or free-form arguments are collected');
+    expect(errors[0]?.split('\n')).toContain(
+      'https://github.com/ai-outfitter/outfitter/blob/main/docs/documentation/telemetry.md',
+    );
+    expect(errors[0]?.split('\n').at(-1)).toContain('outfitter telemetry disable');
   });
 
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-011.2).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('selects every fixed duration bucket and maps unknown platform, architecture, and harness values', () => {
     expect(
-      buildCommandCompletedProperties({ ...baseContext, outcome: 'error', durationMs: 999, exitCode: 9 }),
+      buildCommandCompletedProperties({ ...baseContext, outcome: 'error', durationMs: 999, exitCode: 9 }, nonCi),
     ).toMatchObject({
       duration_bucket: '<1s',
       outcome: 'error',
       exit_code_class: 'error',
     });
     expect(
-      buildCommandCompletedProperties({ ...baseContext, durationMs: 4999, outcome: 'success', exitCode: 0 }),
+      buildCommandCompletedProperties({ ...baseContext, durationMs: 4999, outcome: 'success', exitCode: 0 }, nonCi),
     ).toHaveProperty('duration_bucket', '1-5s');
     expect(
-      buildCommandCompletedProperties({ ...baseContext, durationMs: 29_999, outcome: 'success', exitCode: 0 }),
+      buildCommandCompletedProperties({ ...baseContext, durationMs: 29_999, outcome: 'success', exitCode: 0 }, nonCi),
     ).toHaveProperty('duration_bucket', '5-30s');
     expect(
-      buildCommandCompletedProperties({ ...baseContext, durationMs: 30_000, outcome: 'success', exitCode: 0 }),
+      buildCommandCompletedProperties({ ...baseContext, durationMs: 30_000, outcome: 'success', exitCode: 0 }, nonCi),
     ).toHaveProperty('duration_bucket', '30s+');
     expect(
-      buildCommandStartedProperties({
-        ...baseContext,
-        platform: 'private-os',
-        architecture: 'quantum',
-        harness: 'secret-harness',
-      }),
+      buildCommandStartedProperties(
+        {
+          ...baseContext,
+          platform: 'private-os',
+          architecture: 'quantum',
+          harness: 'secret-harness',
+        },
+        nonCi,
+      ),
     ).toMatchObject({ os_family: 'unknown', arch: 'unknown', harness: 'unknown' });
-    expect(buildCommandStartedProperties({ ...baseContext, harness: undefined })).toHaveProperty('harness', 'unknown');
+    expect(buildCommandStartedProperties({ ...baseContext, harness: undefined }, nonCi)).toHaveProperty(
+      'harness',
+      'unknown',
+    );
   });
 
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-011.2).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('cannot leak forbidden context data through the allowlist builder', () => {
     const sentinels = ['SECRET_ARG', '/private/path', 'TOKEN_VALUE', 'agent-private', 'sensitive error'];
     const hostile = {
@@ -285,11 +318,13 @@ describe('PostHog CLI telemetry', () => {
       agentName: sentinels[3],
       errorText: sentinels[4],
     };
-    const properties = buildCommandStartedProperties(hostile);
+    const properties = buildCommandStartedProperties(hostile, nonCi);
     expect(Object.keys(properties).sort()).toEqual(Object.keys(expectedStarted).sort());
     for (const sentinel of sentinels) expect(JSON.stringify(properties)).not.toContain(sentinel);
   });
 
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-011.4).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('swallows client capture and shutdown failures without changing process state', async () => {
     process.exitCode = 23;
     const stateStore = memoryStateStore(true);
@@ -297,6 +332,7 @@ describe('PostHog CLI telemetry', () => {
     const rejecting = createTelemetryService({
       settingsReader: () => loaded(),
       stateStore,
+      ci: nonCi,
       env: {},
       writeError,
       apiKey: 'phc_test',
@@ -312,6 +348,7 @@ describe('PostHog CLI telemetry', () => {
     const synchronouslyThrowing = createTelemetryService({
       settingsReader: () => loaded(),
       stateStore,
+      ci: nonCi,
       env: {},
       writeError,
       apiKey: 'phc_test',
@@ -331,6 +368,8 @@ describe('PostHog CLI telemetry', () => {
     expect(process.exitCode).toBe(23);
   });
 
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-011.3).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('creates state lazily, records the notice, honors XDG state, repairs invalid state, and deletes it', () => {
     const root = temporaryRoot();
     expect(resolveTelemetryStatePath('/home/person', {})).toBe('/home/person/.local/state/outfitter/telemetry.json');
@@ -357,6 +396,8 @@ describe('PostHog CLI telemetry', () => {
     expect(existsSync(statePath)).toBe(false);
   });
 
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-011.1, OFTR-011.3).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('preserves YAML comments and unrelated keys across enable and disable, deletes state, and reports status source', async () => {
     const root = temporaryRoot();
     const home = join(root, 'home');
@@ -385,14 +426,19 @@ describe('PostHog CLI telemetry', () => {
     expect(readFileSync(settingsPath, 'utf8')).toContain('default_agent: engineer');
     expect(settingsReader().files[0]?.settings.telemetry).toEqual({ enabled: true });
     await program().parseAsync(['node', 'outfitter', 'telemetry', 'status']);
-    expect(lines.at(-1)).toContain('enabled (source: user settings)');
+    expect(lines.at(-1)).toContain('enabled but inert: no API key is compiled into this build');
+    expect(lines.at(-1)).toContain('(source: user settings)');
     await program().parseAsync(['node', 'outfitter', 'telemetry', 'disable']);
     expect(settingsReader().files[0]?.settings.telemetry).toEqual({ enabled: false });
     // eslint-disable-next-line @typescript-eslint/unbound-method -- Vitest inspects the mock without invoking it.
     expect(stateStore.delete).toHaveBeenCalledOnce();
-    expect(formatTelemetryStatus(loaded(file('project', false)), {})).toContain('disabled (source: project settings)');
+    expect(formatTelemetryStatus(loaded(file('project', false)), {}, nonCi)).toContain(
+      'disabled (source: project settings)',
+    );
   });
 
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-011.1).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('creates an absent user settings file and refuses to overwrite invalid YAML', async () => {
     const root = temporaryRoot();
     const home = join(root, 'home');
@@ -413,6 +459,8 @@ describe('PostHog CLI telemetry', () => {
     await expect(build().parseAsync(['node', 'outfitter', 'telemetry', 'disable'])).rejects.toThrow('invalid YAML');
   });
 
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-011.1).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('enables and disables a settings file containing a bare telemetry key', async () => {
     const root = temporaryRoot();
     const home = join(root, 'home');
@@ -440,6 +488,8 @@ describe('PostHog CLI telemetry', () => {
     expect(readFileSync(settingsPath, 'utf8')).toContain('enabled: false');
   });
 
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-011.1).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('reports invalid settings through the telemetry status command', async () => {
     const lines: string[] = [];
     const invalid: SettingsLoadResult = {
@@ -459,6 +509,8 @@ describe('PostHog CLI telemetry', () => {
     expect(lines).toEqual([expect.stringContaining('disabled (source: invalid settings)')]);
   });
 
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-011.1).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('uses default status dependencies without mutating settings', async () => {
     const root = temporaryRoot();
     const writeLine = vi.spyOn(console, 'log').mockImplementation(() => undefined);
@@ -469,9 +521,13 @@ describe('PostHog CLI telemetry', () => {
         env: {},
       }),
     ]).parseAsync(['node', 'outfitter', 'telemetry', 'status']);
-    expect(writeLine).toHaveBeenCalledWith(expect.stringContaining('Telemetry is enabled (source: default).'));
+    expect(writeLine).toHaveBeenCalledWith(
+      expect.stringContaining('Telemetry is enabled but inert: no API key is compiled into this build'),
+    );
   });
 
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-011.1).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('reads the process environment by default without using a real home', async () => {
     const root = temporaryRoot();
     const lines: string[] = [];
@@ -485,7 +541,9 @@ describe('PostHog CLI telemetry', () => {
         writeLine: (line) => lines.push(line),
       }),
     ]).parseAsync(['node', 'outfitter', 'telemetry', 'status']);
-    expect(lines).toEqual([expect.stringContaining('Telemetry is enabled (source: default).')]);
+    expect(lines).toEqual([
+      expect.stringContaining('Telemetry is enabled but inert: no API key is compiled into this build'),
+    ]);
   });
 });
 

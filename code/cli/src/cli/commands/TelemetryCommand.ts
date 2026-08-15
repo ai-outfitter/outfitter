@@ -9,7 +9,8 @@ import { resolveTelemetryConsent } from '../../telemetry/TelemetryConsent.js';
 import type { TelemetryEnvironment } from '../../telemetry/TelemetryConsent.js';
 import { createTelemetryContext } from '../../telemetry/TelemetryContext.js';
 import type { TelemetryStateStore } from '../../telemetry/TelemetryState.js';
-import { detectCi } from '../../telemetry/CiEnvironment.js';
+import type { DetectedCi } from '../../telemetry/CiEnvironment.js';
+import { POSTHOG_API_KEY } from '../../telemetry/TelemetryConstants.js';
 import type { CommandObject } from './CommandObject.js';
 import { resolveHomeDirectory, resolveProjectDirectory } from './ProcessDefaults.js';
 
@@ -21,6 +22,12 @@ export interface TelemetryCommandDependencies {
   readonly stateStore?: TelemetryStateStore;
   readonly writeLine?: (message: string) => void;
 }
+
+const suppressors = new WeakMap<Command, () => void>();
+
+export const setTelemetrySuppressor = (program: Command, suppress: () => void): void => {
+  suppressors.set(program, suppress);
+};
 
 export const updateTelemetrySetting = (settingsPath: string, enabled: boolean): void => {
   const source = existsSync(settingsPath) ? readFileSync(settingsPath, 'utf8') : '';
@@ -40,11 +47,20 @@ export const updateTelemetrySetting = (settingsPath: string, enabled: boolean): 
 const changeGuidance =
   'Change with `outfitter telemetry enable|disable`; process opt-outs: `OUTFITTER_TELEMETRY=0` or `DO_NOT_TRACK=1`.';
 
-export const formatTelemetryStatus = (loaded: SettingsLoadResult, env: TelemetryEnvironment): string => {
+export const formatTelemetryStatus = (
+  loaded: SettingsLoadResult,
+  env: TelemetryEnvironment,
+  ci: DetectedCi,
+  apiKey = POSTHOG_API_KEY,
+): string => {
   const consent = resolveTelemetryConsent(loaded, env);
-  const ci = detectCi(env);
-  const ciLabel = ci.isCI ? ` CI label: ${ci.vendorId ?? 'unknown'}.` : '';
-  return `Telemetry is ${consent.enabled ? 'enabled' : 'disabled'} (source: ${consent.source}).${ciLabel} ${changeGuidance}`;
+  const state = consent.enabled
+    ? apiKey === ''
+      ? 'enabled but inert: no API key is compiled into this build'
+      : 'enabled'
+    : 'disabled';
+  const ciLabel = ci.isCI ? ` ci_name: ${ci.vendorId ?? 'unknown'}.` : '';
+  return `Telemetry is ${state} (source: ${consent.source}).${ciLabel} ${changeGuidance}`;
 };
 
 export const createTelemetryCommand = (dependencies: TelemetryCommandDependencies = {}): CommandObject => ({
@@ -67,6 +83,7 @@ export const createTelemetryCommand = (dependencies: TelemetryCommandDependencie
         settingsPath: context.userSettingsPath,
         settingsReader: dependencies.settingsReader ?? context.settingsReader,
         stateStore: dependencies.stateStore ?? context.stateStore,
+        ci: context.ci,
       };
     };
 
@@ -75,13 +92,14 @@ export const createTelemetryCommand = (dependencies: TelemetryCommandDependencie
       .description('Show whether telemetry is enabled and why.')
       .action(() => {
         const resolved = resolveDependencies();
-        writeLine(formatTelemetryStatus(resolved.settingsReader(), resolved.env));
+        writeLine(formatTelemetryStatus(resolved.settingsReader(), resolved.env, resolved.ci));
       });
 
     command
       .command('enable')
       .description('Enable telemetry in user settings.')
       .action(() => {
+        suppressors.get(program)?.();
         const resolved = resolveDependencies();
         updateTelemetrySetting(resolved.settingsPath, true);
         writeLine('Telemetry enabled in user settings.');
@@ -91,6 +109,7 @@ export const createTelemetryCommand = (dependencies: TelemetryCommandDependencie
       .command('disable')
       .description('Disable telemetry in user settings and remove the installation identifier.')
       .action(() => {
+        suppressors.get(program)?.();
         const resolved = resolveDependencies();
         updateTelemetrySetting(resolved.settingsPath, false);
         resolved.stateStore.delete();

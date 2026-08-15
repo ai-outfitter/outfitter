@@ -40,6 +40,10 @@ remote_settings:
     ref: 9c47d1e2b8a05f36c4d7e90a12b3f8c5d6e71a04
 
 cache_directory: ./cache # optional; relative to this settings file
+
+# Pseudonymous product analytics consent; defaults to true when absent.
+telemetry:
+  enabled: false
 ```
 
 - `default_agent` / `default_harness` — which agent plain `outfitter` runs, and the harness it launches in.
@@ -48,6 +52,7 @@ cache_directory: ./cache # optional; relative to this settings file
 - `cache_directory` — the repository cache root used consistently by sync, remote settings, remote
   source resolution, and default-catalog setup. It defaults to `~/.agents/cache`; repositories live
   below its `repos/` directory.
+- `telemetry.enabled` — enables or disables pseudonymous product analytics. See [Telemetry](./telemetry.md) for consent precedence, the event contract, and the current inert-build status.
 
 ## Precedence
 

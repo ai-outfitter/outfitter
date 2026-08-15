@@ -6,7 +6,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { formatTelemetryStatus } from '../../src/cli/commands/TelemetryCommand.js';
 import type { SettingsLoadResult } from '../../src/settings/SettingsLoader.js';
-import { detectCi } from '../../src/telemetry/CiEnvironment.js';
+import { detectCi, normalizeCiVendorId } from '../../src/telemetry/CiEnvironment.js';
 import { createTelemetryContext } from '../../src/telemetry/TelemetryContext.js';
 import { createTelemetryService } from '../../src/telemetry/TelemetryService.js';
 import type { TelemetryClient, TelemetryCommandContext } from '../../src/telemetry/TelemetryService.js';
@@ -19,6 +19,9 @@ const temporaryRoot = (): string => {
   return root;
 };
 const settings: SettingsLoadResult = { files: [], issues: [] };
+const githubCi = { isCI: true, vendorId: 'github_actions' } as const;
+const unknownCi = { isCI: true, vendorId: null } as const;
+const nonCi = { isCI: false, vendorId: null } as const;
 const commandContext: TelemetryCommandContext = {
   command: 'run',
   outfitterVersion: '1.7.1',
@@ -47,7 +50,7 @@ describe('CI telemetry', () => {
     const service = createTelemetryService({
       settingsReader: context.settingsReader,
       stateStore: context.stateStore,
-      ci: context.ci,
+      ci: githubCi,
       env,
       writeError: (message) => notices.push(message),
       apiKey: 'phc_test',
@@ -85,7 +88,7 @@ describe('CI telemetry', () => {
     const service = createTelemetryService({
       settingsReader: context.settingsReader,
       stateStore: context.stateStore,
-      ci: context.ci,
+      ci: unknownCi,
       env,
       writeError: vi.fn(),
       apiKey: 'phc_test',
@@ -117,6 +120,7 @@ describe('CI telemetry', () => {
     const service = createTelemetryService({
       settingsReader: () => settings,
       stateStore: createTelemetryStateStore(statePath),
+      ci: nonCi,
       env,
       writeError: vi.fn(),
       apiKey: 'phc_test',
@@ -135,16 +139,14 @@ describe('CI telemetry', () => {
     expect(existsSync(statePath)).toBe(true);
   });
 
-  it('matches ci-info vendor and generic CI detection semantics for injected environments', () => {
-    expect(detectCi({ GITHUB_ACTIONS: 'true' })).toEqual({ isCI: true, vendorId: 'github_actions' });
-    expect(detectCi({ NODE: '/app/.heroku/node/bin/node' })).toEqual({ isCI: true, vendorId: 'heroku' });
-    expect(detectCi({ NOW_BUILDER: '1' })).toEqual({ isCI: true, vendorId: 'vercel' });
-    expect(detectCi({ CI_NAME: 'sourcehut' })).toEqual({ isCI: true, vendorId: 'sourcehut' });
-    expect(detectCi({ TASK_ID: 'task', RUN_ID: 'run' })).toEqual({ isCI: true, vendorId: 'taskcluster' });
-    expect(detectCi({ BUILD_ID: 'generic' })).toEqual({ isCI: true, vendorId: null });
-    expect(detectCi({ CI: 'false', GITHUB_ACTIONS: 'true' })).toEqual({ isCI: false, vendorId: null });
-    expect(detectCi({})).toEqual({ isCI: false, vendorId: null });
-    expect(detectCi(process.env).isCI).toBeTypeOf('boolean');
-    expect(formatTelemetryStatus(settings, { CI: '1' })).toContain('CI label: unknown.');
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-011.6).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('passes through ci-info public exports with a normalized vendor ID', () => {
+    const detected = detectCi();
+    expect(detected.isCI).toBeTypeOf('boolean');
+    expect(detected.vendorId === null || detected.vendorId === detected.vendorId.toLowerCase()).toBe(true);
+    expect(normalizeCiVendorId('GITHUB_ACTIONS')).toBe('github_actions');
+    expect(normalizeCiVendorId(null)).toBeNull();
+    expect(formatTelemetryStatus(settings, { CI: '1' }, unknownCi, 'phc_test')).toContain('ci_name: unknown.');
   });
 });

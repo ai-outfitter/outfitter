@@ -40,7 +40,7 @@
       "properties": {
         "enabled": {
           "type": "boolean",
-          "description": "Enable or disable Outfitter product analytics. Defaults to enabled."
+          "description": "Enable or disable pseudonymous Outfitter product analytics. Defaults to enabled."
         }
       },
       "additionalProperties": false

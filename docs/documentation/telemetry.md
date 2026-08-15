@@ -1,8 +1,8 @@
 # Telemetry
 
-Outfitter collects pseudonymous product analytics to measure command adoption and reliability. Telemetry is enabled by default and can be disabled at any time.
+Outfitter includes opt-outable pseudonymous product analytics to measure command adoption and reliability. The shipped PostHog API key is currently empty, so no build produced from this repository sends telemetry. Provisioning a key is deferred maintainer work. The consent setting still defaults to enabled and can be changed at any time.
 
-The first command that would send an event prints a one-time notice to stderr. The notice explains what is collected, what is excluded, and how to opt out. When the distributed build has no configured PostHog API key, telemetry is inert: it creates no client or state, sends no events, and prints no notice.
+In a future build with a provisioned key, the first command that would send an event prints a one-time notice to stderr. The notice explains what is collected, what is excluded, and how to opt out. With the current empty key, telemetry is inert: it creates no client or state, sends no events, and prints no notice. `outfitter telemetry status` reports this explicitly.
 
 ## Event contract
 
@@ -37,11 +37,15 @@ The CLI boundary does not currently have a warning counter, so `warning_count_bu
 
 ## Data never collected
 
-Outfitter never sends command arguments, pass-through arguments, prompts or responses, paths, repository data, agent or profile names, settings, environment values, error text, stack traces, session identifiers, child-process output, hostnames, usernames, or hardware identifiers.
+Beyond the low-cardinality `harness` and `strict` values listed above, Outfitter never sends command arguments, pass-through arguments, prompts or responses, paths, repository data, agent or profile names, settings, raw environment values, error text, stack traces, session identifiers, child-process output, hostnames, usernames, or hardware identifiers.
 
 Outside CI, the pseudonymous installation identifier is a random UUID. It is created lazily on the first capture and stored with the one-time-notice flag at `$XDG_STATE_HOME/outfitter/telemetry.json`, or `~/.local/state/outfitter/telemetry.json` when `XDG_STATE_HOME` is unset or blank. It is deliberately kept outside `~/.agents` so it cannot be committed with shared configuration.
 
 In CI, telemetry remains enabled according to the same consent rules and events are sent with `is_ci: true` and the detected `ci_name`. All runs from one CI vendor share a synthetic identifier such as `ci.github_actions`; unidentified CI uses `ci.unknown`. CI runs do not read or create `telemetry.json` and do not print the first-run notice. Set `CI=false` exactly to bypass CI detection and use the normal non-CI UUID identity and state behavior.
+
+## Where the data goes
+
+When a maintainer provisions a PostHog key, events go to PostHog Cloud US at `https://us.i.posthog.com`. No retention period is stated here because this repository does not currently configure one.
 
 ## Control telemetry
 

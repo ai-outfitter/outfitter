@@ -26,6 +26,6 @@ export const createTelemetryContext = (input: TelemetryContextInput): TelemetryC
     userSettingsPath: plan.locations.find((location) => location.scope === 'user')!.path,
     settingsReader: () => loadSettingsFiles(plan),
     stateStore: createTelemetryStateStore(resolveTelemetryStatePath(input.homeDirectory, input.env)),
-    ci: detectCi(input.env),
+    ci: detectCi(),
   };
 };

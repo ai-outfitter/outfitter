@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 import type { Command } from 'commander';
 
 import { resolveHomeDirectory, resolveProjectDirectory } from './cli/commands/ProcessDefaults.js';
+import { setTelemetrySuppressor } from './cli/commands/TelemetryCommand.js';
 import { createOutfitterProgram } from './cli/OutfitterCli.js';
 import { createTelemetryContext } from './telemetry/TelemetryContext.js';
 import { createTelemetryService } from './telemetry/TelemetryService.js';
@@ -17,7 +18,16 @@ export const createProgram = createOutfitterProgram;
 
 export interface CliTelemetryDependencies {
   readonly telemetry?: TelemetryService;
+  readonly createTelemetry?: () => TelemetryService;
+  readonly createCommandContext?: (program: Command, actionCommand: Command) => TelemetryCommandContext;
 }
+
+const noOpTelemetryService = (): TelemetryService => ({
+  captureCommandStarted: () => Promise.resolve(),
+  captureCommandCompleted: () => Promise.resolve(),
+  suppress: () => undefined,
+  shutdown: () => Promise.resolve(),
+});
 
 const topLevelAction = (program: Command, actionCommand: Command): Command => {
   let command = actionCommand;
@@ -64,19 +74,38 @@ export const createProcessTelemetryService = (): TelemetryService => {
   });
 };
 
+export const defaultCliTelemetryFactory = createProcessTelemetryService;
+
 export const runCli = async (
   program: Command,
   argv: readonly string[],
   dependencies: CliTelemetryDependencies = {},
 ): Promise<void> => {
-  const telemetry = dependencies.telemetry ?? createProcessTelemetryService();
+  let telemetry = dependencies.telemetry;
+  if (telemetry === undefined) {
+    try {
+      telemetry = (dependencies.createTelemetry ?? defaultCliTelemetryFactory)();
+    } catch {
+      telemetry = noOpTelemetryService();
+    }
+  }
+  setTelemetrySuppressor(program, () => telemetry.suppress());
   let startedAt: number | undefined;
   let context: TelemetryCommandContext | undefined;
 
   program.hook('preAction', async (_thisCommand, actionCommand) => {
-    startedAt = Date.now();
-    context = commandContext(program, actionCommand);
-    await telemetry.captureCommandStarted(context);
+    try {
+      if (actionCommand.parent?.name() === 'telemetry' && ['enable', 'disable'].includes(actionCommand.name())) {
+        telemetry.suppress();
+        return;
+      }
+      startedAt = Date.now();
+      context = (dependencies.createCommandContext ?? commandContext)(program, actionCommand);
+      await telemetry.captureCommandStarted(context);
+    } catch {
+      startedAt = undefined;
+      context = undefined;
+    }
   });
 
   let exitCode = 1;

@@ -6,7 +6,6 @@ import { resolveTelemetryConsent } from './TelemetryConsent.js';
 import type { TelemetryEnvironment } from './TelemetryConsent.js';
 import type { TelemetryStateStore } from './TelemetryState.js';
 import type { DetectedCi } from './CiEnvironment.js';
-import { detectCi } from './CiEnvironment.js';
 
 const OS_FAMILIES = ['aix', 'android', 'darwin', 'freebsd', 'linux', 'openbsd', 'sunos', 'win32', 'unknown'] as const;
 const ARCHITECTURES = [
@@ -72,6 +71,7 @@ export type TelemetryClientFactory = (
 export interface TelemetryService {
   captureCommandStarted(context: TelemetryCommandContext): Promise<void>;
   captureCommandCompleted(context: TelemetryCompletionContext): Promise<void>;
+  suppress(): void;
   shutdown(): Promise<void>;
 }
 
@@ -79,7 +79,7 @@ export interface TelemetryServiceDependencies {
   readonly settingsReader: () => SettingsLoadResult;
   readonly stateStore: TelemetryStateStore;
   readonly env: TelemetryEnvironment;
-  readonly ci?: DetectedCi;
+  readonly ci: DetectedCi;
   readonly writeError: (message: string) => void;
   readonly apiKey?: string;
   readonly clientFactory?: TelemetryClientFactory;
@@ -131,7 +131,7 @@ const knownValue = <T extends string>(values: readonly T[], value: string): T | 
 
 export const buildCommandStartedProperties = (
   context: TelemetryCommandContext,
-  ci: DetectedCi = { isCI: false, vendorId: null },
+  ci: DetectedCi,
 ): Record<string, unknown> => ({
   command: context.command,
   outfitter_version: context.outfitterVersion,
@@ -148,7 +148,7 @@ export const buildCommandStartedProperties = (
 
 export const buildCommandCompletedProperties = (
   context: TelemetryCompletionContext,
-  ci: DetectedCi = { isCI: false, vendorId: null },
+  ci: DetectedCi,
 ): Record<string, unknown> => ({
   ...buildCommandStartedProperties(context, ci),
   outcome: context.outcome,
@@ -157,20 +157,26 @@ export const buildCommandCompletedProperties = (
   warning_count_bucket: 'unknown' satisfies WarningCountBucket,
 });
 
-const NOTICE =
-  'Outfitter sends pseudonymous command adoption and reliability analytics to PostHog. No content, paths, or arguments are collected. Review with `outfitter telemetry status`; details: https://github.com/ai-outfitter/outfitter/blob/main/docs/documentation/telemetry.md. Disable with `outfitter telemetry disable`, `OUTFITTER_TELEMETRY=0`, or `DO_NOT_TRACK=1`.';
+const NOTICE = [
+  'Outfitter sends pseudonymous command adoption and reliability analytics',
+  'to PostHog. No content, paths, or free-form arguments are collected.',
+  'Details:',
+  'https://github.com/ai-outfitter/outfitter/blob/main/docs/documentation/telemetry.md',
+  'Review with `outfitter telemetry status`. Disable with',
+  '`outfitter telemetry disable`, `OUTFITTER_TELEMETRY=0`, or `DO_NOT_TRACK=1`.',
+].join('\n');
 
 export const createTelemetryService = (dependencies: TelemetryServiceDependencies): TelemetryService => {
   /* v8 ignore next -- tests never consume a compiled production key; they inject an empty or test key. */
   const apiKey = dependencies.apiKey ?? POSTHOG_API_KEY;
   const shutdownBudgetMs = dependencies.shutdownBudgetMs ?? TELEMETRY_SHUTDOWN_BUDGET_MS;
   const clientFactory = dependencies.clientFactory ?? defaultClientFactory;
-  const ci = dependencies.ci ?? detectCi(dependencies.env);
+  const ci = dependencies.ci;
   let client: TelemetryClient | undefined;
   let distinctId: string | undefined;
   let prepared: boolean | undefined;
 
-  // Consent, client, and state are resolved once per process; captures never re-read settings from disk.
+  // Preparation is lazy and memoized until a telemetry command suppresses the remaining process lifecycle.
   const prepare = async (): Promise<boolean> => {
     if (prepared !== undefined) return prepared;
     prepared = false;
@@ -210,6 +216,9 @@ export const createTelemetryService = (dependencies: TelemetryServiceDependencie
     captureCommandStarted: (context) => capture('cli command started', buildCommandStartedProperties(context, ci)),
     captureCommandCompleted: (context) =>
       capture('cli command completed', buildCommandCompletedProperties(context, ci)),
+    suppress(): void {
+      prepared = false;
+    },
     async shutdown(): Promise<void> {
       if (client === undefined) return;
       try {

@@ -71,5 +71,6 @@ Each use case is a worked story — a problem, the composition that answers it, 
 ## Reference
 
 - [CLI reference](./cli.md)
+- [Telemetry](./telemetry.md)
 - [Migration from legacy profiles](./migration.md)
 - [Philosophy](../philosophy.md) — why Outfitter exists.
