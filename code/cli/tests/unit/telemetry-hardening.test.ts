@@ -163,7 +163,7 @@ describe('telemetry failure and wiring hardening', () => {
       const telemetry = createTelemetryService({
         settingsReader: context.settingsReader,
         stateStore: context.stateStore,
-        ci: context.ci,
+        ci: nonCi,
         env: testCase.env,
         writeError: vi.fn(),
         apiKey: 'phc_test',
@@ -204,7 +204,7 @@ describe('telemetry failure and wiring hardening', () => {
     const telemetry = createTelemetryService({
       settingsReader: context.settingsReader,
       stateStore: context.stateStore,
-      ci: context.ci,
+      ci: nonCi,
       env: {},
       writeError: (message) => notices.push(message),
       apiKey: 'phc_test',
@@ -374,7 +374,7 @@ describe('telemetry failure and wiring hardening', () => {
     const telemetry = createTelemetryService({
       settingsReader: context.settingsReader,
       stateStore: context.stateStore,
-      ci: context.ci,
+      ci: nonCi,
       env: {},
       writeError: notice,
       apiKey: '',
@@ -453,7 +453,7 @@ describe('telemetry failure and wiring hardening', () => {
       const telemetry = createTelemetryService({
         settingsReader: context.settingsReader,
         stateStore: context.stateStore,
-        ci: context.ci,
+        ci: nonCi,
         env: {},
         writeError: (message) => notices.push(message),
         apiKey: 'phc_test',
@@ -482,7 +482,7 @@ describe('telemetry failure and wiring hardening', () => {
     const telemetry = createTelemetryService({
       settingsReader: context.settingsReader,
       stateStore: context.stateStore,
-      ci: context.ci,
+      ci: nonCi,
       env: {},
       writeError: vi.fn(),
       apiKey: 'phc_test',
