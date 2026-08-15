@@ -57,7 +57,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-// THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-011.1, OFTR-011.2, OFTR-011.3, OFTR-011.4, OFTR-011.5).
+// THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-011.1, OFTR-011.2, OFTR-011.3, OFTR-011.4, OFTR-011.5, OFTR-011.6).
 // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
 describe('PostHog CLI telemetry', () => {
   it('validates telemetry.enabled as a boolean', () => {
@@ -112,12 +112,12 @@ describe('PostHog CLI telemetry', () => {
       source: 'DO_NOT_TRACK',
     });
     expect(resolveTelemetryConsent(loaded(file('user', true)), { CI: 'true' })).toEqual({
-      enabled: false,
-      source: 'CI',
+      enabled: true,
+      source: 'user settings',
     });
     expect(resolveTelemetryConsent(loaded(file('user', true)), { CI: '1' })).toEqual({
-      enabled: false,
-      source: 'CI',
+      enabled: true,
+      source: 'user settings',
     });
   });
 
@@ -173,8 +173,13 @@ describe('PostHog CLI telemetry', () => {
     expect(writeError).not.toHaveBeenCalled();
   });
 
-  it('constructs no client under each process environment kill switch', async () => {
-    for (const env of [{ OUTFITTER_TELEMETRY: '0' }, { DO_NOT_TRACK: '1' }, { CI: 'true' }, { CI: '1' }]) {
+  it('constructs no client under each process environment kill switch, including in CI', async () => {
+    for (const env of [
+      { OUTFITTER_TELEMETRY: '0' },
+      { DO_NOT_TRACK: '1' },
+      { OUTFITTER_TELEMETRY: '0', GITHUB_ACTIONS: 'true' },
+      { DO_NOT_TRACK: '1', GITHUB_ACTIONS: 'true' },
+    ]) {
       const clientFactory = vi.fn();
       const service = createTelemetryService({
         settingsReader: () => loaded(file('user', true)),
@@ -504,5 +509,7 @@ const expectedStarted = {
   interactive: true,
   harness: 'pi',
   strict: true,
+  is_ci: false,
+  ci_name: 'none',
   $process_person_profile: false,
 };

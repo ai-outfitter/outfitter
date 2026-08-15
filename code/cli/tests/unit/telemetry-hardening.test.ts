@@ -138,7 +138,6 @@ describe('telemetry failure and wiring hardening', () => {
     const cases = [
       { env: { OUTFITTER_TELEMETRY: '0' }, settings: 'telemetry:\n  enabled: true\n' },
       { env: { DO_NOT_TRACK: '1' }, settings: 'telemetry:\n  enabled: true\n' },
-      { env: { CI: 'true' }, settings: 'telemetry:\n  enabled: true\n' },
       { env: {}, settings: 'telemetry:\n  enabled: false\n' },
     ];
 
@@ -230,6 +229,8 @@ describe('telemetry failure and wiring hardening', () => {
           interactive: Boolean(process.stdin.isTTY && process.stdout.isTTY),
           harness: 'pi',
           strict: true,
+          is_ci: false,
+          ci_name: 'none',
           $process_person_profile: false,
         },
       },
@@ -245,6 +246,8 @@ describe('telemetry failure and wiring hardening', () => {
           interactive: Boolean(process.stdin.isTTY && process.stdout.isTTY),
           harness: 'pi',
           strict: true,
+          is_ci: false,
+          ci_name: 'none',
           $process_person_profile: false,
           outcome: 'success',
           duration_bucket: '1-5s',
@@ -331,6 +334,47 @@ describe('telemetry failure and wiring hardening', () => {
 
     // eslint-disable-next-line @typescript-eslint/unbound-method -- Vitest inspects the mock without invoking it.
     expect(telemetry.captureCommandCompleted).toHaveBeenCalledOnce();
+  });
+
+  it('defaults to the process telemetry service, which is inert with the empty compiled key', async () => {
+    const ran: string[] = [];
+    const program = new Command('outfitter');
+    program.addCommand(
+      new Command('sample').action(() => {
+        ran.push('sample');
+      }),
+    );
+
+    await runCli(program, ['node', 'outfitter', 'sample']);
+
+    expect(ran).toEqual(['sample']);
+  });
+
+  it('reports interactive only when stdin and stdout are both TTYs', async () => {
+    const stdinDescriptor = Object.getOwnPropertyDescriptor(process.stdin, 'isTTY');
+    const stdoutDescriptor = Object.getOwnPropertyDescriptor(process.stdout, 'isTTY');
+    Object.defineProperty(process.stdin, 'isTTY', { value: true, configurable: true });
+    Object.defineProperty(process.stdout, 'isTTY', { value: true, configurable: true });
+    try {
+      const started: boolean[] = [];
+      const telemetry: TelemetryService = {
+        captureCommandStarted: (context) => {
+          started.push(context.interactive);
+          return Promise.resolve();
+        },
+        captureCommandCompleted: () => Promise.resolve(),
+        shutdown: () => Promise.resolve(),
+      };
+      const program = new Command('outfitter');
+      program.addCommand(new Command('sample').action(() => undefined));
+
+      await runCli(program, ['node', 'outfitter', 'sample'], { telemetry });
+
+      expect(started).toEqual([true]);
+    } finally {
+      if (stdinDescriptor) Object.defineProperty(process.stdin, 'isTTY', stdinDescriptor);
+      if (stdoutDescriptor) Object.defineProperty(process.stdout, 'isTTY', stdoutDescriptor);
+    }
   });
 
   it('captures thrown commands as errors, always shuts down, and rethrows the original error', async () => {

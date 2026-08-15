@@ -16,8 +16,8 @@ normal CLI behavior when analytics infrastructure fails.
    user-local, project, or project-local settings MUST disable telemetry. Remote and catalog
    settings MUST NOT enable telemetry.
 3. Invalid loaded settings MUST fail closed and report `invalid settings` as the effective source.
-4. `OUTFITTER_TELEMETRY=0`, `DO_NOT_TRACK=1`, and `CI=true` or `CI=1` MUST disable capture for the
-   process.
+4. `OUTFITTER_TELEMETRY=0` and `DO_NOT_TRACK=1` MUST disable capture for the process. CI detection
+   MUST NOT change the effective consent.
 5. `outfitter telemetry status`, `enable`, and `disable` MUST report or update the user setting while
    preserving unrelated YAML and comments. Enable and disable MUST handle an empty `telemetry:` node.
 6. Disabling telemetry MUST delete the pseudonymous installation identifier.
@@ -58,3 +58,14 @@ normal CLI behavior when analytics infrastructure fails.
    mapped to `unknown`.
 3. Tests MUST inject telemetry clients and temporary homes so no test can send a production event or
    touch developer telemetry state when a real API key is compiled.
+
+### OFTR-011.6: Continuous Integration
+
+1. A detected CI run MUST use `ci.<vendor-id>` as its distinct identifier, where `<vendor-id>` is the
+   lowercased `ci-info` vendor ID, or `ci.unknown` when no vendor is identified.
+2. A detected CI run MUST NOT read or create persistent telemetry state.
+3. A detected CI run MUST NOT print the first-run telemetry notice.
+4. Both telemetry events MUST include `is_ci` and `ci_name`. `is_ci` MUST be a boolean. `ci_name` MUST
+   be the lowercased `ci-info` vendor ID, `unknown` for CI without an identified vendor, or `none`
+   outside CI.
+5. `CI=false` (the exact string) MUST bypass CI detection and use the non-CI identity and state path.

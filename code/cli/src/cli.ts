@@ -58,6 +58,7 @@ export const createProcessTelemetryService = (): TelemetryService => {
   return createTelemetryService({
     settingsReader: context.settingsReader,
     stateStore: context.stateStore,
+    ci: context.ci,
     env: process.env,
     writeError: (message) => console.error(message),
   });

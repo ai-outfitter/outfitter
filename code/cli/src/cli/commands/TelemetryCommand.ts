@@ -9,6 +9,7 @@ import { resolveTelemetryConsent } from '../../telemetry/TelemetryConsent.js';
 import type { TelemetryEnvironment } from '../../telemetry/TelemetryConsent.js';
 import { createTelemetryContext } from '../../telemetry/TelemetryContext.js';
 import type { TelemetryStateStore } from '../../telemetry/TelemetryState.js';
+import { detectCi } from '../../telemetry/CiEnvironment.js';
 import type { CommandObject } from './CommandObject.js';
 import { resolveHomeDirectory, resolveProjectDirectory } from './ProcessDefaults.js';
 
@@ -41,7 +42,9 @@ const changeGuidance =
 
 export const formatTelemetryStatus = (loaded: SettingsLoadResult, env: TelemetryEnvironment): string => {
   const consent = resolveTelemetryConsent(loaded, env);
-  return `Telemetry is ${consent.enabled ? 'enabled' : 'disabled'} (source: ${consent.source}). ${changeGuidance}`;
+  const ci = detectCi(env);
+  const ciLabel = ci.isCI ? ` CI label: ${ci.vendorId ?? 'unknown'}.` : '';
+  return `Telemetry is ${consent.enabled ? 'enabled' : 'disabled'} (source: ${consent.source}).${ciLabel} ${changeGuidance}`;
 };
 
 export const createTelemetryCommand = (dependencies: TelemetryCommandDependencies = {}): CommandObject => ({

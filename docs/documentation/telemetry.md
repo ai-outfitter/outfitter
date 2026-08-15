@@ -20,6 +20,8 @@ Both events contain only these properties:
 | `interactive`             | `true` or `false`.                                                                                                    |
 | `harness`                 | `pi`, `claude`, `codex`, or `unknown`.                                                                                |
 | `strict`                  | `true` or `false`.                                                                                                    |
+| `is_ci`                   | `true` when a CI environment is detected; otherwise `false`.                                                          |
+| `ci_name`                 | Lowercased `ci-info` vendor ID, `unknown` for unidentified CI, or `none` outside CI.                                  |
 | `$process_person_profile` | Always `false`; PostHog does not create or update a person profile.                                                   |
 
 The completed event also contains:
@@ -37,7 +39,9 @@ The CLI boundary does not currently have a warning counter, so `warning_count_bu
 
 Outfitter never sends command arguments, pass-through arguments, prompts or responses, paths, repository data, agent or profile names, settings, environment values, error text, stack traces, session identifiers, child-process output, hostnames, usernames, or hardware identifiers.
 
-The pseudonymous installation identifier is a random UUID. It is created lazily on the first capture and stored with the one-time-notice flag at `$XDG_STATE_HOME/outfitter/telemetry.json`, or `~/.local/state/outfitter/telemetry.json` when `XDG_STATE_HOME` is unset or blank. It is deliberately kept outside `~/.agents` so it cannot be committed with shared configuration.
+Outside CI, the pseudonymous installation identifier is a random UUID. It is created lazily on the first capture and stored with the one-time-notice flag at `$XDG_STATE_HOME/outfitter/telemetry.json`, or `~/.local/state/outfitter/telemetry.json` when `XDG_STATE_HOME` is unset or blank. It is deliberately kept outside `~/.agents` so it cannot be committed with shared configuration.
+
+In CI, telemetry remains enabled according to the same consent rules and events are sent with `is_ci: true` and the detected `ci_name`. All runs from one CI vendor share a synthetic identifier such as `ci.github_actions`; unidentified CI uses `ci.unknown`. CI runs do not read or create `telemetry.json` and do not print the first-run notice. Set `CI=false` exactly to bypass CI detection and use the normal non-CI UUID identity and state behavior.
 
 ## Control telemetry
 
@@ -66,6 +70,5 @@ These environment variables disable capture for the current process:
 
 - `OUTFITTER_TELEMETRY=0`
 - `DO_NOT_TRACK=1`
-- `CI=true` or `CI=1`
 
 At exit, Outfitter gives queued analytics at most 1000 ms to shut down. Analytics failures or dropped networks never change command output, behavior, or exit status. They never delay exit beyond that budget.

@@ -5,6 +5,8 @@ import { POSTHOG_API_KEY, POSTHOG_HOST, TELEMETRY_SHUTDOWN_BUDGET_MS } from './T
 import { resolveTelemetryConsent } from './TelemetryConsent.js';
 import type { TelemetryEnvironment } from './TelemetryConsent.js';
 import type { TelemetryStateStore } from './TelemetryState.js';
+import type { DetectedCi } from './CiEnvironment.js';
+import { detectCi } from './CiEnvironment.js';
 
 const OS_FAMILIES = ['aix', 'android', 'darwin', 'freebsd', 'linux', 'openbsd', 'sunos', 'win32', 'unknown'] as const;
 const ARCHITECTURES = [
@@ -77,6 +79,7 @@ export interface TelemetryServiceDependencies {
   readonly settingsReader: () => SettingsLoadResult;
   readonly stateStore: TelemetryStateStore;
   readonly env: TelemetryEnvironment;
+  readonly ci?: DetectedCi;
   readonly writeError: (message: string) => void;
   readonly apiKey?: string;
   readonly clientFactory?: TelemetryClientFactory;
@@ -100,8 +103,8 @@ export const createBoundedTelemetryFetch =
   (fetchImplementation: typeof globalThis.fetch, budgetMs: number): TelemetryFetch =>
   async (url, options) => {
     try {
-      // Leave a small margin for the SDK to finish its queue drain before its own shutdown timer fires.
-      const requestBudgetMs = Math.max(1, budgetMs - Math.min(50, budgetMs / 10));
+      // Leave time for the SDK to finish its queue drain before its own shutdown timer fires.
+      const requestBudgetMs = Math.max(1, budgetMs - Math.min(50, budgetMs / 2));
       const signal = AbortSignal.timeout(requestBudgetMs);
       const deadline = new Promise<TelemetryFetchResponse>((resolve) => {
         signal.addEventListener('abort', () => resolve(syntheticSuccess()), { once: true });
@@ -126,7 +129,10 @@ const durationBucket = (milliseconds: number): DurationBucket => {
 const knownValue = <T extends string>(values: readonly T[], value: string): T | 'unknown' =>
   values.includes(value as T) ? (value as T) : 'unknown';
 
-export const buildCommandStartedProperties = (context: TelemetryCommandContext): Record<string, unknown> => ({
+export const buildCommandStartedProperties = (
+  context: TelemetryCommandContext,
+  ci: DetectedCi = { isCI: false, vendorId: null },
+): Record<string, unknown> => ({
   command: context.command,
   outfitter_version: context.outfitterVersion,
   node_major: Number.parseInt(context.nodeVersion.split('.')[0], 10),
@@ -135,11 +141,16 @@ export const buildCommandStartedProperties = (context: TelemetryCommandContext):
   interactive: context.interactive,
   harness: knownValue(HARNESSES, context.harness ?? 'unknown'),
   strict: context.strict === true,
+  is_ci: ci.isCI,
+  ci_name: ci.isCI ? (ci.vendorId ?? 'unknown') : 'none',
   $process_person_profile: false,
 });
 
-export const buildCommandCompletedProperties = (context: TelemetryCompletionContext): Record<string, unknown> => ({
-  ...buildCommandStartedProperties(context),
+export const buildCommandCompletedProperties = (
+  context: TelemetryCompletionContext,
+  ci: DetectedCi = { isCI: false, vendorId: null },
+): Record<string, unknown> => ({
+  ...buildCommandStartedProperties(context, ci),
   outcome: context.outcome,
   duration_bucket: durationBucket(context.durationMs),
   exit_code_class: context.exitCode === 0 ? 'success' : 'error',
@@ -154,6 +165,7 @@ export const createTelemetryService = (dependencies: TelemetryServiceDependencie
   const apiKey = dependencies.apiKey ?? POSTHOG_API_KEY;
   const shutdownBudgetMs = dependencies.shutdownBudgetMs ?? TELEMETRY_SHUTDOWN_BUDGET_MS;
   const clientFactory = dependencies.clientFactory ?? defaultClientFactory;
+  const ci = dependencies.ci ?? detectCi(dependencies.env);
   let client: TelemetryClient | undefined;
   let distinctId: string | undefined;
   let prepared: boolean | undefined;
@@ -169,11 +181,15 @@ export const createTelemetryService = (dependencies: TelemetryServiceDependencie
       disableGeoip: true,
       fetch: createBoundedTelemetryFetch(globalThis.fetch.bind(globalThis), shutdownBudgetMs),
     });
-    const state = dependencies.stateStore.readOrCreate();
-    distinctId = state.installation_id;
-    if (!state.notice_shown) {
-      dependencies.stateStore.recordNoticeShown(state);
-      dependencies.writeError(NOTICE);
+    if (ci.isCI) {
+      distinctId = `ci.${ci.vendorId ?? 'unknown'}`;
+    } else {
+      const state = dependencies.stateStore.readOrCreate();
+      distinctId = state.installation_id;
+      if (!state.notice_shown) {
+        dependencies.stateStore.recordNoticeShown(state);
+        dependencies.writeError(NOTICE);
+      }
     }
     prepared = true;
     return true;
@@ -191,8 +207,9 @@ export const createTelemetryService = (dependencies: TelemetryServiceDependencie
   };
 
   return {
-    captureCommandStarted: (context) => capture('cli command started', buildCommandStartedProperties(context)),
-    captureCommandCompleted: (context) => capture('cli command completed', buildCommandCompletedProperties(context)),
+    captureCommandStarted: (context) => capture('cli command started', buildCommandStartedProperties(context, ci)),
+    captureCommandCompleted: (context) =>
+      capture('cli command completed', buildCommandCompletedProperties(context, ci)),
     async shutdown(): Promise<void> {
       if (client === undefined) return;
       try {

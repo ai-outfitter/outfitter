@@ -8,8 +8,7 @@ export type TelemetryConsentSource =
   | 'project-local settings'
   | 'invalid settings'
   | 'OUTFITTER_TELEMETRY'
-  | 'DO_NOT_TRACK'
-  | 'CI';
+  | 'DO_NOT_TRACK';
 
 export interface TelemetryConsent {
   readonly enabled: boolean;
@@ -36,7 +35,6 @@ const localSource = (file: LoadedSettingsFile): TelemetryConsentSource | undefin
 const environmentConsent = (env: TelemetryEnvironment): TelemetryConsent | undefined => {
   if (env.OUTFITTER_TELEMETRY === '0') return { enabled: false, source: 'OUTFITTER_TELEMETRY' };
   if (env.DO_NOT_TRACK === '1') return { enabled: false, source: 'DO_NOT_TRACK' };
-  if (env.CI === 'true' || env.CI === '1') return { enabled: false, source: 'CI' };
   return undefined;
 };
 
