@@ -85,7 +85,3 @@ Write the composed resource tree as a self-contained `.agents/` directory for re
 | `--out <dir>`  | Destination directory (default `./.agents`).         |
 
 > **Tasks and `outfitter task bake`** — baking a task and its inputs into an immutable execution artifact — are the subject of a separate upcoming RFC and are not part of this command surface yet. See [Tasks](./tasks.md).
-
-## `outfitter telemetry`
-
-Inspect or change pseudonymous product analytics. Use `status` to show the effective state and source, `enable` to write `telemetry.enabled: true` in user settings, and `disable` to opt out and remove the installation identifier. See [Telemetry](./telemetry.md) for the complete contract.

@@ -47,7 +47,19 @@ export interface SetupResult {
   readonly messages: readonly string[];
 }
 
-export const setupNextStepMessage = "Run 'outfitter sync', then run 'outfitter' again.";
+export const setupNextStepMessage =
+  "Run 'outfitter sync', then run 'outfitter' again. Pseudonymous usage analytics are on by default; turn them off with telemetry.enabled: false in ~/.agents/settings.yml.";
+
+const telemetrySettingsHint = [
+  '# Pseudonymous product analytics. Set enabled: false to opt out.',
+  '# telemetry:',
+  '#   enabled: false',
+].join('\n');
+
+const appendTelemetrySettingsHint = (content: string): string => {
+  if (content.includes(telemetrySettingsHint)) return content;
+  return `${content.trimEnd()}\n\n${telemetrySettingsHint}\n`;
+};
 
 const defaultAgentSlug = 'assistant';
 const maxSlugLength = 64;
@@ -163,31 +175,35 @@ const upsertDefaultCatalogSource = (content: string): string => {
 
 const createSettingsContent = (existing: string, selection: SetupSelection): string => {
   if (selection.setupMode === 'source') {
-    return [
-      `default_harness: ${selection.harness}`,
-      'remote_settings:',
-      `  - uri: ${JSON.stringify(selection.sourceUri)}`,
-      '    path: settings.yml',
-      '',
-    ].join('\n');
+    return appendTelemetrySettingsHint(
+      [
+        `default_harness: ${selection.harness}`,
+        'remote_settings:',
+        `  - uri: ${JSON.stringify(selection.sourceUri)}`,
+        '    path: settings.yml',
+        '',
+      ].join('\n'),
+    );
   }
   if (selection.setupMode === 'catalog') {
-    return [
-      ...(selection.privateCatalogsEnabled && selection.target === 'home'
-        ? ['enterprise:', '  private_catalogs: true']
-        : []),
-      `default_harness: ${selection.harness}`,
-      'remote_settings:',
-      `  - github: ${selection.github}`,
-      `    ref: ${selection.ref}`,
-      `    path: ${selection.settingsPath}`,
-      '',
-    ].join('\n');
+    return appendTelemetrySettingsHint(
+      [
+        ...(selection.privateCatalogsEnabled && selection.target === 'home'
+          ? ['enterprise:', '  private_catalogs: true']
+          : []),
+        `default_harness: ${selection.harness}`,
+        'remote_settings:',
+        `  - github: ${selection.github}`,
+        `    ref: ${selection.ref}`,
+        `    path: ${selection.settingsPath}`,
+        '',
+      ].join('\n'),
+    );
   }
 
   let content = replaceOrAppendScalar(existing, 'default_agent', String(selection.agentId));
   content = replaceOrAppendScalar(content, 'default_harness', selection.harness);
-  return selection.setupMode === 'default' ? upsertDefaultCatalogSource(content) : content;
+  return appendTelemetrySettingsHint(selection.setupMode === 'default' ? upsertDefaultCatalogSource(content) : content);
 };
 
 const enablePrivateCatalogs = (content: string): string => {

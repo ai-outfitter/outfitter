@@ -15,12 +15,14 @@ normal CLI behavior when analytics infrastructure fails.
 2. Only user and user-local settings MAY explicitly enable telemetry. A false value in user,
    user-local, project, or project-local settings MUST disable telemetry. Remote and catalog
    settings MUST NOT enable telemetry.
-3. Invalid loaded settings MUST fail closed and report `invalid settings` as the effective source.
+3. Invalid loaded settings MUST fail closed.
 4. `OUTFITTER_TELEMETRY=0` and `DO_NOT_TRACK=1` MUST disable capture for the process. CI detection
    MUST NOT change the effective consent.
-5. `outfitter telemetry status`, `enable`, and `disable` MUST report or update the user setting while
-   preserving unrelated YAML and comments. Enable and disable MUST handle an empty `telemetry:` node.
-6. Disabling telemetry MUST delete the pseudonymous installation identifier.
+5. `telemetry.enabled` in `~/.agents/settings.yml` MUST be the sole persistent user control and MUST
+   be togglable by editing that file. The CLI MUST NOT expose a `telemetry` command.
+6. When consent is disabled, Outfitter MUST automatically delete the pseudonymous installation
+   identifier. The CLI and Pi setup completion flows MUST mention `telemetry.enabled: false` as the
+   opt-out setting.
 
 ### OFTR-011.2: Data Minimization
 

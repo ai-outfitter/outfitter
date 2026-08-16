@@ -1,12 +1,9 @@
-/* eslint-disable max-lines -- Per-requirement traceability comments keep the telemetry contract auditable. */
-import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { dirname, join } from 'node:path';
+import { join } from 'node:path';
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { createTelemetryCommand, formatTelemetryStatus } from '../../src/cli/commands/TelemetryCommand.js';
-import { createOutfitterProgram } from '../../src/cli/OutfitterCli.js';
 import type { LoadedSettingsFile, SettingsLoadResult, SettingsLocation } from '../../src/settings/SettingsLoader.js';
 import { createSettingsLoadPlan, loadSettingsFiles } from '../../src/settings/SettingsLoader.js';
 import { resolveTelemetryConsent } from '../../src/telemetry/TelemetryConsent.js';
@@ -135,7 +132,6 @@ describe('PostHog CLI telemetry', () => {
       issues: [{ filePath: '/home/test/.agents/settings.yml', path: '/startup/ascii_art', message: 'must be boolean' }],
     };
     expect(resolveTelemetryConsent(invalid, {})).toEqual({ enabled: false, source: 'invalid settings' });
-    expect(formatTelemetryStatus(invalid, {}, nonCi)).toContain('disabled (source: invalid settings)');
     const clientFactory = vi.fn();
     const service = createTelemetryService({
       settingsReader: () => invalid,
@@ -267,7 +263,14 @@ describe('PostHog CLI telemetry', () => {
     expect(errors[0]?.split('\n')).toContain(
       'https://github.com/ai-outfitter/outfitter/blob/main/docs/documentation/telemetry.md',
     );
-    expect(errors[0]?.split('\n').at(-1)).toContain('outfitter telemetry disable');
+    expect(errors[0]).toContain('telemetry.enabled: false');
+    expect(errors[0]).toContain('OUTFITTER_TELEMETRY=0 / DO_NOT_TRACK=1');
+    expect(
+      errors[0]
+        ?.split('\n')
+        .filter((line) => !line.startsWith('https://'))
+        .every((line) => line.length <= 80),
+    ).toBe(true);
   });
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-011.2).
@@ -394,156 +397,6 @@ describe('PostHog CLI telemetry', () => {
     });
     store.delete();
     expect(existsSync(statePath)).toBe(false);
-  });
-
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-011.1, OFTR-011.3).
-  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
-  it('preserves YAML comments and unrelated keys across enable and disable, deletes state, and reports status source', async () => {
-    const root = temporaryRoot();
-    const home = join(root, 'home');
-    const project = join(root, 'project');
-    const settingsPath = join(home, '.agents', 'settings.yml');
-    mkdirSync(dirname(settingsPath), { recursive: true });
-    writeFileSync(settingsPath, '# keep this comment\ndefault_agent: engineer\n');
-    const lines: string[] = [];
-    const stateStore = memoryStateStore();
-    const settingsReader = () =>
-      loadSettingsFiles(createSettingsLoadPlan([{ scope: 'user' as const, path: settingsPath }]));
-    const program = () =>
-      createOutfitterProgram([
-        createTelemetryCommand({
-          homeDirectory: home,
-          projectDirectory: project,
-          env: {},
-          settingsReader,
-          stateStore,
-          writeLine: (line) => lines.push(line),
-        }),
-      ]);
-
-    await program().parseAsync(['node', 'outfitter', 'telemetry', 'enable']);
-    expect(readFileSync(settingsPath, 'utf8')).toContain('# keep this comment');
-    expect(readFileSync(settingsPath, 'utf8')).toContain('default_agent: engineer');
-    expect(settingsReader().files[0]?.settings.telemetry).toEqual({ enabled: true });
-    await program().parseAsync(['node', 'outfitter', 'telemetry', 'status']);
-    expect(lines.at(-1)).toContain('enabled but inert: no API key is compiled into this build');
-    expect(lines.at(-1)).toContain('(source: user settings)');
-    await program().parseAsync(['node', 'outfitter', 'telemetry', 'disable']);
-    expect(settingsReader().files[0]?.settings.telemetry).toEqual({ enabled: false });
-    // eslint-disable-next-line @typescript-eslint/unbound-method -- Vitest inspects the mock without invoking it.
-    expect(stateStore.delete).toHaveBeenCalledOnce();
-    expect(formatTelemetryStatus(loaded(file('project', false)), {}, nonCi)).toContain(
-      'disabled (source: project settings)',
-    );
-  });
-
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-011.1).
-  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
-  it('creates an absent user settings file and refuses to overwrite invalid YAML', async () => {
-    const root = temporaryRoot();
-    const home = join(root, 'home');
-    const lines: string[] = [];
-    const build = () =>
-      createOutfitterProgram([
-        createTelemetryCommand({
-          homeDirectory: home,
-          projectDirectory: root,
-          env: {},
-          writeLine: (line) => lines.push(line),
-        }),
-      ]);
-    await build().parseAsync(['node', 'outfitter', 'telemetry', 'enable']);
-    const settingsPath = join(home, '.agents', 'settings.yml');
-    expect(readFileSync(settingsPath, 'utf8')).toContain('enabled: true');
-    writeFileSync(settingsPath, ': bad: yaml:');
-    await expect(build().parseAsync(['node', 'outfitter', 'telemetry', 'disable'])).rejects.toThrow('invalid YAML');
-  });
-
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-011.1).
-  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
-  it('enables and disables a settings file containing a bare telemetry key', async () => {
-    const root = temporaryRoot();
-    const home = join(root, 'home');
-    const settingsPath = join(home, '.agents', 'settings.yml');
-    mkdirSync(dirname(settingsPath), { recursive: true });
-    const lines: string[] = [];
-    const build = () =>
-      createOutfitterProgram([
-        createTelemetryCommand({
-          homeDirectory: home,
-          projectDirectory: root,
-          env: {},
-          stateStore: memoryStateStore(),
-          writeLine: (line) => lines.push(line),
-        }),
-      ]);
-
-    writeFileSync(settingsPath, '# preserved\ntelemetry:\n');
-    await build().parseAsync(['node', 'outfitter', 'telemetry', 'enable']);
-    expect(readFileSync(settingsPath, 'utf8')).toContain('enabled: true');
-    expect(readFileSync(settingsPath, 'utf8')).toContain('# preserved');
-
-    writeFileSync(settingsPath, 'telemetry:\n');
-    await build().parseAsync(['node', 'outfitter', 'telemetry', 'disable']);
-    expect(readFileSync(settingsPath, 'utf8')).toContain('enabled: false');
-  });
-
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-011.1).
-  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
-  it('reports invalid settings through the telemetry status command', async () => {
-    const lines: string[] = [];
-    const invalid: SettingsLoadResult = {
-      files: [],
-      issues: [{ filePath: '/tmp/settings.yml', path: '/telemetry/enabled', message: 'must be boolean' }],
-    };
-    await createOutfitterProgram([
-      createTelemetryCommand({
-        homeDirectory: temporaryRoot(),
-        projectDirectory: temporaryRoot(),
-        env: {},
-        settingsReader: () => invalid,
-        stateStore: memoryStateStore(),
-        writeLine: (line) => lines.push(line),
-      }),
-    ]).parseAsync(['node', 'outfitter', 'telemetry', 'status']);
-    expect(lines).toEqual([expect.stringContaining('disabled (source: invalid settings)')]);
-  });
-
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-011.1).
-  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
-  it('uses default status dependencies without mutating settings', async () => {
-    const root = temporaryRoot();
-    const writeLine = vi.spyOn(console, 'log').mockImplementation(() => undefined);
-    await createOutfitterProgram([
-      createTelemetryCommand({
-        homeDirectory: root,
-        projectDirectory: root,
-        env: {},
-      }),
-    ]).parseAsync(['node', 'outfitter', 'telemetry', 'status']);
-    expect(writeLine).toHaveBeenCalledWith(
-      expect.stringContaining('Telemetry is enabled but inert: no API key is compiled into this build'),
-    );
-  });
-
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-011.1).
-  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
-  it('reads the process environment by default without using a real home', async () => {
-    const root = temporaryRoot();
-    const lines: string[] = [];
-    vi.stubEnv('OUTFITTER_TELEMETRY', '');
-    vi.stubEnv('DO_NOT_TRACK', '');
-    vi.stubEnv('CI', '');
-    await createOutfitterProgram([
-      createTelemetryCommand({
-        homeDirectory: root,
-        projectDirectory: root,
-        writeLine: (line) => lines.push(line),
-      }),
-    ]).parseAsync(['node', 'outfitter', 'telemetry', 'status']);
-    expect(lines).toEqual([
-      expect.stringContaining('Telemetry is enabled but inert: no API key is compiled into this build'),
-    ]);
   });
 });
 

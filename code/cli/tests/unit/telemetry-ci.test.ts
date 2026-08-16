@@ -4,7 +4,6 @@ import { join } from 'node:path';
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { formatTelemetryStatus } from '../../src/cli/commands/TelemetryCommand.js';
 import type { SettingsLoadResult } from '../../src/settings/SettingsLoader.js';
 import { detectCi, normalizeCiVendorId } from '../../src/telemetry/CiEnvironment.js';
 import { createTelemetryContext } from '../../src/telemetry/TelemetryContext.js';
@@ -111,6 +110,31 @@ describe('CI telemetry', () => {
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-011.6).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('does not touch state when consent is disabled in CI', async () => {
+    const stateStore = {
+      readOrCreate: vi.fn(),
+      recordNoticeShown: vi.fn(),
+      delete: vi.fn(),
+    };
+    const service = createTelemetryService({
+      settingsReader: () => settings,
+      stateStore,
+      ci: githubCi,
+      env: { DO_NOT_TRACK: '1' },
+      writeError: vi.fn(),
+      apiKey: 'phc_test',
+      clientFactory: vi.fn(),
+    });
+
+    await service.captureCommandStarted(commandContext);
+
+    expect(stateStore.readOrCreate).not.toHaveBeenCalled();
+    expect(stateStore.recordNoticeShown).not.toHaveBeenCalled();
+    expect(stateStore.delete).not.toHaveBeenCalled();
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-011.6).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('treats CI=false as non-CI and follows the persistent UUID identity path', async () => {
     const root = temporaryRoot();
     const home = join(root, 'home');
@@ -147,6 +171,5 @@ describe('CI telemetry', () => {
     expect(detected.vendorId === null || detected.vendorId === detected.vendorId.toLowerCase()).toBe(true);
     expect(normalizeCiVendorId('GITHUB_ACTIONS')).toBe('github_actions');
     expect(normalizeCiVendorId(null)).toBeNull();
-    expect(formatTelemetryStatus(settings, { CI: '1' }, unknownCi, 'phc_test')).toContain('ci_name: unknown.');
   });
 });

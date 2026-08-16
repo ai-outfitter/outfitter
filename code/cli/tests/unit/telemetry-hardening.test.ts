@@ -1,4 +1,3 @@
-/* eslint-disable max-lines -- Per-requirement traceability comments keep the telemetry contract auditable. */
 import { existsSync, mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
@@ -13,7 +12,6 @@ import {
   runCli,
 } from '../../src/cli.js';
 import type { CommandObject } from '../../src/cli/commands/CommandObject.js';
-import { createTelemetryCommand } from '../../src/cli/commands/TelemetryCommand.js';
 import { createOutfitterProgram } from '../../src/cli/OutfitterCli.js';
 import type { SettingsLoadResult } from '../../src/settings/SettingsLoader.js';
 import { TELEMETRY_SHUTDOWN_BUDGET_MS } from '../../src/telemetry/TelemetryConstants.js';
@@ -24,7 +22,7 @@ import type {
   TelemetryCommandContext,
   TelemetryService,
 } from '../../src/telemetry/TelemetryService.js';
-import { resolveTelemetryStatePath } from '../../src/telemetry/TelemetryState.js';
+import { createTelemetryStateStore, resolveTelemetryStatePath } from '../../src/telemetry/TelemetryState.js';
 import type { TelemetryStateStore } from '../../src/telemetry/TelemetryState.js';
 import { readOutfitterVersion } from '../../src/version/OutfitterVersion.js';
 
@@ -142,9 +140,9 @@ describe('telemetry failure and wiring hardening', () => {
     expect(cancel).toHaveBeenCalledOnce();
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-011.1, OFTR-011.5).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-011.1, OFTR-011.3, OFTR-011.5).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
-  it('wires temp-home consent through runCli without constructing a client for kill switches or opt-out', async () => {
+  it('removes existing state and captures nothing when any consent source disables telemetry', async () => {
     const root = temporaryRoot();
     const home = join(root, 'home');
     const project = join(root, 'project');
@@ -154,10 +152,13 @@ describe('telemetry failure and wiring hardening', () => {
       { env: { OUTFITTER_TELEMETRY: '0' }, settings: 'telemetry:\n  enabled: true\n' },
       { env: { DO_NOT_TRACK: '1' }, settings: 'telemetry:\n  enabled: true\n' },
       { env: {}, settings: 'telemetry:\n  enabled: false\n' },
+      { env: {}, settings: 'telemetry:\n  enabled: invalid\n' },
     ];
 
     for (const testCase of cases) {
       writeFileSync(settingsPath, testCase.settings);
+      const statePath = resolveTelemetryStatePath(home, testCase.env);
+      createTelemetryStateStore(statePath, () => 'prior-installation').readOrCreate();
       const context = createTelemetryContext({ homeDirectory: home, projectDirectory: project, env: testCase.env });
       const clientFactory = vi.fn();
       const telemetry = createTelemetryService({
@@ -169,20 +170,35 @@ describe('telemetry failure and wiring hardening', () => {
         apiKey: 'phc_test',
         clientFactory,
       });
-      const program = createOutfitterProgram([
-        createTelemetryCommand({
-          homeDirectory: home,
-          projectDirectory: project,
-          env: testCase.env,
-          writeLine: () => undefined,
-        }),
-      ]);
+      const program = new Command('outfitter');
+      program.addCommand(new Command('sample').action(() => undefined));
 
-      await runCli(program, ['node', 'outfitter', 'telemetry', 'status'], { telemetry });
+      await runCli(program, ['node', 'outfitter', 'sample'], { telemetry });
 
       expect(clientFactory).not.toHaveBeenCalled();
-      expect(existsSync(resolveTelemetryStatePath(home, testCase.env))).toBe(false);
+      expect(existsSync(statePath)).toBe(false);
     }
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-011.1, OFTR-011.3).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('does not create state when disabled and no state file exists', async () => {
+    const root = temporaryRoot();
+    const home = join(root, 'home');
+    const env = { DO_NOT_TRACK: '1' };
+    const context = createTelemetryContext({ homeDirectory: home, projectDirectory: root, env });
+    const telemetry = createTelemetryService({
+      settingsReader: context.settingsReader,
+      stateStore: context.stateStore,
+      ci: nonCi,
+      env,
+      writeError: vi.fn(),
+      apiKey: 'phc_test',
+      clientFactory: vi.fn(),
+    });
+
+    await expect(telemetry.captureCommandStarted(commandContext)).resolves.toBeUndefined();
+    expect(existsSync(resolveTelemetryStatePath(home, env))).toBe(false);
   });
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-011.1, OFTR-011.2, OFTR-011.3, OFTR-011.5).
@@ -229,7 +245,7 @@ describe('telemetry failure and wiring hardening', () => {
     });
 
     expect(clientFactory).toHaveBeenCalledOnce();
-    expect(notices).toEqual([expect.stringContaining('outfitter telemetry status')]);
+    expect(notices).toEqual([expect.stringContaining('telemetry.enabled: false')]);
     expect(captures).toHaveLength(2);
     const distinctId = captures[0]?.distinctId;
     const outfitterVersion = readOutfitterVersion();
@@ -296,7 +312,6 @@ describe('telemetry failure and wiring hardening', () => {
         calls.push(`complete:${context.outcome}:${context.exitCode}`);
         return Promise.resolve();
       },
-      suppress: () => undefined,
       shutdown: () => {
         calls.push('shutdown');
         return Promise.resolve();
@@ -350,7 +365,6 @@ describe('telemetry failure and wiring hardening', () => {
     const telemetry: TelemetryService = {
       captureCommandStarted: () => Promise.resolve(),
       captureCommandCompleted: vi.fn(() => Promise.resolve()),
-      suppress: () => undefined,
       shutdown: () => Promise.resolve(),
     };
 
@@ -359,6 +373,12 @@ describe('telemetry failure and wiring hardening', () => {
 
     // eslint-disable-next-line @typescript-eslint/unbound-method -- Vitest inspects the mock without invoking it.
     expect(telemetry.captureCommandCompleted).toHaveBeenCalledOnce();
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-011.1).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('does not expose a public telemetry command', () => {
+    expect(createOutfitterProgram().commands.map((command) => command.name())).not.toContain('telemetry');
   });
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-011.4, OFTR-011.5).
@@ -410,7 +430,6 @@ describe('telemetry failure and wiring hardening', () => {
     const telemetry: TelemetryService = {
       captureCommandStarted: vi.fn(() => Promise.resolve()),
       captureCommandCompleted: vi.fn(() => Promise.resolve()),
-      suppress: vi.fn(),
       shutdown: vi.fn(() => Promise.resolve()),
     };
     const secondProgram = new Command('outfitter');
@@ -435,76 +454,6 @@ describe('telemetry failure and wiring hardening', () => {
     expect(telemetry.shutdown).toHaveBeenCalledOnce();
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-011.1, OFTR-011.5).
-  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
-  it('suppresses telemetry enable and disable before first capture on a fresh home', async () => {
-    for (const action of ['enable', 'disable']) {
-      const root = temporaryRoot();
-      const home = join(root, 'home');
-      const context = createTelemetryContext({ homeDirectory: home, projectDirectory: root, env: {} });
-      const captures: Array<Parameters<TelemetryClient['capture']>[0]> = [];
-      const notices: string[] = [];
-      const clientFactory = vi.fn((): TelemetryClient => ({
-        capture: (message) => {
-          captures.push(message);
-        },
-        shutdown: () => Promise.resolve(),
-      }));
-      const telemetry = createTelemetryService({
-        settingsReader: context.settingsReader,
-        stateStore: context.stateStore,
-        ci: nonCi,
-        env: {},
-        writeError: (message) => notices.push(message),
-        apiKey: 'phc_test',
-        clientFactory,
-      });
-      const program = createOutfitterProgram([
-        createTelemetryCommand({ homeDirectory: home, projectDirectory: root, env: {}, writeLine: vi.fn() }),
-      ]);
-
-      await runCli(program, ['node', 'outfitter', 'telemetry', action], { telemetry });
-
-      expect(clientFactory).not.toHaveBeenCalled();
-      expect(captures).toEqual([]);
-      expect(notices).toEqual([]);
-      expect(existsSync(resolveTelemetryStatePath(home, {}))).toBe(false);
-    }
-  });
-
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-011.1, OFTR-011.5).
-  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
-  it('captures nothing for disable after the service was prepared earlier in the process', async () => {
-    const root = temporaryRoot();
-    const home = join(root, 'home');
-    const context = createTelemetryContext({ homeDirectory: home, projectDirectory: root, env: {} });
-    const captures: Array<Parameters<TelemetryClient['capture']>[0]> = [];
-    const telemetry = createTelemetryService({
-      settingsReader: context.settingsReader,
-      stateStore: context.stateStore,
-      ci: nonCi,
-      env: {},
-      writeError: vi.fn(),
-      apiKey: 'phc_test',
-      clientFactory: () => ({
-        capture: (message) => {
-          captures.push(message);
-        },
-        shutdown: () => Promise.resolve(),
-      }),
-    });
-    await telemetry.captureCommandStarted(commandContext);
-    captures.length = 0;
-
-    const program = createOutfitterProgram([
-      createTelemetryCommand({ homeDirectory: home, projectDirectory: root, env: {}, writeLine: vi.fn() }),
-    ]);
-    await runCli(program, ['node', 'outfitter', 'telemetry', 'disable'], { telemetry });
-
-    expect(captures).toEqual([]);
-    expect(existsSync(resolveTelemetryStatePath(home, {}))).toBe(false);
-  });
-
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-011.2, OFTR-011.5).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('reports interactive only when stdin and stdout are both TTYs', async () => {
@@ -520,7 +469,6 @@ describe('telemetry failure and wiring hardening', () => {
           return Promise.resolve();
         },
         captureCommandCompleted: () => Promise.resolve(),
-        suppress: () => undefined,
         shutdown: () => Promise.resolve(),
       };
       const program = new Command('outfitter');
@@ -545,7 +493,6 @@ describe('telemetry failure and wiring hardening', () => {
         calls.push(`${context.outcome}:${context.exitCode}`);
         return Promise.resolve();
       },
-      suppress: () => undefined,
       shutdown: () => {
         calls.push('shutdown');
         return Promise.resolve();
@@ -578,7 +525,6 @@ describe('telemetry failure and wiring hardening', () => {
         completed.push(context.exitCode);
         return Promise.resolve();
       },
-      suppress: () => undefined,
       shutdown: () => Promise.resolve(),
     };
     const command: CommandObject = {

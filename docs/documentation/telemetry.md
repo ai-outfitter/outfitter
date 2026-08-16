@@ -2,7 +2,7 @@
 
 Outfitter includes opt-outable pseudonymous product analytics to measure command adoption and reliability. The shipped PostHog API key is currently empty, so no build produced from this repository sends telemetry. Provisioning a key is deferred maintainer work. The consent setting still defaults to enabled and can be changed at any time.
 
-In a future build with a provisioned key, the first command that would send an event prints a one-time notice to stderr. The notice explains what is collected, what is excluded, and how to opt out. With the current empty key, telemetry is inert: it creates no client or state, sends no events, and prints no notice. `outfitter telemetry status` reports this explicitly.
+In a future build with a provisioned key, the first command that would send an event prints a one-time notice to stderr. The notice explains what is collected, what is excluded, and how to opt out. With the current empty key, telemetry is inert: it creates no client or state, sends no events, and prints no notice.
 
 ## Event contract
 
@@ -58,17 +58,9 @@ telemetry:
 
 Telemetry defaults to enabled when the setting is absent. Only user and user-local settings can enable it. A `false` value in user, user-local, project, or project-local settings disables it; remote or catalog settings cannot enable telemetry.
 
-If an applicable settings file cannot be parsed or validated, telemetry fails closed. `outfitter telemetry status` reports the source as `invalid settings` until the settings error is corrected.
+If an applicable settings file cannot be parsed or validated, telemetry fails closed and a non-CI invocation removes any stored installation identifier.
 
-Use the CLI to inspect or change the setting:
-
-```sh
-outfitter telemetry status
-outfitter telemetry enable
-outfitter telemetry disable
-```
-
-`disable` also deletes the pseudonymous installation identifier. The commands preserve unrelated YAML settings and comments.
+This settings entry is the sole persistent telemetry control. Edit the file directly to toggle it; Outfitter does not expose a telemetry command. When consent is disabled by this setting, invalid settings, or a process environment opt-out, Outfitter automatically deletes any stored pseudonymous installation identifier. If no identifier exists, cleanup remains inert and creates nothing.
 
 These environment variables disable capture for the current process:
 

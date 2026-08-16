@@ -52,7 +52,7 @@ telemetry:
 - `cache_directory` — the repository cache root used consistently by sync, remote settings, remote
   source resolution, and default-catalog setup. It defaults to `~/.agents/cache`; repositories live
   below its `repos/` directory.
-- `telemetry.enabled` — enables or disables pseudonymous product analytics. See [Telemetry](./telemetry.md) for consent precedence, the event contract, and the current inert-build status.
+- `telemetry.enabled` — the primary and sole persistent control for pseudonymous product analytics. Edit it directly to enable or disable telemetry. See [Telemetry](./telemetry.md) for consent precedence, automatic identifier cleanup, the event contract, and the current inert-build status.
 
 ## Precedence
 

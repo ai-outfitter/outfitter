@@ -1,4 +1,4 @@
-// Composes the process-level telemetry collaborators shared by the CLI entrypoint and the telemetry command.
+// Composes the process-level telemetry collaborators used by the CLI entrypoint.
 import { discoverSettingsLoadPlan, loadSettingsFiles } from '../settings/SettingsLoader.js';
 import type { SettingsLoadResult } from '../settings/SettingsLoader.js';
 import type { TelemetryEnvironment } from './TelemetryConsent.js';

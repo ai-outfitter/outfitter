@@ -71,7 +71,6 @@ export type TelemetryClientFactory = (
 export interface TelemetryService {
   captureCommandStarted(context: TelemetryCommandContext): Promise<void>;
   captureCommandCompleted(context: TelemetryCompletionContext): Promise<void>;
-  suppress(): void;
   shutdown(): Promise<void>;
 }
 
@@ -160,10 +159,10 @@ export const buildCommandCompletedProperties = (
 const NOTICE = [
   'Outfitter sends pseudonymous command adoption and reliability analytics',
   'to PostHog. No content, paths, or free-form arguments are collected.',
+  "Opt out: set 'telemetry.enabled: false' in ~/.agents/settings.yml, or set",
+  'OUTFITTER_TELEMETRY=0 / DO_NOT_TRACK=1.',
   'Details:',
   'https://github.com/ai-outfitter/outfitter/blob/main/docs/documentation/telemetry.md',
-  'Review with `outfitter telemetry status`. Disable with',
-  '`outfitter telemetry disable`, `OUTFITTER_TELEMETRY=0`, or `DO_NOT_TRACK=1`.',
 ].join('\n');
 
 export const createTelemetryService = (dependencies: TelemetryServiceDependencies): TelemetryService => {
@@ -176,12 +175,16 @@ export const createTelemetryService = (dependencies: TelemetryServiceDependencie
   let distinctId: string | undefined;
   let prepared: boolean | undefined;
 
-  // Preparation is lazy and memoized until a telemetry command suppresses the remaining process lifecycle.
+  // Consent, client, and state are resolved once per process.
   const prepare = async (): Promise<boolean> => {
     if (prepared !== undefined) return prepared;
     prepared = false;
+    const consent = resolveTelemetryConsent(dependencies.settingsReader(), dependencies.env);
+    if (!consent.enabled) {
+      if (!ci.isCI) dependencies.stateStore.delete();
+      return false;
+    }
     if (apiKey === '') return false;
-    if (!resolveTelemetryConsent(dependencies.settingsReader(), dependencies.env).enabled) return false;
     client = await clientFactory(apiKey, {
       host: POSTHOG_HOST,
       disableGeoip: true,
@@ -216,9 +219,6 @@ export const createTelemetryService = (dependencies: TelemetryServiceDependencie
     captureCommandStarted: (context) => capture('cli command started', buildCommandStartedProperties(context, ci)),
     captureCommandCompleted: (context) =>
       capture('cli command completed', buildCommandCompletedProperties(context, ci)),
-    suppress(): void {
-      prepared = false;
-    },
     async shutdown(): Promise<void> {
       if (client === undefined) return;
       try {

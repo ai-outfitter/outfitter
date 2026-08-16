@@ -14,6 +14,8 @@ import { applySetupSelection, discoverSetupAgentChoices, sanitizeAgentSlug } fro
 import { createRemoteRepositoryCachePath } from '../../src/sources/SourceCache.js';
 
 const temporaryRoots: string[] = [];
+const telemetrySettingsHint =
+  '# Pseudonymous product analytics. Set enabled: false to opt out.\n# telemetry:\n#   enabled: false\n';
 
 const createTree = (): { catalog: string; home: string; project: string; root: string } => {
   const root = mkdtempSync(join(tmpdir(), 'outfitter-setup-'));
@@ -98,7 +100,9 @@ describe('setup state machine', () => {
     expect(choices.some((choice) => choice.id === 'mismatch')).toBe(false);
   });
 
-  it('pins the canonical default catalog and saves the selected profile and CLI agent', () => {
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-011.1).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('pins the catalog and writes a discoverable commented telemetry setting', () => {
     const { catalog, home, project } = createTree();
     const availableAgents = discoverSetupAgentChoices({ defaultCatalogRoot: catalog });
     const result = applySetupSelection({
@@ -111,7 +115,7 @@ describe('setup state machine', () => {
 
     expect(readFileSync(join(home, '.agents', 'settings.yml'), 'utf8')).toBe(
       `default_agent: founder\ndefault_harness: pi\nsources:\n  - github: ${defaultCatalogSource.github}\n` +
-        `    ref: ${defaultCatalogSource.ref}\n`,
+        `    ref: ${defaultCatalogSource.ref}\n\n${telemetrySettingsHint}`,
     );
     expect(existsSync(join(home, '.agents', 'catalogs'))).toBe(false);
     expect(result.defaultAgent).toBe('founder');
@@ -142,6 +146,7 @@ describe('setup state machine', () => {
       `  - path: ./personal\n  - github: ${defaultCatalogSource.github}\n    ref: ${defaultCatalogSource.ref}\nstartup:`,
     );
     expect(settings.match(/github: ai-outfitter\/default-profiles/gu)).toHaveLength(1);
+    expect(settings.match(/# telemetry:/gu)).toHaveLength(1);
     expect(settings).not.toContain('path: profiles');
   });
 
@@ -232,7 +237,8 @@ describe('setup state machine', () => {
       },
     });
     expect(readFileSync(join(project, '.agents', 'settings.yml'), 'utf8')).toBe(
-      'default_harness: claude\nremote_settings:\n  - github: acme/outfitter-config\n    ref: main\n    path: settings.yml\n',
+      'default_harness: claude\nremote_settings:\n  - github: acme/outfitter-config\n    ref: main\n    path: settings.yml\n\n' +
+        telemetrySettingsHint,
     );
   });
 
@@ -371,7 +377,8 @@ describe('setup state machine', () => {
       },
     });
     expect(readFileSync(join(home, '.agents', 'settings.yml'), 'utf8')).toBe(
-      'default_harness: pi\nremote_settings:\n  - uri: "https://example.test/catalog.git"\n    path: settings.yml\n',
+      'default_harness: pi\nremote_settings:\n  - uri: "https://example.test/catalog.git"\n    path: settings.yml\n\n' +
+        telemetrySettingsHint,
     );
   });
 
@@ -722,7 +729,9 @@ describe('Pi setup launch', () => {
     expect(runLaunches).toEqual(['pi']); // setup auto-started the selected profile
   });
 
-  it('does not auto-launch a catalog setup that still needs a sync', async () => {
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-011.1).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('does not auto-launch an unsynced catalog and prints telemetry guidance', async () => {
     const { catalog, home, project } = createTree();
     const lines: string[] = [];
     const runLaunches: string[] = [];
@@ -753,7 +762,11 @@ describe('Pi setup launch', () => {
       writeLine: (message) => lines.push(message),
     }).register(program);
     await program.parseAsync(['node', 'outfitter', 'setup']);
-    expect(lines).toEqual(["Run 'outfitter sync', then run 'outfitter' again."]);
+    expect(lines).toEqual([
+      expect.stringContaining(
+        'Pseudonymous usage analytics are on by default; turn them off with telemetry.enabled: false',
+      ),
+    ]);
     expect(runLaunches).toEqual([]); // catalog setup reports next-launch instead of launching
   });
 

@@ -7,7 +7,6 @@ import { fileURLToPath } from 'node:url';
 import type { Command } from 'commander';
 
 import { resolveHomeDirectory, resolveProjectDirectory } from './cli/commands/ProcessDefaults.js';
-import { setTelemetrySuppressor } from './cli/commands/TelemetryCommand.js';
 import { createOutfitterProgram } from './cli/OutfitterCli.js';
 import { createTelemetryContext } from './telemetry/TelemetryContext.js';
 import { createTelemetryService } from './telemetry/TelemetryService.js';
@@ -25,7 +24,6 @@ export interface CliTelemetryDependencies {
 const noOpTelemetryService = (): TelemetryService => ({
   captureCommandStarted: () => Promise.resolve(),
   captureCommandCompleted: () => Promise.resolve(),
-  suppress: () => undefined,
   shutdown: () => Promise.resolve(),
 });
 
@@ -89,16 +87,11 @@ export const runCli = async (
       telemetry = noOpTelemetryService();
     }
   }
-  setTelemetrySuppressor(program, () => telemetry.suppress());
   let startedAt: number | undefined;
   let context: TelemetryCommandContext | undefined;
 
   program.hook('preAction', async (_thisCommand, actionCommand) => {
     try {
-      if (actionCommand.parent?.name() === 'telemetry' && ['enable', 'disable'].includes(actionCommand.name())) {
-        telemetry.suppress();
-        return;
-      }
       startedAt = Date.now();
       context = (dependencies.createCommandContext ?? commandContext)(program, actionCommand);
       await telemetry.captureCommandStarted(context);

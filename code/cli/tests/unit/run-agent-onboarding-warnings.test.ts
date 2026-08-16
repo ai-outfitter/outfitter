@@ -132,7 +132,9 @@ describe('run agent onboarding warnings', () => {
     expect(result.messages.at(-1)).toContain("Run 'outfitter sync'");
   });
 
-  it('returns one next action when setup configures a source without a launchable agent', async () => {
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-011.1).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('returns setup next steps with telemetry settings guidance', async () => {
     const root = mkdtempSync(join(tmpdir(), 'outfitter-onboarding-'));
     temporaryRoots.push(root);
     const home = join(root, 'home');
@@ -156,7 +158,11 @@ describe('run agent onboarding warnings', () => {
     });
 
     expect(result.exitCode).toBe(0);
-    expect(result.messages).toEqual(["Run 'outfitter sync', then run 'outfitter' again."]);
+    expect(result.messages).toEqual([
+      expect.stringContaining(
+        'Pseudonymous usage analytics are on by default; turn them off with telemetry.enabled: false',
+      ),
+    ]);
     expect(lines).toEqual(result.messages);
   });
 });
