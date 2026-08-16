@@ -151,7 +151,13 @@ export default function outfitter(pi) {
 
   const finish = async (ctx, selection, message) => {
     await writeSetupResult(selection);
-    ctx.ui.notify(message, 'info');
+    ctx.ui.notify(
+      [
+        message,
+        'Pseudonymous usage analytics are on by default; turn them off with telemetry.enabled: false in ~/.agents/settings.yml.',
+      ].join('\n'),
+      'info',
+    );
     ctx.shutdown();
   };
 

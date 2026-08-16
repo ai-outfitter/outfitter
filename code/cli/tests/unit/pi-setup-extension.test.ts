@@ -229,7 +229,9 @@ afterEach(() => {
 });
 
 describe('Pi setup extension', () => {
-  it('restores the exact original first question and adds only the CLI-agent default question', async () => {
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-011.1).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('restores the original questions and mentions the telemetry setting on completion', async () => {
     const { pi, resultPath } = fixture();
     const context = createMockContext();
     await pi.commands.outfitter.handler({}, context);
@@ -255,6 +257,9 @@ describe('Pi setup extension', () => {
       target: 'home',
     });
     expect(context.rendered.flat().every((line) => line.length <= 40)).toBe(true);
+    expect(context.notifications.join('\n')).toContain(
+      'Pseudonymous usage analytics are on by default; turn them off with telemetry.enabled: false',
+    );
     expect(context.shutdowns).toBe(1);
   });
 

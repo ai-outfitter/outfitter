@@ -53,6 +53,7 @@ interface SettingsDocument {
   readonly custom_settings?: CustomSettings;
   readonly startup?: StartupSettingsDocument;
   readonly enterprise?: EnterpriseSettingsDocument;
+  readonly telemetry?: TelemetrySettingsDocument;
 }
 
 interface EnterpriseSettingsDocument {
@@ -61,6 +62,10 @@ interface EnterpriseSettingsDocument {
 
 interface StartupSettingsDocument {
   readonly ascii_art?: boolean;
+}
+
+interface TelemetrySettingsDocument {
+  readonly enabled?: boolean;
 }
 
 interface SourceDocument {
@@ -92,7 +97,8 @@ export const formatSettingsIssue = (issue: SettingsLoadIssue): string =>
 
 const agentsSettings = (directory: string, ...rest: string[]): string => join(directory, '.agents', ...rest);
 
-// Ordered lowest-to-highest precedence so later files fold over earlier ones during merge.
+// Ordered lowest-to-highest precedence so later files fold over earlier ones during merge; telemetry
+// consent (TelemetryConsent.ts) also relies on this ordering when scanning the loaded files.
 export const discoverSettingsLoadPlan = (input: SettingsDiscoveryInput): SettingsLoadPlan =>
   createSettingsLoadPlan([
     { scope: 'user', path: agentsSettings(input.homeDirectory, 'settings.yml') },
@@ -279,6 +285,7 @@ const convertSettingsDocument = (
   customSettings: document.custom_settings,
   startup: convertStartupSettings(document.startup),
   enterprise: isHomeScope(scope) ? convertEnterpriseSettings(document.enterprise) : undefined,
+  telemetry: convertTelemetrySettings(document.telemetry),
 });
 
 const convertStartupSettings = (startup: StartupSettingsDocument | undefined): Settings['startup'] =>
@@ -286,6 +293,9 @@ const convertStartupSettings = (startup: StartupSettingsDocument | undefined): S
 
 const convertEnterpriseSettings = (enterprise: EnterpriseSettingsDocument | undefined): Settings['enterprise'] =>
   enterprise === undefined ? undefined : { privateCatalogs: enterprise.private_catalogs };
+
+const convertTelemetrySettings = (telemetry: TelemetrySettingsDocument | undefined): Settings['telemetry'] =>
+  telemetry === undefined ? undefined : { enabled: telemetry.enabled };
 
 const convertRemoteSettingsSource = (source: RemoteSettingsDocument): RemoteSettingsReference => {
   if (source.uri !== undefined) {

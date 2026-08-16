@@ -7,6 +7,8 @@ Global options:
 | `-V, --version` | Print the Outfitter version. |
 | `-h, --help`    | Show help for a command.     |
 
+See [Telemetry](./telemetry.md) for the pseudonymous analytics event contract and opt-out controls.
+
 ## `outfitter run [agent] [args...]`
 
 Resolve, compose, and launch an agent. `run` is the default command, so plain `outfitter` and `outfitter run` are equivalent.

@@ -34,6 +34,17 @@
       },
       "additionalProperties": false
     },
+    "telemetry": {
+      "type": "object",
+      "description": "Controls pseudonymous Outfitter product analytics.",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enable or disable pseudonymous Outfitter product analytics. Defaults to enabled."
+        }
+      },
+      "additionalProperties": false
+    },
     "sources": {
       "type": "array",
       "items": {

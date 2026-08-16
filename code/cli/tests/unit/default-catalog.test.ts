@@ -30,6 +30,7 @@ const createCatalogRepository = (withAgents = true): { readonly ref: string; rea
   git(['init', '--quiet', root]);
   git(['-C', root, 'config', 'user.name', 'Outfitter Tests']);
   git(['-C', root, 'config', 'user.email', 'tests@outfitter.dev']);
+  git(['-C', root, 'config', 'commit.gpgsign', 'false']);
   if (withAgents) write(join(root, 'agents', 'founder', 'agent.md'), '---\nname: founder\n---\n');
   else write(join(root, 'README.md'), '# No agents\n');
   git(['-C', root, 'add', '.']);

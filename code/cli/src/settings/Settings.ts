@@ -32,6 +32,10 @@ export interface EnterpriseSettings {
   readonly privateCatalogs?: boolean;
 }
 
+export interface TelemetrySettings {
+  readonly enabled?: boolean;
+}
+
 export interface Settings {
   /** Agent slug that plain `outfitter` runs when no agent is selected. */
   readonly defaultAgent?: string;
@@ -44,6 +48,7 @@ export interface Settings {
   readonly customSettings?: CustomSettings;
   readonly startup?: StartupSettings;
   readonly enterprise?: EnterpriseSettings;
+  readonly telemetry?: TelemetrySettings;
 }
 
 export const emptySettings = (): Settings => ({

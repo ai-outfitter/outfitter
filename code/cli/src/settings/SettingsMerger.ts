@@ -14,6 +14,7 @@ export const mergeSettingsStack = (settingsStack: readonly Settings[]): Settings
   let customSettings: CustomSettings | undefined;
   let startup: Settings['startup'];
   let enterprise: Settings['enterprise'];
+  let telemetry: Settings['telemetry'];
 
   for (const settings of settingsStack) {
     defaultAgent = settings.defaultAgent ?? defaultAgent;
@@ -29,6 +30,7 @@ export const mergeSettingsStack = (settingsStack: readonly Settings[]): Settings
     customSettings = mergeOptionalCustomSettings(customSettings, settings.customSettings);
     startup = settings.startup === undefined ? startup : { ...startup, ...settings.startup };
     enterprise = settings.enterprise === undefined ? enterprise : { ...enterprise, ...settings.enterprise };
+    telemetry = settings.telemetry === undefined ? telemetry : { ...telemetry, ...settings.telemetry };
   }
 
   return {
@@ -42,6 +44,7 @@ export const mergeSettingsStack = (settingsStack: readonly Settings[]): Settings
     customSettings: customSettings ?? {},
     startup: startup ?? {},
     enterprise: enterprise ?? {},
+    telemetry: telemetry ?? {},
   };
 };
 
