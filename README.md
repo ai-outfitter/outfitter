@@ -94,7 +94,7 @@ The [documentation index](./docs/documentation/README.md) follows the same arc �
 - **Start:** [Getting started](./docs/documentation/getting-started.md) · [First-time CLI agent users](./docs/documentation/first-time-cli-agent-users.md) · [Switching to Outfitter](./docs/documentation/switching-to-outfitter.md)
 - **Understand:** [Concepts](./docs/documentation/concepts.md) · [Agents](./docs/documentation/agents.md) · [Skills](./docs/documentation/skills.md) · [Personas](./docs/documentation/personas.md) · [Subagents and delegation](./docs/documentation/subagents.md)
 - **Share:** [Catalogs](./docs/documentation/catalogs.md) · [Conventions](./docs/documentation/conventions.md) · [Organization catalog](./docs/documentation/usecases/organization-profile-catalog.md) · [Best practices](./docs/documentation/best-practices.md)
-- **Automate:** [GitHub Actions](./docs/documentation/actions.md) · [Recurring runs](./docs/documentation/recurring-runs.md) · [In-cluster agents](./docs/documentation/in-cluster.md) · [Hooks](./docs/documentation/hooks.md) · [State persistence](./docs/documentation/state.md)
+- **Automate:** [GitHub Actions](./docs/documentation/actions.md) · [Recurring runs](./docs/documentation/recurring-runs.md) · [Cost estimation](./docs/documentation/cost-estimation.md) · [In-cluster agents](./docs/documentation/in-cluster.md) · [Hooks](./docs/documentation/hooks.md) · [State persistence](./docs/documentation/state.md)
 - **Reference:** [CLI](./docs/documentation/cli.md) · [Settings](./docs/documentation/settings.md) · [Adapter support matrix](./docs/documentation/support-matrix.md) · [Philosophy](./docs/philosophy.md)
 
 Use cases, story first:
