@@ -64,4 +64,63 @@ describe('loadout resolution deferral', () => {
       ),
     ).toBe(true);
   });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-003.12.7).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('preserves typed codes and exact declaration paths for composition findings', () => {
+    const root = mkdtempSync(join(tmpdir(), 'outfitter-resolver-outside-'));
+    temporaryRoots.push(root);
+    const project = join(root, 'project');
+    const parentPath = join(project, '.agents', 'agents', 'parent', 'agent.md');
+    const childPath = join(project, '.agents', 'agents', 'child', 'agent.md');
+    const configPath = join(project, '.agents', 'agents', 'configured', 'config.json');
+    const mcpPath = join(project, '.agents', 'agents', 'outside', 'mcp.json');
+    write(parentPath, agentMd('parent', 'skills: [from-parent]\nsystem_prompt:\n  file: ../secret.md\n'));
+    write(childPath, agentMd('child', 'inherits: [parent]\n'));
+    write(join(project, '.agents', 'agents', 'configured', 'agent.md'), agentMd('configured'));
+    write(configPath, '{"skills":["from-config"]}\n');
+    write(join(project, '.agents', 'agents', 'outside', 'agent.md'), agentMd('outside', 'mcp: [server]\n'));
+    write(mcpPath, '{ invalid json');
+    const set = resolveResources(
+      discoverLayers({ homeDirectory: join(root, 'home'), projectDirectory: project, settings: {} }).layers,
+    );
+
+    const findings = validateEffectiveSet(set);
+    expect(findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ resource: 'agent:child', code: 'resource-unresolved', sourcePath: parentPath }),
+        expect.objectContaining({ resource: 'agent:child', code: 'reference-escaped', sourcePath: parentPath }),
+        expect.objectContaining({ resource: 'agent:configured', code: 'resource-unresolved', sourcePath: configPath }),
+        expect.objectContaining({ resource: 'agent:outside', code: 'resource-invalid', sourcePath: mcpPath }),
+      ]),
+    );
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-003.12.7).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('attributes unknown parents and cycles to the agent that declares the failing edge', () => {
+    const root = mkdtempSync(join(tmpdir(), 'outfitter-resolver-inheritance-'));
+    temporaryRoots.push(root);
+    const project = join(root, 'project');
+    const unknownPath = join(project, '.agents', 'agents', 'unknown-child', 'agent.md');
+    const cycleBPath = join(project, '.agents', 'agents', 'cycle-b', 'agent.md');
+    write(unknownPath, agentMd('unknown-child', 'inherits: [ghost]\n'));
+    write(join(project, '.agents', 'agents', 'cycle-a', 'agent.md'), agentMd('cycle-a', 'inherits: [cycle-b]\n'));
+    write(cycleBPath, agentMd('cycle-b', 'inherits: [cycle-a]\n'));
+    const set = resolveResources(
+      discoverLayers({ homeDirectory: join(root, 'home'), projectDirectory: project, settings: {} }).layers,
+    );
+
+    const findings = validateEffectiveSet(set);
+    expect(findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          resource: 'agent:unknown-child',
+          code: 'resource-unresolved',
+          sourcePath: unknownPath,
+        }),
+        expect.objectContaining({ resource: 'agent:cycle-a', code: 'inheritance-cycle', sourcePath: cycleBPath }),
+      ]),
+    );
+  });
 });

@@ -12,12 +12,18 @@ import {
   resolveSourcePayloadRoot,
 } from './SourceCache.js';
 import type { RemoteSourceReference } from './SourceCache.js';
+import type { ResolutionWarningDetail } from '../validation/ResolutionWarning.js';
 
 /** A `github:` catalog dependency, pinned to an immutable ref, attributed to its declaring catalog. */
 export interface DeclaredRemoteSource {
   readonly source: { readonly github: string; readonly ref: string };
   /** Display name of the declaring catalog, for warnings and provenance. */
   readonly declaredBy: string;
+}
+
+/** A catalog declaration with the settings file that contains it. */
+export interface AttributedRemoteSource extends DeclaredRemoteSource {
+  readonly sourcePath: string;
 }
 
 export interface DeclaredSourcesResult {
@@ -84,7 +90,9 @@ const loadCatalogSourceList = (
   payloadRoot: string,
   checkoutRoot: string,
   declaredBy: string,
-): { readonly sources: readonly SourceReference[] } | { readonly warning: string } => {
+):
+  | { readonly sources: readonly SourceReference[]; readonly sourcePath?: string }
+  | { readonly warning: ResolutionWarningDetail } => {
   const settingsPath = resolveCatalogSettingsPath(payloadRoot);
   if (settingsPath === undefined) return { sources: [] };
 
@@ -105,15 +113,55 @@ const loadCatalogSourceList = (
     const loaded = loadSettingsFiles(createSettingsLoadPlan([{ scope: 'remote', path: settingsPath }]));
     if (loaded.issues.length > 0) {
       return {
-        warning: `Catalog '${declaredBy}' declares invalid settings at '${settingsPath}'; its sources were skipped.`,
+        warning: {
+          message: `Catalog '${declaredBy}' declares invalid settings at '${settingsPath}'; its sources were skipped.`,
+          resource: `source:${declaredBy}`,
+          sourcePath: settingsPath,
+        },
       };
     }
-    return { sources: loaded.files[0].settings.sources ?? [] };
+    return { sources: loaded.files[0].settings.sources ?? [], sourcePath: settingsPath };
   } catch {
     return {
-      warning: `Catalog '${declaredBy}' has an unreadable settings.yml (not a regular file inside the checkout); its sources were skipped.`,
+      warning: {
+        message: `Catalog '${declaredBy}' has an unreadable settings.yml (not a regular file inside the checkout); its sources were skipped.`,
+        resource: `source:${declaredBy}`,
+        sourcePath: settingsPath,
+      },
     };
   }
+};
+
+interface AttributedDeclaredSourcesResult {
+  readonly sources: readonly AttributedRemoteSource[];
+  readonly warningDetails: readonly ResolutionWarningDetail[];
+}
+
+const readAttributedRemoteSources = (
+  payloadRoot: string,
+  checkoutRoot: string,
+  declaredBy: string,
+): AttributedDeclaredSourcesResult => {
+  const loaded = loadCatalogSourceList(payloadRoot, checkoutRoot, declaredBy);
+  if ('warning' in loaded) return { sources: [], warningDetails: [loaded.warning] };
+  if (loaded.sourcePath === undefined) return { sources: [], warningDetails: [] };
+
+  const sources: AttributedRemoteSource[] = [];
+  const warningDetails: ResolutionWarningDetail[] = [];
+  for (const declared of loaded.sources) {
+    const classified = classifyDeclaredSource(declared, declaredBy);
+    if ('skip' in classified) {
+      warningDetails.push({
+        message: classified.skip,
+        resource: `source:${declaredBy}`,
+        sourcePath: loaded.sourcePath,
+      });
+    } else {
+      sources.push({ source: classified.source, declaredBy, sourcePath: loaded.sourcePath });
+    }
+  }
+
+  return { sources, warningDetails };
 };
 
 /**
@@ -134,18 +182,11 @@ export const readDeclaredRemoteSources = (
   checkoutRoot: string,
   declaredBy: string,
 ): DeclaredSourcesResult => {
-  const loaded = loadCatalogSourceList(payloadRoot, checkoutRoot, declaredBy);
-  if ('warning' in loaded) return { sources: [], warnings: [loaded.warning] };
-
-  const sources: DeclaredRemoteSource[] = [];
-  const warnings: string[] = [];
-  for (const declared of loaded.sources) {
-    const classified = classifyDeclaredSource(declared, declaredBy);
-    if ('skip' in classified) warnings.push(classified.skip);
-    else sources.push({ source: classified.source, declaredBy });
-  }
-
-  return { sources, warnings };
+  const attributed = readAttributedRemoteSources(payloadRoot, checkoutRoot, declaredBy);
+  return {
+    sources: attributed.sources.map(({ source, declaredBy: owner }) => ({ source, declaredBy: owner })),
+    warnings: attributed.warningDetails.map(({ message }) => message),
+  };
 };
 
 export interface TransitiveExpansionInput {
@@ -160,7 +201,12 @@ export interface TransitiveExpansionResult {
   readonly sources: readonly DeclaredRemoteSource[];
   /** Every accepted declaration, including duplicates suppressed from the resolved source graph. */
   readonly declarations: readonly DeclaredRemoteSource[];
+  /** Source declarations with their exact catalog settings file. */
+  readonly attributedSources: readonly AttributedRemoteSource[];
+  /** Every attributed declaration, including duplicates suppressed from the source graph. */
+  readonly attributedDeclarations: readonly AttributedRemoteSource[];
   readonly warnings: readonly string[];
+  readonly warningDetails: readonly ResolutionWarningDetail[];
 }
 
 /**
@@ -175,7 +221,7 @@ export interface TransitiveExpansionResult {
 const declarationsFromParent = (
   parent: RemoteSourceReference,
   resolveCachedCheckoutRoot: TransitiveExpansionInput['resolveCachedCheckoutRoot'],
-): DeclaredSourcesResult | undefined => {
+): AttributedDeclaredSourcesResult | undefined => {
   const checkoutRoot = resolveCachedCheckoutRoot(parent);
   if (checkoutRoot === undefined) return undefined;
 
@@ -187,13 +233,15 @@ const declarationsFromParent = (
   }
   if (!existsSync(payloadRoot)) return undefined;
 
-  return readDeclaredRemoteSources(payloadRoot, checkoutRoot, formatRemoteSourceDisplay(parent));
+  return readAttributedRemoteSources(payloadRoot, checkoutRoot, formatRemoteSourceDisplay(parent));
 };
 
 export const expandTransitiveSources = (input: TransitiveExpansionInput): TransitiveExpansionResult => {
   const sources: DeclaredRemoteSource[] = [];
   const declarations: DeclaredRemoteSource[] = [];
-  const warnings: string[] = [];
+  const attributedSources: AttributedRemoteSource[] = [];
+  const attributedDeclarations: AttributedRemoteSource[] = [];
+  const warningDetails: ResolutionWarningDetail[] = [];
   const visited = new Set<string>();
 
   // Seed the visited set with each direct source's path-aware identity so a directly configured
@@ -214,14 +262,17 @@ export const expandTransitiveSources = (input: TransitiveExpansionInput): Transi
     for (const parent of frontier) {
       const declared = declarationsFromParent(parent, input.resolveCachedCheckoutRoot);
       if (declared === undefined) continue;
-      warnings.push(...declared.warnings);
+      warningDetails.push(...declared.warningDetails);
 
       for (const entry of declared.sources) {
-        declarations.push(entry);
+        const legacy = { source: entry.source, declaredBy: entry.declaredBy };
+        declarations.push(legacy);
+        attributedDeclarations.push(entry);
         const key = encodeRemoteSourceSelection(entry.source);
         if (visited.has(key)) continue;
         visited.add(key);
-        sources.push(entry);
+        sources.push(legacy);
+        attributedSources.push(entry);
         next.push(entry.source);
       }
     }
@@ -229,5 +280,12 @@ export const expandTransitiveSources = (input: TransitiveExpansionInput): Transi
     frontier = next;
   }
 
-  return { sources, declarations, warnings };
+  return {
+    sources,
+    declarations,
+    attributedSources,
+    attributedDeclarations,
+    warnings: warningDetails.map(({ message }) => message),
+    warningDetails,
+  };
 };

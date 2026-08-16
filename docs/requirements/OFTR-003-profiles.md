@@ -97,3 +97,18 @@ Outfitter resolves agents and other resources from layered `.agents` trees into 
 4. Missing optional `repo_file` prompt fragments SHOULD produce observable composition warnings instead of making reusable catalog agents fail across repositories.
 5. Prompt fragments MUST retain source kind, path or reference, declaring agent, owning layer, content, order, and trust provenance in the composition plan.
 6. Named prompt slug shorthand MUST NOT be accepted until its namespace, layer semantics, protocol compatibility, and dump behavior are specified in these requirements.
+
+### OFTR-003.12: Common `.agents` Validation
+
+> **Amendment (2026-08-15, Issue [#301](https://github.com/ai-outfitter/outfitter/issues/301)):** The complete effective resource set now has one harness-neutral validation gate.
+
+1. `outfitter validate` and `outfitter run --strict` MUST use the same common validation findings.
+2. `run --strict` MUST execute the common validator before first-run setup or harness selection, MUST revalidate after setup changes the effective tree, and MUST stop before process spawn when the validator returns an error or warning.
+3. The validator MUST check every effective global and agent-local skill, including a skill that the selected agent does not use.
+4. A skill description MUST contain 1–1,024 Unicode characters. A missing, empty, or longer description MUST produce an error.
+5. Common findings MUST cover invalid frontmatter, invalid or mismatched names, unresolved resources, inheritance cycles, escaping references, materialized destination collisions, and shadowed resources.
+6. A description of three words or fewer MUST produce the `description-not-actionable` portable-authoring warning. Broader semantic judgments MUST NOT block strict mode.
+7. Every common finding MUST include a stable code, severity, resource identity, source path, message, and remediation. JSON output MUST preserve these fields.
+8. Common findings MUST NOT name a harness. An adapter MAY report only later harness capability or projection loss.
+9. Normal `outfitter run` MUST NOT execute the complete common gate. Existing composition errors and degraded-launch warnings continue to use their current behavior.
+10. The Agent Skills description limit is a conformance rule. An aggregate description budget would be an Outfitter portable policy, not an Agent Skills requirement. Outfitter MUST NOT enforce or claim an aggregate numeric threshold until cross-harness evaluation establishes one.

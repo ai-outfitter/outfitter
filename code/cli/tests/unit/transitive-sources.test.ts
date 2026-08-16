@@ -603,6 +603,12 @@ describe('transitive layers', () => {
     expect(discovered.unsynchronized).toHaveLength(1);
     expect(discovered.unsynchronized[0]).toContain('github:example/never-synced#v1.0.0');
     expect(discovered.unsynchronized[0]).toMatch(/Run 'outfitter sync'/u);
+    expect(discovered.unsynchronizedDetails).toEqual([
+      expect.objectContaining({
+        resource: 'source:github:example/never-synced#v1.0.0',
+        sourcePath: join(directRoot, 'settings.yml'),
+      }),
+    ]);
   });
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-004.6.4).
@@ -624,6 +630,12 @@ describe('transitive layers', () => {
     expect(resolved.warnings).toHaveLength(1);
     expect(resolved.warnings[0]).toContain("Catalog 'github:example/direct#v1.0.0'");
     expect(resolved.warnings[0]).toContain('immutable');
+    expect(resolved.warningDetails).toEqual([
+      expect.objectContaining({
+        resource: 'source:github:example/direct#v1.0.0',
+        sourcePath: join(directRoot, 'settings.yml'),
+      }),
+    ]);
   });
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-004.2.15).
@@ -644,6 +656,12 @@ describe('transitive layers', () => {
     });
 
     expect(discovered.warnings.some((warning) => warning.includes('invalid path'))).toBe(true);
+    expect(discovered.warningDetails).toEqual([
+      expect.objectContaining({
+        resource: 'source:github:example/evil#v1.0.0',
+        sourcePath: join(root, 'project', '.agents', 'settings.yml'),
+      }),
+    ]);
     expect(findResource(resolveResources(discovered.layers), 'agent', 'ok')).toBeDefined();
   });
 });

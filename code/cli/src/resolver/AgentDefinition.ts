@@ -10,6 +10,8 @@ import type { Loadout } from './Resource.js';
 import { emptyLoadout } from './Resource.js';
 
 export interface AgentDefinition {
+  /** The agent.md file that declares identity, inheritance, and prompt controls. */
+  readonly sourcePath: string;
   readonly name: string;
   /** Human-readable profile name shown in interactive harness UI. */
   readonly label?: string;
@@ -17,6 +19,8 @@ export interface AgentDefinition {
   /** Markdown body after the frontmatter — the agent's identity prose. */
   readonly body: string;
   readonly loadout: Loadout;
+  /** The effective declaration file for each loadout key after config.json overrides. */
+  readonly loadoutSourcePaths: Readonly<Record<LoadoutKey, string>>;
   /** Ordered parent agent slugs declared by `inherits`. */
   readonly inherits: readonly string[];
   readonly promptControls: PromptControls;
@@ -29,6 +33,7 @@ export interface PromptControls {
 }
 
 export interface AgentDefinitionIssue {
+  readonly kind: 'frontmatter' | 'invalid-name' | 'config' | 'invalid-tools' | 'read';
   readonly path: string;
   readonly message: string;
 }
@@ -48,6 +53,8 @@ export const loadoutKeys = [
   'thinking',
   'tools',
 ] as const;
+
+export type LoadoutKey = (typeof loadoutKeys)[number];
 
 /** Restricts an arbitrary record to the loadout keys config.json is allowed to supply. */
 export const pickLoadoutKeys = (record: Readonly<Record<string, unknown>>): Record<string, unknown> =>
@@ -189,7 +196,11 @@ const toolsIssue = (record: Readonly<Record<string, unknown>>, path: string): Ag
 
   return offending === undefined
     ? undefined
-    : { path, message: `declares an unusable tool name ${JSON.stringify(offending)}: ${TOOL_NAME_RULE}` };
+    : {
+        kind: 'invalid-tools',
+        path,
+        message: `declares an unusable tool name ${JSON.stringify(offending)}: ${TOOL_NAME_RULE}`,
+      };
 };
 
 /** Reads one config.json, restricting it to loadout keys; parse/read/non-object failures are issues. */
@@ -199,11 +210,11 @@ const readConfigLoadout = (configPath: string): Readonly<Record<string, unknown>
   try {
     parsed = JSON.parse(readFileSync(configPath, 'utf8'));
   } catch (error) {
-    return { path: configPath, message: `config.json is not readable JSON: ${String(error)}` };
+    return { kind: 'config', path: configPath, message: `config.json is not readable JSON: ${String(error)}` };
   }
 
   if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
-    return { path: configPath, message: 'config.json must be a JSON object of loadout overrides.' };
+    return { kind: 'config', path: configPath, message: 'config.json must be a JSON object of loadout overrides.' };
   }
 
   const picked = pickLoadoutKeys(parsed as Record<string, unknown>);
@@ -214,7 +225,11 @@ const readConfigLoadout = (configPath: string): Readonly<Record<string, unknown>
     const defect = toolsShapeDefect(picked.tools);
 
     if (defect !== undefined) {
-      return { path: configPath, message: `config.json declares a malformed tool selection: ${defect}` };
+      return {
+        kind: 'invalid-tools',
+        path: configPath,
+        message: `config.json declares a malformed tool selection: ${defect}`,
+      };
     }
   }
 
@@ -228,17 +243,25 @@ const parseFrontmatterRecord = (
   const split = splitFrontmatter(content);
 
   if (split === undefined) {
-    return { path: agentPath, message: 'agent.md must start with a `---` YAML frontmatter block.' };
+    return {
+      kind: 'frontmatter',
+      path: agentPath,
+      message: 'agent.md must start with a `---` YAML frontmatter block.',
+    };
   }
 
   const parsed = parseYamlDocument(split.frontmatter, agentPath);
 
   if (!parsed.ok) {
-    return { path: agentPath, message: `agent.md frontmatter is not valid YAML: ${parsed.issue.message}` };
+    return {
+      kind: 'frontmatter',
+      path: agentPath,
+      message: `agent.md frontmatter is not valid YAML: ${parsed.issue.message}`,
+    };
   }
 
   if (parsed.document === null || typeof parsed.document !== 'object' || Array.isArray(parsed.document)) {
-    return { path: agentPath, message: 'agent.md frontmatter must be a YAML mapping.' };
+    return { kind: 'frontmatter', path: agentPath, message: 'agent.md frontmatter must be a YAML mapping.' };
   }
 
   // Validate the frontmatter on its own so config.json cannot supply required identity fields.
@@ -246,10 +269,39 @@ const parseFrontmatterRecord = (
 
   if (!validation.valid) {
     // An invalid document always yields at least one issue.
-    return { path: agentPath, message: `agent.md is invalid: ${validation.issues[0].message}` };
+    return {
+      kind: validation.issues[0].path === '/name' ? 'invalid-name' : 'frontmatter',
+      path: agentPath,
+      message: `agent.md is invalid: ${validation.issues[0].message}`,
+    };
   }
 
   return { record: parsed.document as Record<string, unknown>, body: split.body };
+};
+
+interface MergedLoadout {
+  readonly record: Record<string, unknown>;
+  readonly sourcePaths: Readonly<Record<LoadoutKey, string>>;
+}
+
+const mergeLoadoutOverrides = (
+  frontmatter: Readonly<Record<string, unknown>>,
+  configPaths: readonly string[],
+  agentPath: string,
+): MergedLoadout | AgentDefinitionIssue => {
+  let record = { ...frontmatter };
+  const sourcePaths = Object.fromEntries(loadoutKeys.map((key) => [key, agentPath])) as Record<LoadoutKey, string>;
+
+  for (const configPath of [...configPaths].reverse()) {
+    const config = readConfigLoadout(configPath);
+    if (isAgentDefinitionIssue(config)) return config;
+    record = { ...record, ...config };
+    for (const key of loadoutKeys) {
+      if (key in config) sourcePaths[key] = configPath;
+    }
+  }
+
+  return { record, sourcePaths };
 };
 
 /**
@@ -267,34 +319,26 @@ export const parseAgentDefinition = (
     return frontmatter;
   }
 
-  let merged: Record<string, unknown> = { ...frontmatter.record };
-
-  // Apply lowest precedence first so higher layers win per key.
-  for (const configPath of [...configPaths].reverse()) {
-    const config = readConfigLoadout(configPath);
-
-    if (isAgentDefinitionIssue(config)) {
-      return config;
-    }
-
-    merged = { ...merged, ...config };
-  }
+  const merged = mergeLoadoutOverrides(frontmatter.record, configPaths, agentPath);
+  if (isAgentDefinitionIssue(merged)) return merged;
 
   // The JSON Schema only sees the frontmatter, and a config.json overlay can replace `tools`
   // wholesale after that check. Validate the merged loadout so an unprojectable tool name is an
   // error from `outfitter validate`, not a surprise at launch.
-  const toolIssue = toolsIssue(merged, configPaths[0] ?? agentPath);
+  const toolIssue = toolsIssue(merged.record, merged.sourcePaths.tools ?? agentPath);
 
   if (toolIssue !== undefined) {
     return toolIssue;
   }
 
   return {
+    sourcePath: agentPath,
     name: frontmatter.record.name as string,
     label: asString(frontmatter.record.label)?.trim() || readMarkdownHeading(frontmatter.body),
     description: asString(frontmatter.record.description),
     body: frontmatter.body,
-    loadout: loadoutFromRecord(merged),
+    loadout: loadoutFromRecord(merged.record),
+    loadoutSourcePaths: merged.sourcePaths,
     inherits: asSlugListOrScalar(frontmatter.record.inherits),
     promptControls: promptControlsFromRecord(frontmatter.record),
   };
@@ -309,7 +353,7 @@ export const readAgentDefinition = (
   try {
     content = readFileSync(agentPath, 'utf8');
   } catch (error) {
-    return { path: agentPath, message: `Could not read agent.md: ${String(error)}` };
+    return { kind: 'read', path: agentPath, message: `Could not read agent.md: ${String(error)}` };
   }
 
   return parseAgentDefinition(content, configPaths, agentPath);

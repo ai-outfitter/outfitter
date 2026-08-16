@@ -61,7 +61,10 @@ describe('sync loadout-resolution deferral', () => {
     const home = join(root, 'home');
     // The dependency supplies `dep-skill`; `top`'s agent references it but does not define it.
     const dependency = createRepository(
-      { 'skills/dep-skill/SKILL.md': '---\nname: dep-skill\n---\n\n# dep-skill\n' },
+      {
+        'skills/dep-skill/SKILL.md':
+          '---\nname: dep-skill\ndescription: Provide dependency guidance. Use when the parent catalog selects this skill.\n---\n\n# dep-skill\n',
+      },
       'v1.0.0',
     );
     const top = createRepository({

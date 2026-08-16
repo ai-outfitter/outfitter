@@ -11,14 +11,17 @@ import {
 } from '../sources/SourceCache.js';
 import type { RemoteSourceReference } from '../sources/SourceCache.js';
 import { expandTransitiveSources } from '../sources/TransitiveSources.js';
-import type { DeclaredRemoteSource } from '../sources/TransitiveSources.js';
+import type { AttributedRemoteSource } from '../sources/TransitiveSources.js';
 import type { Settings, SourceReference } from '../settings/Settings.js';
+import type { ResolutionWarningDetail } from '../validation/ResolutionWarning.js';
 import type { Layer } from './Resource.js';
 
 export interface LayerDiscoveryInput {
   readonly homeDirectory: string;
   readonly projectDirectory: string;
   readonly settings: Settings;
+  /** The effective settings file that declares direct sources. */
+  readonly settingsSourcePath?: string;
 }
 
 const agentsRoot = (directory: string): string => join(directory, '.agents');
@@ -44,7 +47,7 @@ const sourceLayer = (input: LayerDiscoveryInput, source: SourceReference): Layer
 export interface LayerDiscoveryResult {
   readonly layers: readonly Layer[];
   /** Accepted transitive declarations, including duplicates, retained for ambiguity diagnostics. */
-  readonly transitiveDeclarations: readonly DeclaredRemoteSource[];
+  readonly transitiveDeclarations: readonly AttributedRemoteSource[];
   /**
    * Configured remote sources whose cache is absent, reported with `outfitter sync` guidance rather
    * than silently dropped (OFTR-004.2.18). Reported, never fatal: a private catalog the enterprise
@@ -52,8 +55,10 @@ export interface LayerDiscoveryResult {
    * would deadlock every other command behind advice the user cannot act on (OFTR-004.2.15).
    */
   readonly unsynchronized: readonly string[];
+  readonly unsynchronizedDetails: readonly ResolutionWarningDetail[];
   /** Non-fatal transitive-source skip warnings (unpinned refs, path sources, invalid settings). */
   readonly warnings: readonly string[];
+  readonly warningDetails: readonly ResolutionWarningDetail[];
 }
 
 /**
@@ -66,25 +71,32 @@ export const discoverLayers = (input: LayerDiscoveryInput): LayerDiscoveryResult
     { root: agentsRoot(input.projectDirectory), origin: 'workspace', label: 'workspace' },
     { root: agentsRoot(input.homeDirectory), origin: 'global', label: 'global' },
   ];
-  const unsynchronized: string[] = [];
-  const invalid: string[] = [];
+  const unsynchronizedDetails: ResolutionWarningDetail[] = [];
+  const invalidDetails: ResolutionWarningDetail[] = [];
+  const directSourcePath = input.settingsSourcePath ?? join(input.projectDirectory, '.agents', 'settings.yml');
 
-  const appendSourceLayer = (source: SourceReference): void => {
+  const appendSourceLayer = (source: SourceReference, declarationPath: string): void => {
+    const display = isRemoteSource(source) ? formatRemoteSourceDisplay(source) : source.path;
+    const resource = `source:${display}`;
     // An absolute or escaping `path:` makes payload-root resolution throw; skip the source with a
     // warning rather than crash every resolve command (list/validate/run/dump).
     let layer: Layer;
     try {
       layer = sourceLayer(input, source);
     } catch {
-      invalid.push(
-        `Configured source '${isRemoteSource(source) ? formatRemoteSourceDisplay(source) : source.path}' has an invalid path and was skipped.`,
-      );
+      invalidDetails.push({
+        message: `Configured source '${display}' has an invalid path and was skipped.`,
+        resource,
+        sourcePath: declarationPath,
+      });
       return;
     }
     if (isRemoteSource(source) && !existsSync(layer.root)) {
-      unsynchronized.push(
-        `Configured remote source '${layer.label}' is not synchronized at '${layer.root}'. Run 'outfitter sync' to fetch it.`,
-      );
+      unsynchronizedDetails.push({
+        message: `Configured remote source '${layer.label}' is not synchronized at '${layer.root}'. Run 'outfitter sync' to fetch it.`,
+        resource,
+        sourcePath: declarationPath,
+      });
       return;
     }
     candidates.push(layer);
@@ -100,7 +112,7 @@ export const discoverLayers = (input: LayerDiscoveryInput): LayerDiscoveryResult
     return true;
   });
   for (const source of directSources) {
-    appendSourceLayer(source);
+    appendSourceLayer(source, directSourcePath);
   }
 
   const expansion = expandTransitiveSources({
@@ -110,14 +122,18 @@ export const discoverLayers = (input: LayerDiscoveryInput): LayerDiscoveryResult
       return existsSync(checkoutRoot) ? checkoutRoot : undefined;
     },
   });
-  for (const transitive of expansion.sources) {
-    appendSourceLayer(transitive.source);
+  for (const transitive of expansion.attributedSources) {
+    appendSourceLayer(transitive.source, transitive.sourcePath);
   }
+
+  const warningDetails = [...invalidDetails, ...expansion.warningDetails];
 
   return {
     layers: candidates.filter((layer) => existsSync(layer.root)),
-    transitiveDeclarations: expansion.declarations,
-    unsynchronized,
-    warnings: [...invalid, ...expansion.warnings],
+    transitiveDeclarations: expansion.attributedDeclarations,
+    unsynchronized: unsynchronizedDetails.map(({ message }) => message),
+    unsynchronizedDetails,
+    warnings: warningDetails.map(({ message }) => message),
+    warningDetails,
   };
 };

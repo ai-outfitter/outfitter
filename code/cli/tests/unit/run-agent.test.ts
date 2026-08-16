@@ -1,3 +1,4 @@
+/* eslint-disable max-lines -- shared run integration fixtures remain together to preserve launch-path coverage. */
 // Tests run: resolve → compose → project → launch, launch mapping, cleanup, and strict/validation.
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -81,7 +82,10 @@ const tree = (): { home: string; project: string } => {
   const project = join(root, 'project');
   write(join(project, '.agents', 'system-prompt.md'), 'BASE PROMPT');
   write(join(project, '.agents', 'agents.md'), 'SHARED');
-  write(join(project, '.agents', 'skills', 'wiki', 'SKILL.md'), '---\nname: wiki\n---\n\nWiki skill body.\n');
+  write(
+    join(project, '.agents', 'skills', 'wiki', 'SKILL.md'),
+    '---\nname: wiki\ndescription: Maintain project knowledge. Use when reading or updating the wiki.\n---\n\nWiki skill body.\n',
+  );
   write(join(project, '.agents', 'skills', 'wiki', 'scripts', 'go.sh'), 'echo hi'); // nested dir under the skill
   symlinkSync('/etc/hosts', join(project, '.agents', 'skills', 'wiki', 'inner-link')); // inner symlink skipped on materialize
   write(
@@ -151,7 +155,10 @@ describe('run agent', () => {
   it('projects the selected agent-local skill and its packaged files into the harness runtime', async () => {
     const { home, project } = tree();
     const localSkill = join(project, '.agents', 'agents', 'engineer', 'skills', 'wiki');
-    write(join(localSkill, 'SKILL.md'), '---\nname: wiki\n---\n\nAgent-local body.\n');
+    write(
+      join(localSkill, 'SKILL.md'),
+      '---\nname: wiki\ndescription: Maintain project knowledge. Use when reading or updating the wiki.\n---\n\nAgent-local body.\n',
+    );
     write(join(localSkill, 'references', 'on-failure.md'), '# Diagnose the failure\n');
     write(join(localSkill, 'scripts', 'collect.sh'), 'echo collect\n');
     write(join(localSkill, 'assets', 'comment.md'), 'Failure report\n');

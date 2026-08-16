@@ -118,6 +118,25 @@ describe('append-prompt projection', () => {
     }
   });
 
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-003.12.9).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('preserves normal-run settings error precedence over an unreadable append prompt', async () => {
+    const { home, project, root } = tree();
+    const missing = join(root, 'absent.md');
+    write(join(project, '.agents', 'settings.local.yml'), 'default_harness: invalid\n');
+
+    await expect(
+      executeRunAgentCommand({
+        homeDirectory: home,
+        projectDirectory: project,
+        agent: 'engineer',
+        harness: 'pi',
+        appendPromptPaths: [missing],
+        launcher: () => Promise.resolve(0),
+      }),
+    ).rejects.toThrow(/invalid settings/u);
+  });
+
   it('gives Claude one --append-system-prompt-file over a concatenation, never a repeated flag', async () => {
     const { home, project } = tree();
 

@@ -27,6 +27,7 @@ import type { AgentLaunchPlan } from '../../projection/Projection.js';
 import { strictAmbiguityFailureMessage } from '../../resolver/AmbiguityWarnings.js';
 import { findResource } from '../../resolver/Resource.js';
 import { resolveEffectiveSet } from '../../resolver/ResolverContext.js';
+import type { ValidationFinding } from '../../resolver/ResolverValidation.js';
 import type { Harness } from '../../settings/Settings.js';
 import { HARNESSES } from '../../settings/Settings.js';
 import { setupNextStepMessage } from '../../setup/Setup.js';
@@ -38,6 +39,7 @@ import type { CommandObject } from './CommandObject.js';
 import { attachPiRuntimeExtension } from './PiRuntimeLaunch.js';
 import { resolveHomeDirectory, resolveProjectDirectory } from './ProcessDefaults.js';
 import { runSetup } from './SetupCommand.js';
+import { collectCommonValidationFindings, formatValidationFindings } from './ValidateCommand.js';
 
 export type AgentProcessLauncher = (plan: AgentLaunchPlan) => Promise<number>;
 export type RunLogLevel = 'info' | 'debug';
@@ -77,6 +79,8 @@ export interface RunAgentInput {
 
 export interface RunAgentResult {
   readonly launchPlan?: AgentLaunchPlan;
+  /** Shared harness-neutral findings evaluated before harness selection in strict mode. */
+  readonly commonFindings?: readonly ValidationFinding[];
   readonly exitCode: number;
   readonly messages: readonly string[];
 }
@@ -267,42 +271,73 @@ const failedCompositionMessages = (
   ];
 };
 
+const strictCommonValidationFailure = (
+  input: RunAgentInput,
+  resolved: ReturnType<typeof resolveEffectiveSet>,
+): RunAgentResult | undefined => {
+  if (input.strict !== true) return undefined;
+
+  const commonFindings = collectCommonValidationFindings(resolved, input.projectDirectory);
+  if (commonFindings.length === 0) return undefined;
+
+  return {
+    commonFindings,
+    exitCode: 1,
+    messages: [
+      ...formatValidationFindings(commonFindings, false),
+      'Strict mode stops the run when common .agents validation finds an error or warning.',
+      ...(resolved.ambiguityWarnings.length > 0 ? [strictAmbiguityFailureMessage] : []),
+    ],
+  };
+};
+
+const prepareResolvedRun = async (
+  input: RunAgentInput,
+): Promise<{ readonly resolved: ReturnType<typeof resolveEffectiveSet> } | { readonly result: RunAgentResult }> => {
+  let resolved = resolveEffectiveSet(input);
+  let strictFailure = strictCommonValidationFailure(input, resolved);
+  if (strictFailure !== undefined) return { result: strictFailure };
+  assertNoSettingsIssues(resolved.settingsIssues);
+  assertReadableAppendPrompts(input.appendPromptPaths);
+
+  if (!shouldRunSetup(input, resolved)) return { resolved };
+  const setupResult = await input.setup({
+    homeDirectory: input.homeDirectory,
+    projectDirectory: input.projectDirectory,
+  });
+
+  if (setupDidNotSelectAgent(setupResult) && input.strict !== true) {
+    return { result: { exitCode: 0, messages: [setupNextStepMessage] } };
+  }
+
+  // Setup can change the effective tree. Strict mode validates that new state before any result
+  // or launch; normal mode keeps its existing quiet transition to the selected profile.
+  resolved = resolveEffectiveSet(input);
+  strictFailure = strictCommonValidationFailure(input, resolved);
+  if (strictFailure !== undefined) return { result: strictFailure };
+  assertNoSettingsIssues(resolved.settingsIssues);
+
+  return setupDidNotSelectAgent(setupResult)
+    ? { result: { exitCode: 0, messages: [setupNextStepMessage] } }
+    : { resolved };
+};
+
 export const executeRunAgentCommand = async (input: RunAgentInput): Promise<RunAgentResult> => {
   // Flush messages to the terminal (before launch); they are also returned so callers can inspect them.
   const emit = (messages: readonly string[]): void => {
     for (const message of messages) input.writeLine?.(message);
   };
 
-  let resolved = resolveEffectiveSet(input);
-  assertNoSettingsIssues(resolved.settingsIssues);
-  assertReadableAppendPrompts(input.appendPromptPaths);
-
-  // First run: nothing selected and no default configured — onboard, then resolve again.
-  if (shouldRunSetup(input, resolved)) {
-    const setupResult = await input.setup({
-      homeDirectory: input.homeDirectory,
-      projectDirectory: input.projectDirectory,
-    });
-
-    if (setupDidNotSelectAgent(setupResult)) {
-      const messages = [setupNextStepMessage];
-      emit(messages);
-      return { exitCode: 0, messages };
-    }
-    // Keep the transition quiet so the real profile UI is the first persistent output.
-    resolved = resolveEffectiveSet(input);
-    assertNoSettingsIssues(resolved.settingsIssues);
+  const prepared = await prepareResolvedRun(input);
+  if ('result' in prepared) {
+    emit(prepared.result.messages);
+    return prepared.result;
   }
+  const { resolved } = prepared;
 
   // Strict mode exposes the complete final resolution state. Normal startup uses these diagnostics
   // only to turn an unavailable selected agent into a concise synchronization action.
   const resolutionWarnings = resolutionWarningsForRun(resolved, input.strict);
-
-  if (input.strict === true && resolved.ambiguityWarnings.length > 0) {
-    const messages = [...resolutionWarnings, strictAmbiguityFailureMessage];
-    emit(messages);
-    return { exitCode: 1, messages };
-  }
 
   const { set, settings } = resolved;
   const agentSlug = resolveAgentSlug(settings.defaultAgent, input.agent);

@@ -64,7 +64,11 @@ description: Design concise GitHub automation using stable agent identities and 
 Describe when and how to perform this capability.
 ```
 
-Skill directory names use lowercase letters, numbers, and hyphens — at most 64 characters, with no leading, trailing, or consecutive hyphens. Keep the description precise enough for an agent to decide when the skill applies.
+Skill directory names use lowercase letters, numbers, and hyphens — at most 64 characters, with no leading, trailing, or consecutive hyphens. A description is required and must contain 1–1,024 Unicode characters. Keep it precise enough for an agent to decide when the skill applies.
+
+The description length is an Agent Skills conformance rule. Outfitter reports a portable-authoring warning for every description of three words or fewer. This objective rule avoids subjective prose judgments in strict mode.
+
+The Agent Skills specification does not set a total description-length limit for a catalog. The common validator does not use a limit from a harness or model. A future total limit must be an Outfitter policy based on tests across harnesses. Each adapter still reports harness-specific capability or projection loss.
 
 ## Where context and instructions live
 

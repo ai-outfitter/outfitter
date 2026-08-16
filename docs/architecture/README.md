@@ -258,6 +258,7 @@ Outfitter launches `codex`, maps model selection to `-m`, and injects selected M
 
 - **`outfitter run [agent]`** (default command): resolve → compose → project → launch.
   A positional agent slug selects what to run (default from settings `default_agent`); `--harness <pi|claude|codex>` selects the harness (default from settings `default_harness`, then `pi`); unknown args pass through to the child CLI; `--strict` makes warnings fatal.
+  Strict mode first validates the complete effective `.agents` resource set and stops on any common finding before it selects the harness. Normal mode skips this full validation and uses the existing launch checks.
   Interactive clean-home launches start Pi-native onboarding; non-interactive clean-home launches require `outfitter setup` first.
 - **`outfitter setup [source]`**: launch the bundled, model-free Pi walkthrough with the original three setup modes (default catalog, create a profile, or another catalog), original profile/target wording, and optional direct-source path; append only the default CLI-agent choice (Pi/Outfitter preselected); then atomically apply the result through the CLI state machine.
 - **`outfitter sync`**: validate local settings; atomically fetch configured remote settings; reload the merged settings; then atomically fetch every resulting remote source into `<cache_directory>/repos/<encoded-uri-and-ref>/`.
@@ -265,7 +266,7 @@ Outfitter launches `codex`, maps model selection to `-m`, and injects selected M
   Required-source failures exit nonzero.
   Network synchronization never runs implicitly during `outfitter run`.
 - **`outfitter list [kind]`**: report the effective resource set — slugs, winning sources, shadowed definitions — deterministically.
-- **`outfitter validate [--strict] [--json]`**: protocol layout, frontmatter and JSON schemas, unresolved loadout slugs, skill reference escapes/collisions, settings schema.
+- **`outfitter validate [--strict] [--json]`**: protocol layout, frontmatter and JSON schemas, all effective global and agent-local skill descriptions, unresolved loadout slugs, skill reference escapes/collisions, settings schema. Findings use stable codes and include severity, resource identity, source path, message, and remediation.
 - **`outfitter dump [--agent <id>] [--out]`**: write the deterministic tree, optionally restricted to one agent's transitive closure.
 
 > `outfitter task bake` is deferred to the [tasks RFC](../documentation/tasks.md).

@@ -3,7 +3,7 @@ import { existsSync, realpathSync, statSync, readFileSync } from 'node:fs';
 import { dirname, join, relative } from 'node:path';
 
 import { escapesRoots } from '../dump/Containment.js';
-import type { Layer } from '../resolver/Resource.js';
+import type { EffectiveResourceSet, Layer } from '../resolver/Resource.js';
 
 export type PromptSourceKind = 'root' | 'file' | 'repo_file' | 'agent_body';
 
@@ -25,11 +25,17 @@ export interface PromptFragment {
   readonly trust: 'catalog' | 'repository' | 'generated';
 }
 
-export interface PromptResolution {
-  readonly fragment?: PromptFragment;
-  readonly warning?: string;
-  readonly error?: string;
-}
+type PromptDiagnosticCode = 'reference-escaped' | 'resource-invalid' | 'resource-unresolved';
+
+export type PromptResolution =
+  | { readonly fragment: PromptFragment; readonly warning?: never; readonly error?: never; readonly code?: never }
+  | { readonly warning: string; readonly code: PromptDiagnosticCode; readonly fragment?: never; readonly error?: never }
+  | {
+      readonly error: string;
+      readonly code: PromptDiagnosticCode;
+      readonly fragment?: never;
+      readonly warning?: never;
+    };
 
 export const isPromptSourceReference = (value: unknown): value is PromptSourceReference =>
   value !== null &&
@@ -43,24 +49,31 @@ export const isPromptSourceReference = (value: unknown): value is PromptSourceRe
 const safeRelative = (value: string): boolean =>
   value.length > 0 && !value.startsWith('/') && !value.split(/[\\/]+/).includes('..');
 
-const containedFile = (path: string, root: string): true | string => {
-  if (!existsSync(path)) return `missing file '${path}'.`;
+interface ContainedFileIssue {
+  readonly code: 'reference-escaped' | 'resource-invalid';
+  readonly message: string;
+}
+
+const containedFile = (path: string, root: string): true | ContainedFileIssue => {
+  if (!existsSync(path)) return { code: 'resource-invalid', message: `missing file '${path}'.` };
 
   let real: string;
   try {
     real = realpathSync(path);
     /* v8 ignore next 2 -- existsSync succeeded; this only covers a concurrent filesystem race. */
   } catch (error) {
-    return `cannot resolve '${path}': ${String(error)}`;
+    return { code: 'resource-invalid', message: `cannot resolve '${path}': ${String(error)}` };
   }
 
-  if (escapesRoots(real, [root])) return `'${path}' resolves outside '${root}'.`;
+  if (escapesRoots(real, [root])) {
+    return { code: 'reference-escaped', message: `'${path}' resolves outside '${root}'.` };
+  }
 
   try {
-    if (!statSync(real).isFile()) return `'${path}' is not a file.`;
+    if (!statSync(real).isFile()) return { code: 'resource-invalid', message: `'${path}' is not a file.` };
     /* v8 ignore next 2 -- realpathSync succeeded; this only covers a concurrent filesystem race. */
   } catch (error) {
-    return `cannot stat '${path}': ${String(error)}`;
+    return { code: 'resource-invalid', message: `cannot stat '${path}': ${String(error)}` };
   }
 
   return true;
@@ -83,11 +96,17 @@ export const resolvePromptSource = (input: {
     if (!safeRelative(source.file)) {
       return {
         error: `agent '${declaringAgent}' prompt source file '${source.file}' must be a contained relative path.`,
+        code: 'reference-escaped',
       };
     }
     const path = join(layer.root, source.file);
     const contained = containedFile(path, layer.root);
-    if (contained !== true) return { error: `agent '${declaringAgent}' prompt source file ${contained}` };
+    if (contained !== true) {
+      return {
+        error: `agent '${declaringAgent}' prompt source file ${contained.message}`,
+        code: contained.code,
+      };
+    }
     return {
       fragment: {
         kind: 'file',
@@ -106,6 +125,7 @@ export const resolvePromptSource = (input: {
   if (!safeRelative(repoFile)) {
     return {
       error: `agent '${declaringAgent}' repo_file prompt source '${repoFile}' must be a contained relative path.`,
+      code: 'reference-escaped',
     };
   }
 
@@ -113,15 +133,24 @@ export const resolvePromptSource = (input: {
   if (projectDirectory === undefined) {
     return {
       warning: `agent '${declaringAgent}' repo_file prompt source '${repoFile}' cannot be resolved without a project root.`,
+      code: 'resource-unresolved',
     };
   }
 
   const path = join(projectDirectory, repoFile);
   if (!existsSync(path) && input.optionalRepoFile === true) {
-    return { warning: `agent '${declaringAgent}' optional repo_file prompt source '${repoFile}' was not found.` };
+    return {
+      warning: `agent '${declaringAgent}' optional repo_file prompt source '${repoFile}' was not found.`,
+      code: 'resource-unresolved',
+    };
   }
   const contained = containedFile(path, projectDirectory);
-  if (contained !== true) return { error: `agent '${declaringAgent}' repo_file prompt source ${contained}` };
+  if (contained !== true) {
+    return {
+      error: `agent '${declaringAgent}' repo_file prompt source ${contained.message}`,
+      code: contained.code,
+    };
+  }
 
   return {
     fragment: {
@@ -150,6 +179,17 @@ export const rootPromptFragment = (input: {
   label: input.fileName.replace(/\.md$/, ''),
   trust: 'catalog',
 });
+
+/** Reads the highest-precedence tree-root prompt file across resource layers. */
+export const readRootPromptFile = (set: EffectiveResourceSet, fileName: string): PromptFragment | undefined => {
+  for (const layer of set.layers) {
+    const candidate = join(layer.root, fileName);
+    if (existsSync(candidate)) {
+      return rootPromptFragment({ fileName, layer, content: readFileSync(candidate, 'utf8') });
+    }
+  }
+  return undefined;
+};
 
 export const agentBodyFragment = (input: {
   readonly agent: string;

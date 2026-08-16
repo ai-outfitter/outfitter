@@ -30,6 +30,7 @@ export interface SkillDocument {
 }
 
 export interface SkillDocumentIssue {
+  readonly kind: 'frontmatter' | 'invalid-name' | 'invalid-references' | 'read';
   readonly path: string;
   readonly message: string;
 }
@@ -52,6 +53,7 @@ export const parseSkillDocument = (content: string, skillPath: string): SkillDoc
 
   if (typeof name !== 'string' || !isValidSkillId(name)) {
     return {
+      kind: 'invalid-name',
       path: skillPath,
       message:
         `SKILL.md 'name' must use lowercase letters, numbers, and single hyphens ` +
@@ -66,6 +68,7 @@ export const parseSkillDocument = (content: string, skillPath: string): SkillDoc
 
     if (entries !== undefined && (!Array.isArray(entries) || !entries.every(isSkillReference))) {
       return {
+        kind: 'invalid-references',
         path: skillPath,
         message: `SKILL.md '${section}' entries must each contain exactly one 'file' or 'repo_file' source.`,
       };
@@ -90,19 +93,27 @@ const parseSkillFrontmatter = (
   const frontmatter = extractFrontmatter(content);
 
   if (frontmatter === undefined) {
-    return { path: skillPath, message: 'SKILL.md must start with a `---` YAML frontmatter block.' };
+    return {
+      kind: 'frontmatter',
+      path: skillPath,
+      message: 'SKILL.md must start with a `---` YAML frontmatter block.',
+    };
   }
 
   const parsed = parseYamlDocument(frontmatter, skillPath);
 
   if (!parsed.ok) {
-    return { path: skillPath, message: `SKILL.md frontmatter is not valid YAML: ${parsed.issue.message}` };
+    return {
+      kind: 'frontmatter',
+      path: skillPath,
+      message: `SKILL.md frontmatter is not valid YAML: ${parsed.issue.message}`,
+    };
   }
 
   const record = parsed.document;
 
   if (record === null || typeof record !== 'object' || Array.isArray(record)) {
-    return { path: skillPath, message: 'SKILL.md frontmatter must be a YAML mapping.' };
+    return { kind: 'frontmatter', path: skillPath, message: 'SKILL.md frontmatter must be a YAML mapping.' };
   }
 
   return { record: record as Readonly<Record<string, unknown>> };
@@ -114,7 +125,7 @@ export const readSkillDocument = (skillPath: string): SkillDocument | SkillDocum
   try {
     content = readFileSync(skillPath, 'utf8');
   } catch (error) {
-    return { path: skillPath, message: `Could not read SKILL.md: ${String(error)}` };
+    return { kind: 'read', path: skillPath, message: `Could not read SKILL.md: ${String(error)}` };
   }
 
   return parseSkillDocument(content, skillPath);

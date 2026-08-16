@@ -9,12 +9,14 @@ import {
   redactSourceUriCredentials,
 } from '../sources/SourceCache.js';
 import type { RemoteSourceReference } from '../sources/SourceCache.js';
-import type { DeclaredRemoteSource } from '../sources/TransitiveSources.js';
+import type { AttributedRemoteSource } from '../sources/TransitiveSources.js';
+import type { ResolutionWarningDetail } from '../validation/ResolutionWarning.js';
 import type { EffectiveResourceSet, ResolvedResource, ResourceKind } from './Resource.js';
 
 interface SourceDeclaration {
   readonly source: RemoteSourceReference;
   readonly declaredBy: string;
+  readonly sourcePath: string;
 }
 
 export const strictAmbiguityFailureMessage = 'Strict mode: ambiguous resolution is fatal.';
@@ -35,29 +37,31 @@ const directDeclarations = (files: readonly LoadedSettingsFile[]): readonly Sour
     .flatMap((file) =>
       (file.settings.sources ?? [])
         .filter(isRemoteSource)
-        .map((source) => ({ source, declaredBy: file.location.path })),
+        .map((source) => ({ source, declaredBy: file.location.path, sourcePath: file.location.path })),
     );
 
-const replacedSourceListWarnings = (
+const replacedSourceListWarningDetails = (
   files: readonly LoadedSettingsFile[],
   effectiveSources: readonly SourceReference[],
-): readonly string[] => {
+): readonly ResolutionWarningDetail[] => {
   const replacingIndex = files.findLastIndex((file) => file.settings.sources !== undefined);
   if (replacingIndex < 1) return [];
 
   const replacingFile = files[replacingIndex];
   const effectiveRepositories = new Set(effectiveSources.filter(isRemoteSource).map(repositoryKey));
   const reportedRepositories = new Set<string>();
-  const warnings: string[] = [];
+  const warnings: ResolutionWarningDetail[] = [];
 
   for (const file of files.slice(0, replacingIndex).reverse()) {
     for (const source of (file.settings.sources ?? []).filter(isRemoteSource)) {
       const key = repositoryKey(source);
       if (effectiveRepositories.has(key) || reportedRepositories.has(key)) continue;
       reportedRepositories.add(key);
-      warnings.push(
-        `source '${repositoryDisplay(source)}' declared by '${file.location.path}' was replaced by '${replacingFile.location.path}' and is not in the effective configuration`,
-      );
+      warnings.push({
+        resource: `source:${repositoryDisplay(source)}`,
+        sourcePath: replacingFile.location.path,
+        message: `source '${repositoryDisplay(source)}' declared by '${file.location.path}' was replaced by '${replacingFile.location.path}' and is not in the effective configuration`,
+      });
     }
   }
 
@@ -67,7 +71,7 @@ const replacedSourceListWarnings = (
 const selectedDeclarations = (
   effectiveSources: readonly SourceReference[],
   direct: readonly SourceDeclaration[],
-  transitive: readonly DeclaredRemoteSource[],
+  transitive: readonly AttributedRemoteSource[],
 ): readonly SourceDeclaration[] => {
   const selectedDirect = effectiveSources.filter(isRemoteSource).map((source) => {
     const selection = encodeRemoteSourceSelection(source);
@@ -77,11 +81,11 @@ const selectedDeclarations = (
   return [...selectedDirect, ...transitive];
 };
 
-export const sourceRefAmbiguityWarnings = (
+export const sourceRefAmbiguityWarningDetails = (
   files: readonly LoadedSettingsFile[],
   effectiveSources: readonly SourceReference[],
-  transitiveDeclarations: readonly DeclaredRemoteSource[],
-): readonly string[] => {
+  transitiveDeclarations: readonly AttributedRemoteSource[],
+): readonly ResolutionWarningDetail[] => {
   const direct = directDeclarations(files);
   const declarations: readonly SourceDeclaration[] = [...direct, ...transitiveDeclarations];
   const selected = selectedDeclarations(effectiveSources, direct, transitiveDeclarations);
@@ -94,7 +98,7 @@ export const sourceRefAmbiguityWarnings = (
     byRepository.set(key, entries);
   }
 
-  const warnings: string[] = [...replacedSourceListWarnings(files, effectiveSources)];
+  const warnings: ResolutionWarningDetail[] = [...replacedSourceListWarningDetails(files, effectiveSources)];
   for (const entries of byRepository.values()) {
     if (new Set(entries.map((entry) => entry.source.ref)).size < 2) continue;
     const key = repositoryKey(entries[0].source);
@@ -103,26 +107,40 @@ export const sourceRefAmbiguityWarnings = (
     const declarationsText = entries
       .map((entry) => `'${entry.declaredBy}' declares ref '${refDisplay(entry.source)}'`)
       .join('; ');
-    warnings.push(
-      `Ambiguous source repository '${repositoryDisplay(entries[0].source)}': ${declarationsText}; declaration from '${winner.declaredBy}' at ref '${refDisplay(winner.source)}' won.`,
-    );
+    warnings.push({
+      resource: `source:${repositoryDisplay(entries[0].source)}`,
+      sourcePath: winner.sourcePath,
+      message: `Ambiguous source repository '${repositoryDisplay(entries[0].source)}': ${declarationsText}; declaration from '${winner.declaredBy}' at ref '${refDisplay(winner.source)}' won.`,
+    });
   }
 
   return warnings;
 };
 
-const slugWarning = (kind: ResourceKind, resource: ResolvedResource, context?: string): string | undefined => {
+const slugWarning = (
+  kind: ResourceKind,
+  resource: ResolvedResource,
+  context?: string,
+): ResolutionWarningDetail | undefined => {
   const definitions = [resource.winner, ...resource.shadowed];
   const labels = [...new Set(definitions.map((definition) => definition.layer.label))];
   if (labels.length < 2) return undefined;
-  return `Ambiguous ${kind} slug '${resource.slug}'${context ?? ''} is supplied by ${labels.map((label) => `'${label}'`).join(', ')}; '${resource.winner.layer.label}' won.`;
+  const resourceIdentity =
+    resource.winner.ownerAgent === undefined
+      ? `${kind}:${resource.slug}`
+      : `agent:${resource.winner.ownerAgent}/${kind}:${resource.slug}`;
+  return {
+    resource: resourceIdentity,
+    sourcePath: resource.winner.path,
+    message: `Ambiguous ${kind} slug '${resource.slug}'${context ?? ''} is supplied by ${labels.map((label) => `'${label}'`).join(', ')}; '${resource.winner.layer.label}' won.`,
+  };
 };
 
 const resourceWarnings = (
   kind: ResourceKind,
   resources: Iterable<ResolvedResource> | undefined,
   context?: string,
-): readonly string[] =>
+): readonly ResolutionWarningDetail[] =>
   resources === undefined
     ? []
     : [...resources].flatMap((resource) => {
@@ -130,7 +148,7 @@ const resourceWarnings = (
         return warning === undefined ? [] : [warning];
       });
 
-export const slugAmbiguityWarnings = (set: EffectiveResourceSet): readonly string[] => [
+export const slugAmbiguityWarningDetails = (set: EffectiveResourceSet): readonly ResolutionWarningDetail[] => [
   ...resourceWarnings('agent', set.resources.get('agent')?.values()),
   ...resourceWarnings('skill', set.resources.get('skill')?.values()),
   ...[...set.agentResources].flatMap(([agent, kinds]) =>

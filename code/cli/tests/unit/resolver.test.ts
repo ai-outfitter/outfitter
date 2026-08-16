@@ -305,7 +305,10 @@ describe('resource resolution', () => {
     const home = join(root, 'home');
     const project = join(root, 'project');
     write(join(home, '.agents', 'agents', 'engineer', 'agent.md'), agentMd('engineer', 'skills: [wiki]\n'));
-    write(join(home, '.agents', 'skills', 'wiki', 'SKILL.md'), '---\nname: wiki\n---\n');
+    write(
+      join(home, '.agents', 'skills', 'wiki', 'SKILL.md'),
+      '---\nname: wiki\ndescription: Maintain project knowledge. Use when reading or updating the wiki.\n---\n',
+    );
     write(join(project, '.agents', 'agents', 'engineer', 'agent.md'), agentMd('engineer', 'skills: [wiki]\n'));
     write(join(project, '.agents', 'knowledge', 'arch', 'overview.md'), '# overview\n');
     write(join(project, '.agents', 'commands', 'ship.md'), '# ship\n');
