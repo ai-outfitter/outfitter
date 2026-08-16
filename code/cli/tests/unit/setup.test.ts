@@ -69,6 +69,29 @@ describe('setup state machine', () => {
     expect(discoverSetupAgentChoices({})).toEqual([]);
   });
 
+  it('discovers and selects a dot-namespaced catalog agent', () => {
+    const { catalog, home, project } = createTree();
+    write(
+      join(catalog, 'agents', 'environment.sample', 'agent.md'),
+      '---\nname: environment.sample\ndescription: Sample environment.\n---\n\n# Environment Sample\n',
+    );
+    const availableAgents = discoverSetupAgentChoices({ defaultCatalogRoot: catalog });
+    expect(availableAgents).toContainEqual({
+      id: 'environment.sample',
+      label: 'Environment Sample',
+      description: 'Sample environment.',
+    });
+
+    applySetupSelection({
+      homeDirectory: home,
+      projectDirectory: project,
+      defaultCatalogRoot: catalog,
+      availableAgents,
+      selection: { setupMode: 'default', agentId: 'environment.sample', harness: 'pi', target: 'home' },
+    });
+    expect(readFileSync(join(home, '.agents', 'settings.yml'), 'utf8')).toContain('default_agent: environment.sample');
+  });
+
   it('keeps a non-comment # in frontmatter metadata (e.g. C#) but strips a real inline comment', () => {
     const { catalog } = createTree();
     write(
@@ -399,9 +422,9 @@ describe('setup state machine', () => {
         selection: { setupMode: 'create', agentId: 'bad id', harness: 'pi', target: 'home' },
       }),
     ).toThrow(/invalid agent id/);
-    // Validation runs on the exact id that gets written, so schema-invalid slugs (underscores, dots)
+    // Validation runs on the exact id that gets written, so schema-invalid slugs
     // are rejected up front rather than written as an unresolvable agent.
-    for (const agentId of ['bad_id', 'my.profile', 'my--profile']) {
+    for (const agentId of ['bad_id', '.my-profile', 'my..profile', 'my-profile.', 'my--profile']) {
       expect(() =>
         applySetupSelection({ ...base, selection: { setupMode: 'create', agentId, harness: 'pi', target: 'home' } }),
       ).toThrow(/invalid agent id/);
@@ -457,6 +480,7 @@ describe('setup state machine', () => {
   it('normalizes setup names into schema-valid slugs', () => {
     expect(sanitizeAgentSlug('  My Profile  ')).toBe('my-profile');
     expect(sanitizeAgentSlug('foo--bar__baz')).toBe('foo-bar-baz');
+    expect(sanitizeAgentSlug(' Environment.Sample ')).toBe('environment.sample');
     expect(sanitizeAgentSlug('!!!')).toBe('assistant');
   });
 });
