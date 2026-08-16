@@ -14,7 +14,6 @@ export interface TelemetryContextInput {
 }
 
 export interface TelemetryContext {
-  readonly userSettingsPath: string;
   readonly settingsReader: () => SettingsLoadResult;
   readonly stateStore: TelemetryStateStore;
   readonly ci: DetectedCi;
@@ -23,7 +22,6 @@ export interface TelemetryContext {
 export const createTelemetryContext = (input: TelemetryContextInput): TelemetryContext => {
   const plan = discoverSettingsLoadPlan(input);
   return {
-    userSettingsPath: plan.locations.find((location) => location.scope === 'user')!.path,
     settingsReader: () => loadSettingsFiles(plan),
     stateStore: createTelemetryStateStore(resolveTelemetryStatePath(input.homeDirectory, input.env)),
     ci: detectCi(),

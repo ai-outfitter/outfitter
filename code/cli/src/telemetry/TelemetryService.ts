@@ -179,12 +179,13 @@ export const createTelemetryService = (dependencies: TelemetryServiceDependencie
   const prepare = async (): Promise<boolean> => {
     if (prepared !== undefined) return prepared;
     prepared = false;
+    // An empty compiled key keeps telemetry fully inert: no client, no consent read, no state access.
+    if (apiKey === '') return false;
     const consent = resolveTelemetryConsent(dependencies.settingsReader(), dependencies.env);
     if (!consent.enabled) {
       if (!ci.isCI) dependencies.stateStore.delete();
       return false;
     }
-    if (apiKey === '') return false;
     client = await clientFactory(apiKey, {
       host: POSTHOG_HOST,
       disableGeoip: true,

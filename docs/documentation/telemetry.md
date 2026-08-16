@@ -12,7 +12,7 @@ Both events contain only these properties:
 
 | Property                  | Values                                                                                                                |
 | ------------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| `command`                 | A registered top-level command (`run`, `setup`, `sync`, `list`, `validate`, `dump`, or `telemetry`), or `unknown`.    |
+| `command`                 | A registered top-level command (`run`, `setup`, `sync`, `list`, `validate`, or `dump`), or `unknown`.    |
 | `outfitter_version`       | The installed Outfitter version.                                                                                      |
 | `node_major`              | The integer Node.js major version.                                                                                    |
 | `os_family`               | `aix`, `android`, `darwin`, `freebsd`, `linux`, `openbsd`, `sunos`, `win32`, or `unknown`.                            |
