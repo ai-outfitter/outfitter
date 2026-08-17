@@ -5,8 +5,9 @@ inputs when you compare a local run, GitHub Actions, a scheduled Kubernetes
 Job, or a resident Deployment.
 
 This guide calculates a planning estimate. It does not read invoices or collect
-usage. [Pensieve's usage-accounting requirements](https://github.com/ai-outfitter/pensieve/blob/main/docs/requirements/SRV-001-evidence-sink.md#srv-00113-usage-accounting-records)
-define the evidence that can replace each estimate later.
+usage. [Pensieve pull request #22](https://github.com/ai-outfitter/pensieve/pull/22)
+proposes the usage-accounting record contract that can replace each estimate
+later. That contract is not merged. Do not cite it as a published requirement.
 
 ## Cost boundary
 
@@ -104,6 +105,196 @@ Keep two cost fields when evidence is available:
 Do not replace one with the other. Do not present a derived estimate as an
 observed provider charge.
 
+## Price book
+
+Two providers, two capture dates. Prices are United States dollars for one
+million text tokens.
+
+OpenAI standard text-token prices, captured **2026-08-15** from the
+[OpenAI model documentation](https://developers.openai.com/api/docs/models):
+
+| Model         | Documented role                                 | Input | Cache read | Output |
+| ------------- | ----------------------------------------------- | ----: | ---------: | -----: |
+| GPT-5.6 Sol   | Frontier tier                                   | $5.00 |      $0.50 | $30.00 |
+| GPT-5.6 Terra | Balance of intelligence and cost                | $2.00 |      $0.20 | $12.00 |
+| GPT-5.4 mini  | High-volume coding, computer use, and subagents | $0.75 |     $0.075 |  $4.50 |
+| GPT-5.6 Luna  | Cost-sensitive, high-volume tier                | $0.20 |      $0.02 |  $1.20 |
+
+Anthropic standard text-token prices, captured **2026-08-17** from the
+[Claude platform pricing page](https://platform.claude.com/docs/en/about-claude/pricing):
+
+| Model            | Documented role                            |  Input | Cache read | Output |
+| ---------------- | ------------------------------------------ | -----: | ---------: | -----: |
+| Claude Fable 5   | Demanding reasoning and long-horizon work  | $10.00 |      $1.00 | $50.00 |
+| Claude Opus 5    | Complex agentic coding and enterprise work |  $5.00 |      $0.50 | $25.00 |
+| Claude Sonnet 5  | Balance of speed and intelligence          |  $2.00 |      $0.20 | $10.00 |
+| Claude Haiku 4.5 | Fastest and most cost-effective            |  $1.00 |      $0.10 |  $5.00 |
+
+Two properties of these tables control every figure below:
+
+- The Anthropic price vectors are exactly proportional on every token class.
+  `Fable 5 : Opus 5 : Sonnet 5 : Haiku 4.5 = 10 : 5 : 2 : 1`. Therefore any
+  Anthropic figure in this guide scales by that ratio, whatever the token mix
+  is. Use this property to check the arithmetic.
+- **Neither table contains a cache-write price, and both providers charge
+  one.** An OpenAI explicit cache write costs 1.25 times the uncached-input
+  price. An Anthropic cache write costs 1.25 times input for a 5-minute
+  lifetime and 2 times input for a 1-hour lifetime. Every table below omits
+  that line, so every table below reads low. The size of that error is
+  measured in [Correction from measured usage](#correction-from-measured-usage).
+
+Claude Sonnet 5 introductory pricing became the standard price. The scheduled
+increase to $3 and $15 will not occur. An estimate that assumed the increase
+reads about 50 percent high.
+
+## Price for one month of non-stop use
+
+An organization that asks "what does one agent cost each month?" is usually
+asking for the ceiling: one agent that never stops. This section answers that
+question for each model, then shows the arithmetic.
+
+Use an average month of 730 hours. This matches the `730 / interval_hours`
+convention above. It is 600 minutes longer than a 30-day month, so a figure
+here reads about 1.4 percent above the same rate applied to 43,200 minutes.
+
+### Step 1 — select a token rate
+
+The rate is the only estimated input. Two bands bound realistic agent work.
+Both are derived from the workload profile, not from a measured ledger:
+
+| Band      | Per active hour: input / cache read / output | Derivation                                                         |
+| --------- | -------------------------------------------- | ------------------------------------------------------------------ |
+| Steady    | 400K / 600K / 60K                            | 100K / 150K / 15K per task, 15 minutes per task, 4 tasks each hour |
+| Saturated | 1M / 2M / 100K                               | 500K / 1M / 50K per task, 30 minutes per task, 2 tasks each hour   |
+
+Steady describes ordinary agent turns with repeated instructions. Saturated
+describes continuous agentic coding with large tool results. These two bands
+are **estimated**. No observed provider record supplies them. Every dollar
+figure below inherits that uncertainty.
+
+### Step 2 — calculate the cost of one active agent-hour
+
+Apply the price book to the selected rate. For Claude Opus 5 at the steady
+rate:
+
+```text
+  400,000 input      × $5.00  / 1,000,000 = $2.00
++ 600,000 cache read × $0.50  / 1,000,000 = $0.30
++  60,000 output     × $25.00 / 1,000,000 = $1.50
+                                            -----
+                                            $3.80 per active agent-hour
+```
+
+The same calculation for every model:
+
+| Model            | Steady | Saturated |
+| ---------------- | -----: | --------: |
+| Claude Fable 5   |  $7.60 |    $17.00 |
+| GPT-5.6 Sol      |  $4.10 |     $9.00 |
+| Claude Opus 5    |  $3.80 |     $8.50 |
+| GPT-5.6 Terra    |  $1.64 |     $3.60 |
+| Claude Sonnet 5  |  $1.52 |     $3.40 |
+| Claude Haiku 4.5 |  $0.76 |     $1.70 |
+| GPT-5.4 mini     | $0.615 |     $1.35 |
+| GPT-5.6 Luna     | $0.164 |     $0.36 |
+
+### Step 3 — multiply by the active hours in the month
+
+A non-stop agent is active for all 730 hours. `$3.80 × 730 = $2,774` for Claude
+Opus 5 at the steady rate.
+
+| Model            | Steady month | Saturated month |
+| ---------------- | -----------: | --------------: |
+| Claude Fable 5   |       $5,548 |         $12,410 |
+| GPT-5.6 Sol      |       $2,993 |          $6,570 |
+| Claude Opus 5    |       $2,774 |          $6,205 |
+| GPT-5.6 Terra    |       $1,197 |          $2,628 |
+| Claude Sonnet 5  |       $1,110 |          $2,482 |
+| Claude Haiku 4.5 |         $555 |          $1,241 |
+| GPT-5.4 mini     |         $449 |            $986 |
+| GPT-5.6 Luna     |         $120 |            $263 |
+
+Multiply a row by a smaller number of hours for an agent that is not non-stop.
+An agent active 8 hours each working day uses about 176 hours, which is 24
+percent of these figures.
+
+One model needs a reserve. Official search results crawled two weeks before the
+capture still listed GPT-5.6 Luna at $1.00 / $0.10 / $6.00, which is five times
+the captured price. A live re-check of the catalog, comparison page, and model
+page repeated the low price. No API invoice has confirmed either value. Apply a
+five-times reserve to the Luna rows until an invoice settles it: **$599 steady
+and $1,314 saturated**.
+
+**The figure to quote: one agent that never stops costs about $600 to $12,400
+each month in model tokens.** The floor is $120 only if the unconfirmed Luna
+price holds; Claude Haiku 4.5 reaches $555 on a confirmed price. The frontier
+tier and the cost-sensitive tier differ by about 25 times on identical work.
+Work intensity moves one model by about 2.2 times between the two bands. Model
+choice and work intensity are separate controls, and both are large.
+
+### What this figure excludes
+
+The tables above are the model line only. The full equation has five more
+terms.
+
+- **Cache writes.** See the price book above. This omission is the largest
+  known error in these tables.
+- **Substrate.** A non-stop agent holds compute for all 730 hours. Add the
+  hourly price of the node or pod. Claude Managed Agents prices this line
+  directly at $0.08 for each session-hour, which is $58.40 for a non-stop
+  month.
+- **Tool fees.** Anthropic web search costs $10 for 1,000 searches. An agent
+  that searches once each minute non-stop adds $438 each month.
+- **Subagents.** A coordinator that runs subagents multiplies the token rate by
+  its concurrency. These rates describe one serial thread.
+- **Long-context and residency uplifts.** A GPT-5.6 request above 272,000 input
+  tokens can cost more. Anthropic `inference_geo: "us"` adds 1.1 times.
+
+### Correction from measured usage
+
+Every figure above is estimated. One measured record exists, and it corrects
+the token mix that the estimate assumes.
+
+A single workstation retained 2,804 Claude Code session files covering 42
+active days. Each assistant turn carries a `usage` object. Aggregating all
+221,609 turns gives 45.84 billion tokens with this composition:
+
+| Token class    | Assumed by the estimate | Measured |
+| -------------- | ----------------------: | -------: |
+| Uncached input |                    ~38% |    0.04% |
+| Cache read     |                    ~57% |   96.76% |
+| Cache write    |             0%, omitted |    2.82% |
+| Output         |                     ~6% |    0.39% |
+
+Two corrections follow, and both are larger than any model-choice decision:
+
+1. **Uncached input is a rounding error.** Real agent work re-reads a cached
+   prefix on almost every turn. A cost model weighted toward uncached input
+   prices the wrong thing.
+2. **Cache writes are the second-largest cost line.** Priced on Claude Opus 5,
+   the measured cost composition is 65 percent cache read, 23 percent cache
+   write, 11 percent output, and 0.05 percent uncached input. The tables above
+   omit that 23 percent, so they read low by roughly that much.
+
+This record measures one human driving agents interactively. It does not
+measure a resident Deployment, and it is not a provider invoice. Treat it as
+evidence about token composition, not as a price for the non-stop case.
+
+### Evidence class for each number
+
+| Value                       | Class      | Basis                                            |
+| --------------------------- | ---------- | ------------------------------------------------ |
+| Model prices                | Price book | Dated public captures, 2026-08-15 and 2026-08-17 |
+| 730 hours in a month        | Convention | The `730 / interval_hours` rule above            |
+| Token rate bands            | Estimated  | Workload profile assumptions, no ledger          |
+| Cost per hour and per month | Derived    | Price book times the estimated rate              |
+| Token-class composition     | Measured   | 221,609 assistant turns over 42 days             |
+| GPT-5.6 Luna price          | Disputed   | Two public values, no invoice                    |
+| Every excluded term above   | Unknown    | Not zero                                         |
+
+A price-book calculation is not an observed provider charge. An unknown value
+is not zero.
+
 ## Worked case: one organization report each day
 
 The example starts from an observed AI Outfitter organization-report flow. The
@@ -120,20 +311,8 @@ a token total. Therefore, these token bands are **estimated**:
 | Expected |  25,000 |     75,000 |  5,000 |       105,000 |
 | High     | 100,000 |    300,000 | 15,000 |       415,000 |
 
-All values use the [OpenAI standard text-token price book](https://developers.openai.com/api/docs/models)
-captured on **2026-08-15**. Prices are United States dollars per one million
-tokens:
-
-| Model         | Input | Cache read | Output |
-| ------------- | ----: | ---------: | -----: |
-| GPT-5.6 Sol   | $5.00 |      $0.50 | $30.00 |
-| GPT-5.6 Terra | $2.00 |      $0.20 | $12.00 |
-| GPT-5.6 Luna  | $0.20 |      $0.02 |  $1.20 |
-| GPT-5.4 mini  | $0.75 |     $0.075 |  $4.50 |
-
-The source snapshot records a five-times planning reserve for GPT-5.6 Luna
-because older official search results showed a higher price. Keep the base
-estimate and reserve separate.
+All values use the OpenAI half of the [price book](#price-book) above. Keep the
+base estimate and the five-times Luna reserve separate.
 
 At `730 / 24 = 30.4167` runs per month, the model estimates are:
 
@@ -151,8 +330,9 @@ These values exclude cache writes, paid tools, long-context uplifts, regional
 processing, tax, storage, network, and compute. Unknown excluded usage is not
 zero.
 
-The [organization wiki synthesis](https://github.com/ai-outfitter/wiki/blob/main/syntheses/agent-workload-cost-model.md)
-records the evidence, assumptions, and calculation limits.
+This case is a lower bound for a scheduled workload. It is three orders of
+magnitude below the non-stop ceiling above, because the model writes one
+paragraph and scripts do the rest.
 
 ## Compare execution surfaces
 
@@ -193,8 +373,9 @@ compute cost while no pod exists, unless the cluster allocation method assigns
 idle capacity to it.
 
 See the [Actions billing inputs](https://github.com/ai-outfitter/actions/blob/main/docs/research/inference-pricing.md)
-and [Agent Operator cost guidance](https://github.com/ai-outfitter/agent-operator#estimate-workload-cost)
-for the surface-specific forms.
+for the runner-minute form. The
+[Agent Operator](https://github.com/ai-outfitter/agent-operator) resident and
+Job forms are not documented yet.
 
 ## Retries, failures, and subagents
 
@@ -234,6 +415,21 @@ Retain one machine-readable record for each run and model exchange. After 30
 measured daily reports, replace the planning bands with the median, 90th
 percentile, and maximum successful-run cost. Report failed attempts and retries
 separately.
+
+Only one execution surface can supply that record today:
+
+| Surface                 | Usage record                               | Status      |
+| ----------------------- | ------------------------------------------ | ----------- |
+| Local Claude Code       | One `usage` object for each assistant turn | Available   |
+| Local `codex`           | The rollout file carries no token field    | Unavailable |
+| Agent Operator resident | The Pi session file carries no token field | Unavailable |
+| GitHub Actions run      | An HTML transcript artifact, with no total | Unavailable |
+
+Therefore a comparison across surfaces is not possible yet. Close this gap
+before you replace any estimate above. The
+[Pensieve record contract](https://github.com/ai-outfitter/pensieve/pull/22)
+and the [Actions billing inputs](https://github.com/ai-outfitter/actions/pull/42)
+are the two proposals that do it.
 
 This milestone defines the method and record contract. It does not provide a
 collector, calculator command, calculator interface, or billing dashboard.
