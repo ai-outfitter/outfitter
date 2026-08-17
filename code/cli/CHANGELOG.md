@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.8.0](https://github.com/ai-outfitter/outfitter/compare/v1.7.1...v1.8.0) (2026-08-17)
+
+
+### Features
+
+* **cli:** add opt-outable PostHog analytics ([#300](https://github.com/ai-outfitter/outfitter/issues/300)) ([c5553c4](https://github.com/ai-outfitter/outfitter/commit/c5553c4f73212ff71439363b66af65ee4a95cbf3))
+
+
+### Bug Fixes
+
+* forward leading harness flags when run is the default command ([#242](https://github.com/ai-outfitter/outfitter/issues/242)) ([7c3dfaa](https://github.com/ai-outfitter/outfitter/commit/7c3dfaac8ce930724f7b0d037bca2bd53ce4dcd2))
+* **projection:** stop reporting pi extensions as unsupported ([#305](https://github.com/ai-outfitter/outfitter/issues/305)) ([0d8ba57](https://github.com/ai-outfitter/outfitter/commit/0d8ba57887b3f903c60ec519d1c0db89b3659119))
+
 ## [1.7.1](https://github.com/ai-outfitter/outfitter/compare/v1.7.0...v1.7.1) (2026-08-14)
 
 
