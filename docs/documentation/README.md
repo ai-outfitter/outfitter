@@ -50,6 +50,7 @@ The same composition runs on every surface; only the trigger changes.
 - [Channels](./channels.md) — add external event sources that wake a resident agent only when work arrives.
 - [Container images](./containers.md) — run the published Debian-based image persistently, extend it with apt, or use the `-nix` variant.
 - [Recurring runs](./recurring-runs.md) — loops three ways: the local loop extension, Actions cron, cluster schedules.
+- [Cost estimation](./cost-estimation.md) — one workload profile and model-cost line across local, Actions, and Kubernetes runs.
 - [In-cluster agents](./in-cluster.md) — resident agents, CronJobs, and subagent Jobs via Link Operator.
 - [Hooks](./hooks.md) — harness hook wiring, launcher-scope system observers, and the protocol gap.
 - [Dump](./dump-and-bake.md) — deterministic, self-contained `.agents/` dumps.
@@ -73,5 +74,6 @@ Each use case is a worked story — a problem, the composition that answers it, 
 
 - [CLI reference](./cli.md)
 - [Telemetry](./telemetry.md)
+- [Cost estimation](./cost-estimation.md)
 - [Migration from legacy profiles](./migration.md)
 - [Philosophy](../philosophy.md) — why Outfitter exists.
