@@ -15,8 +15,8 @@ import { toolArgs } from './Tools.js';
 // identity + skills + model + thinking + tools. Both harnesses express an allowlist and a denylist
 // natively, so `tools` is unconditionally supported; a name projection cannot carry is a hard error
 // from `toolArgs`, not an unsupported element. Pi also projects selected subagents and MCP servers
-// into its runtime config directory, and projects `extensions` once the run path has resolved their
-// install dirs (`extensionLoadDirs`). Claude projects selected MCP servers through an explicit,
+// into its runtime config directory, and loads pi extensions from the install dirs the run path
+// resolves (`extensionLoadDirs`). Claude projects selected MCP servers through an explicit,
 // isolated `--mcp-config`; plugins remain unsupported pending incremental parity (#183).
 // Switched rather than chained so a harness added to `Harness` fails to compile here instead of
 // silently inheriting another harness's element set — the exact silent drop this function prevents.
@@ -27,10 +27,8 @@ const supportedElements = (input: ProjectionInput): readonly string[] => {
       return [...baseline, 'mcp'];
     case 'codex':
       return ['model', 'mcp'];
-    case 'pi': {
-      const pi = [...baseline, 'subagents', 'mcp', 'prompt_template'];
-      return input.extensionLoadDirs === undefined ? pi : [...pi, 'extensions'];
-    }
+    case 'pi':
+      return [...baseline, 'subagents', 'mcp', 'prompt_template'];
   }
 };
 
@@ -40,7 +38,12 @@ const loadoutElementsInUse = (composition: CompositionPlan): readonly string[] =
 
   if (loadout.skills.length > 0) present.push('skills');
   if (loadout.subagents.length > 0) present.push('subagents');
-  if (loadout.extensions.length > 0) present.push('extensions');
+  // `extensions` is deliberately absent. It names pi extension packages, so on claude or codex it
+  // can only ever be unsupported — there is no setting a user could change to make it project, and
+  // no launch they would have wanted instead. Reporting it describes Outfitter's internals rather
+  // than a choice the user made, and under `--strict` it would fail every non-pi launch of any
+  // agent that carries extensions at all. Extension resolution and install failures still surface
+  // from the run path, which is where a user can act on them.
   if (loadout.plugins.length > 0) present.push('plugins');
   if (loadout.mcp.length > 0) present.push('mcp');
   if (loadout.model !== undefined) present.push('model');

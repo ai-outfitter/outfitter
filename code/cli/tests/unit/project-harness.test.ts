@@ -69,7 +69,7 @@ describe('projectComposition prompt templates', () => {
 });
 
 describe('projectComposition extensions', () => {
-  it('loads pi extension dirs with --extension and drops extensions from unsupported', () => {
+  it('loads pi extension dirs with --extension', () => {
     const dir = root();
     const projection = projectComposition(planWith(['git:github.com/o/r']), {
       harness: 'pi',
@@ -82,7 +82,7 @@ describe('projectComposition extensions', () => {
     expect(projection.unsupported).not.toContain('extensions');
   });
 
-  it('reports extensions unsupported for pi when no load dirs are provided (adds no --extension)', () => {
+  it('adds no --extension for pi when no load dirs are provided', () => {
     const dir = root();
     const projection = projectComposition(planWith(['git:github.com/o/r']), {
       harness: 'pi',
@@ -90,19 +90,24 @@ describe('projectComposition extensions', () => {
       homeDirectory: dir,
     });
     expect(projection.launch.args).not.toContain('--extension');
-    expect(projection.unsupported).toContain('extensions');
+    expect(projection.unsupported).not.toContain('extensions');
   });
 
-  it('never adds --extension for claude and keeps extensions unsupported', () => {
+  // `extensions` names pi extension packages, so a claude or codex launch can never project it and
+  // the user has no setting that would change that. Reporting it would fail every non-pi `--strict`
+  // run of an agent that carries extensions, for a mismatch the user did not create.
+  it('never adds --extension for claude and never reports extensions unsupported', () => {
     const dir = root();
-    const projection = projectComposition(planWith(['git:github.com/o/r']), {
-      harness: 'claude',
-      rootDirectory: dir,
-      homeDirectory: dir,
-      extensionLoadDirs: ['/cache/git/github.com/o/r'],
-    });
-    expect(projection.launch.args).not.toContain('--extension');
-    expect(projection.unsupported).toContain('extensions');
+    for (const harness of ['claude', 'codex'] as const) {
+      const projection = projectComposition(planWith(['git:github.com/o/r']), {
+        harness,
+        rootDirectory: dir,
+        homeDirectory: dir,
+        extensionLoadDirs: ['/cache/git/github.com/o/r'],
+      });
+      expect(projection.launch.args).not.toContain('--extension');
+      expect(projection.unsupported).not.toContain('extensions');
+    }
   });
 });
 

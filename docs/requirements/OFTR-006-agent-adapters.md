@@ -91,7 +91,8 @@ Amended (2026-07-17, RFC #165): adapters project a harness-neutral composition, 
 3. For server ids containing only ASCII letters, digits, `_`, or `-`, the Codex adapter MUST project selected stdio MCP server `command`, `args`, `env`, and `cwd` fields through repeated `-c mcp_servers.<id>.<key>=<toml-value>` overrides. An `env` entry `${ENV_NAME}` MUST become an `env_vars` reference only when its key is also `ENV_NAME`; the adapter MUST warn and omit a reference that would rename the variable. Literal `env` entries MUST be projected and MUST warn that their values are exposed in process arguments. The adapter MUST warn and skip a server whose id contains other characters because Codex `-c` key paths cannot express it.
 4. The Codex adapter MUST project selected HTTP MCP server fields through repeated `-c` overrides using `url` and `http_headers`, with `env_http_headers` for `${ENV_NAME}` values and `bearer_token_env_var` for `Authorization: Bearer ${ENV_NAME}`.
 5. The Codex adapter MUST warn that MCP projection is additive because Codex has no strict MCP isolation mode; this adapter warning follows the normal `--strict` warning policy.
-6. The Codex adapter MUST report every selected loadout element other than `model` and `mcp` as unsupported until a native projection is implemented and tested.
+6. The Codex adapter MUST report every selected loadout element other than `model`, `mcp`, and `extensions` as unsupported until a native projection is implemented and tested.
+7. No adapter MAY report `extensions` as an unsupported loadout element. `extensions` names pi extension packages, so only the pi adapter can load them, and no user setting can make another harness load them. A non-pi launch MUST stay silent about the selected extensions and MUST NOT fail under `--strict` because of them.
 
 ### OFTR-006.7: Pi Settings Reconciliation
 

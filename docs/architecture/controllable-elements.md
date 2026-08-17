@@ -98,6 +98,9 @@ An agent can select any number of extensions; the adapter registers them alongsi
 
 - Pi name: extensions loaded via `--extension` / `-e`
 - Claude name: no direct equivalent; roadmap adapter mapping
+- Exempt from the unsupported-element warning. The element names pi extension packages, so a claude
+  or codex launch could never load them and the user has no setting that would change that. A non-pi
+  launch installs none of them, says nothing about them, and does not fail under `--strict`.
 
 ### Plugins
 
@@ -215,7 +218,7 @@ An early-startup customization used to register providers, tools, hooks, or addi
 | Knowledge                   | Supported | Partial   | Roadmap   |
 | Model Selection             | Supported | Partial   | Partial   |
 | MCP Servers                 | Supported | Supported | Partial   |
-| Extensions                  | Supported | Roadmap   | Roadmap   |
+| Extensions                  | Supported | Pi only   | Pi only   |
 | Plugins                     | Supported | Roadmap   | Roadmap   |
 | Credentials and Environment | Supported | Supported | Roadmap   |
 | Tasks                       | Future    | Future    | Future    |

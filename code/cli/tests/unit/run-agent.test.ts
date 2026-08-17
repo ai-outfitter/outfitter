@@ -226,7 +226,7 @@ describe('run agent', () => {
     expect(existsSync(captured[0].runtimeDir)).toBe(false); // removed afterwards
   });
 
-  it('maps model/thinking to claude flags and reports pi-only elements as unsupported', async () => {
+  it('maps model/thinking to claude flags and stays silent about the agent pi extensions', async () => {
     const { home, project } = tree();
     const result = await executeRunAgentCommand({
       homeDirectory: home,
@@ -241,22 +241,25 @@ describe('run agent', () => {
     expect(plan.env.CLAUDE_CONFIG_DIR).toBeDefined();
     expect(plan.args).toEqual(expect.arrayContaining(['--effort', 'high']));
     expect(plan.args).not.toContain('--skill'); // claude skills are materialized, not flagged
-    expect(result.messages.join(' ')).toContain("cannot project loadout element 'extensions'");
+    // The engineer's `extensions: [ext-a]` is pi-only, a mismatch a claude user cannot act on.
+    expect(result.messages.join(' ')).not.toContain('extensions');
   });
 
-  it('fails under --strict on an unsupported element and never launches', async () => {
+  it('fails under --strict on an unsupported element, but not on pi extensions alone', async () => {
     const { home, project } = tree();
-    const result = await executeRunAgentCommand({
-      homeDirectory: home,
-      projectDirectory: project,
-      agent: 'engineer',
-      harness: 'claude',
-      strict: true,
-      launcher,
-    });
-    expect(result.exitCode).toBe(1);
+    // `plugins` is claude-native and still unprojected (#183), so it is a genuine capability gap a
+    // strict run must catch — unlike the engineer's `extensions`, which claude could never load.
+    write(join(project, '.agents', 'agents', 'plugged', 'agent.md'), '---\nname: plugged\nplugins: [p]\n---\n\nP.\n');
+    const strict = { homeDirectory: home, projectDirectory: project, harness: 'claude' as const, strict: true, launcher }; // prettier-ignore
+
+    const failed = await executeRunAgentCommand({ ...strict, agent: 'plugged' });
+    expect(failed.exitCode).toBe(1);
     expect(captured).toHaveLength(0);
-    expect(result.messages.join(' ')).toContain('Strict mode');
+    expect(failed.messages.join(' ')).toContain("cannot project loadout element 'plugins'");
+    expect(failed.messages.join(' ')).toContain('Strict mode');
+
+    expect((await executeRunAgentCommand({ ...strict, agent: 'engineer' })).exitCode).toBe(0);
+    expect(captured).toHaveLength(1);
   });
 
   it('fails under --strict on a composition warning (unresolved skill)', async () => {

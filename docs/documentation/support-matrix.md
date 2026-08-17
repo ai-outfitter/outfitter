@@ -23,7 +23,7 @@ Tasks and bake are not in this matrix — they are the subject of a [separate up
 | Knowledge (`knowledge/`)                                                 | Supported | Partial     | Roadmap   |
 | Model selection (`models.json`)                                          | Supported | Partial     | Partial   |
 | MCP servers (`mcp.json`)                                                 | Supported | Supported   | Partial   |
-| Extensions (agent `extensions:` loadout)                                 | Supported | Roadmap     | Roadmap   |
+| Extensions (agent `extensions:` loadout)                                 | Supported | Pi only     | Pi only   |
 | Plugins (agent `plugins:` loadout)                                       | Supported | Roadmap     | Roadmap   |
 | Credentials and environment                                              | Supported | Supported   | Roadmap   |
 | DeepWork job selection                                                   | Supported | Roadmap     | Roadmap   |
@@ -38,7 +38,8 @@ Tasks and bake are not in this matrix — they are the subject of a [separate up
 
 - **Launch mode** — Outfitter launches `codex` directly. Pass-through arguments choose the native mode: no subcommand keeps the interactive CLI shape, while `-- exec ...` selects non-interactive `codex exec`.
 - **Agent identity and appended prompts** — Codex has no native identity projection yet: launches drop the composed identity/system prompt and any `--append-prompt` documents, supplied documents produce a separate warning, and `--strict` aborts before execution.
-- **Model selection (Partial)** — an agent's model maps to `-m`. Provider maps have no projection element and produce no warning. Thinking, tools, skills, subagents, extensions, plugins, and prompt templates remain unsupported and warn when selected.
+- **Model selection (Partial)** — an agent's model maps to `-m`. Provider maps have no projection element and produce no warning. Thinking, tools, skills, subagents, plugins, and prompt templates remain unsupported and warn when selected.
+- **Extensions (Pi only)** — `extensions:` names pi extension packages, so a Codex or Claude Code launch installs none of them. This is a property of the element, not a gap a user can close, so it produces no warning and does not fail under `--strict`.
 - **MCP servers (Partial)** — selected stdio fields (`command`, `args`, `env`, `cwd`) and streamable HTTP fields (`url`, `headers`) become repeated TOML-valued `-c mcp_servers.<id>.<key>=...` overrides. Server ids must contain only letters, digits, `_`, or `-`; other ids cannot be expressed by Codex `-c` key paths and are skipped with a warning. Legacy SSE and other HTTP transport types are also skipped with a warning. User and project `config.toml` servers remain active because Codex has no strict MCP isolation mode, so every launch warns that projection is additive, even when no servers are selected.
 - **Stdio environment safety** — `${ENV_NAME}` becomes an `env_vars` reference only when the stdio `env` key is also `ENV_NAME`; a reference that would rename the variable is dropped with a warning. Literal values pass through `env` and are visible in process arguments.
 - **HTTP header safety** — `${ENV_NAME}` becomes an `env_http_headers` reference, while `Authorization: Bearer ${ENV_NAME}` becomes `bearer_token_env_var`. Other header values pass through `http_headers` and are visible in process arguments. Outfitter warns for every literal stdio environment or HTTP header entry exposed in argv, so use environment references for secrets.

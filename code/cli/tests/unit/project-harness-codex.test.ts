@@ -337,11 +337,12 @@ describe('projectComposition Codex MCP projection', () => {
     );
 
     expect(projection.launch.args).toEqual(['-m', 'gpt-5']);
+    // `extensions` is absent by design: it names pi extension packages, so codex could never load
+    // them and the user has no setting that would change that. See OFTR-006.6.7.
     expect(projection.unsupported).toEqual([
       'identity',
       'skills',
       'subagents',
-      'extensions',
       'plugins',
       'thinking',
       'tools',
