@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.8.1](https://github.com/ai-outfitter/outfitter/compare/v1.8.0...v1.8.1) (2026-08-17)
+
+
+### Bug Fixes
+
+* **telemetry:** provision the PostHog project key ([#306](https://github.com/ai-outfitter/outfitter/issues/306)) ([d714070](https://github.com/ai-outfitter/outfitter/commit/d714070f4d7a5411641b06979e1e16ff177e1c85))
+
 ## [1.8.0](https://github.com/ai-outfitter/outfitter/compare/v1.7.1...v1.8.0) (2026-08-17)
 
 
