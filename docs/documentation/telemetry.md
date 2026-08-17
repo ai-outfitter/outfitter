@@ -1,8 +1,10 @@
 # Telemetry
 
-Outfitter includes opt-outable pseudonymous product analytics to measure command adoption and reliability. The shipped PostHog API key is currently empty, so no build produced from this repository sends telemetry. Provisioning a key is deferred maintainer work. The consent setting still defaults to enabled and can be changed at any time.
+Outfitter includes opt-outable pseudonymous product analytics to measure command adoption and reliability. A PostHog key is provisioned, so builds produced from this repository do send telemetry. The consent setting defaults to enabled and can be changed at any time.
 
-In a future build with a provisioned key, the first command that would send an event prints a one-time notice to stderr. The notice explains what is collected, what is excluded, and how to opt out. With the current empty key, telemetry is inert: it creates no client or state, sends no events, and prints no notice.
+The first command that would send an event prints a one-time notice to stderr. The notice explains what is collected, what is excluded, and how to opt out.
+
+Earlier builds shipped an empty key and were fully inert: they created no client or state, sent no events, and printed no notice.
 
 ## Event contract
 
@@ -45,7 +47,7 @@ In CI, telemetry remains enabled according to the same consent rules and events 
 
 ## Where the data goes
 
-When a maintainer provisions a PostHog key, events go to PostHog Cloud US at `https://us.i.posthog.com`. No retention period is stated here because this repository does not currently configure one.
+Events go to the `ai-outfitter` organization's PostHog project on PostHog Cloud US at `https://us.i.posthog.com`. No retention period is stated here because this repository does not currently configure one.
 
 ## Control telemetry
 
