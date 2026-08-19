@@ -7,6 +7,7 @@ import { emptySettings } from './Settings.js';
 export const mergeSettingsStack = (settingsStack: readonly Settings[]): Settings => {
   let defaultAgent: string | undefined;
   let defaultHarness: Settings['defaultHarness'];
+  let isolation: Settings['isolation'];
   let sources: Settings['sources'];
   let remoteSettings: Settings['remoteSettings'];
   let cacheDirectory: string | undefined;
@@ -19,6 +20,7 @@ export const mergeSettingsStack = (settingsStack: readonly Settings[]): Settings
   for (const settings of settingsStack) {
     defaultAgent = settings.defaultAgent ?? defaultAgent;
     defaultHarness = settings.defaultHarness ?? defaultHarness;
+    isolation = settings.isolation ?? isolation;
 
     sources = settings.sources ?? sources;
     remoteSettings = settings.remoteSettings ?? remoteSettings;
@@ -37,6 +39,7 @@ export const mergeSettingsStack = (settingsStack: readonly Settings[]): Settings
     ...emptySettings(),
     defaultAgent,
     defaultHarness,
+    isolation,
     sources: sources ?? [],
     remoteSettings: remoteSettings ?? [],
     cacheDirectory,

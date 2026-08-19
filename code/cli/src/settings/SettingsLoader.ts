@@ -9,6 +9,7 @@ import { parseYamlDocument } from '../validation/YamlDocument.js';
 import type {
   CustomSettings,
   Harness,
+  Isolation,
   RemoteSettingsReference,
   Settings,
   SourceReference,
@@ -46,6 +47,7 @@ export interface SettingsLoadIssue extends ValidationIssue {
 interface SettingsDocument {
   readonly default_agent?: string;
   readonly default_harness?: Harness;
+  readonly isolation?: Isolation;
   readonly sources?: readonly SourceDocument[];
   readonly remote_settings?: readonly RemoteSettingsDocument[];
   readonly cache_directory?: string;
@@ -264,8 +266,9 @@ const addSettingsFile = (
   });
 };
 
-// Enterprise governance controls are honored only from the user's own ~/.agents settings so a
-// checked-in project or remote catalog cannot enable private catalogs on the user's behalf.
+// Enterprise governance controls and the isolation choice are honored only from the user's own
+// ~/.agents settings so a checked-in project or remote catalog cannot enable private catalogs, or
+// decide how much of the user's machine a profile it ships can see, on the user's behalf.
 const isHomeScope = (scope: SettingsLocation['scope']): boolean => scope === 'user' || scope === 'user-local';
 
 const convertSettingsDocument = (
@@ -275,6 +278,7 @@ const convertSettingsDocument = (
 ): Settings => ({
   defaultAgent: document.default_agent,
   defaultHarness: document.default_harness,
+  isolation: isHomeScope(scope) ? document.isolation : undefined,
   sources: document.sources?.map((source) => convertSource(source, settingsDirectory)),
   remoteSettings: document.remote_settings?.map(convertRemoteSettingsSource),
   cacheDirectory:

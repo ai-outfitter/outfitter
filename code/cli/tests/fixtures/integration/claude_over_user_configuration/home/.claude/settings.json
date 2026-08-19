@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": ["Bash(npm:*)", "Bash(gh pr:*)"],
+    "deny": ["Bash(git push:--force:*)"],
+    "defaultMode": "auto"
+  },
+  "enabledPlugins": { "typescript-lsp@claude-plugins-official": true }
+}

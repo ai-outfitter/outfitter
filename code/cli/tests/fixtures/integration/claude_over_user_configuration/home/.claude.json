@@ -1,0 +1,9 @@
+{
+  "oauthAccount": { "emailAddress": "user@example.com" },
+  "hasCompletedOnboarding": true,
+  "mcpServers": { "user-notes": { "command": "notes-mcp-server" } },
+  "projects": {
+    "<project-parent>": { "hasTrustDialogAccepted": true },
+    "<project>": { "hasTrustDialogAccepted": false }
+  }
+}

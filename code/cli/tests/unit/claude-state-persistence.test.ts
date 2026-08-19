@@ -40,6 +40,14 @@ const write = (path: string, content: string): void => {
 const readJson = (path: string): Record<string, unknown> =>
   JSON.parse(readFileSync(path, 'utf8')) as Record<string, unknown>;
 
+// An isolated run always names its config directory. Failing loudly beats the old `?? ''` fallback,
+// which quietly wrote a projection into the repository working directory when the env went missing.
+const requireConfigDirectory = (plan: AgentLaunchPlan): string => {
+  const directory = plan.env.CLAUDE_CONFIG_DIR;
+  if (directory === undefined) throw new Error('launch plan has no CLAUDE_CONFIG_DIR');
+  return directory;
+};
+
 afterEach(() => {
   for (const directory of roots.splice(0)) rmSync(directory, { recursive: true, force: true });
 });
@@ -451,7 +459,7 @@ describe('run agent Claude credential write-back', () => {
     );
 
     const launcher = (plan: AgentLaunchPlan): Promise<number> => {
-      const configDirectory = plan.env.CLAUDE_CONFIG_DIR ?? '';
+      const configDirectory = requireConfigDirectory(plan);
       expect(readFileSync(join(configDirectory, '.credentials.json'), 'utf8')).toBe('{"before":true}');
       expect(readJson(join(configDirectory, '.claude.json'))).toEqual({
         projects: { [project]: { hasTrustDialogAccepted: true } },
@@ -465,6 +473,7 @@ describe('run agent Claude credential write-back', () => {
       projectDirectory: project,
       agent: 'engineer',
       harness: 'claude',
+      isolated: true,
       launcher,
     });
 
@@ -480,9 +489,9 @@ describe('run agent Claude credential write-back', () => {
     write(join(project, '.agents', 'agents', 'engineer', 'agent.md'), '---\nname: engineer\n---\n\nBody.\n');
 
     const launcher = (plan: AgentLaunchPlan): Promise<number> => {
-      writeFileSync(join(plan.env.CLAUDE_CONFIG_DIR ?? '', '.credentials.json'), '{"afterFailure":true}');
+      writeFileSync(join(requireConfigDirectory(plan), '.credentials.json'), '{"afterFailure":true}');
       writeFileSync(
-        join(plan.env.CLAUDE_CONFIG_DIR ?? '', '.claude.json'),
+        join(requireConfigDirectory(plan), '.claude.json'),
         JSON.stringify({ oauthAccount: { accountUuid: 'after-failure' } }),
       );
       return Promise.reject(new Error('launch failed'));
@@ -494,6 +503,8 @@ describe('run agent Claude credential write-back', () => {
         projectDirectory: project,
         agent: 'engineer',
         harness: 'claude',
+        isolated: true,
+        isolated: true,
         launcher,
       }),
     ).rejects.toThrow('launch failed');
@@ -516,8 +527,9 @@ describe('run agent Claude credential write-back', () => {
       projectDirectory: project,
       agent: 'engineer',
       harness: 'claude',
+      isolated: true,
       launcher: (plan) => {
-        write(join(plan.env.CLAUDE_CONFIG_DIR ?? '', 'projects', slug, 'session.jsonl'), transcript);
+        write(join(requireConfigDirectory(plan), 'projects', slug, 'session.jsonl'), transcript);
         return Promise.resolve(0);
       },
     });
@@ -528,8 +540,9 @@ describe('run agent Claude credential write-back', () => {
       projectDirectory: project,
       agent: 'engineer',
       harness: 'claude',
+      isolated: true,
       launcher: (plan) => {
-        expect(readFileSync(join(plan.env.CLAUDE_CONFIG_DIR ?? '', 'projects', slug, 'session.jsonl'), 'utf8')).toBe(
+        expect(readFileSync(join(requireConfigDirectory(plan), 'projects', slug, 'session.jsonl'), 'utf8')).toBe(
           transcript,
         );
         return Promise.resolve(0);
@@ -552,8 +565,10 @@ describe('run agent Claude credential write-back', () => {
         projectDirectory: project,
         agent: 'engineer',
         harness: 'claude',
+        isolated: true,
+        isolated: true,
         launcher: (plan) => {
-          write(join(plan.env.CLAUDE_CONFIG_DIR ?? '', 'projects', slug, 'failed.jsonl'), 'saved');
+          write(join(requireConfigDirectory(plan), 'projects', slug, 'failed.jsonl'), 'saved');
           return Promise.reject(new Error('launch failed'));
         },
       }),
@@ -576,9 +591,10 @@ describe('run agent Claude credential write-back', () => {
       projectDirectory: project,
       agent: 'engineer',
       harness: 'claude',
+      isolated: true,
       launcher: (plan) => {
         write(durableCredentials, '{"token":"refreshed-concurrently"}');
-        writeFileSync(join(plan.env.CLAUDE_CONFIG_DIR ?? '', '.credentials.json'), '{"token":"changed-by-run"}');
+        writeFileSync(join(requireConfigDirectory(plan), '.credentials.json'), '{"token":"changed-by-run"}');
         return Promise.resolve(0);
       },
     });
@@ -604,8 +620,9 @@ describe('run agent Claude credential write-back', () => {
       projectDirectory: project,
       agent: 'engineer',
       harness: 'claude',
+      isolated: true,
       launcher: (plan) => {
-        write(join(plan.env.CLAUDE_CONFIG_DIR ?? '', 'projects'), 'not a directory');
+        write(join(requireConfigDirectory(plan), 'projects'), 'not a directory');
         return Promise.resolve(29);
       },
     });
@@ -630,8 +647,9 @@ describe('run agent Claude credential write-back', () => {
       projectDirectory: project,
       agent: 'engineer',
       harness: 'claude',
+      isolated: true,
       launcher: (plan) => {
-        writeFileSync(join(plan.env.CLAUDE_CONFIG_DIR ?? '', '.credentials.json'), '{"changed":true}');
+        writeFileSync(join(requireConfigDirectory(plan), '.credentials.json'), '{"changed":true}');
         return Promise.resolve(23);
       },
       writeLine: (line) => warnings.push(line),
@@ -655,8 +673,9 @@ describe('run agent Claude credential write-back', () => {
       projectDirectory: project,
       agent: 'engineer',
       harness: 'claude',
+      isolated: true,
       launcher: (plan) => {
-        writeFileSync(join(plan.env.CLAUDE_CONFIG_DIR ?? '', '.credentials.json'), '{"changed":true}');
+        writeFileSync(join(requireConfigDirectory(plan), '.credentials.json'), '{"changed":true}');
         return Promise.resolve(31);
       },
       writeLine: () => {
@@ -682,8 +701,10 @@ describe('run agent Claude credential write-back', () => {
         projectDirectory: project,
         agent: 'engineer',
         harness: 'claude',
+        isolated: true,
+        isolated: true,
         launcher: (plan) => {
-          writeFileSync(join(plan.env.CLAUDE_CONFIG_DIR ?? '', '.credentials.json'), '{"changed":true}');
+          writeFileSync(join(requireConfigDirectory(plan), '.credentials.json'), '{"changed":true}');
           return Promise.reject(new Error('original launcher diagnostic'));
         },
         writeLine: (line) => warnings.push(line),

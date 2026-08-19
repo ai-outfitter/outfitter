@@ -6,6 +6,8 @@ import { join } from 'node:path';
 import { Command, Option } from 'commander';
 
 import { launchThroughSpawn, spawnLauncher } from '../../agents/AgentLaunch.js';
+import type { ClaudeConfigDecision, HarnessHelpReader } from '../../agents/ClaudeConfigStrategy.js';
+import { decideClaudeConfigStrategy, resolveIsolation } from '../../agents/ClaudeConfigStrategy.js';
 import {
   persistClaudeCredentials,
   persistClaudeSessions,
@@ -27,7 +29,7 @@ import type { AgentLaunchPlan } from '../../projection/Projection.js';
 import { strictAmbiguityFailureMessage } from '../../resolver/AmbiguityWarnings.js';
 import { findResource } from '../../resolver/Resource.js';
 import { resolveEffectiveSet } from '../../resolver/ResolverContext.js';
-import type { Harness } from '../../settings/Settings.js';
+import type { Harness, Isolation } from '../../settings/Settings.js';
 import { HARNESSES } from '../../settings/Settings.js';
 import { setupNextStepMessage } from '../../setup/Setup.js';
 import type { SetupResult } from '../../setup/Setup.js';
@@ -57,6 +59,8 @@ export interface RunAgentInput {
   readonly projectDirectory: string;
   readonly agent?: string;
   readonly harness?: string;
+  /** Launch from the projection alone, ignoring the machine's own harness configuration. */
+  readonly isolated?: boolean;
   readonly strict?: boolean;
   readonly logLevel?: RunLogLevel;
   readonly passThroughArgs?: readonly string[];
@@ -69,6 +73,8 @@ export interface RunAgentInput {
   readonly retainProjection?: boolean;
   /** Sink for setup notices and warnings; emitted before launch so they precede the pi session. */
   readonly writeLine?: (message: string) => void;
+  /** Test seam for the `claude --help` probe that confirms the installed CLI can inherit. */
+  readonly harnessHelpReader?: HarnessHelpReader;
   /** Test seam for the `pi install` boundary used to cache pi extensions. */
   readonly extensionInstallSpawner?: PiInstallSpawner;
   /** Optional loading UI. The command wires a terminal spinner; tests can observe this boundary. */
@@ -116,18 +122,44 @@ const resolveHarness = (settingsDefault: Harness | undefined, requested: string 
   return harness as Harness;
 };
 
+// Claude is the only harness with an inherit path, so nothing else pays for the help probe.
+const resolveClaudeConfig = (
+  input: RunAgentInput,
+  harness: Harness,
+  settingsIsolation: Isolation | undefined,
+): ClaudeConfigDecision => {
+  if (harness !== 'claude') return { isolation: 'isolated' };
+  return decideClaudeConfigStrategy(
+    resolveIsolation(settingsIsolation, input.isolated === true),
+    input.harnessHelpReader,
+  );
+};
+
+// Launch facts rather than composition warnings: a forced fallback and a retained projection are
+// both things the user must be told, and neither should make `--strict` fail an otherwise fine run.
+const launchNotices = (
+  input: RunAgentInput,
+  claudeConfig: ClaudeConfigDecision,
+  rootDirectory: string,
+): readonly string[] => [
+  ...(claudeConfig.warning === undefined ? [] : [claudeConfig.warning]),
+  ...(input.retainProjection === true ? [`Retaining the runtime projection at ${rootDirectory}`] : []),
+];
+
 const assertNoSettingsIssues = (issues: readonly { readonly message: string }[]): void => {
   if (issues.length > 0) {
     throw new Error(`Cannot run with invalid settings: ${issues.map((issue) => issue.message).join('; ')}`);
   }
 };
 
-// Pi and Claude both read credentials — and Claude its session history — from their ephemeral
-// projection root. Seed the durable state before launch and persist changes in a finally block so
-// login and session changes survive both a normal exit and a failed launcher.
+// Pi, and an isolated Claude, read credentials — and Claude its session history — from their
+// ephemeral projection root. Seed the durable state before launch and persist changes in a finally
+// block so login and session changes survive both a normal exit and a failed launcher. An inherited
+// Claude run reads and writes the real ~/.claude directly, so it needs neither seed nor copy-back.
 const launchWithStatePersistence = async (
   input: RunAgentInput,
   harness: Harness,
+  isolation: Isolation,
   rootDirectory: string,
   launch: AgentLaunchPlan,
   lateMessages: string[],
@@ -150,10 +182,11 @@ const launchWithStatePersistence = async (
     }
   };
   const piUserAgentDirectory = harness === 'pi' ? resolvePiUserAgentDirectory(input.homeDirectory) : undefined;
+  const bridgesClaudeState = harness === 'claude' && isolation === 'isolated';
   let seededClaudeCredentialsHash: string | undefined;
   let seededClaudeSessionHashes: ReadonlyMap<string, string> = new Map();
   if (piUserAgentDirectory !== undefined) seedPiCredentials(rootDirectory, piUserAgentDirectory);
-  if (harness === 'claude') {
+  if (bridgesClaudeState) {
     seededClaudeCredentialsHash = seedClaudeCredentials(rootDirectory, input.homeDirectory, input.projectDirectory);
     attempt('seed Claude session history', () => {
       const seed = seedClaudeSessions(rootDirectory, input.homeDirectory, input.projectDirectory);
@@ -168,7 +201,7 @@ const launchWithStatePersistence = async (
     if (piUserAgentDirectory !== undefined) {
       attempt('persist Pi credentials', () => persistPiCredentials(rootDirectory, piUserAgentDirectory));
     }
-    if (harness === 'claude') {
+    if (bridgesClaudeState) {
       attempt('persist Claude credentials', () => {
         const conflictWarning = persistClaudeCredentials(
           rootDirectory,
@@ -307,6 +340,7 @@ export const executeRunAgentCommand = async (input: RunAgentInput): Promise<RunA
   const { set, settings } = resolved;
   const agentSlug = resolveAgentSlug(settings.defaultAgent, input.agent);
   const harness = resolveHarness(settings.defaultHarness, input.harness);
+  const claudeConfig = resolveClaudeConfig(input, harness, settings.isolation);
   const composed = compose(set, agentSlug, { projectDirectory: input.projectDirectory });
 
   if (composed.plan === undefined) {
@@ -328,6 +362,8 @@ export const executeRunAgentCommand = async (input: RunAgentInput): Promise<RunA
       harness,
       rootDirectory,
       homeDirectory: input.homeDirectory,
+      isolation: claudeConfig.isolation,
+      profileSlug: agentSlug,
       sessionDirectory: resolveSessionDirectory(input, harness),
       passThroughArgs: input.passThroughArgs,
       appendPromptPaths: input.appendPromptPaths,
@@ -357,7 +393,7 @@ export const executeRunAgentCommand = async (input: RunAgentInput): Promise<RunA
 
     // Normal startup stays quiet. Strict mode retains the complete resolution diagnostics, while
     // composition/projection warnings stay visible because they describe a degraded launch.
-    const messages = [...resolutionWarnings, ...warnings];
+    const messages = [...resolutionWarnings, ...warnings, ...launchNotices(input, claudeConfig, rootDirectory)];
     emit(messages);
 
     // Attach the Outfitter runtime UI and sign-in extension to interactive pi sessions.
@@ -371,7 +407,14 @@ export const executeRunAgentCommand = async (input: RunAgentInput): Promise<RunA
     const systemHooks = attachSystemExtensionHooks(launch);
     messages.push(...systemHooks.warnings);
     emit(systemHooks.warnings);
-    const exitCode = await launchWithStatePersistence(input, harness, rootDirectory, systemHooks.launch, messages);
+    const exitCode = await launchWithStatePersistence(
+      input,
+      harness,
+      claudeConfig.isolation,
+      rootDirectory,
+      systemHooks.launch,
+      messages,
+    );
 
     return { launchPlan: systemHooks.launch, exitCode, messages };
   } finally {
@@ -405,6 +448,11 @@ export const createRunAgentCommand = (dependencies: RunAgentDependencies = {}): 
       )
       .option('--strict', 'Treat ambiguity, composition warnings, and unsupported loadout elements as fatal.')
       .option(
+        '--isolated',
+        'Launch from the composed profile alone, ignoring your own harness configuration (trust, permissions, MCP servers, plugins).',
+      )
+      .option('--retain-projection', 'Keep the runtime projection directory after the run, for inspection.')
+      .option(
         '--append-prompt <path>',
         'Append a Markdown document to the system prompt. Repeatable; applied in the order given.',
         (value: string, previous: readonly string[] = []) => [...previous, value],
@@ -417,6 +465,8 @@ export const createRunAgentCommand = (dependencies: RunAgentDependencies = {}): 
           options: {
             harness?: string;
             logLevel: RunLogLevel;
+            isolated?: boolean;
+            retainProjection?: boolean;
             strict?: boolean;
             appendPrompt?: readonly string[];
           },
@@ -441,6 +491,8 @@ export const createRunAgentCommand = (dependencies: RunAgentDependencies = {}): 
             agent: effectiveAgent,
             harness: options.harness,
             logLevel: options.logLevel,
+            isolated: options.isolated,
+            retainProjection: options.retainProjection,
             strict: options.strict,
             passThroughArgs: effectivePassThrough,
             appendPromptPaths: options.appendPrompt,

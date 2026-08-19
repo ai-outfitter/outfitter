@@ -10,6 +10,15 @@ export type CustomSettings = Readonly<Record<string, SettingsValue>>;
 export const HARNESSES = ['pi', 'claude', 'codex'] as const;
 export type Harness = (typeof HARNESSES)[number];
 
+/**
+ * How much of the user's own harness configuration a run stands on. `inherit` layers the
+ * composition over the machine's native configuration — trust, permissions, credentials, and the
+ * MCP servers and plugins already installed there. `isolated` launches from the projection alone,
+ * which is what a reproducible CI or container run wants.
+ */
+export const ISOLATIONS = ['inherit', 'isolated'] as const;
+export type Isolation = (typeof ISOLATIONS)[number];
+
 /** Functional persistence strategies for adapter-declared state paths. */
 export type StatePersistenceStrategy = 'symlink' | 'discard' | 'warn' | 'error' | 'prompt';
 export type StatePersistence = Readonly<Record<string, StatePersistenceStrategy>>;
@@ -41,6 +50,12 @@ export interface Settings {
   readonly defaultAgent?: string;
   /** Harness that plain `outfitter` launches when `--harness` is omitted. */
   readonly defaultHarness?: Harness;
+  /**
+   * Whether runs stand on the machine's native harness configuration. Honored only from the home
+   * scope: a checked-in project or a remote catalog must not decide how much of the user's machine
+   * a profile it ships sees.
+   */
+  readonly isolation?: Isolation;
   readonly sources?: readonly SourceReference[];
   readonly remoteSettings?: readonly RemoteSettingsReference[];
   readonly cacheDirectory?: string;

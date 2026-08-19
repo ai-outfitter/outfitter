@@ -150,6 +150,32 @@ describe('settings loading', () => {
     expect(loaded.settings.statePersistence).toEqual({ 'settings.json': 'warn', 'auth.json': 'symlink' });
   });
 
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-006.5.23).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('honors the isolation choice from the home scope and ignores it from a project', () => {
+    const root = createTemporaryRoot();
+    const homeDirectory = join(root, 'home');
+    const projectDirectory = join(root, 'project');
+    writeSettings(join(homeDirectory, '.agents', 'settings.yml'), 'isolation: isolated\n');
+    writeSettings(join(projectDirectory, '.agents', 'settings.yml'), 'isolation: inherit\n');
+
+    const loaded = loadSettings(discoverSettingsLoadPlan({ homeDirectory, projectDirectory }));
+
+    expect(loaded.issues).toEqual([]);
+    expect(loaded.settings.isolation).toBe('isolated');
+  });
+
+  it('ignores an isolation choice a project or catalog ships on its own', () => {
+    const root = createTemporaryRoot();
+    const homeDirectory = join(root, 'home');
+    const projectDirectory = join(root, 'project');
+    writeSettings(join(projectDirectory, '.agents', 'settings.yml'), 'isolation: isolated\n');
+
+    const loaded = loadSettings(discoverSettingsLoadPlan({ homeDirectory, projectDirectory }));
+
+    expect(loaded.settings.isolation).toBeUndefined();
+  });
+
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-002.3).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('reports YAML parse and schema validation diagnostics with file paths', () => {

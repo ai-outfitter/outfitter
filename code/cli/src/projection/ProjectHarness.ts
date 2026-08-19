@@ -3,12 +3,25 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { PI_SESSION_DIRECTORY_ENV } from '../agents/PiSessionDirectory.js';
 import type { CompositionPlan } from '../composer/Composition.js';
-import type { Harness } from '../settings/Settings.js';
+import type { Harness, Isolation } from '../settings/Settings.js';
 import { projectCodexMcpServers } from './CodexMcp.js';
 import type { MaterializedComposition } from './Materialize.js';
-import { applyPiRuntimeDefaults, materializeComposition, materializeConfigurationOverlays } from './Materialize.js';
+import {
+  applyPiRuntimeDefaults,
+  materializeComposition,
+  materializeConfigurationOverlays,
+  writeClaudePluginManifest,
+} from './Materialize.js';
 import type { AgentLaunchPlan, AgentProjectionPlan, ProjectionInput } from './Projection.js';
 import { toolArgs } from './Tools.js';
+
+/**
+ * Inheriting is the default: a profile is a costume over the user's own harness, not a replacement
+ * machine. Only claude has an inherit path today, so pi and codex resolve to their existing
+ * projection-rooted launch whatever the setting says.
+ */
+const resolveProjectionIsolation = (input: ProjectionInput): Isolation =>
+  input.harness === 'claude' ? (input.isolation ?? 'inherit') : 'isolated';
 
 // Loadout elements a projection actually maps to native config. Anything else is reported
 // unsupported so `--strict` catches silently-dropped selections. Baseline for pi and Claude is
@@ -16,15 +29,16 @@ import { toolArgs } from './Tools.js';
 // natively, so `tools` is unconditionally supported; a name projection cannot carry is a hard error
 // from `toolArgs`, not an unsupported element. Pi also projects selected subagents and MCP servers
 // into its runtime config directory, and loads pi extensions from the install dirs the run path
-// resolves (`extensionLoadDirs`). Claude projects selected MCP servers through an explicit,
-// isolated `--mcp-config`; plugins remain unsupported pending incremental parity (#183).
+// resolves (`extensionLoadDirs`). Claude projects selected MCP servers through an explicit
+// `--mcp-config` and reads materialized subagents from the runtime root in both isolation modes;
+// plugins remain unsupported pending incremental parity (#183).
 // Switched rather than chained so a harness added to `Harness` fails to compile here instead of
 // silently inheriting another harness's element set — the exact silent drop this function prevents.
 const supportedElements = (input: ProjectionInput): readonly string[] => {
   const baseline = ['identity', 'skills', 'model', 'thinking', 'tools'];
   switch (input.harness) {
     case 'claude':
-      return [...baseline, 'mcp'];
+      return [...baseline, 'subagents', 'mcp'];
     case 'codex':
       return ['model', 'mcp'];
     case 'pi':
@@ -127,13 +141,47 @@ const buildCodexLaunchPlan = (
   env: {},
 });
 
-// Claude's user, project, and plugin MCP sources would otherwise merge into the composition, so the
-// generated config is named explicitly and `--strict-mcp-config` suppresses every other layer.
-const claudeMcpArgs = (mcpConfigPath: string): readonly string[] => [
+/**
+ * An isolated run names the generated config explicitly and lets `--strict-mcp-config` suppress
+ * every other layer, so the composition is the whole MCP surface. An inherited run drops the strict
+ * flag: a profile selecting a server states what it needs, not what the user may not have, so
+ * Claude merges the composition with the servers already configured on the machine.
+ */
+const claudeMcpArgs = (mcpConfigPath: string, isolation: Isolation): readonly string[] => [
   '--mcp-config',
   mcpConfigPath,
-  '--strict-mcp-config',
+  ...(isolation === 'isolated' ? ['--strict-mcp-config'] : []),
 ];
+
+/**
+ * Claude reads a composition either as its whole configuration directory or as one session-scoped
+ * plugin. `CLAUDE_CONFIG_DIR` replaces the user's `~/.claude` wholesale — trust, permissions,
+ * credentials, plugins and all — which is why an isolated run has to seed durable state back into
+ * the projection to be usable at all. `--plugin-dir` carries the same materialized tree (skills,
+ * subagents, commands) into a session that is otherwise entirely the user's own, so nothing needs
+ * seeding and nothing needs copying back. Verified against Claude Code 2.1.226: a plugin directory
+ * loads skills unnamespaced, and commands and subagents under the plugin's name.
+ */
+const claudeConfigArgs = (rootDirectory: string, isolation: Isolation): readonly string[] =>
+  isolation === 'isolated' ? [] : ['--plugin-dir', rootDirectory];
+
+const claudeArgs = (rootDirectory: string, isolation: Isolation): readonly string[] => [
+  ...claudeConfigArgs(rootDirectory, isolation),
+  ...claudeMcpArgs(join(rootDirectory, 'mcp.json'), isolation),
+];
+
+const claudeEnv = (rootDirectory: string, isolation: Isolation): Readonly<Record<string, string>> =>
+  isolation === 'isolated' ? { CLAUDE_CONFIG_DIR: rootDirectory } : {};
+
+/**
+ * An inherited Claude run reaches the composition through `--plugin-dir`, which needs the runtime
+ * root to declare itself a plugin. Called after materialization so it survives the subagent
+ * directory rebuild.
+ */
+const declareClaudePlugin = (composition: CompositionPlan, input: ProjectionInput): void => {
+  if (resolveProjectionIsolation(input) !== 'inherit') return;
+  writeClaudePluginManifest(input.rootDirectory, input.profileSlug ?? 'outfitter', composition.identity.label);
+};
 
 const buildPiOrClaudeLaunchPlan = (
   composition: CompositionPlan,
@@ -142,6 +190,7 @@ const buildPiOrClaudeLaunchPlan = (
   appendPromptPaths: readonly string[],
 ): AgentLaunchPlan => {
   const isPi = input.harness === 'pi';
+  const isolation = resolveProjectionIsolation(input);
   const skillArgs = isPi ? composition.loadout.skills.flatMap((skill) => ['--skill', skill.slug]) : [];
   const extensionArgs = isPi ? (input.extensionLoadDirs ?? []).flatMap((dir) => ['--extension', dir]) : [];
 
@@ -157,7 +206,7 @@ const buildPiOrClaudeLaunchPlan = (
       ...extensionArgs,
       ...modelArg(composition, '--model'),
       ...thinkingArg(composition, input.harness),
-      ...(isPi ? [] : claudeMcpArgs(join(input.rootDirectory, 'mcp.json'))),
+      ...(isPi ? [] : claudeArgs(input.rootDirectory, isolation)),
       ...(input.passThroughArgs ?? []),
     ],
     // The projection root is deleted after the run, so pi's default session store (a subdirectory
@@ -168,7 +217,7 @@ const buildPiOrClaudeLaunchPlan = (
           PI_CODING_AGENT_DIR: input.rootDirectory,
           ...(input.sessionDirectory === undefined ? {} : { [PI_SESSION_DIRECTORY_ENV]: input.sessionDirectory }),
         }
-      : { CLAUDE_CONFIG_DIR: input.rootDirectory },
+      : claudeEnv(input.rootDirectory, isolation),
   };
 };
 
@@ -182,6 +231,9 @@ export const projectComposition = (composition: CompositionPlan, input: Projecti
   // uniformly. Codex reads none of the generated files — it takes its MCP config in argv and has no
   // config-directory projection yet — but the root is temporary, so the unused writes do not persist.
   const materialized = materializeComposition(composition, input.rootDirectory, input.harness);
+
+  declareClaudePlugin(composition, input);
+
   const unsupported = [
     ...unsupportedElements(composition, input),
     ...materialized.skippedSkills.map((slug) => `skill:${slug} (escaping symlink)`),
