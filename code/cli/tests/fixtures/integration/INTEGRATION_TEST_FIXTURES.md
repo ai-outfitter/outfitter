@@ -57,9 +57,26 @@ Use it to verify missing inherited profile diagnostics.
 Template-profile behavior is intentionally covered by unit-level command, profile-loading, and profile-resolution tests rather than a full-directory integration fixture because templates affect profile selection/listing semantics but do not add adapter-specific launch translation, composite profile materialization, or state write-back behavior beyond the selected runnable profile.
 If template profiles gain adapter-visible filesystem behavior, add a dedicated integration fixture before treating that behavior as stable.
 
+Unit coverage is sufficient for OFTR-006.5 items 20–22 because an inherited launch is fully determined by the generated argv, the absence of `CLAUDE_CONFIG_DIR`, and the probe's verdict, all of which unit tests observe directly; the fixture below records the resulting shape rather than driving it.
+
 Unit coverage is sufficient for OFTR-006.5 items 12–19 because the Claude credential and recursive session bridges are fully determined by isolated filesystem inputs and outputs plus launcher success or failure; a full profile fixture would not exercise any additional composition or adapter translation behavior. A live two-invocation resume test remains outside the committed suite because it requires an installed, authenticated Claude CLI and this repository has no opt-in/local CLI integration-test pattern.
 
 ## Integration fixtures
+
+### `claude_over_user_configuration`
+
+Location: `code/cli/tests/fixtures/integration/claude_over_user_configuration/`.
+
+A machine that already runs Claude Code natively, launching a profile in a workspace the native
+session trusts. `home/.claude/settings.json` holds the user's permission allowlist and an enabled
+plugin; `home/.claude.json` holds the account, a user-scope MCP server, and a trust decision that is
+`false` for the project directory but `true` for its parent, so the fixture pins the ancestor-chain
+resolution an inherited run depends on. `project/.agents/` supplies the composition.
+
+Write-back focus: the inherited launch summary in `expected/claude/composite-profile-summary.json`
+records an empty environment and no seeded or persisted state, while
+`composite-profile-summary-isolated.json` records the `CLAUDE_CONFIG_DIR` boundary and the narrow
+durable-state bridge that `--isolated` still uses.
 
 ### `local_setup_source_symlink`
 

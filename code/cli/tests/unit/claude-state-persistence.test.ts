@@ -504,7 +504,6 @@ describe('run agent Claude credential write-back', () => {
         agent: 'engineer',
         harness: 'claude',
         isolated: true,
-        isolated: true,
         launcher,
       }),
     ).rejects.toThrow('launch failed');
@@ -565,7 +564,6 @@ describe('run agent Claude credential write-back', () => {
         projectDirectory: project,
         agent: 'engineer',
         harness: 'claude',
-        isolated: true,
         isolated: true,
         launcher: (plan) => {
           write(join(requireConfigDirectory(plan), 'projects', slug, 'failed.jsonl'), 'saved');
@@ -701,7 +699,6 @@ describe('run agent Claude credential write-back', () => {
         projectDirectory: project,
         agent: 'engineer',
         harness: 'claude',
-        isolated: true,
         isolated: true,
         launcher: (plan) => {
           writeFileSync(join(requireConfigDirectory(plan), '.credentials.json'), '{"changed":true}');
