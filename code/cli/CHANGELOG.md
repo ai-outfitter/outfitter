@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.9.0](https://github.com/ai-outfitter/outfitter/compare/v1.8.1...v1.9.0) (2026-08-19)
+
+
+### Features
+
+* **profiles:** allow dot-namespaced agent slugs ([#302](https://github.com/ai-outfitter/outfitter/issues/302)) ([2625481](https://github.com/ai-outfitter/outfitter/commit/2625481db9288d5718401ebed3edb6f64ab194dd))
+
 ## [1.8.1](https://github.com/ai-outfitter/outfitter/compare/v1.8.0...v1.8.1) (2026-08-17)
 
 
