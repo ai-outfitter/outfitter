@@ -52,8 +52,9 @@ Outfitter is organized around a private npm workspace root, clear TypeScript pac
 │   │   │   │   └── CodexMcp.ts        # translate selected MCP definitions to Codex TOML CLI overrides
 │   │   │   ├── dump/                  # deterministic self-contained `.agents` tree output
 │   │   │   ├── merge/                 # deterministic value and array merge policy helpers
-│   │   │   ├── agents/                # process launch plus adapter credential/session persistence bridges
-│   │   │   │   ├── ClaudeStatePersistence.ts      # Claude credential/trust and project-session seed/atomic merge bridges
+│   │   │   ├── agents/                # process launch plus adapter configuration/state strategy
+│   │   │   │   ├── ClaudeConfigStrategy.ts        # inherit/isolated resolution, compatibility probe, and visibility
+│   │   │   │   ├── ClaudeStatePersistence.ts      # isolated-mode credential/trust and project-session bridges
 │   │   │   │   └── PiCredentialPersistence.ts     # durable Pi credential/provider seed and copy-back
 │   │   │   ├── paths/                 # Outfitter cache root and repository/packaged asset resolution
 │   │   │   ├── system/                 # root-owned launcher-scope system extension hook loading
@@ -91,6 +92,8 @@ agents/<agent>/
 
 The resolver retains every contributing `pi/` directory in layer-precedence order.
 The Pi projection materializes them from lowest to highest precedence and skips symlinks; other harness projections do not consume them.
+
+Inherited Claude runs keep identity and MCP files at the projection root and materialize selected skills and subagents under `plugin/{skills,agents}/`, with `plugin/.claude-plugin/plugin.json`; Claude loads that temporary plugin through `--plugin-dir` while native user configuration remains active.
 
 A generated dump MAY include `.agents/.outfitter/composition.json`.
 This deterministic, removable audit record contains resolved inheritance and prompt provenance but no prompt contents, absolute paths, credentials, or runtime state; protocol consumers may ignore the `.outfitter/` metadata directory.

@@ -447,6 +447,7 @@ describe('run agent with system extension hooks', () => {
     expect(result.exitCode).toBe(0);
     expect(launch?.args).not.toContain('--extension');
     expect(result.messages).toEqual([
+      'Claude configuration: inherited no user settings file, 0 user MCP servers, 0 enabled plugins.',
       "warning: System extension hook 'observer' configures unsupported harness 'claude'; ignoring it.",
     ]);
   });

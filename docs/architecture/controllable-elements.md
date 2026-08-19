@@ -17,8 +17,7 @@ Status values:
 A `Supported` entry means Outfitter can project that concept for the agent CLI through at least one native mechanism: a config-directory boundary, state-path placement, generated files, environment variables, command-line flags, or pass-through arguments.
 It does not always mean there is a one-to-one native CLI flag.
 
-For example, Claude Code session/project state lives under Claude's config home rather than a standalone `--session-dir` flag.
-Outfitter supports the session-directory concept for Claude by setting `CLAUDE_CONFIG_DIR` to the projection root and declaring Claude `projects/` state for persistence.
+For example, Claude Code session/project state lives under Claude's native config home rather than a standalone `--session-dir` flag. In inherited mode Outfitter leaves that native state in place; isolated mode redirects `CLAUDE_CONFIG_DIR` to the projection and bridges the current project.
 
 ## Defined Terms
 
@@ -51,14 +50,14 @@ The controllable element underneath it is prompt append — `--append-prompt <fi
 Selected `agents/<id>` definitions projected as harness delegates.
 
 - Pi name: subagent extension registration
-- Claude name: native agent definitions under the config directory's `agents/`
+- Claude name: native agent definitions in the generated composition plugin
 
 ### Skills
 
 Protocol `skills/<id>/` packages exposed to the agent.
 
 - Pi name: skills, `--skill`
-- Claude name: skills under the Claude config directory
+- Claude name: skills in the generated composition plugin loaded with `--plugin-dir`
 
 ### Commands / Prompt Templates
 
@@ -87,7 +86,7 @@ The selected provider/model and related inference options, from `models.json` an
 Model Context Protocol server configuration from the tree's `mcp.json`.
 
 - Pi name: `mcp.json` in the agent dir
-- Claude name: generated `mcp.json` passed through `--mcp-config` with `--strict-mcp-config`
+- Claude name: generated `mcp.json` passed through additive `--mcp-config`; isolated mode also uses `--strict-mcp-config`
 - Codex name: repeated TOML-valued `-c mcp_servers.<id>.<key>=...` overrides; additive with user/project configuration because Codex has no way to run with only the projected MCP servers
 
 ### Extensions
@@ -116,7 +115,7 @@ Environment variables, API keys, auth files, and related secret material needed 
 Never stored in the tree; supplied at runtime.
 
 - Pi name: provider env vars, `auth.json`, `--api-key`
-- Claude name: environment variables and config files under `CLAUDE_CONFIG_DIR`
+- Claude name: native user configuration by default; isolated config files under projected `CLAUDE_CONFIG_DIR`
 
 ### Tasks
 
@@ -139,7 +138,7 @@ Deterministic code at fixed session points.
 No protocol resource exists yet; see [Hooks](../documentation/hooks.md) for the roadmap TODO on an Outfitter hooks extension.
 
 - Pi name: bootstrap extension via `--extension` / `-e`; per-event hooks are extension territory
-- Claude name: `hooks` in the generated `settings.json`
+- Claude name: native inherited `settings.json` hooks
 
 ### Tool Availability
 

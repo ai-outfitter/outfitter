@@ -267,19 +267,33 @@ const materializeIdentity = (
   return { systemPromptPath, appendPromptPaths };
 };
 
+const materializedResourceRoot = (rootDirectory: string, harness: Harness, claudeInherited: boolean): string => {
+  if (harness !== 'claude' || !claudeInherited) return rootDirectory;
+
+  const pluginRoot = join(rootDirectory, 'plugin');
+  mkdirSync(join(pluginRoot, '.claude-plugin'), { recursive: true });
+  writeGeneratedFile(
+    join(pluginRoot, '.claude-plugin', 'plugin.json'),
+    `${JSON.stringify({ name: 'outfitter-composition', version: '1.0.0' }, null, 2)}\n`,
+  );
+  return pluginRoot;
+};
+
 /** Writes composed identity, skills, subagents, and selected MCP servers into the runtime root. */
 export const materializeComposition = (
   composition: CompositionPlan,
   rootDirectory: string,
   harness: Harness,
+  claudeInherited = false,
 ): MaterializedComposition => {
   mkdirSync(rootDirectory, { recursive: true });
   const { systemPromptPath, appendPromptPaths } = materializeIdentity(composition, rootDirectory);
+  const resourceRoot = materializedResourceRoot(rootDirectory, harness, claudeInherited);
   const skillDirectories: string[] = [];
   const skippedSkills: string[] = [];
 
   for (const skill of [...composition.loadout.skills, ...composition.loadout.delegateSkills]) {
-    const materialized = materializeSkill(skill, rootDirectory);
+    const materialized = materializeSkill(skill, resourceRoot);
     if (materialized === undefined) {
       skippedSkills.push(skill.slug);
     } else {
@@ -290,7 +304,7 @@ export const materializeComposition = (
   const skippedSubagents = materializeSubagents(
     composition.loadout.subagents,
     composition.loadout.composedSubagents,
-    rootDirectory,
+    resourceRoot,
   );
 
   if (harness === 'claude' || (harness === 'pi' && composition.loadout.mcp.length > 0)) {

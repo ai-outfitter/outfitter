@@ -1,4 +1,5 @@
 // Defines the internal Settings shape produced from Outfitter settings files.
+import type { ClaudeIsolationMode } from '../agents/ClaudeConfigStrategy.js';
 import type { RemoteSourceReference } from '../sources/SourceCache.js';
 
 export type RemoteSettingsReference = RemoteSourceReference & { readonly path: string };
@@ -36,11 +37,16 @@ export interface TelemetrySettings {
   readonly enabled?: boolean;
 }
 
+export interface ClaudeSettings {
+  readonly isolation?: ClaudeIsolationMode;
+}
+
 export interface Settings {
   /** Agent slug that plain `outfitter` runs when no agent is selected. */
   readonly defaultAgent?: string;
   /** Harness that plain `outfitter` launches when `--harness` is omitted. */
   readonly defaultHarness?: Harness;
+  readonly claude?: ClaudeSettings;
   readonly sources?: readonly SourceReference[];
   readonly remoteSettings?: readonly RemoteSettingsReference[];
   readonly cacheDirectory?: string;

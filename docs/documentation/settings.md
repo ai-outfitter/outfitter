@@ -23,6 +23,8 @@ In a standalone `.agents` repository the repository root is the tree, so the fil
 # .agents/settings.yml
 default_agent: engineer # which agent runs by default
 default_harness: pi # which harness to launch: pi, claude, or codex
+claude:
+  isolation: inherit # inherit (default) or isolated; user-home scope only
 
 # Where protocol resources come from, beyond this tree and ~/.agents.
 sources:
@@ -47,6 +49,7 @@ telemetry:
 ```
 
 - `default_agent` / `default_harness` — which agent plain `outfitter` runs, and the harness it launches in.
+- `claude.isolation` — `inherit` (default) lets Claude use native user settings, trust, MCP servers, plugins, and sessions; `isolated` uses a hermetic temporary config. Only user-home settings control this default; `--isolated` overrides it per run.
 - `sources` — ordered list of remote or local `.agents` payloads. Remote entries (`github:` / `uri:`) accept `ref:` pinning and an optional `path:` to the payload inside the repository; see [Catalogs](./catalogs.md) for conventions and trust guidance.
 - `remote_settings` — shared settings a repository distributes; cached locally and merged below your project and user settings, so anything you set locally wins.
 - `cache_directory` — the repository cache root used consistently by sync, remote settings, remote

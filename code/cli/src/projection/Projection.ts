@@ -1,4 +1,5 @@
 // Harness-neutral projection types: a materialized runtime tree plus the launch plan for one run.
+import type { ClaudeIsolationMode } from '../agents/ClaudeConfigStrategy.js';
 import type { Harness } from '../settings/Settings.js';
 
 export interface AgentLaunchPlan {
@@ -21,6 +22,8 @@ export interface ProjectionInput {
   readonly harness: Harness;
   readonly rootDirectory: string;
   readonly homeDirectory: string;
+  /** Claude configuration strategy; defaults to inherited configuration. */
+  readonly claudeIsolation?: ClaudeIsolationMode;
   /** Durable session store for the run (pi only); omitted to leave the harness default in place. */
   readonly sessionDirectory?: string;
   readonly passThroughArgs?: readonly string[];

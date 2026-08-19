@@ -114,7 +114,7 @@ describe('projectComposition extensions', () => {
 describe('projectComposition Claude MCP projection', () => {
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-006.5.11).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
-  it('passes selected MCP servers through an isolated Claude MCP config', () => {
+  it('merges selected MCP servers into inherited Claude configuration by default', () => {
     const dir = root();
     const plan = planWith([]);
     const projection = projectComposition(
@@ -129,9 +129,10 @@ describe('projectComposition Claude MCP projection', () => {
       { harness: 'claude', rootDirectory: dir, homeDirectory: dir },
     );
 
-    expect(projection.launch.args).toEqual(
-      expect.arrayContaining(['--mcp-config', join(dir, 'mcp.json'), '--strict-mcp-config']),
-    );
+    expect(projection.launch.args).toEqual(expect.arrayContaining(['--mcp-config', join(dir, 'mcp.json')]));
+    expect(projection.launch.args).not.toContain('--strict-mcp-config');
+    expect(projection.launch.args).toEqual(expect.arrayContaining(['--plugin-dir', join(dir, 'plugin')]));
+    expect(projection.launch.env).toEqual({});
     expect(JSON.parse(readFileSync(join(dir, 'mcp.json'), 'utf8'))).toEqual({
       mcpServers: { github: { command: 'github-mcp-server' } },
     });
@@ -147,6 +148,7 @@ describe('projectComposition Claude MCP projection', () => {
       harness: 'claude',
       rootDirectory: dir,
       homeDirectory: dir,
+      claudeIsolation: 'isolated',
     });
 
     expect(projection.launch.args).toEqual(

@@ -132,6 +132,19 @@ describe('settings loading', () => {
     expect(loaded.settings.enterprise).toEqual({});
   });
 
+  it('honors Claude isolation defaults only from user-home settings', () => {
+    const root = createTemporaryRoot();
+    const homeDirectory = join(root, 'home');
+    const projectDirectory = join(root, 'project');
+    writeSettings(join(homeDirectory, '.agents', 'settings.yml'), 'claude:\n  isolation: isolated\n');
+    writeSettings(join(projectDirectory, '.agents', 'settings.yml'), 'claude:\n  isolation: inherit\n');
+
+    const loaded = loadSettings(discoverSettingsLoadPlan({ homeDirectory, projectDirectory }));
+
+    expect(loaded.issues).toEqual([]);
+    expect(loaded.settings.claude?.isolation).toBe('isolated');
+  });
+
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-002.8).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('loads and merges state_persistence maps with higher-precedence overrides', () => {

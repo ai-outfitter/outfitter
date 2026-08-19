@@ -247,8 +247,7 @@ If generic naming conflicts with pi behavior, prefer pi's terminology.
 
 ### Claude Code
 
-Outfitter launches `claude` with `CLAUDE_CONFIG_DIR` pointing at the projection root and maps the elements supported by the current baseline adapter to native files and flags.
-Persistent state projection and managed harness symlinks are deferred to [#187](https://github.com/ai-outfitter/outfitter/issues/187); setup does not create them.
+Outfitter launches `claude` against the user's native configuration by default and maps the selected profile to explicit flags plus a generated plugin. `--isolated` points `CLAUDE_CONFIG_DIR` at the projection root for hermetic runs. Setup does not create managed harness symlinks.
 
 ### Codex CLI
 

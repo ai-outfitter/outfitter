@@ -6,6 +6,7 @@ import { createRemoteRepositoryCachePath, resolveRemoteRepositorySubpath } from 
 import type { ValidationIssue } from '../validation/SchemaValidator.js';
 import { validateSchema } from '../validation/SchemaValidator.js';
 import { parseYamlDocument } from '../validation/YamlDocument.js';
+import type { ClaudeIsolationMode } from '../agents/ClaudeConfigStrategy.js';
 import type {
   CustomSettings,
   Harness,
@@ -46,6 +47,7 @@ export interface SettingsLoadIssue extends ValidationIssue {
 interface SettingsDocument {
   readonly default_agent?: string;
   readonly default_harness?: Harness;
+  readonly claude?: { readonly isolation?: ClaudeIsolationMode };
   readonly sources?: readonly SourceDocument[];
   readonly remote_settings?: readonly RemoteSettingsDocument[];
   readonly cache_directory?: string;
@@ -275,6 +277,8 @@ const convertSettingsDocument = (
 ): Settings => ({
   defaultAgent: document.default_agent,
   defaultHarness: document.default_harness,
+  // Only user-home settings may increase machine-local configuration exposure.
+  claude: isHomeScope(scope) ? document.claude : undefined,
   sources: document.sources?.map((source) => convertSource(source, settingsDirectory)),
   remoteSettings: document.remote_settings?.map(convertRemoteSettingsSource),
   cacheDirectory:

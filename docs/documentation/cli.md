@@ -19,6 +19,8 @@ Resolve, compose, and launch an agent. `run` is the default command, so plain `o
 | `--harness <harness>` | Harness to launch in: `pi`, `claude`, or `codex`. Defaults to `default_harness`. |
 | `--log-level <level>` | Use `info` for quiet loading or `debug` for installer output.                    |
 | `--strict`            | Fail instead of warning when the adapter cannot project part of the composition. |
+| `--isolated`          | Launch Claude without inheriting native user configuration.                      |
+| `--retain-projection` | Keep the generated runtime projection and print its path.                        |
 
 Set `OUTFITTER_LOG_LEVEL=debug` to enable debug startup output without passing the option. The
 `setup` command also accepts `--log-level` for its automatic profile launch.

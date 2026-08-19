@@ -6,6 +6,16 @@
   "properties": {
     "default_agent": { "type": "string", "minLength": 1 },
     "default_harness": { "enum": ["pi", "claude", "codex"] },
+    "claude": {
+      "type": "object",
+      "properties": {
+        "isolation": {
+          "enum": ["inherit", "isolated"],
+          "description": "Whether Claude Code inherits the user's native configuration or uses a hermetic projection."
+        }
+      },
+      "additionalProperties": false
+    },
     "cache_directory": { "type": "string", "minLength": 1 },
     "state_persistence": {
       "type": "object",

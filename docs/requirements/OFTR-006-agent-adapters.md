@@ -64,7 +64,7 @@ Amended (2026-07-17, RFC #165): adapters project a harness-neutral composition, 
 
 ### OFTR-006.5: Claude Code Launch Controls
 
-1. The Claude Code adapter MUST use `CLAUDE_CONFIG_DIR` as the primary profile-scoped Claude Code configuration boundary.
+1. The Claude Code adapter MUST inherit Claude's native user configuration by default without overriding `CLAUDE_CONFIG_DIR`; isolated mode MUST use the temporary projection as `CLAUDE_CONFIG_DIR`.
 2. The Claude Code adapter MUST launch the native `claude` command.
 3. The Claude Code adapter MUST support profile-controlled environment variables.
 4. The Claude Code adapter MUST support profile-controlled pass-through Claude Code CLI arguments.
@@ -74,15 +74,15 @@ Amended (2026-07-17, RFC #165): adapters project a harness-neutral composition, 
 8. The Claude Code adapter SHOULD support `controls.session_directory` and `controls.claude.session_directory` by routing Claude `projects/` session state through Outfitter state persistence.
 9. The Claude Code adapter MUST return unsupported-control warnings for requested generic or `controls.claude` controls that it cannot translate.
 10. Until native support is implemented and tested, the Claude Code adapter MUST report `prompt_template` as unsupported and MUST NOT pass a pi-style prompt-template argument.
-11. The Claude Code adapter MUST always pass the generated `mcp.json` through `--mcp-config` and MUST pass `--strict-mcp-config` so lower-layer MCP sources cannot break composition isolation, including when the composition selects zero MCP servers.
-12. Before launch, the Claude Code adapter MUST seed an existing `~/.claude/.credentials.json` into the temporary `CLAUDE_CONFIG_DIR` as `.credentials.json` with mode `0600`, and MUST seed only the `oauthAccount` and `hasCompletedOnboarding` top-level keys from `~/.claude.json`, when present, together with the trust mirror required by item 13, rather than copying the complete machine-local state file; missing or unparsable `~/.claude.json` state MUST remain absent from the projection.
-13. The Claude Code adapter MUST mirror `projects[<working-directory>].hasTrustDialogAccepted = true` into the projected `.claude.json` only when the durable `~/.claude.json` already records that accepted trust decision for the exact launch working directory; it MUST NOT project other project entries or grant trust for a path without that durable decision.
-14. After a Claude Code launch exits or throws, the adapter MUST copy a projected `.credentials.json` back to `~/.claude/.credentials.json` with mode `0600` when the run changed it, except when the durable credentials also changed after seeding; in that concurrent-writer case, the adapter MUST preserve the durable file and return a warning.
-15. After a Claude Code launch exits or throws, the adapter MUST atomically merge a projected `oauthAccount` into `~/.claude.json` without replacing unrelated top-level or project state, and MUST leave malformed durable state untouched rather than clobbering it.
-16. The adapter MUST NOT merge projected `.claude.json` top-level state other than `oauthAccount` back into durable `~/.claude.json`. This restriction does not discard Claude MCP authorizations: their OAuth tokens live under `mcpOAuth` in `~/.claude/.credentials.json`, keyed by `<serverName>|<hash>`, and persist through the whole-file credential copy-back required by item 14 rather than through `.claude.json` merging.
-17. Before launch, the Claude Code adapter MUST recursively seed only the current working directory's entire existing session-history tree from `~/.claude/projects/<project-slug>/` into the temporary `CLAUDE_CONFIG_DIR/projects/<project-slug>/`, including transcripts, subagent artifacts, tool results, memory, and future nested files, so native `--continue` and `--resume` can find earlier sessions without exposing other projects' histories.
-18. After a Claude Code launch exits or throws, the adapter MUST recursively merge every regular file under the projected `projects/` slug directories into `~/.claude/projects/`, atomically copying changed files with mode `0600` and without deleting durable files. The merge MUST compare each file with its seed-time hash: copy a projection-only change, leave a durable-only change untouched, and skip with an aggregated warning when both sides changed, including when the durable side changes again immediately before rename.
-19. Claude session traversal MUST continue after individual file failures and aggregate failed relative paths into one warning. Session seed or persistence failures and warning-sink failures MUST warn through or remain recorded in the launch result's late-message channel and MUST NOT replace the launcher exit code or thrown error.
+11. In inherited mode the Claude Code adapter MUST pass generated profile MCP servers through `--mcp-config` without `--strict-mcp-config`, so native user and project servers remain active; isolated mode MUST add `--strict-mcp-config`.
+12. In inherited mode the adapter MUST project selected skills and subagents as a temporary Claude plugin passed through `--plugin-dir`, while Claude reads credentials, trust, settings, plugins, and sessions from their native locations.
+13. The adapter MUST resolve Claude isolation as explicit run flag, then user-home `claude.isolation` setting, then the default `inherit`; project and remote settings MUST NOT increase access to machine-local configuration.
+14. `outfitter run --isolated` MUST preserve the historical temporary-`CLAUDE_CONFIG_DIR` behavior, including narrow credential/trust/session seeding and copy-back.
+15. Before inherited launch the adapter MUST probe the installed Claude help for required flags and MUST fall back to isolated mode with a warning naming every missing flag.
+16. In inherited mode the adapter MUST emit a startup summary naming the inherited settings file and counts of user MCP servers and enabled plugins.
+17. Profile model, effort, prompt, allow, deny, and permission-mode controls MUST remain explicit launch arguments so profile restrictions retain precedence over inherited user configuration.
+18. `--retain-projection` MUST keep the generated projection for inspection and report its path.
+19. Pi and Codex launch behavior MUST remain unchanged by Claude configuration inheritance.
 
 ### OFTR-006.6: Codex CLI Launch Controls
 

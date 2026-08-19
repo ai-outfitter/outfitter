@@ -44,7 +44,7 @@ skills: [wiki, code-review] # formerly ~/.claude/skills/*
 ```
 
 - `outfitter list` shows everything that resolved from the ported tree.
-- `outfitter run daily --harness claude` launches Claude Code through Outfitter with the same material, now composable with catalogs and other layers.
+- `outfitter run daily --harness claude` launches Claude Code with its native user configuration plus the selected profile's generated plugin and overrides. Pass `--isolated` when the run must ignore native configuration.
 - Plain `claude` continues to work as before, through the symlinks.
 
 Consider putting `~/.agents` under version control as a standalone repository — see [Local development](./local-development.md).

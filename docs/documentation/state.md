@@ -76,7 +76,7 @@ Undeclared writes governed by `unknown: prompt` cannot be persisted because they
 
 ## Temporary directory cleanup
 
-Baked composition directories are created under the system temporary directory and removed automatically when the Outfitter process exits or receives a handled signal. Removal deletes symlink entries without following them, so the durable auth/settings state the links point at is never touched. Pass `--debug` to keep the directory for inspection; Outfitter prints its path.
+Baked composition directories are created under the system temporary directory and removed automatically when the Outfitter process exits or receives a handled signal. Removal deletes symlink entries without following them, so durable auth/settings state is never touched. Pass `--retain-projection` to keep the directory for inspection; Outfitter prints its path.
 
 Each startup also best-effort sweeps `outfitter-*` directories older than seven days from the temporary root. The sweep never follows symlinks, so a stale directory's links are removed while their targets survive.
 
@@ -190,32 +190,18 @@ The last form is how a resident or in-cluster agent keeps continuity across rest
 
 ## Claude Code state paths
 
-Claude credentials need a narrow adapter bridge in addition to the path-keyed state below. Claude
-reads `.credentials.json` and `.claude.json` directly from `CLAUDE_CONFIG_DIR`; the ephemeral
-projection gives `.credentials.json` no durable home, and `.claude.json`'s native location
-(`~/.claude.json`, outside `~/.claude`) does not share its config-dir-relative path. Outfitter
-seeds `.credentials.json` before launch. It seeds `oauthAccount` and `hasCompletedOnboarding` when
-those keys exist in durable state. It also seeds the current working directory's accepted-trust bit
-only when that exact trust decision already exists in durable state. Afterward it copies back the
-whole `.credentials.json` when changed and atomically merges `oauthAccount`. If the durable
-credentials also changed after seeding, Outfitter preserves that concurrent refresh and warns
-instead of copying the projected credentials back. Claude MCP OAuth tokens
-live under `mcpOAuth` in `.credentials.json`, keyed by `<serverName>|<hash>`, so server
-authorizations acquired in an Outfitter-launched Claude session persist across runs through that
-whole-file copy-back. Outfitter never copies the full machine-local `~/.claude.json` into a
-projection or merges its other projected state back. Trust accepted inside an Outfitter session is
-therefore discarded, so Claude prompts for trust on every run in a workspace that was never trusted
-natively.
+Claude inherits its native user configuration by default. Outfitter does not override
+`CLAUDE_CONFIG_DIR`, so credentials, trust, permissions, settings, enabled plugins, and session
+history are the same state native Claude reads and updates. Selected profile skills and subagents
+are supplied through a temporary plugin, selected MCP servers are additive through `--mcp-config`,
+and profile model/tool restrictions remain explicit launch arguments.
 
-Claude session history has a second narrow bridge because `CLAUDE_CONFIG_DIR` also redirects
-Claude's native `projects/` tree into the temporary projection. Before launch, Outfitter derives
-Claude's project slug from the absolute working directory and copies only that slug directory from
-`~/.claude/projects/`. This keeps other projects' transcripts out of the projection while making
-`claude --continue` and `claude --resume` see earlier native or Outfitter-launched sessions. After
-the run exits or throws, Outfitter merges every new or content-changed regular session file from
-the projection's slug directories back into `~/.claude/projects/` atomically with mode `0600`.
-Durable files are never deleted. A seed or copy-back failure emits a warning and does not replace
-Claude's exit code or error.
+Use `outfitter run --isolated` for a hermetic run. Isolated mode points `CLAUDE_CONFIG_DIR` at the
+temporary projection and preserves the narrow credential, exact-workspace trust, and current-project
+session bridges used before inheritance became the default. It also enables `--strict-mcp-config`,
+so only profile-selected MCP servers are active. Set `claude.isolation: isolated` in user-home
+settings to make this the default; project and remote settings cannot opt a user into broader
+machine access.
 
 The Claude Code adapter declares these paths:
 

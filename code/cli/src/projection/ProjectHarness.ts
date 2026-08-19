@@ -24,7 +24,7 @@ const supportedElements = (input: ProjectionInput): readonly string[] => {
   const baseline = ['identity', 'skills', 'model', 'thinking', 'tools'];
   switch (input.harness) {
     case 'claude':
-      return [...baseline, 'mcp'];
+      return input.claudeIsolation === 'isolated' ? [...baseline, 'mcp'] : [...baseline, 'subagents', 'mcp'];
     case 'codex':
       return ['model', 'mcp'];
     case 'pi':
@@ -127,13 +127,32 @@ const buildCodexLaunchPlan = (
   env: {},
 });
 
-// Claude's user, project, and plugin MCP sources would otherwise merge into the composition, so the
-// generated config is named explicitly and `--strict-mcp-config` suppresses every other layer.
-const claudeMcpArgs = (mcpConfigPath: string): readonly string[] => [
+// In inherited mode Claude merges its user/project MCP sources with the profile's generated config.
+// Isolated mode preserves the historical hermetic behavior by suppressing every other layer.
+const claudeMcpArgs = (mcpConfigPath: string, isolated: boolean): readonly string[] => [
   '--mcp-config',
   mcpConfigPath,
-  '--strict-mcp-config',
+  ...(isolated ? ['--strict-mcp-config'] : []),
 ];
+
+const claudeCompositionArgs = (input: ProjectionInput, isolated: boolean): readonly string[] => [
+  ...claudeMcpArgs(join(input.rootDirectory, 'mcp.json'), isolated),
+  ...(isolated ? [] : ['--plugin-dir', join(input.rootDirectory, 'plugin')]),
+];
+
+const projectionEnvironment = (
+  input: ProjectionInput,
+  isPi: boolean,
+  isolatedClaude: boolean,
+): Readonly<Record<string, string>> => {
+  if (isPi) {
+    return {
+      PI_CODING_AGENT_DIR: input.rootDirectory,
+      ...(input.sessionDirectory === undefined ? {} : { [PI_SESSION_DIRECTORY_ENV]: input.sessionDirectory }),
+    };
+  }
+  return isolatedClaude ? { CLAUDE_CONFIG_DIR: input.rootDirectory } : {};
+};
 
 const buildPiOrClaudeLaunchPlan = (
   composition: CompositionPlan,
@@ -142,6 +161,7 @@ const buildPiOrClaudeLaunchPlan = (
   appendPromptPaths: readonly string[],
 ): AgentLaunchPlan => {
   const isPi = input.harness === 'pi';
+  const isIsolatedClaude = !isPi && input.claudeIsolation === 'isolated';
   const skillArgs = isPi ? composition.loadout.skills.flatMap((skill) => ['--skill', skill.slug]) : [];
   const extensionArgs = isPi ? (input.extensionLoadDirs ?? []).flatMap((dir) => ['--extension', dir]) : [];
 
@@ -157,18 +177,13 @@ const buildPiOrClaudeLaunchPlan = (
       ...extensionArgs,
       ...modelArg(composition, '--model'),
       ...thinkingArg(composition, input.harness),
-      ...(isPi ? [] : claudeMcpArgs(join(input.rootDirectory, 'mcp.json'))),
+      ...(isPi ? [] : claudeCompositionArgs(input, isIsolatedClaude)),
       ...(input.passThroughArgs ?? []),
     ],
     // The projection root is deleted after the run, so pi's default session store (a subdirectory
     // of PI_CODING_AGENT_DIR) would take every transcript with it. A resolved session directory
     // moves the store somewhere durable so `--continue`/`--resume` still find the last conversation.
-    env: isPi
-      ? {
-          PI_CODING_AGENT_DIR: input.rootDirectory,
-          ...(input.sessionDirectory === undefined ? {} : { [PI_SESSION_DIRECTORY_ENV]: input.sessionDirectory }),
-        }
-      : { CLAUDE_CONFIG_DIR: input.rootDirectory },
+    env: projectionEnvironment(input, isPi, isIsolatedClaude),
   };
 };
 
@@ -181,7 +196,12 @@ export const projectComposition = (composition: CompositionPlan, input: Projecti
   // Materialization runs for every harness so containment and definition diagnostics are reported
   // uniformly. Codex reads none of the generated files — it takes its MCP config in argv and has no
   // config-directory projection yet — but the root is temporary, so the unused writes do not persist.
-  const materialized = materializeComposition(composition, input.rootDirectory, input.harness);
+  const materialized = materializeComposition(
+    composition,
+    input.rootDirectory,
+    input.harness,
+    input.harness === 'claude' && input.claudeIsolation !== 'isolated',
+  );
   const unsupported = [
     ...unsupportedElements(composition, input),
     ...materialized.skippedSkills.map((slug) => `skill:${slug} (escaping symlink)`),

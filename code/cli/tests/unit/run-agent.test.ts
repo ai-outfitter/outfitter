@@ -204,6 +204,7 @@ describe('run agent', () => {
       projectDirectory: project,
       agent: 'engineer',
       harness: 'claude',
+      isolation: 'isolated',
       launcher: (plan) => {
         const runtimeDir = plan.env.CLAUDE_CONFIG_DIR;
         expect(existsSync(join(runtimeDir, 'keybindings.json'))).toBe(false);
@@ -238,7 +239,8 @@ describe('run agent', () => {
 
     const plan = result.launchPlan!;
     expect(plan.command).toBe('claude');
-    expect(plan.env.CLAUDE_CONFIG_DIR).toBeDefined();
+    expect(plan.env.CLAUDE_CONFIG_DIR).toBeUndefined();
+    expect(plan.args).toEqual(expect.arrayContaining(['--plugin-dir', expect.stringContaining('/plugin')]));
     expect(plan.args).toEqual(expect.arrayContaining(['--effort', 'high']));
     expect(plan.args).not.toContain('--skill'); // claude skills are materialized, not flagged
     // The engineer's `extensions: [ext-a]` is pi-only, a mismatch a claude user cannot act on.
