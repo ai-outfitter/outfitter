@@ -83,7 +83,10 @@ describe('telemetry failure and wiring hardening', () => {
       env: {},
       writeError: (message) => errors.push(message),
       apiKey: 'phc_test',
-      shutdownBudgetMs: 20,
+      // The budget must be the real one (OFTR-011.4.2). This test asserts that the request was
+      // issued, and `client.shutdown(budget)` can return before the SDK drains its queue when the
+      // budget is small, which makes the assertion race the flush rather than test the conversion.
+      shutdownBudgetMs: TELEMETRY_SHUTDOWN_BUDGET_MS,
     });
 
     await service.captureCommandStarted(commandContext);
@@ -109,14 +112,19 @@ describe('telemetry failure and wiring hardening', () => {
       env: {},
       writeError: vi.fn(),
       apiKey: 'phc_test',
-      shutdownBudgetMs: 20,
+      // `createBoundedTelemetryFetch` reserves an absolute 50 ms of the budget so the SDK can finish
+      // its drain before its own shutdown timer fires and logs. A budget below about 100 ms leaves
+      // less slack than production does, which makes the SDK log and fails the stderr assertion
+      // below for a reason the requirement does not describe. Stay well under the real 1000 ms
+      // budget (OFTR-011.4.2) while keeping production-equivalent slack.
+      shutdownBudgetMs: 200,
     });
 
     const start = Date.now();
     await service.captureCommandStarted(commandContext);
     await service.shutdown();
 
-    expect(Date.now() - start).toBeLessThan(200);
+    expect(Date.now() - start).toBeLessThan(TELEMETRY_SHUTDOWN_BUDGET_MS);
     expect(TELEMETRY_SHUTDOWN_BUDGET_MS).toBe(1000);
     expect(consoleError).not.toHaveBeenCalled();
   });
