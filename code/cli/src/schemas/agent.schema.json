@@ -5,16 +5,16 @@
   "type": "object",
   "required": ["name"],
   "properties": {
-    "name": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$", "maxLength": 64 },
+    "name": { "$ref": "#/$defs/agentSlug" },
     "label": { "type": "string", "minLength": 1 },
     "description": { "type": "string" },
     "inherits": {
       "oneOf": [
-        { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$", "maxLength": 64 },
+        { "$ref": "#/$defs/agentSlug" },
         {
           "type": "array",
           "minItems": 1,
-          "items": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$", "maxLength": 64 }
+          "items": { "$ref": "#/$defs/agentSlug" }
         }
       ],
       "description": "Parent agent slug or ordered parent slug list composed parent-first before this agent."
@@ -36,7 +36,7 @@
       "description": "Skill slugs resolved from agents/<name>/skills first, then catalog-wide skills."
     },
     "subagents": {
-      "$ref": "#/$defs/slugList",
+      "$ref": "#/$defs/agentSlugList",
       "description": "Agent slugs delegated to. Resolved catalog-wide (a delegate is a shared agent, not nested under agents/<name>)."
     },
     "mcp": {
@@ -64,6 +64,15 @@
   },
   "additionalProperties": true,
   "$defs": {
+    "agentSlug": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*(?:\\.[a-z0-9]+(?:-[a-z0-9]+)*)*$",
+      "maxLength": 64
+    },
+    "agentSlugList": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/agentSlug" }
+    },
     "toolName": {
       "type": "string",
       "minLength": 1,

@@ -24,7 +24,7 @@ Outfitter resolves agents and other resources from layered `.agents` trees into 
 
 ### OFTR-003.2: Agent Identity
 
-1. Agent IDs MUST be filesystem-safe slugs matching `^[a-z0-9]+(?:-[a-z0-9]+)*$`, at most 64 characters.
+1. Agent IDs MUST be filesystem-safe slugs matching `^[a-z0-9]+(?:-[a-z0-9]+)*(?:\.[a-z0-9]+(?:-[a-z0-9]+)*)*$`, at most 64 characters. Dots MAY group profiles by namespace convention (for example, `environment.agent-operator-pod` or `environment.sample`), while plain hyphenated slugs remain valid. A dot has naming significance only: it MUST NOT imply hierarchy, wildcard matching, or inheritance.
 2. The agent's frontmatter `name` MUST match its directory ID; a mismatch MUST be a validation error.
 3. Agents MAY include a `description` used by discovery surfaces.
 

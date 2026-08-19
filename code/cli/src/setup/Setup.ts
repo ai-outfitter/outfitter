@@ -63,16 +63,19 @@ const appendTelemetrySettingsHint = (content: string): string => {
 
 const defaultAgentSlug = 'assistant';
 const maxSlugLength = 64;
-const agentSlugPattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+const agentSlugPattern = /^[a-z0-9]+(?:-[a-z0-9]+)*(?:\.[a-z0-9]+(?:-[a-z0-9]+)*)*$/;
 
 export const sanitizeAgentSlug = (raw: string): string => {
   const slug = raw
     .trim()
     .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
+    .replace(/[^a-z0-9.-]+/g, '-')
+    .split('.')
+    .map((segment) => segment.replace(/-+/g, '-').replace(/^-+|-+$/g, ''))
+    .filter((segment) => segment.length > 0)
+    .join('.')
     .slice(0, maxSlugLength)
-    .replace(/-+$/g, '');
+    .replace(/[.-]+$/g, '');
 
   return agentSlugPattern.test(slug) ? slug : defaultAgentSlug;
 };
