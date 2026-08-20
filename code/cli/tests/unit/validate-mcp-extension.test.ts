@@ -72,12 +72,15 @@ describe('Pi MCP adapter validation', () => {
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('wires the --harness target through the validate command', async () => {
     const input = fixture('mcp: [github]\n');
-    const lines: string[] = [];
-    const program = new Command();
-    createValidateCommand({ ...input, writeLine: (line) => lines.push(line) }).register(program);
+    const runForHarness = async (harness: 'pi' | 'claude'): Promise<string> => {
+      const lines: string[] = [];
+      const program = new Command();
+      createValidateCommand({ ...input, writeLine: (line) => lines.push(line) }).register(program);
+      await program.parseAsync(['node', 'outfitter', 'validate', '--harness', harness]);
+      return lines.join('\n');
+    };
 
-    await program.parseAsync(['node', 'outfitter', 'validate', '--harness', 'pi']);
-
-    expect(lines.join('\n')).toContain("add 'npm:pi-mcp-adapter' to extensions");
+    expect(await runForHarness('pi')).toContain("add 'npm:pi-mcp-adapter' to extensions");
+    expect(await runForHarness('claude')).not.toContain("add 'npm:pi-mcp-adapter' to extensions");
   });
 });
