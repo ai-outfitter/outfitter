@@ -279,7 +279,34 @@ describe('canonical models.json resolution and projection', () => {
       }),
       { harness: 'codex', rootDirectory: root(), homeDirectory: root() },
     );
-    expect(codex.launch.args.join(' ')).toContain('wire_api="chat"');
+    expect(codex.warnings).toContainEqual(expect.stringContaining("API dialect 'openai-completions'"));
+    expect(codex.launch.args).not.toContain('luna');
+
+    const codexMinimal = projectComposition(
+      composition({
+        configured: true,
+        document: {},
+        target: {
+          ...baseTarget,
+          providerName: undefined,
+          api: 'openai-responses',
+          credentialVariable: undefined,
+          requiredHeaders: {},
+        },
+      }),
+      { harness: 'codex', rootDirectory: root(), homeDirectory: root() },
+    );
+    expect(codexMinimal.launch.args).toEqual(expect.arrayContaining(['-m', 'luna']));
+
+    const claudeNoHeaders = projectComposition(
+      composition({
+        configured: true,
+        document: {},
+        target: { ...baseTarget, credentialVariable: undefined, requiredHeaders: {} },
+      }),
+      { harness: 'claude', rootDirectory: root(), homeDirectory: root() },
+    );
+    expect(claudeNoHeaders.launch.env).not.toHaveProperty('ANTHROPIC_CUSTOM_HEADERS');
 
     const invalidProvider = projectComposition(
       composition({

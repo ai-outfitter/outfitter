@@ -76,11 +76,7 @@ const projectClaude = (target: ModelTarget, input: ProjectionInput): ProjectedMo
   return { args: ['--model', target.modelId], env, warnings };
 };
 
-const codexWireApi = (api: string): string | undefined => {
-  if (api === 'openai-responses') return 'responses';
-  if (api === 'openai-completions') return 'chat';
-  return undefined;
-};
+const codexWireApi = (api: string): string | undefined => (api === 'openai-responses' ? 'responses' : undefined);
 
 const codexHeaderArgs = (target: ModelTarget, prefix: string): readonly string[] => {
   const literalHeaders: Record<string, string> = {};

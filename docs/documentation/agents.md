@@ -108,7 +108,7 @@ A selected model uses `provider/model`. Outfitter resolves it against the effect
 }
 ```
 
-An agent can select `company-claude/luna`, `company-codex/sol`, or `ollama/qwen3-coder` without carrying endpoint configuration of its own. Pi receives the merged registry plus native provider/model flags. Claude Code projects `anthropic-messages` targets through its native gateway environment, and Codex projects `openai-completions` and `openai-responses` targets through native provider overrides. An unsupported dialect warns and fails under `--strict`; it never falls back to the same model name at another endpoint.
+An agent can select `company-claude/luna`, `company-codex/sol`, or `ollama/qwen3-coder` without carrying endpoint configuration of its own. Pi receives all three through the merged registry plus native provider/model flags. Claude Code projects `anthropic-messages` targets through its native gateway environment, and Codex projects `openai-responses` targets through native provider overrides. Codex currently rejects a `chat` wire API, so the Ollama `openai-completions` example is Pi-compatible but intentionally unsupported by Codex. An unsupported dialect warns and fails under `--strict`; it never falls back to the same model name at another endpoint.
 
 Credentials are references, not catalog content: use a single environment-variable reference such as `"$COMPANY_MODELS_TOKEN"`. Literal API keys, command-based credential sources, and literal `Authorization` headers are rejected. Supply the named variable in the launch environment.
 
