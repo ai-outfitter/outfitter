@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.11.0](https://github.com/ai-outfitter/outfitter/compare/v1.10.0...v1.11.0) (2026-08-20)
+
+
+### Features
+
+* **models:** project canonical registry across harnesses ([#324](https://github.com/ai-outfitter/outfitter/issues/324)) ([31bcdb6](https://github.com/ai-outfitter/outfitter/commit/31bcdb64df7d08fde894a2b6c38ed09eda54c7c5))
+
 ## [1.10.0](https://github.com/ai-outfitter/outfitter/compare/v1.9.0...v1.10.0) (2026-08-20)
 
 
