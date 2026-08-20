@@ -265,17 +265,27 @@ describe('canonical models.json resolution and projection', () => {
     );
     expect(unsupportedClaude.warnings).toContainEqual(expect.stringContaining('cannot project model'));
 
-    const unsupportedCodex = projectComposition(
+    const codex = projectComposition(
       composition({
         configured: true,
         document: {},
         target: {
           ...baseTarget,
           providerName: undefined,
-          api: 'openai-completions',
+          api: 'openai-responses',
           credentialVariable: undefined,
           requiredHeaders: {},
         },
+      }),
+      { harness: 'codex', rootDirectory: root(), homeDirectory: root() },
+    );
+    expect(codex.launch.args.join(' ')).toContain('wire_api="responses"');
+
+    const unsupportedCodex = projectComposition(
+      composition({
+        configured: true,
+        document: {},
+        target: { ...baseTarget, api: 'openai-completions' },
       }),
       { harness: 'codex', rootDirectory: root(), homeDirectory: root() },
     );
