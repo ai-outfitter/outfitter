@@ -1,0 +1,22 @@
+{
+  "profileId": "reviewer",
+  "agentId": "claude",
+  "isolation": "isolated",
+  "launchCommand": "claude",
+  "launchArgs": [
+    "--system-prompt-file",
+    "<composite-profile>/system-prompt.md",
+    "--append-system-prompt-file",
+    "<composite-profile>/append-system-prompt.md",
+    "--model",
+    "claude-fable-5",
+    "--mcp-config",
+    "<composite-profile>/mcp.json",
+    "--strict-mcp-config"
+  ],
+  "launchEnv": {
+    "CLAUDE_CONFIG_DIR": "<composite-profile>"
+  },
+  "seededState": [".credentials.json", ".claude.json", "projects/<project-slug>"],
+  "persistedState": [".credentials.json", "oauthAccount", "projects/<project-slug>"]
+}

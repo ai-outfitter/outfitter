@@ -6,6 +6,10 @@
   "properties": {
     "default_agent": { "type": "string", "minLength": 1 },
     "default_harness": { "enum": ["pi", "claude", "codex"] },
+    "isolation": {
+      "enum": ["inherit", "isolated"],
+      "description": "Whether a run stands on the machine's native harness configuration (inherit, the default) or on the projection alone (isolated). Honored only from home-scope settings."
+    },
     "cache_directory": { "type": "string", "minLength": 1 },
     "state_persistence": {
       "type": "object",

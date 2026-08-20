@@ -1,0 +1,2 @@
+default_agent: reviewer
+default_harness: claude

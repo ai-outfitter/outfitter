@@ -48,6 +48,7 @@ carry no resource selections — an agent's loadout lives on the agent, not in s
 2. `settings.yml` MAY declare a `default_harness` of `pi`, `claude`, or `codex` selecting the harness launched when `--harness` is omitted.
 3. `outfitter run` MUST use the resolved `default_agent` when no agent is selected on the command line.
 4. Outfitter MUST report an actionable error when no selected agent and no `default_agent` are available.
+5. `settings.yml` MAY declare an `isolation` of `inherit` or `isolated`, selecting whether a run stands on the harness configuration already present on the machine. Outfitter MUST default to `inherit`, MUST let `--isolated` override it for a single run, and MUST honor the declared value only from home-scope settings.
 
 ### OFTR-002.5: Sources in Settings
 

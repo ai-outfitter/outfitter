@@ -126,7 +126,7 @@ describe('projectComposition Claude MCP projection', () => {
           mcpServers: { github: { command: 'github-mcp-server' } },
         },
       },
-      { harness: 'claude', rootDirectory: dir, homeDirectory: dir },
+      { harness: 'claude', rootDirectory: dir, homeDirectory: dir, isolation: 'isolated' },
     );
 
     expect(projection.launch.args).toEqual(
@@ -147,6 +147,7 @@ describe('projectComposition Claude MCP projection', () => {
       harness: 'claude',
       rootDirectory: dir,
       homeDirectory: dir,
+      isolation: 'isolated',
     });
 
     expect(projection.launch.args).toEqual(

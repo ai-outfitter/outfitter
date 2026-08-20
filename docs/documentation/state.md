@@ -76,7 +76,7 @@ Undeclared writes governed by `unknown: prompt` cannot be persisted because they
 
 ## Temporary directory cleanup
 
-Baked composition directories are created under the system temporary directory and removed automatically when the Outfitter process exits or receives a handled signal. Removal deletes symlink entries without following them, so the durable auth/settings state the links point at is never touched. Pass `--debug` to keep the directory for inspection; Outfitter prints its path.
+Baked composition directories are created under the system temporary directory and removed automatically when the Outfitter process exits or receives a handled signal. Removal deletes symlink entries without following them, so the durable auth/settings state the links point at is never touched. Pass `--retain-projection` to keep the directory for inspection; Outfitter prints its path.
 
 Each startup also best-effort sweeps `outfitter-*` directories older than seven days from the temporary root. The sweep never follows symlinks, so a stale directory's links are removed while their targets survive.
 
@@ -190,7 +190,15 @@ The last form is how a resident or in-cluster agent keeps continuity across rest
 
 ## Claude Code state paths
 
-Claude credentials need a narrow adapter bridge in addition to the path-keyed state below. Claude
+By default a Claude run inherits the machine's own configuration: Outfitter sets no
+`CLAUDE_CONFIG_DIR`, and the composition reaches the session as a plugin directory instead. Claude
+reads and writes `~/.claude` exactly as it does in a native session, so credentials, workspace
+trust, permission approvals, and session history need no bridge at all — there is nothing to seed
+and nothing to copy back, and nothing Outfitter does can race your other Claude sessions. The rest
+of this section describes an **isolated** run (`--isolated`, or `isolation: isolated` in your
+`~/.agents/settings.yml`), where the projection is the whole configuration.
+
+Under isolation, Claude credentials need a narrow adapter bridge in addition to the path-keyed state below. Claude
 reads `.credentials.json` and `.claude.json` directly from `CLAUDE_CONFIG_DIR`; the ephemeral
 projection gives `.credentials.json` no durable home, and `.claude.json`'s native location
 (`~/.claude.json`, outside `~/.claude`) does not share its config-dir-relative path. Outfitter
@@ -203,11 +211,11 @@ instead of copying the projected credentials back. Claude MCP OAuth tokens
 live under `mcpOAuth` in `.credentials.json`, keyed by `<serverName>|<hash>`, so server
 authorizations acquired in an Outfitter-launched Claude session persist across runs through that
 whole-file copy-back. Outfitter never copies the full machine-local `~/.claude.json` into a
-projection or merges its other projected state back. Trust accepted inside an Outfitter session is
-therefore discarded, so Claude prompts for trust on every run in a workspace that was never trusted
-natively.
+projection or merges its other projected state back. Trust accepted inside an isolated session is
+therefore discarded, so an isolated run prompts for trust in a workspace that was never trusted
+natively — which is one reason isolation is not the default.
 
-Claude session history has a second narrow bridge because `CLAUDE_CONFIG_DIR` also redirects
+Isolated Claude session history has a second narrow bridge because `CLAUDE_CONFIG_DIR` also redirects
 Claude's native `projects/` tree into the temporary projection. Before launch, Outfitter derives
 Claude's project slug from the absolute working directory and copies only that slug directory from
 `~/.claude/projects/`. This keeps other projects' transcripts out of the projection while making
@@ -216,6 +224,9 @@ the run exits or throws, Outfitter merges every new or content-changed regular s
 the projection's slug directories back into `~/.claude/projects/` atomically with mode `0600`.
 Durable files are never deleted. A seed or copy-back failure emits a warning and does not replace
 Claude's exit code or error.
+
+These declared paths describe the isolated strategy; an inherited run writes to the native
+locations directly and declares nothing.
 
 The Claude Code adapter declares these paths:
 

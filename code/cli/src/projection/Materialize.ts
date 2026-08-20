@@ -71,6 +71,33 @@ export const writeMcpConfig = (path: string, mcpServers: Readonly<Record<string,
 
 const safeName = (value: string): string => value.replace(/[^a-zA-Z0-9._-]+/g, '-');
 
+/** Claude plugin names namespace the plugin's commands and subagents, so keep them slug-shaped. */
+const pluginName = (profileSlug: string): string =>
+  profileSlug
+    .toLowerCase()
+    .replace(/[^a-z0-9-]+/g, '-')
+    .replace(/^-+|-+$/g, '') || 'outfitter';
+
+/**
+ * Declares the runtime root as a Claude plugin so `--plugin-dir` loads the composition's skills,
+ * subagents, and commands into a session that is otherwise the user's own. The manifest is the only
+ * file the plugin loader requires; the generated prompt documents beside it are passed by path and
+ * ignored here.
+ */
+export const writeClaudePluginManifest = (rootDirectory: string, profileSlug: string, label?: string): string => {
+  const manifestDirectory = join(rootDirectory, '.claude-plugin');
+  mkdirSync(manifestDirectory, { recursive: true });
+  const name = pluginName(profileSlug);
+  const manifest = {
+    name,
+    description: `Outfitter profile ${label ?? profileSlug}, composed for this run.`,
+    version: '0.0.0',
+  };
+  const manifestPath = join(manifestDirectory, 'plugin.json');
+  writeGeneratedFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+  return name;
+};
+
 /**
  * Overlays native harness configuration into the runtime root. Inputs arrive highest precedence
  * first, so copying in reverse order lets higher layers replace matching files. Symlinked overlay

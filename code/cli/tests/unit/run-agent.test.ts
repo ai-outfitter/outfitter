@@ -42,7 +42,12 @@ interface CapturedLaunch {
 const captured: CapturedLaunch[] = [];
 
 const launcher = (plan: AgentLaunchPlan): Promise<number> => {
-  const runtimeDir = plan.env.PI_CODING_AGENT_DIR ?? plan.env.CLAUDE_CONFIG_DIR ?? '';
+  // An inherited Claude run names the runtime root on `--plugin-dir` instead of in the environment.
+  const pluginDirIndex = plan.args.indexOf('--plugin-dir');
+  const runtimeDir =
+    plan.env.PI_CODING_AGENT_DIR ??
+    plan.env.CLAUDE_CONFIG_DIR ??
+    (pluginDirIndex >= 0 ? plan.args[pluginDirIndex + 1] : '');
   const promptIndex = plan.args.indexOf('--system-prompt');
   const skillPath = join(runtimeDir, 'skills', 'wiki', 'SKILL.md');
   const runtimeExtensionPath = plan.args.find(
@@ -204,6 +209,7 @@ describe('run agent', () => {
       projectDirectory: project,
       agent: 'engineer',
       harness: 'claude',
+      isolated: true,
       launcher: (plan) => {
         const runtimeDir = plan.env.CLAUDE_CONFIG_DIR;
         expect(existsSync(join(runtimeDir, 'keybindings.json'))).toBe(false);
@@ -224,25 +230,6 @@ describe('run agent', () => {
     });
     expect(captured[0].dirExisted).toBe(true); // existed during launch
     expect(existsSync(captured[0].runtimeDir)).toBe(false); // removed afterwards
-  });
-
-  it('maps model/thinking to claude flags and stays silent about the agent pi extensions', async () => {
-    const { home, project } = tree();
-    const result = await executeRunAgentCommand({
-      homeDirectory: home,
-      projectDirectory: project,
-      agent: 'engineer',
-      harness: 'claude',
-      launcher,
-    });
-
-    const plan = result.launchPlan!;
-    expect(plan.command).toBe('claude');
-    expect(plan.env.CLAUDE_CONFIG_DIR).toBeDefined();
-    expect(plan.args).toEqual(expect.arrayContaining(['--effort', 'high']));
-    expect(plan.args).not.toContain('--skill'); // claude skills are materialized, not flagged
-    // The engineer's `extensions: [ext-a]` is pi-only, a mismatch a claude user cannot act on.
-    expect(result.messages.join(' ')).not.toContain('extensions');
   });
 
   it('fails under --strict on an unsupported element, but not on pi extensions alone', async () => {

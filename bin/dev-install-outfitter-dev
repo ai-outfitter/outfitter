@@ -39,7 +39,10 @@ mkdir -p "$BIN_DIR"
 if [[ -e "$ALIAS_PATH" || -L "$ALIAS_PATH" ]]; then
   EXISTING_TARGET=""
   if [[ -L "$ALIAS_PATH" ]]; then
-    EXISTING_TARGET="$(readlink -f "$ALIAS_PATH")"
+    # A previous install whose checkout has since been deleted leaves a dangling symlink, and
+    # `readlink -f` fails to canonicalize it. Under `set -e` that killed the install outright,
+    # including with --force, which is exactly the case --force exists for.
+    EXISTING_TARGET="$(readlink -f "$ALIAS_PATH" || true)"
   fi
 
   if [[ "$EXISTING_TARGET" == "$TARGET" || "$FORCE" == "1" ]]; then

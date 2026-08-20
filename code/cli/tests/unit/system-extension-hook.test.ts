@@ -438,6 +438,10 @@ describe('run agent with system extension hooks', () => {
       projectDirectory: project,
       agent: 'engineer',
       harness: 'claude',
+      // Inheriting probes the installed Claude for the flags it needs. Without an injected reader
+      // this test spawns the real binary, and its message assertions then depend on whether the
+      // machine running the suite has Claude installed.
+      harnessHelpReader: () => '--plugin-dir <path> --mcp-config <configs...>',
       launcher: (plan) => {
         launch = plan;
         return Promise.resolve(0);

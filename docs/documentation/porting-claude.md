@@ -31,6 +31,10 @@ Runtime and account state is not configuration and stays in `~/.claude` untouche
 
 This is the same boundary [state persistence](./state.md) enforces at run time: configuration lives in the tree, mutable state lives with the harness.
 
+Staying native does not mean being ignored. A Claude run inherits this state by default, so the
+permissions, hooks, plugins, trust, and MCP servers listed above apply to an Outfitter-launched
+session exactly as they do to a native one. `--isolated` is what leaves them behind.
+
 ## After porting
 
 Your resources are now protocol resources. Reference them by slug from an agent's loadout like anything else:

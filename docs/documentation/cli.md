@@ -13,12 +13,14 @@ See [Telemetry](./telemetry.md) for the pseudonymous analytics event contract an
 
 Resolve, compose, and launch an agent. `run` is the default command, so plain `outfitter` and `outfitter run` are equivalent.
 
-| Argument / Option     | Description                                                                      |
-| --------------------- | -------------------------------------------------------------------------------- |
-| `[agent]`             | Agent slug to run. Defaults to the settings `default_agent`.                     |
-| `--harness <harness>` | Harness to launch in: `pi`, `claude`, or `codex`. Defaults to `default_harness`. |
-| `--log-level <level>` | Use `info` for quiet loading or `debug` for installer output.                    |
-| `--strict`            | Fail instead of warning when the adapter cannot project part of the composition. |
+| Argument / Option     | Description                                                                                                                                                       |
+| --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `[agent]`             | Agent slug to run. Defaults to the settings `default_agent`.                                                                                                      |
+| `--harness <harness>` | Harness to launch in: `pi`, `claude`, or `codex`. Defaults to `default_harness`.                                                                                  |
+| `--log-level <level>` | Use `info` for quiet loading or `debug` for installer output.                                                                                                     |
+| `--strict`            | Fail instead of warning when the adapter cannot project part of the composition.                                                                                  |
+| `--isolated`          | Launch from the composition alone, ignoring your own harness configuration (trust, permissions, MCP servers, plugins). Claude only; the default is to inherit it. |
+| `--retain-projection` | Keep the runtime projection directory after the run and print its path, for inspection.                                                                           |
 
 Set `OUTFITTER_LOG_LEVEL=debug` to enable debug startup output without passing the option. The
 `setup` command also accepts `--log-level` for its automatic profile launch.

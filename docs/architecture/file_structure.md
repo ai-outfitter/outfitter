@@ -52,8 +52,9 @@ Outfitter is organized around a private npm workspace root, clear TypeScript pac
 │   │   │   │   └── CodexMcp.ts        # translate selected MCP definitions to Codex TOML CLI overrides
 │   │   │   ├── dump/                  # deterministic self-contained `.agents` tree output
 │   │   │   ├── merge/                 # deterministic value and array merge policy helpers
-│   │   │   ├── agents/                # process launch plus adapter credential/session persistence bridges
-│   │   │   │   ├── ClaudeStatePersistence.ts      # Claude credential/trust and project-session seed/atomic merge bridges
+│   │   │   ├── agents/                # process launch, configuration strategy, and adapter persistence bridges
+│   │   │   │   ├── ClaudeConfigStrategy.ts        # inherit/isolated resolution plus the harness compatibility probe
+│   │   │   │   ├── ClaudeStatePersistence.ts      # isolated-mode Claude credential/trust and project-session bridges
 │   │   │   │   └── PiCredentialPersistence.ts     # durable Pi credential/provider seed and copy-back
 │   │   │   ├── paths/                 # Outfitter cache root and repository/packaged asset resolution
 │   │   │   ├── system/                 # root-owned launcher-scope system extension hook loading

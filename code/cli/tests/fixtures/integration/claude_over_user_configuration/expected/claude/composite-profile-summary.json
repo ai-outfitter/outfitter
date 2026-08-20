@@ -1,0 +1,25 @@
+{
+  "profileId": "reviewer",
+  "agentId": "claude",
+  "isolation": "inherit",
+  "launchCommand": "claude",
+  "launchArgs": [
+    "--system-prompt-file",
+    "<composite-profile>/system-prompt.md",
+    "--append-system-prompt-file",
+    "<composite-profile>/append-system-prompt.md",
+    "--model",
+    "claude-fable-5",
+    "--plugin-dir",
+    "<composite-profile>",
+    "--mcp-config",
+    "<composite-profile>/mcp.json"
+  ],
+  "launchEnv": {},
+  "pluginManifest": {
+    "path": "<composite-profile>/.claude-plugin/plugin.json",
+    "name": "reviewer"
+  },
+  "seededState": [],
+  "persistedState": []
+}

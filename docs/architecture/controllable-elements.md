@@ -18,7 +18,7 @@ A `Supported` entry means Outfitter can project that concept for the agent CLI t
 It does not always mean there is a one-to-one native CLI flag.
 
 For example, Claude Code session/project state lives under Claude's config home rather than a standalone `--session-dir` flag.
-Outfitter supports the session-directory concept for Claude by setting `CLAUDE_CONFIG_DIR` to the projection root and declaring Claude `projects/` state for persistence.
+Outfitter supports the session-directory concept for Claude under isolation, by setting `CLAUDE_CONFIG_DIR` to the projection root and declaring Claude `projects/` state for persistence. An inherited run leaves Claude's own session store in place, so `--continue` and `--resume` work without a bridge.
 
 ## Defined Terms
 
@@ -27,7 +27,7 @@ Outfitter supports the session-directory concept for Claude by setting `CLAUDE_C
 The root directory that stores agent-global configuration, credentials, installed resources, and related state.
 
 - Pi name: `PI_CODING_AGENT_DIR` / agent dir
-- Claude name: `CLAUDE_CONFIG_DIR` / Claude config home
+- Claude name: `--plugin-dir` over the native config home when inheriting; `CLAUDE_CONFIG_DIR` when isolated
 - Codex name: `CODEX_HOME`; Outfitter does not redirect it in the current adapter
 
 ### Session Directory
@@ -87,7 +87,7 @@ The selected provider/model and related inference options, from `models.json` an
 Model Context Protocol server configuration from the tree's `mcp.json`.
 
 - Pi name: `mcp.json` in the agent dir
-- Claude name: generated `mcp.json` passed through `--mcp-config` with `--strict-mcp-config`
+- Claude name: generated `mcp.json` passed through `--mcp-config`, with `--strict-mcp-config` added only for an isolated run
 - Codex name: repeated TOML-valued `-c mcp_servers.<id>.<key>=...` overrides; additive with user/project configuration because Codex has no way to run with only the projected MCP servers
 
 ### Extensions
