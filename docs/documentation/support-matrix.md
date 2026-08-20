@@ -12,33 +12,35 @@ When a composition requests something an adapter cannot project, Outfitter warns
 
 Tasks and bake are not in this matrix — they are the subject of a [separate upcoming RFC](./tasks.md).
 
-| What Outfitter projects                                                  | Pi        | Claude Code | Codex CLI |
-| ------------------------------------------------------------------------ | --------- | ----------- | --------- |
-| Agent config directory                                                   | Supported | Supported   | Roadmap   |
-| Session directory                                                        | Supported | Supported   | Roadmap   |
-| Agent identity (`system-prompt.md`, `agents.md`, `agents/<id>/agent.md`) | Supported | Supported   | Roadmap   |
-| Subagents (`agents/<id>` as harness delegates)                           | Supported | Supported   | Roadmap   |
-| Skills (`skills/<id>`)                                                   | Supported | Partial     | Roadmap   |
-| Commands (`commands/`)                                                   | Supported | Partial     | Roadmap   |
-| Knowledge (`knowledge/`)                                                 | Supported | Partial     | Roadmap   |
-| Model selection (`models.json`)                                          | Supported | Partial     | Partial   |
-| MCP servers (`mcp.json`)                                                 | Supported | Supported   | Partial   |
-| Extensions (agent `extensions:` loadout)                                 | Supported | Pi only     | Pi only   |
-| Plugins (agent `plugins:` loadout)                                       | Supported | Roadmap     | Roadmap   |
-| Credentials and environment                                              | Supported | Supported   | Roadmap   |
-| DeepWork job selection                                                   | Supported | Roadmap     | Roadmap   |
-| Hooks                                                                    | Partial   | Partial     | Roadmap   |
-| Tool availability (agent `tools:` loadout)                               | Supported | Supported   | Roadmap   |
-| Theme / UI presentation                                                  | Roadmap   | Roadmap     | Roadmap   |
-| Working directory                                                        | Roadmap   | Roadmap     | Roadmap   |
-| Pass-through arguments                                                   | Supported | Supported   | Supported |
-| Bootstrap hook                                                           | Supported | Roadmap     | Roadmap   |
+| What Outfitter projects                                                  | Pi        | Claude Code | Codex CLI  |
+| ------------------------------------------------------------------------ | --------- | ----------- | ---------- |
+| Agent config directory                                                   | Supported | Supported   | Roadmap    |
+| Session directory                                                        | Supported | Supported   | Roadmap    |
+| Agent identity (`system-prompt.md`, `agents.md`, `agents/<id>/agent.md`) | Supported | Supported   | Roadmap    |
+| Subagents (`agents/<id>` as harness delegates)                           | Supported | Supported   | Roadmap    |
+| Skills (`skills/<id>`)                                                   | Supported | Partial     | Roadmap    |
+| Commands (`commands/`)                                                   | Supported | Partial     | Roadmap    |
+| Knowledge (`knowledge/`)                                                 | Supported | Partial     | Roadmap    |
+| Model selection (`models.json`)                                          | Supported | Supported¹  | Supported² |
+| MCP servers (`mcp.json`)                                                 | Supported | Supported   | Partial    |
+| Extensions (agent `extensions:` loadout)                                 | Supported | Pi only     | Pi only    |
+| Plugins (agent `plugins:` loadout)                                       | Supported | Roadmap     | Roadmap    |
+| Credentials and environment                                              | Supported | Supported   | Roadmap    |
+| DeepWork job selection                                                   | Supported | Roadmap     | Roadmap    |
+| Hooks                                                                    | Partial   | Partial     | Roadmap    |
+| Tool availability (agent `tools:` loadout)                               | Supported | Supported   | Roadmap    |
+| Theme / UI presentation                                                  | Roadmap   | Roadmap     | Roadmap    |
+| Working directory                                                        | Roadmap   | Roadmap     | Roadmap    |
+| Pass-through arguments                                                   | Supported | Supported   | Supported  |
+| Bootstrap hook                                                           | Supported | Roadmap     | Roadmap    |
+
+¹ Canonical `anthropic-messages` providers. ² Canonical `openai-completions` and `openai-responses` providers. Other dialects warn and fail under `--strict` rather than changing endpoints.
 
 ## Codex CLI notes
 
 - **Launch mode** — Outfitter launches `codex` directly. Pass-through arguments choose the native mode: no subcommand keeps the interactive CLI shape, while `-- exec ...` selects non-interactive `codex exec`.
 - **Agent identity and appended prompts** — Codex has no native identity projection yet: launches drop the composed identity/system prompt and any `--append-prompt` documents, supplied documents produce a separate warning, and `--strict` aborts before execution.
-- **Model selection (Partial)** — an agent's model maps to `-m`. Provider maps have no projection element and produce no warning. Thinking, tools, skills, subagents, plugins, and prompt templates remain unsupported and warn when selected.
+- **Model selection** — an agent's `provider/model` selection resolves from layered `models.json`. OpenAI completions and responses providers map to native `model_provider`, `base_url`, `env_key`, header, wire API, and `-m` overrides. Unsupported dialects warn and omit the target instead of reusing its model ID against Codex's default endpoint. Thinking, tools, skills, subagents, plugins, and prompt templates remain unsupported and warn when selected.
 - **Extensions (Pi only)** — `extensions:` names pi extension packages, so a Codex or Claude Code launch installs none of them. This is a property of the element, not a gap a user can close, so it produces no warning and does not fail under `--strict`.
 - **MCP servers (Partial)** — selected stdio fields (`command`, `args`, `env`, `cwd`) and streamable HTTP fields (`url`, `headers`) become repeated TOML-valued `-c mcp_servers.<id>.<key>=...` overrides. Server ids must contain only letters, digits, `_`, or `-`; other ids cannot be expressed by Codex `-c` key paths and are skipped with a warning. Legacy SSE and other HTTP transport types are also skipped with a warning. User and project `config.toml` servers remain active because Codex has no strict MCP isolation mode, so every launch warns that projection is additive, even when no servers are selected.
 - **Stdio environment safety** — `${ENV_NAME}` becomes an `env_vars` reference only when the stdio `env` key is also `ENV_NAME`; a reference that would rename the variable is dropped with a warning. Literal values pass through `env` and are visible in process arguments.
@@ -52,7 +54,7 @@ Tasks and bake are not in this matrix — they are the subject of a [separate up
 - **MCP servers** — every Claude launch passes the generated `mcp.json` through `--mcp-config`. An inherited run stops there, so the composition's servers merge with the ones already configured on the machine: selecting a server says what the profile needs, not what the user may not have. An isolated run adds `--strict-mcp-config`, which excludes MCP servers from user or project configuration, `.claude.json`, and plugins so only the composition's servers are active.
 - **Subagents** — selected `agents/<id>` definitions are materialized into the composition's agents directory. An inherited run loads them under the plugin's name (`<profile>:<subagent>`); an isolated run finds them natively under `CLAUDE_CONFIG_DIR`.
 - **Skills (Partial)** — selected skills are materialized into the config directory's skills surface; remaining gaps are tracked per release. The bundled Outfitter skill ships through the plugin channel.
-- **Model selection (Partial)** — model maps to `--model` and thinking level to `--effort`; provider selection is not projected for Claude and warns if requested.
+- **Model selection** — an agent's `provider/model` selection resolves from layered `models.json`. Anthropic Messages providers map to native `--model`, `ANTHROPIC_BASE_URL`, `ANTHROPIC_AUTH_TOKEN`, and custom-header controls. Unsupported dialects warn and omit the target instead of reusing its model ID against Claude's default endpoint. Thinking level maps to `--effort`.
 - **Hooks** — Outfitter does not project hook configuration for Claude, and there is no portable protocol hooks resource yet. An inherited run keeps the hooks in your own `~/.claude/settings.json`; an isolated run has none. See [Hooks](./hooks.md).
 - **Tool availability** — `tools.allow` (after `tools.deny` removes entries) maps to both `--tools` (_availability_: an unlisted builtin is not in the session) and `--allowedTools` (_permission_: the granted tools are pre-approved, so a headless session is not stopped by a prompt); `tools.deny` always maps to `--disallowedTools`, including when both are declared, and a bare denied name removes the tool from context per Claude's docs. An allowlist that `tools.deny` empties maps to `--tools ""`, Claude's documented "disable all tools" form. Caveat: per the CLI reference, `--tools` governs the built-in set only — MCP tools (`mcp__server__*`) are unaffected and are governed by which MCP servers the loadout selects, so `--tools ""` is not exactly pi's zero-tool session when MCP servers are present. Claude's behavior here comes from `claude --help` and the CLI reference, not local measurement.
 - **DeepWork jobs** — job selection is Pi-only today and warns on Claude.

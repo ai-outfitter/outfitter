@@ -168,7 +168,7 @@ For a selected agent, the composer builds the run's effective configuration from
 3. **Subagents**: agents named in the selected agent's `subagents` loadout are marked for projection into the harness's delegation surface; their own selected skills are resolved and materialized separately from the leader's active skills.
 4. **Skills**: skills named in the loadout are materialized (frontmatter `references`/`scripts`/`assets` resolved from their two-root model, validated for escapes and collisions) into generated skill directories.
 5. **Harness elements**: extensions and plugins named in the loadout are marked for the adapter (first-class for pi).
-6. **Structured configuration**: `models.json`, `mcp.json`, and per-agent `config.json` merge per protocol JSON semantics; the loadout's `model`, `thinking`, and `tools` select and constrain within them.
+6. **Structured configuration**: `models.json`, `mcp.json`, and per-agent `config.json` merge per protocol JSON semantics; the loadout's `model`, `thinking`, and `tools` select and constrain within them. A `provider/model` selection resolves once into a harness-neutral model target (dialect, endpoint, credential-variable reference, headers, capabilities, and provenance); adapters translate that target to native controls without changing its endpoint.
 
 The composed result is a harness-neutral **composition plan** — the input to dump and adapter projection.
 

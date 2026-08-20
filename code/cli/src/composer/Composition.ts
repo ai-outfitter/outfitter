@@ -1,5 +1,6 @@
 // Harness-neutral composition types produced from the effective resource set for a selected agent.
 import type { Loadout, ResolvedResource } from '../resolver/Resource.js';
+import type { EffectiveModelRegistry } from './Models.js';
 import type { PromptFragment } from './PromptSource.js';
 
 /** The composed identity: base prompt, shared context, prompt fragments, and agent bodies. */
@@ -66,6 +67,8 @@ export interface ComposedLoadout {
 export interface CompositionPlan {
   readonly agent: string;
   readonly identity: ComposedIdentity;
+  /** Layered provider registry and normalized selected model target, when models.json exists. */
+  readonly models?: EffectiveModelRegistry;
   readonly loadout: ComposedLoadout;
   /** Parent-first agent resources that contributed identity, loadout, or native overlays. */
   readonly contributingAgents?: readonly ResolvedResource[];

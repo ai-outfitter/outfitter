@@ -21,6 +21,8 @@ export interface ProjectionInput {
   readonly harness: Harness;
   readonly rootDirectory: string;
   readonly homeDirectory: string;
+  /** Runtime credential values used only when a harness requires an environment-variable alias. */
+  readonly processEnvironment?: Readonly<Record<string, string | undefined>>;
   /**
    * Whether the launch stands on the machine's native harness configuration (claude only; pi and
    * codex have no inherit path yet). Defaults to `inherit`, so a profile layers over the user's own

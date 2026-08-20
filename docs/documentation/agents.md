@@ -76,6 +76,42 @@ See [Skills](./skills.md#agent-local-skills).
 `subagents` are always catalog-wide (a delegate is a shared agent).
 `extensions`/`plugins` are harness-native passthroughs with no on-disk namespace, and `model`/`thinking`/`tools` are per-agent already via `config.json` merge.
 
+### Provider and model registry
+
+A selected model uses `provider/model`. Outfitter resolves it against the effective layered `models.json`; workspace definitions override home and catalog definitions by provider ID, while model entries merge by model ID. The resulting provider endpoint is canonical for the run — adapters do not silently reuse the model ID against a harness default endpoint.
+
+```json
+{
+  "providers": {
+    "company-claude": {
+      "name": "Company Anthropic gateway",
+      "baseUrl": "https://models.example.com/anthropic",
+      "api": "anthropic-messages",
+      "apiKey": "$COMPANY_MODELS_TOKEN",
+      "headers": { "X-Tenant": "engineering" },
+      "models": [{ "id": "luna", "reasoning": true }]
+    },
+    "company-codex": {
+      "name": "Company OpenAI gateway",
+      "baseUrl": "https://models.example.com/openai/v1",
+      "api": "openai-responses",
+      "apiKey": "$COMPANY_MODELS_TOKEN",
+      "models": [{ "id": "sol", "reasoning": true }]
+    },
+    "ollama": {
+      "name": "Local Ollama",
+      "baseUrl": "http://127.0.0.1:11434/v1",
+      "api": "openai-completions",
+      "models": [{ "id": "qwen3-coder" }]
+    }
+  }
+}
+```
+
+An agent can select `company-claude/luna`, `company-codex/sol`, or `ollama/qwen3-coder` without carrying endpoint configuration of its own. Pi receives the merged registry plus native provider/model flags. Claude Code projects `anthropic-messages` targets through its native gateway environment, and Codex projects `openai-completions` and `openai-responses` targets through native provider overrides. An unsupported dialect warns and fails under `--strict`; it never falls back to the same model name at another endpoint.
+
+Credentials are references, not catalog content: use a single environment-variable reference such as `"$COMPANY_MODELS_TOKEN"`. Literal API keys, command-based credential sources, and literal `Authorization` headers are rejected. Supply the named variable in the launch environment.
+
 ## Inheritance and prompt fragments
 
 An agent may specialize one or more base agents with `inherits`.

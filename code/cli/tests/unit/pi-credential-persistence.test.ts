@@ -47,6 +47,21 @@ describe('pi credential persistence', () => {
     expect(existsSync(join(projection, 'models.json'))).toBe(false);
   });
 
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-006.9.3).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('does not replace or persist catalog-projected model definitions', () => {
+    const base = root();
+    const userDir = join(base, 'user');
+    const projection = join(base, 'projection');
+    write(join(userDir, 'models.json'), '{"providers":{"personal":{}}}');
+    write(join(projection, 'models.json'), '{"providers":{"catalog":{}}}');
+
+    seedPiCredentials(projection, userDir);
+    expect(readFileSync(join(projection, 'models.json'), 'utf8')).toContain('catalog');
+    persistPiCredentials(projection, userDir, false);
+    expect(readFileSync(join(userDir, 'models.json'), 'utf8')).toContain('personal');
+  });
+
   it('writes credentials created during the session back to the durable dir', () => {
     const base = root();
     const userDir = join(base, 'user');

@@ -119,3 +119,14 @@ Amended (2026-07-17, RFC #165): adapters project a harness-neutral composition, 
 6. Plan mode MUST restrict active tools to read-only inspection tools, exclude Bash from the active tool set, and block Bash tool calls while plan mode is active.
 7. Interactive Pi launches SHOULD register a native `/outfitter` command for Outfitter-specific setup and profile management that can run without an agent turn.
 8. Non-interactive Pi launches MUST NOT inject the Outfitter bootstrap extension.
+
+### OFTR-006.9: Canonical Cross-Harness Model Projection
+
+1. When an agent selects `provider/model` and one or more effective layers contain `models.json`, Outfitter MUST merge provider definitions by ID according to layer precedence and resolve the selection to one harness-neutral target containing provider ID, model ID, API dialect, base URL, credential-variable reference, required headers, projection-relevant model capabilities, and winning source layer.
+2. A selected provider and model MUST exist in the effective registry, and a selected provider MUST declare string `api` and `baseUrl` values; otherwise composition MUST fail before launch.
+3. The Pi adapter MUST materialize the effective canonical `models.json`, pass the normalized provider and model IDs through native flags, and MUST NOT replace or persist that declared registry through Pi's user-state bridge.
+4. For the `anthropic-messages` dialect, the Claude adapter MUST project the canonical model ID, base URL, runtime credential, and headers through Claude's native model and gateway controls.
+5. For the `openai-completions` and `openai-responses` dialects, the Codex adapter MUST configure the canonical provider, endpoint, credential environment key, headers, wire API, and model through native command-line configuration overrides.
+6. An adapter that cannot preserve a target's API dialect or provider ID MUST warn and MUST omit both the selected model identity and endpoint rather than silently using the same model ID against another endpoint; the existing `--strict` warning policy MUST make that warning fatal before launch.
+7. Runtime credential values MUST come from the environment. Effective registries MUST reject literal `apiKey` values, executable credential-source fields, non-string headers, and literal `Authorization` headers.
+8. When no `models.json` is configured, adapters MAY preserve legacy native model-name projection for compatibility.
