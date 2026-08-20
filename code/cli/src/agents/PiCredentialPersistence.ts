@@ -21,16 +21,23 @@ const copyIfPresent = (sourcePath: string, destinationPath: string): void => {
   copyFileSync(sourcePath, destinationPath);
 };
 
-/** Seeds the projection root with the user's existing pi credentials so pi sees them at startup. */
+/** Seeds durable state without replacing a models.json already projected from the canonical registry. */
 export const seedPiCredentials = (projectionRoot: string, piUserAgentDirectory: string): void => {
   for (const file of persistentPiStateFiles) {
-    copyIfPresent(join(piUserAgentDirectory, file), join(projectionRoot, file));
+    const destination = join(projectionRoot, file);
+    if (file === 'models.json' && existsSync(destination)) continue;
+    copyIfPresent(join(piUserAgentDirectory, file), destination);
   }
 };
 
-/** Copies credentials created or changed during the pi session back to the durable agent dir. */
-export const persistPiCredentials = (projectionRoot: string, piUserAgentDirectory: string): void => {
+/** Copies session state back; a catalog-projected models.json is declared config, not user state. */
+export const persistPiCredentials = (
+  projectionRoot: string,
+  piUserAgentDirectory: string,
+  persistModels = true,
+): void => {
   for (const file of persistentPiStateFiles) {
+    if (file === 'models.json' && !persistModels) continue;
     copyIfPresent(join(projectionRoot, file), join(piUserAgentDirectory, file));
   }
 };

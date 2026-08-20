@@ -20,6 +20,7 @@ import {
   seedPiCredentials,
 } from '../../agents/PiCredentialPersistence.js';
 import { resolvePiSessionDirectory } from '../../agents/PiSessionDirectory.js';
+import type { CompositionPlan } from '../../composer/Composition.js';
 import { compose } from '../../composer/Composer.js';
 import { ensurePiExtensions } from '../../extensions/PiExtensionCache.js';
 import type { PiInstallSpawner } from '../../extensions/PiExtensionCache.js';
@@ -156,6 +157,8 @@ const assertNoSettingsIssues = (issues: readonly { readonly message: string }[])
 // ephemeral projection root. Seed the durable state before launch and persist changes in a finally
 // block so login and session changes survive both a normal exit and a failed launcher. An inherited
 // Claude run reads and writes the real ~/.claude directly, so it needs neither seed nor copy-back.
+const persistUserPiModels = (plan: CompositionPlan): boolean => plan.models?.configured !== true;
+
 const launchWithStatePersistence = async (
   input: RunAgentInput,
   harness: Harness,
@@ -163,6 +166,7 @@ const launchWithStatePersistence = async (
   rootDirectory: string,
   launch: AgentLaunchPlan,
   lateMessages: string[],
+  persistPiModels: boolean,
 ): Promise<number> => {
   // Persist warnings surface after launch, and writeLine alone can be a dropped sink (setup's
   // auto-launch passes none), so they also go into lateMessages to reach the returned result.
@@ -199,7 +203,9 @@ const launchWithStatePersistence = async (
     return await input.launcher(launch);
   } finally {
     if (piUserAgentDirectory !== undefined) {
-      attempt('persist Pi credentials', () => persistPiCredentials(rootDirectory, piUserAgentDirectory));
+      attempt('persist Pi credentials', () =>
+        persistPiCredentials(rootDirectory, piUserAgentDirectory, persistPiModels),
+      );
     }
     if (bridgesClaudeState) {
       attempt('persist Claude credentials', () => {
@@ -362,6 +368,7 @@ export const executeRunAgentCommand = async (input: RunAgentInput): Promise<RunA
       harness,
       rootDirectory,
       homeDirectory: input.homeDirectory,
+      processEnvironment: process.env,
       isolation: claudeConfig.isolation,
       profileSlug: agentSlug,
       sessionDirectory: resolveSessionDirectory(input, harness),
@@ -414,6 +421,7 @@ export const executeRunAgentCommand = async (input: RunAgentInput): Promise<RunA
       rootDirectory,
       systemHooks.launch,
       messages,
+      persistUserPiModels(composed.plan),
     );
 
     return { launchPlan: systemHooks.launch, exitCode, messages };

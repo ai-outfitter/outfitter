@@ -8,6 +8,7 @@ import type { AgentDefinition } from '../resolver/AgentDefinition.js';
 import type { EffectiveResourceSet, Loadout, ResolvedResource } from '../resolver/Resource.js';
 import { findLoadoutResource, findResource } from '../resolver/Resource.js';
 import type { ComposedLoadout, ComposedSubagent, ComposedSubagentIdentity, CompositionPlan } from './Composition.js';
+import { resolveModelRegistry } from './Models.js';
 import type { PromptFragment, PromptSourceReference } from './PromptSource.js';
 import { agentBodyFragment, promptSourceKey, resolvePromptSource, rootPromptFragment } from './PromptSource.js';
 
@@ -535,6 +536,7 @@ export const compose = (set: EffectiveResourceSet, agentSlug: string, options: C
   const controls = composeEffectiveControls(chain);
   const identity = composeIdentity(set, chain, controls, options, warnings, errors);
   const loadout = composeLoadout(set, controls, warnings);
+  const models = resolveModelRegistry(set, loadout.model, warnings, errors);
   const composedSubagents = composeSubagents(set, loadout.subagents, options, warnings, errors);
   const uniqueWarnings = uniqueStrings(warnings);
   if (errors.length > 0) return { errors, warnings: uniqueWarnings };
@@ -543,6 +545,7 @@ export const compose = (set: EffectiveResourceSet, agentSlug: string, options: C
     plan: {
       agent: agentSlug,
       identity,
+      ...(models.configured ? { models } : {}),
       loadout: { ...loadout, composedSubagents },
       contributingAgents: chain.map((entry) => entry.resource),
       inheritanceChain: chain.map((entry) => entry.resource.slug),

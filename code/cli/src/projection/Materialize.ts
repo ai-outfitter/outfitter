@@ -323,6 +323,9 @@ export const materializeComposition = (
   if (harness === 'claude' || (harness === 'pi' && composition.loadout.mcp.length > 0)) {
     writeMcpConfig(join(rootDirectory, 'mcp.json'), composition.loadout.mcpServers);
   }
+  if (harness === 'pi' && composition.models?.configured) {
+    writeGeneratedFile(join(rootDirectory, 'models.json'), `${JSON.stringify(composition.models.document, null, 2)}\n`);
+  }
   return {
     rootDirectory,
     systemPromptPath,
