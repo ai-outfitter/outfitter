@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.10.0](https://github.com/ai-outfitter/outfitter/compare/v1.9.0...v1.10.0) (2026-08-20)
+
+
+### Features
+
+* **claude:** inherit the user's Claude configuration by default ([#317](https://github.com/ai-outfitter/outfitter/issues/317)) ([1a8ba27](https://github.com/ai-outfitter/outfitter/commit/1a8ba271cef55346b8f9a3ac656d153ab231417e))
+
 ## [1.9.0](https://github.com/ai-outfitter/outfitter/compare/v1.8.1...v1.9.0) (2026-08-19)
 
 
