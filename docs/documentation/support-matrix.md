@@ -25,7 +25,7 @@ Tasks and bake are not in this matrix — they are the subject of a [separate up
 | MCP servers (`mcp.json`)                                                 | Supported | Supported   | Partial   |
 | Extensions (agent `extensions:` loadout)                                 | Supported | Pi only     | Pi only   |
 | Plugins (agent `plugins:` loadout)                                       | Supported | Roadmap     | Roadmap   |
-| Credentials and environment                                              | Supported | Supported   | Roadmap   |
+| Profile launch environment                                               | Supported | Supported   | Supported |
 | DeepWork job selection                                                   | Supported | Roadmap     | Roadmap   |
 | Hooks                                                                    | Partial   | Partial     | Roadmap   |
 | Tool availability (agent `tools:` loadout)                               | Supported | Supported   | Roadmap   |

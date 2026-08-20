@@ -34,6 +34,7 @@ interface DeclaredSlug {
 
 interface EffectiveControls {
   readonly loadout: Loadout;
+  readonly environment: Readonly<Record<string, string>>;
   readonly skillSelections: readonly DeclaredSlug[];
   readonly subagentSelections: readonly DeclaredSlug[];
   readonly mcpSelections: readonly DeclaredSlug[];
@@ -165,6 +166,21 @@ const nearest = <T>(
   return undefined;
 };
 
+const composeEnvironment = (chain: readonly ChainEntry[], warnings?: string[]): Readonly<Record<string, string>> => {
+  const environment: Record<string, string> = {};
+  for (const entry of chain) {
+    if (Object.keys(entry.definition.environment).length === 0) continue;
+    if (entry.resource.winner.layer.origin !== 'global') {
+      warnings?.push(
+        `agent '${entry.resource.slug}' launch environment is ignored because only user-home agent definitions may control the process environment.`,
+      );
+      continue;
+    }
+    Object.assign(environment, entry.definition.environment);
+  }
+  return environment;
+};
+
 const composeTools = (chain: readonly ChainEntry[]): Loadout['tools'] => {
   const allow = union(
     [],
@@ -188,7 +204,7 @@ const nearestPrompt = (
   return undefined;
 };
 
-const composeEffectiveControls = (chain: readonly ChainEntry[]): EffectiveControls => {
+const composeEffectiveControls = (chain: readonly ChainEntry[], warnings?: string[]): EffectiveControls => {
   const skills = declaredSelections(chain, (definition) => definition.loadout.skills);
   const subagents = declaredSelections(chain, (definition) => definition.loadout.subagents);
   const mcp = declaredSelections(chain, (definition) => definition.loadout.mcp);
@@ -197,6 +213,7 @@ const composeEffectiveControls = (chain: readonly ChainEntry[]): EffectiveContro
 
   return {
     skillSelections: skills,
+    environment: composeEnvironment(chain, warnings),
     subagentSelections: subagents,
     mcpSelections: mcp,
     appendPromptSelections: appendPromptSelections(chain),
@@ -532,7 +549,7 @@ export const compose = (set: EffectiveResourceSet, agentSlug: string, options: C
   const chain = chainResult.entries;
   const warnings: string[] = [];
   const errors: string[] = [];
-  const controls = composeEffectiveControls(chain);
+  const controls = composeEffectiveControls(chain, warnings);
   const identity = composeIdentity(set, chain, controls, options, warnings, errors);
   const loadout = composeLoadout(set, controls, warnings);
   const composedSubagents = composeSubagents(set, loadout.subagents, options, warnings, errors);
@@ -543,6 +560,7 @@ export const compose = (set: EffectiveResourceSet, agentSlug: string, options: C
     plan: {
       agent: agentSlug,
       identity,
+      ...(Object.keys(controls.environment).length === 0 ? {} : { environment: controls.environment }),
       loadout: { ...loadout, composedSubagents },
       contributingAgents: chain.map((entry) => entry.resource),
       inheritanceChain: chain.map((entry) => entry.resource.slug),

@@ -53,6 +53,12 @@
     },
     "model": { "type": "string", "minLength": 1 },
     "thinking": { "type": "string", "minLength": 1 },
+    "env": {
+      "type": "object",
+      "propertyNames": { "pattern": "^[A-Za-z_][A-Za-z0-9_]*$" },
+      "additionalProperties": { "type": "string" },
+      "description": "Launch environment honored only for agents defined in the user's ~/.agents layer."
+    },
     "tools": {
       "type": "object",
       "properties": {

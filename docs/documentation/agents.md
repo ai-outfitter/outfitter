@@ -36,6 +36,8 @@ plugins: [git-tools]
 mcp: [github]
 model: gpt-5.2
 thinking: high
+env:
+  ANTHROPIC_BASE_URL: http://localhost:11434
 tools:
   allow: [read, edit, bash]
 append_system_prompt:
@@ -66,8 +68,9 @@ Per-capability procedures belong in [skills](./skills.md); the frontmatter only 
 | `model`      | Provider/model from `models.json`.                                           |
 | `thinking`   | Thinking/effort level.                                                       |
 | `tools`      | Allowed/denied tool policy for the run.                                      |
+| `env`        | String environment variables added to the harness process.                   |
 
-Every value is a slug resolved across layers.
+Resource-selection values are slugs resolved across layers.
 Skills first check `agents/<agent>/skills/<slug>/` across layer precedence, then fall back to catalog-wide `skills/<slug>/`.
 This lets an agent own private implementation capabilities without exposing them to every agent in the catalog.
 See [Skills](./skills.md#agent-local-skills).
@@ -75,6 +78,8 @@ See [Skills](./skills.md#agent-local-skills).
 `knowledge` and `commands` resolve the same way — an agent may keep private files under `agents/<agent>/knowledge/` and `agents/<agent>/commands/`, local-first over the catalog-wide trees.
 `subagents` are always catalog-wide (a delegate is a shared agent).
 `extensions`/`plugins` are harness-native passthroughs with no on-disk namespace, and `model`/`thinking`/`tools` are per-agent already via `config.json` merge.
+
+Launch environment is security-sensitive: it can redirect model traffic, configure proxies, or alter process loading. Outfitter therefore honors `env` only on agents defined in your user-home `~/.agents` layer. An `env` block from a checked-in project or synced source is ignored with a warning, and `--strict` makes the warning fatal. Profile values override variables inherited from the invoking shell, except `PI_CODING_AGENT_DIR` and `CLAUDE_CONFIG_DIR`, which remain Outfitter-owned configuration boundaries. Do not store real secrets in agent frontmatter; it is plain text and appears in `outfitter dump` output.
 
 ## Inheritance and prompt fragments
 
@@ -102,7 +107,7 @@ prompt_template:
 You specialize the base engineer for NixOS and Kubernetes work.
 ```
 
-Merge policy is deterministic: Markdown bodies append ancestor-first and child-last; list fields (`skills`, `subagents`, `mcp`, `extensions`, `plugins`, `append_system_prompt`) de-duplicate parent-first; scalar controls (`system_prompt`, `prompt_template`, `model`, `thinking`, `label`, `description`) use the nearest child declaration.
+Merge policy is deterministic: Markdown bodies append ancestor-first and child-last; list fields (`skills`, `subagents`, `mcp`, `extensions`, `plugins`, `append_system_prompt`) de-duplicate parent-first; scalar controls (`system_prompt`, `prompt_template`, `model`, `thinking`, `label`, `description`) use the nearest child declaration; and trusted `env` mappings merge parent-first with child keys overriding parent keys.
 Parent-declared skills resolve against that parent's local skill namespace before catalog fallback, so a child cannot accidentally capture a parent's private loadout.
 
 Prompt sources are explicit objects.

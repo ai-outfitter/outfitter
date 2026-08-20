@@ -66,6 +66,8 @@ export interface ComposedLoadout {
 export interface CompositionPlan {
   readonly agent: string;
   readonly identity: ComposedIdentity;
+  /** Trusted, inheritance-composed process environment for this launch. */
+  readonly environment?: Readonly<Record<string, string>>;
   readonly loadout: ComposedLoadout;
   /** Parent-first agent resources that contributed identity, loadout, or native overlays. */
   readonly contributingAgents?: readonly ResolvedResource[];

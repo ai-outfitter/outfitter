@@ -57,13 +57,13 @@ afterEach(() => {
 });
 
 describe('agent definition parsing', () => {
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-003.1, OFTR-003.6).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-003.1, OFTR-003.6, OFTR-006.1).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
-  it('parses frontmatter loadout and markdown body', () => {
+  it('parses frontmatter loadout, launch environment, and markdown body', () => {
     const parsed = parseAgentDefinition(
       agentMd(
         'engineer',
-        'skills: [wiki, research]\nsubagents: [code-reviewer]\nmodel: gpt-5.2\ntools:\n  allow: [read]\n',
+        'skills: [wiki, research]\nsubagents: [code-reviewer]\nmodel: gpt-5.2\nenv:\n  API_BASE_URL: http://localhost:11434\ntools:\n  allow: [read]\n',
       ),
       [],
       '/nowhere/agent.md',
@@ -73,6 +73,7 @@ describe('agent definition parsing', () => {
     if (isAgentDefinitionIssue(parsed)) return;
     expect(parsed.name).toBe('engineer');
     expect(parsed.loadout.skills).toEqual(['wiki', 'research']);
+    expect(parsed.environment).toEqual({ API_BASE_URL: 'http://localhost:11434' });
     // Key presence is preserved: a `deny` the author never wrote must not be fabricated, just as
     // an absent `allow` must not become an empty (and therefore ceiling-imposing) allowlist.
     expect(parsed.loadout.tools).toEqual({ allow: ['read'] });

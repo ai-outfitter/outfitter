@@ -4,6 +4,8 @@
 > Some pi/claude launch-control sections still describe profile-era behavior and richer parity is projected incrementally. The current composition implementation includes Claude's isolated MCP config and Codex's additive MCP CLI overrides alongside the existing identity, skills, model, thinking, Pi extensions, and per-agent Pi configuration overlays.
 > Target design: [docs/architecture/README.md](../architecture/README.md).
 
+> **Amendment (2026-08-20, issue [#319](https://github.com/ai-outfitter/outfitter/issues/319)):** Agent definitions may declare a launch environment. Only user-home definitions are trusted to contribute it; project and source declarations are ignored with a warning.
+
 ## Overview
 
 Agent adapters translate generic Outfitter profile controls into native configuration files, environment variables, and command-line arguments for specific agent CLIs.
@@ -21,6 +23,10 @@ Amended (2026-07-17, RFC #165): adapters project a harness-neutral composition, 
 4. When a composition selects an element the harness cannot project, Outfitter MUST warn; `--strict` MUST make it fatal before launch.
 5. Composition (resolver + composer) MUST stay independent of harness-specific projection.
 6. Prompt templates MUST be projected only by harnesses that support a native prompt-template control; unsupported prompt-template use MUST be reported through `getUnsupportedElements` and MUST fail before launch under `--strict`.
+7. Agent frontmatter MAY declare an `env` mapping whose keys are portable environment-variable names and whose values are strings. Inheritance MUST merge it parent-first with the nearest child value winning.
+8. Only agent definitions resolved from the user's home `.agents` layer MAY contribute launch environment. Project and source declarations MUST be ignored with a warning, and `--strict` MUST make that warning fatal, because environment can redirect model traffic or control process loading.
+9. A trusted profile environment MUST override the invoking process environment. Adapter-owned configuration-boundary variables (`PI_CODING_AGENT_DIR` and `CLAUDE_CONFIG_DIR`) MUST remain controlled by Outfitter; attempts to set them MUST be ignored with a warning.
+10. Every adapter MUST project the trusted composed environment into its launch plan, including Codex.
 
 ### OFTR-006.2: Supported Adapter Availability
 
@@ -100,6 +106,7 @@ Amended (2026-07-17, RFC #165): adapters project a harness-neutral composition, 
 5. The Codex adapter MUST warn that MCP projection is additive because Codex has no strict MCP isolation mode; this adapter warning follows the normal `--strict` warning policy.
 6. The Codex adapter MUST report every selected loadout element other than `model`, `mcp`, and `extensions` as unsupported until a native projection is implemented and tested.
 7. No adapter MAY report `extensions` as an unsupported loadout element. `extensions` names pi extension packages, so only the pi adapter can load them, and no user setting can make another harness load them. A non-pi launch MUST stay silent about the selected extensions and MUST NOT fail under `--strict` because of them.
+8. The Codex adapter MUST project the trusted composed profile environment into its launch environment.
 
 ### OFTR-006.7: Pi Settings Reconciliation
 

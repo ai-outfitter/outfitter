@@ -17,6 +17,8 @@ export interface AgentDefinition {
   /** Markdown body after the frontmatter — the agent's identity prose. */
   readonly body: string;
   readonly loadout: Loadout;
+  /** Process environment declared in frontmatter; trust gating happens during composition. */
+  readonly environment: Readonly<Record<string, string>>;
   /** Ordered parent agent slugs declared by `inherits`. */
   readonly inherits: readonly string[];
   readonly promptControls: PromptControls;
@@ -85,6 +87,13 @@ const asStringArray = (value: unknown): readonly string[] =>
   Array.isArray(value) ? value.filter((entry): entry is string => typeof entry === 'string') : [];
 
 const asString = (value: unknown): string | undefined => (typeof value === 'string' ? value : undefined);
+
+const asStringRecord = (value: unknown): Readonly<Record<string, string>> =>
+  value !== null && typeof value === 'object' && !Array.isArray(value)
+    ? Object.fromEntries(
+        Object.entries(value).filter((entry): entry is [string, string] => typeof entry[1] === 'string'),
+      )
+    : {};
 
 const asSlugListOrScalar = (value: unknown): readonly string[] => {
   if (typeof value === 'string') return [value];
@@ -295,6 +304,7 @@ export const parseAgentDefinition = (
     description: asString(frontmatter.record.description),
     body: frontmatter.body,
     loadout: loadoutFromRecord(merged),
+    environment: asStringRecord(frontmatter.record.env),
     inherits: asSlugListOrScalar(frontmatter.record.inherits),
     promptControls: promptControlsFromRecord(frontmatter.record),
   };

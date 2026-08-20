@@ -128,6 +128,21 @@ const thinkingArg = (composition: CompositionPlan, harness: Harness): readonly s
     ? []
     : [harness === 'pi' ? '--thinking' : '--effort', composition.loadout.thinking];
 
+const reservedEnvironment = (harness: Harness): ReadonlySet<string> =>
+  new Set(harness === 'pi' ? ['PI_CODING_AGENT_DIR'] : harness === 'claude' ? ['CLAUDE_CONFIG_DIR'] : []);
+
+const profileEnvironment = (composition: CompositionPlan, harness: Harness): Readonly<Record<string, string>> => {
+  const reserved = reservedEnvironment(harness);
+  return Object.fromEntries(Object.entries(composition.environment ?? {}).filter(([name]) => !reserved.has(name)));
+};
+
+const profileEnvironmentWarnings = (composition: CompositionPlan, harness: Harness): readonly string[] => {
+  const reserved = reservedEnvironment(harness);
+  return Object.keys(composition.environment ?? {})
+    .filter((name) => reserved.has(name))
+    .map((name) => `${harness} adapter ignored profile environment variable '${name}' because Outfitter owns it.`);
+};
+
 // MCP overrides lead and pass-through args trail so a pass-through positional (`exec "<prompt>"`)
 // stays last, where codex expects its subcommand and prompt.
 const buildCodexLaunchPlan = (
@@ -138,7 +153,7 @@ const buildCodexLaunchPlan = (
   command: 'codex',
   // Root `-m` propagation through `exec` was verified empirically on codex-cli 0.145.0.
   args: [...codexMcpArgs, ...modelArg(composition, '-m'), ...(input.passThroughArgs ?? [])],
-  env: {},
+  env: profileEnvironment(composition, input.harness),
 });
 
 /**
@@ -212,12 +227,15 @@ const buildPiOrClaudeLaunchPlan = (
     // The projection root is deleted after the run, so pi's default session store (a subdirectory
     // of PI_CODING_AGENT_DIR) would take every transcript with it. A resolved session directory
     // moves the store somewhere durable so `--continue`/`--resume` still find the last conversation.
-    env: isPi
-      ? {
-          PI_CODING_AGENT_DIR: input.rootDirectory,
-          ...(input.sessionDirectory === undefined ? {} : { [PI_SESSION_DIRECTORY_ENV]: input.sessionDirectory }),
-        }
-      : claudeEnv(input.rootDirectory, isolation),
+    env: {
+      ...(isPi
+        ? {
+            PI_CODING_AGENT_DIR: input.rootDirectory,
+            ...(input.sessionDirectory === undefined ? {} : { [PI_SESSION_DIRECTORY_ENV]: input.sessionDirectory }),
+          }
+        : claudeEnv(input.rootDirectory, isolation)),
+      ...profileEnvironment(composition, input.harness),
+    },
   };
 };
 
@@ -231,6 +249,7 @@ export const projectComposition = (composition: CompositionPlan, input: Projecti
   // uniformly. Codex reads none of the generated files — it takes its MCP config in argv and has no
   // config-directory projection yet — but the root is temporary, so the unused writes do not persist.
   const materialized = materializeComposition(composition, input.rootDirectory, input.harness);
+  const environmentWarnings = profileEnvironmentWarnings(composition, input.harness);
 
   declareClaudePlugin(composition, input);
 
@@ -248,6 +267,7 @@ export const projectComposition = (composition: CompositionPlan, input: Projecti
         ? ['codex adapter does not project supplied append-prompt documents; they will be dropped.']
         : []),
       ...codexMcp.warnings,
+      ...environmentWarnings,
     ];
     return { rootDirectory: input.rootDirectory, launch, unsupported, warnings };
   }
@@ -258,5 +278,5 @@ export const projectComposition = (composition: CompositionPlan, input: Projecti
     ...(input.appendPromptPaths ?? []),
   ]);
 
-  return { rootDirectory: input.rootDirectory, launch, unsupported, warnings: [] };
+  return { rootDirectory: input.rootDirectory, launch, unsupported, warnings: environmentWarnings };
 };
