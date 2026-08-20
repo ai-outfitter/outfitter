@@ -108,7 +108,15 @@ export const createSpawnLauncher = (stdio: 'inherit' | 'ignore'): AgentProcessLa
   async launch(plan: AgentLaunchPlan): Promise<number> {
     const { default: spawn } = await import('cross-spawn');
     return await new Promise<number>((resolve, reject) => {
-      const child = spawn(plan.command, [...plan.args], { stdio, env: { ...process.env, ...plan.env } });
+      const referencedEnvironment = Object.fromEntries(
+        Object.entries(plan.envReferences ?? {}).flatMap(([target, source]) =>
+          process.env[source] === undefined ? [] : [[target, process.env[source]]],
+        ),
+      );
+      const child = spawn(plan.command, [...plan.args], {
+        stdio,
+        env: { ...process.env, ...plan.env, ...referencedEnvironment },
+      });
       const detach = attachSignalForwarding(child);
       child.on('error', (error) => {
         detach();

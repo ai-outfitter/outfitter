@@ -1,3 +1,4 @@
+/* eslint-disable complexity -- native launch assembly keeps ordering-sensitive controls together. */
 // Projects a harness-neutral CompositionPlan to a native pi, Claude Code, or Codex CLI launch.
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -12,6 +13,7 @@ import {
   materializeConfigurationOverlays,
   writeClaudePluginManifest,
 } from './Materialize.js';
+import type { ModelTarget } from './ModelRegistry.js';
 import type { AgentLaunchPlan, AgentProjectionPlan, ProjectionInput } from './Projection.js';
 import { toolArgs } from './Tools.js';
 
@@ -120,8 +122,54 @@ const promptArgs = (
 
 // Split from the thinking flag so each builder states positively what it emits: codex reports
 // `thinking` unsupported, and reporting an element unsupported does not by itself suppress it.
-const modelArg = (composition: CompositionPlan, flag: '-m' | '--model'): readonly string[] =>
-  composition.loadout.model === undefined ? [] : [flag, composition.loadout.model];
+const modelArg = (composition: CompositionPlan, input: ProjectionInput, flag: '-m' | '--model'): readonly string[] => {
+  if (composition.loadout.model === undefined) return [];
+  if (input.modelRegistry !== undefined) {
+    const target = input.modelRegistry.target;
+    if (input.modelRegistry.errors.length > 0 || target === undefined) return [];
+    if (input.harness === 'claude' && target.api !== 'anthropic-messages') return [];
+    if (input.harness === 'codex' && target.api !== 'openai-completions' && target.api !== 'openai-responses')
+      return [];
+    return [flag, target.model];
+  }
+  return [flag, composition.loadout.model];
+};
+
+const tomlString = (value: string): string => JSON.stringify(value);
+const codexModelArgs = (target: ModelTarget | undefined): readonly string[] => {
+  if (target === undefined) return [];
+  const wireApi = target.api === 'openai-responses' ? 'responses' : 'chat';
+  return [
+    '-c',
+    `model_provider=${tomlString(target.provider)}`,
+    '-c',
+    `model_providers.${target.provider}.name=${tomlString(target.provider)}`,
+    '-c',
+    `model_providers.${target.provider}.base_url=${tomlString(target.baseUrl)}`,
+    '-c',
+    `model_providers.${target.provider}.wire_api=${tomlString(wireApi)}`,
+    ...(target.credentialVariable === undefined
+      ? []
+      : ['-c', `model_providers.${target.provider}.env_key=${tomlString(target.credentialVariable)}`]),
+  ];
+};
+
+const modelProjectionWarnings = (input: ProjectionInput): readonly string[] => {
+  const registry = input.modelRegistry;
+  if (registry === undefined) return [];
+  if (registry.errors.length > 0) return registry.errors.map((error) => `models.json: ${error}`);
+  const target = registry.target;
+  if (target === undefined) return [];
+  if (input.harness === 'claude' && target.api !== 'anthropic-messages')
+    return [
+      `claude adapter cannot project model '${target.provider}/${target.model}' with API dialect '${target.api}'.`,
+    ];
+  if (input.harness === 'codex' && target.api !== 'openai-completions' && target.api !== 'openai-responses')
+    return [
+      `codex adapter cannot project model '${target.provider}/${target.model}' with API dialect '${target.api}'.`,
+    ];
+  return [];
+};
 
 const thinkingArg = (composition: CompositionPlan, harness: Harness): readonly string[] =>
   composition.loadout.thinking === undefined
@@ -137,7 +185,17 @@ const buildCodexLaunchPlan = (
 ): AgentLaunchPlan => ({
   command: 'codex',
   // Root `-m` propagation through `exec` was verified empirically on codex-cli 0.145.0.
-  args: [...codexMcpArgs, ...modelArg(composition, '-m'), ...(input.passThroughArgs ?? [])],
+  args: [
+    ...codexMcpArgs,
+    ...codexModelArgs(
+      input.modelRegistry?.target?.api === 'openai-completions' ||
+        input.modelRegistry?.target?.api === 'openai-responses'
+        ? input.modelRegistry.target
+        : undefined,
+    ),
+    ...modelArg(composition, input, '-m'),
+    ...(input.passThroughArgs ?? []),
+  ],
   env: {},
 });
 
@@ -183,6 +241,8 @@ const declareClaudePlugin = (composition: CompositionPlan, input: ProjectionInpu
   writeClaudePluginManifest(input.rootDirectory, input.profileSlug ?? 'outfitter', composition.identity.label);
 };
 
+// Each branch below mirrors one native CLI control; keeping the final argv/env assembly together
+// makes ordering-sensitive flags reviewable as one launch plan.
 const buildPiOrClaudeLaunchPlan = (
   composition: CompositionPlan,
   input: ProjectionInput,
@@ -204,7 +264,8 @@ const buildPiOrClaudeLaunchPlan = (
       ...promptArgs(composition, input, materialized.systemPromptPath, appendPromptPaths),
       ...skillArgs,
       ...extensionArgs,
-      ...modelArg(composition, '--model'),
+      ...(isPi && input.modelRegistry?.target !== undefined ? ['--provider', input.modelRegistry.target.provider] : []),
+      ...modelArg(composition, input, '--model'),
       ...thinkingArg(composition, input.harness),
       ...(isPi ? [] : claudeArgs(input.rootDirectory, isolation)),
       ...(input.passThroughArgs ?? []),
@@ -217,7 +278,27 @@ const buildPiOrClaudeLaunchPlan = (
           PI_CODING_AGENT_DIR: input.rootDirectory,
           ...(input.sessionDirectory === undefined ? {} : { [PI_SESSION_DIRECTORY_ENV]: input.sessionDirectory }),
         }
-      : claudeEnv(input.rootDirectory, isolation),
+      : {
+          ...claudeEnv(input.rootDirectory, isolation),
+          ...(input.modelRegistry?.target?.api === 'anthropic-messages'
+            ? {
+                ANTHROPIC_BASE_URL: input.modelRegistry.target.baseUrl,
+                ...(Object.keys(input.modelRegistry.target.headers).length === 0
+                  ? {}
+                  : {
+                      ANTHROPIC_CUSTOM_HEADERS: Object.entries(input.modelRegistry.target.headers)
+                        .map(([name, value]) => `${name}: ${value}`)
+                        .join('\n'),
+                    }),
+              }
+            : {}),
+        },
+    envReferences:
+      !isPi &&
+      input.modelRegistry?.target?.api === 'anthropic-messages' &&
+      input.modelRegistry.target.credentialVariable !== undefined
+        ? { ANTHROPIC_AUTH_TOKEN: input.modelRegistry.target.credentialVariable }
+        : undefined,
   };
 };
 
@@ -226,6 +307,9 @@ export const projectComposition = (composition: CompositionPlan, input: Projecti
   if (input.harness === 'pi') {
     materializeConfigurationOverlays(input.configurationOverlayDirectories ?? [], input.rootDirectory);
     applyPiRuntimeDefaults(input.rootDirectory);
+    if (input.modelRegistry?.content !== undefined && input.modelRegistry.errors.length === 0) {
+      writeFileSync(join(input.rootDirectory, 'models.json'), input.modelRegistry.content);
+    }
   }
   // Materialization runs for every harness so containment and definition diagnostics are reported
   // uniformly. Codex reads none of the generated files — it takes its MCP config in argv and has no
@@ -248,6 +332,7 @@ export const projectComposition = (composition: CompositionPlan, input: Projecti
         ? ['codex adapter does not project supplied append-prompt documents; they will be dropped.']
         : []),
       ...codexMcp.warnings,
+      ...modelProjectionWarnings(input),
     ];
     return { rootDirectory: input.rootDirectory, launch, unsupported, warnings };
   }
@@ -258,5 +343,5 @@ export const projectComposition = (composition: CompositionPlan, input: Projecti
     ...(input.appendPromptPaths ?? []),
   ]);
 
-  return { rootDirectory: input.rootDirectory, launch, unsupported, warnings: [] };
+  return { rootDirectory: input.rootDirectory, launch, unsupported, warnings: [...modelProjectionWarnings(input)] };
 };

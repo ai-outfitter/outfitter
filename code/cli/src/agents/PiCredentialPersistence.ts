@@ -22,15 +22,25 @@ const copyIfPresent = (sourcePath: string, destinationPath: string): void => {
 };
 
 /** Seeds the projection root with the user's existing pi credentials so pi sees them at startup. */
-export const seedPiCredentials = (projectionRoot: string, piUserAgentDirectory: string): void => {
+export const seedPiCredentials = (
+  projectionRoot: string,
+  piUserAgentDirectory: string,
+  hasCatalogModels = false,
+): void => {
   for (const file of persistentPiStateFiles) {
+    if (hasCatalogModels && file === 'models.json') continue;
     copyIfPresent(join(piUserAgentDirectory, file), join(projectionRoot, file));
   }
 };
 
 /** Copies credentials created or changed during the pi session back to the durable agent dir. */
-export const persistPiCredentials = (projectionRoot: string, piUserAgentDirectory: string): void => {
+export const persistPiCredentials = (
+  projectionRoot: string,
+  piUserAgentDirectory: string,
+  hasCatalogModels = false,
+): void => {
   for (const file of persistentPiStateFiles) {
+    if (hasCatalogModels && file === 'models.json') continue;
     copyIfPresent(join(projectionRoot, file), join(piUserAgentDirectory, file));
   }
 };

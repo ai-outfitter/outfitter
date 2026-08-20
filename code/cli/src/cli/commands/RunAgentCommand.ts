@@ -24,6 +24,7 @@ import { compose } from '../../composer/Composer.js';
 import { ensurePiExtensions } from '../../extensions/PiExtensionCache.js';
 import type { PiInstallSpawner } from '../../extensions/PiExtensionCache.js';
 import { resolveOutfitterCacheDir } from '../../paths/OutfitterCache.js';
+import { resolveModelRegistry } from '../../projection/ModelRegistry.js';
 import { projectComposition } from '../../projection/ProjectHarness.js';
 import type { AgentLaunchPlan } from '../../projection/Projection.js';
 import { strictAmbiguityFailureMessage } from '../../resolver/AmbiguityWarnings.js';
@@ -163,6 +164,7 @@ const launchWithStatePersistence = async (
   rootDirectory: string,
   launch: AgentLaunchPlan,
   lateMessages: string[],
+  hasCatalogModels = false,
 ): Promise<number> => {
   // Persist warnings surface after launch, and writeLine alone can be a dropped sink (setup's
   // auto-launch passes none), so they also go into lateMessages to reach the returned result.
@@ -185,7 +187,7 @@ const launchWithStatePersistence = async (
   const bridgesClaudeState = harness === 'claude' && isolation === 'isolated';
   let seededClaudeCredentialsHash: string | undefined;
   let seededClaudeSessionHashes: ReadonlyMap<string, string> = new Map();
-  if (piUserAgentDirectory !== undefined) seedPiCredentials(rootDirectory, piUserAgentDirectory);
+  if (piUserAgentDirectory !== undefined) seedPiCredentials(rootDirectory, piUserAgentDirectory, hasCatalogModels);
   if (bridgesClaudeState) {
     seededClaudeCredentialsHash = seedClaudeCredentials(rootDirectory, input.homeDirectory, input.projectDirectory);
     attempt('seed Claude session history', () => {
@@ -199,7 +201,9 @@ const launchWithStatePersistence = async (
     return await input.launcher(launch);
   } finally {
     if (piUserAgentDirectory !== undefined) {
-      attempt('persist Pi credentials', () => persistPiCredentials(rootDirectory, piUserAgentDirectory));
+      attempt('persist Pi credentials', () =>
+        persistPiCredentials(rootDirectory, piUserAgentDirectory, hasCatalogModels),
+      );
     }
     if (bridgesClaudeState) {
       attempt('persist Claude credentials', () => {
@@ -287,6 +291,17 @@ const resolutionWarningsForRun = (
   strict: boolean | undefined,
 ): readonly string[] => (strict === true ? resolved.warnings.map((warning) => `warning: ${warning}`) : []);
 
+const hasCatalogModels = (registry: ReturnType<typeof resolveModelRegistry> | undefined): boolean =>
+  registry?.content !== undefined && registry.errors.length === 0;
+
+const modelRegistryForRun = (
+  set: Parameters<typeof resolveModelRegistry>[0],
+  model: string | undefined,
+): ReturnType<typeof resolveModelRegistry> | undefined => {
+  const resolved = resolveModelRegistry(set, model);
+  return resolved.content === undefined && resolved.errors.length === 0 ? undefined : resolved;
+};
+
 const failedCompositionMessages = (
   resolved: ReturnType<typeof resolveEffectiveSet>,
   composed: ReturnType<typeof compose>,
@@ -354,6 +369,7 @@ export const executeRunAgentCommand = async (input: RunAgentInput): Promise<RunA
   const extensions = await loadPiExtensions(input, harness, agentSlug, composed.plan.loadout.extensions);
   const selectedAgent = findResource(set, 'agent', agentSlug)!;
   const configurationOverlays = piConfigurationOverlays(composed.plan, selectedAgent);
+  const modelRegistry = modelRegistryForRun(set, composed.plan.loadout.model);
 
   const rootDirectory = mkdtempSync(join(tmpdir(), `outfitter-${agentSlug}-${harness}-`));
 
@@ -370,6 +386,7 @@ export const executeRunAgentCommand = async (input: RunAgentInput): Promise<RunA
       extensionLoadDirs: harness === 'pi' ? extensions.loadDirs : undefined,
       // ProjectHarness only overlays these for the pi harness, so pass them through unconditionally.
       configurationOverlayDirectories: configurationOverlays,
+      modelRegistry,
     });
 
     // Composition warnings, unsupported harness elements, and extension-install failures are all
@@ -414,6 +431,7 @@ export const executeRunAgentCommand = async (input: RunAgentInput): Promise<RunA
       rootDirectory,
       systemHooks.launch,
       messages,
+      hasCatalogModels(modelRegistry),
     );
 
     return { launchPlan: systemHooks.launch, exitCode, messages };

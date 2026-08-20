@@ -54,7 +54,43 @@ verification.
 
 ```json
 // .agents/agents/engineer/config.json
-{ "provider": "anthropic", "model": "anthropic/claude-sonnet-4", "thinking": "high" }
+{ "model": "company-claude/claude-sonnet-4", "thinking": "high" }
+```
+
+Define endpoints once at the catalog root. Credential values remain in the runtime environment;
+only variable references belong in a shared catalog. Outfitter resolves the selected provider/model
+and projects its endpoint through Pi's native `models.json`, Claude Code's Anthropic gateway
+environment, or Codex's native `model_providers` configuration. A harness warns (and `--strict`
+fails before launch) when the selected API dialect is unsupported.
+
+```json
+{
+  "providers": {
+    "company-claude": {
+      "api": "anthropic-messages",
+      "baseUrl": "https://ai.example.com/anthropic",
+      "apiKey": "$COMPANY_AI_TOKEN",
+      "models": [{ "id": "claude-sonnet-4", "reasoning": true }]
+    },
+    "company-codex": {
+      "api": "openai-responses",
+      "baseUrl": "https://ai.example.com/openai/v1",
+      "apiKey": "$COMPANY_AI_TOKEN",
+      "headers": { "x-company-tenant": "engineering" },
+      "models": [{ "id": "gpt-5.2-codex", "reasoning": true }]
+    },
+    "local-ollama": {
+      "api": "openai-completions",
+      "baseUrl": "http://127.0.0.1:11434/v1",
+      "models": [
+        {
+          "id": "qwen2.5-coder:7b",
+          "compat": { "supportsDeveloperRole": false, "supportsReasoningEffort": false }
+        }
+      ]
+    }
+  }
+}
 ```
 
 ```

@@ -47,6 +47,24 @@ describe('pi credential persistence', () => {
     expect(existsSync(join(projection, 'models.json'))).toBe(false);
   });
 
+  it('keeps catalog models authoritative while still bridging auth credentials', () => {
+    const base = root();
+    const userDir = join(base, 'user');
+    const projection = join(base, 'projection');
+    write(join(userDir, 'auth.json'), '{"token":"user"}');
+    write(join(userDir, 'models.json'), '{"source":"user"}');
+    write(join(projection, 'models.json'), '{"source":"catalog"}');
+
+    seedPiCredentials(projection, userDir, true);
+    expect(readFileSync(join(projection, 'auth.json'), 'utf8')).toBe('{"token":"user"}');
+    expect(readFileSync(join(projection, 'models.json'), 'utf8')).toBe('{"source":"catalog"}');
+
+    writeFileSync(join(projection, 'auth.json'), '{"token":"new"}');
+    persistPiCredentials(projection, userDir, true);
+    expect(readFileSync(join(userDir, 'auth.json'), 'utf8')).toBe('{"token":"new"}');
+    expect(readFileSync(join(userDir, 'models.json'), 'utf8')).toBe('{"source":"user"}');
+  });
+
   it('writes credentials created during the session back to the durable dir', () => {
     const base = root();
     const userDir = join(base, 'user');

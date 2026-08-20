@@ -1,10 +1,13 @@
 // Harness-neutral projection types: a materialized runtime tree plus the launch plan for one run.
 import type { Harness, Isolation } from '../settings/Settings.js';
+import type { EffectiveModelRegistry } from './ModelRegistry.js';
 
 export interface AgentLaunchPlan {
   readonly command: string;
   readonly args: readonly string[];
   readonly env: Readonly<Record<string, string>>;
+  /** Native environment variable aliases resolved from the runtime environment only at spawn. */
+  readonly envReferences?: Readonly<Record<string, string>>;
 }
 
 export interface AgentProjectionPlan {
@@ -42,4 +45,6 @@ export interface ProjectionInput {
   readonly extensionLoadDirs?: readonly string[];
   /** Harness-native configuration directories, highest precedence first, overlaid into the root. */
   readonly configurationOverlayDirectories?: readonly string[];
+  /** Effective canonical models.json plus the selected normalized target. */
+  readonly modelRegistry?: EffectiveModelRegistry;
 }
