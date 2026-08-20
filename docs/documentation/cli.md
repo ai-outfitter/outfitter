@@ -75,12 +75,13 @@ List resolvable resources across all layers, with the winning source for each sl
 
 ## `outfitter validate`
 
-Validate the effective resource set: protocol layout, frontmatter, unresolved slugs in agent loadouts, broken or escaping skill references, and settings schema.
+Validate the effective resource set: protocol layout, frontmatter, unresolved slugs in agent loadouts, broken or escaping skill references, and settings schema. Adapter checks use `--harness` (or `default_harness`, falling back to Pi); for Pi, an agent that selects MCP servers must include `npm:pi-mcp-adapter` in its composed extensions.
 
-| Option     | Description                              |
-| ---------- | ---------------------------------------- |
-| `--strict` | Exit non-zero when warnings are present. |
-| `--json`   | Print diagnostics as JSON.               |
+| Option                | Description                                                     |
+| --------------------- | --------------------------------------------------------------- |
+| `--strict`            | Exit non-zero when warnings are present.                        |
+| `--json`              | Print diagnostics as JSON.                                      |
+| `--harness <harness>` | Target harness for adapter checks (`pi`, `claude`, or `codex`). |
 
 ## `outfitter dump`
 
