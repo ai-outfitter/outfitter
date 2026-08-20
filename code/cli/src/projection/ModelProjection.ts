@@ -78,7 +78,6 @@ const projectClaude = (target: ModelTarget, input: ProjectionInput): ProjectedMo
 
 const codexWireApi = (api: string): string | undefined => {
   if (api === 'openai-responses') return 'responses';
-  if (api === 'openai-completions') return 'chat';
   return undefined;
 };
 

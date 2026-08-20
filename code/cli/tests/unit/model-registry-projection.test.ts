@@ -265,7 +265,7 @@ describe('canonical models.json resolution and projection', () => {
     );
     expect(unsupportedClaude.warnings).toContainEqual(expect.stringContaining('cannot project model'));
 
-    const codex = projectComposition(
+    const unsupportedCodex = projectComposition(
       composition({
         configured: true,
         document: {},
@@ -279,7 +279,8 @@ describe('canonical models.json resolution and projection', () => {
       }),
       { harness: 'codex', rootDirectory: root(), homeDirectory: root() },
     );
-    expect(codex.launch.args.join(' ')).toContain('wire_api="chat"');
+    expect(unsupportedCodex.warnings).toContainEqual(expect.stringContaining('cannot project model'));
+    expect(unsupportedCodex.launch.args).not.toContain('luna');
 
     const invalidProvider = projectComposition(
       composition({
