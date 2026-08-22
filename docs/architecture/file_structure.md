@@ -48,6 +48,7 @@ Outfitter is organized around a private npm workspace root, clear TypeScript pac
 │   │   │   ├── sources/               # cache paths, atomic Git checkout, redaction, private-catalog gating, and transitive catalog-source expansion
 │   │   │   ├── resolver/              # .agents layer resolution into one effective resource set
 │   │   │   ├── composer/              # harness-neutral CompositionPlan from the effective set
+│   │   │   ├── hooks/                 # workspace-only portable hook discovery, snapshots, and projection
 │   │   │   ├── projection/            # materialize a composition + build pi/claude/codex launch plans
 │   │   │   │   └── CodexMcp.ts        # translate selected MCP definitions to Codex TOML CLI overrides
 │   │   │   ├── dump/                  # deterministic self-contained `.agents` tree output
@@ -58,7 +59,7 @@ Outfitter is organized around a private npm workspace root, clear TypeScript pac
 │   │   │   │   └── PiCredentialPersistence.ts     # durable Pi credential/provider seed and copy-back
 │   │   │   ├── paths/                 # Outfitter cache root and repository/packaged asset resolution
 │   │   │   ├── system/                 # root-owned launcher-scope system extension hook loading
-│   │   │   ├── schemas/                # JSON Schema artifacts for persisted settings, agents, and system hooks
+│   │   │   ├── schemas/                # JSON Schema artifacts for settings, agents, and hook manifests
 │   │   │   └── validation/            # shared validation helpers
 │   │   ├── tests/                     # automated CLI package tests and fixtures
 │   │   ├── tsconfig.json              # strict package typecheck configuration

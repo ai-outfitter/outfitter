@@ -3,6 +3,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { PI_SESSION_DIRECTORY_ENV } from '../agents/PiSessionDirectory.js';
 import type { CompositionPlan } from '../composer/Composition.js';
+import { projectWorkspaceHooks } from '../hooks/HookProjection.js';
 import type { Harness, Isolation } from '../settings/Settings.js';
 import { projectCodexMcpServers } from './CodexMcp.js';
 import type { MaterializedComposition } from './Materialize.js';
@@ -242,25 +243,39 @@ export const projectComposition = (composition: CompositionPlan, input: Projecti
 
   if (input.harness === 'codex') {
     const codexMcp = projectCodexMcpServers(composition.loadout.mcp, composition.loadout.mcpServers);
-    const launch = buildCodexLaunchPlan(input, codexMcp.args, projectedModel);
+    const hookProjection = projectWorkspaceHooks(
+      composition,
+      input,
+      buildCodexLaunchPlan(input, codexMcp.args, projectedModel),
+    );
     const warnings = [
       ...(input.appendPromptPaths?.length
         ? ['codex adapter does not project supplied append-prompt documents; they will be dropped.']
         : []),
       ...codexMcp.warnings,
       ...projectedModel.warnings,
+      ...hookProjection.warnings,
     ];
-    return { rootDirectory: input.rootDirectory, launch, unsupported, warnings };
+    return { rootDirectory: input.rootDirectory, launch: hookProjection.launch, unsupported, warnings };
   }
 
   // Caller documents follow the composition's own, so a persona is read against the agent it adopts.
-  const launch = buildPiOrClaudeLaunchPlan(
+  const hookProjection = projectWorkspaceHooks(
     composition,
     input,
-    materialized,
-    [...materialized.appendPromptPaths, ...(input.appendPromptPaths ?? [])],
-    projectedModel,
+    buildPiOrClaudeLaunchPlan(
+      composition,
+      input,
+      materialized,
+      [...materialized.appendPromptPaths, ...(input.appendPromptPaths ?? [])],
+      projectedModel,
+    ),
   );
 
-  return { rootDirectory: input.rootDirectory, launch, unsupported, warnings: projectedModel.warnings };
+  return {
+    rootDirectory: input.rootDirectory,
+    launch: hookProjection.launch,
+    unsupported,
+    warnings: [...projectedModel.warnings, ...hookProjection.warnings],
+  };
 };
