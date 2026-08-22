@@ -94,8 +94,6 @@
         };
     in
     {
-      lib = { inherit mkContainer; };
-
       packages = forAllSystems (
         system:
         let
@@ -186,13 +184,8 @@
 
           default = outfitter;
 
-          container = mkContainer {
-            inherit pkgs;
-            outfitterPackage = outfitter;
-          };
-
-          # The interactive setup smoke image includes every harness offered by onboarding. Keep
-          # the published generic container lean; Numtide owns the fast-moving CLI packages here.
+          # The interactive development image includes every harness offered by onboarding.
+          # Numtide owns the fast-moving CLI packages here.
           container-dev = mkContainer {
             inherit pkgs;
             outfitterPackage = outfitter;
