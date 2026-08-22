@@ -27,7 +27,8 @@ Outfitter stores and exchanges all agent configuration in the vendor-neutral [Do
   agents/<id>/agent.md # agent definitions (+ optional config.json)
   agents/<id>/skills/  # skills private to one agent (also knowledge/, commands/)
   agents/<id>/mcp.json # per-agent MCP config (discovered; projection deferred, #183)
-  agents/<id>/hooks/   # reserved namespace (not yet resolved)
+  hooks/<id>/hook.yml  # workspace-only portable hooks
+  agents/<id>/hooks/   # reserved agent-local namespace
   skills/<id>/...      # Agent Skills packages
   tasks/<id>/task.md   # named execution contracts
   knowledge/...        # reference documents

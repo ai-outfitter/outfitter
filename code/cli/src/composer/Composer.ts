@@ -3,6 +3,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { escapesRoots } from '../dump/Containment.js';
+import { readWorkspaceHooks } from '../hooks/WorkspaceHook.js';
 import { isAgentDefinitionIssue, readAgentDefinition } from '../resolver/AgentDefinition.js';
 import type { AgentDefinition } from '../resolver/AgentDefinition.js';
 import type { EffectiveResourceSet, Loadout, ResolvedResource } from '../resolver/Resource.js';
@@ -540,6 +541,12 @@ export const compose = (set: EffectiveResourceSet, agentSlug: string, options: C
   const composedSubagents = composeSubagents(set, loadout.subagents, options, warnings, errors);
   const uniqueWarnings = uniqueStrings(warnings);
   if (errors.length > 0) return { errors, warnings: uniqueWarnings };
+  let workspaceHooks;
+  try {
+    workspaceHooks = options.projectDirectory === undefined ? undefined : readWorkspaceHooks(options.projectDirectory);
+  } catch (error) {
+    return { errors: [String(error)], warnings: uniqueWarnings };
+  }
 
   return {
     plan: {
@@ -549,6 +556,7 @@ export const compose = (set: EffectiveResourceSet, agentSlug: string, options: C
       loadout: { ...loadout, composedSubagents },
       contributingAgents: chain.map((entry) => entry.resource),
       inheritanceChain: chain.map((entry) => entry.resource.slug),
+      ...(workspaceHooks === undefined ? {} : { workspaceHooks }),
       warnings: uniqueWarnings,
     },
     errors: [],

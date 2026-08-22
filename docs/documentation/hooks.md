@@ -1,19 +1,69 @@
 # Hooks
 
-Hooks let deterministic code run at fixed points in an agent session — before tool calls, after edits, at session start — independent of what the model decides. The `.agents` protocol does not yet define a hooks resource, so hook wiring is harness-specific today. This page documents what works per adapter and where this is heading.
+Hooks run deterministic code at fixed points in an agent session. The model does not decide when a hook runs.
 
-## Claude Code
+## Portable workspace hooks
 
-Claude Code hooks live in its native `settings.json` (`hooks` key), matching tool events to shell commands. Outfitter projects hook configuration into the composite `settings.json` it generates for a Claude launch, so a composition can ship hooks the same way it ships skills:
+Outfitter v1 discovers hooks only from the active workspace:
 
-- Keep hook scripts in a skill's `scripts/` directory or under `commands/`, so they travel with the tree and pass through the same [trust review](./catalogs.md#trust-and-review) as other executable content.
-- Machine-specific hook wiring stays in your local layer and is projected as harness-native config (the Claude `settings.json` Outfitter composes for that launch), not in a `settings.yml` key — the protocol schema defines no hooks field. Keep it out of shared catalogs.
+```text
+.agents/
+└── hooks/
+    └── catalog-authoring/
+        ├── hook.yml
+        └── scripts/
+            └── remind.py
+```
 
-See the [Claude Code hooks documentation](https://code.claude.com/docs/en/hooks) for event types and matcher syntax.
+Outfitter does not discover portable hooks from `~/.agents`, configured sources, or `agents/<agent>/hooks/`. It reads hooks in slug order. It validates each manifest. It then captures all regular package files in the composition. A file change after composition does not change the active launch.
 
-## Pi
+```yaml
+version: 1
+name: catalog-authoring
+description: Remind the agent to update catalog metadata.
+events:
+  stop:
+    command: ./scripts/remind.py
+    args: []
+    timeout_seconds: 30
+```
 
-Pi supports a bootstrap hook via its extension mechanism: an extension passed with `--extension` runs at session start and can register tools, providers, and runtime behavior. Outfitter's own onboarding flow uses this channel. For recurring per-event behavior, Pi extensions are the native surface.
+V1 supports the `stop` event. The manifest name must match the directory slug. A command must start with `./`. It must name an executable regular file inside its package. The package must not contain symlinks. Outfitter runs the command with its argument array. It does not use a shell. The command working directory is the active workspace.
+
+Each command receives one normalized JSON object on stdin:
+
+```json
+{
+  "version": 1,
+  "event": "stop",
+  "harness": "claude",
+  "workspace": "/workspace/project",
+  "hook": {
+    "slug": "catalog-authoring",
+    "name": "catalog-authoring"
+  },
+  "continuation": {
+    "active": false,
+    "supported": true
+  }
+}
+```
+
+The command must use these exit codes:
+
+- Exit 0 allows the session to stop.
+- Exit 2 requests one more agent turn. Outfitter uses command output as the reason.
+- Any other exit, timeout, signal, or launch error produces a warning. Outfitter fails open.
+
+The `continuation.active` value tells the command that a prior stop hook caused the current turn. Claude supplies this state as `stop_hook_active`. Outfitter fails open if a Claude hook requests continuation again while this state is active. The Pi adapter keeps equivalent state and rejects a second consecutive continuation request. Both guards prevent loops.
+
+Outfitter projects the event as follows:
+
+- Claude inherited mode loads temporary plugin hooks. Claude isolated mode writes temporary settings. Outfitter does not change `~/.claude` settings.
+- Pi loads a temporary extension through `--extension`. The extension maps `agent_end` to `stop` and sends an exit-2 reason as a follow-up message.
+- Codex produces a compatibility warning and does not attach the hook. Codex 0.147 reads a project hook from the durable `.codex/hooks.json` path. Its CLI does not provide an alternate hook-file flag for Outfitter's temporary runtime. A session hook also needs review and trust for its exact command. The temporary dispatcher path changes on each run, so Outfitter cannot reuse that trust safely. The legacy `notify` command cannot request continuation and has one user-owned slot. Outfitter does not write `.codex/hooks.json`, replace `notify`, or bypass hook trust. `--strict` makes this warning fatal. See the [Codex hooks documentation](https://developers.openai.com/codex/hooks).
+
+Only `outfitter run` projects these hooks. A direct `claude`, `codex`, or `pi` launch does not run them.
 
 ## System extension hooks
 
@@ -48,6 +98,6 @@ The `--no-extensions` option does not disable explicitly passed `--extension` pa
 
 The normal Linux and macOS directories are root-owned. Outfitter deliberately fails closed on their operator errors: a malformed file should fail on a canary boot, while failing open could silently produce fleet sessions without collection. Those sessions must be treated as unattested rather than clean.
 
-## Roadmap
+## Agent-local hook roadmap
 
-> **TODO (protocol gap):** hooks are the one behavioral surface the pinned protocol revision does not model, which means hook definitions cannot yet be expressed portably in a `.agents` tree and projected per harness. The path `agents/<agent-id>/hooks/<hook-id>/` is reserved for a future agent-local hook entity and deliberately has no resolution or projection behavior today. Outfitter may need to ship its own hooks extension that adapters translate to Claude `settings.json` hooks and Pi extensions respectively, or drive the concept into a future protocol revision. Until one of those lands, treat hooks as harness-native configuration and keep them thin: call scripts that live in the tree rather than embedding logic in hook definitions.
+The path `agents/<agent-id>/hooks/<hook-id>/` remains reserved. Outfitter does not resolve or project it. V1 hooks apply to every Outfitter session that starts in the workspace.

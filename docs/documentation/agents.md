@@ -15,7 +15,7 @@ See [Profiles](./profiles.md).
       config.json   # optional
       skills/       # capabilities private to engineer
         release-debug/SKILL.md
-      hooks/        # reserved for a future portable hook entity
+      hooks/        # reserved agent-local namespace
     code-reviewer/
       agent.md
 ```
@@ -178,7 +178,7 @@ Those runtime-owned resources therefore cannot be replaced accidentally by a pro
 `agents/<agent>/mcp.json` merges by server id over layered tree-root `mcp.json` files.
 The Pi projection writes only the servers selected by the active agent's `mcp` loadout into the runtime `mcp.json`.
 
-The per-agent `agents/<agent>/hooks/` namespace remains reserved and is not yet projected (adapter parity is tracked in [#183](https://github.com/ai-outfitter/outfitter/issues/183)).
+The per-agent `agents/<agent>/hooks/` namespace remains reserved and is not projected. Portable v1 hooks live at the workspace root under `.agents/hooks/<hook>/hook.yml`. See [Hooks](./hooks.md).
 Its presence surfaces a validation warning so content placed there is never silently dropped.
 
 ## config.json

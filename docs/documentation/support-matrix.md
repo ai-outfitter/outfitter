@@ -27,14 +27,14 @@ Tasks and bake are not in this matrix — they are the subject of a [separate up
 | Plugins (agent `plugins:` loadout)                                       | Supported | Roadmap     | Roadmap    |
 | Credentials and environment                                              | Supported | Supported   | Roadmap    |
 | DeepWork job selection                                                   | Supported | Roadmap     | Roadmap    |
-| Hooks                                                                    | Partial   | Partial     | Roadmap    |
+| Workspace hooks (`.agents/hooks/<id>`)                                   | Supported | Supported   | Roadmap³   |
 | Tool availability (agent `tools:` loadout)                               | Supported | Supported   | Roadmap    |
 | Theme / UI presentation                                                  | Roadmap   | Roadmap     | Roadmap    |
 | Working directory                                                        | Roadmap   | Roadmap     | Roadmap    |
 | Pass-through arguments                                                   | Supported | Supported   | Supported  |
 | Bootstrap hook                                                           | Supported | Roadmap     | Roadmap    |
 
-¹ Canonical `anthropic-messages` providers. ² Canonical `openai-responses` providers. Other dialects warn and fail under `--strict` rather than changing endpoints.
+¹ Canonical `anthropic-messages` providers. ² Canonical `openai-responses` providers. Other dialects warn and fail under `--strict` rather than changing endpoints. ³ Codex warns and does not attach the hook because its safe temporary continuation path is not verified.
 
 ## Codex CLI notes
 
@@ -45,6 +45,7 @@ Tasks and bake are not in this matrix — they are the subject of a [separate up
 - **MCP servers (Partial)** — selected stdio fields (`command`, `args`, `env`, `cwd`) and streamable HTTP fields (`url`, `headers`) become repeated TOML-valued `-c mcp_servers.<id>.<key>=...` overrides. Server ids must contain only letters, digits, `_`, or `-`; other ids cannot be expressed by Codex `-c` key paths and are skipped with a warning. Legacy SSE and other HTTP transport types are also skipped with a warning. User and project `config.toml` servers remain active because Codex has no strict MCP isolation mode, so every launch warns that projection is additive, even when no servers are selected.
 - **Stdio environment safety** — `${ENV_NAME}` becomes an `env_vars` reference only when the stdio `env` key is also `ENV_NAME`; a reference that would rename the variable is dropped with a warning. Literal values pass through `env` and are visible in process arguments.
 - **HTTP header safety** — `${ENV_NAME}` becomes an `env_http_headers` reference, while `Authorization: Bearer ${ENV_NAME}` becomes `bearer_token_env_var`. Other header values pass through `http_headers` and are visible in process arguments. Outfitter warns for every literal stdio environment or HTTP header entry exposed in argv, so use environment references for secrets.
+- **Workspace hooks (Roadmap)** — Codex 0.147 reads project hooks from durable `.codex/hooks.json`. It has no alternate hook-file flag for Outfitter's temporary runtime. Session hooks need trust for the exact command, and each launch creates a new dispatcher path. The legacy `notify` program cannot request continuation and has one user-owned slot. Outfitter leaves all three surfaces unchanged and warns. `--strict` makes this warning fatal.
 
 ## Claude Code notes
 
@@ -55,7 +56,7 @@ Tasks and bake are not in this matrix — they are the subject of a [separate up
 - **Subagents** — selected `agents/<id>` definitions are materialized into the composition's agents directory. An inherited run loads them under the plugin's name (`<profile>:<subagent>`); an isolated run finds them natively under `CLAUDE_CONFIG_DIR`.
 - **Skills (Partial)** — selected skills are materialized into the config directory's skills surface; remaining gaps are tracked per release. The bundled Outfitter skill ships through the plugin channel.
 - **Model selection** — an agent's `provider/model` selection resolves from layered `models.json`. Anthropic Messages providers map to native `--model`, `ANTHROPIC_BASE_URL`, `ANTHROPIC_AUTH_TOKEN`, and custom-header controls. Unsupported dialects warn and omit the target instead of reusing its model ID against Claude's default endpoint. Thinking level maps to `--effort`.
-- **Hooks** — Outfitter does not project hook configuration for Claude, and there is no portable protocol hooks resource yet. An inherited run keeps the hooks in your own `~/.claude/settings.json`; an isolated run has none. See [Hooks](./hooks.md).
+- **Workspace hooks** — Outfitter adds workspace stop hooks to the temporary plugin for inherited runs and to temporary settings for isolated runs. User settings remain unchanged. See [Hooks](./hooks.md).
 - **Tool availability** — `tools.allow` (after `tools.deny` removes entries) maps to both `--tools` (_availability_: an unlisted builtin is not in the session) and `--allowedTools` (_permission_: the granted tools are pre-approved, so a headless session is not stopped by a prompt); `tools.deny` always maps to `--disallowedTools`, including when both are declared, and a bare denied name removes the tool from context per Claude's docs. An allowlist that `tools.deny` empties maps to `--tools ""`, Claude's documented "disable all tools" form. Caveat: per the CLI reference, `--tools` governs the built-in set only — MCP tools (`mcp__server__*`) are unaffected and are governed by which MCP servers the loadout selects, so `--tools ""` is not exactly pi's zero-tool session when MCP servers are present. Claude's behavior here comes from `claude --help` and the CLI reference, not local measurement.
 - **DeepWork jobs** — job selection is Pi-only today and warns on Claude.
 - **Bundled Outfitter skill** — every launch also publishes Outfitter's own self-documentation skill as a bundled plugin, so the agent can explain Outfitter and this launch's configuration.
@@ -64,7 +65,7 @@ Tasks and bake are not in this matrix — they are the subject of a [separate up
 
 - Pi projects the full resource set: agent identity, subagents (via the subagent extension), skills (`--skill`), commands, model configuration, MCP, extensions (`--extension`) and plugins as first-class loadout elements, environment, pass-through args, session directory, and DeepWork job selection.
 - Selected skills resolve across layers following [layer precedence](./concepts.md#layer-precedence); `references`, `scripts`, and `assets` frontmatter materialize into a generated skill passed via `--skill`. `outfitter validate` checks selections and references before launch.
-- **Hooks (Partial)** — bootstrap behavior uses an explicit Pi extension via `--extension`; recurring per-event hooks are extension territory. See [Hooks](./hooks.md).
+- **Workspace hooks** — a temporary extension maps `agent_end` to portable `stop` hooks. It can queue one follow-up when a hook exits 2. It rejects a second consecutive continuation request. See [Hooks](./hooks.md).
 - **Tool availability** — `tools.allow` (after `tools.deny` removes entries) maps to `--no-tools --tools a,b,c`, and `tools.deny` maps to `--exclude-tools a,b,c`. `--tools` is a hard allowlist across built-in, extension, and custom tools, so the session's tool set is exactly that list. An allowlist that `tools.deny` empties maps to `--no-tools` alone, a session with no tools at all. Note that `--no-builtin-tools` is deliberately not used: it keeps extension and custom tools enabled, so it does not express an empty tool set.
 - Every launch also passes Outfitter's own self-documentation skill through `--skill`.
 

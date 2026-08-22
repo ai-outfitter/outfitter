@@ -18,7 +18,7 @@ import { isAbsolute, join } from 'node:path';
 
 import type { AgentLaunchPlan } from '../projection/Projection.js';
 import type { Harness } from '../settings/Settings.js';
-import { validateSchema } from '../validation/SchemaValidator.js';
+import { formatValidationIssues, validateSchema } from '../validation/SchemaValidator.js';
 import { parseYamlDocument } from '../validation/YamlDocument.js';
 
 const linuxSystemDirectory = '/etc/outfitter/system.d';
@@ -88,11 +88,6 @@ export const resolveSystemExtensionHookSource = (
       return undefined;
   }
 };
-
-const formatValidationIssues = (
-  filePath: string,
-  issues: readonly { readonly path: string; readonly message: string }[],
-): string => issues.map((issue) => `${filePath}#${issue.path} ${issue.message}`).join('; ');
 
 const resolvePhysicalPath = (path: string, errorMessage: string): string => {
   try {

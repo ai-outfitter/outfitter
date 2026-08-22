@@ -136,10 +136,13 @@ Reusable multi-step procedures selected by an agent's loadout.
 ### Hooks
 
 Deterministic code at fixed session points.
-No protocol resource exists yet; see [Hooks](../documentation/hooks.md) for the roadmap TODO on an Outfitter hooks extension.
+Outfitter discovers the workspace-only v1 entity at `.agents/hooks/<slug>/hook.yml`.
+Composition snapshots each package before projection.
+The v1 surface supports the `stop` event.
 
-- Pi name: bootstrap extension via `--extension` / `-e`; per-event hooks are extension territory
-- Claude name: `hooks` in the generated `settings.json`
+- Pi name: generated `agent_end` extension via `--extension` / `-e`
+- Claude name: `Stop` in temporary plugin hooks or isolated `settings.json`
+- Codex name: compatibility warning; no safe additive continuation projection is available
 
 ### Tool Availability
 
