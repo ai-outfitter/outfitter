@@ -143,12 +143,11 @@ Outfitter assembles a temporary composite profile under the system temp director
 
 ## Docker
 
-Each published release builds the `container` output from `flake.nix` and pushes a `linux/amd64` image to GitHub Container Registry as `ghcr.io/ai-outfitter/outfitter:<version>` and `ghcr.io/ai-outfitter/outfitter:latest` (see the `publish-docker` job in `.github/workflows/release.yml`).
-The image uses the Nix-built Outfitter package directly as its entrypoint and
-includes the Nix CLI, Bash, core utilities, Git, SSH, and CA certificates. See
-[Container images](docs/documentation/containers.md) for the persistent runtime
-contract and the reusable Nix image builder.
-Use the manually dispatched `Container` workflow to reproduce and smoke test a release image without publishing it. Its Nix store paths are cached between GitHub Actions runs; the normal pull-request and push CI workflow does not build the image.
+Each published release builds a `linux/amd64` image from `container/Dockerfile` and pushes it to GitHub Container Registry as `ghcr.io/ai-outfitter/outfitter:<version>` and `ghcr.io/ai-outfitter/outfitter:latest` (see the `publish-docker` job in `.github/workflows/release.yml`).
+The image installs the built CLI package and includes Node.js, npm, Git, SSH,
+and CA certificates. See [Container images](docs/documentation/containers.md)
+for the persistent runtime contract.
+Use the manually dispatched `Container` workflow to reproduce and smoke test a release image without publishing it. The normal pull-request and push CI workflow does not build the image.
 
 Run the published image:
 
@@ -159,14 +158,14 @@ docker run --rm -it ghcr.io/ai-outfitter/outfitter
 ## Test profiles with a local container
 
 The release workflow publishes the npm package from the `code/cli` workspace and the container image to GHCR.
-The flake container output is also useful for local smoke testing on Linux.
+The flake keeps a development image for local smoke tests on Linux.
 
 Build a local image from the repository root:
 
 ```sh
-nix build .#container
+nix build .#container-dev
 docker load < result
-docker tag outfitter:latest outfitter:dev
+docker tag outfitter-dev:latest outfitter:dev
 ```
 
 Run setup from a remote setup source:

@@ -2,7 +2,7 @@
 
 ## Overview
 
-Outfitter release publishing prepares package metadata from Conventional Commit release PRs and GitHub release tags, then publishes the `@ai-outfitter/outfitter` CLI workspace package through npm trusted publishing / OIDC and the container images — a Debian-based primary image and a flake-built `-nix` variant — through GitHub Container Registry.
+Outfitter release publishing prepares package metadata from Conventional Commit release PRs and GitHub release tags. It publishes the `@ai-outfitter/outfitter` CLI workspace package through npm trusted publishing and OIDC. It publishes a Debian-based container image through GitHub Container Registry.
 
 ## Requirements
 
@@ -40,10 +40,6 @@ Outfitter release publishing prepares package metadata from Conventional Commit 
 2. The primary image MUST install Outfitter from the CLI workspace tarball built in the release workflow, not from the npm registry, so the image is buildable for unreleased versions and in CI before publish.
 3. The primary image MUST include Node.js matching the `.node-version` major, npm, Git, SSH, and CA certificates at their conventional Debian paths, and MUST use `outfitter` as its entrypoint.
 4. The primary image MUST run as UID/GID 1000 with `/workspace` as its working directory and `/tmp` as its default home directory.
-5. The release workflow MUST smoke test each image before publishing it, including `outfitter --version`, the presence of Node.js, npm, Git, and SSH, and the CA bundle at `/etc/ssl/certs/ca-certificates.crt` in the primary image.
-6. The release workflow MUST smoke test a derivative build of the primary image that installs a package with `apt-get` as root and returns to UID 1000.
-7. The Nix closure image MUST remain published under the `-nix` tag suffix for `lib.mkContainer` consumers.
-8. The flake MUST expose the `-nix` container as the `container` package output, and that container MUST use the Nix-built Outfitter package directly as its entrypoint.
-9. The `-nix` container MUST include the Nix CLI, a shell, core utilities, Git, SSH, and CA certificates, and the flake MUST expose a container builder that accepts caller-selected runtime packages without rebuilding Outfitter through another package manager.
-10. The release workflow MUST smoke test Outfitter, Nix, and the conventional shell and environment executable paths in the `-nix` image.
-11. Documentation MUST define the persistent Kubernetes invocation, describe conventional Dockerfile extension of the primary image, scope the writable-`/nix` guidance to the `-nix` variant, and explain that callers own profile configuration, credentials, and channel-specific extensions.
+5. The release workflow MUST smoke test the image before publishing it. The test MUST check `outfitter --version`, Node.js, npm, Git, SSH, and the CA bundle at `/etc/ssl/certs/ca-certificates.crt`.
+6. The release workflow MUST smoke test a derivative build of the image. The build MUST install a package with `apt-get` as root. The build MUST return to UID 1000.
+7. Documentation MUST define the persistent Kubernetes invocation and conventional Dockerfile extension. It MUST explain that callers own profile configuration, credentials, and channel-specific extensions.

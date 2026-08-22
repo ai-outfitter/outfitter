@@ -1,7 +1,6 @@
 # Outfitter primary published image (ghcr.io/ai-outfitter/outfitter).
 #
-# Debian-based on purpose. The previous primary image was a Nix closure
-# (flake.nix mkContainer, still published as the `-nix` variant): end users
+# Debian-based on purpose. The previous image was a Nix closure. End users
 # could not extend it conventionally — no apt, no /lib64 ELF interpreter for
 # foreign dynamic binaries, node/npm not on PATH (extension installs died with
 # `spawn npm ENOENT`), and the CA bundle at a non-default path. This image

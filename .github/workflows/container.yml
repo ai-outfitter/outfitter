@@ -8,7 +8,7 @@ on:
         required: true
         type: string
       publish:
-        description: Push the validated images to GHCR
+        description: Push the validated image to GHCR
         required: false
         default: false
         type: boolean
@@ -25,7 +25,7 @@ on:
         default: v1.0.1
         type: string
       publish:
-        description: Push the validated images to GHCR
+        description: Push the validated image to GHCR
         required: false
         default: false
         type: boolean
@@ -40,9 +40,8 @@ permissions:
   packages: write
 
 jobs:
-  # The primary published image. Debian-based so end users can extend it with
-  # an ordinary Dockerfile (FROM + apt-get install / COPY); the Nix closure
-  # image below could not be extended that way and is now the -nix variant.
+  # The published image. Debian-based so end users can extend it with an
+  # ordinary Dockerfile (FROM + apt-get install / COPY).
   debian:
     name: Build and smoke test Debian image
     runs-on: ubuntu-latest
@@ -101,11 +100,8 @@ jobs:
             test -f /etc/ssl/certs/ca-certificates.crt
           '
 
-      # Extension is the workflow this image exists for. Prove the real
-      # end-user story: FROM the published image, apt-get install a tool,
-      # drop back to uid 1000, and the entrypoint still works. This is what
-      # the Nix closure image could not do — a downstream needed a 104-line
-      # repair Dockerfile to get here.
+      # Prove the extension workflow: install a tool, return to uid 1000, and
+      # confirm that the entrypoint still works.
       - name: Smoke test derivative image
         run: |
           set -euo pipefail
@@ -139,117 +135,3 @@ jobs:
         run: |
           docker tag "$IMAGE:$VERSION" "$IMAGE:latest"
           docker push "$IMAGE:latest"
-
-  # The former primary image: the Nix closure built by flake.nix mkContainer,
-  # kept for lib.mkContainer consumers and published under the -nix suffix.
-  nix:
-    name: Build and smoke test Nix image
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-        with:
-          persist-credentials: false
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
-        with:
-          node-version-file: '.node-version'
-
-      - name: Sync release version
-        run: node scripts/sync-release-version.mjs "${{ inputs.version }}"
-
-      - name: Install Nix
-        uses: DeterminateSystems/determinate-nix-action@v3
-
-      - name: Restore and save Nix store
-        uses: nix-community/cache-nix-action@v7
-        with:
-          primary-key: nix-${{ runner.os }}-${{ hashFiles('flake.lock', 'flake.nix', 'package-lock.json', 'code/cli/package.json') }}
-          restore-prefixes-first-match: nix-${{ runner.os }}-
-          gc-max-store-size-linux: 2G
-
-      - name: Resolve image name
-        run: |
-          echo "IMAGE=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/outfitter" >> "$GITHUB_ENV"
-          echo "VERSION=${VERSION_INPUT#v}" >> "$GITHUB_ENV"
-        env:
-          VERSION_INPUT: ${{ inputs.version }}
-
-      - name: Build and load image
-        run: |
-          nix build .#container
-          docker load < result
-          docker tag outfitter:latest "$IMAGE:$VERSION-nix"
-
-      - name: Smoke test image
-        run: |
-          output="$(docker run --rm "$IMAGE:$VERSION-nix" --version)"
-          if [ "$output" != "$VERSION" ]; then
-            echo "Expected outfitter --version to print '$VERSION' but got '$output'." >&2
-            exit 1
-          fi
-          docker run --rm --entrypoint /bin/sh "$IMAGE:$VERSION-nix" -c \
-            'nix --version && node --version && npm --version && test -x /bin/bash && test -x /usr/bin/env && test -r "$SSL_CERT_FILE"'
-          docker run --rm --entrypoint /bin/sh "$IMAGE:$VERSION-nix" -c \
-            'git ls-remote --exit-code https://github.com/ai-outfitter/default-profiles.git HEAD'
-
-      - name: Smoke test quiet extension loading
-        run: |
-          workdir="$(mktemp -d)"
-          mkdir -p "$workdir/.agents/agents/smoke"
-          printf '%s\n' \
-            '---' \
-            'name: smoke' \
-            'extensions: ["npm:pi-nolo"]' \
-            '---' \
-            '' \
-            'Container extension smoke test.' \
-            > "$workdir/.agents/agents/smoke/agent.md"
-
-          output="$(docker run --rm -v "$workdir:/workspace:ro" "$IMAGE:$VERSION-nix" run smoke -- --help 2>&1)"
-          grep -q 'pi - AI coding assistant' <<< "$output"
-          if grep -Eq 'Installing npm:|spawn npm ENOENT' <<< "$output"; then
-            echo 'Normal startup exposed extension installer output.' >&2
-            printf '%s\n' "$output" >&2
-            exit 1
-          fi
-
-          debug_output="$(docker run --rm -v "$workdir:/workspace:ro" "$IMAGE:$VERSION-nix" run smoke --log-level debug -- --help 2>&1)"
-          grep -q 'Installing npm:pi-nolo' <<< "$debug_output"
-
-      # Process residency is covered at the CLI level instead — signal forwarding lives in
-      # spawnLauncher, so tests/unit/agent-launch.test.ts asserts it directly
-      # rather than inferring it from container exit codes.
-      - name: Smoke test derivative image
-        run: |
-          set -euo pipefail
-          # A consumer extends the base with its own entrypoint. This failed
-          # before /etc/passwd carried root: the builder resolves USER against
-          # the base image's passwd file, so `USER root` aborted the build with
-          # "unknown user error looking up user root".
-          workdir="$(mktemp -d)"
-          printf '#!/bin/bash\nexec outfitter "$@"\n' > "$workdir/entrypoint"
-          cat > "$workdir/Dockerfile" <<DOCKERFILE
-          FROM $IMAGE:$VERSION-nix
-          USER root
-          COPY entrypoint /opt/agent/entrypoint
-          RUN chmod 0755 /opt/agent/entrypoint
-          USER 1000:1000
-          ENTRYPOINT ["/opt/agent/entrypoint"]
-          DOCKERFILE
-          docker build -t outfitter-nix-derivative:smoke "$workdir"
-          docker run --rm outfitter-nix-derivative:smoke --version
-
-      - name: Log in to GitHub Container Registry
-        if: inputs.publish
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Push version tag
-        if: inputs.publish
-        run: docker push "$IMAGE:$VERSION-nix"
