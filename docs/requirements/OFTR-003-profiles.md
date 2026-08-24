@@ -6,6 +6,8 @@
 > Section IDs are preserved for pinned-test traceability.
 > Target design: [docs/documentation/agents.md](../documentation/agents.md) and [docs/architecture/README.md](../architecture/README.md).
 
+> **Amendment (2026-08-19, issue [#315](https://github.com/ai-outfitter/outfitter/issues/315)):** Validation now diagnoses Pi agents that select MCP servers without the MCP adapter extension, preventing a healthy-looking launch with no projected MCP tools.
+
 ## Overview
 
 An agent is the protocol's identity resource and the thing Outfitter runs.
@@ -63,6 +65,7 @@ Outfitter resolves agents and other resources from layered `.agents` trees into 
 2. Outfitter MUST report a warning when a resource shadows a lower-precedence definition of the same slug.
 3. `outfitter validate --strict` MUST treat warnings as failures.
 4. Validation MUST parse every discovered agent-local skill and report malformed definitions, name/directory mismatches, and local resources without a resolvable owning agent.
+5. When targeting Pi, `outfitter validate` MUST warn for every composed agent that selects one or more MCP servers without the `npm:pi-mcp-adapter` extension; `--strict` MUST make the warning fatal. Agents with no MCP selection and validation targeting another harness MUST remain unaffected.
 
 ### OFTR-003.8: Listing Resources
 
