@@ -88,7 +88,11 @@ Layers merge by ID: `<project>/.agents/` over `~/.agents/` over pinned remote [c
 
 ## Documentation
 
-The [documentation index](./docs/documentation/README.md) follows the same arc — set up your own, understand the pieces, share across your org, automate more surfaces, contribute back:
+Start with [How AI Outfitter fits together](./docs/documentation/ai-outfitter.md)
+for the organization mission, adoption ramp, end-to-end workflow, and how the
+projects relate.
+
+The [documentation index](./docs/documentation/README.md) covers setup, core concepts, organization-wide sharing, automation, and contribution:
 
 - **Climb:** [Share one catalog](./docs/runbooks/share-one-catalog.md) · [Run it without your laptop](./docs/runbooks/run-without-your-laptop.md) · [Give the agent a residence](./docs/runbooks/give-the-agent-a-residence.md)
 - **Start:** [Getting started](./docs/documentation/getting-started.md) · [First-time CLI agent users](./docs/documentation/first-time-cli-agent-users.md) · [Switching to Outfitter](./docs/documentation/switching-to-outfitter.md)

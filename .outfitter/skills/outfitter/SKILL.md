@@ -7,6 +7,7 @@ description: Explain Outfitter and help users compose, inspect, and maintain .ag
 # documentation tree ships with this skill. Kept per-file until then.
 references:
   - file: docs/documentation/README.md
+  - file: docs/documentation/ai-outfitter.md
   - file: docs/documentation/getting-started.md
   - file: docs/documentation/concepts.md
   - file: docs/documentation/settings.md
@@ -41,6 +42,9 @@ before answering or editing configuration.
 
 ## Routing
 
+- AI Outfitter itself — the organization, mission, adoption ramp, end-to-end
+  workflow, or relationships between its components: read
+  `references/ai-outfitter.md`.
 - New to Outfitter, installing, or first launch: read
   `references/getting-started.md`.
 - How a launch works — the `.agents` protocol, layers, resolver, composition:
