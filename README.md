@@ -38,7 +38,7 @@ Claude Code and Codex CLI, separately. For the full walkthrough, see [Getting st
 
 ## Climb the ramp
 
-Three runbooks, one per rung of [the adoption ramp](./docs/philosophy.md#the-ramp-to-an-autonomous-lifecycle). Each starts where the previous one ended and closes with the one concrete step that begins the next rung. Their success checks are the signals an [SDLC assessment](./docs/documentation/usecases/org-onboarding-sdlc-report.md) reports, so "done" is something you run rather than something you judge.
+Three runbooks, one per rung of [the adoption ramp](./docs/philosophy.md#the-ramp-to-an-autonomous-lifecycle). Each starts where the previous one ended and closes with the one concrete step that begins the next rung. Their success checks come from [Link's deterministic scan and explicitly accepted reviewed evidence](./docs/documentation/usecases/org-onboarding-sdlc-report.md), so "done" is something you run and review rather than something you guess.
 
 1. [**Share one catalog**](./docs/runbooks/share-one-catalog.md) — one pinned catalog the organization shares, instead of per-laptop configuration. → **delegated**
 2. [**Run it without your laptop**](./docs/runbooks/run-without-your-laptop.md) — an event triggers the workflow, its output lands through review, and the session is captured. → **automated**

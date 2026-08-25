@@ -28,8 +28,7 @@ against the catalog's governance baseline. Write the report straight into
 the dated directory it will be committed from:
 
 ```sh
-npx @ai-outfitter/link@1 report <org> \
-  --out ~/repos/<org>/.agents/reports/sdlc/$(date +%F)-initial
+npx @ai-outfitter/link@1 review <org>
 ```
 
 Or with Docker, if you would rather not install anything:
@@ -54,8 +53,8 @@ rather than minutes.
 Naming a target scopes the report to it, so the file you are about to commit
 into `<org>`'s repository describes `<org>` and nothing else.
 
-You get one file, `report.json`, plus a copy in
-`$XDG_DATA_HOME/outfitter-link/`. It contains, for each repository, a
+You get `report.json` plus a preserved scan under
+`$XDG_DATA_HOME/outfitter-link/scans/<scope>/<scan-id>/`. It contains, for each repository, a
 maturity-ramp placement (level 0–5), the tree-derived signals behind it
 (instruction files, `.agents/` trees, agent workflows, deploy manifests), and
 a per-rule audit against the governance baseline. At org level it carries the
@@ -63,11 +62,16 @@ milestones that gate each rung, the `gaps` blocking the next one, and
 `evidence_limits` — what the scan could not see, which bounds every claim in
 it.
 
-Read the `gaps` before moving on. They name what blocks the next rung, not
-the top of the ramp.
+Read the next reachable rung before moving on. It names what blocks the next
+rung, not the top of the ramp.
 
-To see the report rendered, with the workflow definitions beside it, clone
-the repository and run `link web`.
+The command serves the report after scanning. Use the same local dashboard to
+select the scan and prepare an agent review when custom-named automation or
+other semantic evidence was missed. Link prints complete commands for Claude
+Code, Codex, Pi through Outfitter, and a prompt-only fallback; it never starts
+the agent. Load the generated result and accept or reject each claim. Only an
+accepted claim changes the separate reviewed score. The scanner score and
+`report.json` remain unchanged.
 
 ### What the scan does not measure
 
@@ -79,11 +83,11 @@ makes no judgments: no cycle time, no rework rate, no inventory of which
 harnesses and model vendors are actually in use, and no duplication analysis
 across teams.
 
-When you want those, run the `sdlc-report` skill on a local coding harness as
-a second, deeper pass. It answers the same question with an agent's judgment
-instead of a checker's rules, and it emits recommendations. Start with
-`link` — it is the cheap, repeatable baseline, and it is the one you will
-re-run.
+When you want those, use Link's **Prepare agent review** action. The
+`sdlc-report` skill is one optional reusable implementation of that semantic
+pass, not the entry point. Link pins the prompt to the current scan
+fingerprint, constrains the review to registered local roots and GitHub
+targets, validates concrete evidence, and keeps acceptance a human decision.
 
 ## 3. Create the org `.agents` repository
 

@@ -34,7 +34,7 @@ At every level the goal is the same: the right profile, at the right moment, wit
 
 ## The ramp to an autonomous lifecycle
 
-Outfitter's destination is a fully autonomous software development lifecycle: humans define goals and acceptance gates, agents own the middle. Nobody jumps there in one step. Adoption is a ramp with five rungs, and each Outfitter component targets a rung, so a user or an organization climbs without discarding the previous rung. This section is the canonical definition; the org README and the `sdlc-report` assessment skill compress or extend it.
+Outfitter's destination is a fully autonomous software development lifecycle: humans define goals and acceptance gates, agents own the middle. Nobody jumps there in one step. Adoption is a ramp with five rungs, and each Outfitter component targets a rung, so a user or an organization climbs without discarding the previous rung. This section is the canonical definition; the org README and Link's scanner plus reviewed-evidence workflow compress or extend it. The `sdlc-report` skill is an optional semantic reviewer.
 
 1. **Assisted** — autocomplete and chat; a human's hands stay on the keyboard.
 2. **Delegated** — a local agent does the task; the human defines the idea and reviews the PR.

@@ -71,9 +71,11 @@ The assessment reads the required check, not the uploaded file. A repository car
 
 ## Done when
 
-Run an organization SDLC assessment. Three signals define this rung:
+Run `link review <org>`. Four milestones define this rung:
 
 - `triggered-agents` — agents run from events rather than from a laptop.
+- `agent-review` — adversarial review is automated. Link detects conventional
+  workflow names; prepare and accept semantic evidence for a custom name.
 - `protected-landing` — every repository where an agent lands changes enforces branch protection.
 - `session-capture` — the capture reports a required check, direct pushes are blocked, no actor bypasses the ruleset unconditionally, and the check has actually reported on what landed.
 
