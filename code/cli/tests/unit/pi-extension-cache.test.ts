@@ -126,6 +126,80 @@ describe('mapSpecifierToPiSource', () => {
 });
 
 describe('ensurePiExtensions', () => {
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-006.3.20).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('loads existing relative, home, and absolute paths without invoking the installer', async () => {
+    const cache = cacheDir();
+    const declaringRoot = join(cache, 'catalog', '.agents');
+    const relative = join(declaringRoot, 'extensions', 'relative.ts');
+    const parent = join(cache, 'catalog', 'shared-extension');
+    const home = join(cache, 'home');
+    const homeExtension = join(home, 'extensions', 'home-extension');
+    const absolute = join(cache, 'absolute-extension.js');
+    mkdirSync(join(declaringRoot, 'extensions'), { recursive: true });
+    mkdirSync(parent, { recursive: true });
+    mkdirSync(homeExtension, { recursive: true });
+    writeFileSync(relative, '');
+    writeFileSync(absolute, '');
+    let spawned = 0;
+
+    const result = await ensurePiExtensions(
+      [
+        { specifier: './extensions/relative.ts', declaringRoot },
+        { specifier: '../shared-extension', declaringRoot },
+        { specifier: '~/extensions/home-extension', declaringRoot },
+        { specifier: absolute, declaringRoot },
+      ],
+      {
+        cacheAgentDir: join(cache, 'pi-cache'),
+        homeDirectory: home,
+        offline: false,
+        spawn: () => {
+          spawned += 1;
+          return Promise.resolve(0);
+        },
+      },
+    );
+
+    expect(spawned).toBe(0);
+    expect(result).toEqual({ loadDirs: [relative, parent, homeExtension, absolute], warnings: [] });
+  });
+
+  it('warns when a home or relative path lacks the base needed to resolve it', async () => {
+    const cache = cacheDir();
+    const result = await ensurePiExtensions(['~/extension', './extension'], {
+      cacheAgentDir: cache,
+      offline: false,
+    });
+
+    expect(result.loadDirs).toEqual([]);
+    expect(result.warnings).toEqual([
+      "extension '~/extension' cannot expand '~/' without a home directory.",
+      "extension './extension' has no declaring .agents directory.",
+    ]);
+  });
+
+  it('warns and drops missing local paths without invoking the installer', async () => {
+    const cache = cacheDir();
+    const declaringRoot = join(cache, '.agents');
+    let spawned = 0;
+    const result = await ensurePiExtensions([{ specifier: './missing', declaringRoot }], {
+      cacheAgentDir: join(cache, 'pi-cache'),
+      homeDirectory: join(cache, 'home'),
+      offline: false,
+      spawn: () => {
+        spawned += 1;
+        return Promise.resolve(0);
+      },
+    });
+
+    expect(spawned).toBe(0);
+    expect(result.loadDirs).toEqual([]);
+    expect(result.warnings).toEqual([
+      `extension './missing' resolves to missing local path '${join(declaringRoot, 'missing')}'.`,
+    ]);
+  });
+
   const spawnCreating: PiInstallSpawner = ({ source, cacheAgentDir }) => {
     const mapped = mapSpecifierToPiSource(source);
     if (!('unsupported' in mapped)) writePackage(join(cacheAgentDir, ...mapped.installSegments), '1.0.0');

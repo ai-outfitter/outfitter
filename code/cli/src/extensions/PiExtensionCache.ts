@@ -17,7 +17,7 @@
 // Offline, a checkout that provably mismatches its pin is dropped with a warning — the same
 // severity the offline path already applies to a missing extension (fatal only under `--strict`).
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { join, resolve, sep } from 'node:path';
+import { isAbsolute, join, resolve, sep } from 'node:path';
 
 import { createSpawnLauncher, launchThroughSpawn, spawnLauncher } from '../agents/AgentLaunch.js';
 import { runGit } from '../sources/GitRepository.js';
@@ -29,8 +29,16 @@ export type PiInstallSpawner = (input: {
   readonly debug?: boolean;
 }) => Promise<number>;
 
+export interface PiExtensionReference {
+  readonly specifier: string;
+  /** Absolute `.agents` payload root of the declaring agent, for `./` and `../` paths. */
+  readonly declaringRoot?: string;
+}
+
 export interface EnsurePiExtensionsInput {
   readonly cacheAgentDir: string;
+  /** Home used to expand `~/`; injected rather than read globally so isolated runs stay isolated. */
+  readonly homeDirectory?: string;
   /** When true, missing extensions are never installed — they warn and are dropped. */
   readonly offline: boolean;
   /** Show the underlying pi/git/npm installer output. Normal startup keeps it behind loading UI. */
@@ -215,12 +223,44 @@ const defaultSpawner: PiInstallSpawner = ({ source, cacheAgentDir, debug }) =>
 
 type SpecifierOutcome = { readonly loadDir: string } | { readonly warning: string };
 
-/** Resolves one specifier to a cached load directory, installing it when online and missing. */
+const isRelativeLocalPath = (specifier: string): boolean => specifier.startsWith('./') || specifier.startsWith('../');
+
+const resolveLocalExtension = (
+  reference: PiExtensionReference,
+  input: EnsurePiExtensionsInput,
+): SpecifierOutcome | undefined => {
+  const { specifier } = reference;
+  let localPath: string | undefined;
+  if (isAbsolute(specifier)) {
+    localPath = resolve(specifier);
+  } else if (specifier.startsWith('~/')) {
+    if (input.homeDirectory === undefined) {
+      return { warning: `extension '${specifier}' cannot expand '~/' without a home directory.` };
+    }
+    localPath = resolve(input.homeDirectory, specifier.slice(2));
+  } else if (isRelativeLocalPath(specifier)) {
+    if (reference.declaringRoot === undefined) {
+      return { warning: `extension '${specifier}' has no declaring .agents directory.` };
+    }
+    localPath = resolve(reference.declaringRoot, specifier);
+  }
+
+  if (localPath === undefined) return undefined;
+  return existsSync(localPath)
+    ? { loadDir: localPath }
+    : { warning: `extension '${specifier}' resolves to missing local path '${localPath}'.` };
+};
+
+/** Resolves one specifier to a local or cached load directory, installing remote sources as needed. */
 const ensureOneExtension = async (
-  specifier: string,
+  reference: PiExtensionReference,
   input: EnsurePiExtensionsInput,
   spawn: PiInstallSpawner,
 ): Promise<SpecifierOutcome> => {
+  const local = resolveLocalExtension(reference, input);
+  if (local !== undefined) return local;
+
+  const { specifier } = reference;
   const mapped = mapSpecifierToPiSource(specifier);
   if ('unsupported' in mapped) return { warning: mapped.unsupported };
 
@@ -249,15 +289,16 @@ const ensureOneExtension = async (
 
 /** Ensures each pi extension is cached (installing when online) and returns its load directory. */
 export const ensurePiExtensions = async (
-  specifiers: readonly string[],
+  specifiers: readonly (string | PiExtensionReference)[],
   input: EnsurePiExtensionsInput,
 ): Promise<EnsurePiExtensionsResult> => {
   const spawn = input.spawn ?? defaultSpawner;
   const loadDirs: string[] = [];
   const warnings: string[] = [];
 
-  for (const specifier of specifiers) {
-    const outcome = await ensureOneExtension(specifier, input, spawn);
+  for (const item of specifiers) {
+    const reference = typeof item === 'string' ? { specifier: item } : item;
+    const outcome = await ensureOneExtension(reference, input, spawn);
     if ('loadDir' in outcome) {
       if (!loadDirs.includes(outcome.loadDir)) loadDirs.push(outcome.loadDir);
     } else {

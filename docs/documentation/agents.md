@@ -61,13 +61,13 @@ Per-capability procedures belong in [skills](./skills.md); the frontmatter only 
 | `skills`     | [Skill](./skills.md) slugs made available to the run.                        |
 | `mcp`        | MCP servers from the tree's `mcp.json` to enable.                            |
 | `subagents`  | Agent slugs projected as harness delegates. See [Subagents](./subagents.md). |
-| `extensions` | Pi extensions to load. First-class, per the adapter.                         |
+| `extensions` | Pi extension package specifiers or local paths to load.                      |
 | `plugins`    | Pi plugins to load. First-class, per the adapter.                            |
 | `model`      | Provider/model from `models.json`.                                           |
 | `thinking`   | Thinking/effort level.                                                       |
 | `tools`      | Allowed/denied tool policy for the run.                                      |
 
-Every value is a slug resolved across layers.
+Skill, MCP, and subagent values are slugs resolved across layers.
 Skills first check `agents/<agent>/skills/<slug>/` across layer precedence, then fall back to catalog-wide `skills/<slug>/`.
 This lets an agent own private implementation capabilities without exposing them to every agent in the catalog.
 See [Skills](./skills.md#agent-local-skills).
@@ -75,6 +75,16 @@ See [Skills](./skills.md#agent-local-skills).
 `knowledge` and `commands` resolve the same way — an agent may keep private files under `agents/<agent>/knowledge/` and `agents/<agent>/commands/`, local-first over the catalog-wide trees.
 `subagents` are always catalog-wide (a delegate is a shared agent).
 `extensions`/`plugins` are harness-native passthroughs with no on-disk namespace, and `model`/`thinking`/`tools` are per-agent already via `config.json` merge.
+
+For Pi, an extension may be a remote `npm:` or `git:` specifier, or a local file/directory path. Relative paths beginning with `./` or `../` resolve from the `.agents` payload root of the agent that declares them, including inherited agents from another layer. Paths beginning with `~/` resolve from the active Outfitter home directory, and absolute paths remain absolute. Local targets must already exist; Outfitter passes their resolved paths directly with `--extension` and never installs or copies them into its extension cache.
+
+```yaml
+extensions:
+  - ./extensions/local-tools.ts
+  - ../shared/pi-extension
+  - ~/projects/my-extension
+  - /opt/company/pi-extension
+```
 
 ### Provider and model registry
 

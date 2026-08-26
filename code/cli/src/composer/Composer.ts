@@ -7,15 +7,18 @@ import { isAgentDefinitionIssue, readAgentDefinition } from '../resolver/AgentDe
 import type { AgentDefinition } from '../resolver/AgentDefinition.js';
 import type { EffectiveResourceSet, Loadout, ResolvedResource } from '../resolver/Resource.js';
 import { findLoadoutResource, findResource } from '../resolver/Resource.js';
-import type { ComposedLoadout, ComposedSubagent, ComposedSubagentIdentity, CompositionPlan } from './Composition.js';
+import type {
+  ComposedExtensionSelection,
+  ComposedLoadout,
+  ComposeOptions,
+  ComposedSubagent,
+  ComposedSubagentIdentity,
+  CompositionPlan,
+} from './Composition.js';
+import { composeExtensionSelections } from './ExtensionSelection.js';
 import { resolveModelRegistry } from './Models.js';
 import type { PromptFragment, PromptSourceReference } from './PromptSource.js';
 import { agentBodyFragment, promptSourceKey, resolvePromptSource, rootPromptFragment } from './PromptSource.js';
-
-export interface ComposeOptions {
-  /** Active repository root for `repo_file` prompt references. */
-  readonly projectDirectory?: string;
-}
 
 export interface ComposeResult {
   readonly plan?: CompositionPlan;
@@ -38,6 +41,7 @@ interface EffectiveControls {
   readonly skillSelections: readonly DeclaredSlug[];
   readonly subagentSelections: readonly DeclaredSlug[];
   readonly mcpSelections: readonly DeclaredSlug[];
+  readonly extensionSelections: readonly ComposedExtensionSelection[];
   readonly appendPromptSelections: readonly {
     readonly source: PromptSourceReference;
     readonly owner: string;
@@ -193,6 +197,12 @@ const composeEffectiveControls = (chain: readonly ChainEntry[]): EffectiveContro
   const skills = declaredSelections(chain, (definition) => definition.loadout.skills);
   const subagents = declaredSelections(chain, (definition) => definition.loadout.subagents);
   const mcp = declaredSelections(chain, (definition) => definition.loadout.mcp);
+  const extensions = composeExtensionSelections(
+    chain.map((entry) => ({
+      specifiers: entry.definition.loadout.extensions,
+      declaringRoot: entry.resource.winner.layer.root,
+    })),
+  );
   const model = nearest(chain, (definition) => definition.loadout.model);
   const thinking = nearest(chain, (definition) => definition.loadout.thinking);
 
@@ -200,6 +210,7 @@ const composeEffectiveControls = (chain: readonly ChainEntry[]): EffectiveContro
     skillSelections: skills,
     subagentSelections: subagents,
     mcpSelections: mcp,
+    extensionSelections: extensions,
     appendPromptSelections: appendPromptSelections(chain),
     systemPrompt: nearestPrompt(chain, (definition) => definition.promptControls.systemPrompt),
     promptTemplate: nearestPrompt(chain, (definition) => definition.promptControls.promptTemplate),
@@ -209,7 +220,7 @@ const composeEffectiveControls = (chain: readonly ChainEntry[]): EffectiveContro
       skills: skills.map((selection) => selection.slug),
       subagents: subagents.map((selection) => selection.slug),
       mcp: mcp.map((selection) => selection.slug),
-      extensions: uniqueStrings(chain.flatMap((entry) => entry.definition.loadout.extensions)),
+      extensions: extensions.map((selection) => selection.specifier),
       plugins: uniqueStrings(chain.flatMap((entry) => entry.definition.loadout.plugins)),
       model,
       thinking,
@@ -370,6 +381,7 @@ const composeLoadout = (
     mcp: controls.loadout.mcp,
     mcpServers: composeMcpServers(set, controls.mcpSelections, warnings),
     extensions: controls.loadout.extensions,
+    extensionSelections: controls.extensionSelections,
     plugins: controls.loadout.plugins,
     model: controls.loadout.model,
     thinking: controls.loadout.thinking,

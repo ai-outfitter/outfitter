@@ -3,6 +3,11 @@ import type { Loadout, ResolvedResource } from '../resolver/Resource.js';
 import type { EffectiveModelRegistry } from './Models.js';
 import type { PromptFragment } from './PromptSource.js';
 
+export interface ComposeOptions {
+  /** Active repository root for `repo_file` prompt references. */
+  readonly projectDirectory?: string;
+}
+
 /** The composed identity: base prompt, shared context, prompt fragments, and agent bodies. */
 export interface ComposedIdentity {
   /** Content of the effective system prompt, if any. Kept for compatibility with existing callers. */
@@ -43,6 +48,12 @@ export interface ComposedSubagent {
 }
 
 /** A loadout with its slug references resolved against the effective set. */
+/** One extension declaration plus the `.agents` payload root that declared it. */
+export interface ComposedExtensionSelection {
+  readonly specifier: string;
+  readonly declaringRoot: string;
+}
+
 export interface ComposedLoadout {
   readonly skills: readonly ResolvedResource[];
   /** Skills selected by delegates, materialized for them without loading them into the leader. */
@@ -54,6 +65,8 @@ export interface ComposedLoadout {
   /** Selected MCP server definitions after layer and per-agent precedence are applied. */
   readonly mcpServers: Readonly<Record<string, unknown>>;
   readonly extensions: readonly string[];
+  /** Provenance used to resolve relative local extension paths without leaking absolute paths into dumps. */
+  readonly extensionSelections?: readonly ComposedExtensionSelection[];
   readonly plugins: readonly string[];
   readonly model?: string;
   readonly thinking?: string;

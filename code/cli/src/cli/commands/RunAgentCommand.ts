@@ -20,7 +20,7 @@ import {
   seedPiCredentials,
 } from '../../agents/PiCredentialPersistence.js';
 import { resolvePiSessionDirectory } from '../../agents/PiSessionDirectory.js';
-import type { CompositionPlan } from '../../composer/Composition.js';
+import type { ComposedExtensionSelection, CompositionPlan } from '../../composer/Composition.js';
 import { compose } from '../../composer/Composer.js';
 import { ensurePiExtensions } from '../../extensions/PiExtensionCache.js';
 import type { PiInstallSpawner } from '../../extensions/PiExtensionCache.js';
@@ -234,11 +234,12 @@ const resolveSessionDirectory = (input: RunAgentInput, harness: Harness): string
 const resolvePiExtensions = async (
   input: RunAgentInput,
   harness: Harness,
-  extensionSpecs: readonly string[],
+  extensionSpecs: readonly ComposedExtensionSelection[],
 ): Promise<{ readonly loadDirs: readonly string[]; readonly warnings: readonly string[] }> => {
   if (harness !== 'pi') return { loadDirs: [], warnings: [] };
   return ensurePiExtensions(extensionSpecs, {
     cacheAgentDir: join(resolveOutfitterCacheDir(process.env, input.homeDirectory), 'pi-extensions'),
+    homeDirectory: input.homeDirectory,
     offline: process.env.PI_OFFLINE === '1' || process.env.PI_OFFLINE === 'true',
     debug: input.logLevel === 'debug',
     spawn: input.extensionInstallSpawner,
@@ -249,7 +250,7 @@ const loadPiExtensions = async (
   input: RunAgentInput,
   harness: Harness,
   agentSlug: string,
-  extensionSpecs: readonly string[],
+  extensionSpecs: readonly ComposedExtensionSelection[],
 ): ReturnType<typeof resolvePiExtensions> => {
   const showLoading = harness === 'pi' && input.logLevel !== 'debug' && extensionSpecs.length > 0;
   const stopLoading = showLoading
@@ -267,6 +268,14 @@ const piConfigurationOverlays = (
   selectedAgent: NonNullable<ReturnType<typeof findResource>>,
 ): readonly string[] =>
   [...(plan.contributingAgents ?? [selectedAgent])].reverse().flatMap((agent) => agent.piConfigDirectories ?? []);
+
+const piExtensionSelections = (
+  plan: NonNullable<ReturnType<typeof compose>['plan']>,
+  selectedAgent: NonNullable<ReturnType<typeof findResource>>,
+): readonly ComposedExtensionSelection[] =>
+  plan.loadout.extensionSelections === undefined
+    ? plan.loadout.extensions.map((specifier) => ({ specifier, declaringRoot: selectedAgent.winner.layer.root }))
+    : plan.loadout.extensionSelections;
 
 // Validated before launch rather than inside projection: pi never reads these paths itself, so an
 // unreadable one would otherwise fail differently per harness — a raw ENOENT out of the Claude
@@ -357,8 +366,13 @@ export const executeRunAgentCommand = async (input: RunAgentInput): Promise<RunA
 
   // Install/cache the pi extensions into a shared XDG cache and load them at launch (pi only).
   // Normal startup keeps installer chatter behind one loading state. Debug mode exposes it.
-  const extensions = await loadPiExtensions(input, harness, agentSlug, composed.plan.loadout.extensions);
   const selectedAgent = findResource(set, 'agent', agentSlug)!;
+  const extensions = await loadPiExtensions(
+    input,
+    harness,
+    agentSlug,
+    piExtensionSelections(composed.plan, selectedAgent),
+  );
   const configurationOverlays = piConfigurationOverlays(composed.plan, selectedAgent);
 
   const rootDirectory = mkdtempSync(join(tmpdir(), `outfitter-${agentSlug}-${harness}-`));
