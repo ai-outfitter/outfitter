@@ -1,5 +1,9 @@
 # Outfitter
 
+**[How AI Outfitter fits together →](./docs/documentation/ai-outfitter.md)** —
+the mission, adoption ramp, end-to-end workflow, and relationship between the
+projects.
+
 Outfitter is the toolchain for [`.agents`](./docs/documentation/concepts.md#the-agents-protocol): it resolves agent configuration from local and remote `.agents` trees, composes agents, skills, and knowledge by slug, and launches the result through wrapped agent CLIs like [`pi`](https://github.com/earendil-works/pi-coding-agent), Claude Code, and Codex CLI.
 
 Outfitter does not own a configuration format. Your `.agents/` directory is the source of truth — useful without Outfitter, committed and reviewed like any other code.
@@ -87,10 +91,6 @@ Managed porting and persistent harness symlinks are deferred to
 Layers merge by ID: `<project>/.agents/` over `~/.agents/` over pinned remote [catalogs](./docs/documentation/catalogs.md). An [agent](./docs/documentation/agents.md) carries both its identity and its loadout — an [agent profile](./docs/documentation/profiles.md) — and is what you run; a [persona](./docs/documentation/personas.md) is one portable Markdown document a shared review agent adopts at launch; a [subagent](./docs/documentation/subagents.md) is an agent a run delegates to, across [four delegation boundaries](./docs/documentation/subagents.md#the-four-delegation-boundaries) from an in-session helper to a Kubernetes Job.
 
 ## Documentation
-
-Start with [How AI Outfitter fits together](./docs/documentation/ai-outfitter.md)
-for the organization mission, adoption ramp, end-to-end workflow, and how the
-projects relate.
 
 The [documentation index](./docs/documentation/README.md) covers setup, core concepts, organization-wide sharing, automation, and contribution:
 
