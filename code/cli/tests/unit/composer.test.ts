@@ -237,6 +237,10 @@ describe('composer', () => {
     expect(plan.identity.agentBody).toContain('Child body.');
     expect(plan.loadout.skills.map((skill) => skill.slug)).toEqual(['base-skill', 'child-skill']);
     expect(plan.loadout.extensions).toEqual(['base-extension', 'child-extension']);
+    expect(plan.loadout.extensionSelections).toEqual([
+      { specifier: 'base-extension', declaringRoot: join(project, '.agents') },
+      { specifier: 'child-extension', declaringRoot: join(project, '.agents') },
+    ]);
     expect(plan.loadout.plugins).toEqual(['shared-plugin', 'child-plugin']);
     expect(plan.loadout.tools).toEqual({ allow: ['read', 'bash', 'write'], deny: ['write', 'bash'] });
     expect(plan.loadout.model).toBe('child-model');

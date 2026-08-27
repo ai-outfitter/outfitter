@@ -53,6 +53,7 @@ Amended (2026-07-17, RFC #165): adapters project a harness-neutral composition, 
 17. The pi adapter MUST overlay `agents/<agent>/pi/` directories from contributing `.agents` layers into the temporary `PI_CODING_AGENT_DIR`, with higher-precedence layers replacing matching paths, without following symlinks or projecting the overlay into non-Pi harnesses.
 18. The pi adapter MUST project composed prompt fragments in composition order by passing one `--system-prompt`, ordered `--append-system-prompt` arguments, and `--prompt-template` when the composition declares a prompt template.
 19. The pi adapter MUST default `PI_CODING_AGENT_SESSION_DIR` to pi's durable per-project session directory under pi's user agent directory, so sessions survive removal of the temporary `PI_CODING_AGENT_DIR`; it MUST leave an inherited `PI_CODING_AGENT_SESSION_DIR` in place, and MUST NOT override a pass-through `--session-dir` or `--no-session`.
+20. The pi adapter MUST accept existing local file or directory paths in an agent's `extensions` loadout without installing them: `./` and `../` resolve from the declaring `.agents` payload root, `~/` resolves from the active Outfitter home, and absolute paths remain absolute; missing targets MUST produce a composition/run warning and MUST NOT be passed to Pi.
 
 ### OFTR-006.4: Pi Startup Boundary
 

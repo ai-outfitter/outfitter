@@ -48,6 +48,7 @@ Outfitter is organized around a private npm workspace root, clear TypeScript pac
 │   │   │   ├── sources/               # cache paths, atomic Git checkout, redaction, private-catalog gating, and transitive catalog-source expansion
 │   │   │   ├── resolver/              # .agents layer resolution into one effective resource set
 │   │   │   ├── composer/              # harness-neutral CompositionPlan from the effective set
+│   │   │   │   └── ExtensionSelection.ts # extension declaration provenance for local path resolution
 │   │   │   ├── projection/            # materialize a composition + build pi/claude/codex launch plans
 │   │   │   │   └── CodexMcp.ts        # translate selected MCP definitions to Codex TOML CLI overrides
 │   │   │   ├── dump/                  # deterministic self-contained `.agents` tree output
