@@ -564,3 +564,32 @@ describe('projectComposition native configuration overlays', () => {
     expect(() => readFileSync(join(dir, 'keybindings.json'), 'utf8')).toThrow();
   });
 });
+
+describe('projectComposition Pi skills', () => {
+  it('passes absolute materialized skill directories to --skill instead of bare slugs', () => {
+    const dir = root();
+    const catalog = root();
+    const reviewSkill = join(catalog, 'skills', 'review', 'SKILL.md');
+    mkdirSync(join(catalog, 'skills', 'review'), { recursive: true });
+    writeFileSync(reviewSkill, '---\nname: review\n---\n\nReview skill.\n');
+
+    const plan: CompositionPlan = {
+      ...planWith([]),
+      loadout: {
+        ...planWith([]).loadout,
+        skills: [skillResource('review', reviewSkill, catalog)],
+      },
+    };
+
+    const projection = projectComposition(plan, {
+      harness: 'pi',
+      rootDirectory: dir,
+      homeDirectory: dir,
+    });
+
+    const expectedSkillDir = join(dir, 'skills', 'review');
+    expect(projection.launch.args).toContain('--skill');
+    expect(projection.launch.args).toContain(expectedSkillDir);
+    expect(projection.launch.args).not.toContain('review');
+  });
+});

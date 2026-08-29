@@ -118,7 +118,7 @@ describe('run agent', () => {
         '--system-prompt',
         '--append-system-prompt',
         '--skill',
-        'wiki',
+        expect.stringContaining('/skills/wiki'),
         '--model',
         'gpt-5.2',
         '--thinking',
