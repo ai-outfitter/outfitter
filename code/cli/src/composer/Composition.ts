@@ -1,4 +1,5 @@
 // Harness-neutral composition types produced from the effective resource set for a selected agent.
+import type { WorkspaceHooksSnapshot } from '../hooks/WorkspaceHook.js';
 import type { Loadout, ResolvedResource } from '../resolver/Resource.js';
 import type { EffectiveModelRegistry } from './Models.js';
 import type { PromptFragment } from './PromptSource.js';
@@ -74,6 +75,8 @@ export interface CompositionPlan {
   readonly contributingAgents?: readonly ResolvedResource[];
   /** Parent-first chain of agent slugs that contributed to this composition, selected child last. */
   readonly inheritanceChain?: readonly string[];
+  /** Immutable workspace-only portable hook packages captured for this composition. */
+  readonly workspaceHooks?: WorkspaceHooksSnapshot;
   /** Non-fatal issues (e.g. unknown loadout slugs) surfaced during composition. */
   readonly warnings: readonly string[];
 }
