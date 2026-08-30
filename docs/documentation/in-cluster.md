@@ -30,6 +30,14 @@ A **channel** is an adapter to an external event or message source — email, Gi
 
 Treat channel content — email bodies, issue text, alert annotations — as untrusted data, never instructions, the same trust rule as [skill references](./skills.md#trust-boundary).
 
+## Private repositories
+
+An agent that handles private source needs a separate organization-role runtime.
+The operator MUST isolate its process, storage, identity, secrets, channels, and network access.
+Outfitter composition does not create this security boundary.
+
+See [Private repository agents](./private-repository-agents.md) for the catalog pattern, current limits, and deployment check.
+
 ## Worked story
 
 [Grafana alert investigations in-cluster](./usecases/grafana-alert-investigator.md): an Alertmanager webhook turns each firing alert into one investigation Job that reads dashboards and logs through the Grafana MCP plus a read-only Kubernetes view, classifies expected vs. anomaly, and posts exactly one diagnosis comment — never mutating a workload.

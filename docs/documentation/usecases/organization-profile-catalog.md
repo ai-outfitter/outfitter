@@ -110,3 +110,8 @@ expensive human review.
 ## Governance
 
 Because the catalog is a normal repository publishing normal files, organization changes flow through ordinary pull requests: a role prompt change is a reviewable diff to one `agent.md`. Consumers pin the catalog by SHA and bump deliberately; `outfitter dump` shows exactly what a pinned composition resolves to before an approval. Recurring org automation — like a `weekly-kpis` report — lives in the same repository as an agent run through [GitHub Actions](../actions.md); a dedicated task/bake contract for that work is a [separate upcoming RFC](../tasks.md).
+
+An organization default is not a security policy.
+Project and user settings can override remote organization settings.
+Use separate organization-role deployments when an agent handles private source.
+See [Private repository agents](../private-repository-agents.md).

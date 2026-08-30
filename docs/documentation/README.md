@@ -36,6 +36,7 @@ The same composition runs on every surface; only the trigger changes.
 - [Container images](./containers.md) — run the published image persistently or add Nix-packaged tools.
 - [Recurring runs](./recurring-runs.md) — loops three ways: the local loop extension, Actions cron, cluster schedules.
 - [In-cluster agents](./in-cluster.md) — resident agents, CronJobs, and subagent Jobs via Link Operator.
+- [Private repository agents](./private-repository-agents.md) — separate each organization-role runtime and enforce repository privacy outside Outfitter.
 - [Hooks](./hooks.md) — harness hook wiring and the protocol gap.
 - [Dump](./dump-and-bake.md) — deterministic, self-contained `.agents/` dumps.
 - [State persistence](./state.md)
