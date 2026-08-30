@@ -708,6 +708,7 @@ describe('Pi setup launch', () => {
       },
       // A no-op run launcher keeps the post-setup profile launch from spawning real pi in the test.
       runLauncher: () => Promise.resolve(0),
+      sourceCachePreparer: () => ({ messages: [] }),
       writeLine: (message) => lines.push(message),
     }).register(program);
     await program.parseAsync(['node', 'outfitter', 'setup']);

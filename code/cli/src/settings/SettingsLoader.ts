@@ -12,6 +12,7 @@ import type {
   Isolation,
   RemoteSettingsReference,
   Settings,
+  SourceCachePolicy,
   SourceReference,
   StatePersistence,
 } from './Settings.js';
@@ -51,6 +52,7 @@ interface SettingsDocument {
   readonly sources?: readonly SourceDocument[];
   readonly remote_settings?: readonly RemoteSettingsDocument[];
   readonly cache_directory?: string;
+  readonly source_cache?: { readonly policy?: SourceCachePolicy };
   readonly state_persistence?: StatePersistence;
   readonly custom_settings?: CustomSettings;
   readonly startup?: StartupSettingsDocument;
@@ -285,6 +287,7 @@ const convertSettingsDocument = (
     document.cache_directory === undefined
       ? undefined
       : resolveConfigDirectory(document.cache_directory, settingsDirectory),
+  sourceCache: document.source_cache,
   statePersistence: document.state_persistence,
   customSettings: document.custom_settings,
   startup: convertStartupSettings(document.startup),

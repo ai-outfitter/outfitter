@@ -46,6 +46,8 @@ Outfitter is organized around a private npm workspace root, clear TypeScript pac
 │   │   │   ├── telemetry/             # consent, pseudonymous state, allowlisted events, and PostHog boundary
 │   │   │   ├── setup/                 # onboarding state + pinned default-catalog bootstrap
 │   │   │   ├── sources/               # cache paths, atomic Git checkout, redaction, private-catalog gating, and transitive catalog-source expansion
+│   │   │   │   ├── SourceState.ts     # versioned cache manifests, health inspection, and per-source repair locks
+│   │   │   │   └── SourceCachePolicy.ts # repair, locked, and offline startup enforcement
 │   │   │   ├── resolver/              # .agents layer resolution into one effective resource set
 │   │   │   ├── composer/              # harness-neutral CompositionPlan from the effective set
 │   │   │   ├── projection/            # materialize a composition + build pi/claude/codex launch plans

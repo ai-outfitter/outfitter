@@ -55,6 +55,7 @@ describe('run agent onboarding warnings', () => {
       homeDirectory: home,
       projectDirectory: project,
       launcher: () => Promise.resolve(0),
+      sourceCachePreparer: () => ({ messages: [] }),
       setup,
       writeLine: (message) => lines.push(message),
     });
@@ -77,6 +78,7 @@ describe('run agent onboarding warnings', () => {
       homeDirectory: home,
       projectDirectory: project,
       launcher: () => Promise.resolve(0),
+      sourceCachePreparer: () => ({ messages: [] }),
     });
 
     expect(result.exitCode).toBe(1);
@@ -98,6 +100,7 @@ describe('run agent onboarding warnings', () => {
       projectDirectory: project,
       agent: 'typo',
       launcher: () => Promise.resolve(0),
+      sourceCachePreparer: () => ({ messages: [] }),
     });
 
     expect(result.messages[0]).toContain("Unknown agent 'typo'");
@@ -125,6 +128,7 @@ describe('run agent onboarding warnings', () => {
       homeDirectory: home,
       projectDirectory: project,
       launcher: () => Promise.resolve(0),
+      sourceCachePreparer: () => ({ messages: [] }),
     });
 
     expect(result.exitCode).toBe(1);

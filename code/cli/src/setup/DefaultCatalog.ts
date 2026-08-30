@@ -13,6 +13,7 @@ import {
 } from '../sources/SourceCache.js';
 import type { RemoteSourceReference } from '../sources/SourceCache.js';
 import { readDeclaredRemoteSources } from '../sources/TransitiveSources.js';
+import { writeSourceState } from '../sources/SourceState.js';
 
 /** Fetches one repository into the cache. Injectable so tests exercise bootstrap hermetically. */
 export type RepositorySync = typeof syncRemoteRepositoryAtomically;
@@ -82,10 +83,19 @@ export const bootstrapPinnedCatalog = (input: PinnedCatalogBootstrapInput): Pinn
   assertImmutableRef(input.source.ref);
   const hasPayload = input.requirePayload ?? hasAgentsDirectory;
   const root = createRemoteRepositoryCachePath(input.homeDirectory, input.source, input.cacheDirectory);
-  if (isPinnedCatalogCheckout(root, input.source.ref, hasPayload)) return { root, source: input.source };
+  if (isPinnedCatalogCheckout(root, input.source.ref, hasPayload)) {
+    writeSourceState({
+      homeDirectory: input.homeDirectory,
+      cacheDirectory: input.cacheDirectory,
+      cachePath: root,
+      source: input.source,
+      commit: resolveExpectedCommit(root, input.source.ref),
+    });
+    return { root, source: input.source };
+  }
 
   try {
-    (input.syncRepository ?? syncRemoteRepositoryAtomically)({
+    const synced = (input.syncRepository ?? syncRemoteRepositoryAtomically)({
       cachePath: root,
       fetchRef: isVersionTagRef(input.source.ref)
         ? `refs/tags/${input.source.ref}:refs/tags/${input.source.ref}`
@@ -101,6 +111,13 @@ export const bootstrapPinnedCatalog = (input: PinnedCatalogBootstrapInput): Pinn
         }
         return 0;
       },
+    });
+    writeSourceState({
+      homeDirectory: input.homeDirectory,
+      cacheDirectory: input.cacheDirectory,
+      cachePath: root,
+      source: input.source,
+      commit: synced.commit,
     });
     return { root, source: input.source };
   } catch (error) {

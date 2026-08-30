@@ -11,6 +11,11 @@
       "description": "Whether a run stands on the machine's native harness configuration (inherit, the default) or on the projection alone (isolated). Honored only from home-scope settings."
     },
     "cache_directory": { "type": "string", "minLength": 1 },
+    "source_cache": {
+      "type": "object",
+      "properties": { "policy": { "enum": ["repair", "locked", "offline"] } },
+      "additionalProperties": false
+    },
     "state_persistence": {
       "type": "object",
       "description": "Maps adapter-declared state paths to a persistence strategy.",

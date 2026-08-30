@@ -35,6 +35,7 @@ import {
   resolveSourcePayloadRoot,
 } from '../../sources/SourceCache.js';
 import type { RemoteSourceReference } from '../../sources/SourceCache.js';
+import { writeSourceState } from '../../sources/SourceState.js';
 import { readDeclaredRemoteSources } from '../../sources/TransitiveSources.js';
 import type { CommandObject } from './CommandObject.js';
 import { resolveHomeDirectory, resolveProjectDirectory } from './ProcessDefaults.js';
@@ -154,6 +155,13 @@ const syncPhase = <T extends RemoteSourceReference>(input: SyncPhaseInput<T>): S
         cachePath,
         source,
         validate: (repositoryPath) => input.validate(repositoryPath, source),
+      });
+      writeSourceState({
+        homeDirectory: input.homeDirectory,
+        cacheDirectory: input.cacheDirectory,
+        cachePath,
+        source,
+        commit: result.commit,
       });
       return {
         source,

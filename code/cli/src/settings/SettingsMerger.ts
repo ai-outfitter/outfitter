@@ -11,6 +11,7 @@ export const mergeSettingsStack = (settingsStack: readonly Settings[]): Settings
   let sources: Settings['sources'];
   let remoteSettings: Settings['remoteSettings'];
   let cacheDirectory: string | undefined;
+  let sourceCache: Settings['sourceCache'];
   let statePersistence: StatePersistence | undefined;
   let customSettings: CustomSettings | undefined;
   let startup: Settings['startup'];
@@ -25,6 +26,7 @@ export const mergeSettingsStack = (settingsStack: readonly Settings[]): Settings
     sources = settings.sources ?? sources;
     remoteSettings = settings.remoteSettings ?? remoteSettings;
     cacheDirectory = settings.cacheDirectory ?? cacheDirectory;
+    sourceCache = settings.sourceCache === undefined ? sourceCache : { ...sourceCache, ...settings.sourceCache };
     statePersistence =
       settings.statePersistence === undefined
         ? statePersistence
@@ -43,6 +45,7 @@ export const mergeSettingsStack = (settingsStack: readonly Settings[]): Settings
     sources: sources ?? [],
     remoteSettings: remoteSettings ?? [],
     cacheDirectory,
+    sourceCache: sourceCache ?? {},
     statePersistence: statePersistence ?? {},
     customSettings: customSettings ?? {},
     startup: startup ?? {},

@@ -43,6 +43,7 @@ const run = (root: string, strict: boolean) =>
     agent: 'engineer',
     strict,
     launcher: () => Promise.resolve(0),
+    sourceCachePreparer: () => ({ messages: [] }),
   });
 
 afterEach(() => {
