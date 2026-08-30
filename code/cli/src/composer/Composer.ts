@@ -4,6 +4,7 @@ import { join } from 'node:path';
 
 import { escapesRoots } from '../dump/Containment.js';
 import { readWorkspaceHooks } from '../hooks/WorkspaceHook.js';
+import type { WorkspaceHooksSnapshot } from '../hooks/WorkspaceHook.js';
 import { isAgentDefinitionIssue, readAgentDefinition } from '../resolver/AgentDefinition.js';
 import type { AgentDefinition } from '../resolver/AgentDefinition.js';
 import type { EffectiveResourceSet, Loadout, ResolvedResource } from '../resolver/Resource.js';
@@ -541,9 +542,9 @@ export const compose = (set: EffectiveResourceSet, agentSlug: string, options: C
   const composedSubagents = composeSubagents(set, loadout.subagents, options, warnings, errors);
   const uniqueWarnings = uniqueStrings(warnings);
   if (errors.length > 0) return { errors, warnings: uniqueWarnings };
-  let workspaceHooks;
+  let workspaceHooks: WorkspaceHooksSnapshot | undefined;
   try {
-    workspaceHooks = options.projectDirectory === undefined ? undefined : readWorkspaceHooks(options.projectDirectory);
+    if (options.projectDirectory !== undefined) workspaceHooks = readWorkspaceHooks(options.projectDirectory);
   } catch (error) {
     return { errors: [String(error)], warnings: uniqueWarnings };
   }

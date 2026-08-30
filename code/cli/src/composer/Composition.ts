@@ -1,8 +1,8 @@
 // Harness-neutral composition types produced from the effective resource set for a selected agent.
+import type { WorkspaceHooksSnapshot } from '../hooks/WorkspaceHook.js';
 import type { Loadout, ResolvedResource } from '../resolver/Resource.js';
 import type { EffectiveModelRegistry } from './Models.js';
 import type { PromptFragment } from './PromptSource.js';
-import type { WorkspaceHooksSnapshot } from '../hooks/WorkspaceHook.js';
 
 /** The composed identity: base prompt, shared context, prompt fragments, and agent bodies. */
 export interface ComposedIdentity {

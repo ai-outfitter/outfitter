@@ -14,6 +14,8 @@ export interface WorkspaceHookProjection {
 
 const runtimeDirectoryName = '.outfitter/workspace-hooks';
 
+const runtimeRoot = (rootDirectory: string): string => join(rootDirectory, ...runtimeDirectoryName.split('/'));
+
 const dispatcherSource = (snapshot: WorkspaceHooksSnapshot, packageRoot: string): string => {
   const hooks = snapshot.hooks.flatMap((hook) => {
     const command = hook.events.stop;
@@ -93,17 +95,18 @@ if (reasons.length > 0) {
 };
 
 const writeSnapshot = (snapshot: WorkspaceHooksSnapshot, rootDirectory: string): string => {
-  const runtimeRoot = join(rootDirectory, ...runtimeDirectoryName.split('/'));
-  const packageRoot = join(runtimeRoot, 'packages');
+  const packageRoot = join(runtimeRoot(rootDirectory), 'packages');
   for (const hook of snapshot.hooks) {
     for (const file of hook.files) {
       const target = join(packageRoot, hook.slug, ...file.path.split('/'));
       mkdirSync(dirname(target), { recursive: true });
       writeFileSync(target, file.content, { mode: file.mode });
+      // `mode` on create is masked by the process umask, so an executable bit only survives
+      // the explicit chmod. A command that loses it would fail the launch, not the read.
       chmodSync(target, file.mode);
     }
   }
-  const dispatcherPath = join(runtimeRoot, 'dispatcher.mjs');
+  const dispatcherPath = join(runtimeRoot(rootDirectory), 'dispatcher.mjs');
   mkdirSync(dirname(dispatcherPath), { recursive: true });
   writeFileSync(dispatcherPath, dispatcherSource(snapshot, packageRoot), { mode: 0o755 });
   return dispatcherPath;
@@ -112,10 +115,8 @@ const writeSnapshot = (snapshot: WorkspaceHooksSnapshot, rootDirectory: string):
 const stopTimeoutSeconds = (snapshot: WorkspaceHooksSnapshot): number =>
   snapshot.hooks.reduce((sum, hook) => sum + (hook.events.stop?.timeoutSeconds ?? 0), 0) + 5;
 
-const claudeHookDocument = (command: string, timeout: number): Record<string, unknown> => ({
-  hooks: {
-    Stop: [{ hooks: [{ type: 'command', command, timeout }] }],
-  },
+const claudeStopMatcher = (command: string, timeout: number): Record<string, unknown> => ({
+  hooks: [{ type: 'command', command, timeout }],
 });
 
 const objectValue = (value: unknown): Record<string, unknown> =>
@@ -123,7 +124,7 @@ const objectValue = (value: unknown): Record<string, unknown> =>
 
 const arrayValue = (value: unknown): readonly unknown[] => (Array.isArray(value) ? (value as readonly unknown[]) : []);
 
-const mergeClaudeIsolatedSettings = (rootDirectory: string, portable: Record<string, unknown>): void => {
+const mergeClaudeIsolatedSettings = (rootDirectory: string, matcher: Record<string, unknown>): void => {
   const settingsPath = join(rootDirectory, 'settings.json');
   let settings: Record<string, unknown> = {};
   try {
@@ -134,15 +135,12 @@ const mergeClaudeIsolatedSettings = (rootDirectory: string, portable: Record<str
     // The projection owns this file. An absent file starts with an empty object.
   }
   const existingHooks = objectValue(settings.hooks);
-  const portableHooks = objectValue(portable.hooks);
-  const existingStop = arrayValue(existingHooks.Stop);
-  const portableStop = arrayValue(portableHooks.Stop);
   writeFileSync(
     settingsPath,
     `${JSON.stringify(
       {
         ...settings,
-        hooks: { ...existingHooks, ...portableHooks, Stop: [...existingStop, ...portableStop] },
+        hooks: { ...existingHooks, Stop: [...arrayValue(existingHooks.Stop), matcher] },
       },
       null,
       2,
@@ -157,25 +155,36 @@ const projectClaude = (
   launch: AgentLaunchPlan,
 ): WorkspaceHookProjection => {
   const inherited = input.isolation !== 'isolated';
-  const target = inherited ? '$CLAUDE_PLUGIN_ROOT/.outfitter/workspace-hooks/dispatcher.mjs' : dispatcherPath;
+  const target = inherited ? `$CLAUDE_PLUGIN_ROOT/${runtimeDirectoryName}/dispatcher.mjs` : dispatcherPath;
   const command = `node "${target.replaceAll('"', '\\"')}" --harness claude --event stop`;
-  const document = claudeHookDocument(command, stopTimeoutSeconds(snapshot));
+  const matcher = claudeStopMatcher(command, stopTimeoutSeconds(snapshot));
   if (inherited) {
     const hooksPath = join(input.rootDirectory, 'hooks', 'hooks.json');
     mkdirSync(dirname(hooksPath), { recursive: true });
-    writeFileSync(hooksPath, `${JSON.stringify(document, null, 2)}\n`);
+    writeFileSync(hooksPath, `${JSON.stringify({ hooks: { Stop: [matcher] } }, null, 2)}\n`);
   } else {
-    mergeClaudeIsolatedSettings(input.rootDirectory, document);
+    mergeClaudeIsolatedSettings(input.rootDirectory, matcher);
   }
   return { launch, warnings: [] };
 };
 
+// Unlike the Claude adapter, which reads the dispatcher's stderr from a child process, pi loads
+// this extension in-process. A TUI session owns the terminal, so a raw stderr write lands inside
+// the rendered frame; notify() is the delivered channel there but is a no-op without a UI. Hook
+// warnings are required output under OFTR-012.5.4 and OFTR-012.6.2, so route by which one works.
 const piExtensionSource = (dispatcherPath: string): string => `
 const DISPATCHER = ${JSON.stringify(dispatcherPath)};
 let continuationActive = false;
 
+const report = (ctx, message) => {
+  const text = message.trim();
+  if (text === '') return;
+  if (ctx && ctx.hasUI === true) ctx.ui.notify(text, 'warning');
+  else process.stderr.write(text + '\\n');
+};
+
 export default function outfitterWorkspaceHooks(pi) {
-  pi.on('agent_end', async () => {
+  pi.on('agent_end', async (_event, ctx) => {
     const result = await pi.exec(process.execPath, [
       DISPATCHER,
       '--harness', 'pi',
@@ -183,17 +192,17 @@ export default function outfitterWorkspaceHooks(pi) {
       '--continuation-active', String(continuationActive),
       '--native-event-json', '{}',
     ]);
-    if (result.stderr) process.stderr.write(result.stderr);
+    if (result.stderr) report(ctx, result.stderr);
     if (result.code !== 2) {
       continuationActive = false;
       if (result.code !== 0) {
-        process.stderr.write('Warning: workspace hook dispatcher failed; continuing the session.\\n');
+        report(ctx, 'Warning: workspace hook dispatcher failed; continuing the session.');
       }
       return;
     }
     if (continuationActive) {
       continuationActive = false;
-      process.stderr.write('Warning: a workspace stop hook requested continuation twice; stopping to prevent a loop.\\n');
+      report(ctx, 'Warning: a workspace stop hook requested continuation twice; stopping to prevent a loop.');
       return;
     }
     continuationActive = true;
@@ -208,7 +217,7 @@ const projectPi = (
   dispatcherPath: string,
   launch: AgentLaunchPlan,
 ): WorkspaceHookProjection => {
-  const extensionPath = join(input.rootDirectory, ...runtimeDirectoryName.split('/'), 'pi-extension.js');
+  const extensionPath = join(runtimeRoot(input.rootDirectory), 'pi-extension.js');
   writeFileSync(extensionPath, piExtensionSource(dispatcherPath));
   return { launch: { ...launch, args: ['--extension', extensionPath, ...launch.args] }, warnings: [] };
 };
@@ -221,19 +230,17 @@ export const projectWorkspaceHooks = (
 ): WorkspaceHookProjection => {
   const snapshot = composition.workspaceHooks;
   if (snapshot === undefined || snapshot.hooks.length === 0) return { launch, warnings: [] };
-  const dispatcherPath = writeSnapshot(snapshot, input.rootDirectory);
-
-  switch (input.harness) {
-    case 'claude':
-      return projectClaude(snapshot, input, dispatcherPath, launch);
-    case 'pi':
-      return projectPi(input, dispatcherPath, launch);
-    case 'codex':
-      return {
-        launch,
-        warnings: [
-          'codex adapter cannot safely project workspace stop hooks: Codex has no alternate project hook-file flag for the temporary runtime, session hooks need trust for the changing dispatcher path, and notify hooks cannot request continuation. No workspace hooks were attached.',
-        ],
-      };
+  if (input.harness === 'codex') {
+    return {
+      launch,
+      warnings: [
+        'codex adapter cannot safely project workspace stop hooks: Codex has no alternate project hook-file flag for the temporary runtime, session hooks need trust for the changing dispatcher path, and notify hooks cannot request continuation. No workspace hooks were attached.',
+      ],
+    };
   }
+
+  const dispatcherPath = writeSnapshot(snapshot, input.rootDirectory);
+  return input.harness === 'claude'
+    ? projectClaude(snapshot, input, dispatcherPath, launch)
+    : projectPi(input, dispatcherPath, launch);
 };

@@ -11,6 +11,7 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { spawnSync } from 'node:child_process';
 
 import { afterEach, describe, expect, it } from 'vitest';
@@ -374,6 +375,65 @@ describe('workspace hook projection and dispatch', () => {
     expect(extension).toContain("pi.on('agent_end'");
     expect(extension).toContain("pi.sendUserMessage(reason, { deliverAs: 'followUp' })");
     expect(extension).toContain('requested continuation twice');
+  });
+
+  it('delivers Pi hook warnings through the channel the active run mode actually renders', async () => {
+    const project = root();
+    addHook(project, 'check');
+    const projectionRoot = root();
+    const projection = projectComposition(composition(readWorkspaceHooks(project)), {
+      harness: 'pi',
+      rootDirectory: projectionRoot,
+      homeDirectory: root(),
+    });
+    const module = (await import(pathToFileURL(projection.launch.args[1]).href)) as {
+      default: (api: unknown) => void;
+    };
+
+    // pi loads the extension in-process. A TUI owns the terminal and renders notify() while a raw
+    // stderr write lands inside the frame; a headless run has the opposite pair, because its
+    // fallback notify() is a no-op. The OFTR-012.6.2 loop warning must survive either way, so
+    // drive the same two-turn refusal through both run modes.
+    const refuseSecondContinuation = async (
+      hasUI: boolean,
+    ): Promise<{ readonly notified: string; readonly written: string; readonly followUps: number }> => {
+      const notified: string[] = [];
+      const written: string[] = [];
+      let followUps = 0;
+      let handler: ((event: unknown, ctx: unknown) => Promise<void>) | undefined;
+      module.default({
+        on: (_event: string, registered: (event: unknown, ctx: unknown) => Promise<void>) => {
+          handler = registered;
+        },
+        exec: () => Promise.resolve({ stdout: '', stderr: '', code: 2, killed: false }),
+        sendUserMessage: () => {
+          followUps += 1;
+        },
+      });
+      const ctx = { hasUI, ui: { notify: (message: string) => notified.push(message) } };
+
+      const originalWrite = process.stderr.write.bind(process.stderr);
+      process.stderr.write = (chunk: string) => {
+        written.push(String(chunk));
+        return true;
+      };
+      try {
+        await handler!({}, ctx);
+        await handler!({}, ctx);
+      } finally {
+        process.stderr.write = originalWrite;
+      }
+      return { notified: notified.join(' '), written: written.join(' '), followUps };
+    };
+
+    const rendered = await refuseSecondContinuation(true);
+    expect(rendered.followUps).toBe(1);
+    expect(rendered.notified).toContain('requested continuation twice');
+    expect(rendered.written).not.toContain('requested continuation twice');
+
+    const headless = await refuseSecondContinuation(false);
+    expect(headless.followUps).toBe(1);
+    expect(headless.written).toContain('requested continuation twice');
   });
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-012.9).
