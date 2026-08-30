@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.12.0](https://github.com/ai-outfitter/outfitter/compare/v1.11.0...v1.12.0) (2026-08-30)
+
+
+### Features
+
+* **cache:** repair sources before startup ([#340](https://github.com/ai-outfitter/outfitter/issues/340)) ([02652d1](https://github.com/ai-outfitter/outfitter/commit/02652d17806a5b32cdda9e78899497195f16a6fd))
+
 ## [1.11.0](https://github.com/ai-outfitter/outfitter/compare/v1.10.0...v1.11.0) (2026-08-20)
 
 
