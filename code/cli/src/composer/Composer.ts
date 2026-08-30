@@ -7,8 +7,8 @@ import type { EffectiveResourceSet, Loadout, ResolvedResource } from '../resolve
 import { findLoadoutResource, findResource } from '../resolver/Resource.js';
 import type { ComposedLoadout, ComposedSubagent, ComposedSubagentIdentity, CompositionPlan } from './Composition.js';
 import { asRecord, stablePush, union, uniqueStrings } from './CompositionCollections.js';
-import { addDiagnostic, diagnosticList, uniqueDiagnostics } from './CompositionDiagnostic.js';
-import type { CompositionDiagnostic, DiagnosticList } from './CompositionDiagnostic.js';
+import { diagnosticMessages, uniqueDiagnostics } from './CompositionDiagnostic.js';
+import type { CompositionDiagnostic } from './CompositionDiagnostic.js';
 import { resolveInheritanceChain } from './InheritanceChain.js';
 import type { ChainEntry } from './InheritanceChain.js';
 import type { PromptFragment, PromptSourceReference } from './PromptSource.js';
@@ -77,12 +77,7 @@ const declaredSelections = (
 };
 
 const appendPromptSelections = (chain: readonly ChainEntry[]): EffectiveControls['appendPromptSelections'] => {
-  const selections: {
-    readonly source: PromptSourceReference;
-    readonly owner: string;
-    readonly index: number;
-    readonly sourcePath: string;
-  }[] = [];
+  const selections: EffectiveControls['appendPromptSelections'][number][] = [];
   const seen = new Set<string>();
   for (const entry of chain) {
     entry.definition.promptControls.appendSystemPrompt.forEach((source, index) => {
@@ -165,7 +160,7 @@ const resolveDeclaredSlugs = (
   kind: 'skill' | 'agent',
   reference: string,
   selections: readonly DeclaredSlug[],
-  warnings: DiagnosticList,
+  warnings: CompositionDiagnostic[],
 ): readonly ResolvedResource[] => {
   const resolved: ResolvedResource[] = [];
 
@@ -173,7 +168,7 @@ const resolveDeclaredSlugs = (
     const resource = findLoadoutResource(set, selection.owner, kind, selection.slug);
 
     if (resource === undefined) {
-      addDiagnostic(warnings, {
+      warnings.push({
         severity: 'warning',
         code: 'resource-unresolved',
         sourcePath: selection.sourcePath,
@@ -188,13 +183,13 @@ const resolveDeclaredSlugs = (
   return resolved;
 };
 
-const readMcpServers = (path: string, warnings: DiagnosticList): Readonly<Record<string, unknown>> => {
+const readMcpServers = (path: string, warnings: CompositionDiagnostic[]): Readonly<Record<string, unknown>> => {
   let parsed: unknown;
 
   try {
     parsed = JSON.parse(readFileSync(path, 'utf8'));
   } catch (error) {
-    addDiagnostic(warnings, {
+    warnings.push({
       severity: 'warning',
       code: 'resource-invalid',
       sourcePath: path,
@@ -207,7 +202,7 @@ const readMcpServers = (path: string, warnings: DiagnosticList): Readonly<Record
   const servers = document === undefined ? undefined : asRecord(document.mcpServers);
 
   if (servers === undefined) {
-    addDiagnostic(warnings, {
+    warnings.push({
       severity: 'warning',
       code: 'resource-invalid',
       sourcePath: path,
@@ -222,7 +217,7 @@ const readMcpServers = (path: string, warnings: DiagnosticList): Readonly<Record
 const composeMcpServers = (
   set: EffectiveResourceSet,
   selections: readonly DeclaredSlug[],
-  warnings: DiagnosticList,
+  warnings: CompositionDiagnostic[],
 ): Readonly<Record<string, unknown>> => {
   if (selections.length === 0) return {};
 
@@ -234,7 +229,7 @@ const composeMcpServers = (
     if (cached !== undefined) return cached;
     let servers: Readonly<Record<string, unknown>>;
     if (escapesRoots(path, roots)) {
-      addDiagnostic(warnings, {
+      warnings.push({
         severity: 'warning',
         code: 'reference-escaped',
         sourcePath: path,
@@ -268,7 +263,7 @@ const composeMcpServers = (
 
     if (found) selected[selection.slug] = definition;
     else {
-      addDiagnostic(warnings, {
+      warnings.push({
         severity: 'warning',
         code: 'resource-unresolved',
         sourcePath: selection.sourcePath,
@@ -284,7 +279,7 @@ const resolveDelegateSkills = (
   set: EffectiveResourceSet,
   subagents: readonly ResolvedResource[],
   leaderSkills: readonly ResolvedResource[],
-  warnings: DiagnosticList,
+  warnings: CompositionDiagnostic[],
 ): readonly ResolvedResource[] => {
   const skills = new Map(leaderSkills.map((skill) => [skill.slug, skill]));
   const delegateSkills: ResolvedResource[] = [];
@@ -312,7 +307,7 @@ const resolveDelegateSkills = (
         skills.set(skill.slug, skill);
         delegateSkills.push(skill);
       } else if (selected.winner.path !== skill.winner.path) {
-        addDiagnostic(warnings, {
+        warnings.push({
           severity: 'warning',
           code: 'resource-invalid',
           sourcePath: skill.winner.path,
@@ -328,7 +323,7 @@ const resolveDelegateSkills = (
 const composeLoadout = (
   set: EffectiveResourceSet,
   controls: EffectiveControls,
-  warnings: DiagnosticList,
+  warnings: CompositionDiagnostic[],
 ): ComposedLoadout => {
   const subagents = resolveDeclaredSlugs(set, 'agent', 'loadout subagents', controls.subagentSelections, warnings);
   const skills = resolveDeclaredSlugs(set, 'skill', 'loadout skills', controls.skillSelections, warnings);
@@ -352,8 +347,8 @@ const resolvePromptSelection = (
   selection: { readonly source: PromptSourceReference; readonly owner: string; readonly sourcePath: string },
   options: ComposeOptions,
   label: string,
-  warnings: DiagnosticList,
-  errors: DiagnosticList,
+  warnings: CompositionDiagnostic[],
+  errors: CompositionDiagnostic[],
 ): PromptFragment | undefined => {
   // Prompt selections are created only from entries in the resolved inheritance chain.
   const owner = findResource(set, 'agent', selection.owner)!;
@@ -366,7 +361,7 @@ const resolvePromptSelection = (
     label,
   });
   if (resolved.warning !== undefined) {
-    addDiagnostic(warnings, {
+    warnings.push({
       severity: 'warning',
       code: resolved.code,
       sourcePath: selection.sourcePath,
@@ -374,7 +369,7 @@ const resolvePromptSelection = (
     });
   }
   if (resolved.error !== undefined) {
-    addDiagnostic(errors, {
+    errors.push({
       severity: 'error',
       code: resolved.code,
       sourcePath: selection.sourcePath,
@@ -389,8 +384,8 @@ const resolveOptionalPrompt = (
   selection: EffectiveControls['systemPrompt'],
   options: ComposeOptions,
   label: string,
-  warnings: DiagnosticList,
-  errors: DiagnosticList,
+  warnings: CompositionDiagnostic[],
+  errors: CompositionDiagnostic[],
 ): PromptFragment | undefined =>
   selection === undefined ? undefined : resolvePromptSelection(set, selection, options, label, warnings, errors);
 
@@ -399,8 +394,8 @@ const composeIdentity = (
   chain: readonly ChainEntry[],
   controls: EffectiveControls,
   options: ComposeOptions,
-  warnings: DiagnosticList,
-  errors: DiagnosticList,
+  warnings: CompositionDiagnostic[],
+  errors: CompositionDiagnostic[],
 ): ComposedSubagentIdentity => {
   const declaredSystemPrompt = resolveOptionalPrompt(
     set,
@@ -411,7 +406,7 @@ const composeIdentity = (
     errors,
   );
   if (declaredSystemPrompt?.kind === 'repo_file') {
-    addDiagnostic(warnings, {
+    warnings.push({
       severity: 'warning',
       code: 'resource-invalid',
       sourcePath: controls.systemPrompt!.sourcePath,
@@ -467,8 +462,8 @@ const composeSubagents = (
   set: EffectiveResourceSet,
   subagents: readonly ResolvedResource[],
   options: ComposeOptions,
-  warnings: DiagnosticList,
-  errors: DiagnosticList,
+  warnings: CompositionDiagnostic[],
+  errors: CompositionDiagnostic[],
 ): readonly ComposedSubagent[] => {
   const composed: ComposedSubagent[] = [];
 
@@ -479,8 +474,8 @@ const composeSubagents = (
 
     const chainResult = resolveInheritanceChain(set, resource.slug);
     if (chainResult.entries === undefined) {
-      for (const detail of chainResult.errors.details) {
-        addDiagnostic(errors, { ...detail, message: `Subagent '${resource.slug}' is invalid: ${detail.message}` });
+      for (const detail of chainResult.errors) {
+        errors.push({ ...detail, message: `Subagent '${resource.slug}' is invalid: ${detail.message}` });
       }
       continue;
     }
@@ -521,19 +516,23 @@ export const compose = (set: EffectiveResourceSet, agentSlug: string, options: C
 
   const chainResult = resolveInheritanceChain(set, agentSlug);
   if (chainResult.entries === undefined) {
-    return { errors: [...chainResult.errors], warnings: [], diagnostics: chainResult.errors.details };
+    return { errors: diagnosticMessages(chainResult.errors), warnings: [], diagnostics: chainResult.errors };
   }
   const chain = chainResult.entries;
-  const warnings = diagnosticList();
-  const errors = diagnosticList();
+  const warnings: CompositionDiagnostic[] = [];
+  const errors: CompositionDiagnostic[] = [];
   const controls = composeEffectiveControls(chain);
   const identity = composeIdentity(set, chain, controls, options, warnings, errors);
   const loadout = composeLoadout(set, controls, warnings);
   const composedSubagents = composeSubagents(set, loadout.subagents, options, warnings, errors);
-  const uniqueWarningDetails = uniqueDiagnostics(warnings.details);
-  const uniqueWarnings = uniqueWarningDetails.map(({ message }) => message);
+  const uniqueWarningDetails = uniqueDiagnostics(warnings);
+  const uniqueWarnings = diagnosticMessages(uniqueWarningDetails);
   if (errors.length > 0) {
-    return { errors: [...errors], warnings: uniqueWarnings, diagnostics: [...errors.details, ...uniqueWarningDetails] };
+    return {
+      errors: diagnosticMessages(errors),
+      warnings: uniqueWarnings,
+      diagnostics: [...errors, ...uniqueWarningDetails],
+    };
   }
 
   return {

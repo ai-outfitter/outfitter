@@ -17,7 +17,7 @@ import type { AgentDefinitionIssue } from './AgentDefinition.js';
 import { inspectReferenceTree } from './ReferenceTreeInspection.js';
 import type { ReferenceTreeIssue } from './ReferenceTreeInspection.js';
 import type { EffectiveResourceSet, ResolvedResource } from './Resource.js';
-import { agentLocalKinds, findResource, listAgentResources, listResources } from './Resource.js';
+import { agentLocalKinds, findResource, listAgentResources, listResources, resourceLabel } from './Resource.js';
 
 export interface ValidationFinding {
   readonly scope: 'agents';
@@ -63,28 +63,23 @@ export interface ValidationOptions {
   readonly deferLoadoutResolution?: boolean;
 }
 
-const agentDefinitionIssueCode = (issue: AgentDefinitionIssue): ValidationFindingCode =>
-  issue.kind === 'invalid-name'
-    ? 'invalid-name'
-    : issue.kind === 'frontmatter'
-      ? 'invalid-frontmatter'
-      : 'resource-invalid';
+// Agent and skill documents report the same authoring defects, so one map codes both.
+const documentIssueCodes: Partial<
+  Record<AgentDefinitionIssue['kind'] | SkillDocumentIssue['kind'], ValidationFindingCode>
+> = {
+  'invalid-name': 'invalid-name',
+  frontmatter: 'invalid-frontmatter',
+};
 
-const skillDocumentIssueCode = (issue: SkillDocumentIssue): ValidationFindingCode =>
-  issue.kind === 'invalid-name'
-    ? 'invalid-name'
-    : issue.kind === 'frontmatter'
-      ? 'invalid-frontmatter'
-      : 'resource-invalid';
+const documentIssueCode = (issue: AgentDefinitionIssue | SkillDocumentIssue): ValidationFindingCode =>
+  documentIssueCodes[issue.kind] ?? 'resource-invalid';
 
-const skillDocumentIssueRemediation = (issue: SkillDocumentIssue): string =>
-  issue.kind === 'read'
-    ? 'Make SKILL.md readable, then run validation again.'
-    : issue.kind === 'invalid-name'
-      ? 'Correct the SKILL.md name, then run validation again.'
-      : issue.kind === 'invalid-references'
-        ? 'Correct the SKILL.md references, then run validation again.'
-        : 'Correct the SKILL.md frontmatter, then run validation again.';
+const skillDocumentIssueRemediations: Record<SkillDocumentIssue['kind'], string> = {
+  read: 'Make SKILL.md readable, then run validation again.',
+  'invalid-name': 'Correct the SKILL.md name, then run validation again.',
+  'invalid-references': 'Correct the SKILL.md references, then run validation again.',
+  frontmatter: 'Correct the SKILL.md frontmatter, then run validation again.',
+};
 
 const validateAgent = (
   set: EffectiveResourceSet,
@@ -98,7 +93,7 @@ const validateAgent = (
     return [
       validationFinding({
         phase: 'parse',
-        code: agentDefinitionIssueCode(definition),
+        code: documentIssueCode(definition),
         severity: 'error',
         resource: `agent:${agent.slug}`,
         sourcePath: definition.path,
@@ -145,11 +140,6 @@ const validateAgent = (
 
   return compositionFindings;
 };
-
-const resourceLabel = (resource: ResolvedResource): string =>
-  resource.winner.ownerAgent === undefined
-    ? `${resource.kind}:${resource.slug}`
-    : `agent:${resource.winner.ownerAgent}/${resource.kind}:${resource.slug}`;
 
 const skillDescriptionFindings = (
   skill: ResolvedResource,
@@ -322,34 +312,38 @@ const materializeReferenceTarget = (
   return [];
 };
 
-const emptyReferenceFinding = (context: SkillReferenceContext): ValidationFinding =>
-  materializationFinding(
-    context,
-    'resource-invalid',
-    `SKILL.md '${context.section}' reference must not be empty.`,
-    'Set the reference to a file or directory inside its allowed root.',
-  );
-
-const referenceLocation = (
-  context: SkillReferenceContext,
-  reference: SkillReference,
-): { readonly value: string; readonly root: string } | { readonly findings: readonly ValidationFinding[] } => {
-  const value = referenceValue(reference);
-  if (value.length === 0) return { findings: [emptyReferenceFinding(context)] };
-  const root = referenceRoot(context.skill, reference, context.projectDirectory);
-  return root === undefined ? { findings: [] } : { value, root };
+/** Every path a reference selects: a glob's sorted matches, or the single declared target. */
+const referenceMatches = (root: string, value: string, hasGlob: boolean, targetExists: boolean): readonly string[] => {
+  if (hasGlob) {
+    return globSync(value, { cwd: root })
+      .map((match) => resolve(root, match))
+      .sort();
+  }
+  return targetExists ? [resolve(root, value)] : [];
 };
 
 const validateSkillReference = (
   context: SkillReferenceContext,
   reference: SkillReference,
 ): readonly ValidationFinding[] => {
-  const location = referenceLocation(context, reference);
-  if ('findings' in location) return location.findings;
-  const { value, root } = location;
+  const value = referenceValue(reference);
+  if (value.length === 0) {
+    return [
+      materializationFinding(
+        context,
+        'resource-invalid',
+        `SKILL.md '${context.section}' reference must not be empty.`,
+        'Set the reference to a file or directory inside its allowed root.',
+      ),
+    ];
+  }
+  const root = referenceRoot(context.skill, reference, context.projectDirectory);
+  // A `repo_file` reference outside a repository has no root to check it against.
+  if (root === undefined) return [];
 
   const target = resolve(root, value);
-  if (isAbsolute(value) || !isLexicallyInside(target, root) || (existsSync(target) && !isInside(target, root))) {
+  const targetExists = existsSync(target);
+  if (isAbsolute(value) || !isLexicallyInside(target, root) || (targetExists && !isInside(target, root))) {
     return [
       materializationFinding(
         context,
@@ -361,13 +355,7 @@ const validateSkillReference = (
   }
 
   const hasGlob = hasGlobSyntax(value);
-  const matches = hasGlob
-    ? globSync(value, { cwd: root })
-        .map((match) => resolve(root, match))
-        .sort()
-    : existsSync(target)
-      ? [target]
-      : [];
+  const matches = referenceMatches(root, value, hasGlob, targetExists);
   if (matches.length === 0) {
     return 'repo_file' in reference
       ? []
@@ -410,12 +398,12 @@ const validateSkill = (skill: ResolvedResource, projectDirectory?: string): read
     return [
       validationFinding({
         phase: 'parse',
-        code: skillDocumentIssueCode(document),
+        code: documentIssueCode(document),
         severity: 'error',
         resource: label,
         sourcePath: document.path,
         message: document.message,
-        remediation: skillDocumentIssueRemediation(document),
+        remediation: skillDocumentIssueRemediations[document.kind],
       }),
     ];
   }

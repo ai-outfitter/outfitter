@@ -35,11 +35,15 @@ import type { SetupResult } from '../../setup/Setup.js';
 import { attachSystemExtensionHooks } from '../../system/SystemExtensionHook.js';
 import { startTerminalLoading } from '../TerminalLoading.js';
 import type { LoadingStarter } from '../TerminalLoading.js';
+import {
+  collectCommonValidationFindings,
+  commonValidationPassed,
+  formatValidationFindings,
+} from '../../validation/CommonValidation.js';
 import type { CommandObject } from './CommandObject.js';
 import { attachPiRuntimeExtension } from './PiRuntimeLaunch.js';
 import { resolveHomeDirectory, resolveProjectDirectory } from './ProcessDefaults.js';
 import { runSetup } from './SetupCommand.js';
-import { collectCommonValidationFindings, formatValidationFindings } from './ValidateCommand.js';
 
 export type AgentProcessLauncher = (plan: AgentLaunchPlan) => Promise<number>;
 export type RunLogLevel = 'info' | 'debug';
@@ -253,11 +257,6 @@ const shouldRunSetup = (
 const setupDidNotSelectAgent = (result: SetupResult | undefined): result is SetupResult =>
   result !== undefined && result.defaultAgent === undefined;
 
-const resolutionWarningsForRun = (
-  resolved: ReturnType<typeof resolveEffectiveSet>,
-  strict: boolean | undefined,
-): readonly string[] => (strict === true ? resolved.warnings.map((warning) => `warning: ${warning}`) : []);
-
 const failedCompositionMessages = (
   resolved: ReturnType<typeof resolveEffectiveSet>,
   composed: ReturnType<typeof compose>,
@@ -278,7 +277,7 @@ const strictCommonValidationFailure = (
   if (input.strict !== true) return undefined;
 
   const commonFindings = collectCommonValidationFindings(resolved, input.projectDirectory);
-  if (commonFindings.length === 0) return undefined;
+  if (commonValidationPassed(commonFindings, true)) return undefined;
 
   return {
     commonFindings,
@@ -335,17 +334,13 @@ export const executeRunAgentCommand = async (input: RunAgentInput): Promise<RunA
   }
   const { resolved } = prepared;
 
-  // Strict mode exposes the complete final resolution state. Normal startup uses these diagnostics
-  // only to turn an unavailable selected agent into a concise synchronization action.
-  const resolutionWarnings = resolutionWarningsForRun(resolved, input.strict);
-
   const { set, settings } = resolved;
   const agentSlug = resolveAgentSlug(settings.defaultAgent, input.agent);
   const harness = resolveHarness(settings.defaultHarness, input.harness);
   const composed = compose(set, agentSlug, { projectDirectory: input.projectDirectory });
 
   if (composed.plan === undefined) {
-    const messages = [...resolutionWarnings, ...failedCompositionMessages(resolved, composed)];
+    const messages = failedCompositionMessages(resolved, composed);
     emit(messages);
     return { exitCode: 1, messages };
   }
@@ -381,18 +376,14 @@ export const executeRunAgentCommand = async (input: RunAgentInput): Promise<RunA
     ];
 
     if (input.strict === true && warnings.length > 0) {
-      const messages = [
-        ...resolutionWarnings,
-        ...warnings,
-        'Strict mode: composition warnings and unsupported elements are fatal.',
-      ];
+      const messages = [...warnings, 'Strict mode: composition warnings and unsupported elements are fatal.'];
       emit(messages);
       return { exitCode: 1, messages };
     }
 
-    // Normal startup stays quiet. Strict mode retains the complete resolution diagnostics, while
-    // composition/projection warnings stay visible because they describe a degraded launch.
-    const messages = [...resolutionWarnings, ...warnings];
+    // Normal startup stays quiet. Composition and projection warnings stay visible because they
+    // describe a degraded launch. Strict mode already stopped on any resolution finding.
+    const messages = [...warnings];
     emit(messages);
 
     // Attach the Outfitter runtime UI and sign-in extension to interactive pi sessions.

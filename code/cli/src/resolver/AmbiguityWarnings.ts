@@ -12,6 +12,7 @@ import type { RemoteSourceReference } from '../sources/SourceCache.js';
 import type { AttributedRemoteSource } from '../sources/TransitiveSources.js';
 import type { ResolutionWarningDetail } from '../validation/ResolutionWarning.js';
 import type { EffectiveResourceSet, ResolvedResource, ResourceKind } from './Resource.js';
+import { resourceIdentity } from './Resource.js';
 
 interface SourceDeclaration {
   readonly source: RemoteSourceReference;
@@ -125,12 +126,8 @@ const slugWarning = (
   const definitions = [resource.winner, ...resource.shadowed];
   const labels = [...new Set(definitions.map((definition) => definition.layer.label))];
   if (labels.length < 2) return undefined;
-  const resourceIdentity =
-    resource.winner.ownerAgent === undefined
-      ? `${kind}:${resource.slug}`
-      : `agent:${resource.winner.ownerAgent}/${kind}:${resource.slug}`;
   return {
-    resource: resourceIdentity,
+    resource: resourceIdentity(kind, resource.slug, resource.winner.ownerAgent),
     sourcePath: resource.winner.path,
     message: `Ambiguous ${kind} slug '${resource.slug}'${context ?? ''} is supplied by ${labels.map((label) => `'${label}'`).join(', ')}; '${resource.winner.layer.label}' won.`,
   };

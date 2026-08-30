@@ -10,20 +10,15 @@ export interface CompositionDiagnostic {
   readonly deferInIsolatedSource?: boolean;
 }
 
-export interface DiagnosticList extends Array<string> {
-  readonly details: CompositionDiagnostic[];
-}
+/** The message-only view a caller reports; the typed diagnostics stay the single source of truth. */
+export const diagnosticMessages = (details: readonly CompositionDiagnostic[]): readonly string[] =>
+  details.map(({ message }) => message);
 
-export const diagnosticList = (): DiagnosticList => {
-  const list: string[] = [];
-  Object.defineProperty(list, 'details', { value: [] as CompositionDiagnostic[], enumerable: false });
-  return list as DiagnosticList;
+export const uniqueDiagnostics = (details: readonly CompositionDiagnostic[]): readonly CompositionDiagnostic[] => {
+  const seen = new Set<string>();
+  return details.filter((detail) => {
+    if (seen.has(detail.message)) return false;
+    seen.add(detail.message);
+    return true;
+  });
 };
-
-export const addDiagnostic = (list: DiagnosticList, detail: CompositionDiagnostic): void => {
-  list.push(detail.message);
-  list.details.push(detail);
-};
-
-export const uniqueDiagnostics = (details: readonly CompositionDiagnostic[]): readonly CompositionDiagnostic[] =>
-  details.filter((detail, index, all) => all.findIndex((candidate) => candidate.message === detail.message) === index);

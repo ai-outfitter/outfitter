@@ -26,6 +26,12 @@ export interface AttributedRemoteSource extends DeclaredRemoteSource {
   readonly sourcePath: string;
 }
 
+/** Drops the settings-file attribution for the callers that predate it. */
+const unattributed = ({ source, declaredBy }: AttributedRemoteSource): DeclaredRemoteSource => ({
+  source,
+  declaredBy,
+});
+
 export interface DeclaredSourcesResult {
   readonly sources: readonly DeclaredRemoteSource[];
   readonly warnings: readonly string[];
@@ -184,7 +190,7 @@ export const readDeclaredRemoteSources = (
 ): DeclaredSourcesResult => {
   const attributed = readAttributedRemoteSources(payloadRoot, checkoutRoot, declaredBy);
   return {
-    sources: attributed.sources.map(({ source, declaredBy: owner }) => ({ source, declaredBy: owner })),
+    sources: attributed.sources.map(unattributed),
     warnings: attributed.warningDetails.map(({ message }) => message),
   };
 };
@@ -237,8 +243,6 @@ const declarationsFromParent = (
 };
 
 export const expandTransitiveSources = (input: TransitiveExpansionInput): TransitiveExpansionResult => {
-  const sources: DeclaredRemoteSource[] = [];
-  const declarations: DeclaredRemoteSource[] = [];
   const attributedSources: AttributedRemoteSource[] = [];
   const attributedDeclarations: AttributedRemoteSource[] = [];
   const warningDetails: ResolutionWarningDetail[] = [];
@@ -265,13 +269,10 @@ export const expandTransitiveSources = (input: TransitiveExpansionInput): Transi
       warningDetails.push(...declared.warningDetails);
 
       for (const entry of declared.sources) {
-        const legacy = { source: entry.source, declaredBy: entry.declaredBy };
-        declarations.push(legacy);
         attributedDeclarations.push(entry);
         const key = encodeRemoteSourceSelection(entry.source);
         if (visited.has(key)) continue;
         visited.add(key);
-        sources.push(legacy);
         attributedSources.push(entry);
         next.push(entry.source);
       }
@@ -281,8 +282,8 @@ export const expandTransitiveSources = (input: TransitiveExpansionInput): Transi
   }
 
   return {
-    sources,
-    declarations,
+    sources: attributedSources.map(unattributed),
+    declarations: attributedDeclarations.map(unattributed),
     attributedSources,
     attributedDeclarations,
     warnings: warningDetails.map(({ message }) => message),

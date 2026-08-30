@@ -325,7 +325,7 @@ export const parseAgentDefinition = (
   // The JSON Schema only sees the frontmatter, and a config.json overlay can replace `tools`
   // wholesale after that check. Validate the merged loadout so an unprojectable tool name is an
   // error from `outfitter validate`, not a surprise at launch.
-  const toolIssue = toolsIssue(merged.record, merged.sourcePaths.tools ?? agentPath);
+  const toolIssue = toolsIssue(merged.record, merged.sourcePaths.tools);
 
   if (toolIssue !== undefined) {
     return toolIssue;

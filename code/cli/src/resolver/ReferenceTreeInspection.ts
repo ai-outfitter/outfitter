@@ -2,7 +2,7 @@
 import { existsSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { isInside, realpathOrResolve } from '../dump/Containment.js';
+import { isLexicallyInside, realpathOrResolve } from '../dump/Containment.js';
 
 export type ReferenceTreeIssueKind = 'escaped' | 'missing' | 'unreadable' | 'special' | 'directory-unreadable';
 
@@ -16,14 +16,20 @@ type InspectedEntry =
   | { readonly kind: 'directory'; readonly identity: string }
   | { readonly kind: 'issue'; readonly issue: ReferenceTreeIssue };
 
-const inspectEntry = (path: string, root: string): InspectedEntry => {
+// `rootIdentity` is the caller's already-resolved root, so a walk realpaths it once instead of once
+// per entry.
+const inspectEntry = (path: string, rootIdentity: string): InspectedEntry => {
   // A missing target has no real path. Let statSync classify it instead of comparing a lexical
   // macOS `/var` path with the canonical `/private/var` root and misreporting an escape.
-  if (existsSync(path) && !isInside(path, root)) return { kind: 'issue', issue: { kind: 'escaped', path } };
+  const identity = existsSync(path) ? realpathOrResolve(path) : undefined;
+  if (identity !== undefined && !isLexicallyInside(identity, rootIdentity)) {
+    return { kind: 'issue', issue: { kind: 'escaped', path } };
+  }
 
   try {
     const stats = statSync(path);
-    if (stats.isDirectory()) return { kind: 'directory', identity: realpathOrResolve(path) };
+    // An existing entry already resolved above; only a race could leave `identity` undefined here.
+    if (stats.isDirectory()) return { kind: 'directory', identity: identity ?? realpathOrResolve(path) };
     if (stats.isFile()) return { kind: 'file' };
     return { kind: 'issue', issue: { kind: 'special', path } };
   } catch (error) {
@@ -43,7 +49,7 @@ export const inspectReferenceTree = (
 
   while (pending.length > 0) {
     const current = pending.pop()!;
-    const inspected = inspectEntry(current, root);
+    const inspected = inspectEntry(current, rootIdentity);
     if (inspected.kind === 'issue') {
       issues.push(inspected.issue);
       continue;

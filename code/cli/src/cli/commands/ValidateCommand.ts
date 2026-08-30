@@ -4,10 +4,11 @@ import { Command } from 'commander';
 
 import { resolveEffectiveSet } from '../../resolver/ResolverContext.js';
 import type { ValidationFinding } from '../../resolver/ResolverValidation.js';
-import { validateEffectiveSet, validationFinding } from '../../resolver/ResolverValidation.js';
-import { formatSettingsIssue } from '../../settings/SettingsLoader.js';
-import type { SettingsLoadIssue } from '../../settings/SettingsLoader.js';
-import type { ResolutionWarningDetail } from '../../validation/ResolutionWarning.js';
+import {
+  collectCommonValidationFindings,
+  commonValidationPassed,
+  formatValidationFindings,
+} from '../../validation/CommonValidation.js';
 import type { CommandObject } from './CommandObject.js';
 import { resolveHomeDirectory, resolveProjectDirectory } from './ProcessDefaults.js';
 
@@ -30,66 +31,15 @@ export interface ValidateCommandDependencies {
   readonly writeLine?: (message: string) => void;
 }
 
-const settingsFindings = (issues: readonly SettingsLoadIssue[]): readonly ValidationFinding[] =>
-  issues.map((issue) =>
-    validationFinding({
-      phase: 'parse',
-      code: 'settings-invalid',
-      severity: 'error',
-      resource: 'settings',
-      sourcePath: issue.filePath,
-      message: formatSettingsIssue(issue),
-      remediation: 'Correct the settings file, then run validation again.',
-    }),
-  );
-
-const settingsWarningFindings = (warnings: readonly ResolutionWarningDetail[]): readonly ValidationFinding[] =>
-  warnings.map((warning) =>
-    validationFinding({
-      phase: 'resolve',
-      code: 'settings-warning',
-      severity: 'warning',
-      resource: warning.resource,
-      sourcePath: warning.sourcePath,
-      message: warning.message,
-      remediation: 'Run outfitter sync to update remote sources. Correct any invalid source configuration.',
-    }),
-  );
-
-export const collectCommonValidationFindings = (
-  resolved: ReturnType<typeof resolveEffectiveSet>,
-  projectDirectory: string,
-): readonly ValidationFinding[] => [
-  ...settingsFindings(resolved.settingsIssues),
-  ...settingsWarningFindings(resolved.warningDetails),
-  ...validateEffectiveSet(resolved.set, projectDirectory),
-];
-
 export const executeValidateCommand = (input: ValidateInput): ValidateResult => {
   const findings = collectCommonValidationFindings(resolveEffectiveSet(input), input.projectDirectory);
 
-  const hasErrors = findings.some((finding) => finding.severity === 'error');
-  const hasWarnings = findings.some((finding) => finding.severity === 'warning');
-  const ok = !hasErrors && !(input.strict === true && hasWarnings);
+  const ok = commonValidationPassed(findings, input.strict);
 
   const messages =
     input.json === true ? [JSON.stringify({ ok, findings }, null, 2)] : formatValidationFindings(findings, ok);
 
   return { findings, ok, messages };
-};
-
-export const formatValidationFindings = (findings: readonly ValidationFinding[], ok: boolean): readonly string[] => {
-  if (findings.length === 0) {
-    return ['✓ No issues found.'];
-  }
-
-  const lines = findings.map(
-    (finding) =>
-      `${finding.severity === 'error' ? '✗' : '⚠'} [${finding.code}] ${finding.resource}: ${finding.message} ` +
-      `Source: ${finding.sourcePath}. Remediation: ${finding.remediation}`,
-  );
-
-  return [...lines, ok ? '✓ Passed (warnings only).' : '✗ Validation failed.'];
 };
 
 export const createValidateCommand = (dependencies: ValidateCommandDependencies = {}): CommandObject => ({

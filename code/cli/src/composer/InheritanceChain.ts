@@ -2,8 +2,7 @@ import { isAgentDefinitionIssue, readAgentDefinition } from '../resolver/AgentDe
 import type { AgentDefinition } from '../resolver/AgentDefinition.js';
 import type { EffectiveResourceSet, ResolvedResource } from '../resolver/Resource.js';
 import { findResource } from '../resolver/Resource.js';
-import { addDiagnostic, diagnosticList } from './CompositionDiagnostic.js';
-import type { DiagnosticList } from './CompositionDiagnostic.js';
+import type { CompositionDiagnostic } from './CompositionDiagnostic.js';
 
 export interface ChainEntry {
   readonly resource: ResolvedResource;
@@ -12,19 +11,19 @@ export interface ChainEntry {
 
 export interface InheritanceChainResult {
   readonly entries?: readonly ChainEntry[];
-  readonly errors: DiagnosticList;
+  readonly errors: readonly CompositionDiagnostic[];
 }
 
 const reportCycle = (
   set: EffectiveResourceSet,
   slug: string,
   visiting: readonly string[],
-  errors: DiagnosticList,
+  errors: CompositionDiagnostic[],
 ): boolean => {
   const cycleIndex = visiting.indexOf(slug);
   if (cycleIndex === -1) return false;
   const declaringSlug = visiting.at(-1)!;
-  addDiagnostic(errors, {
+  errors.push({
     severity: 'error',
     code: 'inheritance-cycle',
     sourcePath: findResource(set, 'agent', declaringSlug)?.winner.path,
@@ -33,10 +32,10 @@ const reportCycle = (
   return true;
 };
 
-const readChainEntry = (resource: ResolvedResource, errors: DiagnosticList): ChainEntry | undefined => {
+const readChainEntry = (resource: ResolvedResource, errors: CompositionDiagnostic[]): ChainEntry | undefined => {
   const definition = readAgentDefinition(resource.winner.path, resource.configPaths);
   if (isAgentDefinitionIssue(definition)) {
-    addDiagnostic(errors, {
+    errors.push({
       severity: 'error',
       code: 'resource-invalid',
       sourcePath: definition.path,
@@ -45,7 +44,7 @@ const readChainEntry = (resource: ResolvedResource, errors: DiagnosticList): Cha
     return undefined;
   }
   if (definition.name !== resource.slug) {
-    addDiagnostic(errors, {
+    errors.push({
       severity: 'error',
       code: 'resource-invalid',
       sourcePath: definition.sourcePath,
@@ -60,7 +59,7 @@ export const resolveInheritanceChain = (set: EffectiveResourceSet, agentSlug: st
   const entries: ChainEntry[] = [];
   const composed = new Set<string>();
   const visiting: string[] = [];
-  const errors = diagnosticList();
+  const errors: CompositionDiagnostic[] = [];
 
   const visit = (slug: string): void => {
     if (composed.has(slug)) return;
@@ -68,7 +67,7 @@ export const resolveInheritanceChain = (set: EffectiveResourceSet, agentSlug: st
 
     const resource = findResource(set, 'agent', slug);
     if (resource === undefined) {
-      addDiagnostic(errors, {
+      errors.push({
         severity: 'error',
         code: 'resource-unresolved',
         sourcePath: findResource(set, 'agent', visiting.at(-1)!)?.winner.path,

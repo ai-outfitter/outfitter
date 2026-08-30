@@ -93,6 +93,18 @@ export interface ResolvedResource {
 /** Locale-independent, deterministic slug ordering (code-unit comparison). */
 export const compareSlugs = (left: string, right: string): number => (left < right ? -1 : left > right ? 1 : 0);
 
+/**
+ * The stable identity a finding or a warning reports for one resource. Every reported `resource`
+ * field comes from here, so a validation finding and a resolution warning name the same resource
+ * the same way.
+ */
+export const resourceIdentity = (kind: ResourceKind, slug: string, ownerAgent?: string): string =>
+  ownerAgent === undefined ? `${kind}:${slug}` : `agent:${ownerAgent}/${kind}:${slug}`;
+
+/** {@link resourceIdentity} for an already-resolved resource. */
+export const resourceLabel = (resource: ResolvedResource): string =>
+  resourceIdentity(resource.kind, resource.slug, resource.winner.ownerAgent);
+
 /** One immutable effective resource set per invocation, keyed by kind then slug. */
 export interface EffectiveResourceSet {
   readonly layers: readonly Layer[];
