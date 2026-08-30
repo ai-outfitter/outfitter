@@ -41,6 +41,8 @@ remote_settings:
     ref: 9c47d1e2b8a05f36c4d7e90a12b3f8c5d6e71a04
 
 cache_directory: ./cache # optional; relative to this settings file
+source_cache:
+  policy: repair # repair (default), locked, or offline
 
 # Pseudonymous product analytics consent; defaults to true when absent.
 telemetry:
@@ -53,6 +55,9 @@ telemetry:
 - `remote_settings` — shared settings a repository distributes; cached locally and merged below your project and user settings, so anything you set locally wins.
 - `cache_directory` — the repository cache root used consistently by sync, remote settings, remote
   source resolution, and default-catalog setup. It defaults to `~/.agents/cache`; repositories live
+- `source_cache.policy` — verifies remote caches before `run`: `repair` reuses healthy caches and
+  atomically repairs unhealthy ones, `locked` also requires full commit pins, and `offline` never
+  accesses the network.
   below its `repos/` directory.
 - `telemetry.enabled` — the primary and sole persistent control for pseudonymous product analytics. Edit it directly to enable or disable telemetry. See [Telemetry](./telemetry.md) for consent precedence, automatic identifier cleanup, the event contract, and the current inert-build status.
 

@@ -260,10 +260,10 @@ Outfitter launches `codex`, maps model selection to `-m`, and injects selected M
   A positional agent slug selects what to run (default from settings `default_agent`); `--harness <pi|claude|codex>` selects the harness (default from settings `default_harness`, then `pi`); unknown args pass through to the child CLI; `--strict` makes warnings fatal.
   Interactive clean-home launches start Pi-native onboarding; non-interactive clean-home launches require `outfitter setup` first.
 - **`outfitter setup [source]`**: launch the bundled, model-free Pi walkthrough with the original three setup modes (default catalog, create a profile, or another catalog), original profile/target wording, and optional direct-source path; append only the default CLI-agent choice (Pi/Outfitter preselected); then atomically apply the result through the CLI state machine.
-- **`outfitter sync`**: validate local settings; atomically fetch configured remote settings; reload the merged settings; then atomically fetch every resulting remote source into `<cache_directory>/repos/<encoded-uri-and-ref>/`.
-  Validate before swapping, preserve the last good checkout on failure, report per-source status, and redact embedded credentials from all output.
-  Required-source failures exit nonzero.
-  Network synchronization never runs implicitly during `outfitter run`.
+- **`outfitter sync`**: validate local settings; atomically fetch configured remote settings; reload the merged settings; then atomically fetch every resulting remote source into `<cache_directory>/repos/<encoded-uri-and-ref>/` and record its verified commit under `<cache_directory>/source-state/`.
+  Validate before swapping, preserve the last good checkout on failure, report per-source status, and redact embedded credentials from all output. Required-source failures exit nonzero.
+- **`outfitter run`**: enforce the selected source-cache policy before resolution. Healthy manifest-backed caches stay network-free; repair mode atomically rebuilds unhealthy remote caches, locked mode requires full commit pins, and offline mode fails closed without network access. Explicit local paths are never cache-managed.
+- **`outfitter sources`**: report local, direct, remote-settings, and transitive source precedence plus credential-redacted cache health and revisions.
 - **`outfitter list [kind]`**: report the effective resource set — slugs, winning sources, shadowed definitions — deterministically.
 - **`outfitter validate [--strict] [--json]`**: protocol layout, frontmatter and JSON schemas, unresolved loadout slugs, skill reference escapes/collisions, settings schema.
 - **`outfitter dump [--agent <id>] [--out]`**: write the deterministic tree, optionally restricted to one agent's transitive closure.

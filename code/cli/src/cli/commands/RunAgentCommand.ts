@@ -30,8 +30,10 @@ import type { AgentLaunchPlan } from '../../projection/Projection.js';
 import { strictAmbiguityFailureMessage } from '../../resolver/AmbiguityWarnings.js';
 import { findResource } from '../../resolver/Resource.js';
 import { resolveEffectiveSet } from '../../resolver/ResolverContext.js';
-import type { Harness, Isolation } from '../../settings/Settings.js';
-import { HARNESSES } from '../../settings/Settings.js';
+import type { Harness, Isolation, SourceCachePolicy } from '../../settings/Settings.js';
+import { HARNESSES, SOURCE_CACHE_POLICIES } from '../../settings/Settings.js';
+import { discoverSettingsLoadPlan, loadSettings } from '../../settings/SettingsLoader.js';
+import { prepareSourceCaches } from '../../sources/SourceCachePolicy.js';
 import { setupNextStepMessage } from '../../setup/Setup.js';
 import type { SetupResult } from '../../setup/Setup.js';
 import { attachSystemExtensionHooks } from '../../system/SystemExtensionHook.js';
@@ -63,6 +65,7 @@ export interface RunAgentInput {
   /** Launch from the projection alone, ignoring the machine's own harness configuration. */
   readonly isolated?: boolean;
   readonly strict?: boolean;
+  readonly sourceCachePolicy?: SourceCachePolicy;
   readonly logLevel?: RunLogLevel;
   readonly passThroughArgs?: readonly string[];
   /** `--append-prompt` documents appended to the system prompt after the agent's own, in order. */
@@ -80,6 +83,8 @@ export interface RunAgentInput {
   readonly extensionInstallSpawner?: PiInstallSpawner;
   /** Optional loading UI. The command wires a terminal spinner; tests can observe this boundary. */
   readonly startLoading?: LoadingStarter;
+  /** Test seam for startup cache establishment. */
+  readonly sourceCachePreparer?: typeof prepareSourceCaches;
 }
 
 export interface RunAgentResult {
@@ -151,6 +156,14 @@ const assertNoSettingsIssues = (issues: readonly { readonly message: string }[])
   if (issues.length > 0) {
     throw new Error(`Cannot run with invalid settings: ${issues.map((issue) => issue.message).join('; ')}`);
   }
+};
+
+const establishSourceCaches = (input: RunAgentInput, policy?: SourceCachePolicy): SourceCachePolicy => {
+  const localSettings = loadSettings(discoverSettingsLoadPlan(input));
+  assertNoSettingsIssues(localSettings.issues);
+  const selected = policy ?? input.sourceCachePolicy ?? localSettings.settings.sourceCache?.policy ?? 'repair';
+  (input.sourceCachePreparer ?? prepareSourceCaches)({ ...input, policy: selected });
+  return selected;
 };
 
 // Pi, and an isolated Claude, read credentials — and Claude its session history — from their
@@ -312,6 +325,7 @@ export const executeRunAgentCommand = async (input: RunAgentInput): Promise<RunA
     for (const message of messages) input.writeLine?.(message);
   };
 
+  const sourceCachePolicy = establishSourceCaches(input);
   let resolved = resolveEffectiveSet(input);
   assertNoSettingsIssues(resolved.settingsIssues);
   assertReadableAppendPrompts(input.appendPromptPaths);
@@ -329,6 +343,7 @@ export const executeRunAgentCommand = async (input: RunAgentInput): Promise<RunA
       return { exitCode: 0, messages };
     }
     // Keep the transition quiet so the real profile UI is the first persistent output.
+    establishSourceCaches(input, sourceCachePolicy);
     resolved = resolveEffectiveSet(input);
     assertNoSettingsIssues(resolved.settingsIssues);
   }
@@ -455,6 +470,11 @@ export const createRunAgentCommand = (dependencies: RunAgentDependencies = {}): 
           .env('OUTFITTER_LOG_LEVEL'),
       )
       .option('--strict', 'Treat ambiguity, composition warnings, and unsupported loadout elements as fatal.')
+      .addOption(
+        new Option('--source-cache-policy <policy>', 'Remote source cache startup policy.').choices([
+          ...SOURCE_CACHE_POLICIES,
+        ]),
+      )
       .option(
         '--isolated',
         'Launch from the composed profile alone, ignoring your own harness configuration (trust, permissions, MCP servers, plugins).',
@@ -476,6 +496,7 @@ export const createRunAgentCommand = (dependencies: RunAgentDependencies = {}): 
             isolated?: boolean;
             retainProjection?: boolean;
             strict?: boolean;
+            sourceCachePolicy?: SourceCachePolicy;
             appendPrompt?: readonly string[];
           },
         ) => {
@@ -502,6 +523,7 @@ export const createRunAgentCommand = (dependencies: RunAgentDependencies = {}): 
             isolated: options.isolated,
             retainProjection: options.retainProjection,
             strict: options.strict,
+            sourceCachePolicy: options.sourceCachePolicy,
             passThroughArgs: effectivePassThrough,
             appendPromptPaths: options.appendPrompt,
             launcher,

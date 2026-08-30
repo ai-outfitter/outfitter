@@ -75,8 +75,24 @@ Outfitter provides setup and maintenance commands that onboard a new user, synch
 17. Private catalog enablement MUST remain informational commercial governance and MUST NOT collect, echo, persist, synthesize, or validate provider credentials.
 18. Resolution MUST report a configured remote source or remote-settings target whose cache is
     absent with actionable `outfitter sync` guidance instead of silently dropping it.
-19. Automatic network synchronization during `outfitter run` is out of scope. Operators invoke
-    `outfitter sync` explicitly.
+19. **Amendment (2026-08-30):** `outfitter run` MUST verify declared remote settings and source
+    caches before composition. The default `repair` policy MUST reuse a manifest-valid clean cache
+    without network access and MUST atomically repair a missing, dirty, mismatched, legacy, or
+    unverifiable cache. `locked` MUST additionally require every remote declaration to use a full
+    40-character commit pin. `offline` MUST prohibit network access and fail unless every declared
+    remote has a manifest-valid clean cache. An unavailable declared remote MUST fail before
+    composition and MUST NOT be replaced by a lower-precedence or built-in profile.
+20. Settings MAY declare `source_cache.policy` as `repair`, `locked`, or `offline`; `repair` is the
+    default. `outfitter run --source-cache-policy` MUST override the configured policy for one run.
+21. Outfitter MUST store a versioned manifest under `<cache_directory>/source-state/` containing the
+    credential-redacted declared source identity, requested ref, resolved full commit, and cache key.
+22. Dirty cache checkouts MUST be quarantined rather than silently deleted. Concurrent startup
+    repairs MUST serialize per source.
+23. Workspace/global layers and explicit `path:` sources remain live local authority. Startup cache
+    verification MUST NOT reset, clean, fetch, or otherwise mutate those working copies.
+24. Outfitter MUST provide `outfitter sources [--json]` with credential-redacted source, requested
+    and resolved revision, origin, cache health, and precedence. JSON output MUST be stable and MUST
+    NOT contain credentials.
 
 ### OFTR-004.3: Create Profile Command
 

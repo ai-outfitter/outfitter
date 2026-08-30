@@ -94,3 +94,11 @@ Write the composed resource tree as a self-contained `.agents/` directory for re
 | `--out <dir>`  | Destination directory (default `./.agents`).         |
 
 > **Tasks and `outfitter task bake`** — baking a task and its inputs into an immutable execution artifact — are the subject of a separate upcoming RFC and are not part of this command surface yet. See [Tasks](./tasks.md).
+
+`outfitter run` verifies these caches before composition. Use
+`--source-cache-policy <repair|locked|offline>` to override the configured startup policy.
+
+## `outfitter sources`
+
+Report local and remote source precedence, requested and resolved revisions, origins, and cache
+health. `outfitter sources --json` emits stable credential-redacted machine-readable output.

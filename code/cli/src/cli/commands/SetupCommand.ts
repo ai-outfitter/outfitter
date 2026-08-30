@@ -20,7 +20,7 @@ import type { LoadingStarter } from '../TerminalLoading.js';
 import type { CommandObject } from './CommandObject.js';
 import { resolveHomeDirectory, resolveProjectDirectory } from './ProcessDefaults.js';
 import { executeRunAgentCommand } from './RunAgentCommand.js';
-import type { RunLogLevel } from './RunAgentCommand.js';
+import type { RunAgentInput, RunLogLevel } from './RunAgentCommand.js';
 
 export type SetupProcessLauncher = (plan: AgentLaunchPlan) => Promise<number>;
 
@@ -33,6 +33,7 @@ export interface SetupCommandDependencies {
   readonly launcher?: SetupProcessLauncher;
   /** Launcher for the profile pi started after setup; defaults to the real spawn boundary. */
   readonly runLauncher?: SetupProcessLauncher;
+  readonly sourceCachePreparer?: RunAgentInput['sourceCachePreparer'];
   readonly writeLine?: (message: string) => void;
   readonly startLoading?: LoadingStarter;
   readonly logLevel?: RunLogLevel;
@@ -249,6 +250,7 @@ const autoLaunchSelectedProfile = async (
     logLevel: dependencies.logLevel,
     launcher: dependencies.runLauncher ?? defaultRunLauncher,
     startLoading: dependencies.startLoading ?? startTerminalLoading,
+    sourceCachePreparer: dependencies.sourceCachePreparer,
   });
   for (const message of runResult.messages) writeLine(message);
   /* v8 ignore next -- surfaces a nonzero profile-launch exit to the shell; happy path returns 0. */

@@ -22,6 +22,8 @@ export type Isolation = (typeof ISOLATIONS)[number];
 /** Functional persistence strategies for adapter-declared state paths. */
 export type StatePersistenceStrategy = 'symlink' | 'discard' | 'warn' | 'error' | 'prompt';
 export type StatePersistence = Readonly<Record<string, StatePersistenceStrategy>>;
+export const SOURCE_CACHE_POLICIES = ['repair', 'locked', 'offline'] as const;
+export type SourceCachePolicy = (typeof SOURCE_CACHE_POLICIES)[number];
 
 /**
  * An ordered `.agents` payload source: a local path, a remote URI, or a `github` shorthand.
@@ -45,6 +47,10 @@ export interface TelemetrySettings {
   readonly enabled?: boolean;
 }
 
+export interface SourceCacheSettings {
+  readonly policy?: SourceCachePolicy;
+}
+
 export interface Settings {
   /** Agent slug that plain `outfitter` runs when no agent is selected. */
   readonly defaultAgent?: string;
@@ -59,6 +65,7 @@ export interface Settings {
   readonly sources?: readonly SourceReference[];
   readonly remoteSettings?: readonly RemoteSettingsReference[];
   readonly cacheDirectory?: string;
+  readonly sourceCache?: SourceCacheSettings;
   readonly statePersistence?: StatePersistence;
   readonly customSettings?: CustomSettings;
   readonly startup?: StartupSettings;
