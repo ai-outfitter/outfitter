@@ -1,4 +1,4 @@
-import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 
@@ -174,6 +174,7 @@ nodes:
     description: Second duplicate.
     actor: human
     environment: absent
+    skill: missing
   - id: nested
     workflow: absent-workflow
     description: Unknown nested workflow.
@@ -211,6 +212,7 @@ nodes:
         expect.stringContaining("artifact integration 'missing-fields' must declare a SHA-256"),
         expect.stringContaining("artifact integration 'missing-fields' must declare repository and path"),
         expect.stringContaining('nested workflow cycle'),
+        expect.stringContaining("node 'duplicate' has agent-closure assertions but no agent actor"),
       ]),
     );
   });
@@ -235,6 +237,26 @@ nodes:
     });
     expect(broken.ok).toBe(false);
     expect(broken.messages.join('\n')).toContain("workflow 'broken': workflow.yaml is not valid YAML");
+
+    write(
+      join(catalog, 'workflows', 'wrong-id', 'workflow.yaml'),
+      `version: 1
+id: different
+title: Wrong id
+description: Exercise directory identity validation during export.
+actors: {}
+nodes:
+  - {id: noop, action: inspect, description: Keep the definition schema-valid.}
+`,
+    );
+    const wrongId = executeDumpCommand({
+      homeDirectory: home,
+      projectDirectory: project,
+      workflow: 'wrong-id',
+      out: join(root, 'wrong-id'),
+    });
+    expect(wrongId.ok).toBe(false);
+    expect(wrongId.messages.join('\n')).toContain("workflow id 'different' must match its directory 'wrong-id'");
     const unreadable = readWorkflowDefinition(join(root, 'missing.yaml'));
     expect(isWorkflowDefinitionIssue(unreadable)).toBe(true);
     if (isWorkflowDefinitionIssue(unreadable)) expect(unreadable.message).toContain('not readable');
@@ -288,6 +310,52 @@ nodes:
     });
     expect(missingAgent.ok).toBe(false);
     expect(missingAgent.messages.join('\n')).toContain("Unknown agent 'absent'");
+    expect(existsSync(join(root, 'missing-agent', '.agents'))).toBe(false);
+  });
+
+  it('rejects schema-valid-looking null integrations and escaping workflow symlinks', () => {
+    const { home, project, catalog, root } = fixture();
+    write(
+      join(catalog, 'workflows', 'null-integration', 'workflow.yaml'),
+      `version: 1
+id: null-integration
+title: Null integration
+description: Reject null integration values.
+actors: {}
+integrations: {cache: null}
+nodes:
+  - {id: inspect, action: inspect, description: Inspect.}
+`,
+    );
+    const set = resolveResources(
+      discoverLayers({ homeDirectory: home, projectDirectory: project, settings: { sources: [] } }).layers,
+    );
+    expect(validateEffectiveSet(set, project).map((finding) => finding.message)).toEqual(
+      expect.arrayContaining([expect.stringContaining('/integrations/cache')]),
+    );
+
+    const external = join(root, 'external-workflow');
+    write(
+      join(external, 'workflow.yaml'),
+      `version: 1
+id: escape
+title: Escape
+description: External workflow.
+actors: {}
+nodes:
+  - {id: inspect, action: inspect, description: Inspect.}
+`,
+    );
+    symlinkSync(external, join(catalog, 'workflows', 'escape'));
+    const escaped = executeDumpCommand({
+      homeDirectory: home,
+      projectDirectory: project,
+      workflow: 'escape',
+      out: join(root, 'escaped'),
+    });
+    expect(escaped.ok).toBe(false);
+    expect(escaped.messages.join('\n')).toContain('resolves outside the tree');
+    expect(existsSync(join(root, 'escaped', '.agents'))).toBe(false);
   });
 
   it('exports root and nested workflow YAML with the complete agent closure and manifest', () => {
@@ -303,8 +371,13 @@ nodes:
     expect(readFileSync(join(out, '.agents', 'skills', 'review', 'SKILL.md'), 'utf8')).toContain('name: review');
     const manifest = JSON.parse(
       readFileSync(join(out, '.agents', '.outfitter', 'workflow-composition.json'), 'utf8'),
-    ) as { root: string; workflows: string[] };
-    expect(manifest).toMatchObject({ root: 'delivery', workflows: ['delivery', 'review'] });
+    ) as { root: string; workflows: { id: string; source: { layer: string; path: string } }[] };
+    expect(manifest.root).toBe('delivery');
+    expect(manifest.workflows.map((workflow) => ({ id: workflow.id, layer: workflow.source.layer }))).toEqual([
+      { id: 'delivery', layer: 'workspace' },
+      { id: 'review', layer: 'workspace' },
+    ]);
+    expect(manifest.workflows.every((workflow) => workflow.source.path.endsWith('workflow.yaml'))).toBe(true);
   });
 
   it('refuses an existing destination instead of replacing it', () => {

@@ -11,14 +11,16 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { dirname, join } from 'node:path';
+import { dirname, join, relative } from 'node:path';
 
 import { findResource } from '../resolver/Resource.js';
+import { compareSlugs } from '../resolver/Resource.js';
 import type { EffectiveResourceSet } from '../resolver/Resource.js';
 import { isWorkflowDefinitionIssue, readWorkflowDefinition } from '../resolver/WorkflowDefinition.js';
 import type { WorkflowDefinition } from '../resolver/WorkflowDefinition.js';
 import { dumpAgent } from './Dump.js';
 import type { DumpResult } from './Dump.js';
+import { escapesRoots } from './Containment.js';
 
 const collectWorkflowClosure = (set: EffectiveResourceSet, root: string) => {
   const workflows: WorkflowDefinition[] = [];
@@ -38,6 +40,10 @@ const collectWorkflowClosure = (set: EffectiveResourceSet, root: string) => {
     const definition = readWorkflowDefinition(resource.winner.path);
     if (isWorkflowDefinitionIssue(definition)) {
       errors.push(`workflow '${slug}': ${definition.message}`);
+      continue;
+    }
+    if (definition.id !== slug) {
+      errors.push(`workflow id '${definition.id}' must match its directory '${slug}'.`);
       continue;
     }
     workflows.push(definition);
@@ -110,24 +116,56 @@ export const dumpWorkflow = (
 
     for (const workflow of closure.workflows) {
       const resource = findResource(set, 'workflow', workflow.id)!;
+      if (
+        escapesRoots(
+          resource.winner.path,
+          set.layers.map((layer) => layer.root),
+        )
+      ) {
+        errors.push(`workflow '${workflow.id}' resolves outside the tree and cannot be safely dumped.`);
+        continue;
+      }
       const target = join(outRoot, 'workflows', workflow.id, 'workflow.yaml');
       mkdirSync(dirname(target), { recursive: true });
       copyFileSync(resource.winner.path, target);
       written.push(target);
     }
 
-    if (errors.length > 0) return { writtenPaths: written, warnings, errors };
+    if (errors.length > 0) {
+      rmSync(outRoot, { recursive: true, force: true });
+      return { writtenPaths: [], warnings, errors };
+    }
     const fileEntries = written
       .map((path) => ({
         path: path.slice(outRoot.length + 1),
         sha256: createHash('sha256').update(readFileSync(path)).digest('hex'),
       }))
-      .sort((a, b) => a.path.localeCompare(b.path));
+      .sort((a, b) => compareSlugs(a.path, b.path));
     const manifestTarget = join(outRoot, '.outfitter', 'workflow-composition.json');
     mkdirSync(dirname(manifestTarget), { recursive: true });
     writeFileSync(
       manifestTarget,
-      `${JSON.stringify({ version: 1, root: workflowSlug, workflows: closure.workflows.map((workflow) => workflow.id), agents: closure.agents, compositions, files: fileEntries }, null, 2)}\n`,
+      `${JSON.stringify(
+        {
+          version: 1,
+          root: workflowSlug,
+          workflows: closure.workflows.map((workflow) => {
+            const resource = findResource(set, 'workflow', workflow.id)!;
+            return {
+              id: workflow.id,
+              source: {
+                layer: resource.winner.layer.label,
+                path: relative(resource.winner.layer.root, resource.winner.path),
+              },
+            };
+          }),
+          agents: closure.agents,
+          compositions,
+          files: fileEntries,
+        },
+        null,
+        2,
+      )}\n`,
     );
     written.push(manifestTarget);
     return { writtenPaths: written.sort(), warnings: [...new Set(warnings)], errors: [] };

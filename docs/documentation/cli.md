@@ -75,6 +75,8 @@ List resolvable resources across all layers, with the winning source for each sl
 | -------- | -------------------------------------------------------------------------- |
 | `[kind]` | Optional filter: `agents`, `skills`, `knowledge`, `commands`, `workflows`. |
 
+`--json` emits an object containing `ok`, `resources`, and `diagnostics`; diagnostics remain available when strict mode fails.
+
 ## `outfitter validate`
 
 Validate the effective resource set: protocol layout, frontmatter, unresolved slugs in agent loadouts, broken or escaping skill references, workflow graphs and composed closures, and settings schema.

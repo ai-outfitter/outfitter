@@ -160,7 +160,14 @@ export const createListCommand = (dependencies: ListCommandDependencies = {}): C
 
           /* v8 ignore next -- console fallback is direct CLI behavior; tests inject a writer. */
           const write = dependencies.writeLine ?? console.log;
-          if (options.json === true) write(JSON.stringify(result.resources, null, 2));
+          if (options.json === true)
+            write(
+              JSON.stringify(
+                { ok: result.exitCode === 0, resources: result.resources, diagnostics: result.messages },
+                null,
+                2,
+              ),
+            );
           else for (const message of result.messages) write(message);
 
           if (result.exitCode !== 0) process.exitCode = result.exitCode;

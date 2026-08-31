@@ -31,7 +31,22 @@
       }
     },
     "environments": { "type": "object" },
-    "integrations": { "type": "object" },
+    "integrations": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": true,
+        "properties": {
+          "kind": { "type": "string" },
+          "server": { "type": "string" },
+          "tools": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+          "repository": { "type": "string" },
+          "ref": { "type": "string" },
+          "path": { "type": "string" },
+          "sha256": { "type": "string" }
+        }
+      }
+    },
     "checks": { "type": "object" },
     "triggers": { "type": "array", "items": { "type": "object" } },
     "feedback": { "type": "array", "items": { "type": "object", "required": ["from", "to"] } },

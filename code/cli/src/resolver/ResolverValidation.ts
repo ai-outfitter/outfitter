@@ -226,15 +226,23 @@ const selectedMcpFindings = (
       : [];
   });
 
+const hasAgentClosureAssertions = (workflow: WorkflowDefinition, node: WorkflowNode): boolean =>
+  nodeSkills(node).length > 0 ||
+  nodePrompts(node).length > 0 ||
+  (node.uses ?? []).some((integrationId) => workflow.integrations?.[integrationId]?.kind === 'mcp');
+
 const validateWorkflowAgentNode = (
   set: EffectiveResourceSet,
   workflow: WorkflowDefinition,
   node: WorkflowNode,
   projectDirectory?: string,
 ): readonly ValidationFinding[] => {
-  if (node.actor === undefined) return [];
-  const actor = workflow.actors[node.actor];
-  if (actor?.kind !== 'agent') return [];
+  const actor = node.actor === undefined ? undefined : workflow.actors[node.actor];
+  if (actor?.kind !== 'agent') {
+    return hasAgentClosureAssertions(workflow, node)
+      ? [workflowError(workflow.id, `node '${node.id}' has agent-closure assertions but no agent actor.`)]
+      : [];
+  }
 
   const composed = compose(set, actor.profile, { projectDirectory });
   if (composed.plan === undefined) {

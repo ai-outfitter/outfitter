@@ -86,9 +86,11 @@ describe('resolver command objects', () => {
     );
     const lines: string[] = [];
     await buildProgram(root, lines).parseAsync(['node', 'outfitter', 'list', 'workflows', '--json']);
-    expect(JSON.parse(lines.join('\n'))).toEqual([
-      expect.objectContaining({ kind: 'workflow', slug: 'review', layer: 'workspace', ownerAgent: null }),
-    ]);
+    expect(JSON.parse(lines.join('\n'))).toEqual({
+      ok: true,
+      resources: [expect.objectContaining({ kind: 'workflow', slug: 'review', layer: 'workspace', ownerAgent: null })],
+      diagnostics: ['workflows:', '  review  [workspace]'],
+    });
   });
 
   it('validate forwards --strict/--json and sets a nonzero exit code on failure', async () => {
