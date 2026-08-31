@@ -36,7 +36,6 @@ const readJson = <T>(relativePath: string): T =>
 
 const packageJson = readJson<PackageJson>('../package.json');
 const rootPackageJson = readJson<PackageJson>('../../../package.json');
-const docSitePackageJson = readJson<PackageJson>('../../../code/doc_site/package.json');
 const packageLockJson = readJson<PackageLockJson>('../../../package-lock.json');
 const nodeVersion = readFileSync(new URL('../../../.node-version', import.meta.url), 'utf8').trim();
 const supportedNodeRange = '>=22.19.0';
@@ -52,7 +51,6 @@ describe('project foundation', () => {
     expect(nodeVersion).toBe('24.18.0');
     expect(packageJson.engines.node).toBe(supportedNodeRange);
     expect(rootPackageJson.engines.node).toBe(supportedNodeRange);
-    expect(docSitePackageJson.engines.node).toBe(supportedNodeRange);
     expect(packageLockJson.lockfileVersion).toBeGreaterThanOrEqual(3);
     expect(packageLockJson.packages).toHaveProperty('');
     expect(packageLockJson.packages).toHaveProperty('code/cli');

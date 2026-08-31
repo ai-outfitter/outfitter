@@ -9,7 +9,6 @@ export default tseslint.config(
       'dist/**',
       'coverage/**',
       'node_modules/**',
-      'doc_site/**',
       'eslint.config.js',
       'scripts/**/*.mjs',
       'code/enterprise/**',

@@ -16,7 +16,6 @@ const readJson = (relativePath: string): ManifestEngines =>
 const manifests = [
   ['code/cli/package.json', '../../package.json'],
   ['package.json', '../../../../package.json'],
-  ['code/doc_site/package.json', '../../../doc_site/package.json'],
 ] as const;
 
 describe('published engines range', () => {
