@@ -28,6 +28,15 @@ export interface ListInput {
 export interface ListResult {
   readonly exitCode: number;
   readonly messages: readonly string[];
+  readonly resources: readonly ListResourceEntry[];
+}
+
+export interface ListResourceEntry {
+  readonly kind: ResourceKind;
+  readonly slug: string;
+  readonly layer: string;
+  readonly path: string;
+  readonly ownerAgent: string | null;
 }
 
 export interface ListCommandDependencies {
@@ -83,10 +92,11 @@ export const executeListCommand = (input: ListInput): ListResult => {
   const messages: string[] = warnings.map((warning) => `warning: ${warning}`);
 
   if (input.strict === true && ambiguityWarnings.length > 0) {
-    return { exitCode: 1, messages: [...messages, `error: ${strictAmbiguityFailureMessage}`] };
+    return { exitCode: 1, messages: [...messages, `error: ${strictAmbiguityFailureMessage}`], resources: [] };
   }
 
   assertKnownAgent(set, input.agent);
+  const entries: ListResourceEntry[] = [];
 
   for (const kind of resolveKindFilter(input.kind)) {
     const hasAgentContext = input.agent !== undefined && agentLocalKinds.includes(kind);
@@ -94,6 +104,17 @@ export const executeListCommand = (input: ListInput): ListResult => {
     const localResources = hasAgentContext ? listAgentResources(set, input.agent, kind) : [];
     const resources = new Map(globalResources.map((resource) => [resource.slug, resource]));
     for (const resource of localResources) resources.set(resource.slug, resource);
+    entries.push(
+      ...[...resources.values()]
+        .sort((left, right) => compareSlugs(left.slug, right.slug))
+        .map((resource) => ({
+          kind: resource.kind,
+          slug: resource.slug,
+          layer: resource.winner.layer.label,
+          path: resource.winner.path,
+          ownerAgent: resource.winner.ownerAgent ?? null,
+        })),
+    );
 
     messages.push(`${pluralByKind.get(kind)!}${hasAgentContext ? ` (agent ${input.agent})` : ''}:`);
     messages.push(
@@ -110,7 +131,7 @@ export const executeListCommand = (input: ListInput): ListResult => {
     );
   }
 
-  return { exitCode: 0, messages };
+  return { exitCode: 0, messages, resources: entries };
 };
 
 export const createListCommand = (dependencies: ListCommandDependencies = {}): CommandObject => ({
@@ -122,11 +143,12 @@ export const createListCommand = (dependencies: ListCommandDependencies = {}): C
         .description('List resolvable resources (agents, skills, knowledge, commands, workflows).')
         .argument('[kind]', 'Restrict to one kind: agents, skills, knowledge, commands, or workflows.')
         .option('--strict', 'Treat ambiguous source resolution as fatal.')
+        .option('--json', 'Emit stable machine-readable JSON with resource provenance.')
         .option(
           '--agent <id>',
           'Resolve resources in an agent context, including its agent-local skills/knowledge/commands.',
         )
-        .action((kind: string | undefined, options: { agent?: string; strict?: boolean }) => {
+        .action((kind: string | undefined, options: { agent?: string; strict?: boolean; json?: boolean }) => {
           const result = executeListCommand({
             /* v8 ignore next 2 -- process defaults are exercised by the CLI entrypoint, not unit tests. */
             homeDirectory: resolveHomeDirectory(dependencies.homeDirectory),
@@ -136,10 +158,10 @@ export const createListCommand = (dependencies: ListCommandDependencies = {}): C
             strict: options.strict,
           });
 
-          for (const message of result.messages) {
-            /* v8 ignore next -- console fallback is direct CLI behavior; tests inject a writer. */
-            (dependencies.writeLine ?? console.log)(message);
-          }
+          /* v8 ignore next -- console fallback is direct CLI behavior; tests inject a writer. */
+          const write = dependencies.writeLine ?? console.log;
+          if (options.json === true) write(JSON.stringify(result.resources, null, 2));
+          else for (const message of result.messages) write(message);
 
           if (result.exitCode !== 0) process.exitCode = result.exitCode;
         }),
