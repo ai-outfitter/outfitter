@@ -9,6 +9,7 @@
 ```bash
 outfitter dump --out ./review
 outfitter dump --agent engineer --out ./engineer   # one agent's transitive closure only
+outfitter dump --workflow engineer --out ./workflow # graph + nested graphs + agent closures
 ```
 
 Use dumps to:
@@ -24,6 +25,7 @@ Use dumps to:
 - **Safe** — a dump may include reviewable source provenance, but never credentials, auth state, sessions, transcripts, caches, backups, mutable harness state, or symlinks escaping the tree.
 - **Protocol-shaped** — the output is a valid `.agents` payload usable by any protocol consumer, not just Outfitter. Any Outfitter-specific provenance metadata is namespaced, JSON-based, and removable without losing the underlying resources.
 - **Harness-discoverable** — selected agent-local skills are flattened into top-level `skills/<id>/` in the closure output, with their packaged references, scripts, and assets intact.
+- **Workflow-auditable** — workflow exports preserve canonical YAML and record every nested workflow, agent composition, file hash, and winning source in `.outfitter/workflow-composition.json`.
 
 ## Bake
 
