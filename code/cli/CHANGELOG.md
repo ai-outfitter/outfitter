@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.13.0](https://github.com/ai-outfitter/outfitter/compare/v1.12.0...v1.13.0) (2026-08-31)
+
+
+### Features
+
+* **workflows:** expose machine-readable workflow resources ([#342](https://github.com/ai-outfitter/outfitter/issues/342)) ([a2d0a43](https://github.com/ai-outfitter/outfitter/commit/a2d0a4383b1b198b4d3a1f9ad05726051d7de346))
+
 ## [1.12.0](https://github.com/ai-outfitter/outfitter/compare/v1.11.0...v1.12.0) (2026-08-30)
 
 
