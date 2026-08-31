@@ -26,11 +26,13 @@ const resolvesToFile = (path: string): boolean => {
 const directoryResourceKinds: ReadonlyMap<ResourceKind, string> = new Map([
   ['agent', 'agents'],
   ['skill', 'skills'],
+  ['workflow', 'workflows'],
 ]);
 
 const entryFileByKind: ReadonlyMap<ResourceKind, string> = new Map([
   ['agent', 'agent.md'],
   ['skill', 'SKILL.md'],
+  ['workflow', 'workflow.yaml'],
 ]);
 
 const fileTreeResourceKinds: ReadonlyMap<ResourceKind, string> = new Map([

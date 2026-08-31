@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ai-outfitter.com/schemas/workflow.schema.json",
+  "title": "AI Outfitter workflow",
+  "type": "object",
+  "additionalProperties": true,
+  "required": ["version", "id", "title", "description", "actors", "nodes"],
+  "properties": {
+    "version": { "const": 1 },
+    "id": { "type": "string", "pattern": "^[a-z0-9]+(?:[._-][a-z0-9]+)*$" },
+    "title": { "type": "string", "minLength": 1 },
+    "description": { "type": "string", "minLength": 1 },
+    "status": { "type": "string" },
+    "actors": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": ["kind"],
+        "properties": {
+          "kind": { "enum": ["human", "agent", "tool", "system"] },
+          "profile": { "type": "string" },
+          "skills": { "type": "array", "items": { "type": "string" }, "uniqueItems": true }
+        },
+        "allOf": [
+          {
+            "if": { "properties": { "kind": { "const": "agent" } }, "required": ["kind"] },
+            "then": { "required": ["profile"] }
+          }
+        ]
+      }
+    },
+    "environments": { "type": "object" },
+    "integrations": { "type": "object" },
+    "checks": { "type": "object" },
+    "triggers": { "type": "array", "items": { "type": "object" } },
+    "feedback": { "type": "array", "items": { "type": "object", "required": ["from", "to"] } },
+    "nodes": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": ["id", "description"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^[a-z0-9]+(?:[._-][a-z0-9]+)*$" },
+          "description": { "type": "string", "minLength": 1 },
+          "action": { "type": "string" },
+          "workflow": { "type": "string" },
+          "actor": { "type": "string" },
+          "environment": { "type": "string" },
+          "needs": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+          "skill": { "type": "string" },
+          "skills": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+          "prompt_fragment": { "type": "string" },
+          "prompt_fragments": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+          "uses": { "type": "array", "items": { "type": "string" }, "uniqueItems": true }
+        },
+        "oneOf": [
+          { "required": ["action"], "not": { "required": ["workflow"] } },
+          { "required": ["workflow"], "not": { "required": ["action"] } }
+        ]
+      }
+    }
+  }
+}

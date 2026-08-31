@@ -41,6 +41,7 @@ const kindByPlural: ReadonlyMap<string, ResourceKind> = new Map([
   ['skills', 'skill'],
   ['knowledge', 'knowledge'],
   ['commands', 'command'],
+  ['workflows', 'workflow'],
 ]);
 
 const pluralByKind: ReadonlyMap<ResourceKind, string> = new Map([
@@ -48,6 +49,7 @@ const pluralByKind: ReadonlyMap<ResourceKind, string> = new Map([
   ['skill', 'skills'],
   ['knowledge', 'knowledge'],
   ['command', 'commands'],
+  ['workflow', 'workflows'],
 ]);
 
 const resolveKindFilter = (kind: string | undefined): readonly ResourceKind[] => {
@@ -113,12 +115,12 @@ export const executeListCommand = (input: ListInput): ListResult => {
 
 export const createListCommand = (dependencies: ListCommandDependencies = {}): CommandObject => ({
   name: 'list',
-  description: 'List resolvable resources (agents, skills, knowledge, commands).',
+  description: 'List resolvable resources (agents, skills, knowledge, commands, workflows).',
   register(program: Command): void {
     program.addCommand(
       new Command('list')
-        .description('List resolvable resources (agents, skills, knowledge, commands).')
-        .argument('[kind]', 'Restrict to one kind: agents, skills, knowledge, or commands.')
+        .description('List resolvable resources (agents, skills, knowledge, commands, workflows).')
+        .argument('[kind]', 'Restrict to one kind: agents, skills, knowledge, commands, or workflows.')
         .option('--strict', 'Treat ambiguous source resolution as fatal.')
         .option(
           '--agent <id>',
