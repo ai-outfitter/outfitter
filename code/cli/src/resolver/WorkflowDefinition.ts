@@ -72,7 +72,8 @@ export const readWorkflowDefinition = (path: string): WorkflowDefinition | Workf
 
   const validation = validateSchema('workflow', parsed.document);
   if (!validation.valid) {
-    const issue = validation.issues[0]!;
+    const issue = validation.issues[0];
+    if (issue === undefined) return { path, message: 'workflow.yaml failed schema validation.' };
     return { path, message: `workflow.yaml is invalid at ${issue.path}: ${issue.message}.` };
   }
 

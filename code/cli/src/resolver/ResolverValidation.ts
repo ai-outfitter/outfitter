@@ -158,7 +158,10 @@ const workflowError = (slug: string, message: string): ValidationFinding => ({
 
 const workflowDefinitions = (
   set: EffectiveResourceSet,
-): { readonly definitions: ReadonlyMap<string, WorkflowDefinition>; readonly findings: readonly ValidationFinding[] } => {
+): {
+  readonly definitions: ReadonlyMap<string, WorkflowDefinition>;
+  readonly findings: readonly ValidationFinding[];
+} => {
   const definitions = new Map<string, WorkflowDefinition>();
   const findings: ValidationFinding[] = [];
 
@@ -167,7 +170,9 @@ const workflowDefinitions = (
     if (isWorkflowDefinitionIssue(definition)) {
       findings.push(workflowError(resource.slug, definition.message));
     } else if (definition.id !== resource.slug) {
-      findings.push(workflowError(resource.slug, `workflow id '${definition.id}' must match its directory '${resource.slug}'.`));
+      findings.push(
+        workflowError(resource.slug, `workflow id '${definition.id}' must match its directory '${resource.slug}'.`),
+      );
     } else {
       definitions.set(resource.slug, definition);
     }
@@ -186,6 +191,41 @@ const nodePrompts = (node: WorkflowNode): readonly string[] => [
   ...(node.prompt_fragments ?? []),
 ];
 
+const missingClosureFindings = (
+  workflowId: string,
+  nodeId: string,
+  profile: string,
+  kind: 'skill' | 'prompt fragment',
+  requested: readonly string[],
+  available: ReadonlySet<string>,
+): readonly ValidationFinding[] =>
+  requested
+    .filter((slug) => !available.has(slug))
+    .map((slug) =>
+      workflowError(
+        workflowId,
+        `node '${nodeId}' references ${kind} '${slug}' outside agent '${profile}' composed closure.`,
+      ),
+    );
+
+const selectedMcpFindings = (
+  workflow: WorkflowDefinition,
+  node: WorkflowNode,
+  profile: string,
+  selected: readonly string[],
+): readonly ValidationFinding[] =>
+  (node.uses ?? []).flatMap((integrationId) => {
+    const integration = workflow.integrations?.[integrationId];
+    return integration?.kind === 'mcp' && integration.server !== undefined && !selected.includes(integration.server)
+      ? [
+          workflowError(
+            workflow.id,
+            `node '${node.id}' references MCP server '${integration.server}' outside agent '${profile}' composed closure.`,
+          ),
+        ]
+      : [];
+  });
+
 const validateWorkflowAgentNode = (
   set: EffectiveResourceSet,
   workflow: WorkflowDefinition,
@@ -198,7 +238,9 @@ const validateWorkflowAgentNode = (
 
   const composed = compose(set, actor.profile, { projectDirectory });
   if (composed.plan === undefined) {
-    return composed.errors.map((message) => workflowError(workflow.id, `node '${node.id}' agent '${actor.profile}': ${message}`));
+    return composed.errors.map((message) =>
+      workflowError(workflow.id, `node '${node.id}' agent '${actor.profile}': ${message}`),
+    );
   }
 
   const availableSkills = new Set(composed.plan.loadout.skills.map((skill) => skill.slug));
@@ -212,29 +254,107 @@ const validateWorkflowAgentNode = (
       .filter((fragment) => fragment?.reference !== undefined)
       .map((fragment) => fragment!.reference!),
   );
-  const findings: ValidationFinding[] = [];
-
-  for (const skill of [...(actor.skills ?? []), ...nodeSkills(node)]) {
-    if (!availableSkills.has(skill)) {
-      findings.push(workflowError(workflow.id, `node '${node.id}' references skill '${skill}' outside agent '${actor.profile}' composed closure.`));
-    }
-  }
-
-  for (const prompt of nodePrompts(node)) {
-    if (!availablePrompts.has(prompt)) {
-      findings.push(workflowError(workflow.id, `node '${node.id}' references prompt fragment '${prompt}' outside agent '${actor.profile}' composed closure.`));
-    }
-  }
-
-  for (const integrationId of node.uses ?? []) {
-    const integration = workflow.integrations?.[integrationId];
-    if (integration?.kind === 'mcp' && integration.server !== undefined && !composed.plan.loadout.mcp.includes(integration.server)) {
-      findings.push(workflowError(workflow.id, `node '${node.id}' references MCP server '${integration.server}' outside agent '${actor.profile}' composed closure.`));
-    }
-  }
-
-  return findings;
+  return [
+    ...missingClosureFindings(
+      workflow.id,
+      node.id,
+      actor.profile,
+      'skill',
+      [...(actor.skills ?? []), ...nodeSkills(node)],
+      availableSkills,
+    ),
+    ...missingClosureFindings(
+      workflow.id,
+      node.id,
+      actor.profile,
+      'prompt fragment',
+      nodePrompts(node),
+      availablePrompts,
+    ),
+    ...selectedMcpFindings(workflow, node, actor.profile, composed.plan.loadout.mcp),
+  ];
 };
+
+const validateWorkflowActors = (
+  set: EffectiveResourceSet,
+  workflow: WorkflowDefinition,
+): readonly ValidationFinding[] =>
+  Object.entries(workflow.actors).flatMap(([actorId, actor]) =>
+    actor.kind === 'agent' && (actor.profile === undefined || findResource(set, 'agent', actor.profile) === undefined)
+      ? [workflowError(workflow.id, `actor '${actorId}' references unknown agent '${actor.profile ?? ''}'.`)]
+      : [],
+  );
+
+const optionalReferenceFinding = (
+  workflowId: string,
+  nodeId: string,
+  kind: string,
+  reference: string | undefined,
+  known: (reference: string) => boolean,
+): readonly ValidationFinding[] =>
+  reference !== undefined && !known(reference)
+    ? [workflowError(workflowId, `node '${nodeId}' references unknown ${kind} '${reference}'.`)]
+    : [];
+
+const unknownListFindings = (
+  workflowId: string,
+  nodeId: string,
+  kind: string,
+  references: readonly string[],
+  known: (reference: string) => boolean,
+): readonly ValidationFinding[] =>
+  references
+    .filter((reference) => !known(reference))
+    .map((reference) => workflowError(workflowId, `node '${nodeId}' references unknown ${kind} '${reference}'.`));
+
+const validateWorkflowNodeReferences = (
+  workflow: WorkflowDefinition,
+  node: WorkflowNode,
+  nodeIds: ReadonlySet<string>,
+  definitions: ReadonlyMap<string, WorkflowDefinition>,
+): readonly ValidationFinding[] => {
+  const needs = (node.needs ?? [])
+    .filter((dependency) => !nodeIds.has(dependency))
+    .map((dependency) => workflowError(workflow.id, `node '${node.id}' needs unknown node '${dependency}'.`));
+  return [
+    ...optionalReferenceFinding(
+      workflow.id,
+      node.id,
+      'actor',
+      node.actor,
+      (actor) => workflow.actors[actor] !== undefined,
+    ),
+    ...optionalReferenceFinding(
+      workflow.id,
+      node.id,
+      'environment',
+      node.environment,
+      (environment) => workflow.environments?.[environment] !== undefined,
+    ),
+    ...needs,
+    ...unknownListFindings(
+      workflow.id,
+      node.id,
+      'integration',
+      node.uses ?? [],
+      (integration) => workflow.integrations?.[integration] !== undefined,
+    ),
+    ...optionalReferenceFinding(workflow.id, node.id, 'workflow', node.workflow, (nested) => definitions.has(nested)),
+  ];
+};
+
+const validateWorkflowArtifacts = (workflow: WorkflowDefinition): readonly ValidationFinding[] =>
+  Object.entries(workflow.integrations ?? {}).flatMap(([id, artifact]) => {
+    if (artifact.kind !== 'artifact') return [];
+    const findings: ValidationFinding[] = [];
+    if (!/^[0-9a-f]{40}$/.test(artifact.ref ?? ''))
+      findings.push(workflowError(workflow.id, `artifact integration '${id}' must pin a full immutable Git commit.`));
+    if (!/^[0-9a-f]{64}$/.test(artifact.sha256 ?? ''))
+      findings.push(workflowError(workflow.id, `artifact integration '${id}' must declare a SHA-256 digest.`));
+    if (artifact.repository === undefined || artifact.path === undefined)
+      findings.push(workflowError(workflow.id, `artifact integration '${id}' must declare repository and path.`));
+    return findings;
+  });
 
 const validateWorkflow = (
   set: EffectiveResourceSet,
@@ -245,11 +365,7 @@ const validateWorkflow = (
   const findings: ValidationFinding[] = [];
   const nodeIds = new Set<string>();
 
-  for (const [actorId, actor] of Object.entries(workflow.actors)) {
-    if (actor.kind === 'agent' && (actor.profile === undefined || findResource(set, 'agent', actor.profile) === undefined)) {
-      findings.push(workflowError(workflow.id, `actor '${actorId}' references unknown agent '${actor.profile ?? ''}'.`));
-    }
-  }
+  findings.push(...validateWorkflowActors(set, workflow));
 
   for (const node of workflow.nodes) {
     if (nodeIds.has(node.id)) findings.push(workflowError(workflow.id, `duplicate node id '${node.id}'.`));
@@ -257,43 +373,18 @@ const validateWorkflow = (
   }
 
   for (const node of workflow.nodes) {
-    if (node.actor !== undefined && workflow.actors[node.actor] === undefined) {
-      findings.push(workflowError(workflow.id, `node '${node.id}' references unknown actor '${node.actor}'.`));
-    }
-    if (node.environment !== undefined && workflow.environments?.[node.environment] === undefined) {
-      findings.push(workflowError(workflow.id, `node '${node.id}' references unknown environment '${node.environment}'.`));
-    }
-    for (const dependency of node.needs ?? []) {
-      if (!nodeIds.has(dependency)) findings.push(workflowError(workflow.id, `node '${node.id}' needs unknown node '${dependency}'.`));
-    }
-    for (const integration of node.uses ?? []) {
-      if (workflow.integrations?.[integration] === undefined) {
-        findings.push(workflowError(workflow.id, `node '${node.id}' references unknown integration '${integration}'.`));
-      }
-    }
-    if (node.workflow !== undefined && !definitions.has(node.workflow)) {
-      findings.push(workflowError(workflow.id, `node '${node.id}' references unknown workflow '${node.workflow}'.`));
-    }
+    findings.push(...validateWorkflowNodeReferences(workflow, node, nodeIds, definitions));
     findings.push(...validateWorkflowAgentNode(set, workflow, node, projectDirectory));
   }
 
   for (const edge of workflow.feedback ?? []) {
-    if (!nodeIds.has(edge.from)) findings.push(workflowError(workflow.id, `feedback references unknown source node '${edge.from}'.`));
-    if (!nodeIds.has(edge.to)) findings.push(workflowError(workflow.id, `feedback references unknown target node '${edge.to}'.`));
+    if (!nodeIds.has(edge.from))
+      findings.push(workflowError(workflow.id, `feedback references unknown source node '${edge.from}'.`));
+    if (!nodeIds.has(edge.to))
+      findings.push(workflowError(workflow.id, `feedback references unknown target node '${edge.to}'.`));
   }
 
-  for (const [integrationId, integration] of Object.entries(workflow.integrations ?? {})) {
-    if (integration.kind !== 'artifact') continue;
-    if (!/^[0-9a-f]{40}$/.test(integration.ref ?? '')) {
-      findings.push(workflowError(workflow.id, `artifact integration '${integrationId}' must pin a full immutable Git commit.`));
-    }
-    if (!/^[0-9a-f]{64}$/.test(integration.sha256 ?? '')) {
-      findings.push(workflowError(workflow.id, `artifact integration '${integrationId}' must declare a SHA-256 digest.`));
-    }
-    if (integration.repository === undefined || integration.path === undefined) {
-      findings.push(workflowError(workflow.id, `artifact integration '${integrationId}' must declare repository and path.`));
-    }
-  }
+  findings.push(...validateWorkflowArtifacts(workflow));
 
   return findings;
 };
@@ -310,7 +401,8 @@ const workflowCycleFindings = (definitions: ReadonlyMap<string, WorkflowDefiniti
     }
     if (visited.has(slug)) return;
     visiting.add(slug);
-    const nested = definitions.get(slug)?.nodes.flatMap((node) => (node.workflow === undefined ? [] : [node.workflow])) ?? [];
+    const nested =
+      definitions.get(slug)?.nodes.flatMap((node) => (node.workflow === undefined ? [] : [node.workflow])) ?? [];
     for (const child of nested) if (definitions.has(child)) visit(child, [...path, slug]);
     visiting.delete(slug);
     visited.add(slug);
