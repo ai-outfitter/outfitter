@@ -234,7 +234,7 @@ const validateWorkflowAgentNode = (
 ): readonly ValidationFinding[] => {
   if (node.actor === undefined) return [];
   const actor = workflow.actors[node.actor];
-  if (actor?.kind !== 'agent' || actor.profile === undefined) return [];
+  if (actor?.kind !== 'agent') return [];
 
   const composed = compose(set, actor.profile, { projectDirectory });
   if (composed.plan === undefined) {
@@ -248,7 +248,8 @@ const validateWorkflowAgentNode = (
     [
       composed.plan.identity.systemPromptFragment,
       composed.plan.identity.sharedContextFragment,
-      ...(composed.plan.identity.appendSystemPrompts ?? []),
+      .../* v8 ignore next -- compose normalizes this optional source field to an array. */
+      (composed.plan.identity.appendSystemPrompts ?? []),
       composed.plan.identity.promptTemplate,
     ]
       .filter((fragment) => fragment?.reference !== undefined)
@@ -280,8 +281,8 @@ const validateWorkflowActors = (
   workflow: WorkflowDefinition,
 ): readonly ValidationFinding[] =>
   Object.entries(workflow.actors).flatMap(([actorId, actor]) =>
-    actor.kind === 'agent' && (actor.profile === undefined || findResource(set, 'agent', actor.profile) === undefined)
-      ? [workflowError(workflow.id, `actor '${actorId}' references unknown agent '${actor.profile ?? ''}'.`)]
+    actor.kind === 'agent' && findResource(set, 'agent', actor.profile) === undefined
+      ? [workflowError(workflow.id, `actor '${actorId}' references unknown agent '${actor.profile}'.`)]
       : [],
   );
 
@@ -401,8 +402,7 @@ const workflowCycleFindings = (definitions: ReadonlyMap<string, WorkflowDefiniti
     }
     if (visited.has(slug)) return;
     visiting.add(slug);
-    const nested =
-      definitions.get(slug)?.nodes.flatMap((node) => (node.workflow === undefined ? [] : [node.workflow])) ?? [];
+    const nested = definitions.get(slug)!.nodes.flatMap((node) => (node.workflow === undefined ? [] : [node.workflow]));
     for (const child of nested) if (definitions.has(child)) visit(child, [...path, slug]);
     visiting.delete(slug);
     visited.add(slug);

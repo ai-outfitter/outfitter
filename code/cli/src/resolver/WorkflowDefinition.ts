@@ -3,11 +3,9 @@ import { readFileSync } from 'node:fs';
 import { validateSchema } from '../validation/SchemaValidator.js';
 import { parseYamlDocument } from '../validation/YamlDocument.js';
 
-export interface WorkflowActor {
-  readonly kind: 'human' | 'agent' | 'tool' | 'system';
-  readonly profile?: string;
-  readonly skills?: readonly string[];
-}
+export type WorkflowActor =
+  | { readonly kind: 'agent'; readonly profile: string; readonly skills?: readonly string[] }
+  | { readonly kind: 'human' | 'tool' | 'system'; readonly profile?: never; readonly skills?: readonly string[] };
 
 export interface WorkflowIntegration {
   readonly kind?: string;
@@ -73,7 +71,6 @@ export const readWorkflowDefinition = (path: string): WorkflowDefinition | Workf
   const validation = validateSchema('workflow', parsed.document);
   if (!validation.valid) {
     const issue = validation.issues[0];
-    if (issue === undefined) return { path, message: 'workflow.yaml failed schema validation.' };
     return { path, message: `workflow.yaml is invalid at ${issue.path}: ${issue.message}.` };
   }
 

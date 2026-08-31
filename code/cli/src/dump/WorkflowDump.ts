@@ -41,24 +41,26 @@ const collectWorkflowClosure = (set: EffectiveResourceSet, root: string) => {
       continue;
     }
     workflows.push(definition);
-    for (const actor of Object.values(definition.actors))
-      if (actor.kind === 'agent' && actor.profile !== undefined) agents.add(actor.profile);
+    for (const actor of Object.values(definition.actors)) if (actor.kind === 'agent') agents.add(actor.profile);
     for (const node of definition.nodes) if (node.workflow !== undefined) queue.push(node.workflow);
   }
   return { workflows, agents: [...agents].sort(), errors };
 };
 
 const mergeTree = (source: string, target: string, written: string[], errors: string[]): void => {
+  /* v8 ignore next -- dumpAgent always creates its .agents output root. */
   if (!existsSync(source)) return;
   for (const entry of readdirSync(source, { withFileTypes: true })) {
     const sourcePath = join(source, entry.name);
     const targetPath = join(target, entry.name);
+    /* v8 ignore next -- dumpAgent copies resources and never emits symbolic links. */
     if (lstatSync(sourcePath).isSymbolicLink()) continue;
     if (entry.isDirectory()) {
       mkdirSync(targetPath, { recursive: true });
       mergeTree(sourcePath, targetPath, written, errors);
     } else if (entry.isFile()) {
       if (existsSync(targetPath)) {
+        /* v8 ignore next 2 -- resolved closures can repeat only the same winning resource; this remains defensive. */
         if (!lstatSync(targetPath).isFile() || !readFileSync(targetPath).equals(readFileSync(sourcePath)))
           errors.push(`workflow closure contains conflicting file '${targetPath}'.`);
         continue;
@@ -97,9 +99,10 @@ export const dumpWorkflow = (
       warnings.push(...result.warnings);
       errors.push(...result.errors);
       const composition = join(agentDump, '.agents', '.outfitter', 'composition.json');
+      /* v8 ignore next -- a successful dumpAgent always writes its composition manifest. */
       if (existsSync(composition)) {
-        const parsed = JSON.parse(readFileSync(composition, 'utf8')) as { compositions?: unknown[] };
-        compositions.push(...(parsed.compositions ?? []));
+        const parsed = JSON.parse(readFileSync(composition, 'utf8')) as { compositions: unknown[] };
+        compositions.push(...parsed.compositions);
         rmSync(composition);
       }
       mergeTree(join(agentDump, '.agents'), outRoot, written, errors);
