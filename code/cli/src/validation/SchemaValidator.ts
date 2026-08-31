@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import type { AnySchema, ErrorObject, ValidateFunction } from 'ajv';
 import { Ajv2020 } from 'ajv/dist/2020.js';
 
-export type SchemaName = 'settings' | 'agent' | 'system-extension-hook';
+export type SchemaName = 'settings' | 'agent' | 'system-extension-hook' | 'workflow';
 
 export interface ValidationIssue {
   readonly path: string;
@@ -22,6 +22,7 @@ const readSchema = (schemaFileName: string): unknown =>
 const settingsSchema = readSchema('settings.schema.json');
 const agentSchema = readSchema('agent.schema.json');
 const systemExtensionHookSchema = readSchema('system-extension-hook.schema.json');
+const workflowSchema = readSchema('workflow.schema.json');
 
 const ajv = new Ajv2020({ allErrors: true });
 
@@ -29,6 +30,7 @@ const validators: Record<SchemaName, ValidateFunction> = {
   settings: ajv.compile(settingsSchema as AnySchema),
   agent: ajv.compile(agentSchema as AnySchema),
   'system-extension-hook': ajv.compile(systemExtensionHookSchema as AnySchema),
+  workflow: ajv.compile(workflowSchema as AnySchema),
 };
 
 export const createValidationResult = (issues: readonly ValidationIssue[]): ValidationResult => ({

@@ -1,6 +1,6 @@
 # Catalogs
 
-A catalog is a git repository that publishes a `.agents` payload — agents, skills, tasks, knowledge, commands — so a person, team, or organization can share it. You can bootstrap a machine or project from one, or add one as an ongoing source that Outfitter keeps synchronized.
+A catalog is a git repository that publishes a `.agents` payload — agents, skills, workflows, tasks, knowledge, commands — so a person, team, or organization can share it. You can bootstrap a machine or project from one, or add one as an ongoing source that Outfitter keeps synchronized.
 
 ```bash
 outfitter setup https://github.com/ncrmro/.agents
@@ -33,6 +33,8 @@ ncrmro/.agents/            # repository root
   tasks/
     weekly-kpis/task.md
   knowledge/
+  workflows/
+    engineer/workflow.yaml
   settings.yml             # Outfitter settings (optional; see settings.md)
   settings.local.yml       # gitignored machine-local overrides
 ```
@@ -82,6 +84,12 @@ Remote entries additionally accept:
 - `path:` — the payload directory inside the repository, for colocated layouts.
 
 Resources from all sources resolve by slug behind local layers, following [layer precedence](./concepts.md#layer-precedence). Agent-local skills keep their owning-agent namespace through cache and source merging. Outfitter reports shadowed IDs so consumers can see which source supplies a selected resource.
+
+### Workflows are configuration, not an execution engine
+
+Each `workflows/<slug>/workflow.yaml` is a typed graph that names its human, agent, tool, and system actors. Agent actors reference ordinary catalog profiles. Node-level skill, prompt, and MCP assertions must already belong to the selected agent's composed closure. Nested workflow references resolve by slug and may not form cycles.
+
+`outfitter validate --strict` validates the graph and the complete composed dependency closure. `outfitter dump --workflow <slug>` produces a reviewable `.agents` bundle for distribution. Outfitter never schedules or executes the graph.
 
 ### Catalog dependencies (transitive sources)
 

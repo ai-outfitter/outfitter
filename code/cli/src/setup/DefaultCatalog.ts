@@ -57,7 +57,7 @@ const hasAgentsDirectory = (root: string): boolean => isDirectory(join(root, 'ag
 
 // Any directory the resolver treats as a `.agents` payload container, colocated or at the root.
 const hasAnyAgentsPayload = (root: string): boolean =>
-  ['agents', 'skills', 'knowledge', 'commands'].some((directory) => isDirectory(join(root, directory))) ||
+  ['agents', 'skills', 'knowledge', 'commands', 'workflows'].some((directory) => isDirectory(join(root, directory))) ||
   isDirectory(join(root, '.agents'));
 
 const assertImmutableRef = (ref: string): void => {

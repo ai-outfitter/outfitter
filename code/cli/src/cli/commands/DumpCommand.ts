@@ -3,6 +3,7 @@
 import { Command } from 'commander';
 
 import { dumpAgent } from '../../dump/Dump.js';
+import { dumpWorkflow } from '../../dump/WorkflowDump.js';
 import { strictAmbiguityFailureMessage } from '../../resolver/AmbiguityWarnings.js';
 import { resolveEffectiveSet } from '../../resolver/ResolverContext.js';
 import type { Settings } from '../../settings/Settings.js';
@@ -13,6 +14,7 @@ export interface DumpInput {
   readonly homeDirectory: string;
   readonly projectDirectory: string;
   readonly agent?: string;
+  readonly workflow?: string;
   readonly out: string;
   readonly strict?: boolean;
 }
@@ -58,13 +60,18 @@ export const executeDumpCommand = (input: DumpInput): DumpCommandResult => {
     };
   }
 
-  const agentSlug = resolveAgentSlug(settings, input.agent);
-  const result = dumpAgent(set, agentSlug, input.out, input.projectDirectory);
+  if (input.agent !== undefined && input.workflow !== undefined)
+    throw new Error('Choose either --agent or --workflow, not both.');
+  const selected = input.workflow ?? resolveAgentSlug(settings, input.agent);
+  const result =
+    input.workflow === undefined
+      ? dumpAgent(set, selected, input.out, input.projectDirectory)
+      : dumpWorkflow(set, selected, input.out, input.projectDirectory);
   const ok = result.errors.length === 0;
   const messages = ok
     ? [
         ...syncWarnings,
-        `Dumped '${agentSlug}' to ${input.out} (${result.writtenPaths.length} files).`,
+        `Dumped '${selected}' to ${input.out} (${result.writtenPaths.length} files).`,
         ...result.warnings,
       ]
     : [...syncWarnings, ...result.errors, ...result.warnings];
@@ -74,20 +81,22 @@ export const executeDumpCommand = (input: DumpInput): DumpCommandResult => {
 
 export const createDumpCommand = (dependencies: DumpCommandDependencies = {}): CommandObject => ({
   name: 'dump',
-  description: 'Write the composed .agents tree for an agent to a directory.',
+  description: 'Write the composed .agents tree for an agent or workflow to a directory.',
   register(program: Command): void {
     program.addCommand(
       new Command('dump')
-        .description('Write the composed .agents tree for an agent to a directory.')
+        .description('Write the composed .agents tree for an agent or workflow to a directory.')
         .option('--agent <id>', 'Agent slug to dump (default: settings default_agent).')
+        .option('--workflow <id>', 'Workflow slug whose complete non-executable closure should be dumped.')
         .option('--out <dir>', 'Output directory.', './outfitter-dump')
         .option('--strict', 'Treat ambiguous source resolution as fatal.')
-        .action((options: { agent?: string; out: string; strict?: boolean }) => {
+        .action((options: { agent?: string; workflow?: string; out: string; strict?: boolean }) => {
           const result = executeDumpCommand({
             /* v8 ignore next 2 -- process defaults are exercised by the CLI entrypoint, not unit tests. */
             homeDirectory: resolveHomeDirectory(dependencies.homeDirectory),
             projectDirectory: resolveProjectDirectory(dependencies.projectDirectory),
             agent: options.agent,
+            workflow: options.workflow,
             out: options.out,
             strict: options.strict,
           });

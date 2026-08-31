@@ -304,6 +304,17 @@ describe('ambiguous source resolution warnings', () => {
     await listProgram.parseAsync(['node', 'outfitter', 'list', 'agents', '--strict']);
     expect(process.exitCode).toBe(1);
     expect(lines.at(-1)).toBe('error: Strict mode: ambiguous resolution is fatal.');
+
+    process.exitCode = undefined;
+    lines.length = 0;
+    const jsonListProgram = new Command();
+    createListCommand(dependencies).register(jsonListProgram);
+    await jsonListProgram.parseAsync(['node', 'outfitter', 'list', 'agents', '--strict', '--json']);
+    const json = JSON.parse(lines.join('\n')) as { ok: boolean; resources: unknown[]; diagnostics: string[] };
+    expect(process.exitCode).toBe(1);
+    expect(json.ok).toBe(false);
+    expect(json.resources).toEqual([]);
+    expect(json.diagnostics.some((message) => message.includes('ambiguous resolution is fatal'))).toBe(true);
   });
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-004.7.4, OFTR-004.7.6).
