@@ -1,0 +1,102 @@
+import { createHash } from 'node:crypto';
+import { copyFileSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { dirname, join } from 'node:path';
+
+import { findResource } from '../resolver/Resource.js';
+import type { EffectiveResourceSet } from '../resolver/Resource.js';
+import { isWorkflowDefinitionIssue, readWorkflowDefinition } from '../resolver/WorkflowDefinition.js';
+import type { WorkflowDefinition } from '../resolver/WorkflowDefinition.js';
+import { dumpAgent } from './Dump.js';
+import type { DumpResult } from './Dump.js';
+
+const collectWorkflowClosure = (set: EffectiveResourceSet, root: string) => {
+  const workflows: WorkflowDefinition[] = [];
+  const agents = new Set<string>();
+  const errors: string[] = [];
+  const seen = new Set<string>();
+  const queue = [root];
+  while (queue.length > 0) {
+    const slug = queue.shift()!;
+    if (seen.has(slug)) continue;
+    seen.add(slug);
+    const resource = findResource(set, 'workflow', slug);
+    if (resource === undefined) { errors.push(`workflow '${root}' references unknown workflow '${slug}'.`); continue; }
+    const definition = readWorkflowDefinition(resource.winner.path);
+    if (isWorkflowDefinitionIssue(definition)) { errors.push(`workflow '${slug}': ${definition.message}`); continue; }
+    workflows.push(definition);
+    for (const actor of Object.values(definition.actors)) if (actor.kind === 'agent' && actor.profile !== undefined) agents.add(actor.profile);
+    for (const node of definition.nodes) if (node.workflow !== undefined) queue.push(node.workflow);
+  }
+  return { workflows, agents: [...agents].sort(), errors };
+};
+
+const mergeTree = (source: string, target: string, written: string[], errors: string[]): void => {
+  if (!existsSync(source)) return;
+  for (const entry of readdirSync(source, { withFileTypes: true })) {
+    const sourcePath = join(source, entry.name);
+    const targetPath = join(target, entry.name);
+    if (lstatSync(sourcePath).isSymbolicLink()) continue;
+    if (entry.isDirectory()) {
+      mkdirSync(targetPath, { recursive: true });
+      mergeTree(sourcePath, targetPath, written, errors);
+    } else if (entry.isFile()) {
+      if (existsSync(targetPath)) {
+        if (!lstatSync(targetPath).isFile() || !readFileSync(targetPath).equals(readFileSync(sourcePath))) errors.push(`workflow closure contains conflicting file '${targetPath}'.`);
+        continue;
+      }
+      mkdirSync(dirname(targetPath), { recursive: true });
+      copyFileSync(sourcePath, targetPath);
+      written.push(targetPath);
+    }
+  }
+};
+
+/** Export a workflow and every nested workflow/agent closure. Workflows remain configuration only. */
+export const dumpWorkflow = (set: EffectiveResourceSet, workflowSlug: string, outDirectory: string, projectDirectory?: string): DumpResult => {
+  const closure = collectWorkflowClosure(set, workflowSlug);
+  if (closure.errors.length > 0) return { writtenPaths: [], warnings: [], errors: closure.errors };
+  const outRoot = join(outDirectory, '.agents');
+  if (existsSync(outRoot)) return { writtenPaths: [], warnings: [], errors: [`workflow dump refuses existing destination '${outRoot}'.`] };
+
+  const temporary = mkdtempSync(join(tmpdir(), 'outfitter-workflow-'));
+  mkdirSync(outRoot, { recursive: true });
+  const written: string[] = [];
+  const warnings: string[] = [];
+  const errors: string[] = [];
+  const compositions: unknown[] = [];
+
+  try {
+    for (const agent of closure.agents) {
+      const agentDump = join(temporary, agent);
+      const result = dumpAgent(set, agent, agentDump, projectDirectory);
+      warnings.push(...result.warnings);
+      errors.push(...result.errors);
+      const composition = join(agentDump, '.agents', '.outfitter', 'composition.json');
+      if (existsSync(composition)) {
+        const parsed = JSON.parse(readFileSync(composition, 'utf8')) as { compositions?: unknown[] };
+        compositions.push(...(parsed.compositions ?? []));
+        rmSync(composition);
+      }
+      mergeTree(join(agentDump, '.agents'), outRoot, written, errors);
+    }
+
+    for (const workflow of closure.workflows) {
+      const resource = findResource(set, 'workflow', workflow.id)!;
+      const target = join(outRoot, 'workflows', workflow.id, 'workflow.yaml');
+      mkdirSync(dirname(target), { recursive: true });
+      copyFileSync(resource.winner.path, target);
+      written.push(target);
+    }
+
+    if (errors.length > 0) return { writtenPaths: written, warnings, errors };
+    const fileEntries = written.map((path) => ({ path: path.slice(outRoot.length + 1), sha256: createHash('sha256').update(readFileSync(path)).digest('hex') })).sort((a, b) => a.path.localeCompare(b.path));
+    const manifestTarget = join(outRoot, '.outfitter', 'workflow-composition.json');
+    mkdirSync(dirname(manifestTarget), { recursive: true });
+    writeFileSync(manifestTarget, `${JSON.stringify({ version: 1, root: workflowSlug, workflows: closure.workflows.map((workflow) => workflow.id), agents: closure.agents, compositions, files: fileEntries }, null, 2)}\n`);
+    written.push(manifestTarget);
+    return { writtenPaths: written.sort(), warnings: [...new Set(warnings)], errors: [] };
+  } finally {
+    rmSync(temporary, { recursive: true, force: true });
+  }
+};
