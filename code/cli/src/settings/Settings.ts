@@ -63,6 +63,8 @@ export interface Settings {
    */
   readonly isolation?: Isolation;
   readonly sources?: readonly SourceReference[];
+  /** Workflow IDs this settings stack explicitly accepts. */
+  readonly workflows?: readonly string[];
   readonly remoteSettings?: readonly RemoteSettingsReference[];
   readonly cacheDirectory?: string;
   readonly sourceCache?: SourceCacheSettings;
@@ -75,5 +77,6 @@ export interface Settings {
 
 export const emptySettings = (): Settings => ({
   sources: [],
+  workflows: [],
   remoteSettings: [],
 });

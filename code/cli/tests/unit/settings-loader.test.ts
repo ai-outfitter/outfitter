@@ -99,6 +99,30 @@ describe('settings loading', () => {
     expect(loaded.settings.defaultHarness).toBe('pi');
   });
 
+  it('loads unique accepted workflows and replaces the lower-precedence list', () => {
+    const root = createTemporaryRoot();
+    const homeDirectory = join(root, 'home');
+    const projectDirectory = join(root, 'project');
+    writeSettings(join(homeDirectory, '.agents', 'settings.yml'), 'workflows:\n  - software-factory\n');
+    writeSettings(join(projectDirectory, '.agents', 'settings.yml'), 'workflows:\n  - adversarial-review\n');
+
+    const loaded = loadSettings(discoverSettingsLoadPlan({ homeDirectory, projectDirectory }));
+
+    expect(loaded.issues).toEqual([]);
+    expect(loaded.settings.workflows).toEqual(['adversarial-review']);
+  });
+
+  it('rejects duplicate accepted workflow IDs', () => {
+    const root = createTemporaryRoot();
+    const settingsPath = join(root, 'settings.yml');
+    writeSettings(settingsPath, 'workflows:\n  - review\n  - review\n');
+
+    const result = loadSettingsFiles(createSettingsLoadPlan([{ scope: 'user', path: settingsPath }]));
+
+    expect(result.files).toEqual([]);
+    expect(result.issues).toContainEqual(expect.objectContaining({ path: '/workflows' }));
+  });
+
   it('merges startup display across scopes but honors enterprise controls only from home', () => {
     const root = createTemporaryRoot();
     const homeDirectory = join(root, 'home');
