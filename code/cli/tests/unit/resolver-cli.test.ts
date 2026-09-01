@@ -82,7 +82,7 @@ describe('resolver command objects', () => {
     const root = project();
     write(
       join(root, 'project', '.agents', 'workflows', 'review', 'workflow.yaml'),
-      'version: 1\nid: review\ntitle: Review\nnodes: []\n',
+      'version: 1\nid: review\ntitle: Review\ndescription: Review a change.\nactors:\n  owner: {kind: human}\nnodes:\n  - {id: inspect, action: inspect, description: Inspect the change., actor: owner}\n',
     );
     const lines: string[] = [];
     await buildProgram(root, lines).parseAsync(['node', 'outfitter', 'list', 'workflows', '--json']);
@@ -128,6 +128,40 @@ describe('resolver command objects', () => {
     });
     expect(result.ok).toBe(true);
     expect(result.messages).toContain('✓ No issues found.');
+  });
+
+  it('rejects an accepted workflow that is not resolvable', () => {
+    const root = createTemporaryRoot();
+    write(join(root, 'project', '.agents', 'settings.yml'), 'workflows:\n  - missing\n');
+
+    const result = executeValidateCommand({
+      homeDirectory: join(root, 'home'),
+      projectDirectory: join(root, 'project'),
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.findings).toContainEqual({
+      severity: 'error',
+      resource: 'workflow:missing',
+      message: 'accepted workflow is not resolvable.',
+    });
+  });
+
+  it('accepts a selected workflow that resolves cleanly', () => {
+    const root = createTemporaryRoot();
+    write(join(root, 'project', '.agents', 'settings.yml'), 'workflows:\n  - review\n');
+    write(
+      join(root, 'project', '.agents', 'workflows', 'review', 'workflow.yaml'),
+      'version: 1\nid: review\ntitle: Review\ndescription: Review a change.\nactors:\n  owner: {kind: human}\nnodes:\n  - {id: inspect, action: inspect, description: Inspect the change., actor: owner}\n',
+    );
+
+    const result = executeValidateCommand({
+      homeDirectory: join(root, 'home'),
+      projectDirectory: join(root, 'project'),
+      strict: true,
+    });
+
+    expect(result.ok).toBe(true);
   });
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-004.2.18).
