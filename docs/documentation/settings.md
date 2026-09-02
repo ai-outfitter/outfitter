@@ -2,7 +2,7 @@
 
 Outfitter settings configure how resources are resolved and launched. They live inside the `.agents` tree so a tree carries everything it needs, and they are the only Outfitter-specific files in it — deleting them leaves a pure protocol payload.
 
-Settings do not carry an agent's resource selections. An agent's loadout — its skills, subagents, model, and so on — lives on the [agent](./agents.md). Settings can separately record which catalog workflows an organization has explicitly accepted.
+Settings do not carry an agent's resource selections. An agent's loadout — its skills, subagents, model, and so on — lives on the [agent](./agents.md). Settings separately record which workflow roots are explicitly enabled.
 
 ## Scopes
 
@@ -34,7 +34,7 @@ sources:
     ref: v1.2.0
   - path: ../shared-agents # local directory, read live from disk
 
-# Workflows this project explicitly accepts from the effective resource set.
+# Workflow roots this project explicitly enables from the effective resource set.
 workflows:
   - software-factory
   - adversarial-review
@@ -57,7 +57,7 @@ telemetry:
 - `default_agent` / `default_harness` — which agent plain `outfitter` runs, and the harness it launches in.
 - `isolation` — whether a run stands on the harness configuration already on this machine. `inherit`, the default, layers the composition over it, so a Claude run keeps your workspace trust, permissions, credentials, plugins, and MCP servers. `isolated` launches from the composition alone, which is what a reproducible CI or container run wants; `--isolated` selects it for one run. Only Claude has an inherit path today. This key is honored **only** from your own `~/.agents` settings: a checked-in project or a remote catalog must not decide how much of your machine a profile it ships can see.
 - `sources` — ordered list of remote or local `.agents` payloads. Remote entries (`github:` / `uri:`) accept `ref:` pinning and an optional `path:` to the payload inside the repository; see [Catalogs](./catalogs.md) for conventions and trust guidance.
-- `workflows` — unique workflow IDs the project explicitly accepts. `outfitter validate --strict` fails when an accepted ID is not resolvable or its effective workflow closure is invalid. Normal resource precedence applies, so an organization-owned agent with the same ID as a catalog dependency customizes and satisfies that dependency.
+- `workflows` — unique workflow root slugs enabled by this file. The effective set is the ordered, deduplicated union from every loaded remote, user, user-local, project, and project-local settings file. Missing and empty lists enable no roots. Source catalogs contribute definitions, but their settings are not loaded. `outfitter list workflows` shows enabled roots only; `outfitter validate --strict` fails when an enabled root is not resolvable or its reachable workflow, agent, and resource closure is invalid; and `outfitter dump --workflow <slug>` requires the root itself to be enabled. Nested workflow dependencies are enabled implicitly for an enabled root's closure, but cannot be dumped directly unless separately listed. Normal resource precedence applies, so a project workflow definition overrides the same slug from the user or a catalog.
 - `remote_settings` — shared settings a repository distributes; cached locally and merged below your project and user settings, so anything you set locally wins.
 - `cache_directory` — the repository cache root used consistently by sync, remote settings, remote
   source resolution, and default-catalog setup. It defaults to `~/.agents/cache`; repositories live
@@ -78,4 +78,4 @@ Higher wins:
 5. Cached remote settings (in configured order)
 6. Built-in defaults
 
-Scalar settings override; list-valued settings such as `sources` and `workflows` follow last-wins ordering per scope so a higher-precedence file replaces the complete lower-precedence list.
+Scalar settings override. `sources` follows last-wins ordering per scope so a higher-precedence file replaces the complete lower-precedence list. `workflows` is additive: loaded settings contribute an ordered-set union, and repeated slugs across files collapse to their first occurrence.
