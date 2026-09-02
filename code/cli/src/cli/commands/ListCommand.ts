@@ -81,8 +81,16 @@ const assertKnownAgent = (set: EffectiveResourceSet, agent: string | undefined):
   }
 };
 
+const listGlobalResources = (set: EffectiveResourceSet, kind: ResourceKind, enabledWorkflows: readonly string[]) =>
+  kind === 'workflow'
+    ? enabledWorkflows.flatMap((slug) => {
+        const resource = findResource(set, 'workflow', slug);
+        return resource === undefined ? [] : [resource];
+      })
+    : listResources(set, kind);
+
 export const executeListCommand = (input: ListInput): ListResult => {
-  const { set, settingsIssues, warnings, ambiguityWarnings } = resolveEffectiveSet(input);
+  const { set, settings, settingsIssues, warnings, ambiguityWarnings } = resolveEffectiveSet(input);
 
   if (settingsIssues.length > 0) {
     const detail = settingsIssues.map(formatSettingsIssue).join('; ');
@@ -100,7 +108,7 @@ export const executeListCommand = (input: ListInput): ListResult => {
 
   for (const kind of resolveKindFilter(input.kind)) {
     const hasAgentContext = input.agent !== undefined && agentLocalKinds.includes(kind);
-    const globalResources = listResources(set, kind);
+    const globalResources = listGlobalResources(set, kind, settings.workflows!);
     const localResources = hasAgentContext ? listAgentResources(set, input.agent, kind) : [];
     const resources = new Map(globalResources.map((resource) => [resource.slug, resource]));
     for (const resource of localResources) resources.set(resource.slug, resource);

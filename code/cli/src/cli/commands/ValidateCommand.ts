@@ -3,7 +3,6 @@
 import { Command } from 'commander';
 
 import { resolveEffectiveSet } from '../../resolver/ResolverContext.js';
-import { findResource } from '../../resolver/Resource.js';
 import type { ValidationFinding } from '../../resolver/ResolverValidation.js';
 import { validateEffectiveSet } from '../../resolver/ResolverValidation.js';
 import { formatSettingsIssue } from '../../settings/SettingsLoader.js';
@@ -32,29 +31,12 @@ export interface ValidateCommandDependencies {
 const settingsFindings = (messages: readonly string[]): readonly ValidationFinding[] =>
   messages.map((message) => ({ severity: 'error' as const, resource: 'settings', message }));
 
-const acceptedWorkflowFindings = (
-  workflows: readonly string[],
-  set: ReturnType<typeof resolveEffectiveSet>['set'],
-): readonly ValidationFinding[] =>
-  workflows.flatMap((workflow) =>
-    findResource(set, 'workflow', workflow) === undefined
-      ? [
-          {
-            severity: 'error' as const,
-            resource: `workflow:${workflow}`,
-            message: 'accepted workflow is not resolvable.',
-          },
-        ]
-      : [],
-  );
-
 export const executeValidateCommand = (input: ValidateInput): ValidateResult => {
   const { set, settings, settingsIssues, warnings } = resolveEffectiveSet(input);
   const findings = [
     ...settingsFindings(settingsIssues.map(formatSettingsIssue)),
     ...warnings.map((message) => ({ severity: 'warning' as const, resource: 'settings', message })),
-    ...acceptedWorkflowFindings(settings.workflows ?? [], set),
-    ...validateEffectiveSet(set, input.projectDirectory),
+    ...validateEffectiveSet(set, input.projectDirectory, { workflowRoots: settings.workflows }),
   ];
 
   const hasErrors = findings.some((finding) => finding.severity === 'error');

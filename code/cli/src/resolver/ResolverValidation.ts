@@ -23,6 +23,8 @@ export interface ValidationFinding {
  */
 export interface ValidationOptions {
   readonly deferLoadoutResolution?: boolean;
+  /** Validate only these enabled workflow roots and their nested workflow closure. */
+  readonly workflowRoots?: readonly string[];
 }
 
 // Matches the composer's top-level unresolved-loadout warning wording (see `compose` in Composer.ts).
@@ -156,8 +158,21 @@ const workflowError = (slug: string, message: string): ValidationFinding => ({
   message,
 });
 
+const findRequestedWorkflow = (
+  set: EffectiveResourceSet,
+  slug: string,
+  roots: readonly string[] | undefined,
+  findings: ValidationFinding[],
+): ResolvedResource | undefined => {
+  const resource = findResource(set, 'workflow', slug);
+  if (resource === undefined && roots?.includes(slug) === true)
+    findings.push(workflowError(slug, 'enabled workflow is not resolvable.'));
+  return resource;
+};
+
 const workflowDefinitions = (
   set: EffectiveResourceSet,
+  roots?: readonly string[],
 ): {
   readonly definitions: ReadonlyMap<string, WorkflowDefinition>;
   readonly findings: readonly ValidationFinding[];
@@ -165,7 +180,14 @@ const workflowDefinitions = (
   const definitions = new Map<string, WorkflowDefinition>();
   const findings: ValidationFinding[] = [];
 
-  for (const resource of listResources(set, 'workflow')) {
+  const pending = roots === undefined ? listResources(set, 'workflow').map((resource) => resource.slug) : [...roots];
+  const visited = new Set<string>();
+  while (pending.length > 0) {
+    const slug = pending.shift()!;
+    if (visited.has(slug)) continue;
+    visited.add(slug);
+    const resource = findRequestedWorkflow(set, slug, roots, findings);
+    if (resource === undefined) continue;
     const definition = readWorkflowDefinition(resource.winner.path);
     if (isWorkflowDefinitionIssue(definition)) {
       findings.push(workflowError(resource.slug, definition.message));
@@ -175,6 +197,7 @@ const workflowDefinitions = (
       );
     } else {
       definitions.set(resource.slug, definition);
+      for (const node of definition.nodes) if (node.workflow !== undefined) pending.push(node.workflow);
     }
   }
 
@@ -439,7 +462,7 @@ export const validateEffectiveSet = (
     findings.push(...validateSkill(skill));
   }
 
-  const workflows = workflowDefinitions(set);
+  const workflows = workflowDefinitions(set, options.workflowRoots);
   findings.push(...workflows.findings);
   for (const workflow of workflows.definitions.values()) {
     findings.push(...validateWorkflow(set, workflow, workflows.definitions, projectDirectory));
@@ -451,7 +474,14 @@ export const validateEffectiveSet = (
   }
 
   for (const kind of ['agent', 'skill', 'knowledge', 'command', 'workflow'] as const) {
-    for (const resource of listResources(set, kind)) {
+    const resources =
+      kind === 'workflow'
+        ? [...workflows.definitions.keys()].flatMap((slug) => {
+            const resource = findResource(set, 'workflow', slug);
+            return resource === undefined ? [] : [resource];
+          })
+        : listResources(set, kind);
+    for (const resource of resources) {
       findings.push(...shadowFindings(resource));
     }
   }

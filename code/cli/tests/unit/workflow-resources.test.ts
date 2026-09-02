@@ -95,6 +95,7 @@ nodes:
     description: Run review.
 `,
   );
+  write(join(catalog, 'settings.yml'), 'workflows:\n  - delivery\n');
   return { root, home, project, catalog };
 };
 
@@ -219,6 +220,7 @@ nodes:
 
   it('reports unknown and invalid workflows without creating an export', () => {
     const { home, project, catalog, root } = fixture();
+    write(join(catalog, 'settings.yml'), 'workflows:\n  - absent\n');
     const unknown = executeDumpCommand({
       homeDirectory: home,
       projectDirectory: project,
@@ -228,6 +230,7 @@ nodes:
     expect(unknown.ok).toBe(false);
     expect(unknown.messages.join('\n')).toContain("references unknown workflow 'absent'");
 
+    write(join(catalog, 'settings.yml'), 'workflows:\n  - broken\n');
     write(join(catalog, 'workflows', 'broken', 'workflow.yaml'), 'version: [\n');
     const broken = executeDumpCommand({
       homeDirectory: home,
@@ -238,6 +241,7 @@ nodes:
     expect(broken.ok).toBe(false);
     expect(broken.messages.join('\n')).toContain("workflow 'broken': workflow.yaml is not valid YAML");
 
+    write(join(catalog, 'settings.yml'), 'workflows:\n  - wrong-id\n');
     write(
       join(catalog, 'workflows', 'wrong-id', 'workflow.yaml'),
       `version: 1
@@ -271,6 +275,7 @@ nodes:
       }),
     ).toThrow('Choose either --agent or --workflow');
 
+    write(join(catalog, 'settings.yml'), 'workflows:\n  - loop\n');
     write(
       join(catalog, 'workflows', 'loop', 'workflow.yaml'),
       `version: 1
@@ -290,6 +295,7 @@ nodes:
     });
     expect(loop.ok).toBe(true);
 
+    write(join(catalog, 'settings.yml'), 'workflows:\n  - missing-agent\n');
     write(
       join(catalog, 'workflows', 'missing-agent', 'workflow.yaml'),
       `version: 1
@@ -311,6 +317,31 @@ nodes:
     expect(missingAgent.ok).toBe(false);
     expect(missingAgent.messages.join('\n')).toContain("Unknown agent 'absent'");
     expect(existsSync(join(root, 'missing-agent', '.agents'))).toBe(false);
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-002.9).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('rejects a resolvable disabled root while allowing its enabled parent to include it', () => {
+    const { home, project, root } = fixture();
+    const nested = executeDumpCommand({
+      homeDirectory: home,
+      projectDirectory: project,
+      workflow: 'review',
+      out: join(root, 'nested'),
+    });
+    expect(nested.ok).toBe(false);
+    expect(nested.messages.join('\n')).toContain("Workflow 'review' is not enabled");
+
+    const parent = executeDumpCommand({
+      homeDirectory: home,
+      projectDirectory: project,
+      workflow: 'delivery',
+      out: join(root, 'parent'),
+    });
+    expect(parent.ok).toBe(true);
+    expect(readFileSync(join(root, 'parent', '.agents', 'workflows', 'review', 'workflow.yaml'), 'utf8')).toContain(
+      'id: review',
+    );
   });
 
   it('rejects schema-valid-looking null integrations and escaping workflow symlinks', () => {
@@ -347,6 +378,7 @@ nodes:
 `,
     );
     symlinkSync(external, join(catalog, 'workflows', 'escape'));
+    write(join(catalog, 'settings.yml'), 'workflows:\n  - escape\n');
     const escaped = executeDumpCommand({
       homeDirectory: home,
       projectDirectory: project,
