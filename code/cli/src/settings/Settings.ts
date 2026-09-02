@@ -63,7 +63,7 @@ export interface Settings {
    */
   readonly isolation?: Isolation;
   readonly sources?: readonly SourceReference[];
-  /** Workflow IDs this settings stack explicitly accepts. */
+  /** Workflow root slugs this settings stack explicitly enables. */
   readonly workflows?: readonly string[];
   readonly remoteSettings?: readonly RemoteSettingsReference[];
   readonly cacheDirectory?: string;

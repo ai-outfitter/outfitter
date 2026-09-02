@@ -9,7 +9,7 @@ export const mergeSettingsStack = (settingsStack: readonly Settings[]): Settings
   let defaultHarness: Settings['defaultHarness'];
   let isolation: Settings['isolation'];
   let sources: Settings['sources'];
-  let workflows: Settings['workflows'];
+  const workflows: string[] = [];
   let remoteSettings: Settings['remoteSettings'];
   let cacheDirectory: string | undefined;
   let sourceCache: Settings['sourceCache'];
@@ -25,7 +25,9 @@ export const mergeSettingsStack = (settingsStack: readonly Settings[]): Settings
     isolation = settings.isolation ?? isolation;
 
     sources = settings.sources ?? sources;
-    workflows = settings.workflows ?? workflows;
+    for (const workflow of settings.workflows ?? []) {
+      if (!workflows.includes(workflow)) workflows.push(workflow);
+    }
     remoteSettings = settings.remoteSettings ?? remoteSettings;
     cacheDirectory = settings.cacheDirectory ?? cacheDirectory;
     sourceCache = settings.sourceCache === undefined ? sourceCache : { ...sourceCache, ...settings.sourceCache };
@@ -45,7 +47,7 @@ export const mergeSettingsStack = (settingsStack: readonly Settings[]): Settings
     defaultHarness,
     isolation,
     sources: sources ?? [],
-    workflows: workflows ?? [],
+    workflows,
     remoteSettings: remoteSettings ?? [],
     cacheDirectory,
     sourceCache: sourceCache ?? {},

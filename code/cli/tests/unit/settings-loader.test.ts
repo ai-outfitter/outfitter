@@ -99,20 +99,30 @@ describe('settings loading', () => {
     expect(loaded.settings.defaultHarness).toBe('pi');
   });
 
-  it('loads unique accepted workflows and replaces the lower-precedence list', () => {
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-002.9).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('unions workflow enablement across remote, user, user-local, project, and project-local settings', () => {
     const root = createTemporaryRoot();
     const homeDirectory = join(root, 'home');
     const projectDirectory = join(root, 'project');
-    writeSettings(join(homeDirectory, '.agents', 'settings.yml'), 'workflows:\n  - software-factory\n');
-    writeSettings(join(projectDirectory, '.agents', 'settings.yml'), 'workflows:\n  - adversarial-review\n');
+    const remotePath = join(root, 'remote', 'settings.yml');
+    writeSettings(remotePath, 'workflows:\n  - remote\n  - shared\n');
+    writeSettings(join(homeDirectory, '.agents', 'settings.yml'), 'workflows:\n  - user\n  - shared\n');
+    writeSettings(join(homeDirectory, '.agents', 'settings.local.yml'), 'workflows:\n  - user-local\n');
+    writeSettings(join(projectDirectory, '.agents', 'settings.yml'), 'workflows:\n  - project\n');
+    writeSettings(join(projectDirectory, '.agents', 'settings.local.yml'), 'workflows:\n  - project-local\n');
 
-    const loaded = loadSettings(discoverSettingsLoadPlan({ homeDirectory, projectDirectory }));
+    const local = loadSettings(discoverSettingsLoadPlan({ homeDirectory, projectDirectory }));
+    const remote = loadSettingsFiles(createSettingsLoadPlan([{ scope: 'remote', path: remotePath }]));
+    const loaded = loadSettings(createSettingsLoadPlan([...remote.files, ...local.files].map((file) => file.location)));
 
     expect(loaded.issues).toEqual([]);
-    expect(loaded.settings.workflows).toEqual(['adversarial-review']);
+    expect(loaded.settings.workflows).toEqual(['remote', 'shared', 'user', 'user-local', 'project', 'project-local']);
   });
 
-  it('rejects duplicate accepted workflow IDs', () => {
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-002.9).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('rejects duplicate enabled workflow slugs within one file', () => {
     const root = createTemporaryRoot();
     const settingsPath = join(root, 'settings.yml');
     writeSettings(settingsPath, 'workflows:\n  - review\n  - review\n');
@@ -121,6 +131,21 @@ describe('settings loading', () => {
 
     expect(result.files).toEqual([]);
     expect(result.issues).toContainEqual(expect.objectContaining({ path: '/workflows' }));
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-002.9).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('treats missing and explicitly empty workflow lists as no enabled roots', () => {
+    const root = createTemporaryRoot();
+    const missing = loadSettings(
+      createSettingsLoadPlan([{ scope: 'user', path: join(root, 'missing', 'settings.yml') }]),
+    );
+    const emptyPath = join(root, 'empty', 'settings.yml');
+    writeSettings(emptyPath, 'workflows: []\n');
+    const empty = loadSettings(createSettingsLoadPlan([{ scope: 'user', path: emptyPath }]));
+
+    expect(missing.settings.workflows).toEqual([]);
+    expect(empty.settings.workflows).toEqual([]);
   });
 
   it('merges startup display across scopes but honors enterprise controls only from home', () => {

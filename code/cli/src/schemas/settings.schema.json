@@ -79,7 +79,7 @@
     },
     "workflows": {
       "type": "array",
-      "description": "Workflow IDs explicitly accepted by this settings scope.",
+      "description": "Workflow root slugs explicitly enabled by this settings scope.",
       "items": { "type": "string", "minLength": 1 },
       "uniqueItems": true
     },
