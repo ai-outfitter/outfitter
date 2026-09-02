@@ -66,6 +66,10 @@ export const executeDumpCommand = (input: DumpInput): DumpCommandResult => {
 
   const syncWarnings = warnings.map((warning) => `warning: ${warning}`);
 
+  assertExclusiveSelection(input);
+  if (input.workflow !== undefined && !settings.workflows!.includes(input.workflow))
+    return disabledWorkflowResult(input.workflow, syncWarnings);
+
   if (input.strict === true && ambiguityWarnings.length > 0) {
     return {
       writtenPaths: [],
@@ -74,9 +78,6 @@ export const executeDumpCommand = (input: DumpInput): DumpCommandResult => {
     };
   }
 
-  assertExclusiveSelection(input);
-  if (input.workflow !== undefined && !settings.workflows!.includes(input.workflow))
-    return disabledWorkflowResult(input.workflow, syncWarnings);
   const selected = input.workflow ?? resolveAgentSlug(settings, input.agent);
   const result =
     input.workflow === undefined

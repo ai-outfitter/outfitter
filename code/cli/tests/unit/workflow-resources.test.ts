@@ -322,12 +322,17 @@ nodes:
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-002.9).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('rejects a resolvable disabled root while allowing its enabled parent to include it', () => {
-    const { home, project, root } = fixture();
+    const { home, project, catalog, root } = fixture();
+    write(
+      join(home, '.agents', 'workflows', 'review', 'workflow.yaml'),
+      readFileSync(join(catalog, 'workflows', 'review', 'workflow.yaml'), 'utf8'),
+    );
     const nested = executeDumpCommand({
       homeDirectory: home,
       projectDirectory: project,
       workflow: 'review',
       out: join(root, 'nested'),
+      strict: true,
     });
     expect(nested.ok).toBe(false);
     expect(nested.messages.join('\n')).toContain("Workflow 'review' is not enabled");
