@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.14.0](https://github.com/ai-outfitter/outfitter/compare/v1.13.0...v1.14.0) (2026-09-02)
+
+
+### Features
+
+* **workflows:** enable explicit workflow roots ([#346](https://github.com/ai-outfitter/outfitter/issues/346)) ([1e4c020](https://github.com/ai-outfitter/outfitter/commit/1e4c020d1689ac148b782d76a7c86276fda64365))
+
 ## [1.13.0](https://github.com/ai-outfitter/outfitter/compare/v1.12.0...v1.13.0) (2026-08-31)
 
 
