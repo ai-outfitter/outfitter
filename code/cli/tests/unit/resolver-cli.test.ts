@@ -80,9 +80,10 @@ describe('resolver command objects', () => {
 
   it('list emits stable JSON with workflow provenance', async () => {
     const root = project();
+    write(join(root, 'project', '.agents', 'settings.yml'), 'workflows:\n  - review\n');
     write(
       join(root, 'project', '.agents', 'workflows', 'review', 'workflow.yaml'),
-      'version: 1\nid: review\ntitle: Review\nnodes: []\n',
+      'version: 1\nid: review\ntitle: Review\ndescription: Review a change.\nactors:\n  owner: {kind: human}\nnodes:\n  - {id: inspect, action: inspect, description: Inspect the change., actor: owner}\n',
     );
     const lines: string[] = [];
     await buildProgram(root, lines).parseAsync(['node', 'outfitter', 'list', 'workflows', '--json']);
@@ -91,6 +92,28 @@ describe('resolver command objects', () => {
       resources: [expect.objectContaining({ kind: 'workflow', slug: 'review', layer: 'workspace', ownerAgent: null })],
       diagnostics: ['workflows:', '  review  [workspace]'],
     });
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-002.9).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('list exposes enabled workflow roots only in text and JSON', async () => {
+    const root = createTemporaryRoot();
+    write(join(root, 'project', '.agents', 'settings.yml'), 'workflows:\n  - enabled\n');
+    for (const slug of ['enabled', 'disabled']) {
+      write(
+        join(root, 'project', '.agents', 'workflows', slug, 'workflow.yaml'),
+        `version: 1\nid: ${slug}\ntitle: ${slug}\ndescription: Test workflow.\nactors: {}\nnodes:\n  - {id: inspect, action: inspect, description: Inspect.}\n`,
+      );
+    }
+
+    const textLines: string[] = [];
+    await buildProgram(root, textLines).parseAsync(['node', 'outfitter', 'list', 'workflows']);
+    expect(textLines).toEqual(['workflows:', '  enabled  [workspace]']);
+
+    const jsonLines: string[] = [];
+    await buildProgram(root, jsonLines).parseAsync(['node', 'outfitter', 'list', 'workflows', '--json']);
+    const json = JSON.parse(jsonLines.join('\n')) as { resources: { slug: string }[] };
+    expect(json.resources.map((resource) => resource.slug)).toEqual(['enabled']);
   });
 
   it('validate forwards --strict/--json and sets a nonzero exit code on failure', async () => {
@@ -128,6 +151,45 @@ describe('resolver command objects', () => {
     });
     expect(result.ok).toBe(true);
     expect(result.messages).toContain('✓ No issues found.');
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-002.9).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('rejects an enabled workflow that is not resolvable', () => {
+    const root = createTemporaryRoot();
+    write(join(root, 'project', '.agents', 'settings.yml'), 'workflows:\n  - missing\n');
+
+    const result = executeValidateCommand({
+      homeDirectory: join(root, 'home'),
+      projectDirectory: join(root, 'project'),
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.findings).toContainEqual({
+      severity: 'error',
+      resource: 'workflow:missing',
+      message: 'enabled workflow is not resolvable.',
+    });
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-002.9).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('validates an enabled workflow closure and ignores disabled workflow defects', () => {
+    const root = createTemporaryRoot();
+    write(join(root, 'project', '.agents', 'settings.yml'), 'workflows:\n  - review\n');
+    write(
+      join(root, 'project', '.agents', 'workflows', 'review', 'workflow.yaml'),
+      'version: 1\nid: review\ntitle: Review\ndescription: Review a change.\nactors:\n  owner: {kind: human}\nnodes:\n  - {id: inspect, action: inspect, description: Inspect the change., actor: owner}\n',
+    );
+    write(join(root, 'project', '.agents', 'workflows', 'disabled', 'workflow.yaml'), 'version: [\n');
+
+    const result = executeValidateCommand({
+      homeDirectory: join(root, 'home'),
+      projectDirectory: join(root, 'project'),
+      strict: true,
+    });
+
+    expect(result.ok).toBe(true);
   });
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-004.2.18).

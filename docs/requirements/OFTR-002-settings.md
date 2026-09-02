@@ -8,12 +8,17 @@
 > `profiles:` map were removed. Section IDs are preserved so pinned-test traceability holds. The
 > target design lives in [docs/documentation/settings.md](../documentation/settings.md).
 
+> **Amendment (2026-09-02):** `workflows` now selects enabled workflow entry points. Unlike other
+> list settings, every loaded settings file contributes to an ordered-set union. This does not make
+> settings an agent-loadout selection surface; it controls which workflow roots commands expose.
+
 ## Overview
 
 Outfitter settings are the merged result of user, user-local, project, and project-local
 `.agents/settings.yml` (and sibling `.agents/settings.local.yml`) files.
 The internal Settings object is the single source of resolved configuration for commands. Settings
-carry no resource selections — an agent's loadout lives on the agent, not in settings.
+carry no agent loadout selections — an agent's loadout lives on the agent, not in settings. They MAY
+enable workflow roots as command entry points.
 
 ## Requirements
 
@@ -82,3 +87,16 @@ carry no resource selections — an agent's loadout lives on the agent, not in s
 2. Outfitter MUST validate `state_persistence` strategy values as one of `symlink`, `discard`, `warn`, `error`, or `prompt`.
 3. When `state_persistence` is omitted from all settings scopes, Outfitter MUST fall back to adapter default strategies.
 4. Higher-precedence settings files MUST override lower-precedence `state_persistence` entries per state path.
+
+### OFTR-002.9: Workflow Enablement
+
+1. Every loaded `settings.yml` and `settings.local.yml`, including configured `remote_settings`, MAY declare a unique `workflows` array of workflow root slugs.
+2. Outfitter MUST reject duplicate workflow slugs within one settings file.
+3. Outfitter MUST merge workflow enablement as an ordered-set union across remote, user, user-local, project, and project-local settings, collapsing cross-file duplicates to their first occurrence.
+4. Missing and empty `workflows` arrays MUST enable zero roots.
+5. A configured `source` MUST contribute workflow definitions but MUST NOT cause settings from that source payload to be loaded.
+6. `outfitter list workflows` MUST expose enabled workflow roots only in text and JSON output.
+7. `outfitter validate` MUST validate each enabled root and its reachable workflow, agent, and resource closure, and MUST NOT report workflow-specific findings for disabled workflows.
+8. `outfitter dump --workflow <slug>` MUST reject a disabled root with guidance to add it to `workflows`.
+9. A nested workflow dependency MUST be available to an enabled root's validation and dump closure without being separately listed, but MUST remain unavailable as a direct dump root unless separately enabled.
+10. Enabled workflow definitions MUST follow normal resource precedence, including project definitions overriding user or source definitions of the same slug.

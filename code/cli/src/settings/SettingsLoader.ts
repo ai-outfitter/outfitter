@@ -50,6 +50,7 @@ interface SettingsDocument {
   readonly default_harness?: Harness;
   readonly isolation?: Isolation;
   readonly sources?: readonly SourceDocument[];
+  readonly workflows?: readonly string[];
   readonly remote_settings?: readonly RemoteSettingsDocument[];
   readonly cache_directory?: string;
   readonly source_cache?: { readonly policy?: SourceCachePolicy };
@@ -282,6 +283,7 @@ const convertSettingsDocument = (
   defaultHarness: document.default_harness,
   isolation: isHomeScope(scope) ? document.isolation : undefined,
   sources: document.sources?.map((source) => convertSource(source, settingsDirectory)),
+  workflows: document.workflows,
   remoteSettings: document.remote_settings?.map(convertRemoteSettingsSource),
   cacheDirectory:
     document.cache_directory === undefined

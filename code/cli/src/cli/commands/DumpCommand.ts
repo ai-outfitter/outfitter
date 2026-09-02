@@ -43,6 +43,20 @@ const resolveAgentSlug = (settings: Settings, requested: string | undefined): st
   return settings.defaultAgent;
 };
 
+const disabledWorkflowResult = (workflow: string, warnings: readonly string[]): DumpCommandResult => ({
+  writtenPaths: [],
+  messages: [
+    ...warnings,
+    `Workflow '${workflow}' is not enabled. Add it to 'workflows' in settings.yml to dump it directly.`,
+  ],
+  ok: false,
+});
+
+const assertExclusiveSelection = (input: DumpInput): void => {
+  if (input.agent !== undefined && input.workflow !== undefined)
+    throw new Error('Choose either --agent or --workflow, not both.');
+};
+
 export const executeDumpCommand = (input: DumpInput): DumpCommandResult => {
   const { set, settings, settingsIssues, warnings, ambiguityWarnings } = resolveEffectiveSet(input);
 
@@ -52,6 +66,10 @@ export const executeDumpCommand = (input: DumpInput): DumpCommandResult => {
 
   const syncWarnings = warnings.map((warning) => `warning: ${warning}`);
 
+  assertExclusiveSelection(input);
+  if (input.workflow !== undefined && !settings.workflows!.includes(input.workflow))
+    return disabledWorkflowResult(input.workflow, syncWarnings);
+
   if (input.strict === true && ambiguityWarnings.length > 0) {
     return {
       writtenPaths: [],
@@ -60,8 +78,6 @@ export const executeDumpCommand = (input: DumpInput): DumpCommandResult => {
     };
   }
 
-  if (input.agent !== undefined && input.workflow !== undefined)
-    throw new Error('Choose either --agent or --workflow, not both.');
   const selected = input.workflow ?? resolveAgentSlug(settings, input.agent);
   const result =
     input.workflow === undefined

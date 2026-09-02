@@ -77,6 +77,12 @@
         "additionalProperties": false
       }
     },
+    "workflows": {
+      "type": "array",
+      "description": "Workflow root slugs explicitly enabled by this settings scope.",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
     "remote_settings": {
       "type": "array",
       "items": {
