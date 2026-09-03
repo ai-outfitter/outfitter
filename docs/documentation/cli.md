@@ -110,15 +110,15 @@ Project the composed tree into Claude Code and Codex homes as persistent, manage
 without going through `outfitter run`. `run` still uses a temporary projection; `link` is the
 opt-in persistent one. See [Linking into Claude Code and Codex](./linking-harnesses.md).
 
-| Option             | Description                                                                                               |
-| ------------------ | --------------------------------------------------------------------------------------------------------- |
-| `--harness <name>` | Harness home to link into: `claude` or `codex` (repeatable). Defaults to every harness whose home exists. |
-| `--agent <id>`     | Agent whose composed closure to link (repeatable).                                                        |
-| `--workflow <id>`  | Enabled workflow whose agent closures to link (repeatable).                                               |
-| `--all`            | Link every resolvable agent, with its skills and commands.                                                |
-| `--dry-run`        | Report what would change (`would create`, `would update`, `would prune`) without touching the home.       |
-| `--remove`         | Remove every entry this command created and forget it.                                                    |
-| `--strict`         | Exit non-zero on warnings, conflicts, or skipped entries.                                                 |
+| Option             | Description                                                                                                                |
+| ------------------ | -------------------------------------------------------------------------------------------------------------------------- |
+| `--harness <name>` | Harness home to link into: `claude` or `codex` (repeatable). Defaults to every harness on `PATH` or with an existing home. |
+| `--agent <id>`     | Agent whose composed closure to link (repeatable).                                                                         |
+| `--workflow <id>`  | Enabled workflow whose agent closures to link (repeatable).                                                                |
+| `--all`            | Link every resolvable agent, with its skills and commands.                                                                 |
+| `--dry-run`        | Report what would change (`would create`, `would update`, `would prune`) without touching the home.                        |
+| `--remove`         | Remove every entry this command created and forget it.                                                                     |
+| `--strict`         | Exit non-zero on warnings, conflicts, or skipped entries.                                                                  |
 
 ```bash
 outfitter link                                    # enabled workflows + default_agent, every installed harness

@@ -68,7 +68,9 @@ const run = async (
 describe('link command object', () => {
   it('refuses to guess a harness when none is installed and rejects unknown harnesses', async () => {
     const root = fixture();
-    expect(await run(root, [])).toEqual(['error: No harness home found. Pass --harness <claude|codex> to create one.']);
+    expect(await run(root, [], noRunner, { PATH: root.root })).toEqual([
+      'error: No harness home found. Pass --harness <claude|codex> to create one.',
+    ]);
     expect(process.exitCode).toBe(1);
     const lines: string[] = [];
     const program = new Command();

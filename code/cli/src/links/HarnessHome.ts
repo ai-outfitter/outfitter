@@ -1,6 +1,6 @@
 // Resolves the native configuration directory of each harness that `outfitter link` can manage.
 import { existsSync } from 'node:fs';
-import { join } from 'node:path';
+import { delimiter, join } from 'node:path';
 
 /** Harnesses with a persistent home directory that Outfitter can populate with managed links. */
 export type LinkHarness = 'claude' | 'codex';
@@ -24,9 +24,18 @@ export const resolveHarnessHome = (
   return join(homeDirectory, harness === 'claude' ? '.claude' : '.codex');
 };
 
-/** Harnesses whose home directory already exists, so linking into it targets an installed harness. */
+const onPath = (harness: LinkHarness, env: Readonly<Record<string, string | undefined>>): boolean =>
+  (env.PATH ?? '').split(delimiter).some((directory) => directory !== '' && existsSync(join(directory, harness)));
+
+/**
+ * A harness counts as installed when its executable is on `PATH` or its home already exists. Every
+ * supported harness creates its home on first launch, so a directory check alone would skip a
+ * harness installed minutes ago.
+ */
 export const detectInstalledHarnesses = (
   homeDirectory: string,
   env: Readonly<Record<string, string | undefined>>,
 ): readonly LinkHarness[] =>
-  linkHarnesses.filter((harness) => existsSync(resolveHarnessHome(harness, homeDirectory, env)));
+  linkHarnesses.filter(
+    (harness) => onPath(harness, env) || existsSync(resolveHarnessHome(harness, homeDirectory, env)),
+  );

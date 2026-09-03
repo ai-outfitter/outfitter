@@ -16,7 +16,7 @@ and separate from the temporary projection `outfitter run` builds and removes pe
 
 1. `outfitter link` MUST accept repeatable `--harness <claude|codex>`, `--agent <id>`, and `--workflow <id>` options and the `--all`, `--dry-run`, `--remove`, and `--strict` flags, and MUST reject an unknown harness name with a non-zero exit.
 2. The Claude Code home MUST resolve to `$CLAUDE_CONFIG_DIR` when set and non-empty, otherwise `~/.claude`; the Codex home MUST resolve to `$CODEX_HOME` when set and non-empty, otherwise `~/.codex`.
-3. Without `--harness`, `link` MUST target every harness whose home directory exists, and MUST fail with guidance to pass `--harness` when none exists.
+3. Without `--harness`, `link` MUST target every harness whose executable is on `PATH` or whose home directory exists, and MUST fail with guidance to pass `--harness` when none is detected.
 4. An explicit `--harness` MUST create the harness home when it does not exist.
 5. Without `--agent`, `--workflow`, or `--all`, the scope MUST be every enabled workflow root from the merged `workflows` setting plus `default_agent` when set, and `link` MUST fail with guidance when that scope is empty.
 6. `--workflow <id>` MUST reject a workflow that is not enabled in the merged `workflows` setting, and MUST otherwise add every agent in that workflow's closure to the scope.

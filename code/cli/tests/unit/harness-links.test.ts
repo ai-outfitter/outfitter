@@ -97,6 +97,10 @@ describe('harness homes', () => {
     expect(detectInstalledHarnesses(home, {})).toEqual([]);
     mkdirSync(join(home, '.codex'));
     expect(detectInstalledHarnesses(home, {})).toEqual(['codex']);
+    const bin = join(home, 'bin');
+    mkdirSync(bin);
+    writeFileSync(join(bin, 'claude'), '');
+    expect(detectInstalledHarnesses(home, { PATH: `${bin}:` })).toEqual(['claude', 'codex']);
   });
 });
 

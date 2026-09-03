@@ -14,7 +14,7 @@ The `.agents` tree stays the source of truth. Links point into it; nothing is co
 
 With no selection, `link` takes what settings already opted into: every enabled workflow root (`workflows:` in `settings.yml`) plus `default_agent`. `--workflow` must name an enabled workflow; `--agent` names any resolvable agent; `--all` widens the scope to every resolvable agent. Each scoped agent is composed by the same composer `run` and `dump` use, and every subagent it delegates to joins the closure — with its own skills, commands, and MCP servers.
 
-The harness home is `$CLAUDE_CONFIG_DIR` (default `~/.claude`) for Claude Code and `$CODEX_HOME` (default `~/.codex`) for Codex. Without `--harness`, every harness whose home exists is linked; an explicit `--harness` creates the home if it is missing.
+The harness home is `$CLAUDE_CONFIG_DIR` (default `~/.claude`) for Claude Code and `$CODEX_HOME` (default `~/.codex`) for Codex. Without `--harness`, every harness whose executable is on `PATH` or whose home exists is linked; an explicit `--harness` creates the home if it is missing.
 
 ## What lands where
 
