@@ -12,12 +12,12 @@ import {
 } from 'node:fs';
 import { dirname, join } from 'node:path';
 
-import type { ComposedSubagent, CompositionPlan } from '../composer/Composition.js';
+import type { ComposedIdentity, ComposedSubagent, CompositionPlan } from '../composer/Composition.js';
 import { escapesRoots } from '../dump/Containment.js';
 import { removeTargetTypeConflict } from '../fs/TypeConflict.js';
 import type { AgentDefinition } from '../resolver/AgentDefinition.js';
 import { isAgentDefinitionIssue, readAgentDefinition } from '../resolver/AgentDefinition.js';
-import type { ResolvedResource } from '../resolver/Resource.js';
+import type { Loadout, ResolvedResource } from '../resolver/Resource.js';
 import type { Harness } from '../settings/Settings.js';
 import { effectiveToolAllowlist } from './Tools.js';
 
@@ -158,6 +158,45 @@ const optionalScalar = (name: string, value: string | undefined): readonly strin
 const optionalList = (name: string, values: readonly string[]): readonly string[] =>
   values.length === 0 ? [] : [`${name}: ${JSON.stringify(values.join(', '))}`];
 
+/** Harness-neutral inputs for one native Claude agent definition document. */
+export interface ClaudeAgentDocumentInput {
+  readonly slug: string;
+  readonly description?: string;
+  readonly model?: string;
+  readonly thinking?: string;
+  readonly tools?: Loadout['tools'];
+  readonly skills: readonly string[];
+  readonly extensions: readonly string[];
+  readonly body: string;
+}
+
+/** Serializes frontmatter plus body in the shape Claude Code reads from its `agents/` directory. */
+export const serializeClaudeAgentDocument = (input: ClaudeAgentDocumentInput): string => {
+  const tools = effectiveToolAllowlist(input.tools);
+  const frontmatter = [
+    `name: ${JSON.stringify(input.slug)}`,
+    `description: ${JSON.stringify(input.description ?? `Delegated ${input.slug} agent.`)}`,
+    ...optionalScalar('model', input.model),
+    ...optionalScalar('thinking', input.thinking),
+    ...optionalList('tools', tools ?? []),
+    ...optionalList('skills', input.skills),
+    ...optionalList('extensions', input.extensions),
+  ];
+
+  return `---\n${frontmatter.join('\n')}\n---\n\n${input.body}`;
+};
+
+/** Joins the composed identity parts in composition order, dropping empty fragments. */
+export const composedIdentityBody = (identity: ComposedIdentity): string =>
+  [
+    identity.systemPrompt,
+    identity.sharedContext,
+    ...(identity.appendSystemPrompts ?? []).map((fragment) => fragment.content),
+    ...(identity.agentBodies ?? []).map((fragment) => fragment.content),
+  ]
+    .filter((fragment): fragment is string => fragment !== undefined && fragment.length > 0)
+    .join('\n\n');
+
 const subagentEscapesRoots = (subagent: ResolvedResource): boolean => {
   const roots = [
     subagent.winner.layer.root,
@@ -183,48 +222,29 @@ const serializeSubagent = (subagent: ResolvedResource): string | undefined => {
 
   if (definition === undefined) return undefined;
 
-  const tools = effectiveToolAllowlist(definition.loadout.tools);
-  const frontmatter = [
-    `name: ${JSON.stringify(subagent.slug)}`,
-    `description: ${JSON.stringify(definition.description ?? definition.label ?? `Delegated ${subagent.slug} agent.`)}`,
-    ...optionalScalar('model', definition.loadout.model),
-    ...optionalScalar('thinking', definition.loadout.thinking),
-    ...optionalList('tools', tools ?? []),
-    ...optionalList('skills', definition.loadout.skills),
-    ...optionalList('extensions', definition.loadout.extensions),
-  ];
-
-  return `---\n${frontmatter.join('\n')}\n---\n\n${definition.body}`;
+  return serializeClaudeAgentDocument({
+    slug: subagent.slug,
+    description: definition.description ?? definition.label,
+    model: definition.loadout.model,
+    thinking: definition.loadout.thinking,
+    tools: definition.loadout.tools,
+    skills: definition.loadout.skills,
+    extensions: definition.loadout.extensions,
+    body: definition.body,
+  });
 };
 
-const composedSubagentBody = (subagent: ComposedSubagent): string =>
-  [
-    subagent.identity.systemPrompt,
-    subagent.identity.sharedContext,
-    ...subagent.identity.appendSystemPrompts.map((fragment) => fragment.content),
-    ...subagent.identity.agentBodies.map((fragment) => fragment.content),
-  ]
-    .filter((fragment): fragment is string => fragment !== undefined && fragment.length > 0)
-    .join('\n\n');
-
-const serializeComposedSubagent = (subagent: ComposedSubagent): string => {
-  const tools = effectiveToolAllowlist(subagent.tools);
-  const description = subagent.identity.description ?? subagent.identity.label;
-  const frontmatter = [
-    `name: ${JSON.stringify(subagent.resource.slug)}`,
-    `description: ${JSON.stringify(description ?? `Delegated ${subagent.resource.slug} agent.`)}`,
-    ...optionalScalar('model', subagent.model),
-    ...optionalScalar('thinking', subagent.thinking),
-    ...optionalList('tools', tools ?? []),
-    ...optionalList(
-      'skills',
-      subagent.skills.map((skill) => skill.slug),
-    ),
-    ...optionalList('extensions', subagent.extensions),
-  ];
-
-  return `---\n${frontmatter.join('\n')}\n---\n\n${composedSubagentBody(subagent)}`;
-};
+const serializeComposedSubagent = (subagent: ComposedSubagent): string =>
+  serializeClaudeAgentDocument({
+    slug: subagent.resource.slug,
+    description: subagent.identity.description ?? subagent.identity.label,
+    model: subagent.model,
+    thinking: subagent.thinking,
+    tools: subagent.tools,
+    skills: subagent.skills.map((skill) => skill.slug),
+    extensions: subagent.extensions,
+    body: composedIdentityBody(subagent.identity),
+  });
 
 const materializeSubagents = (
   subagents: readonly ResolvedResource[],

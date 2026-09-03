@@ -23,7 +23,7 @@ One runbook per rung of [the adoption ramp](../philosophy.md#the-ramp-to-an-auto
 - [Getting started](./getting-started.md) — install, first run, default agent.
 - [First-time CLI agent users](./first-time-cli-agent-users.md) — new to agent CLIs entirely.
 - [Switching to Outfitter](./switching-to-outfitter.md) — adopt from an existing agent-CLI setup.
-- [Porting a Claude Code setup](./porting-claude.md) — `~/.claude` into `~/.agents/` with symlinks back.
+- [Linking into Claude Code and Codex](./linking-harnesses.md) — `outfitter link` places managed links to the tree in `~/.claude` and `~/.codex`.
 
 ## Understand (the model)
 

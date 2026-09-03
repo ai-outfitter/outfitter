@@ -40,7 +40,7 @@ The value is ambiguity reduction: every agent — and every skill that clones, o
 
 ## Reaching native harness runs
 
-Composition only helps runs that go through it — the rule should also reach a bare `claude` session that never touches Outfitter. The porting design ([Porting a Claude Code setup](../porting-claude.md)) maps `~/.claude/CLAUDE.md` to `~/.agents/agents.md` with a symlink back, so native Claude Code reads the protocol tree and editing either view edits the same file; managed porting and persistent harness symlinks — including the generalization of projecting composed shared context into each harness's home-level memory file — are deferred to [#187](https://github.com/ai-outfitter/outfitter/issues/187).
+Composition only helps runs that go through it — the rule should also reach a bare `claude` session that never touches Outfitter. [`outfitter link`](../linking-harnesses.md) symlinks `~/.claude/CLAUDE.md` (and `~/.codex/AGENTS.md`) to the winning `~/.agents/agents.md`, so native Claude Code and Codex read the protocol tree and editing the tree edits what they see. This is the persistent projection [#187](https://github.com/ai-outfitter/outfitter/issues/187) deferred; setup still creates no links.
 
 ## Payoff
 

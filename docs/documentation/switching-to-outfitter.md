@@ -6,7 +6,7 @@ This guide is for people who already use Pi, Claude Code, Codex, Cursor, or anot
 
 **You already have a `.agents/` directory.** You're done with the hard part — Outfitter reads the protocol directly. Set `default_agent` in `.agents/settings.yml` to one of your [agent](./agents.md) slugs — the agent's own loadout selects its skills, subagents, and knowledge — and run `outfitter`. Nothing is converted or re-authored.
 
-**Your setup lives in `~/.claude`.** Let `outfitter setup` port it into `~/.agents/` and symlink it back so Claude Code keeps working natively — see [Porting a Claude Code setup](./porting-claude.md). Your ported skills, agents, and commands are then referenceable by slug like any protocol resource.
+**Your setup lives in `~/.claude`.** Move it into `~/.agents/` and run `outfitter link` so Claude Code keeps working natively from the tree — see [Linking into Claude Code and Codex](./linking-harnesses.md). Your migrated skills, agents, and commands are then referenceable by slug like any protocol resource.
 
 Starting from neither? `outfitter setup` bootstraps from the default catalog — see [Getting started](./getting-started.md).
 

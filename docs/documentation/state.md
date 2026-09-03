@@ -246,6 +246,6 @@ state_persistence:
 
 When a path uses `symlink`, the durable destination is the native CLI state location — `~/.pi/agent/...` for Pi, `~/.claude/...` for Claude Code. The native location is not another configuration layer: it does not participate in resolution or merge precedence; it only provides a durable destination for state paths.
 
-For a [ported Claude Code setup](./porting-claude.md), `~/.claude` configuration entries are themselves symlinks into `~/.agents/`, so persisted configuration state lands in the protocol tree while session and auth state stays native.
+For a [linked Claude Code home](./linking-harnesses.md), the managed `~/.claude` configuration entries are themselves symlinks into `~/.agents/`, so persisted configuration state lands in the protocol tree while session and auth state stays native.
 
 For the complete adapter contract and rationale, see [State writeback strategy](../architecture/state_writeback_strategy.md).

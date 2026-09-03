@@ -41,7 +41,7 @@ Outfitter is organized around a private npm workspace root, clear TypeScript pac
 │   │   ├── src/                       # production TypeScript source
 │   │   │   ├── cli.ts                 # executable CLI entry point
 │   │   │   ├── cli/                   # CLI parser construction and command objects
-│   │   │   │   └── commands/          # run, setup, sync, list, validate, and dump command objects
+│   │   │   │   └── commands/          # run, setup, sync, list, validate, dump, and link command objects
 │   │   │   ├── settings/              # settings loading and merging
 │   │   │   ├── telemetry/             # consent, pseudonymous state, allowlisted events, and PostHog boundary
 │   │   │   ├── setup/                 # onboarding state + pinned default-catalog bootstrap
@@ -53,6 +53,11 @@ Outfitter is organized around a private npm workspace root, clear TypeScript pac
 │   │   │   ├── projection/            # materialize a composition + build pi/claude/codex launch plans
 │   │   │   │   └── CodexMcp.ts        # translate selected MCP definitions to Codex TOML CLI overrides
 │   │   │   ├── dump/                  # deterministic self-contained `.agents` tree output
+│   │   │   ├── links/                 # opt-in managed projection of the composed tree into Claude Code and Codex homes
+│   │   │   │   ├── HarnessHome.ts     # harness home resolution (CLAUDE_CONFIG_DIR, CODEX_HOME) and installed-harness detection
+│   │   │   │   ├── HarnessLinkPlan.ts # scope selection, closure composition, and per-harness link entries
+│   │   │   │   ├── HarnessLinkApply.ts # ownership manifest, conflict-preserving reconciliation, prune, and remove
+│   │   │   │   └── HarnessMcp.ts      # harness CLI arguments for MCP add, get, and remove
 │   │   │   ├── merge/                 # deterministic value and array merge policy helpers
 │   │   │   ├── agents/                # process launch, configuration strategy, and adapter persistence bridges
 │   │   │   │   ├── ClaudeConfigStrategy.ts        # inherit/isolated resolution plus the harness compatibility probe

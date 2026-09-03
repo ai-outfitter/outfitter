@@ -68,7 +68,7 @@ Outfitter defaults
 
 Native CLI state is not a configuration layer. For `symlink` paths, the selected adapter resolves a native fallback location directly, such as `~/.pi/agent/...` for most Pi state paths, `~/.claude/...` for most Claude Code state paths, or `<cache_directory>/utilities` for Pi `utilities/` and `bin/`. The native fallback does not participate in resource resolution or merge precedence and cannot contribute resources. Claude Code `projects/` is additionally controlled by the session-directory setting when set.
 
-For a [ported Claude Code setup](../documentation/porting-claude.md), configuration entries under `~/.claude` are symlinks into `~/.agents/`, so a durable write through the projection's `skills/` link lands in the protocol tree. The porting arrangement is created by setup; the state machinery just follows the links.
+For a [linked Claude Code home](../documentation/linking-harnesses.md), managed configuration entries under `~/.claude` are symlinks into `~/.agents/`, so a durable write through the projection's `skills/` link lands in the protocol tree. The links are created by `outfitter link`, not setup; the state machinery just follows them.
 
 ## Path-keyed adapter declarations
 
