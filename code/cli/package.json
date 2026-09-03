@@ -47,6 +47,7 @@
     "cross-spawn": "^7.0.6",
     "liquidjs": "^10.27.0",
     "posthog-node": "^5.49.1",
+    "smol-toml": "^1.8.0",
     "yaml": "^2.9.0"
   },
   "devDependencies": {

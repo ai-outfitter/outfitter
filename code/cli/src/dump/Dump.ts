@@ -21,7 +21,7 @@ import { removeTargetTypeConflict } from '../fs/TypeConflict.js';
 import { pickLoadoutKeys } from '../resolver/AgentDefinition.js';
 import { compareSlugs, findResource } from '../resolver/Resource.js';
 import type { EffectiveResourceSet, Layer, ResolvedResource } from '../resolver/Resource.js';
-import type { AgentDefaults } from '../settings/Settings.js';
+import type { AgentDefaults, HarnessDefaults } from '../settings/Settings.js';
 import { escapesRoots, overlaps } from './Containment.js';
 
 export interface DumpResult {
@@ -323,8 +323,13 @@ const writeMergedConfig = (agent: ResolvedResource, agentTarget: string, written
 };
 
 /** Carries merged settings-layer defaults into the dump so the tree stays self-contained. */
-const writeDefaultsSettings = (outRoot: string, defaults: AgentDefaults | undefined, written: string[]): void => {
-  const settingsYaml = settingsYamlForDefaults(defaults);
+const writeDefaultsSettings = (
+  outRoot: string,
+  agentDefaults: AgentDefaults | undefined,
+  harnessDefaults: HarnessDefaults | undefined,
+  written: string[],
+): void => {
+  const settingsYaml = settingsYamlForDefaults(agentDefaults, harnessDefaults);
   if (settingsYaml === undefined) return;
 
   const settingsTarget = join(outRoot, 'settings.yml');
@@ -359,19 +364,27 @@ const failure = (errors: readonly string[], warnings: readonly string[] = []): D
 });
 
 /** Serializes merged settings-layer defaults into the dumped tree so it stays self-contained. */
-const settingsYamlForDefaults = (defaults: AgentDefaults | undefined): string | undefined => {
+const settingsYamlForDefaults = (
+  defaults: AgentDefaults | undefined,
+  harnessDefaults: HarnessDefaults | undefined,
+): string | undefined => {
   const effective = planAgentDefaults(defaults);
-  if (effective === undefined) return undefined;
+  if (effective === undefined && harnessDefaults === undefined) return undefined;
   // yaml.stringify omits undefined properties, so undeclared fields vanish from the document.
   return stringify({
-    agent_defaults: {
-      extensions: effective.extensions,
-      skills: effective.skills,
-      mcp: effective.mcp,
-      plugins: effective.plugins,
-      subagents: effective.subagents,
-      append_system_prompt: effective.appendSystemPrompt,
-    },
+    ...(effective === undefined
+      ? {}
+      : {
+          agent_defaults: {
+            extensions: effective.extensions,
+            skills: effective.skills,
+            mcp: effective.mcp,
+            plugins: effective.plugins,
+            subagents: effective.subagents,
+            append_system_prompt: effective.appendSystemPrompt,
+          },
+        }),
+    ...(harnessDefaults === undefined ? {} : { harness_defaults: harnessDefaults }),
   });
 };
 
@@ -398,6 +411,7 @@ export const dumpAgent = (
   outDirectory: string,
   projectDirectory?: string,
   agentDefaults?: AgentDefaults,
+  harnessDefaults?: HarnessDefaults,
 ): DumpResult => {
   // composeClosure composes the root once and surfaces an unknown/invalid root agent as an error.
   const closure = composeClosure(set, agentSlug, projectDirectory, agentDefaults);
@@ -436,7 +450,7 @@ export const dumpAgent = (
 
   // Carry the merged settings-layer defaults into the dumped tree so it resolves identically on
   // its own; catalogs without agent_defaults dump byte-identically to before.
-  writeDefaultsSettings(outRoot, agentDefaults, written);
+  writeDefaultsSettings(outRoot, agentDefaults, harnessDefaults, written);
   writeAgentDefaultMcpServers(outRoot, closure.agentDefaultMcpServers, written);
 
   for (const agent of closure.agents) {

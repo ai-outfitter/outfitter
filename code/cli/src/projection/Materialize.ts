@@ -18,7 +18,8 @@ import { removeTargetTypeConflict } from '../fs/TypeConflict.js';
 import type { AgentDefinition } from '../resolver/AgentDefinition.js';
 import { isAgentDefinitionIssue, readAgentDefinition } from '../resolver/AgentDefinition.js';
 import type { Loadout, ResolvedResource } from '../resolver/Resource.js';
-import type { Harness } from '../settings/Settings.js';
+import type { Harness, HarnessDefaultSettings } from '../settings/Settings.js';
+import { mergeObjectsWithPolicy } from '../merge/SettingsValueMerger.js';
 import { effectiveToolAllowlist } from './Tools.js';
 
 export interface MaterializedComposition {
@@ -137,6 +138,30 @@ export const applyPiRuntimeDefaults = (rootDirectory: string): void => {
   } finally {
     rmSync(temporaryPath, { force: true });
   }
+};
+
+/** Merges catalog defaults below an existing native JSON settings document. */
+export const applyJsonSettingsDefaults = (
+  rootDirectory: string,
+  defaults: HarnessDefaultSettings | undefined,
+): string | undefined => {
+  if (defaults === undefined || Object.keys(defaults).length === 0) return undefined;
+  const settingsPath = join(rootDirectory, 'settings.json');
+  if (!existsSync(settingsPath)) {
+    writeGeneratedFile(settingsPath, `${JSON.stringify(defaults, null, 2)}\n`);
+    return settingsPath;
+  }
+
+  let existing: unknown;
+  try {
+    existing = JSON.parse(readFileSync(settingsPath, 'utf8')) as unknown;
+  } catch {
+    return undefined;
+  }
+  if (existing === null || typeof existing !== 'object' || Array.isArray(existing)) return undefined;
+  const merged = mergeObjectsWithPolicy(defaults, existing as Record<string, unknown>);
+  writeGeneratedFile(settingsPath, `${JSON.stringify(merged, null, 2)}\n`);
+  return settingsPath;
 };
 
 const materializeSkill = (skill: ResolvedResource, rootDirectory: string): string | undefined => {

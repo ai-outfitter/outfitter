@@ -92,7 +92,9 @@ describe('harness homes', () => {
     expect(resolveHarnessHome('claude', '/h', { CLAUDE_CONFIG_DIR: ' ' })).toBe('/h/.claude');
     expect(resolveHarnessHome('codex', '/h', { CODEX_HOME: '/cx' })).toBe('/cx');
     expect(resolveHarnessHome('codex', '/h', {})).toBe('/h/.codex');
-    expect(isLinkHarness('pi')).toBe(false);
+    expect(isLinkHarness('pi')).toBe(true);
+    expect(resolveHarnessHome('pi', '/h', { PI_CODING_AGENT_DIR: '/pi' })).toBe('/pi');
+    expect(resolveHarnessHome('pi', '/h', {})).toBe('/h/.pi/agent');
     const home = temporary();
     expect(detectInstalledHarnesses(home, {})).toEqual([]);
     mkdirSync(join(home, '.codex'));
@@ -252,7 +254,7 @@ const mcp = (id: string, server: Record<string, unknown>): LinkEntry => ({
   mcp: { id, server },
   resource: `mcp:${id}`,
 });
-const plan = (entries: LinkEntry[], harness: 'claude' | 'codex' = 'claude'): HarnessLinkPlan => ({
+const plan = (entries: LinkEntry[], harness: 'pi' | 'claude' | 'codex' = 'claude'): HarnessLinkPlan => ({
   harness,
   entries,
   warnings: [],

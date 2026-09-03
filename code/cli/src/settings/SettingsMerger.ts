@@ -2,7 +2,7 @@
 // Provides deterministic Settings merge scaffolding.
 import { mergeObjectsWithPolicy } from '../merge/SettingsValueMerger.js';
 import { promptSourceKey } from '../composer/PromptSource.js';
-import type { AgentDefaults, CustomSettings, Settings, StatePersistence } from './Settings.js';
+import type { AgentDefaults, CustomSettings, HarnessDefaults, Settings, StatePersistence } from './Settings.js';
 import { emptySettings } from './Settings.js';
 
 /** Folds one additive defaults list across the stack, collapsing duplicates to their first occurrence. */
@@ -51,6 +51,7 @@ export const mergeSettingsStack = (settingsStack: readonly Settings[]): Settings
   let enterprise: Settings['enterprise'];
   let telemetry: Settings['telemetry'];
   let agentDefaults: AgentDefaults | undefined;
+  let harnessDefaults: HarnessDefaults | undefined;
 
   for (const settings of settingsStack) {
     defaultAgent = settings.defaultAgent ?? defaultAgent;
@@ -73,6 +74,10 @@ export const mergeSettingsStack = (settingsStack: readonly Settings[]): Settings
     enterprise = settings.enterprise === undefined ? enterprise : { ...enterprise, ...settings.enterprise };
     telemetry = settings.telemetry === undefined ? telemetry : { ...telemetry, ...settings.telemetry };
     agentDefaults = mergeAgentDefaults(agentDefaults, settings.agentDefaults);
+    harnessDefaults =
+      settings.harnessDefaults === undefined
+        ? harnessDefaults
+        : mergeObjectsWithPolicy(harnessDefaults, settings.harnessDefaults);
   }
 
   return {
@@ -91,6 +96,7 @@ export const mergeSettingsStack = (settingsStack: readonly Settings[]): Settings
     enterprise: enterprise ?? {},
     telemetry: telemetry ?? {},
     agentDefaults,
+    harnessDefaults,
   };
 };
 

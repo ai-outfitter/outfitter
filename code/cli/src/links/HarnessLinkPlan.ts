@@ -8,7 +8,7 @@ import { collectWorkflowClosure } from '../dump/WorkflowDump.js';
 import { composedIdentityBody, serializeClaudeAgentDocument } from '../projection/Materialize.js';
 import { compareSlugs, findResource, listAgentResources, listResources } from '../resolver/Resource.js';
 import type { EffectiveResourceSet, ResolvedResource } from '../resolver/Resource.js';
-import type { AgentDefaults, Settings } from '../settings/Settings.js';
+import type { AgentDefaults, HarnessDefaultSettings, Settings, SettingsValue } from '../settings/Settings.js';
 import type { LinkHarness } from './HarnessHome.js';
 
 export interface LinkSelection {
@@ -198,7 +198,13 @@ export const composeLinkClosure = (
   };
 };
 
-export type LinkEntryKind = 'symlink' | 'file' | 'mcp';
+export type LinkEntryKind = 'symlink' | 'file' | 'mcp' | 'setting';
+
+export interface LinkedSetting {
+  readonly file: 'settings.json' | 'config.toml';
+  readonly keys: readonly string[];
+  readonly value: SettingsValue;
+}
 
 /** One managed item inside a harness home, addressed relative to that home. */
 export interface LinkEntry {
@@ -210,6 +216,7 @@ export interface LinkEntry {
   /** Generated file content. */
   readonly content?: string;
   readonly mcp?: LinkedMcpServer;
+  readonly setting?: LinkedSetting;
   /** `kind:slug` of the protocol resource this entry projects, for diagnostics. */
   readonly resource: string;
 }
@@ -251,12 +258,45 @@ const agentEntries = (closure: LinkClosure): readonly LinkEntry[] =>
     resource: `agent:${agent.slug}`,
   }));
 
+const settingEntries = (harness: LinkHarness, defaults: HarnessDefaultSettings | undefined): readonly LinkEntry[] => {
+  const entries: LinkEntry[] = [];
+  const file = harness === 'codex' ? 'config.toml' : 'settings.json';
+  const visit = (value: SettingsValue, keys: readonly string[]): void => {
+    if (value !== null && typeof value === 'object' && !Array.isArray(value)) {
+      for (const [key, child] of Object.entries(value)) visit(child, [...keys, key]);
+      return;
+    }
+    entries.push({
+      kind: 'setting',
+      path: `setting:${file}:${keys.map(encodeURIComponent).join('/')}`,
+      setting: { file, keys, value },
+      resource: `harness_defaults.${harness}.${keys.join('.')}`,
+    });
+  };
+  for (const [key, value] of Object.entries(defaults ?? {})) visit(value, [key]);
+  return entries;
+};
+
 /**
  * Maps the closure onto one harness's native layout. Claude Code reads `skills/`, `agents/`,
  * `commands/`, and `CLAUDE.md` from its config directory; Codex reads `skills/`, `prompts/`, and
  * `AGENTS.md` from `CODEX_HOME`. Both take user-scope MCP servers only through their own CLIs.
  */
-export const planHarnessLinks = (closure: LinkClosure, harness: LinkHarness): HarnessLinkPlan => {
+export const planHarnessLinks = (
+  closure: LinkClosure,
+  harness: LinkHarness,
+  defaults?: HarnessDefaultSettings,
+): HarnessLinkPlan => {
+  if (harness === 'pi') {
+    return {
+      harness,
+      entries: [...skillEntries(closure), ...settingEntries(harness, defaults)],
+      warnings:
+        closure.agents.length === 0
+          ? []
+          : ['pi has one native agent identity; composed agent identities are not linked.'],
+    };
+  }
   if (harness === 'claude') {
     return {
       harness,
@@ -266,6 +306,7 @@ export const planHarnessLinks = (closure: LinkClosure, harness: LinkHarness): Ha
         ...agentEntries(closure),
         ...commandEntries(closure, 'commands'),
         ...mcpEntries(closure),
+        ...settingEntries(harness, defaults),
       ],
       warnings: [],
     };
@@ -279,6 +320,7 @@ export const planHarnessLinks = (closure: LinkClosure, harness: LinkHarness): Ha
       ...skillEntries(closure),
       ...commandEntries(closure, 'prompts'),
       ...mcpEntries(closure),
+      ...settingEntries(harness, defaults),
     ],
     warnings:
       identities.length === 0
