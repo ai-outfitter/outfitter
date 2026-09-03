@@ -50,6 +50,9 @@ Outfitter is organized around a private npm workspace root, clear TypeScript pac
 │   │   │   │   └── SourceCachePolicy.ts # repair, locked, and offline startup enforcement
 │   │   │   ├── resolver/              # .agents layer resolution into one effective resource set
 │   │   │   ├── composer/              # harness-neutral CompositionPlan from the effective set
+│   │   │   ├── Chain.ts           # agent inheritance-chain resolution with cycle and parent checks
+│   │   │   ├── Defaults.ts        # settings-layer agent_defaults selection, resolution, and provenance
+│   │   │   └── Mcp.ts             # selected MCP server definitions after layer and owner precedence
 │   │   │   ├── projection/            # materialize a composition + build pi/claude/codex launch plans
 │   │   │   │   └── CodexMcp.ts        # translate selected MCP definitions to Codex TOML CLI overrides
 │   │   │   ├── dump/                  # deterministic self-contained `.agents` tree output

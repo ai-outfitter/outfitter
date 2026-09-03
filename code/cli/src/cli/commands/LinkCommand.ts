@@ -107,7 +107,7 @@ const resolveClosure = (input: LinkInput, messages: string[]): ResolvedClosure =
   });
   if (scope.errors.length > 0)
     return { failure: failure([...messages, ...scope.errors.map((error) => `error: ${error}`)]) };
-  const closure = composeLinkClosure(set, scope.agents, input.projectDirectory);
+  const closure = composeLinkClosure(set, scope.agents, input.projectDirectory, settings.agentDefaults);
   messages.push(...closure.warnings.map((warning) => `warning: ${warning}`));
   if (closure.errors.length > 0) {
     return { failure: failure([...messages, ...closure.errors.map((error) => `error: ${error}`)]) };

@@ -3,11 +3,25 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { escapesRoots } from '../dump/Containment.js';
-import { isAgentDefinitionIssue, readAgentDefinition } from '../resolver/AgentDefinition.js';
 import type { AgentDefinition } from '../resolver/AgentDefinition.js';
 import type { EffectiveResourceSet, Loadout, ResolvedResource } from '../resolver/Resource.js';
-import { findLoadoutResource, findResource } from '../resolver/Resource.js';
+import { findResource } from '../resolver/Resource.js';
+import type { AgentDefaults } from '../settings/Settings.js';
+import type { ChainEntry } from './Chain.js';
+import { resolveInheritanceChain } from './Chain.js';
 import type { ComposedLoadout, ComposedSubagent, ComposedSubagentIdentity, CompositionPlan } from './Composition.js';
+import type { DeclaredSlug, PromptSelection } from './Defaults.js';
+import {
+  SETTINGS_DEFAULTS_DECLARER,
+  mergePromptSelections,
+  mergeSelections,
+  planAgentDefaults,
+  resolveDeclaredSlugs,
+  resolveSettingsPromptSelection,
+  settingsPromptSelections,
+  settingsSelections,
+} from './Defaults.js';
+import { composeMcpServers } from './Mcp.js';
 import { resolveModelRegistry } from './Models.js';
 import type { PromptFragment, PromptSourceReference } from './PromptSource.js';
 import { agentBodyFragment, promptSourceKey, resolvePromptSource, rootPromptFragment } from './PromptSource.js';
@@ -15,6 +29,11 @@ import { agentBodyFragment, promptSourceKey, resolvePromptSource, rootPromptFrag
 export interface ComposeOptions {
   /** Active repository root for `repo_file` prompt references. */
   readonly projectDirectory?: string;
+  /**
+   * Settings-layer (`agent_defaults`) loadout entries composed into the agent ahead of its own
+   * inheritance chain. Absent or empty defaults leave composition byte-identical to no settings.
+   */
+  readonly agentDefaults?: AgentDefaults;
 }
 
 export interface ComposeResult {
@@ -23,26 +42,12 @@ export interface ComposeResult {
   readonly warnings: readonly string[];
 }
 
-interface ChainEntry {
-  readonly resource: ResolvedResource;
-  readonly definition: AgentDefinition;
-}
-
-interface DeclaredSlug {
-  readonly slug: string;
-  readonly owner: string;
-}
-
 interface EffectiveControls {
   readonly loadout: Loadout;
   readonly skillSelections: readonly DeclaredSlug[];
   readonly subagentSelections: readonly DeclaredSlug[];
   readonly mcpSelections: readonly DeclaredSlug[];
-  readonly appendPromptSelections: readonly {
-    readonly source: PromptSourceReference;
-    readonly owner: string;
-    readonly index: number;
-  }[];
+  readonly appendPromptSelections: readonly PromptSelection[];
   readonly systemPrompt?: { readonly source: PromptSourceReference; readonly owner: string };
   readonly promptTemplate?: { readonly source: PromptSourceReference; readonly owner: string };
   readonly label?: string;
@@ -60,58 +65,6 @@ const readRootFile = (set: EffectiveResourceSet, fileName: string): PromptFragme
   }
 
   return undefined;
-};
-
-const readValidAgent = (agent: ResolvedResource): AgentDefinition | string => {
-  const definition = readAgentDefinition(agent.winner.path, agent.configPaths);
-  if (isAgentDefinitionIssue(definition)) return definition.message;
-  if (definition.name !== agent.slug) return `agent.md name '${definition.name}' must match its directory.`;
-  return definition;
-};
-
-const resolveInheritanceChain = (
-  set: EffectiveResourceSet,
-  agentSlug: string,
-): { entries?: readonly ChainEntry[]; errors: readonly string[] } => {
-  const entries: ChainEntry[] = [];
-  const composed = new Set<string>();
-  const visiting: string[] = [];
-  const errors: string[] = [];
-
-  const visit = (slug: string): void => {
-    if (composed.has(slug)) return;
-    const cycleIndex = visiting.indexOf(slug);
-    if (cycleIndex !== -1) {
-      errors.push(`Agent inheritance cycle detected: ${[...visiting.slice(cycleIndex), slug].join(' -> ')}.`);
-      return;
-    }
-
-    const resource = findResource(set, 'agent', slug);
-    if (resource === undefined) {
-      errors.push(
-        `Agent inheritance references unknown parent '${slug}' in chain ${[...visiting, slug].join(' -> ')}.`,
-      );
-      return;
-    }
-
-    const definition = readValidAgent(resource);
-    if (typeof definition === 'string') {
-      errors.push(`Agent '${slug}' is invalid: ${definition}`);
-      return;
-    }
-
-    visiting.push(slug);
-    for (const parent of definition.inherits) visit(parent);
-    visiting.pop();
-
-    if (!composed.has(slug)) {
-      composed.add(slug);
-      entries.push({ resource, definition });
-    }
-  };
-
-  visit(agentSlug);
-  return errors.length > 0 ? { errors } : { entries, errors: [] };
 };
 
 const stablePush = <T>(items: T[], keySet: Set<string>, key: string, value: T): void => {
@@ -144,8 +97,8 @@ const declaredSelections = (
   return selections;
 };
 
-const appendPromptSelections = (chain: readonly ChainEntry[]): EffectiveControls['appendPromptSelections'] => {
-  const selections: { readonly source: PromptSourceReference; readonly owner: string; readonly index: number }[] = [];
+const appendPromptSelections = (chain: readonly ChainEntry[]): readonly PromptSelection[] => {
+  const selections: PromptSelection[] = [];
   const seen = new Set<string>();
   for (const entry of chain) {
     entry.definition.promptControls.appendSystemPrompt.forEach((source, index) => {
@@ -189,10 +142,20 @@ const nearestPrompt = (
   return undefined;
 };
 
-const composeEffectiveControls = (chain: readonly ChainEntry[]): EffectiveControls => {
-  const skills = declaredSelections(chain, (definition) => definition.loadout.skills);
-  const subagents = declaredSelections(chain, (definition) => definition.loadout.subagents);
-  const mcp = declaredSelections(chain, (definition) => definition.loadout.mcp);
+const composeEffectiveControls = (chain: readonly ChainEntry[], defaults?: AgentDefaults): EffectiveControls => {
+  // Settings defaults compose ahead of the whole chain, parent-first, like a root-most ancestor.
+  const skills = mergeSelections(
+    settingsSelections(defaults?.skills),
+    declaredSelections(chain, (definition) => definition.loadout.skills),
+  );
+  const subagents = mergeSelections(
+    settingsSelections(defaults?.subagents),
+    declaredSelections(chain, (definition) => definition.loadout.subagents),
+  );
+  const mcp = mergeSelections(
+    settingsSelections(defaults?.mcp),
+    declaredSelections(chain, (definition) => definition.loadout.mcp),
+  );
   const model = nearest(chain, (definition) => definition.loadout.model);
   const thinking = nearest(chain, (definition) => definition.loadout.thinking);
 
@@ -200,7 +163,10 @@ const composeEffectiveControls = (chain: readonly ChainEntry[]): EffectiveContro
     skillSelections: skills,
     subagentSelections: subagents,
     mcpSelections: mcp,
-    appendPromptSelections: appendPromptSelections(chain),
+    appendPromptSelections: mergePromptSelections(
+      settingsPromptSelections(defaults?.appendSystemPrompt),
+      appendPromptSelections(chain),
+    ),
     systemPrompt: nearestPrompt(chain, (definition) => definition.promptControls.systemPrompt),
     promptTemplate: nearestPrompt(chain, (definition) => definition.promptControls.promptTemplate),
     label: nearest(chain, (definition) => definition.label),
@@ -209,8 +175,14 @@ const composeEffectiveControls = (chain: readonly ChainEntry[]): EffectiveContro
       skills: skills.map((selection) => selection.slug),
       subagents: subagents.map((selection) => selection.slug),
       mcp: mcp.map((selection) => selection.slug),
-      extensions: uniqueStrings(chain.flatMap((entry) => entry.definition.loadout.extensions)),
-      plugins: uniqueStrings(chain.flatMap((entry) => entry.definition.loadout.plugins)),
+      extensions: uniqueStrings([
+        ...(defaults?.extensions ?? []),
+        ...chain.flatMap((entry) => entry.definition.loadout.extensions),
+      ]),
+      plugins: uniqueStrings([
+        ...(defaults?.plugins ?? []),
+        ...chain.flatMap((entry) => entry.definition.loadout.plugins),
+      ]),
       model,
       thinking,
       tools: composeTools(chain),
@@ -218,105 +190,11 @@ const composeEffectiveControls = (chain: readonly ChainEntry[]): EffectiveContro
   };
 };
 
-const resolveDeclaredSlugs = (
-  set: EffectiveResourceSet,
-  kind: 'skill' | 'agent',
-  reference: string,
-  selections: readonly DeclaredSlug[],
-  warnings: string[],
-): readonly ResolvedResource[] => {
-  const resolved: ResolvedResource[] = [];
-
-  for (const selection of selections) {
-    const resource = findLoadoutResource(set, selection.owner, kind, selection.slug);
-
-    if (resource === undefined) {
-      warnings.push(`${reference} references unknown ${kind} '${selection.slug}'.`);
-    } else {
-      resolved.push(resource);
-    }
-  }
-
-  return resolved;
-};
-
-const asRecord = (value: unknown): Record<string, unknown> | undefined =>
-  value !== null && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : undefined;
-
-const readMcpServers = (path: string, warnings: string[]): Readonly<Record<string, unknown>> => {
-  let parsed: unknown;
-
-  try {
-    parsed = JSON.parse(readFileSync(path, 'utf8'));
-  } catch (error) {
-    warnings.push(`MCP configuration '${path}' is not readable JSON: ${String(error)}`);
-    return {};
-  }
-
-  const document = asRecord(parsed);
-  const servers = document === undefined ? undefined : asRecord(document.mcpServers);
-
-  if (servers === undefined) {
-    warnings.push(`MCP configuration '${path}' must contain an object-valued 'mcpServers' map.`);
-    return {};
-  }
-
-  return servers;
-};
-
-const composeMcpServers = (
-  set: EffectiveResourceSet,
-  selections: readonly DeclaredSlug[],
-  warnings: string[],
-): Readonly<Record<string, unknown>> => {
-  if (selections.length === 0) return {};
-
-  const rootPaths = set.layers.map((layer) => join(layer.root, 'mcp.json')).filter((path) => existsSync(path));
-  const roots = set.layers.map((layer) => layer.root);
-  const cache = new Map<string, Readonly<Record<string, unknown>>>();
-  const serversAt = (path: string): Readonly<Record<string, unknown>> => {
-    const cached = cache.get(path);
-    if (cached !== undefined) return cached;
-    let servers: Readonly<Record<string, unknown>>;
-    if (escapesRoots(path, roots)) {
-      warnings.push(`MCP configuration '${path}' resolves outside the resource layers and was skipped.`);
-      servers = {};
-    } else {
-      servers = readMcpServers(path, warnings);
-    }
-    cache.set(path, servers);
-    return servers;
-  };
-
-  const selected: Record<string, unknown> = {};
-  for (const selection of selections) {
-    // MCP selections are created only from entries in the resolved inheritance chain.
-    const owner = findResource(set, 'agent', selection.owner)!;
-    // Root definitions are shared; only the declaring agent's overlays may override its selection.
-    const ownerPaths = [...owner.mcpPaths!].reverse();
-    const pathsByPrecedence = [...rootPaths].reverse().concat(ownerPaths);
-    let definition: unknown;
-    let found = false;
-
-    for (const path of pathsByPrecedence) {
-      const servers = serversAt(path);
-      if (Object.hasOwn(servers, selection.slug)) {
-        definition = servers[selection.slug];
-        found = true;
-      }
-    }
-
-    if (found) selected[selection.slug] = definition;
-    else warnings.push(`loadout mcp references unknown server '${selection.slug}'.`);
-  }
-
-  return selected;
-};
-
 const resolveDelegateSkills = (
   set: EffectiveResourceSet,
   subagents: readonly ResolvedResource[],
   leaderSkills: readonly ResolvedResource[],
+  defaults: AgentDefaults | undefined,
   warnings: string[],
 ): readonly ResolvedResource[] => {
   const skills = new Map(leaderSkills.map((skill) => [skill.slug, skill]));
@@ -330,14 +208,14 @@ const resolveDelegateSkills = (
 
     const chain = resolveInheritanceChain(set, subagent.slug);
     if (chain.entries === undefined) continue;
-    const controls = composeEffectiveControls(chain.entries);
+    const controls = composeEffectiveControls(chain.entries, defaults);
 
     for (const skill of resolveDeclaredSlugs(
       set,
       'skill',
-      `subagent '${subagent.slug}' loadout skills`,
       controls.skillSelections,
       warnings,
+      `subagent '${subagent.slug}' `,
     )) {
       const selected = skills.get(skill.slug);
 
@@ -358,14 +236,15 @@ const resolveDelegateSkills = (
 const composeLoadout = (
   set: EffectiveResourceSet,
   controls: EffectiveControls,
+  defaults: AgentDefaults | undefined,
   warnings: string[],
 ): ComposedLoadout => {
-  const subagents = resolveDeclaredSlugs(set, 'agent', 'loadout subagents', controls.subagentSelections, warnings);
-  const skills = resolveDeclaredSlugs(set, 'skill', 'loadout skills', controls.skillSelections, warnings);
+  const subagents = resolveDeclaredSlugs(set, 'agent', controls.subagentSelections, warnings);
+  const skills = resolveDeclaredSlugs(set, 'skill', controls.skillSelections, warnings);
 
   return {
     skills,
-    delegateSkills: resolveDelegateSkills(set, subagents, skills, warnings),
+    delegateSkills: resolveDelegateSkills(set, subagents, skills, defaults, warnings),
     subagents,
     mcp: controls.loadout.mcp,
     mcpServers: composeMcpServers(set, controls.mcpSelections, warnings),
@@ -379,13 +258,17 @@ const composeLoadout = (
 
 const resolvePromptSelection = (
   set: EffectiveResourceSet,
-  selection: { readonly source: PromptSourceReference; readonly owner: string },
+  selection: PromptSelection,
   options: ComposeOptions,
   label: string,
   warnings: string[],
   errors: string[],
 ): PromptFragment | undefined => {
-  // Prompt selections are created only from entries in the resolved inheritance chain.
+  if (selection.owner === undefined) {
+    return resolveSettingsPromptSelection(set, selection, options.projectDirectory, label, warnings, errors);
+  }
+
+  // Prompt selections from the chain resolve in their declaring agent's namespace.
   const owner = findResource(set, 'agent', selection.owner)!;
   const resolved = resolvePromptSource({
     source: selection.source,
@@ -408,7 +291,10 @@ const resolveOptionalPrompt = (
   warnings: string[],
   errors: string[],
 ): PromptFragment | undefined =>
-  selection === undefined ? undefined : resolvePromptSelection(set, selection, options, label, warnings, errors);
+  // The fixed role label carries the provenance here; the index is never part of it.
+  selection === undefined
+    ? undefined
+    : resolvePromptSelection(set, { ...selection, index: 0 }, options, label, warnings, errors);
 
 const composeIdentity = (
   set: EffectiveResourceSet,
@@ -439,7 +325,7 @@ const composeIdentity = (
         set,
         selection,
         options,
-        `append-${selection.owner}-${selection.index + 1}`,
+        `append-${selection.owner ?? SETTINGS_DEFAULTS_DECLARER}-${selection.index + 1}`,
         warnings,
         errors,
       ),
@@ -496,14 +382,15 @@ const composeSubagents = (
       continue;
     }
 
-    const controls = composeEffectiveControls(chainResult.entries);
+    // Delegates are agents too, so settings defaults compose into them ahead of their own chain.
+    const controls = composeEffectiveControls(chainResult.entries, options.agentDefaults);
     const identity = composeIdentity(set, chainResult.entries, controls, options, warnings, errors);
     const skills = resolveDeclaredSlugs(
       set,
       'skill',
-      `subagent '${resource.slug}' loadout skills`,
       controls.skillSelections,
       warnings,
+      `subagent '${resource.slug}' `,
     );
     composed.push({
       resource,
@@ -533,13 +420,14 @@ export const compose = (set: EffectiveResourceSet, agentSlug: string, options: C
   const chain = chainResult.entries;
   const warnings: string[] = [];
   const errors: string[] = [];
-  const controls = composeEffectiveControls(chain);
+  const controls = composeEffectiveControls(chain, options.agentDefaults);
   const identity = composeIdentity(set, chain, controls, options, warnings, errors);
-  const loadout = composeLoadout(set, controls, warnings);
+  const loadout = composeLoadout(set, controls, options.agentDefaults, warnings);
   const models = resolveModelRegistry(set, loadout.model, warnings, errors);
   const composedSubagents = composeSubagents(set, loadout.subagents, options, warnings, errors);
   const uniqueWarnings = uniqueStrings(warnings);
   if (errors.length > 0) return { errors, warnings: uniqueWarnings };
+  const agentDefaults = planAgentDefaults(options.agentDefaults);
 
   return {
     plan: {
@@ -549,6 +437,7 @@ export const compose = (set: EffectiveResourceSet, agentSlug: string, options: C
       loadout: { ...loadout, composedSubagents },
       contributingAgents: chain.map((entry) => entry.resource),
       inheritanceChain: chain.map((entry) => entry.resource.slug),
+      ...(agentDefaults === undefined ? {} : { agentDefaults }),
       warnings: uniqueWarnings,
     },
     errors: [],

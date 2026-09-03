@@ -1,8 +1,40 @@
 /* eslint-disable complexity */
 // Provides deterministic Settings merge scaffolding.
 import { mergeObjectsWithPolicy } from '../merge/SettingsValueMerger.js';
-import type { CustomSettings, Settings, StatePersistence } from './Settings.js';
+import { promptSourceKey } from '../composer/PromptSource.js';
+import type { AgentDefaults, CustomSettings, Settings, StatePersistence } from './Settings.js';
 import { emptySettings } from './Settings.js';
+
+/** Folds one additive defaults list across the stack, collapsing duplicates to their first occurrence. */
+const mergeDefaultsList = <T>(
+  lower: readonly T[] | undefined,
+  higher: readonly T[] | undefined,
+  key: (entry: T) => string,
+) => {
+  if (lower === undefined && higher === undefined) return undefined;
+  const merged: T[] = [];
+  const seen = new Set<string>();
+  for (const entry of [...(lower ?? []), ...(higher ?? [])]) {
+    const entryKey = key(entry);
+    if (!seen.has(entryKey)) {
+      seen.add(entryKey);
+      merged.push(entry);
+    }
+  }
+  return merged;
+};
+
+const mergeAgentDefaults = (lower: AgentDefaults | undefined, higher: AgentDefaults | undefined) => {
+  if (lower === undefined && higher === undefined) return undefined;
+  return {
+    extensions: mergeDefaultsList(lower?.extensions, higher?.extensions, (entry) => entry),
+    skills: mergeDefaultsList(lower?.skills, higher?.skills, (entry) => entry),
+    mcp: mergeDefaultsList(lower?.mcp, higher?.mcp, (entry) => entry),
+    plugins: mergeDefaultsList(lower?.plugins, higher?.plugins, (entry) => entry),
+    subagents: mergeDefaultsList(lower?.subagents, higher?.subagents, (entry) => entry),
+    appendSystemPrompt: mergeDefaultsList(lower?.appendSystemPrompt, higher?.appendSystemPrompt, promptSourceKey),
+  };
+};
 
 export const mergeSettingsStack = (settingsStack: readonly Settings[]): Settings => {
   let defaultAgent: string | undefined;
@@ -18,6 +50,7 @@ export const mergeSettingsStack = (settingsStack: readonly Settings[]): Settings
   let startup: Settings['startup'];
   let enterprise: Settings['enterprise'];
   let telemetry: Settings['telemetry'];
+  let agentDefaults: AgentDefaults | undefined;
 
   for (const settings of settingsStack) {
     defaultAgent = settings.defaultAgent ?? defaultAgent;
@@ -39,6 +72,7 @@ export const mergeSettingsStack = (settingsStack: readonly Settings[]): Settings
     startup = settings.startup === undefined ? startup : { ...startup, ...settings.startup };
     enterprise = settings.enterprise === undefined ? enterprise : { ...enterprise, ...settings.enterprise };
     telemetry = settings.telemetry === undefined ? telemetry : { ...telemetry, ...settings.telemetry };
+    agentDefaults = mergeAgentDefaults(agentDefaults, settings.agentDefaults);
   }
 
   return {
@@ -56,6 +90,7 @@ export const mergeSettingsStack = (settingsStack: readonly Settings[]): Settings
     startup: startup ?? {},
     enterprise: enterprise ?? {},
     telemetry: telemetry ?? {},
+    agentDefaults,
   };
 };
 

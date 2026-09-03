@@ -11,13 +11,17 @@ import {
 } from 'node:fs';
 import { dirname, join } from 'node:path';
 
-import type { CompositionPlan } from '../composer/Composition.js';
+import { stringify } from 'yaml';
+
+import type { CompositionAgentDefaults, CompositionPlan } from '../composer/Composition.js';
 import type { PromptFragment } from '../composer/PromptSource.js';
 import { compose } from '../composer/Composer.js';
+import { planAgentDefaults } from '../composer/Defaults.js';
 import { removeTargetTypeConflict } from '../fs/TypeConflict.js';
 import { pickLoadoutKeys } from '../resolver/AgentDefinition.js';
 import { compareSlugs, findResource } from '../resolver/Resource.js';
 import type { EffectiveResourceSet, Layer, ResolvedResource } from '../resolver/Resource.js';
+import type { AgentDefaults } from '../settings/Settings.js';
 import { escapesRoots, overlaps } from './Containment.js';
 
 export interface DumpResult {
@@ -114,6 +118,8 @@ interface PromptProvenance {
 interface CompositionProvenance {
   readonly agent: string;
   readonly inheritanceChain: readonly string[];
+  /** Settings-layer defaults composed ahead of the inheritance chain, when declared. */
+  readonly agentDefaults?: CompositionAgentDefaults;
   readonly prompts: readonly PromptProvenance[];
   readonly promptTemplate?: Omit<PromptProvenance, 'order' | 'role'>;
 }
@@ -121,6 +127,7 @@ interface CompositionProvenance {
 interface ClosureCompose {
   readonly agents: readonly ResolvedResource[];
   readonly skills: readonly ResolvedResource[];
+  readonly agentDefaultMcpServers: Readonly<Record<string, unknown>>;
   readonly promptFiles: readonly { readonly reference: string; readonly content: string }[];
   readonly provenance: readonly CompositionProvenance[];
   readonly warnings: readonly string[];
@@ -164,6 +171,7 @@ const compositionProvenance = (plan: CompositionPlan): CompositionProvenance => 
   return {
     agent: plan.agent,
     inheritanceChain: plan.inheritanceChain!,
+    ...(plan.agentDefaults === undefined ? {} : { agentDefaults: plan.agentDefaults }),
     prompts: ordered
       .filter(
         (entry): entry is { readonly role: PromptProvenance['role']; readonly fragment: PromptFragment } =>
@@ -210,13 +218,29 @@ const collectSkills = (
   }
 };
 
+const collectAgentDefaultMcpServers = (
+  plan: CompositionPlan,
+  defaults: AgentDefaults | undefined,
+  servers: Record<string, unknown>,
+): void => {
+  for (const slug of defaults?.mcp ?? []) {
+    if (Object.hasOwn(plan.loadout.mcpServers, slug)) servers[slug] = plan.loadout.mcpServers[slug];
+  }
+};
+
 /** BFS over the selected agent and its delegated-agent closure. */
-const composeClosure = (set: EffectiveResourceSet, rootSlug: string, projectDirectory?: string): ClosureCompose => {
+const composeClosure = (
+  set: EffectiveResourceSet,
+  rootSlug: string,
+  projectDirectory: string | undefined,
+  agentDefaults: AgentDefaults | undefined,
+): ClosureCompose => {
   const seen = new Set<string>();
   const agents: ResolvedResource[] = [];
   const skills = new Map<string, ResolvedResource>();
   const warnings: string[] = [];
   const errors: string[] = [];
+  const agentDefaultMcpServers: Record<string, unknown> = {};
   const promptFiles = new Map<string, string>();
   const provenance: CompositionProvenance[] = [];
   const queue = [rootSlug];
@@ -231,7 +255,7 @@ const composeClosure = (set: EffectiveResourceSet, rootSlug: string, projectDire
 
     // compose surfaces an unknown/invalid root agent as an error; every queued subagent is already
     // resolved by the composer, so a plan implies findResource returns the agent.
-    const composed = compose(set, slug, { projectDirectory });
+    const composed = compose(set, slug, { projectDirectory, agentDefaults });
 
     if (composed.plan === undefined) {
       errors.push(...composed.errors);
@@ -242,6 +266,7 @@ const composeClosure = (set: EffectiveResourceSet, rootSlug: string, projectDire
     collectContributingAgents(set, composed.plan.inheritanceChain!, agents);
     provenance.push(compositionProvenance(composed.plan));
     warnings.push(...composed.plan.warnings);
+    collectAgentDefaultMcpServers(composed.plan, agentDefaults, agentDefaultMcpServers);
     collectPromptFiles(composed.plan, promptFiles, errors);
     collectSkills(composed.plan.loadout.skills, skills, errors);
     queue.push(...composed.plan.loadout.subagents.map((subagent) => subagent.slug).sort(compareSlugs));
@@ -250,6 +275,7 @@ const composeClosure = (set: EffectiveResourceSet, rootSlug: string, projectDire
   return {
     agents,
     skills: [...skills.values()].sort((left, right) => compareSlugs(left.slug, right.slug)),
+    agentDefaultMcpServers,
     promptFiles: [...promptFiles.entries()]
       .map(([reference, content]) => ({ reference, content }))
       .sort((left, right) => compareSlugs(left.reference, right.reference)),
@@ -296,11 +322,58 @@ const writeMergedConfig = (agent: ResolvedResource, agentTarget: string, written
   }
 };
 
+/** Carries merged settings-layer defaults into the dump so the tree stays self-contained. */
+const writeDefaultsSettings = (outRoot: string, defaults: AgentDefaults | undefined, written: string[]): void => {
+  const settingsYaml = settingsYamlForDefaults(defaults);
+  if (settingsYaml === undefined) return;
+
+  const settingsTarget = join(outRoot, 'settings.yml');
+  writeFileSync(settingsTarget, settingsYaml);
+  written.push(settingsTarget);
+};
+
+/** Makes settings-selected MCP servers resolvable from the flattened root copied into the dump. */
+const writeAgentDefaultMcpServers = (
+  outRoot: string,
+  effectiveServers: Readonly<Record<string, unknown>>,
+  written: string[],
+): void => {
+  if (Object.keys(effectiveServers).length === 0) return;
+
+  const target = join(outRoot, 'mcp.json');
+  let existingServers: Readonly<Record<string, unknown>> = {};
+  try {
+    const document = JSON.parse(readFileSync(target, 'utf8')) as { readonly mcpServers?: Record<string, unknown> };
+    existingServers = document.mcpServers ?? {};
+  } catch {
+    // Composition already reported malformed source MCP JSON; emit the effective valid subset.
+  }
+  writeFileSync(target, `${JSON.stringify({ mcpServers: { ...existingServers, ...effectiveServers } }, null, 2)}\n`);
+  written.push(target);
+};
+
 const failure = (errors: readonly string[], warnings: readonly string[] = []): DumpResult => ({
   writtenPaths: [],
   warnings,
   errors,
 });
+
+/** Serializes merged settings-layer defaults into the dumped tree so it stays self-contained. */
+const settingsYamlForDefaults = (defaults: AgentDefaults | undefined): string | undefined => {
+  const effective = planAgentDefaults(defaults);
+  if (effective === undefined) return undefined;
+  // yaml.stringify omits undefined properties, so undeclared fields vanish from the document.
+  return stringify({
+    agent_defaults: {
+      extensions: effective.extensions,
+      skills: effective.skills,
+      mcp: effective.mcp,
+      plugins: effective.plugins,
+      subagents: effective.subagents,
+      append_system_prompt: effective.appendSystemPrompt,
+    },
+  });
+};
 
 const promptTargetCollisions = (outRoot: string, prompts: ClosureCompose['promptFiles']): readonly string[] => {
   const errors: string[] = [];
@@ -324,9 +397,10 @@ export const dumpAgent = (
   agentSlug: string,
   outDirectory: string,
   projectDirectory?: string,
+  agentDefaults?: AgentDefaults,
 ): DumpResult => {
   // composeClosure composes the root once and surfaces an unknown/invalid root agent as an error.
-  const closure = composeClosure(set, agentSlug, projectDirectory);
+  const closure = composeClosure(set, agentSlug, projectDirectory, agentDefaults);
 
   if (closure.errors.length > 0) {
     return failure(closure.errors, closure.warnings);
@@ -359,6 +433,11 @@ export const dumpAgent = (
   mkdirSync(dirname(provenanceTarget), { recursive: true });
   writeFileSync(provenanceTarget, `${JSON.stringify({ version: 1, compositions: closure.provenance }, null, 2)}\n`);
   written.push(provenanceTarget);
+
+  // Carry the merged settings-layer defaults into the dumped tree so it resolves identically on
+  // its own; catalogs without agent_defaults dump byte-identically to before.
+  writeDefaultsSettings(outRoot, agentDefaults, written);
+  writeAgentDefaultMcpServers(outRoot, closure.agentDefaultMcpServers, written);
 
   for (const agent of closure.agents) {
     const agentTarget = join(outRoot, 'agents', agent.slug);

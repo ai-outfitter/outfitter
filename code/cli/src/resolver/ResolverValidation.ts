@@ -1,6 +1,7 @@
 // Validates an effective resource set: agent + skill definitions, unresolved loadout slugs, shadowing.
 import { compose } from '../composer/Composer.js';
 import { isSkillDocumentIssue, readSkillDocument } from '../skills/SkillDocument.js';
+import type { AgentDefaults } from '../settings/Settings.js';
 import { isAgentDefinitionIssue, readAgentDefinition } from './AgentDefinition.js';
 import type { EffectiveResourceSet, ResolvedResource } from './Resource.js';
 import { agentLocalKinds, findResource, listAgentResources, listResources } from './Resource.js';
@@ -25,13 +26,18 @@ export interface ValidationOptions {
   readonly deferLoadoutResolution?: boolean;
   /** Validate only these enabled workflow roots and their nested workflow closure. */
   readonly workflowRoots?: readonly string[];
+  /** Settings-layer defaults composed into every agent during validation. */
+  readonly agentDefaults?: AgentDefaults;
+  /** Active repository root for `repo_file` prompt references during composition. */
+  readonly projectDirectory?: string;
 }
 
 // Matches the composer's top-level unresolved-loadout warning wording (see `compose` in Composer.ts).
 // It is deliberately coupled to that message; `resolver-validation.test.ts` drives the real composer,
-// so a wording drift fails that test rather than silently disabling deferral.
+// so a wording drift fails that test rather than silently disabling deferral. Settings-layer
+// defaults use the same wording with an `agent_defaults` prefix instead of `loadout`.
 const isUnresolvedLoadoutReference = (message: string): boolean =>
-  /^loadout (?:skills|subagents) references unknown (?:skill|agent) '/.test(message);
+  /^(?:loadout|agent_defaults) (?:skills|subagents) references unknown (?:skill|agent) '/.test(message);
 
 const compositionWarningSeverity = (message: string, options: ValidationOptions): ValidationFinding['severity'] =>
   isUnresolvedLoadoutReference(message) && !options.deferLoadoutResolution ? 'error' : 'warning';
@@ -40,7 +46,6 @@ const validateAgent = (
   set: EffectiveResourceSet,
   agent: ResolvedResource,
   options: ValidationOptions,
-  projectDirectory?: string,
 ): readonly ValidationFinding[] => {
   const definition = readAgentDefinition(agent.winner.path, agent.configPaths);
 
@@ -58,7 +63,10 @@ const validateAgent = (
     ];
   }
 
-  const composed = compose(set, agent.slug, { projectDirectory });
+  const composed = compose(set, agent.slug, {
+    projectDirectory: options.projectDirectory,
+    agentDefaults: options.agentDefaults,
+  });
   const compositionFindings: ValidationFinding[] = [
     ...composed.errors.map((message) => ({ severity: 'error' as const, resource: `agent:${agent.slug}`, message })),
     ...composed.warnings.map((message) => ({
@@ -258,7 +266,7 @@ const validateWorkflowAgentNode = (
   set: EffectiveResourceSet,
   workflow: WorkflowDefinition,
   node: WorkflowNode,
-  projectDirectory?: string,
+  options: ValidationOptions,
 ): readonly ValidationFinding[] => {
   const actor = node.actor === undefined ? undefined : workflow.actors[node.actor];
   if (actor?.kind !== 'agent') {
@@ -267,7 +275,10 @@ const validateWorkflowAgentNode = (
       : [];
   }
 
-  const composed = compose(set, actor.profile, { projectDirectory });
+  const composed = compose(set, actor.profile, {
+    projectDirectory: options.projectDirectory,
+    agentDefaults: options.agentDefaults,
+  });
   if (composed.plan === undefined) {
     return composed.errors.map((message) =>
       workflowError(workflow.id, `node '${node.id}' agent '${actor.profile}': ${message}`),
@@ -392,7 +403,7 @@ const validateWorkflow = (
   set: EffectiveResourceSet,
   workflow: WorkflowDefinition,
   definitions: ReadonlyMap<string, WorkflowDefinition>,
-  projectDirectory?: string,
+  options: ValidationOptions,
 ): readonly ValidationFinding[] => {
   const findings: ValidationFinding[] = [];
   const nodeIds = new Set<string>();
@@ -406,7 +417,7 @@ const validateWorkflow = (
 
   for (const node of workflow.nodes) {
     findings.push(...validateWorkflowNodeReferences(workflow, node, nodeIds, definitions));
-    findings.push(...validateWorkflowAgentNode(set, workflow, node, projectDirectory));
+    findings.push(...validateWorkflowAgentNode(set, workflow, node, options));
   }
 
   for (const edge of workflow.feedback ?? []) {
@@ -453,9 +464,10 @@ export const validateEffectiveSet = (
   options: ValidationOptions = {},
 ): readonly ValidationFinding[] => {
   const findings: ValidationFinding[] = [];
+  const effectiveOptions: ValidationOptions = { ...options, projectDirectory };
 
   for (const agent of listResources(set, 'agent')) {
-    findings.push(...validateAgent(set, agent, options, projectDirectory), ...reservedNamespaceFindings(agent));
+    findings.push(...validateAgent(set, agent, effectiveOptions), ...reservedNamespaceFindings(agent));
   }
 
   for (const skill of listResources(set, 'skill')) {
@@ -465,7 +477,7 @@ export const validateEffectiveSet = (
   const workflows = workflowDefinitions(set, options.workflowRoots);
   findings.push(...workflows.findings);
   for (const workflow of workflows.definitions.values()) {
-    findings.push(...validateWorkflow(set, workflow, workflows.definitions, projectDirectory));
+    findings.push(...validateWorkflow(set, workflow, workflows.definitions, effectiveOptions));
   }
   findings.push(...workflowCycleFindings(workflows.definitions));
 
