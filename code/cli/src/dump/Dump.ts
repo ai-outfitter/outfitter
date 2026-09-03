@@ -127,6 +127,7 @@ interface CompositionProvenance {
 interface ClosureCompose {
   readonly agents: readonly ResolvedResource[];
   readonly skills: readonly ResolvedResource[];
+  readonly agentDefaultMcpServers: Readonly<Record<string, unknown>>;
   readonly promptFiles: readonly { readonly reference: string; readonly content: string }[];
   readonly provenance: readonly CompositionProvenance[];
   readonly warnings: readonly string[];
@@ -217,6 +218,16 @@ const collectSkills = (
   }
 };
 
+const collectAgentDefaultMcpServers = (
+  plan: CompositionPlan,
+  defaults: AgentDefaults | undefined,
+  servers: Record<string, unknown>,
+): void => {
+  for (const slug of defaults?.mcp ?? []) {
+    if (Object.hasOwn(plan.loadout.mcpServers, slug)) servers[slug] = plan.loadout.mcpServers[slug];
+  }
+};
+
 /** BFS over the selected agent and its delegated-agent closure. */
 const composeClosure = (
   set: EffectiveResourceSet,
@@ -229,6 +240,7 @@ const composeClosure = (
   const skills = new Map<string, ResolvedResource>();
   const warnings: string[] = [];
   const errors: string[] = [];
+  const agentDefaultMcpServers: Record<string, unknown> = {};
   const promptFiles = new Map<string, string>();
   const provenance: CompositionProvenance[] = [];
   const queue = [rootSlug];
@@ -254,6 +266,7 @@ const composeClosure = (
     collectContributingAgents(set, composed.plan.inheritanceChain!, agents);
     provenance.push(compositionProvenance(composed.plan));
     warnings.push(...composed.plan.warnings);
+    collectAgentDefaultMcpServers(composed.plan, agentDefaults, agentDefaultMcpServers);
     collectPromptFiles(composed.plan, promptFiles, errors);
     collectSkills(composed.plan.loadout.skills, skills, errors);
     queue.push(...composed.plan.loadout.subagents.map((subagent) => subagent.slug).sort(compareSlugs));
@@ -262,6 +275,7 @@ const composeClosure = (
   return {
     agents,
     skills: [...skills.values()].sort((left, right) => compareSlugs(left.slug, right.slug)),
+    agentDefaultMcpServers,
     promptFiles: [...promptFiles.entries()]
       .map(([reference, content]) => ({ reference, content }))
       .sort((left, right) => compareSlugs(left.reference, right.reference)),
@@ -316,6 +330,26 @@ const writeDefaultsSettings = (outRoot: string, defaults: AgentDefaults | undefi
   const settingsTarget = join(outRoot, 'settings.yml');
   writeFileSync(settingsTarget, settingsYaml);
   written.push(settingsTarget);
+};
+
+/** Makes settings-selected MCP servers resolvable from the flattened root copied into the dump. */
+const writeAgentDefaultMcpServers = (
+  outRoot: string,
+  effectiveServers: Readonly<Record<string, unknown>>,
+  written: string[],
+): void => {
+  if (Object.keys(effectiveServers).length === 0) return;
+
+  const target = join(outRoot, 'mcp.json');
+  let existingServers: Readonly<Record<string, unknown>> = {};
+  try {
+    const document = JSON.parse(readFileSync(target, 'utf8')) as { readonly mcpServers?: Record<string, unknown> };
+    existingServers = document.mcpServers ?? {};
+  } catch {
+    // Composition already reported malformed source MCP JSON; emit the effective valid subset.
+  }
+  writeFileSync(target, `${JSON.stringify({ mcpServers: { ...existingServers, ...effectiveServers } }, null, 2)}\n`);
+  written.push(target);
 };
 
 const failure = (errors: readonly string[], warnings: readonly string[] = []): DumpResult => ({
@@ -403,6 +437,7 @@ export const dumpAgent = (
   // Carry the merged settings-layer defaults into the dumped tree so it resolves identically on
   // its own; catalogs without agent_defaults dump byte-identically to before.
   writeDefaultsSettings(outRoot, agentDefaults, written);
+  writeAgentDefaultMcpServers(outRoot, closure.agentDefaultMcpServers, written);
 
   for (const agent of closure.agents) {
     const agentTarget = join(outRoot, 'agents', agent.slug);

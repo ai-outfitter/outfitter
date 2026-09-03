@@ -521,6 +521,59 @@ describe('agent defaults', () => {
     }
   });
 
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-002.10.6, OFTR-002.10.8).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('carries a lower-layer agent-default MCP definition into a self-contained dump', () => {
+    const root = createTemporaryRoot();
+    const home = join(root, 'home');
+    const project = join(root, 'project');
+    const out = join(root, 'dump');
+    write(join(home, '.agents', 'mcp.json'), JSON.stringify({ mcpServers: { github: { command: 'home-gh' } } }));
+    write(join(project, '.agents', 'mcp.json'), JSON.stringify({ mcpServers: { slack: { command: 'slack' } } }));
+    write(join(project, '.agents', 'settings.yml'), 'agent_defaults:\n  mcp: [github]\n');
+    write(join(project, '.agents', 'agents', 'alpha', 'agent.md'), '---\nname: alpha\n---\n\nAlpha.\n');
+
+    const result = executeDumpCommand({ homeDirectory: home, projectDirectory: project, agent: 'alpha', out });
+
+    expect(result.ok).toBe(true);
+    expect(JSON.parse(readFileSync(join(out, '.agents', 'mcp.json'), 'utf8'))).toEqual({
+      mcpServers: {
+        slack: { command: 'slack' },
+        github: { command: 'home-gh' },
+      },
+    });
+    const reloaded = resolveEffectiveSet({
+      homeDirectory: join(createTemporaryRoot(), 'home'),
+      projectDirectory: out,
+    });
+    const recomposed = compose(reloaded.set, 'alpha', {
+      projectDirectory: out,
+      agentDefaults: reloaded.settings.agentDefaults,
+    });
+    expect(recomposed.warnings).toEqual([]);
+    expect(recomposed.plan?.loadout.mcpServers).toEqual({ github: { command: 'home-gh' } });
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-002.10.8).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('replaces a copied MCP document without a server map with the effective default definition', () => {
+    const root = createTemporaryRoot();
+    const home = join(root, 'home');
+    const project = join(root, 'project');
+    const out = join(root, 'dump');
+    write(join(home, '.agents', 'mcp.json'), JSON.stringify({ mcpServers: { github: { command: 'home-gh' } } }));
+    write(join(project, '.agents', 'mcp.json'), '{}');
+    write(join(project, '.agents', 'settings.yml'), 'agent_defaults:\n  mcp: [github]\n');
+    write(join(project, '.agents', 'agents', 'alpha', 'agent.md'), '---\nname: alpha\n---\n\nAlpha.\n');
+
+    const result = executeDumpCommand({ homeDirectory: home, projectDirectory: project, agent: 'alpha', out });
+
+    expect(result.ok).toBe(true);
+    expect(JSON.parse(readFileSync(join(out, '.agents', 'mcp.json'), 'utf8'))).toEqual({
+      mcpServers: { github: { command: 'home-gh' } },
+    });
+  });
+
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-002.10.11).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('writes no settings.yml into dumps without agent defaults', () => {
