@@ -35,6 +35,7 @@ and separate from the temporary projection `outfitter run` builds and removes pe
 5. Prompt fragments MUST NOT be linked as standalone harness files; shared context MUST reach the harness only through the `CLAUDE.md` or `AGENTS.md` symlink and the generated agent bodies.
 6. When no layer provides a tree-root `agents.md`, `link` MUST plan no shared-context entry.
 7. `link` MUST NOT create, modify, or plan entries for harness authentication, session, `settings.json`, or plugin state.
+8. For Pi, `link` MUST plan skill links and native defaults, and MUST warn separately when agent identities, commands, MCP servers, or shared context are present because Pi does not support their persistent projection.
 
 ### OFTR-012.3: Conflict Preservation and Ownership
 

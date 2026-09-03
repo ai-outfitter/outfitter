@@ -6,6 +6,7 @@ import { compose } from '../composer/Composer.js';
 import { escapesRoots } from '../dump/Containment.js';
 import { collectWorkflowClosure } from '../dump/WorkflowDump.js';
 import { composedIdentityBody, serializeClaudeAgentDocument } from '../projection/Materialize.js';
+import { codexSettingKey, codexSettingValue } from '../projection/CodexSettings.js';
 import { compareSlugs, findResource, listAgentResources, listResources } from '../resolver/Resource.js';
 import type { EffectiveResourceSet, ResolvedResource } from '../resolver/Resource.js';
 import type { AgentDefaults, HarnessDefaultSettings, Settings, SettingsValue } from '../settings/Settings.js';
@@ -258,12 +259,20 @@ const agentEntries = (closure: LinkClosure): readonly LinkEntry[] =>
     resource: `agent:${agent.slug}`,
   }));
 
-const settingEntries = (harness: LinkHarness, defaults: HarnessDefaultSettings | undefined): readonly LinkEntry[] => {
+const settingEntries = (
+  harness: LinkHarness,
+  defaults: HarnessDefaultSettings | undefined,
+  warnings: string[],
+): readonly LinkEntry[] => {
   const entries: LinkEntry[] = [];
   const file = harness === 'codex' ? 'config.toml' : 'settings.json';
   const visit = (value: SettingsValue, keys: readonly string[]): void => {
     if (value !== null && typeof value === 'object' && !Array.isArray(value)) {
       for (const [key, child] of Object.entries(value)) visit(child, [...keys, key]);
+      return;
+    }
+    if (harness === 'codex' && codexSettingValue(value) === undefined) {
+      warnings.push(`codex harness default '${codexSettingKey(keys)}' cannot be represented as TOML.`);
       return;
     }
     entries.push({
@@ -287,14 +296,26 @@ export const planHarnessLinks = (
   harness: LinkHarness,
   defaults?: HarnessDefaultSettings,
 ): HarnessLinkPlan => {
+  const settingWarnings: string[] = [];
+  const settings = settingEntries(harness, defaults, settingWarnings);
   if (harness === 'pi') {
+    const warnings = [...settingWarnings];
+    if (closure.agents.length > 0)
+      warnings.push('pi has one native agent identity; composed agent identities are not linked.');
+    if (closure.commands.length > 0)
+      warnings.push(
+        `pi does not support linked commands; ${closure.commands.map((command) => command.slug).join(', ')} are not linked.`,
+      );
+    if (closure.mcpServers.length > 0)
+      warnings.push(
+        `pi does not support linked MCP servers; ${closure.mcpServers.map((server) => server.id).join(', ')} are not linked.`,
+      );
+    if (closure.sharedContextPath !== undefined)
+      warnings.push('pi does not support linked shared context; agents.md is not linked.');
     return {
       harness,
-      entries: [...skillEntries(closure), ...settingEntries(harness, defaults)],
-      warnings:
-        closure.agents.length === 0
-          ? []
-          : ['pi has one native agent identity; composed agent identities are not linked.'],
+      entries: [...skillEntries(closure), ...settings],
+      warnings,
     };
   }
   if (harness === 'claude') {
@@ -306,9 +327,9 @@ export const planHarnessLinks = (
         ...agentEntries(closure),
         ...commandEntries(closure, 'commands'),
         ...mcpEntries(closure),
-        ...settingEntries(harness, defaults),
+        ...settings,
       ],
-      warnings: [],
+      warnings: settingWarnings,
     };
   }
 
@@ -320,11 +341,13 @@ export const planHarnessLinks = (
       ...skillEntries(closure),
       ...commandEntries(closure, 'prompts'),
       ...mcpEntries(closure),
-      ...settingEntries(harness, defaults),
+      ...settings,
     ],
-    warnings:
-      identities.length === 0
+    warnings: [
+      ...settingWarnings,
+      ...(identities.length === 0
         ? []
-        : [`codex has no native agent definitions; identities for ${identities.join(', ')} are not linked.`],
+        : [`codex has no native agent definitions; identities for ${identities.join(', ')} are not linked.`]),
+    ],
   };
 };

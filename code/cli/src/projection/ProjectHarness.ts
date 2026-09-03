@@ -5,6 +5,7 @@ import { PI_SESSION_DIRECTORY_ENV } from '../agents/PiSessionDirectory.js';
 import type { CompositionPlan } from '../composer/Composition.js';
 import type { Harness, Isolation, SettingsValue } from '../settings/Settings.js';
 import { projectCodexMcpServers } from './CodexMcp.js';
+import { codexSettingKey, codexSettingValue } from './CodexSettings.js';
 import type { MaterializedComposition } from './Materialize.js';
 import type { ProjectedModel } from './ModelProjection.js';
 import { projectModel } from './ModelProjection.js';
@@ -126,20 +127,6 @@ const thinkingArg = (composition: CompositionPlan, harness: Harness): readonly s
     ? []
     : [harness === 'pi' ? '--thinking' : '--effort', composition.loadout.thinking];
 
-const codexKeySegment = (key: string): string => (/^[A-Za-z0-9_-]+$/.test(key) ? key : JSON.stringify(key));
-
-const codexValue = (value: SettingsValue): string | undefined => {
-  if (value === null) return undefined;
-  if (typeof value === 'string') return JSON.stringify(value);
-  if (typeof value === 'number') return Number.isFinite(value) ? String(value) : undefined;
-  if (typeof value === 'boolean') return String(value);
-  if (Array.isArray(value)) {
-    const values = value.map(codexValue);
-    return values.every((item) => item !== undefined) ? `[${values.join(', ')}]` : undefined;
-  }
-  return undefined;
-};
-
 const projectCodexDefaults = (
   defaults: Readonly<Record<string, SettingsValue>> | undefined,
 ): { readonly args: readonly string[]; readonly warnings: readonly string[] } => {
@@ -150,8 +137,8 @@ const projectCodexDefaults = (
       for (const [key, child] of Object.entries(value)) visit(child, [...path, key]);
       return;
     }
-    const encoded = codexValue(value);
-    const key = path.map(codexKeySegment).join('.');
+    const encoded = codexSettingValue(value);
+    const key = codexSettingKey(path);
     if (encoded === undefined) warnings.push(`codex harness default '${key}' cannot be represented as TOML.`);
     else args.push('--config', `${key}=${encoded}`);
   };

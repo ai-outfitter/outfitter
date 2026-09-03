@@ -132,6 +132,9 @@ const conflict = (detail: string): Reconciliation => ({ status: 'conflict', deta
 
 type SettingsDocument = Record<string, unknown>;
 
+const isSettingsDocument = (value: unknown): value is SettingsDocument =>
+  value !== null && typeof value === 'object' && !Array.isArray(value);
+
 const settingLocation = (home: string, entry: LinkEntry): string => join(home, entry.setting!.file);
 
 const readSettingsDocument = (path: string, file: string): SettingsDocument => {
@@ -139,9 +142,8 @@ const readSettingsDocument = (path: string, file: string): SettingsDocument => {
   const parsed: unknown = file.endsWith('.toml')
     ? parseToml(readFileSync(path, 'utf8'))
     : JSON.parse(readFileSync(path, 'utf8'));
-  if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed))
-    throw new Error('settings document is not an object');
-  return parsed as SettingsDocument;
+  if (!isSettingsDocument(parsed)) throw new Error('settings document is not an object');
+  return parsed;
 };
 
 const writeSettingsDocument = (path: string, file: string, document: SettingsDocument): void => {
@@ -150,40 +152,48 @@ const writeSettingsDocument = (path: string, file: string, document: SettingsDoc
   writeFileSync(path, content);
 };
 
-const valueAt = (document: SettingsDocument, keys: readonly string[]): unknown => {
-  let value: unknown = document;
-  for (const key of keys) {
-    if (value === null || typeof value !== 'object' || Array.isArray(value) || !Object.hasOwn(value, key))
-      return undefined;
-    value = (value as Record<string, unknown>)[key];
+type SettingLookup = { readonly status: 'missing' | 'blocked' } | { readonly status: 'found'; readonly value: unknown };
+
+const locateSetting = (document: SettingsDocument, keys: readonly string[]): SettingLookup => {
+  let parent = document;
+  for (const [index, key] of keys.entries()) {
+    if (!Object.hasOwn(parent, key)) return { status: 'missing' };
+    const value = parent[key];
+    if (index === keys.length - 1) return { status: 'found', value };
+    if (!isSettingsDocument(value)) return { status: 'blocked' };
+    parent = value;
   }
-  return value;
+  return { status: 'missing' };
+};
+
+const defineOwn = (document: SettingsDocument, key: string, value: unknown): void => {
+  Object.defineProperty(document, key, { configurable: true, enumerable: true, value, writable: true });
 };
 
 const setValueAt = (document: SettingsDocument, keys: readonly string[], value: unknown): void => {
   let parent = document;
   for (const key of keys.slice(0, -1)) {
+    if (!Object.hasOwn(parent, key)) defineOwn(parent, key, {});
     const child = parent[key];
-    if (child === null || typeof child !== 'object' || Array.isArray(child)) parent[key] = {};
-    parent = parent[key] as SettingsDocument;
+    parent = child as SettingsDocument;
   }
-  parent[keys.at(-1)!] = value;
+  defineOwn(parent, keys.at(-1)!, value);
 };
 
 const deleteValueAt = (document: SettingsDocument, keys: readonly string[]): void => {
   const parents: { parent: SettingsDocument; key: string }[] = [];
   let parent = document;
+  // removeSetting calls this only after locateSetting confirms that every segment is an own
+  // property and every parent is an object.
   for (const key of keys.slice(0, -1)) {
-    const child = parent[key];
-    if (child === null || typeof child !== 'object' || Array.isArray(child)) return;
     parents.push({ parent, key });
-    parent = child as SettingsDocument;
+    parent = parent[key] as SettingsDocument;
   }
-  delete parent[keys.at(-1)!];
+  const leaf = keys.at(-1)!;
+  delete parent[leaf];
   for (const item of parents.reverse()) {
     const value = item.parent[item.key];
-    if (value !== null && typeof value === 'object' && !Array.isArray(value) && Object.keys(value).length === 0)
-      delete item.parent[item.key];
+    if (isSettingsDocument(value) && Object.keys(value).length === 0) delete item.parent[item.key];
     else break;
   }
 };
@@ -199,16 +209,17 @@ const reconcileSetting = (home: string, entry: LinkEntry, previous: ManifestEntr
   } catch (error) {
     return conflict(`cannot parse ${file}: ${error instanceof Error ? error.message : String(error)}`);
   }
-  const current = valueAt(document, keys);
+  const current = locateSetting(document, keys);
+  if (current.status === 'blocked') return conflict('an unmanaged native setting blocks this nested setting');
   const mutate = (): void => {
     setValueAt(document, keys, value);
     writeSettingsDocument(path, file, document);
   };
-  if (current === undefined) return { status: 'created', mutate };
-  if (equalSetting(current, value)) return { status: 'unchanged' };
+  if (current.status === 'missing') return { status: 'created', mutate };
+  if (equalSetting(current.value, value)) return { status: 'unchanged' };
   if (previous === undefined) return conflict('an unmanaged native setting already exists here');
   const prior: unknown = previous.target === undefined ? undefined : JSON.parse(previous.target);
-  return equalSetting(current, prior)
+  return equalSetting(current.value, prior)
     ? { status: 'updated', mutate }
     : conflict('the previously managed native setting was changed outside Outfitter');
 };
@@ -369,9 +380,9 @@ const removeSetting = (home: string, previous: ManifestEntry, entry: LinkEntry):
     return { entry, status: 'skipped', detail: error instanceof Error ? error.message : String(error) };
   }
   const expected: unknown = previous.target === undefined ? undefined : JSON.parse(previous.target);
-  const current = valueAt(document, keys);
-  if (current === undefined) return { entry, status: 'removed' };
-  if (!equalSetting(current, expected))
+  const current = locateSetting(document, keys);
+  if (current.status === 'missing') return { entry, status: 'removed' };
+  if (current.status === 'blocked' || !equalSetting(current.value, expected))
     return { entry, status: 'skipped', detail: 'native setting no longer matches the managed value' };
   deleteValueAt(document, keys);
   writeSettingsDocument(path, file, document);

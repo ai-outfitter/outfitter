@@ -209,6 +209,22 @@ describe('link closure', () => {
 });
 
 describe('harness link plans', () => {
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-012.2.8).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('warns about every closure resource Pi cannot link persistently', () => {
+    const { set, project } = fixture();
+    const closure = composeLinkClosure(set, ['leader'], project);
+    const pi = planHarnessLinks(closure, 'pi');
+
+    expect(pi.entries.map((entry) => entry.path)).toEqual(['skills/deploy', 'skills/review']);
+    expect(pi.warnings).toEqual([
+      'pi has one native agent identity; composed agent identities are not linked.',
+      'pi does not support linked commands; nested/deep.md, ship.md are not linked.',
+      'pi does not support linked MCP servers; github, web are not linked.',
+      'pi does not support linked shared context; agents.md is not linked.',
+    ]);
+  });
+
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-012.2).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('maps the closure onto Claude Code and Codex native layouts', () => {

@@ -20,11 +20,11 @@ The harness home is `$PI_CODING_AGENT_DIR` (default `~/.pi/agent`) for Pi, `$CLA
 
 | Tree resource                               | Pi home         | Claude Code home                       | Codex home          | How               |
 | ------------------------------------------- | --------------- | -------------------------------------- | ------------------- | ----------------- |
-| Winning tree-root `agents.md`               | —               | `CLAUDE.md`                            | `AGENTS.md`         | symlink           |
+| Winning tree-root `agents.md`               | — (warning)     | `CLAUDE.md`                            | `AGENTS.md`         | symlink           |
 | Skill `skills/<slug>/`                      | `skills/<slug>` | `skills/<slug>`                        | `skills/<slug>`     | symlink           |
 | Composed agent (scoped agent and delegates) | — (warning)     | `agents/<slug>.md`                     | — (warning)         | generated         |
-| Command (catalog and agent-local)           | —               | `commands/<slug>.md`                   | `prompts/<slug>.md` | symlink           |
-| Selected MCP server                         | —               | `claude mcp add-json ... --scope user` | `codex mcp add ...` | registered        |
+| Command (catalog and agent-local)           | — (warning)     | `commands/<slug>.md`                   | `prompts/<slug>.md` | symlink           |
+| Selected MCP server                         | — (warning)     | `claude mcp add-json ... --scope user` | `codex mcp add ...` | registered        |
 | `harness_defaults` leaf                     | `settings.json` | `settings.json`                        | `config.toml`       | managed per value |
 
 - **Symlinked** entries resolve to the winning file or directory in the tree, so editing the tree edits what the harness reads.

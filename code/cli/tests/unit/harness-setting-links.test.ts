@@ -130,14 +130,19 @@ describe('managed native harness settings', () => {
     ).toContain('settings document is not an object');
   });
 
-  it('repairs scalar parents and preserves nonempty parents while removing a managed leaf', () => {
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-002.11.6).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('preserves unmanaged scalar parents and nonempty parents while removing a managed leaf', () => {
     const root = temporary();
     const home = join(root, 'pi');
     write(join(home, 'settings.json'), '{"retry":1,"theme":"dark"}\n');
     const entry = setting('settings.json', ['retry', 'provider', 'timeoutMs'], 3600000);
     expect(statuses(applyHarnessLinks(plan([entry], 'pi'), home, {}, noRunner))).toEqual([
-      'created setting:settings.json:retry/provider/timeoutMs',
+      'conflict setting:settings.json:retry/provider/timeoutMs',
     ]);
+    expect(JSON.parse(readFileSync(join(home, 'settings.json'), 'utf8'))).toEqual({ retry: 1, theme: 'dark' });
+    write(join(home, 'settings.json'), '{"retry":{"provider":{}},"theme":"dark"}\n');
+    applyHarnessLinks(plan([entry], 'pi'), home, {}, noRunner);
     write(join(home, 'settings.json'), '{"retry":{"provider":{"timeoutMs":3600000},"keep":true},"theme":"dark"}\n');
     expect(statuses(removeHarnessLinks('pi', home, noRunner))).toEqual([
       'removed setting:settings.json:retry/provider/timeoutMs',
@@ -146,6 +151,45 @@ describe('managed native harness settings', () => {
       retry: { keep: true },
       theme: 'dark',
     });
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-002.11.6).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('creates special setting keys as own properties without polluting prototypes', () => {
+    const home = join(temporary(), 'pi');
+    const prototype = Object.prototype as Record<string, unknown>;
+    try {
+      expect(Object.hasOwn(prototype, 'polluted')).toBe(false);
+      expect(
+        statuses(
+          applyHarnessLinks(
+            plan([setting('settings.json', ['__proto__', 'polluted'], true)], 'pi'),
+            home,
+            {},
+            noRunner,
+          ),
+        ),
+      ).toEqual(['created setting:settings.json:__proto__/polluted']);
+      expect(Object.hasOwn(prototype, 'polluted')).toBe(false);
+      const document = JSON.parse(readFileSync(join(home, 'settings.json'), 'utf8')) as Record<string, unknown>;
+      expect(Object.hasOwn(document, '__proto__')).toBe(true);
+      expect((document.__proto__ as Record<string, unknown>).polluted).toBe(true);
+    } finally {
+      delete prototype.polluted;
+    }
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-002.11.5).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('warns and skips Codex defaults that TOML cannot represent', () => {
+    const closure: LinkClosure = { agents: [], skills: [], commands: [], mcpServers: [], warnings: [], errors: [] };
+    const result = planHarnessLinks(closure, 'codex', { valid: true, invalid: null, nested: { invalid: [1, null] } });
+
+    expect(result.entries.map((entry) => entry.path)).toEqual(['setting:config.toml:valid']);
+    expect(result.warnings).toEqual([
+      "codex harness default 'invalid' cannot be represented as TOML.",
+      "codex harness default 'nested.invalid' cannot be represented as TOML.",
+    ]);
   });
 
   it('handles incomplete managed setting records without overwriting native values', () => {
