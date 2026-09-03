@@ -63,6 +63,11 @@ agent_defaults:
     - github
   append_system_prompt:
     - file: prompts/organization.md
+
+# Native harness settings shared by every agent run.
+harness_defaults:
+  pi:
+    httpIdleTimeoutMs: 3600000
 ```
 
 - `default_agent` / `default_harness` — which agent plain `outfitter` runs, and the harness it launches in.
@@ -78,6 +83,7 @@ agent_defaults:
   below its `repos/` directory.
 - `telemetry.enabled` — the primary and sole persistent control for pseudonymous product analytics. Edit it directly to enable or disable telemetry. See [Telemetry](./telemetry.md) for consent precedence, automatic identifier cleanup, the event contract, and the current inert-build status.
 - `agent_defaults` — additive loadout entries composed into **every** agent ahead of its own loadout; see [Agent defaults](#agent-defaults) below.
+- `harness_defaults` — native Pi, Claude Code, or Codex settings applied to every run of that harness; see [Harness defaults](#harness-defaults) below.
 
 ## Precedence
 
@@ -90,7 +96,7 @@ Higher wins:
 5. Cached remote settings (in configured order)
 6. Built-in defaults
 
-Scalar settings override. `sources` follows last-wins ordering per scope so a higher-precedence file replaces the complete lower-precedence list. `workflows` and `agent_defaults` are additive: loaded settings contribute an ordered-set union, and repeated entries across files collapse to their first occurrence.
+Scalar settings override. `sources` follows last-wins ordering per scope so a higher-precedence file replaces the complete lower-precedence list. `workflows` and `agent_defaults` are additive ordered-set unions. `harness_defaults` deep-merges by harness, with higher-precedence leaves replacing lower-precedence leaves.
 
 ## Agent defaults
 
@@ -119,3 +125,22 @@ Composition rules:
 - Only the additive loadout fields above are supported. Per-agent controls such as `model`, `thinking`, and `tools` stay agent-owned; `agents.md` remains shared prompt context, not a configuration manifest.
 - `outfitter run`, `outfitter dump`, and `outfitter validate` compose the same effective defaults. Unresolved references are validation findings and composition warnings named `agent_defaults …`, and `outfitter dump` records the settings-layer provenance in `.outfitter/composition.json` plus a `settings.yml` carrying the merged defaults, so a dumped tree stays self-contained.
 - Settings without `agent_defaults` behave exactly as before. The block is backend-neutral: no backend-specific keys, endpoints, or credentials.
+
+## Harness defaults
+
+`harness_defaults` keeps organization- or project-wide native coding-harness policy beside the portable agent catalog without putting harness-specific keys in every agent profile:
+
+```yaml
+harness_defaults:
+  pi:
+    httpIdleTimeoutMs: 3600000
+  claude:
+    includeCoAuthoredBy: false
+  codex:
+    features:
+      apps: false
+```
+
+The keys below each harness are passed through as that harness's native settings. `outfitter run` merges Pi and Claude defaults into its temporary `settings.json`; a Pi profile's own configuration overlay remains higher precedence. Codex receives flattened `--config key=TOML` arguments. `outfitter link` manages the same values individually in Pi or Claude `settings.json` and Codex `config.toml`, leaving every unrelated native setting untouched. An unmanaged value is never adopted or overwritten.
+
+Every loaded settings scope may contribute defaults. Objects deep-merge from low to high precedence, while arrays and scalar leaves replace. `outfitter dump` carries the effective block into the dumped tree. Unknown harness names are rejected; supported names are `pi`, `claude`, and `codex`.

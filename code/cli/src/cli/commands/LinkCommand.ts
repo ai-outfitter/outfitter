@@ -1,4 +1,4 @@
-// Provides `outfitter link`, which projects the composed tree into Claude Code and Codex homes as managed links.
+// Provides `outfitter link`, which projects the composed tree into Pi, Claude Code, and Codex homes.
 
 import { Command } from 'commander';
 
@@ -8,6 +8,7 @@ import { applyHarnessLinks, removeHarnessLinks, spawnHarnessCommand } from '../.
 import type { HarnessCommandRunner, LinkAction } from '../../links/HarnessLinkApply.js';
 import { composeLinkClosure, planHarnessLinks, resolveLinkScope } from '../../links/HarnessLinkPlan.js';
 import type { LinkClosure } from '../../links/HarnessLinkPlan.js';
+import type { HarnessDefaults } from '../../settings/Settings.js';
 import { strictAmbiguityFailureMessage } from '../../resolver/AmbiguityWarnings.js';
 import { resolveEffectiveSet } from '../../resolver/ResolverContext.js';
 import { formatSettingsIssue } from '../../settings/SettingsLoader.js';
@@ -87,6 +88,7 @@ const hasConflicts = (actions: readonly LinkAction[]): boolean =>
 
 interface ResolvedClosure {
   readonly closure?: LinkClosure;
+  readonly harnessDefaults?: HarnessDefaults;
   readonly failure?: LinkResult;
 }
 
@@ -112,18 +114,19 @@ const resolveClosure = (input: LinkInput, messages: string[]): ResolvedClosure =
   if (closure.errors.length > 0) {
     return { failure: failure([...messages, ...closure.errors.map((error) => `error: ${error}`)]) };
   }
-  return { closure };
+  return { closure, harnessDefaults: settings.harnessDefaults };
 };
 
 const linkHarness = (
   input: LinkInput,
   closure: LinkClosure,
+  harnessDefaults: HarnessDefaults | undefined,
   harness: LinkHarness,
   run: HarnessCommandRunner,
   messages: string[],
 ): boolean => {
   const dryRun = input.dryRun === true;
-  const plan = planHarnessLinks(closure, harness);
+  const plan = planHarnessLinks(closure, harness, harnessDefaults?.[harness]);
   messages.push(...plan.warnings.map((warning) => `warning: ${warning}`));
   const home = resolveHarnessHome(harness, input.homeDirectory, input.env);
   const { actions } = applyHarnessLinks(plan, home, { dryRun }, run);
@@ -137,7 +140,7 @@ const linkAll = (input: LinkInput, harnesses: readonly LinkHarness[], run: Harne
   if (resolved.closure === undefined) return resolved.failure!;
   let attention = resolved.closure.warnings.length > 0;
   for (const harness of harnesses)
-    attention = linkHarness(input, resolved.closure, harness, run, messages) || attention;
+    attention = linkHarness(input, resolved.closure, resolved.harnessDefaults, harness, run, messages) || attention;
   return { exitCode: input.strict === true && attention ? 1 : 0, messages };
 };
 
@@ -162,17 +165,14 @@ interface LinkOptions {
 
 export const createLinkCommand = (dependencies: LinkCommandDependencies = {}): CommandObject => ({
   name: 'link',
-  description:
-    'Link composed skills, agents, prompts, shared context, and MCP servers into Claude Code and Codex homes.',
+  description: 'Link composed resources and native defaults into Pi, Claude Code, and Codex homes.',
   register(program: Command): void {
     program.addCommand(
       new Command('link')
-        .description(
-          'Link composed skills, agents, prompts, shared context, and MCP servers into Claude Code and Codex homes.',
-        )
+        .description('Link composed resources and native defaults into Pi, Claude Code, and Codex homes.')
         .option(
           '--harness <name>',
-          'Harness home to link into: claude or codex (repeatable; default: every installed one).',
+          'Harness home to link into: pi, claude, or codex (repeatable; default: every installed one).',
           collect,
           [],
         )

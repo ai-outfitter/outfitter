@@ -1,5 +1,5 @@
 // Exercises the link command object through Commander: harness selection, scope, apply, remove, strict.
-import { existsSync, mkdirSync, mkdtempSync, readlinkSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readlinkSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 
@@ -69,7 +69,7 @@ describe('link command object', () => {
   it('refuses to guess a harness when none is installed and rejects unknown harnesses', async () => {
     const root = fixture();
     expect(await run(root, [], noRunner, { PATH: root.root })).toEqual([
-      'error: No harness home found. Pass --harness <claude|codex> to create one.',
+      'error: No harness home found. Pass --harness <pi|claude|codex> to create one.',
     ]);
     expect(process.exitCode).toBe(1);
     const lines: string[] = [];
@@ -80,7 +80,36 @@ describe('link command object', () => {
       writeLine: (m) => lines.push(m),
     }).register(program);
     await program.parseAsync(['node', 'outfitter', 'link', '--harness', 'pi']);
-    expect(lines).toEqual(["error: Unknown harness 'pi'. link supports: claude, codex."]);
+    expect(lines).toContain('warning: pi has one native agent identity; composed agent identities are not linked.');
+
+    const unknownLines: string[] = [];
+    const unknownProgram = new Command();
+    createLinkCommand({
+      homeDirectory: root.home,
+      projectDirectory: root.project,
+      env: { PATH: root.root },
+      run: noRunner,
+      writeLine: (message) => unknownLines.push(message),
+    }).register(unknownProgram);
+    await unknownProgram.parseAsync(['node', 'outfitter', 'link', '--harness', 'unknown']);
+    expect(unknownLines).toEqual(["error: Unknown harness 'unknown'. link supports: pi, claude, codex."]);
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-002.11.6, OFTR-012.1.1, OFTR-012.1.2).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('links harness_defaults into the selected native harness home', async () => {
+    const root = fixture();
+    write(
+      join(root.tree, 'settings.yml'),
+      'default_agent: leader\nharness_defaults:\n  pi:\n    httpIdleTimeoutMs: 3600000\n',
+    );
+
+    const lines = await run(root, ['--harness', 'pi']);
+
+    expect(lines).toContain('pi: created setting:settings.json:httpIdleTimeoutMs');
+    expect(JSON.parse(readFileSync(join(root.home, '.pi', 'agent', 'settings.json'), 'utf8'))).toEqual({
+      httpIdleTimeoutMs: 3600000,
+    });
   });
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-012.2).

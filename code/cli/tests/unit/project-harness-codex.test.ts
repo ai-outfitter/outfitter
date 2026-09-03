@@ -46,6 +46,43 @@ const resource = (kind: 'agent' | 'skill', slug: string, path: string, layerRoot
 });
 
 describe('projectComposition Codex MCP projection', () => {
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-002.11.4, OFTR-002.11.5).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('projects shared Codex harness defaults as leading native config overrides', () => {
+    const directory = root();
+    const projection = projectComposition(plan({}), {
+      harness: 'codex',
+      rootDirectory: directory,
+      homeDirectory: directory,
+      harnessDefaults: {
+        model_reasoning_effort: 'high',
+        features: { apps: false, names: ['alpha', 'beta'] },
+        retries: 3,
+        infinite: Number.POSITIVE_INFINITY,
+        invalidArray: ['ok', null],
+        disabled: null,
+        'unusual.key': true,
+      },
+    });
+
+    expect(projection.launch.args).toEqual(
+      expect.arrayContaining([
+        '--config',
+        'model_reasoning_effort="high"',
+        '--config',
+        'features.apps=false',
+        '--config',
+        'features.names=["alpha", "beta"]',
+        '--config',
+        'retries=3',
+        '--config',
+        '"unusual.key"=true',
+      ]),
+    );
+    expect(projection.warnings).toContain("codex harness default 'disabled' cannot be represented as TOML.");
+    expect(projection.warnings).toContain("codex harness default 'infinite' cannot be represented as TOML.");
+    expect(projection.warnings).toContain("codex harness default 'invalidArray' cannot be represented as TOML.");
+  });
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-006.6.4).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('projects HTTP URLs and headers as repeated TOML overrides', () => {

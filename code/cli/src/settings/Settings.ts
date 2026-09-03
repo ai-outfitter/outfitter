@@ -6,10 +6,12 @@ export type RemoteSettingsReference = RemoteSourceReference & { readonly path: s
 export type SettingsValue =
   string | number | boolean | null | readonly SettingsValue[] | { readonly [key: string]: SettingsValue };
 export type CustomSettings = Readonly<Record<string, SettingsValue>>;
+export type HarnessDefaultSettings = Readonly<Record<string, SettingsValue>>;
 
 /** Harnesses Outfitter can launch a composed agent in. */
 export const HARNESSES = ['pi', 'claude', 'codex'] as const;
 export type Harness = (typeof HARNESSES)[number];
+export type HarnessDefaults = Readonly<Partial<Record<Harness, HarnessDefaultSettings>>>;
 
 /**
  * How much of the user's own harness configuration a run stands on. `inherit` layers the
@@ -104,6 +106,8 @@ export interface Settings {
   readonly telemetry?: TelemetrySettings;
   /** Additive loadout entries composed into every agent before its own loadout. */
   readonly agentDefaults?: AgentDefaults;
+  /** Native settings applied to every run of each harness and by `outfitter link`. */
+  readonly harnessDefaults?: HarnessDefaults;
 }
 
 export const emptySettings = (): Settings => ({

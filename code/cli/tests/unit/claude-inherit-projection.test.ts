@@ -79,6 +79,27 @@ describe('projectComposition Claude configuration strategy', () => {
     expect(isolated.launch.args).not.toContain('--plugin-dir');
   });
 
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-002.11.4).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('passes shared Claude harness defaults as native settings in both isolation modes', () => {
+    for (const isolation of ['inherit', 'isolated'] as const) {
+      const dir = root();
+      const projection = projectComposition(planWith([]), {
+        harness: 'claude',
+        rootDirectory: dir,
+        homeDirectory: dir,
+        isolation,
+        harnessDefaults: { permissions: { defaultMode: 'plan' }, includeCoAuthoredBy: false },
+      });
+
+      expect(projection.launch.args).toEqual(expect.arrayContaining(['--settings', join(dir, 'settings.json')]));
+      expect(JSON.parse(readFileSync(join(dir, 'settings.json'), 'utf8'))).toEqual({
+        permissions: { defaultMode: 'plan' },
+        includeCoAuthoredBy: false,
+      });
+    }
+  });
+
   it('names the generated plugin for the profile even when the slug is not slug-shaped', () => {
     const dir = root();
     projectComposition(planWith([]), {

@@ -30,7 +30,7 @@ import type { AgentLaunchPlan } from '../../projection/Projection.js';
 import { strictAmbiguityFailureMessage } from '../../resolver/AmbiguityWarnings.js';
 import { findResource } from '../../resolver/Resource.js';
 import { resolveEffectiveSet } from '../../resolver/ResolverContext.js';
-import type { Harness, Isolation, SourceCachePolicy } from '../../settings/Settings.js';
+import type { Harness, Isolation, Settings, SourceCachePolicy } from '../../settings/Settings.js';
 import { HARNESSES, SOURCE_CACHE_POLICIES } from '../../settings/Settings.js';
 import { discoverSettingsLoadPlan, loadSettings } from '../../settings/SettingsLoader.js';
 import { prepareSourceCaches } from '../../sources/SourceCachePolicy.js';
@@ -319,6 +319,8 @@ const failedCompositionMessages = (
   ];
 };
 
+const harnessDefaultsFor = (settings: Settings, harness: Harness) => settings.harnessDefaults?.[harness];
+
 export const executeRunAgentCommand = async (input: RunAgentInput): Promise<RunAgentResult> => {
   // Flush messages to the terminal (before launch); they are also returned so callers can inspect them.
   const emit = (messages: readonly string[]): void => {
@@ -395,6 +397,7 @@ export const executeRunAgentCommand = async (input: RunAgentInput): Promise<RunA
       extensionLoadDirs: harness === 'pi' ? extensions.loadDirs : undefined,
       // ProjectHarness only overlays these for the pi harness, so pass them through unconditionally.
       configurationOverlayDirectories: configurationOverlays,
+      harnessDefaults: harnessDefaultsFor(settings, harness),
     });
 
     // Composition warnings, unsupported harness elements, and extension-install failures are all

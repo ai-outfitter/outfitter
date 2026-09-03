@@ -3,13 +3,15 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { PI_SESSION_DIRECTORY_ENV } from '../agents/PiSessionDirectory.js';
 import type { CompositionPlan } from '../composer/Composition.js';
-import type { Harness, Isolation } from '../settings/Settings.js';
+import type { Harness, Isolation, SettingsValue } from '../settings/Settings.js';
 import { projectCodexMcpServers } from './CodexMcp.js';
+import { codexSettingKey, codexSettingValue } from './CodexSettings.js';
 import type { MaterializedComposition } from './Materialize.js';
 import type { ProjectedModel } from './ModelProjection.js';
 import { projectModel } from './ModelProjection.js';
 import {
   applyPiRuntimeDefaults,
+  applyJsonSettingsDefaults,
   materializeComposition,
   materializeConfigurationOverlays,
   writeClaudePluginManifest,
@@ -125,16 +127,36 @@ const thinkingArg = (composition: CompositionPlan, harness: Harness): readonly s
     ? []
     : [harness === 'pi' ? '--thinking' : '--effort', composition.loadout.thinking];
 
+const projectCodexDefaults = (
+  defaults: Readonly<Record<string, SettingsValue>> | undefined,
+): { readonly args: readonly string[]; readonly warnings: readonly string[] } => {
+  const args: string[] = [];
+  const warnings: string[] = [];
+  const visit = (value: SettingsValue, path: readonly string[]): void => {
+    if (value !== null && typeof value === 'object' && !Array.isArray(value)) {
+      for (const [key, child] of Object.entries(value)) visit(child, [...path, key]);
+      return;
+    }
+    const encoded = codexSettingValue(value);
+    const key = codexSettingKey(path);
+    if (encoded === undefined) warnings.push(`codex harness default '${key}' cannot be represented as TOML.`);
+    else args.push('--config', `${key}=${encoded}`);
+  };
+  for (const [key, value] of Object.entries(defaults ?? {})) visit(value, [key]);
+  return { args, warnings };
+};
+
 // MCP overrides lead and pass-through args trail so a pass-through positional (`exec "<prompt>"`)
 // stays last, where codex expects its subcommand and prompt.
 const buildCodexLaunchPlan = (
   input: ProjectionInput,
+  defaultArgs: readonly string[],
   codexMcpArgs: readonly string[],
   model: ProjectedModel,
 ): AgentLaunchPlan => ({
   command: 'codex',
   // Root `-m` propagation through `exec` was verified empirically on codex-cli 0.145.0.
-  args: [...codexMcpArgs, ...model.args, ...(input.passThroughArgs ?? [])],
+  args: [...defaultArgs, ...codexMcpArgs, ...model.args, ...(input.passThroughArgs ?? [])],
   env: model.env,
 });
 
@@ -159,11 +181,17 @@ const claudeMcpArgs = (mcpConfigPath: string, isolation: Isolation): readonly st
  * seeding and nothing needs copying back. Verified against Claude Code 2.1.226: a plugin directory
  * loads skills unnamespaced, and commands and subagents under the plugin's name.
  */
-const claudeConfigArgs = (rootDirectory: string, isolation: Isolation): readonly string[] =>
-  isolation === 'isolated' ? [] : ['--plugin-dir', rootDirectory];
+const claudeConfigArgs = (
+  rootDirectory: string,
+  isolation: Isolation,
+  settingsPath: string | undefined,
+): readonly string[] => [
+  ...(isolation === 'isolated' ? [] : ['--plugin-dir', rootDirectory]),
+  ...(settingsPath === undefined ? [] : ['--settings', settingsPath]),
+];
 
-const claudeArgs = (rootDirectory: string, isolation: Isolation): readonly string[] => [
-  ...claudeConfigArgs(rootDirectory, isolation),
+const claudeArgs = (rootDirectory: string, isolation: Isolation, settingsPath?: string): readonly string[] => [
+  ...claudeConfigArgs(rootDirectory, isolation, settingsPath),
   ...claudeMcpArgs(join(rootDirectory, 'mcp.json'), isolation),
 ];
 
@@ -186,6 +214,7 @@ const buildPiOrClaudeLaunchPlan = (
   materialized: MaterializedComposition,
   appendPromptPaths: readonly string[],
   model: ProjectedModel,
+  settingsPath?: string,
 ): AgentLaunchPlan => {
   const isPi = input.harness === 'pi';
   const isolation = resolveProjectionIsolation(input);
@@ -204,7 +233,7 @@ const buildPiOrClaudeLaunchPlan = (
       ...extensionArgs,
       ...model.args,
       ...thinkingArg(composition, input.harness),
-      ...(isPi ? [] : claudeArgs(input.rootDirectory, isolation)),
+      ...(isPi ? [] : claudeArgs(input.rootDirectory, isolation, settingsPath)),
       ...(input.passThroughArgs ?? []),
     ],
     // The projection root is deleted after the run, so pi's default session store (a subdirectory
@@ -220,12 +249,35 @@ const buildPiOrClaudeLaunchPlan = (
   };
 };
 
-/** Materializes the composition into the runtime root and builds the harness launch plan. */
-export const projectComposition = (composition: CompositionPlan, input: ProjectionInput): AgentProjectionPlan => {
+interface PreparedHarnessDefaults {
+  readonly warnings: readonly string[];
+  readonly claudeSettingsPath?: string;
+  readonly codexArgs: readonly string[];
+}
+
+const prepareHarnessDefaults = (input: ProjectionInput): PreparedHarnessDefaults => {
+  const defaultWarnings: string[] = [];
   if (input.harness === 'pi') {
     materializeConfigurationOverlays(input.configurationOverlayDirectories ?? [], input.rootDirectory);
+    const settingsPath = applyJsonSettingsDefaults(input.rootDirectory, input.harnessDefaults);
+    if (
+      input.harnessDefaults !== undefined &&
+      Object.keys(input.harnessDefaults).length > 0 &&
+      settingsPath === undefined
+    )
+      defaultWarnings.push('pi harness defaults could not be merged because settings.json is not a JSON object.');
     applyPiRuntimeDefaults(input.rootDirectory);
   }
+  const claudeSettingsPath =
+    input.harness === 'claude' ? applyJsonSettingsDefaults(input.rootDirectory, input.harnessDefaults) : undefined;
+  const codex = input.harness === 'codex' ? projectCodexDefaults(input.harnessDefaults) : undefined;
+  if (codex !== undefined) defaultWarnings.push(...codex.warnings);
+  return { warnings: defaultWarnings, claudeSettingsPath, codexArgs: codex === undefined ? [] : codex.args };
+};
+
+/** Materializes the composition into the runtime root and builds the harness launch plan. */
+export const projectComposition = (composition: CompositionPlan, input: ProjectionInput): AgentProjectionPlan => {
+  const defaults = prepareHarnessDefaults(input);
   // Materialization runs for every harness so containment and definition diagnostics are reported
   // uniformly. Codex reads none of the generated files — it takes its MCP config in argv and has no
   // config-directory projection yet — but the root is temporary, so the unused writes do not persist.
@@ -242,12 +294,13 @@ export const projectComposition = (composition: CompositionPlan, input: Projecti
 
   if (input.harness === 'codex') {
     const codexMcp = projectCodexMcpServers(composition.loadout.mcp, composition.loadout.mcpServers);
-    const launch = buildCodexLaunchPlan(input, codexMcp.args, projectedModel);
+    const launch = buildCodexLaunchPlan(input, defaults.codexArgs, codexMcp.args, projectedModel);
     const warnings = [
       ...(input.appendPromptPaths?.length
         ? ['codex adapter does not project supplied append-prompt documents; they will be dropped.']
         : []),
       ...codexMcp.warnings,
+      ...defaults.warnings,
       ...projectedModel.warnings,
     ];
     return { rootDirectory: input.rootDirectory, launch, unsupported, warnings };
@@ -260,7 +313,13 @@ export const projectComposition = (composition: CompositionPlan, input: Projecti
     materialized,
     [...materialized.appendPromptPaths, ...(input.appendPromptPaths ?? [])],
     projectedModel,
+    defaults.claudeSettingsPath,
   );
 
-  return { rootDirectory: input.rootDirectory, launch, unsupported, warnings: projectedModel.warnings };
+  return {
+    rootDirectory: input.rootDirectory,
+    launch,
+    unsupported,
+    warnings: [...defaults.warnings, ...projectedModel.warnings],
+  };
 };

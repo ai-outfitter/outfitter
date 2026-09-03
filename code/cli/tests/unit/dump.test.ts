@@ -76,6 +76,24 @@ describe('dump command', () => {
     expect(relativeTree(join(out, '.agents'))).not.toContain('skills/unused/SKILL.md');
   });
 
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-002.11.7).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('carries shared native harness defaults into a self-contained dump', () => {
+    const { home, project } = buildTree();
+    write(
+      join(project, '.agents', 'settings.yml'),
+      'harness_defaults:\n  pi:\n    httpIdleTimeoutMs: 3600000\n  codex:\n    features:\n      apps: false\n',
+    );
+    const out = join(createTemporaryRoot(), 'defaults');
+
+    const result = executeDumpCommand({ homeDirectory: home, projectDirectory: project, agent: 'engineer', out });
+
+    expect(result.ok).toBe(true);
+    expect(readFileSync(join(out, '.agents', 'settings.yml'), 'utf8')).toBe(
+      'harness_defaults:\n  pi:\n    httpIdleTimeoutMs: 3600000\n  codex:\n    features:\n      apps: false\n',
+    );
+  });
+
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-005.2, OFTR-005.3).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('flattens a cached source agent-local skill into the dump with all packaged files', () => {

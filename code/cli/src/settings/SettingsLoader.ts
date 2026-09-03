@@ -61,7 +61,12 @@ interface SettingsDocument {
   readonly enterprise?: EnterpriseSettingsDocument;
   readonly telemetry?: TelemetrySettingsDocument;
   readonly agent_defaults?: AgentDefaultsDocument;
+  readonly harness_defaults?: HarnessDefaultsDocument;
 }
+
+type HarnessDefaultsDocument = Readonly<
+  Partial<Record<Harness, Readonly<Record<string, import('./Settings.js').SettingsValue>>>>
+>;
 
 interface AgentDefaultsDocument {
   readonly extensions?: readonly string[];
@@ -307,6 +312,7 @@ const convertSettingsDocument = (
   enterprise: isHomeScope(scope) ? convertEnterpriseSettings(document.enterprise) : undefined,
   telemetry: convertTelemetrySettings(document.telemetry),
   agentDefaults: convertAgentDefaults(document.agent_defaults),
+  harnessDefaults: document.harness_defaults,
 });
 
 const convertStartupSettings = (startup: StartupSettingsDocument | undefined): Settings['startup'] =>

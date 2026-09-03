@@ -84,6 +84,48 @@ describe('settings loading', () => {
     expect(loaded.settings.cacheDirectory).toBe(join(projectDirectory, '.agents', 'local-cache'));
   });
 
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-002.11.1, OFTR-002.11.2, OFTR-002.11.3).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('loads and deep-merges native harness defaults with higher-precedence overrides', () => {
+    const root = createTemporaryRoot();
+    const homeDirectory = join(root, 'home');
+    const projectDirectory = join(root, 'project');
+    writeSettings(
+      join(homeDirectory, '.agents', 'settings.yml'),
+      'source_cache:\n  policy: repair\ntelemetry:\n  enabled: true\nharness_defaults:\n  pi:\n    httpIdleTimeoutMs: 300000\n    retry:\n      provider:\n        maxRetries: 2\n  claude:\n    includeCoAuthoredBy: false\n',
+    );
+    writeSettings(
+      join(projectDirectory, '.agents', 'settings.yml'),
+      'harness_defaults:\n  pi:\n    httpIdleTimeoutMs: 3600000\n    retry:\n      provider:\n        timeoutMs: 3600000\n  codex:\n    features:\n      apps: false\n',
+    );
+
+    const loaded = loadSettings(discoverSettingsLoadPlan({ homeDirectory, projectDirectory }));
+
+    expect(loaded.issues).toEqual([]);
+    expect(loaded.settings.harnessDefaults).toEqual({
+      pi: {
+        httpIdleTimeoutMs: 3600000,
+        retry: { provider: { maxRetries: 2, timeoutMs: 3600000 } },
+      },
+      claude: { includeCoAuthoredBy: false },
+      codex: { features: { apps: false } },
+    });
+    expect(loaded.settings.sourceCache).toEqual({ policy: 'repair' });
+    expect(loaded.settings.telemetry).toEqual({ enabled: true });
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-002.11.1).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('rejects unknown harness names in harness_defaults', () => {
+    const root = createTemporaryRoot();
+    const projectDirectory = join(root, 'project');
+    writeSettings(join(projectDirectory, '.agents', 'settings.yml'), 'harness_defaults:\n  cursor:\n    timeout: 1\n');
+
+    const loaded = loadSettings(discoverSettingsLoadPlan({ homeDirectory: join(root, 'home'), projectDirectory }));
+
+    expect(loaded.issues[0]?.path).toBe('/harness_defaults');
+  });
+
   it('applies user-local settings above user settings', () => {
     const root = createTemporaryRoot();
     const homeDirectory = join(root, 'home');

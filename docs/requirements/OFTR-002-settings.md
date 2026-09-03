@@ -119,3 +119,14 @@ enable workflow roots as command entry points.
 9. Harness support rules MUST remain unchanged: `agent_defaults` entries ride the same loadout projection as agent-declared entries, so a harness that cannot carry an additive element reports it through existing unsupported-element diagnostics, not a settings-specific error.
 10. `agent_defaults` MUST remain backend-neutral: Outfitter MUST NOT introduce backend-specific keys, sink endpoints, credentials, retention policy, or workload-identity behavior.
 11. Settings without `agent_defaults` MUST compose, validate, run, and dump exactly as before this section existed.
+
+### OFTR-002.11: Native Harness Defaults
+
+1. `settings.yml` MAY declare `harness_defaults` keyed only by `pi`, `claude`, and `codex`; unknown harness names MUST be rejected.
+2. Each harness value MUST accept arbitrary native setting keys whose values are JSON-compatible scalars, arrays, or objects.
+3. Outfitter MUST deep-merge objects across the settings stack with higher-precedence leaves replacing lower-precedence leaves; arrays and scalars MUST replace rather than union.
+4. `outfitter run` MUST apply the selected harness's effective defaults through its native configuration surface. Pi agent configuration overlays MUST remain higher precedence than shared defaults.
+5. Codex values that cannot be represented as TOML MUST be skipped with a warning.
+6. `outfitter link` MUST manage defaults as individual native setting values and MUST NOT replace, adopt, or delete unrelated or unmanaged native settings.
+7. `outfitter dump` MUST carry effective `harness_defaults` into the dumped tree.
+8. Settings without `harness_defaults` MUST run, link, and dump exactly as before this section existed.

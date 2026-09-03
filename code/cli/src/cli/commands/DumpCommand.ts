@@ -81,8 +81,15 @@ export const executeDumpCommand = (input: DumpInput): DumpCommandResult => {
   const selected = input.workflow ?? resolveAgentSlug(settings, input.agent);
   const result =
     input.workflow === undefined
-      ? dumpAgent(set, selected, input.out, input.projectDirectory, settings.agentDefaults)
-      : dumpWorkflow(set, selected, input.out, input.projectDirectory, settings.agentDefaults);
+      ? dumpAgent(set, selected, input.out, input.projectDirectory, settings.agentDefaults, settings.harnessDefaults)
+      : dumpWorkflow(
+          set,
+          selected,
+          input.out,
+          input.projectDirectory,
+          settings.agentDefaults,
+          settings.harnessDefaults,
+        );
   const ok = result.errors.length === 0;
   const messages = ok
     ? [

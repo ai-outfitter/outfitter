@@ -15,6 +15,7 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
+import { parse as parseToml, stringify as stringifyToml } from 'smol-toml';
 
 import type { LinkHarness } from './HarnessHome.js';
 import { mcpAddArgs, mcpGetArgs, mcpRemoveArgs } from './HarnessMcp.js';
@@ -125,9 +126,106 @@ interface Reconciliation {
   readonly mutate?: () => void;
 }
 
-const firstLine = (output: string): string => output.split('\n')[0] ?? '';
+const firstLine = (output: string): string => output.split('\n')[0];
 
 const conflict = (detail: string): Reconciliation => ({ status: 'conflict', detail });
+
+type SettingsDocument = Record<string, unknown>;
+
+const isSettingsDocument = (value: unknown): value is SettingsDocument =>
+  value !== null && typeof value === 'object' && !Array.isArray(value);
+
+const settingLocation = (home: string, entry: LinkEntry): string => join(home, entry.setting!.file);
+
+const readSettingsDocument = (path: string, file: string): SettingsDocument => {
+  if (!existsSync(path)) return {};
+  const parsed: unknown = file.endsWith('.toml')
+    ? parseToml(readFileSync(path, 'utf8'))
+    : JSON.parse(readFileSync(path, 'utf8'));
+  if (!isSettingsDocument(parsed)) throw new Error('settings document is not an object');
+  return parsed;
+};
+
+const writeSettingsDocument = (path: string, file: string, document: SettingsDocument): void => {
+  mkdirSync(dirname(path), { recursive: true });
+  const content = file.endsWith('.toml') ? stringifyToml(document) : `${JSON.stringify(document, null, 2)}\n`;
+  writeFileSync(path, content);
+};
+
+type SettingLookup =
+  | { readonly status: 'missing' }
+  | { readonly status: 'blocked' }
+  | { readonly status: 'found'; readonly value: unknown };
+
+const locateSetting = (document: SettingsDocument, keys: readonly string[]): SettingLookup => {
+  let parent = document;
+  for (const [index, key] of keys.entries()) {
+    if (!Object.hasOwn(parent, key)) return { status: 'missing' };
+    const value = parent[key];
+    if (index === keys.length - 1) return { status: 'found', value };
+    if (!isSettingsDocument(value)) return { status: 'blocked' };
+    parent = value;
+  }
+  return { status: 'missing' };
+};
+
+const defineOwn = (document: SettingsDocument, key: string, value: unknown): void => {
+  Object.defineProperty(document, key, { configurable: true, enumerable: true, value, writable: true });
+};
+
+const setValueAt = (document: SettingsDocument, keys: readonly string[], value: unknown): void => {
+  let parent = document;
+  for (const key of keys.slice(0, -1)) {
+    if (!Object.hasOwn(parent, key)) defineOwn(parent, key, {});
+    const child = parent[key];
+    parent = child as SettingsDocument;
+  }
+  defineOwn(parent, keys.at(-1)!, value);
+};
+
+const deleteValueAt = (document: SettingsDocument, keys: readonly string[]): void => {
+  const parents: { parent: SettingsDocument; key: string }[] = [];
+  let parent = document;
+  // removeSetting calls this only after locateSetting confirms that every segment is an own
+  // property and every parent is an object.
+  for (const key of keys.slice(0, -1)) {
+    parents.push({ parent, key });
+    parent = parent[key] as SettingsDocument;
+  }
+  const leaf = keys.at(-1)!;
+  delete parent[leaf];
+  for (const item of parents.reverse()) {
+    const value = item.parent[item.key];
+    if (isSettingsDocument(value) && Object.keys(value).length === 0) delete item.parent[item.key];
+    else break;
+  }
+};
+
+const equalSetting = (left: unknown, right: unknown): boolean => JSON.stringify(left) === JSON.stringify(right);
+
+const reconcileSetting = (home: string, entry: LinkEntry, previous: ManifestEntry | undefined): Reconciliation => {
+  const { file, keys, value } = entry.setting!;
+  const path = settingLocation(home, entry);
+  let document: SettingsDocument;
+  try {
+    document = readSettingsDocument(path, file);
+  } catch (error) {
+    return conflict(`cannot parse ${file}: ${error instanceof Error ? error.message : String(error)}`);
+  }
+  const current = locateSetting(document, keys);
+  if (current.status === 'blocked') return conflict('an unmanaged native setting blocks this nested setting');
+  const mutate = (): void => {
+    setValueAt(document, keys, value);
+    writeSettingsDocument(path, file, document);
+  };
+  if (current.status === 'missing') return { status: 'created', mutate };
+  if (equalSetting(current.value, value)) return { status: 'unchanged' };
+  if (previous === undefined) return conflict('an unmanaged native setting already exists here');
+  const prior: unknown = previous.target === undefined ? undefined : JSON.parse(previous.target);
+  return equalSetting(current.value, prior)
+    ? { status: 'updated', mutate }
+    : conflict('the previously managed native setting was changed outside Outfitter');
+};
 
 const reconcileSymlink = (home: string, entry: LinkEntry, managed: boolean): Reconciliation => {
   const path = join(home, entry.path);
@@ -188,15 +286,18 @@ const reconcile = (
   plan: HarnessLinkPlan,
   home: string,
   entry: LinkEntry,
-  managed: boolean,
+  previous: ManifestEntry | undefined,
   run: HarnessCommandRunner,
 ): Reconciliation => {
   if (entry.kind === 'mcp') return reconcileMcp(plan.harness, entry, run);
+  if (entry.kind === 'setting') return reconcileSetting(home, entry, previous);
   const ancestor = symlinkedAncestor(home, entry.path);
   if (ancestor !== undefined) {
     return conflict(`'${ancestor}' is an unmanaged symlink; unlink it to let outfitter manage its entries`);
   }
-  return entry.kind === 'symlink' ? reconcileSymlink(home, entry, managed) : reconcileFile(home, entry, managed);
+  return entry.kind === 'symlink'
+    ? reconcileSymlink(home, entry, previous !== undefined)
+    : reconcileFile(home, entry, previous !== undefined);
 };
 
 const apply = (entry: LinkEntry, reconciliation: Reconciliation, dryRun: boolean): LinkAction => {
@@ -242,11 +343,11 @@ export const applyHarnessLinks = (
   const dryRun = options.dryRun === true;
   if (!dryRun) mkdirSync(home, { recursive: true });
   const manifest = readManifest(home, plan.harness);
-  const managedPaths = new Set(manifest.entries.map((entry) => entry.path));
+  const managedEntries = new Map(manifest.entries.map((entry) => [entry.path, entry]));
   const planned = new Set(plan.entries.map((entry) => entry.path));
 
   const actions = plan.entries.map((entry) =>
-    apply(entry, reconcile(plan, home, entry, managedPaths.has(entry.path), run), dryRun),
+    apply(entry, reconcile(plan, home, entry, managedEntries.get(entry.path), run), dryRun),
   );
   const stale = manifest.entries.filter((entry) => !planned.has(entry.path));
   const pruned = pruneDangling(home, stale, dryRun);
@@ -257,19 +358,49 @@ export const applyHarnessLinks = (
       ...stale.filter((entry) => !prunedPaths.has(entry.path)),
       ...actions
         .filter(
-          (action) =>
-            isManagedNow(action) &&
-            (action.status !== 'unchanged' || action.entry.kind !== 'mcp' || managedPaths.has(action.entry.path)),
+          (action) => isManagedNow(action) && (action.status !== 'unchanged' || managedEntries.has(action.entry.path)),
         )
         .map(({ entry }) => ({
           kind: entry.kind,
           path: entry.path,
           ...(entry.target === undefined ? {} : { target: entry.target }),
+          ...(entry.kind === 'setting' ? { target: JSON.stringify(entry.setting!.value) } : {}),
         })),
     ];
     writeManifest(home, { version: 1, harness: plan.harness, entries });
   }
   return { actions: [...actions, ...pruned] };
+};
+
+const removeSetting = (home: string, previous: ManifestEntry, entry: LinkEntry): LinkAction => {
+  const [, file, encodedKeys] = previous.path.split(':');
+  const keys = encodedKeys.split('/').map(decodeURIComponent);
+  const path = join(home, file);
+  let document: SettingsDocument;
+  try {
+    document = readSettingsDocument(path, file);
+  } catch (error) {
+    return { entry, status: 'skipped', detail: error instanceof Error ? error.message : String(error) };
+  }
+  const expected: unknown = previous.target === undefined ? undefined : JSON.parse(previous.target);
+  const current = locateSetting(document, keys);
+  if (current.status === 'missing') return { entry, status: 'removed' };
+  if (current.status === 'blocked' || !equalSetting(current.value, expected))
+    return { entry, status: 'skipped', detail: 'native setting no longer matches the managed value' };
+  deleteValueAt(document, keys);
+  writeSettingsDocument(path, file, document);
+  return { entry, status: 'removed' };
+};
+
+const removeMcp = (
+  harness: LinkHarness,
+  previous: ManifestEntry,
+  entry: LinkEntry,
+  run: HarnessCommandRunner,
+): LinkAction => {
+  const result = run(harness, mcpRemoveArgs(harness, previous.path.slice('mcp:'.length)));
+  if (!result.found) return { entry, status: 'skipped', detail: `${harness} CLI not found on PATH` };
+  return result.ok ? { entry, status: 'removed' } : { entry, status: 'skipped', detail: result.output };
 };
 
 const removeEntry = (
@@ -284,11 +415,8 @@ const removeEntry = (
     target: previous.target,
     resource: previous.path,
   };
-  if (previous.kind === 'mcp') {
-    const result = run(harness, mcpRemoveArgs(harness, previous.path.slice('mcp:'.length)));
-    if (!result.found) return { entry, status: 'skipped', detail: `${harness} CLI not found on PATH` };
-    return result.ok ? { entry, status: 'removed' } : { entry, status: 'skipped', detail: result.output };
-  }
+  if (previous.kind === 'mcp') return removeMcp(harness, previous, entry, run);
+  if (previous.kind === 'setting') return removeSetting(home, previous, entry);
   const path = join(home, previous.path);
   const owned = previous.kind === 'symlink' ? isSymlink(path) : isRegularFile(path);
   if (!owned) return { entry, status: 'skipped', detail: 'no longer a managed entry' };
@@ -305,7 +433,9 @@ export const removeHarnessLinks = (
   const manifest = readManifest(home, harness);
   const actions = manifest.entries.map((entry) => removeEntry(harness, home, entry, run));
   const remaining = manifest.entries.filter(
-    (entry, index) => actions[index].status === 'skipped' && actions[index].detail?.includes('CLI not found'),
+    (entry, index) =>
+      actions[index].status === 'skipped' &&
+      (entry.kind === 'setting' || actions[index].detail?.includes('CLI not found') === true),
   );
   writeManifest(home, { version: 1, harness, entries: remaining });
   for (const container of ['skills', 'agents', 'commands', 'prompts']) {

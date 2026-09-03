@@ -3,9 +3,9 @@ import { existsSync } from 'node:fs';
 import { delimiter, join } from 'node:path';
 
 /** Harnesses with a persistent home directory that Outfitter can populate with managed links. */
-export type LinkHarness = 'claude' | 'codex';
+export type LinkHarness = 'pi' | 'claude' | 'codex';
 
-export const linkHarnesses: readonly LinkHarness[] = ['claude', 'codex'];
+export const linkHarnesses: readonly LinkHarness[] = ['pi', 'claude', 'codex'];
 
 export const isLinkHarness = (value: string): value is LinkHarness =>
   (linkHarnesses as readonly string[]).includes(value);
@@ -19,9 +19,10 @@ export const resolveHarnessHome = (
   homeDirectory: string,
   env: Readonly<Record<string, string | undefined>>,
 ): string => {
-  const override = harness === 'claude' ? env.CLAUDE_CONFIG_DIR : env.CODEX_HOME;
+  const override =
+    harness === 'pi' ? env.PI_CODING_AGENT_DIR : harness === 'claude' ? env.CLAUDE_CONFIG_DIR : env.CODEX_HOME;
   if (override !== undefined && override.trim() !== '') return override;
-  return join(homeDirectory, harness === 'claude' ? '.claude' : '.codex');
+  return join(homeDirectory, harness === 'pi' ? '.pi/agent' : harness === 'claude' ? '.claude' : '.codex');
 };
 
 const onPath = (harness: LinkHarness, env: Readonly<Record<string, string | undefined>>): boolean =>

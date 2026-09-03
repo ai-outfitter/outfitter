@@ -121,6 +121,16 @@
         }
       },
       "additionalProperties": false
+    },
+    "harness_defaults": {
+      "type": "object",
+      "description": "Harness-native settings applied to every composed agent and persistently reconciled by outfitter link.",
+      "properties": {
+        "pi": { "$ref": "#/$defs/nativeSettings" },
+        "claude": { "$ref": "#/$defs/nativeSettings" },
+        "codex": { "$ref": "#/$defs/nativeSettings" }
+      },
+      "additionalProperties": false
     }
   },
   "additionalProperties": true,
@@ -137,6 +147,10 @@
         "repo_file": { "type": "string", "minLength": 1 }
       },
       "additionalProperties": false
+    },
+    "nativeSettings": {
+      "type": "object",
+      "description": "A harness-native settings document. Native keys are validated by the selected harness release."
     }
   }
 }

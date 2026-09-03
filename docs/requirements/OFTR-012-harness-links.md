@@ -3,7 +3,7 @@
 ## Overview
 
 `outfitter link` projects the composed `.agents` tree into the persistent home directories of
-Claude Code and Codex as managed links, so native harness sessions carry Outfitter-composed skills,
+Pi, Claude Code, and Codex as managed entries, so native harness sessions carry Outfitter-composed skills,
 agents, commands, shared context, and MCP servers without a launch. This is the persistent
 projection deferred by [#187](https://github.com/ai-outfitter/outfitter/issues/187); it is opt-in
 and separate from the temporary projection `outfitter run` builds and removes per launch, and
@@ -14,8 +14,8 @@ and separate from the temporary projection `outfitter run` builds and removes pe
 
 ### OFTR-012.1: Scope Selection
 
-1. `outfitter link` MUST accept repeatable `--harness <claude|codex>`, `--agent <id>`, and `--workflow <id>` options and the `--all`, `--dry-run`, `--remove`, and `--strict` flags, and MUST reject an unknown harness name with a non-zero exit.
-2. The Claude Code home MUST resolve to `$CLAUDE_CONFIG_DIR` when set and non-empty, otherwise `~/.claude`; the Codex home MUST resolve to `$CODEX_HOME` when set and non-empty, otherwise `~/.codex`.
+1. `outfitter link` MUST accept repeatable `--harness <pi|claude|codex>`, `--agent <id>`, and `--workflow <id>` options and the `--all`, `--dry-run`, `--remove`, and `--strict` flags, and MUST reject an unknown harness name with a non-zero exit.
+2. The Pi home MUST resolve to `$PI_CODING_AGENT_DIR` when set and non-empty, otherwise `~/.pi/agent`; the Claude Code home MUST resolve to `$CLAUDE_CONFIG_DIR` when set and non-empty, otherwise `~/.claude`; the Codex home MUST resolve to `$CODEX_HOME` when set and non-empty, otherwise `~/.codex`.
 3. Without `--harness`, `link` MUST target every harness whose executable is on `PATH` or whose home directory exists, and MUST fail with guidance to pass `--harness` when none is detected.
 4. An explicit `--harness` MUST create the harness home when it does not exist.
 5. Without `--agent`, `--workflow`, or `--all`, the scope MUST be every enabled workflow root from the merged `workflows` setting plus `default_agent` when set, and `link` MUST fail with guidance when that scope is empty.
@@ -35,6 +35,7 @@ and separate from the temporary projection `outfitter run` builds and removes pe
 5. Prompt fragments MUST NOT be linked as standalone harness files; shared context MUST reach the harness only through the `CLAUDE.md` or `AGENTS.md` symlink and the generated agent bodies.
 6. When no layer provides a tree-root `agents.md`, `link` MUST plan no shared-context entry.
 7. `link` MUST NOT create, modify, or plan entries for harness authentication, session, `settings.json`, or plugin state.
+8. For Pi, `link` MUST plan skill links and native defaults, and MUST warn separately when agent identities, commands, MCP servers, or shared context are present because Pi does not support their persistent projection.
 
 ### OFTR-012.3: Conflict Preservation and Ownership
 

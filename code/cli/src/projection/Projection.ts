@@ -1,5 +1,5 @@
 // Harness-neutral projection types: a materialized runtime tree plus the launch plan for one run.
-import type { Harness, Isolation } from '../settings/Settings.js';
+import type { Harness, HarnessDefaultSettings, Isolation } from '../settings/Settings.js';
 
 export interface AgentLaunchPlan {
   readonly command: string;
@@ -44,4 +44,6 @@ export interface ProjectionInput {
   readonly extensionLoadDirs?: readonly string[];
   /** Harness-native configuration directories, highest precedence first, overlaid into the root. */
   readonly configurationOverlayDirectories?: readonly string[];
+  /** Harness-native defaults from the merged Outfitter settings stack. */
+  readonly harnessDefaults?: HarnessDefaultSettings;
 }
