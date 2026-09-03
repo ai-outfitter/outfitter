@@ -11,7 +11,7 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { dirname, join } from 'node:path';
+import { delimiter, dirname, join } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
@@ -100,7 +100,7 @@ describe('harness homes', () => {
     const bin = join(home, 'bin');
     mkdirSync(bin);
     writeFileSync(join(bin, 'claude'), '');
-    expect(detectInstalledHarnesses(home, { PATH: `${bin}:` })).toEqual(['claude', 'codex']);
+    expect(detectInstalledHarnesses(home, { PATH: `${bin}${delimiter}` })).toEqual(['claude', 'codex']);
   });
 });
 

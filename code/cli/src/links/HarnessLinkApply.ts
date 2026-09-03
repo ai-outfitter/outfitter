@@ -9,6 +9,7 @@ import {
   readdirSync,
   rmSync,
   rmdirSync,
+  statSync,
   symlinkSync,
   unlinkSync,
   writeFileSync,
@@ -92,6 +93,14 @@ const isSymlink = (path: string): boolean => {
   }
 };
 
+const directoryTarget = (path: string): boolean => {
+  try {
+    return statSync(path).isDirectory();
+  } catch {
+    return false;
+  }
+};
+
 const isRegularFile = (path: string): boolean => {
   try {
     return lstatSync(path).isFile();
@@ -125,7 +134,8 @@ const reconcileSymlink = (home: string, entry: LinkEntry, managed: boolean): Rec
   const target = entry.target!;
   const create = (): void => {
     mkdirSync(dirname(path), { recursive: true });
-    symlinkSync(target, path);
+    // Windows needs the link type up front; a junction to a directory needs no privilege.
+    symlinkSync(target, path, directoryTarget(target) ? (process.platform === 'win32' ? 'junction' : 'dir') : 'file');
   };
   if (!existsSync(path) && !isSymlink(path)) return { status: 'created', mutate: create };
   if (!isSymlink(path)) return conflict('an unmanaged file or directory already exists here');
