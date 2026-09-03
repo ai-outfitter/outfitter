@@ -152,7 +152,10 @@ const writeSettingsDocument = (path: string, file: string, document: SettingsDoc
   writeFileSync(path, content);
 };
 
-type SettingLookup = { readonly status: 'missing' | 'blocked' } | { readonly status: 'found'; readonly value: unknown };
+type SettingLookup =
+  | { readonly status: 'missing' }
+  | { readonly status: 'blocked' }
+  | { readonly status: 'found'; readonly value: unknown };
 
 const locateSetting = (document: SettingsDocument, keys: readonly string[]): SettingLookup => {
   let parent = document;
