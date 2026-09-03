@@ -103,6 +103,40 @@ Workflow dumps are non-executable configuration bundles. They contain the canoni
 `outfitter run` verifies these caches before composition. Use
 `--source-cache-policy <repair|locked|offline>` to override the configured startup policy.
 
+## `outfitter link`
+
+Project the composed tree into Claude Code and Codex homes as persistent, managed links, so plain
+`claude` and `codex` sessions carry your skills, agents, commands, shared context, and MCP servers
+without going through `outfitter run`. `run` still uses a temporary projection; `link` is the
+opt-in persistent one. See [Linking into Claude Code and Codex](./linking-harnesses.md).
+
+| Option             | Description                                                                                                                |
+| ------------------ | -------------------------------------------------------------------------------------------------------------------------- |
+| `--harness <name>` | Harness home to link into: `claude` or `codex` (repeatable). Defaults to every harness on `PATH` or with an existing home. |
+| `--agent <id>`     | Agent whose composed closure to link (repeatable).                                                                         |
+| `--workflow <id>`  | Enabled workflow whose agent closures to link (repeatable).                                                                |
+| `--all`            | Link every resolvable agent, with its skills and commands.                                                                 |
+| `--dry-run`        | Report what would change (`would create`, `would update`, `would prune`) without touching the home.                        |
+| `--remove`         | Remove every entry this command created and forget it.                                                                     |
+| `--strict`         | Exit non-zero on warnings, conflicts, or skipped entries.                                                                  |
+
+```bash
+outfitter link                                    # enabled workflows + default_agent, every installed harness
+outfitter link --workflow engineer --harness claude
+outfitter link --all --dry-run
+outfitter link --remove
+```
+
+With no selection the scope is every enabled workflow root (`workflows:` in settings) plus
+`default_agent`. Each scoped agent is composed the same way `run` and `dump` compose it, and its
+subagents join the closure. The harness home is `$CLAUDE_CONFIG_DIR` (default `~/.claude`) or
+`$CODEX_HOME` (default `~/.codex`); an explicit `--harness` creates the home if it is missing.
+
+Ownership is recorded in `<harness home>/.outfitter/links.json`. `link` never overwrites, adopts, or
+deletes anything it did not create: an unmanaged file, directory, or symlink in the way is reported
+as a `conflict` and left alone. Re-running is idempotent (`unchanged`), a managed link whose target
+vanished is `pruned`, and MCP servers already registered in the harness are left as they are.
+
 ## `outfitter sources`
 
 Report local and remote source precedence, requested and resolved revisions, origins, and cache

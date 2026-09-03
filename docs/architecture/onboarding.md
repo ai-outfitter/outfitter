@@ -80,6 +80,7 @@ cannot be fetched and is not cached, setup fails before opening the walkthrough 
 ## Deferred boundaries
 
 General source refresh remains [#184](https://github.com/ai-outfitter/outfitter/issues/184).
-Persistent harness projection, symlinking, and artifact baking remain
-[#187](https://github.com/ai-outfitter/outfitter/issues/187). Setup does not port harness state or
-create persistent links.
+Persistent harness projection and symlinking, deferred by
+[#187](https://github.com/ai-outfitter/outfitter/issues/187), are now provided opt-in by
+`outfitter link`; artifact baking remains deferred. Setup does not port harness state or create
+persistent links.

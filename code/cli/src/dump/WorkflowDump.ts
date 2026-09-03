@@ -22,7 +22,8 @@ import { dumpAgent } from './Dump.js';
 import type { DumpResult } from './Dump.js';
 import { escapesRoots } from './Containment.js';
 
-const collectWorkflowClosure = (set: EffectiveResourceSet, root: string) => {
+/** Walks a workflow root through its nested workflows, collecting every agent actor it references. */
+export const collectWorkflowClosure = (set: EffectiveResourceSet, root: string) => {
   const workflows: WorkflowDefinition[] = [];
   const agents = new Set<string>();
   const errors: string[] = [];

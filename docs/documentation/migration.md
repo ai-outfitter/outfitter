@@ -45,4 +45,4 @@ The name is supported; the previous profile layout inside it is not.
 
 ## Claude Code users
 
-If your pre-Outfitter configuration lives in `~/.claude` rather than `.outfitter/`, skip this page — use [Porting a Claude Code setup](./porting-claude.md) instead.
+If your pre-Outfitter configuration lives in `~/.claude` rather than `.outfitter/`, skip this page — use [Linking into Claude Code and Codex](./linking-harnesses.md) instead.
