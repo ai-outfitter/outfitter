@@ -16,6 +16,7 @@ import { dirname, join, relative } from 'node:path';
 import { findResource } from '../resolver/Resource.js';
 import { compareSlugs } from '../resolver/Resource.js';
 import type { EffectiveResourceSet } from '../resolver/Resource.js';
+import type { AgentDefaults } from '../settings/Settings.js';
 import { isWorkflowDefinitionIssue, readWorkflowDefinition } from '../resolver/WorkflowDefinition.js';
 import type { WorkflowDefinition } from '../resolver/WorkflowDefinition.js';
 import { dumpAgent } from './Dump.js';
@@ -85,6 +86,7 @@ export const dumpWorkflow = (
   workflowSlug: string,
   outDirectory: string,
   projectDirectory?: string,
+  agentDefaults?: AgentDefaults,
 ): DumpResult => {
   const closure = collectWorkflowClosure(set, workflowSlug);
   if (closure.errors.length > 0) return { writtenPaths: [], warnings: [], errors: closure.errors };
@@ -102,7 +104,7 @@ export const dumpWorkflow = (
   try {
     for (const agent of closure.agents) {
       const agentDump = join(temporary, agent);
-      const result = dumpAgent(set, agent, agentDump, projectDirectory);
+      const result = dumpAgent(set, agent, agentDump, projectDirectory, agentDefaults);
       warnings.push(...result.warnings);
       errors.push(...result.errors);
       const composition = join(agentDump, '.agents', '.outfitter', 'composition.json');

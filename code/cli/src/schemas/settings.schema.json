@@ -103,7 +103,40 @@
     "custom_settings": {
       "type": "object",
       "description": "Arbitrary YAML-compatible values exposed to Outfitter composition templates as outfitter.custom_settings."
+    },
+    "agent_defaults": {
+      "type": "object",
+      "description": "Additive loadout entries composed into every agent before its own loadout, using the same deterministic ordering and stable de-duplication as inherited agent loadouts.",
+      "properties": {
+        "extensions": { "$ref": "#/$defs/slugList" },
+        "skills": { "$ref": "#/$defs/slugList" },
+        "mcp": { "$ref": "#/$defs/slugList" },
+        "plugins": { "$ref": "#/$defs/slugList" },
+        "subagents": { "$ref": "#/$defs/slugList" },
+        "append_system_prompt": {
+          "oneOf": [
+            { "$ref": "#/$defs/promptSource" },
+            { "type": "array", "items": { "$ref": "#/$defs/promptSource" } }
+          ]
+        }
+      },
+      "additionalProperties": false
     }
   },
-  "additionalProperties": true
+  "additionalProperties": true,
+  "$defs": {
+    "slugList": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "promptSource": {
+      "type": "object",
+      "oneOf": [{ "required": ["file"] }, { "required": ["repo_file"] }],
+      "properties": {
+        "file": { "type": "string", "minLength": 1 },
+        "repo_file": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    }
+  }
 }

@@ -7,6 +7,7 @@ import type { ValidationIssue } from '../validation/SchemaValidator.js';
 import { validateSchema } from '../validation/SchemaValidator.js';
 import { parseYamlDocument } from '../validation/YamlDocument.js';
 import type {
+  AgentDefaults,
   CustomSettings,
   Harness,
   Isolation,
@@ -59,6 +60,16 @@ interface SettingsDocument {
   readonly startup?: StartupSettingsDocument;
   readonly enterprise?: EnterpriseSettingsDocument;
   readonly telemetry?: TelemetrySettingsDocument;
+  readonly agent_defaults?: AgentDefaultsDocument;
+}
+
+interface AgentDefaultsDocument {
+  readonly extensions?: readonly string[];
+  readonly skills?: readonly string[];
+  readonly mcp?: readonly string[];
+  readonly plugins?: readonly string[];
+  readonly subagents?: readonly string[];
+  readonly append_system_prompt?: unknown;
 }
 
 interface EnterpriseSettingsDocument {
@@ -295,6 +306,7 @@ const convertSettingsDocument = (
   startup: convertStartupSettings(document.startup),
   enterprise: isHomeScope(scope) ? convertEnterpriseSettings(document.enterprise) : undefined,
   telemetry: convertTelemetrySettings(document.telemetry),
+  agentDefaults: convertAgentDefaults(document.agent_defaults),
 });
 
 const convertStartupSettings = (startup: StartupSettingsDocument | undefined): Settings['startup'] =>
@@ -305,6 +317,23 @@ const convertEnterpriseSettings = (enterprise: EnterpriseSettingsDocument | unde
 
 const convertTelemetrySettings = (telemetry: TelemetrySettingsDocument | undefined): Settings['telemetry'] =>
   telemetry === undefined ? undefined : { enabled: telemetry.enabled };
+
+const convertAgentDefaults = (defaults: AgentDefaultsDocument | undefined): AgentDefaults | undefined =>
+  defaults === undefined
+    ? undefined
+    : {
+        extensions: defaults.extensions,
+        skills: defaults.skills,
+        mcp: defaults.mcp,
+        plugins: defaults.plugins,
+        subagents: defaults.subagents,
+        // The settings schema guarantees each entry is a `{file}` or `{repo_file}` source.
+        appendSystemPrompt: Array.isArray(defaults.append_system_prompt)
+          ? defaults.append_system_prompt
+          : defaults.append_system_prompt === undefined
+            ? undefined
+            : [defaults.append_system_prompt],
+      };
 
 const convertRemoteSettingsSource = (source: RemoteSettingsDocument): RemoteSettingsReference => {
   if (source.uri !== undefined) {

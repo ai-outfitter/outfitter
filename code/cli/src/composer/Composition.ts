@@ -1,4 +1,5 @@
 // Harness-neutral composition types produced from the effective resource set for a selected agent.
+import type { PromptSourceReference } from './PromptSource.js';
 import type { Loadout, ResolvedResource } from '../resolver/Resource.js';
 import type { EffectiveModelRegistry } from './Models.js';
 import type { PromptFragment } from './PromptSource.js';
@@ -42,6 +43,20 @@ export interface ComposedSubagent {
   readonly tools?: Loadout['tools'];
 }
 
+/**
+ * Settings-layer (`settings.yml:agent_defaults`) entries composed into one agent, as declared.
+ * Present on a plan only when the settings layer actually declares defaults, so catalogs without
+ * `agent_defaults` compose byte-identical plans.
+ */
+export interface CompositionAgentDefaults {
+  readonly extensions?: readonly string[];
+  readonly skills?: readonly string[];
+  readonly mcp?: readonly string[];
+  readonly plugins?: readonly string[];
+  readonly subagents?: readonly string[];
+  readonly appendSystemPrompt?: readonly PromptSourceReference[];
+}
+
 /** A loadout with its slug references resolved against the effective set. */
 export interface ComposedLoadout {
   readonly skills: readonly ResolvedResource[];
@@ -74,6 +89,8 @@ export interface CompositionPlan {
   readonly contributingAgents?: readonly ResolvedResource[];
   /** Parent-first chain of agent slugs that contributed to this composition, selected child last. */
   readonly inheritanceChain?: readonly string[];
+  /** Settings-layer defaults composed ahead of the inheritance chain, when declared. */
+  readonly agentDefaults?: CompositionAgentDefaults;
   /** Non-fatal issues (e.g. unknown loadout slugs) surfaced during composition. */
   readonly warnings: readonly string[];
 }

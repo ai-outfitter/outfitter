@@ -1,4 +1,5 @@
 // Defines the internal Settings shape produced from Outfitter settings files.
+import type { PromptSourceReference } from '../composer/PromptSource.js';
 import type { RemoteSourceReference } from '../sources/SourceCache.js';
 
 export type RemoteSettingsReference = RemoteSourceReference & { readonly path: string };
@@ -47,6 +48,34 @@ export interface TelemetrySettings {
   readonly enabled?: boolean;
 }
 
+/**
+ * Additive loadout entries composed into every agent before its own loadout. Only the loadout
+ * fields with additive union semantics are supported; per-agent overrides like `model`, `thinking`,
+ * and `tools` stay agent-owned so an organization default can never silently pin a scalar.
+ */
+export interface AgentDefaults {
+  readonly extensions?: readonly string[];
+  readonly skills?: readonly string[];
+  readonly mcp?: readonly string[];
+  readonly plugins?: readonly string[];
+  readonly subagents?: readonly string[];
+  readonly appendSystemPrompt?: readonly PromptSourceReference[];
+}
+
+/** True when no defaults field carries an entry, so the settings layer contributes nothing. */
+export const isEmptyAgentDefaults = (defaults: AgentDefaults | undefined): boolean => {
+  if (defaults === undefined) return true;
+  const fields = [
+    defaults.extensions,
+    defaults.skills,
+    defaults.mcp,
+    defaults.plugins,
+    defaults.subagents,
+    defaults.appendSystemPrompt,
+  ];
+  return fields.every((values) => values === undefined || values.length === 0);
+};
+
 export interface SourceCacheSettings {
   readonly policy?: SourceCachePolicy;
 }
@@ -73,6 +102,8 @@ export interface Settings {
   readonly startup?: StartupSettings;
   readonly enterprise?: EnterpriseSettings;
   readonly telemetry?: TelemetrySettings;
+  /** Additive loadout entries composed into every agent before its own loadout. */
+  readonly agentDefaults?: AgentDefaults;
 }
 
 export const emptySettings = (): Settings => ({

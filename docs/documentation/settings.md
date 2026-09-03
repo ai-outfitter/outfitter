@@ -52,6 +52,17 @@ source_cache:
 # Pseudonymous product analytics consent; defaults to true when absent.
 telemetry:
   enabled: false
+
+# Additive loadout entries composed into every agent ahead of its own loadout.
+agent_defaults:
+  extensions:
+    - git:github.com/ai-outfitter/pensieve@4b1e0d2c9a7f35e86b0d1c4a92f6e3d5a8b7c601
+  skills:
+    - organization-practices
+  mcp:
+    - github
+  append_system_prompt:
+    - file: prompts/organization.md
 ```
 
 - `default_agent` / `default_harness` — which agent plain `outfitter` runs, and the harness it launches in.
@@ -66,6 +77,7 @@ telemetry:
   accesses the network.
   below its `repos/` directory.
 - `telemetry.enabled` — the primary and sole persistent control for pseudonymous product analytics. Edit it directly to enable or disable telemetry. See [Telemetry](./telemetry.md) for consent precedence, automatic identifier cleanup, the event contract, and the current inert-build status.
+- `agent_defaults` — additive loadout entries composed into **every** agent ahead of its own loadout; see [Agent defaults](#agent-defaults) below.
 
 ## Precedence
 
@@ -78,4 +90,32 @@ Higher wins:
 5. Cached remote settings (in configured order)
 6. Built-in defaults
 
-Scalar settings override. `sources` follows last-wins ordering per scope so a higher-precedence file replaces the complete lower-precedence list. `workflows` is additive: loaded settings contribute an ordered-set union, and repeated slugs across files collapse to their first occurrence.
+Scalar settings override. `sources` follows last-wins ordering per scope so a higher-precedence file replaces the complete lower-precedence list. `workflows` and `agent_defaults` are additive: loaded settings contribute an ordered-set union, and repeated entries across files collapse to their first occurrence.
+
+## Agent defaults
+
+`agent_defaults` composes one set of additive loadout entries into every agent — local runs, Actions, and dumps alike — so an organization declares a shared extension, skill, MCP server, plugin, delegate, or appended prompt fragment once instead of duplicating it into every `agents/<id>/agent.md`:
+
+```yaml
+agent_defaults:
+  extensions:
+    - git:github.com/ai-outfitter/pensieve@4b1e0d2c9a7f35e86b0d1c4a92f6e3d5a8b7c601
+  skills:
+    - organization-practices
+  mcp:
+    - github
+  plugins:
+    - org-plugin
+  subagents:
+    - org-reviewer
+  append_system_prompt:
+    - file: prompts/organization.md # resolved like agent prompt sources: catalog `file`, active-project `repo_file`
+```
+
+Composition rules:
+
+- Defaults compose **before** each agent's own loadout — like a root-most ancestor ahead of the whole inheritance chain — using the same deterministic parent-first ordering and stable de-duplication as inherited agent loadouts. An agent that lists the same slug itself never duplicates it, and the settings layer wins first-encounter conflicts.
+- Selections resolve catalog-wide across layers, never through an agent's local namespace.
+- Only the additive loadout fields above are supported. Per-agent controls such as `model`, `thinking`, and `tools` stay agent-owned; `agents.md` remains shared prompt context, not a configuration manifest.
+- `outfitter run`, `outfitter dump`, and `outfitter validate` compose the same effective defaults. Unresolved references are validation findings and composition warnings named `agent_defaults …`, and `outfitter dump` records the settings-layer provenance in `.outfitter/composition.json` plus a `settings.yml` carrying the merged defaults, so a dumped tree stays self-contained.
+- Settings without `agent_defaults` behave exactly as before. The block is backend-neutral: no backend-specific keys, endpoints, or credentials.

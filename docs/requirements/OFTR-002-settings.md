@@ -12,6 +12,11 @@
 > list settings, every loaded settings file contributes to an ordered-set union. This does not make
 > settings an agent-loadout selection surface; it controls which workflow roots commands expose.
 
+> **Amendment (2026-09-02, issue [#347](https://github.com/ai-outfitter/outfitter/issues/347)):**
+> `agent_defaults` adds a generalized additive loadout composition surface (section OFTR-002.10).
+> This deliberately scopes settings to the only additive loadout fields; it does not make settings
+> an agent identity or scalar-override surface, and it stays backend-neutral.
+
 ## Overview
 
 Outfitter settings are the merged result of user, user-local, project, and project-local
@@ -100,3 +105,17 @@ enable workflow roots as command entry points.
 8. `outfitter dump --workflow <slug>` MUST reject a disabled root with guidance to add it to `workflows`.
 9. A nested workflow dependency MUST be available to an enabled root's validation and dump closure without being separately listed, but MUST remain unavailable as a direct dump root unless separately enabled.
 10. Enabled workflow definitions MUST follow normal resource precedence, including project definitions overriding user or source definitions of the same slug.
+
+### OFTR-002.10: Agent Defaults
+
+1. `settings.yml` MAY declare an optional `agent_defaults` object of additive loadout entries composed into every agent.
+2. `agent_defaults` MUST support only the additive loadout fields `extensions`, `skills`, `mcp`, `plugins`, `subagents`, and `append_system_prompt`; Outfitter MUST reject unknown `agent_defaults` keys and MUST NOT add scalar-override fields such as `model`, `thinking`, or `tools`.
+3. Outfitter MUST compose `agent_defaults` into every agent ahead of that agent's own loadout, using the same deterministic parent-first ordering and stable de-duplication semantics as inherited agent loadouts, so an agent's own entries never duplicate a default and the settings layer wins first-encounter conflicts like a root-most ancestor.
+4. `agent_defaults` selections MUST resolve catalog-wide across layers; they MUST NOT resolve through any agent's local namespace.
+5. Every loaded settings file, including configured `remote_settings`, MAY declare `agent_defaults`, and Outfitter MUST merge fields across the stack as ordered-set unions collapsing duplicates to their first occurrence, lowest-precedence entries first.
+6. `outfitter run`, `outfitter dump`, and `outfitter validate` MUST operate on the same effective composition of `agent_defaults` and agent loadouts.
+7. Unresolved `agent_defaults` references MUST surface through composition warnings and `outfitter validate` findings, naming the settings layer rather than an agent.
+8. `outfitter dump` MUST record settings-layer provenance for composed defaults and MUST carry the merged `agent_defaults` into the dumped tree so the dump remains self-contained.
+9. Harness support rules MUST remain unchanged: `agent_defaults` entries ride the same loadout projection as agent-declared entries, so a harness that cannot carry an additive element reports it through existing unsupported-element diagnostics, not a settings-specific error.
+10. `agent_defaults` MUST remain backend-neutral: Outfitter MUST NOT introduce backend-specific keys, sink endpoints, credentials, retention policy, or workload-identity behavior.
+11. Settings without `agent_defaults` MUST compose, validate, run, and dump exactly as before this section existed.

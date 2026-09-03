@@ -362,7 +362,10 @@ export const executeRunAgentCommand = async (input: RunAgentInput): Promise<RunA
   const agentSlug = resolveAgentSlug(settings.defaultAgent, input.agent);
   const harness = resolveHarness(settings.defaultHarness, input.harness);
   const claudeConfig = resolveClaudeConfig(input, harness, settings.isolation);
-  const composed = compose(set, agentSlug, { projectDirectory: input.projectDirectory });
+  const composed = compose(set, agentSlug, {
+    projectDirectory: input.projectDirectory,
+    agentDefaults: settings.agentDefaults,
+  });
 
   if (composed.plan === undefined) {
     const messages = [...resolutionWarnings, ...failedCompositionMessages(resolved, composed)];

@@ -8,7 +8,7 @@ import { collectWorkflowClosure } from '../dump/WorkflowDump.js';
 import { composedIdentityBody, serializeClaudeAgentDocument } from '../projection/Materialize.js';
 import { compareSlugs, findResource, listAgentResources, listResources } from '../resolver/Resource.js';
 import type { EffectiveResourceSet, ResolvedResource } from '../resolver/Resource.js';
-import type { Settings } from '../settings/Settings.js';
+import type { AgentDefaults, Settings } from '../settings/Settings.js';
 import type { LinkHarness } from './HarnessHome.js';
 
 export interface LinkSelection {
@@ -146,6 +146,7 @@ export const composeLinkClosure = (
   set: EffectiveResourceSet,
   scope: readonly string[],
   projectDirectory: string,
+  agentDefaults?: AgentDefaults,
 ): LinkClosure => {
   const seen = new Set<string>();
   const queue = [...scope];
@@ -159,7 +160,7 @@ export const composeLinkClosure = (
     const slug = queue.shift()!;
     if (seen.has(slug)) continue;
     seen.add(slug);
-    const composed = compose(set, slug, { projectDirectory });
+    const composed = compose(set, slug, { projectDirectory, agentDefaults });
     warnings.push(...composed.warnings);
     if (composed.plan === undefined) {
       errors.push(...composed.errors);
