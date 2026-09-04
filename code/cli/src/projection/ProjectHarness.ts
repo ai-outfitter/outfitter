@@ -218,7 +218,12 @@ const buildPiOrClaudeLaunchPlan = (
 ): AgentLaunchPlan => {
   const isPi = input.harness === 'pi';
   const isolation = resolveProjectionIsolation(input);
-  const skillArgs = isPi ? composition.loadout.skills.flatMap((skill) => ['--skill', skill.slug]) : [];
+  // Pi's `--skill` value is a filesystem path, not a discovered-skill slug. Use the materialized
+  // paths explicitly and suppress implicit discovery: otherwise Pi also sees a project source copy
+  // or rediscovers the runtime copy and reports a false collision for the selected skill.
+  const skillArgs = isPi
+    ? ['--no-skills', ...materialized.skillDirectories.flatMap((directory) => ['--skill', directory])]
+    : [];
   const extensionArgs = isPi ? (input.extensionLoadDirs ?? []).flatMap((dir) => ['--extension', dir]) : [];
 
   return {
