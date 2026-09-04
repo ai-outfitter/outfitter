@@ -8,6 +8,7 @@ import {
   attachSignalForwarding,
   createProcessGroupSignalTarget,
   launchAgentProcess,
+  normalizeChildExitCode,
   resolveAgentLaunchExecutable,
 } from '../../src/agents/AgentLaunch.js';
 import type { AgentLaunchPlan } from '../../src/projection/Projection.js';
@@ -167,5 +168,24 @@ describe('termination forwarding', () => {
 
     expect(child.signals).toEqual(['SIGTERM']);
     expect(createProcessGroupSignalTarget(fakeChild()).kill('SIGHUP')).toBe(true);
+  });
+});
+
+describe('child exit normalization', () => {
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-010.6).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('maps the native Windows Ctrl-C status to the signal-derived exit code', () => {
+    expect(normalizeChildExitCode(0xc000013a, null, 'win32')).toBe(130);
+    expect(normalizeChildExitCode(null, 'SIGINT', 'win32')).toBe(130);
+  });
+
+  it('does not reinterpret POSIX exits or unrelated Windows NTSTATUS failures', () => {
+    expect(normalizeChildExitCode(0xc000013a, null, 'darwin')).toBe(0xc000013a);
+    expect(normalizeChildExitCode(0xc0000005, null, 'win32')).toBe(0xc0000005);
+    expect(normalizeChildExitCode(7, null, 'win32')).toBe(7);
+  });
+
+  it('treats a clean close without explicit exit data as success', () => {
+    expect(normalizeChildExitCode(null, null, 'linux')).toBe(0);
   });
 });

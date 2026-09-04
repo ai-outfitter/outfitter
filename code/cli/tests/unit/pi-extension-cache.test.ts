@@ -10,6 +10,7 @@ import {
   assertInstallDirInsideCache,
   ensurePiExtensions,
   mapSpecifierToPiSource,
+  piExtensionInstallEnvironment,
 } from '../../src/extensions/PiExtensionCache.js';
 import type { PiInstallSpawner } from '../../src/extensions/PiExtensionCache.js';
 
@@ -310,6 +311,17 @@ describe('ensurePiExtensions', () => {
     });
     expect(spawned).toBe(1);
     expect(result.loadDirs).toEqual([join(dir, 'npm', 'node_modules', 'pi-subagents')]);
+  });
+});
+
+describe('piExtensionInstallEnvironment', () => {
+  it('disables npm audit and funding requests during the first-launch extension bootstrap', () => {
+    expect(piExtensionInstallEnvironment('/tmp/outfitter/pi-extensions')).toEqual({
+      PI_CODING_AGENT_DIR: '/tmp/outfitter/pi-extensions',
+      GIT_TERMINAL_PROMPT: '0',
+      NPM_CONFIG_AUDIT: 'false',
+      NPM_CONFIG_FUND: 'false',
+    });
   });
 });
 

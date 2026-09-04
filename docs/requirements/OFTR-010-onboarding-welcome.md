@@ -39,6 +39,9 @@ Amendment (2026-09-04): statement 9 defines cancellation as a terminal startup o
 POSIX installer-tree termination. Previously, a forwarded signal ended only the current pi wrapper;
 the queue could continue into another install or the agent launch while a spawned npm process lived on.
 
+Amendment (2026-09-04): statement 10 normalizes the native Windows Ctrl-C status to the same
+shell-compatible cancellation code used for SIGINT without reinterpreting other Windows failures.
+
 1. An Outfitter-managed interactive Pi session MUST default `quietStartup` to `true` when the
    selected profile does not set it explicitly.
 2. A profile's explicit `quietStartup` value MUST take precedence over the Outfitter default.
@@ -59,6 +62,9 @@ the queue could continue into another install or the agent launch while a spawne
    stop the remaining install queue, MUST NOT launch the agent, and MUST return the signal-derived
    exit code. On POSIX systems, the installer and its descendants MUST receive that signal so an npm
    subprocess cannot outlive the cancelled Outfitter run.
+10. On Windows, the native `STATUS_CONTROL_C_EXIT` status MUST be normalized to exit code 130 so
+    console Ctrl-C follows the same cancellation path as SIGINT; unrelated Windows exit statuses
+    MUST remain unchanged.
 
 ## OFTR-010.2: Exact walkthrough
 
