@@ -210,11 +210,19 @@ const evaluateCachedInstall = (installDir: string, mapped: PiExtensionSource, of
 // normal Outfitter signal forwarding terminate the whole installer tree rather than orphaning npm.
 const quietSpawnLauncher = createSpawnLauncher('ignore', { terminateProcessGroup: true });
 const debugSpawnLauncher = createSpawnLauncher('inherit', { terminateProcessGroup: true });
+export const piExtensionInstallEnvironment = (cacheAgentDir: string): Readonly<Record<string, string>> => ({
+  PI_CODING_AGENT_DIR: cacheAgentDir,
+  GIT_TERMINAL_PROMPT: '0',
+  // Extension installs are a runtime bootstrap, not a dependency-maintenance workflow. npm audit
+  // can otherwise hold first launch for its full network timeout after every package has downloaded.
+  NPM_CONFIG_AUDIT: 'false',
+  NPM_CONFIG_FUND: 'false',
+});
 const defaultSpawner: PiInstallSpawner = ({ source, cacheAgentDir, debug }) =>
   launchThroughSpawn(debug === true ? debugSpawnLauncher : quietSpawnLauncher, {
     command: 'pi',
     args: ['install', source],
-    env: { PI_CODING_AGENT_DIR: cacheAgentDir, GIT_TERMINAL_PROMPT: '0' },
+    env: piExtensionInstallEnvironment(cacheAgentDir),
   });
 /* v8 ignore stop */
 
