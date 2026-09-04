@@ -70,7 +70,7 @@ default_agent: engineer
 `outfitter setup` restores the original Pi-native profile-catalog walkthrough on top of `.agents`:
 choose the default Outfitter catalog, create your own profile, or provide another catalog, then pick
 the home/project target and default CLI agent. The default picker is fetched from the immutable
-`ai-outfitter/default-profiles` Release Please tag pinned by Outfitter—never from a sibling checkout.
+`ai-outfitter/community-profiles` Release Please tag pinned by Outfitter—never from a sibling checkout.
 Managed porting and persistent harness symlinks are deferred to
 [#187](https://github.com/ai-outfitter/outfitter/issues/187).
 

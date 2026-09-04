@@ -57,8 +57,9 @@
 1. The first prompt MUST be `How would you like to set up Outfitter?` with, in order:
    `Use the default Outfitter profile catalog`, `Create your own profile`, and
    `Provide a different catalog to import`.
-2. Default-catalog setup MUST show the original described profile picker. Founder MUST be the first,
-   preselected `Recommended` row unless an existing default is marked `current`.
+2. Default-catalog setup MUST show the original described profile picker. Engineer MUST be the first,
+   preselected `Recommended` row unless an existing default is marked `current`; profiles marked
+   `abstract: true` MUST NOT be offered.
 3. Create setup MUST ask `Profile id`, then `Profile label`, then the install target. It MUST preserve
    an existing profile file.
 4. Different-catalog setup MUST ask the original GitHub repository, ref, and settings-path questions,
@@ -75,8 +76,8 @@
 2. Home/project settings MUST be `~/.agents/settings.yml` and `<project>/.agents/settings.yml`.
 3. The profile choice maps to `default_agent`; the added CLI choice maps to `default_harness`.
 4. Custom profiles map to `agents/<id>/agent.md`. The default catalog MUST map to
-   `github: ai-outfitter/default-profiles` at the immutable Release Please version tag shipped by
-   Outfitter.
+   `github: ai-outfitter/community-profiles` at the immutable Release Please version tag shipped by
+   Outfitter; a retired default-catalog pin in existing settings is replaced, never kept alongside.
 5. Existing resource files and unrelated settings MUST be preserved.
 6. Writes MUST be atomic; cancellation writes nothing; failures roll back only this attempt's changes.
 7. Setup MUST fetch that exact default-catalog revision into the normal remote-source cache or reuse

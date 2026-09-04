@@ -154,28 +154,40 @@ const upsertDefaultCatalogSource = (content: string): string => {
 
   const lines = content.replace(/\s*$/u, '').split('\n');
   const start = lines.findIndex((line) => /^sources:\s*$/u.test(line));
-  let end = start + 1;
-  while (end < lines.length && (/^\s/u.test(lines[end] ?? '') || (lines[end] ?? '') === '')) end += 1;
-  const indexOfSource = (github: string): number =>
-    lines.findIndex((line, index) => {
-      if (index <= start || index >= end) return false;
+  const sourcesEnd = (): number => {
+    let boundary = start + 1;
+    while (boundary < lines.length && (/^\s/u.test(lines[boundary] ?? '') || (lines[boundary] ?? '') === ''))
+      boundary += 1;
+    return boundary;
+  };
+  const indexOfSource = (github: string): number => {
+    const boundary = sourcesEnd();
+    return lines.findIndex((line, index) => {
+      if (index <= start || index >= boundary) return false;
       const match = /^\s*-\s+github:\s*(.+?)\s*$/u.exec(line);
       return match?.[1]?.replace(/^['"]|['"]$/gu, '') === github;
     });
+  };
+
+  // Every retired pin leaves, even when the current source is already present;
+  // the first retired pin found donates its position when it is not.
+  for (const retiredName of retiredDefaultCatalogSources) {
+    for (let retired = indexOfSource(retiredName); retired !== -1; retired = indexOfSource(retiredName)) {
+      let retiredEnd = retired + 1;
+      const boundary = sourcesEnd();
+      while (retiredEnd < boundary && !/^\s*-\s+/u.test(lines[retiredEnd] ?? '')) retiredEnd += 1;
+      const replacement = indexOfSource(defaultCatalogSource.github) === -1 ? sourceLines : [];
+      lines.splice(retired, retiredEnd - retired, ...replacement);
+    }
+  }
   const existing = indexOfSource(defaultCatalogSource.github);
 
   if (existing === -1) {
-    const retired = retiredDefaultCatalogSources.map(indexOfSource).find((index) => index !== -1) ?? -1;
-    if (retired === -1) {
-      lines.splice(start + 1, 0, ...sourceLines);
-      return `${lines.join('\n')}\n`;
-    }
-    let retiredEnd = retired + 1;
-    while (retiredEnd < end && !/^\s*-\s+/u.test(lines[retiredEnd] ?? '')) retiredEnd += 1;
-    lines.splice(retired, retiredEnd - retired, ...sourceLines);
+    lines.splice(start + 1, 0, ...sourceLines);
     return `${lines.join('\n')}\n`;
   }
 
+  const end = sourcesEnd();
   let blockEnd = existing + 1;
   while (blockEnd < end && !/^\s*-\s+/u.test(lines[blockEnd] ?? '')) blockEnd += 1;
   const block = lines.slice(existing, blockEnd).filter((line) => !/^\s+path:\s*/u.test(line));

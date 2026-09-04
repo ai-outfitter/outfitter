@@ -173,9 +173,30 @@ describe('setup state machine', () => {
       `  - path: ./personal\n  - github: ${defaultCatalogSource.github}\n    ref: ${defaultCatalogSource.ref}\nstartup:`,
     );
     expect(settings.match(/github: ai-outfitter\/default-profiles/gu)).toBeNull();
-    expect(settings.match(new RegExp(`github: ${defaultCatalogSource.github.replace('/', '\\/')}`, 'gu'))).toHaveLength(1);
+    expect(settings.match(new RegExp(`github: ${defaultCatalogSource.github.replace('/', '\\/')}`, 'gu'))).toHaveLength(
+      1,
+    );
     expect(settings.match(/# telemetry:/gu)).toHaveLength(1);
     expect(settings).not.toContain('path: profiles');
+  });
+
+  it('removes a retired default-catalog pin even when the current source is already present', () => {
+    const { catalog, home, project } = createTree();
+    write(
+      join(home, '.agents', 'settings.yml'),
+      `default_agent: engineer\ndefault_harness: pi\nsources:\n  - github: ${defaultCatalogSource.github}\n    ref: old\n` +
+        '  - github: ai-outfitter/default-profiles\n    ref: v1.1.1\n',
+    );
+    applySetupSelection({
+      homeDirectory: home,
+      projectDirectory: project,
+      defaultCatalogRoot: catalog,
+      availableAgents: discoverSetupAgentChoices({ defaultCatalogRoot: catalog }),
+      selection: { setupMode: 'default', agentId: 'engineer', harness: 'pi', target: 'home' },
+    });
+    const settings = readFileSync(join(home, '.agents', 'settings.yml'), 'utf8');
+    expect(settings.match(/github: ai-outfitter\/default-profiles/gu)).toBeNull();
+    expect(settings).toContain(`    ref: ${defaultCatalogSource.ref}`);
   });
 
   it('adds the pinned default source to an existing source list', () => {

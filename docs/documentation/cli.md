@@ -48,7 +48,7 @@ to import**; complete that branch; choose a home/project settings target; then c
 CLI agent. Pi/Outfitter is preselected. Passing `[source]` retains the original direct-source path
 and starts at target selection. Pi hosts the deterministic setup UI without a model provider and
 does not port or symlink harness configuration. The default picker always comes from
-`ai-outfitter/default-profiles` at the immutable Release Please version tag pinned by the installed
+`ai-outfitter/community-profiles` at the immutable Release Please version tag pinned by the installed
 Outfitter version; setup fetches or reuses that release through the normal source cache and writes
 the same GitHub/ref pair to settings. It never reads a sibling checkout or a packaged catalog
 fallback.
