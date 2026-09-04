@@ -1,8 +1,10 @@
 # Node-version support matrix. Runs on release-please PRs (not on ordinary PRs)
 # and on demand, so every release candidate is exercised across the Node range
-# users actually run. Each leg installs the packed artifact from the registry
-# exactly like a user would and then loads the real bundled pi, which is where
-# old Node breaks (issue #368: undici's markAsUncloneable on Node < 22.10).
+# users actually run. Each leg loads the real bundled pi, which is where old Node
+# breaks (issue #368: undici's markAsUncloneable on Node < 22.10), then installs
+# the packed artifact exactly like a user would. The unit suite is deliberately
+# not part of the matrix: it runs on the pinned Node in ci.yml, and on other
+# versions it only surfaces dev-tooling noise users never see.
 name: Node matrix
 
 on:
@@ -10,9 +12,6 @@ on:
     branches:
       - 'release-please--**'
   workflow_dispatch:
-  push:
-    branches:
-      - ci/node-matrix # temporary: dropped before merge
 
 jobs:
   node:
@@ -50,6 +49,3 @@ jobs:
 
       - name: Run packaged E2E smoke test
         run: bash scripts/e2e-smoke.sh
-
-      - name: Run test suite
-        run: npm test
