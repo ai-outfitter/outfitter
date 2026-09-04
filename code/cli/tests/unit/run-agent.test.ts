@@ -118,7 +118,7 @@ describe('run agent', () => {
         '--system-prompt',
         '--append-system-prompt',
         '--skill',
-        'wiki',
+        join(launch.runtimeDir, 'skills', 'wiki'), // pi's --skill takes a path, not a slug
         '--model',
         'gpt-5.2',
         '--thinking',
