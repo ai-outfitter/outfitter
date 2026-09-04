@@ -117,6 +117,7 @@ describe('run agent', () => {
       expect.arrayContaining([
         '--system-prompt',
         '--append-system-prompt',
+        '--no-skills',
         '--skill',
         join(launch.runtimeDir, 'skills', 'wiki'), // pi's --skill takes a path, not a slug
         '--model',
