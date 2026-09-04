@@ -24,7 +24,9 @@ If your configuration lives in `~/.claude` instead, move it into `~/.agents/` an
 
 ## First-time setup
 
-Bootstrap from the Outfitter [default catalog](https://github.com/ai-outfitter/.agent), then launch the default agent:
+Bootstrap from the Outfitter
+[default catalog](https://github.com/ai-outfitter/community-profiles), then launch
+the default agent:
 
 ```bash
 outfitter setup

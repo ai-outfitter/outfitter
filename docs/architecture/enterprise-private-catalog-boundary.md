@@ -4,7 +4,8 @@ This document defines the enterprise/private catalog boundary for Outfitter. Pri
 
 ## Current public behavior remains the default
 
-- First-run onboarding and setup continue to use the public default catalog, `github: ai-outfitter/.agent`.
+- First-run onboarding and setup continue to use the public default catalog,
+  `github: ai-outfitter/community-profiles`.
 - `outfitter setup` without an explicit setup source continues to write public default catalog settings.
 - `outfitter sync` continues to use the existing source URI/git synchronization path.
 - Local, public GitHub shorthand, and public URI sources remain supported exactly as they are today.

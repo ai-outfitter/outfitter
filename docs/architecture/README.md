@@ -125,7 +125,7 @@ default_harness: pi # which harness to launch: pi, claude, or codex
 cache_directory: ./cache
 
 sources:
-  - github: ai-outfitter/.agent
+  - github: ai-outfitter/community-profiles
     ref: <commit-sha>
   - github: example/payments-service
     ref: v1.2.0
