@@ -6,7 +6,10 @@
 # run only for release-please branches; other queue entries skip, which counts as
 # passing for a required check.
 # Each leg installs the packed artifact exactly like a user would and exercises
-# it, including the bundled pi it ships with. The unit suite is deliberately not
+# it through scripts/e2e-smoke.sh, including launching the bundled pi it ships
+# with. That launch is the load-bearing check: outfitter-only commands such as
+# `--version` never import pi, so they pass on a Node that pi cannot run on (see
+# the comment in the smoke script and issue #368). The unit suite is deliberately not
 # part of this matrix: it runs on the pinned Node in ci.yml, and on other
 # versions it only surfaces dev-tooling noise users never see.
 name: Release validation
