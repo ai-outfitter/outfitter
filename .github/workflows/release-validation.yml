@@ -1,58 +1,31 @@
-# Release validation. Runs when a release-please PR is in the merge queue, and on
-# manual dispatch, never on ordinary PRs or their queue entries, so every release
-# candidate is exercised across the supported Node versions and platforms.
-# The merge_group event only exposes a gh-readonly-queue/<base>/pr-<n>-<sha> ref,
-# so the gate job resolves that PR number to its head branch and lets the matrix
-# run only for release-please branches; other queue entries skip, which counts as
-# passing for a required check.
+# Release validation. Release-please opens its PRs as drafts (see
+# release-please-config.json), so this runs when that PR is marked ready for
+# review, on later pushes to it while it stays non-draft, and on manual dispatch.
+# It never runs on ordinary PRs, so a release candidate is validated exactly
+# once per release decision across the supported Node versions and platforms.
 # Each leg installs the packed artifact exactly like a user would and exercises
 # it through scripts/e2e-smoke.sh, including launching the bundled pi it ships
 # with. That launch is the load-bearing check: outfitter-only commands such as
 # `--version` never import pi, so they pass on a Node that pi cannot run on (see
-# the comment in the smoke script and issue #368). The unit suite is deliberately not
-# part of this matrix: it runs on the pinned Node in ci.yml, and on other
+# the comment in the smoke script and issue #368). The unit suite is deliberately
+# not part of this matrix: it runs on the pinned Node in ci.yml, and on other
 # versions it only surfaces dev-tooling noise users never see.
 name: Release validation
 
 on:
-  merge_group:
+  pull_request:
     types:
-      - checks_requested
+      - ready_for_review
+      - synchronize
   workflow_dispatch:
 
-permissions:
-  contents: read
-  pull-requests: read
-
 jobs:
-  gate:
-    name: Release-please queue entry?
-    runs-on: ubuntu-latest
-    outputs:
-      run: ${{ steps.check.outputs.run }}
-    steps:
-      - name: Resolve the queued PR's head branch
-        id: check
-        env:
-          GH_TOKEN: ${{ github.token }}
-          HEAD_REF: ${{ github.event.merge_group.head_ref }}
-        run: |
-          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
-            echo "run=true" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          pr="$(printf '%s' "$HEAD_REF" | sed -n 's|.*/pr-\([0-9]*\)-.*|\1|p')"
-          branch="$(gh pr view "$pr" --repo "$GITHUB_REPOSITORY" --json headRefName --jq .headRefName)"
-          echo "queued PR #$pr from branch $branch"
-          case "$branch" in
-            release-please--*) echo "run=true" >> "$GITHUB_OUTPUT" ;;
-            *) echo "run=false" >> "$GITHUB_OUTPUT" ;;
-          esac
-
   validate:
     name: Node ${{ matrix.node }} (${{ matrix.os }})
-    needs: gate
-    if: needs.gate.outputs.run == 'true'
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (!github.event.pull_request.draft &&
+       startsWith(github.head_ref, 'release-please--'))
     runs-on: ${{ matrix.os }}
 
     strategy:
