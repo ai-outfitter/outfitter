@@ -19,11 +19,14 @@ import { writeSourceState } from '../sources/SourceState.js';
 export type RepositorySync = typeof syncRemoteRepositoryAtomically;
 
 export const defaultCatalogSource = {
-  github: 'ai-outfitter/default-profiles',
-  // TODO(release-automation): when default-profiles publishes a new Release Please tag, open a
+  github: 'ai-outfitter/community-profiles',
+  // TODO(release-automation): when community-profiles publishes a new Release Please tag, open a
   // conventional dependency-bump commit in Outfitter so its next Release Please release ships it.
-  ref: 'v1.1.1',
+  ref: 'v1.7.0',
 } as const satisfies RemoteSourceReference;
+
+/** Superseded default catalogs; setup replaces their pins instead of keeping them alongside. */
+export const retiredDefaultCatalogSources = ['ai-outfitter/default-profiles'] as const;
 
 export interface PinnedCatalogBootstrapInput {
   readonly homeDirectory: string;

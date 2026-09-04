@@ -15,7 +15,7 @@ Each layer inherits the one above it. ID-addressed resources — agents, skills,
 | Layer            | Location                                                                      | Holds                                                                                       |
 | ---------------- | ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
 | Community        | e.g. `ai-outfitter/community-profiles`                                        | Reviewed building blocks — skills and reference agents anyone can mix and match.            |
-| Curated defaults | e.g. `ai-outfitter/default-profiles`                                          | The pinned, curated assembly — starter agents users adopt as-is.                            |
+| Curated defaults | e.g. `ai-outfitter/community-profiles`                                        | The pinned, curated assembly — starter agents users adopt as-is.                            |
 | Organization     | `owner/.outfitter` [control repo](./usecases/organization-profile-catalog.md) | Bespoke org agents, shared `agents.md`, org-specific skills (brand voice, RBAC, endpoints). |
 | User / project   | `~/.agents`, `<repo>/.agents`                                                 | Personal and repo overrides, loadout-added references, same-ID resource overrides.          |
 

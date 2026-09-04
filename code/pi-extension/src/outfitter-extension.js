@@ -109,7 +109,7 @@ export default function outfitter(pi) {
         'The current Pi process keeps the profile it started with; this setting applies on the next launch.',
       ];
       const initialProfileId =
-        currentDefault ?? (profiles.some((profile) => profile.id === 'founder') ? 'founder' : profiles[0]?.id);
+        currentDefault ?? (profiles.some((profile) => profile.id === 'engineer') ? 'engineer' : profiles[0]?.id);
       const selectedId = await selectFromItems(ctx, title, items, initialProfileId);
       if (selectedId === undefined) return undefined;
       return profiles.find((profile) => profile.id === selectedId);
@@ -557,7 +557,7 @@ const selectDescribedOption = (ctx, titleLines, items, initialValue) =>
 
 const formatProfileLabel = (profile, currentDefault) => {
   const current = profile.id === currentDefault ? ' (current)' : '';
-  const recommended = currentDefault === undefined && profile.id === 'founder' ? ' (Recommended)' : '';
+  const recommended = currentDefault === undefined && profile.id === 'engineer' ? ' (Recommended)' : '';
   const label = profile.label ? ' — ' + profile.label : '';
   return profile.id + label + current + recommended;
 };
