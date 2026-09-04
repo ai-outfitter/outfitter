@@ -218,7 +218,7 @@ const buildPiOrClaudeLaunchPlan = (
 ): AgentLaunchPlan => {
   const isPi = input.harness === 'pi';
   const isolation = resolveProjectionIsolation(input);
-  const skillArgs = isPi ? composition.loadout.skills.flatMap((skill) => ['--skill', skill.slug]) : [];
+  const skillArgs = isPi ? materialized.skillDirectories.flatMap((dir) => ['--skill', dir]) : [];
   const extensionArgs = isPi ? (input.extensionLoadDirs ?? []).flatMap((dir) => ['--extension', dir]) : [];
 
   return {
