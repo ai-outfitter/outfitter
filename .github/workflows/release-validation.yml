@@ -1,6 +1,10 @@
-# Release validation. Runs in the merge queue and on manual dispatch, never on
-# ordinary pull requests, so every change reaching main is exercised across the
-# Node versions and platforms users actually run before it can be released.
+# Release validation. Runs when a release-please PR is in the merge queue, and on
+# manual dispatch, never on ordinary PRs or their queue entries, so every release
+# candidate is exercised across the Node versions and platforms users actually run.
+# The merge_group event only exposes a gh-readonly-queue/<base>/pr-<n>-<sha> ref,
+# so the gate job resolves that PR number to its head branch and lets the matrix
+# run only for release-please branches; other queue entries skip, which counts as
+# passing for a required check.
 # Each leg loads the real bundled pi, which is where old Node breaks (issue #368:
 # undici's markAsUncloneable on Node < 22.10), then installs the packed artifact
 # exactly like a user would. The unit suite is deliberately not part of this
@@ -14,9 +18,39 @@ on:
       - checks_requested
   workflow_dispatch:
 
+permissions:
+  contents: read
+  pull-requests: read
+
 jobs:
+  gate:
+    name: Release-please queue entry?
+    runs-on: ubuntu-latest
+    outputs:
+      run: ${{ steps.check.outputs.run }}
+    steps:
+      - name: Resolve the queued PR's head branch
+        id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_REF: ${{ github.event.merge_group.head_ref }}
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          pr="$(printf '%s' "$HEAD_REF" | sed -n 's|.*/pr-\([0-9]*\)-.*|\1|p')"
+          branch="$(gh pr view "$pr" --repo "$GITHUB_REPOSITORY" --json headRefName --jq .headRefName)"
+          echo "queued PR #$pr from branch $branch"
+          case "$branch" in
+            release-please--*) echo "run=true" >> "$GITHUB_OUTPUT" ;;
+            *) echo "run=false" >> "$GITHUB_OUTPUT" ;;
+          esac
+
   validate:
     name: Node ${{ matrix.node }} (${{ matrix.os }})
+    needs: gate
+    if: needs.gate.outputs.run == 'true'
     runs-on: ${{ matrix.os }}
 
     strategy:
