@@ -128,6 +128,13 @@ pi_manifest="$(find "$install_prefix/lib/node_modules" -path '*/@earendil-works/
 pi_package_root="$(dirname "$pi_manifest")"
 pi_bin_relative="$(node -p "require('$pi_manifest').bin.pi")"
 pi_bin="$pi_package_root/$pi_bin_relative"
+
+# Load the real bundled pi once before stubbing it. Pi's module graph is where an
+# unsupported Node breaks (issue #368), and nothing else in this script imports it.
+log 'Checking the bundled pi loads'
+pi_version="$(node "$pi_bin" --version 2>&1)" || fail "bundled pi failed to load: $pi_version"
+log "bundled pi OK ($pi_version)"
+
 capture_dir="$work_dir/run-capture"
 mkdir -p "$capture_dir"
 cat >"$pi_bin" <<'FAKE_PI'
