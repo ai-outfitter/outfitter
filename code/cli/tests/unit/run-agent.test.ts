@@ -1,7 +1,7 @@
 // Tests run: resolve → compose → project → launch, launch mapping, cleanup, and strict/validation.
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { dirname, join } from 'node:path';
+import { dirname, isAbsolute, join } from 'node:path';
 
 import { Command } from 'commander';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -113,12 +113,14 @@ describe('run agent', () => {
     expect(result.exitCode).toBe(0);
     expect(result.launchPlan!.command).toBe('pi');
     const launch = captured[0];
+    const skillDirectory = join(launch.runtimeDir, 'skills', 'wiki');
     expect(launch.plan.args).toEqual(
       expect.arrayContaining([
         '--system-prompt',
         '--append-system-prompt',
+        '--no-skills',
         '--skill',
-        'wiki',
+        skillDirectory,
         '--model',
         'gpt-5.2',
         '--thinking',
@@ -128,6 +130,7 @@ describe('run agent', () => {
     );
     expect(launch.systemPrompt).toBe('BASE PROMPT'); // composed identity materialized
     expect(launch.skillPresent).toBe(true); // skill content copied, not an empty dir
+    expect(isAbsolute(skillDirectory)).toBe(true); // Pi interprets --skill as a path relative to cwd
   });
 
   it('stamps the selected profile label and enables quiet Pi startup', async () => {
