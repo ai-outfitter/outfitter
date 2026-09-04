@@ -19,7 +19,7 @@
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join, resolve, sep } from 'node:path';
 
-import { createSpawnLauncher, launchThroughSpawn, spawnLauncher } from '../agents/AgentLaunch.js';
+import { createSpawnLauncher, launchThroughSpawn } from '../agents/AgentLaunch.js';
 import { runGit } from '../sources/GitRepository.js';
 
 /** Spawns `pi install <source>` against the cache agent dir; injectable so tests avoid the network. */
@@ -43,6 +43,8 @@ export interface EnsurePiExtensionsResult {
   readonly loadDirs: readonly string[];
   /** One message per specifier that could not be loaded (unsupported, offline-missing, or failed). */
   readonly warnings: readonly string[];
+  /** Signal-derived installer exit code; when present, no later specifier was attempted. */
+  readonly interruptedExitCode?: number;
 }
 
 interface PiExtensionSource {
@@ -204,16 +206,22 @@ const evaluateCachedInstall = (installDir: string, mapped: PiExtensionSource, of
 };
 
 /* v8 ignore start -- real `pi install` subprocess; ensurePiExtensions is unit-tested with a fake spawner. */
-const quietSpawnLauncher = createSpawnLauncher('ignore');
+// Extension installation can spawn npm/git beneath pi. A dedicated POSIX process group lets the
+// normal Outfitter signal forwarding terminate the whole installer tree rather than orphaning npm.
+const quietSpawnLauncher = createSpawnLauncher('ignore', { terminateProcessGroup: true });
+const debugSpawnLauncher = createSpawnLauncher('inherit', { terminateProcessGroup: true });
 const defaultSpawner: PiInstallSpawner = ({ source, cacheAgentDir, debug }) =>
-  launchThroughSpawn(debug === true ? spawnLauncher : quietSpawnLauncher, {
+  launchThroughSpawn(debug === true ? debugSpawnLauncher : quietSpawnLauncher, {
     command: 'pi',
     args: ['install', source],
     env: { PI_CODING_AGENT_DIR: cacheAgentDir, GIT_TERMINAL_PROMPT: '0' },
   });
 /* v8 ignore stop */
 
-type SpecifierOutcome = { readonly loadDir: string } | { readonly warning: string };
+type SpecifierOutcome =
+  { readonly loadDir: string } | { readonly warning: string; readonly interruptedExitCode?: number };
+
+const forwardedSignalExitCodes = new Set([129, 130, 143]); // SIGHUP, SIGINT, SIGTERM (128 + signal)
 
 /** Resolves one specifier to a cached load directory, installing it when online and missing. */
 const ensureOneExtension = async (
@@ -236,6 +244,12 @@ const ensureOneExtension = async (
   mkdirSync(input.cacheAgentDir, { recursive: true });
   try {
     const exitCode = await spawn({ source: mapped.source, cacheAgentDir: input.cacheAgentDir, debug: input.debug });
+    if (forwardedSignalExitCodes.has(exitCode)) {
+      return {
+        warning: `extension '${specifier}' installation was interrupted (pi install exited ${exitCode}); remaining extensions and agent launch were cancelled.`,
+        interruptedExitCode: exitCode,
+      };
+    }
     if (exitCode !== 0 || !existsSync(installDir)) {
       return { warning: `extension '${specifier}' failed to install (pi install exited ${exitCode}).` };
     }
@@ -262,6 +276,9 @@ export const ensurePiExtensions = async (
       if (!loadDirs.includes(outcome.loadDir)) loadDirs.push(outcome.loadDir);
     } else {
       warnings.push(outcome.warning);
+      if (outcome.interruptedExitCode !== undefined) {
+        return { loadDirs, warnings, interruptedExitCode: outcome.interruptedExitCode };
+      }
     }
   }
 

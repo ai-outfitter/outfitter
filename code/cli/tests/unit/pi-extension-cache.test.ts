@@ -241,6 +241,27 @@ describe('ensurePiExtensions', () => {
     expect(result.warnings[0]).toContain('failed to install');
   });
 
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-010.6).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it.each([129, 130, 143])('stops the install queue after signal-derived exit code %i', async (exitCode) => {
+    const dir = cacheDir();
+    const sources: string[] = [];
+    const result = await ensurePiExtensions(['npm:first', 'npm:never-started'], {
+      cacheAgentDir: dir,
+      offline: false,
+      spawn: ({ source }) => {
+        sources.push(source);
+        return Promise.resolve(exitCode);
+      },
+    });
+
+    expect(sources).toEqual(['npm:first']);
+    expect(result.interruptedExitCode).toBe(exitCode);
+    expect(result.warnings).toEqual([
+      `extension 'npm:first' installation was interrupted (pi install exited ${exitCode}); remaining extensions and agent launch were cancelled.`,
+    ]);
+  });
+
   it('de-duplicates repeated specifiers into a single load dir', async () => {
     const dir = cacheDir();
     writePackage(join(dir, 'npm', 'node_modules', 'pi-nolo'), '1.0.0');

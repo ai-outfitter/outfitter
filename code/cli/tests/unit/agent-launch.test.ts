@@ -6,6 +6,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import {
   attachSignalForwarding,
+  createProcessGroupSignalTarget,
   launchAgentProcess,
   resolveAgentLaunchExecutable,
 } from '../../src/agents/AgentLaunch.js';
@@ -117,5 +118,54 @@ describe('termination forwarding', () => {
 
     emitter.emit('SIGTERM');
     expect(child.signals).toEqual([]);
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-010.6).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('signals a dedicated installer process group so descendants terminate with their wrapper', () => {
+    const child = { ...fakeChild(), pid: 417 };
+    const groupSignals: Array<[number, NodeJS.Signals | number | undefined]> = [];
+    const target = createProcessGroupSignalTarget(child, (pid, signal) => {
+      groupSignals.push([pid, signal]);
+      return true;
+    });
+
+    target.kill('SIGINT');
+
+    expect(groupSignals).toEqual([[-417, 'SIGINT']]);
+    expect(child.signals).toEqual([]);
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-010.6).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('uses Node process-group signalling by default and mirrors child termination state', () => {
+    const child = { ...fakeChild(), pid: 417 };
+    const killProcess = vi.spyOn(process, 'kill').mockReturnValue(true);
+
+    try {
+      const target = createProcessGroupSignalTarget(child);
+      expect(target.killed).toBe(false);
+
+      target.kill('SIGINT');
+      child.killed = true;
+
+      expect(killProcess).toHaveBeenCalledWith(-417, 'SIGINT');
+      expect(target.killed).toBe(true);
+      expect(child.signals).toEqual([]);
+    } finally {
+      killProcess.mockRestore();
+    }
+  });
+
+  it('falls back to the immediate child when process-group signalling is unavailable', () => {
+    const child = { ...fakeChild(), pid: 417 };
+    const target = createProcessGroupSignalTarget(child, () => {
+      throw new Error('no process group');
+    });
+
+    target.kill('SIGTERM');
+
+    expect(child.signals).toEqual(['SIGTERM']);
+    expect(createProcessGroupSignalTarget(fakeChild()).kill('SIGHUP')).toBe(true);
   });
 });
