@@ -24,6 +24,9 @@ For the full argument, read the [Philosophy](./docs/philosophy.md).
 
 ## Quick start
 
+Requires Node 22.19 or newer (the bundled Pi's floor). Older Node installs without error but
+crashes when Pi starts, so Outfitter refuses to run and prints an upgrade hint instead.
+
 Run without installing:
 
 ```bash

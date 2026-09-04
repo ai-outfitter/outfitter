@@ -11,6 +11,7 @@ import { createOutfitterProgram } from './cli/OutfitterCli.js';
 import { createTelemetryContext } from './telemetry/TelemetryContext.js';
 import { createTelemetryService } from './telemetry/TelemetryService.js';
 import type { TelemetryCommandContext, TelemetryService } from './telemetry/TelemetryService.js';
+import { enforceNodeVersion } from './version/NodeVersionGuard.js';
 import { readOutfitterVersion } from './version/OutfitterVersion.js';
 
 export const createProgram = createOutfitterProgram;
@@ -130,12 +131,18 @@ export const isDirectCliExecution = (moduleUrl: string, argvPath: string | undef
   }
 };
 
-/* v8 ignore next 8 -- direct bin execution is covered by local install smoke tests. */
+/* v8 ignore next 12 -- direct bin execution is covered by local install smoke tests. */
 if (isDirectCliExecution(import.meta.url, process.argv[1])) {
-  try {
-    await runCli(createProgram(), process.argv);
-  } catch (error) {
-    console.error(error instanceof Error ? error.message : String(error));
+  // Every subcommand can spawn the bundled pi, which crashes on Node below the published
+  // floor, so the guard runs before parsing and before the telemetry notice (issue #368).
+  if (!enforceNodeVersion()) {
     process.exitCode = 1;
+  } else {
+    try {
+      await runCli(createProgram(), process.argv);
+    } catch (error) {
+      console.error(error instanceof Error ? error.message : String(error));
+      process.exitCode = 1;
+    }
   }
 }
