@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.15.0](https://github.com/ai-outfitter/outfitter/compare/v1.14.0...v1.15.0) (2026-09-04)
+
+
+### Features
+
+* **link:** project the composed tree into Claude Code and Codex homes ([#351](https://github.com/ai-outfitter/outfitter/issues/351)) ([b705a44](https://github.com/ai-outfitter/outfitter/commit/b705a449286311ee94be7ec79e89783a74efdef5))
+* **settings:** compose agent defaults into every agent ([#350](https://github.com/ai-outfitter/outfitter/issues/350)) ([b38e099](https://github.com/ai-outfitter/outfitter/commit/b38e0995afc9a4085ea9e7a5321b31707c5e7d02))
+* **settings:** project native harness defaults ([#355](https://github.com/ai-outfitter/outfitter/issues/355)) ([69a48e9](https://github.com/ai-outfitter/outfitter/commit/69a48e90700bbc9686672369589d260adbfbe88c))
+* **setup:** community-profiles is the default catalog; engineer is the offered default ([#360](https://github.com/ai-outfitter/outfitter/issues/360)) ([2e5cf9b](https://github.com/ai-outfitter/outfitter/commit/2e5cf9bfcec02f7a749a6ac0e80d88594d9fdbcb))
+
+
+### Bug Fixes
+
+* **cli:** refuse to run on Node below the published floor ([#371](https://github.com/ai-outfitter/outfitter/issues/371)) ([64e588b](https://github.com/ai-outfitter/outfitter/commit/64e588bb32f8d933ffdafa0baed161dbfb4445d5)), closes [#368](https://github.com/ai-outfitter/outfitter/issues/368)
+* **pi:** pass materialized skill directories to --skill ([#367](https://github.com/ai-outfitter/outfitter/issues/367)) ([f252000](https://github.com/ai-outfitter/outfitter/commit/f252000734e96b36e79b845378c35feaccc4acef))
+
 ## [1.14.0](https://github.com/ai-outfitter/outfitter/compare/v1.13.0...v1.14.0) (2026-09-02)
 
 
