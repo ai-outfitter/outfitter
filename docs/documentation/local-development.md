@@ -31,10 +31,8 @@ The committed `settings.yml` consumes shared catalogs **pinned to exact commits*
 default_agent: founder
 
 sources:
-  - github: ai-outfitter/.agent
-    ref: 2f9c1ab0d3e44b6f9d2c8a17e5b40c91d6f3a8e2
   - github: ai-outfitter/community-profiles
-    ref: 8d04c7a1f2e94b3c6a5d80e17f4b29c3d1e6a075
+    ref: 32311cbf9eb17ae812c2ab5e91fa5f34d5946ca6 # v1.7.0
   - path: . # this repository's own resources win last
 ```
 
@@ -47,9 +45,9 @@ When you are changing an upstream catalog itself, override its source in the git
 ```yaml
 # settings.local.yml (gitignored — machine-specific absolute paths)
 sources:
-  - path: /home/ncrmro/repos/unsupervised/ai-outfitters/default-profiles
-  - path: /home/ncrmro/repos/unsupervised/ai-outfitters/worktrees/actions/main
-  - path: /home/ncrmro/repos/ncrmro/.agents
+  - path: /home/developer/src/ai-outfitter/community-profiles
+  - path: /home/developer/src/ai-outfitter/actions
+  - path: /home/developer/.agents
 ```
 
 Because `settings.local.yml` overlays its sibling with higher [precedence](./settings.md#precedence), your machine resolves live working trees while every other consumer of the repo keeps resolving the pinned SHAs. Worktrees keep an iteration branch isolated:
@@ -67,7 +65,7 @@ git worktree add ../worktrees/feat/sharper-review -b feat/sharper-review
 4. Relaunch `outfitter` and test the behavior (a running session keeps the composition it started with).
 5. Fold settled changes back to their home:
    - personal → commit to your `.agents` repo;
-   - shared → commit in the upstream checkout, push, and open a PR against the catalog (`ai-outfitter/default-profiles`, `ai-outfitter/actions`, your org's `.outfitter`, …).
+   - shared → commit in the upstream checkout, push, and open a PR against the catalog (`ai-outfitter/community-profiles`, `ai-outfitter/actions`, your org's `.agents`, …).
 6. After the upstream PR merges: remove the local `path:` override, bump the pinned `ref:` in `settings.yml`, and `outfitter sync`.
 
 ## Consuming your repo from projects
