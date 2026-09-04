@@ -136,6 +136,20 @@ export const createProcessGroupSignalTarget = (
   },
 });
 
+// A Ctrl-C delivered by the Windows console is not a POSIX signal termination. libuv reports the
+// unsigned STATUS_CONTROL_C_EXIT DWORD as the child exit code, with no signal, so normalize that
+// one native status to the same shell-compatible code as SIGINT. Other NTSTATUS failures remain
+// unchanged instead of being mistaken for cancellation.
+const WINDOWS_CONTROL_C_EXIT_STATUS = 0xc000013a;
+export const normalizeChildExitCode = (
+  code: number | null,
+  signal: NodeJS.Signals | null,
+  platform: NodeJS.Platform = process.platform,
+): number => {
+  if (signal !== null) return 128 + (os.constants.signals[signal] ?? 0);
+  if (platform === 'win32' && code === WINDOWS_CONTROL_C_EXIT_STATUS) return 130;
+  return code ?? 0;
+};
 /* v8 ignore start -- real process spawn is covered by end-to-end smoke usage, not unit tests. */
 export const createSpawnLauncher = (
   stdio: 'inherit' | 'ignore',
@@ -158,9 +172,7 @@ export const createSpawnLauncher = (
       });
       child.on('close', (code, signal) => {
         detach();
-        // 128+n is the shell convention for "died on signal n", and it is what a caller inspecting
-        // our exit status expects to see when the harness was terminated rather than returning.
-        resolve(code ?? (signal ? 128 + (os.constants.signals[signal] ?? 0) : 0));
+        resolve(normalizeChildExitCode(code, signal));
       });
     });
   },
