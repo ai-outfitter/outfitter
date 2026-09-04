@@ -5,7 +5,7 @@ import { dirname, join } from 'node:path';
 
 import type { Harness } from '../settings/Settings.js';
 import { HARNESSES } from '../settings/Settings.js';
-import { defaultCatalogSource } from './DefaultCatalog.js';
+import { defaultCatalogSource, retiredDefaultCatalogSources } from './DefaultCatalog.js';
 
 export type SetupScope = 'home' | 'project';
 export type SetupMode = 'default' | 'create' | 'catalog' | 'source';
@@ -107,6 +107,7 @@ const discoverAgentsInCatalog = (root: string): readonly SetupAgentChoice[] => {
     try {
       if (!statSync(agentPath).isFile()) return [];
       const content = readFileSync(agentPath, 'utf8');
+      if (readFrontmatterValue(content, 'abstract') === 'true') return [];
       const id = sanitizeAgentSlug(readFrontmatterValue(content, 'name') ?? entry);
       if (id !== entry || !agentSlugPattern.test(id)) return [];
       return [
@@ -121,8 +122,8 @@ const discoverAgentsInCatalog = (root: string): readonly SetupAgentChoice[] => {
     }
   });
   return choices.sort((left, right) => {
-    if (left.id === 'founder') return -1;
-    if (right.id === 'founder') return 1;
+    if (left.id === 'engineer') return -1;
+    if (right.id === 'engineer') return 1;
     return left.id.localeCompare(right.id);
   });
 };
@@ -155,14 +156,23 @@ const upsertDefaultCatalogSource = (content: string): string => {
   const start = lines.findIndex((line) => /^sources:\s*$/u.test(line));
   let end = start + 1;
   while (end < lines.length && (/^\s/u.test(lines[end] ?? '') || (lines[end] ?? '') === '')) end += 1;
-  const existing = lines.findIndex((line, index) => {
-    if (index <= start || index >= end) return false;
-    const match = /^\s*-\s+github:\s*(.+?)\s*$/u.exec(line);
-    return match?.[1]?.replace(/^['"]|['"]$/gu, '') === defaultCatalogSource.github;
-  });
+  const indexOfSource = (github: string): number =>
+    lines.findIndex((line, index) => {
+      if (index <= start || index >= end) return false;
+      const match = /^\s*-\s+github:\s*(.+?)\s*$/u.exec(line);
+      return match?.[1]?.replace(/^['"]|['"]$/gu, '') === github;
+    });
+  const existing = indexOfSource(defaultCatalogSource.github);
 
   if (existing === -1) {
-    lines.splice(start + 1, 0, ...sourceLines);
+    const retired = retiredDefaultCatalogSources.map(indexOfSource).find((index) => index !== -1) ?? -1;
+    if (retired === -1) {
+      lines.splice(start + 1, 0, ...sourceLines);
+      return `${lines.join('\n')}\n`;
+    }
+    let retiredEnd = retired + 1;
+    while (retiredEnd < end && !/^\s*-\s+/u.test(lines[retiredEnd] ?? '')) retiredEnd += 1;
+    lines.splice(retired, retiredEnd - retired, ...sourceLines);
     return `${lines.join('\n')}\n`;
   }
 

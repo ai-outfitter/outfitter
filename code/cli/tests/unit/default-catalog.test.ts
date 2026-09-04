@@ -45,8 +45,8 @@ afterEach(() => {
 describe('default catalog bootstrap', () => {
   it('ships the canonical catalog at one immutable Release Please tag', () => {
     expect(defaultCatalogSource).toEqual({
-      github: 'ai-outfitter/default-profiles',
-      ref: 'v1.1.1',
+      github: 'ai-outfitter/community-profiles',
+      ref: 'v1.7.0',
     });
   });
 
