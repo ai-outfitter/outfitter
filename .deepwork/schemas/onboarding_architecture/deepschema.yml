@@ -29,7 +29,7 @@ requirements:
     folder only and does not automatically trust parent folders.
   default-catalog-source: >
     The document MUST state that default profile labels and descriptions are
-    read from the synchronized ai-outfitter/default-profiles catalog cache, not
+    read from the synchronized ai-outfitter/community-profiles catalog cache, not
     from hardcoded profile choices in the extension.
   custom-profile-picker: >
     The document MUST explain why ctx.ui.select is insufficient for per-profile
@@ -42,8 +42,8 @@ requirements:
   install-target-description-selector: >
     The document SHOULD describe the install-target screen as a described-option
     selector and include the user-wide and project-local explanatory copy.
-  founder-default-selection: >
-    The document MUST state that founder is the initial highlighted/default
+  engineer-default-selection: >
+    The document MUST state that engineer is the initial highlighted/default
     profile when present and no current default profile exists.
   login-credential-boundary: >
     The document MUST state that /login is opened through Pi when no models are

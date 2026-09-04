@@ -17,7 +17,7 @@ The first prompt and its wording are fixed:
 
 The selected branch follows the original order:
 
-- Default catalog: described profile picker (Founder first and recommended) → home/project target.
+- Default catalog: described profile picker (Engineer first and recommended) → home/project target.
 - Create: profile ID → profile label → home/project target.
 - Different catalog: GitHub `owner/repo` → ref → settings path → private-catalog confirmation when
   applicable → home/project target.
@@ -31,7 +31,7 @@ the first, preselected recommendation; Claude Code and Codex CLI are the other c
 
 Both explicit `outfitter setup [source]` and implicit first-run `outfitter run` use one implementation:
 
-1. Fetch `ai-outfitter/default-profiles` at the immutable Release Please tag shipped by this
+1. Fetch `ai-outfitter/community-profiles` at the immutable Release Please tag shipped by this
    Outfitter version, or reuse that exact release from the normal `~/.agents/cache/repos` source
    cache, then read the current default marker. There is no sibling-checkout or packaged-catalog
    fallback.
@@ -66,7 +66,7 @@ The visible profile-era walkthrough is retained while storage is translated to t
 - the chosen CLI is stored as `default_harness`;
 - home/project targets are `~/.agents/settings.yml` and `<project>/.agents/settings.yml`;
 - a custom profile becomes `agents/<id>/agent.md` and never overwrites an existing file;
-- the default catalog is recorded as `github: ai-outfitter/default-profiles` at the immutable
+- the default catalog is recorded as `github: ai-outfitter/community-profiles` at the immutable
   Release Please version tag shipped by Outfitter; the bootstrap checkout remains derived cache
   data, not copied configuration;
 - remote and provided catalogs retain their `remote_settings` outcome;

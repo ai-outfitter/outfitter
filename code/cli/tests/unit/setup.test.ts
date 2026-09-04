@@ -33,6 +33,10 @@ const createTree = (): { catalog: string; home: string; project: string; root: s
     join(catalog, 'agents', 'engineer', 'agent.md'),
     '---\nname: engineer\ndescription: Engineering profile.\n---\n\n# Engineer\n',
   );
+  write(
+    join(catalog, 'agents', 'environment', 'agent.md'),
+    '---\nname: environment\ndescription: Abstract environment baseline.\nabstract: true\n---\n\n# Environment\n',
+  );
   write(join(catalog, 'skills', 'planning', 'SKILL.md'), '---\nname: planning\n---\n');
   return { catalog, home, project, root };
 };
@@ -62,11 +66,11 @@ afterEach(() => {
 });
 
 describe('setup state machine', () => {
-  it('discovers the default Outfitter catalog with display metadata', () => {
+  it('discovers the default Outfitter catalog with display metadata, engineer first, abstract profiles hidden', () => {
     const { catalog } = createTree();
     expect(discoverSetupAgentChoices({ defaultCatalogRoot: catalog })).toEqual([
-      { id: 'founder', label: 'Founder', description: 'Founder/operator profile.' },
       { id: 'engineer', label: 'Engineer', description: 'Engineering profile.' },
+      { id: 'founder', label: 'Founder', description: 'Founder/operator profile.' },
     ]);
     expect(discoverSetupAgentChoices({})).toEqual([]);
   });
@@ -168,9 +172,31 @@ describe('setup state machine', () => {
     expect(settings).toContain(
       `  - path: ./personal\n  - github: ${defaultCatalogSource.github}\n    ref: ${defaultCatalogSource.ref}\nstartup:`,
     );
-    expect(settings.match(/github: ai-outfitter\/default-profiles/gu)).toHaveLength(1);
+    expect(settings.match(/github: ai-outfitter\/default-profiles/gu)).toBeNull();
+    expect(settings.match(new RegExp(`github: ${defaultCatalogSource.github.replace('/', '\\/')}`, 'gu'))).toHaveLength(
+      1,
+    );
     expect(settings.match(/# telemetry:/gu)).toHaveLength(1);
     expect(settings).not.toContain('path: profiles');
+  });
+
+  it('removes a retired default-catalog pin even when the current source is already present', () => {
+    const { catalog, home, project } = createTree();
+    write(
+      join(home, '.agents', 'settings.yml'),
+      `default_agent: engineer\ndefault_harness: pi\nsources:\n  - github: ${defaultCatalogSource.github}\n    ref: old\n` +
+        '  - github: ai-outfitter/default-profiles\n    ref: v1.1.1\n',
+    );
+    applySetupSelection({
+      homeDirectory: home,
+      projectDirectory: project,
+      defaultCatalogRoot: catalog,
+      availableAgents: discoverSetupAgentChoices({ defaultCatalogRoot: catalog }),
+      selection: { setupMode: 'default', agentId: 'engineer', harness: 'pi', target: 'home' },
+    });
+    const settings = readFileSync(join(home, '.agents', 'settings.yml'), 'utf8');
+    expect(settings.match(/github: ai-outfitter\/default-profiles/gu)).toBeNull();
+    expect(settings).toContain(`    ref: ${defaultCatalogSource.ref}`);
   });
 
   it('adds the pinned default source to an existing source list', () => {
