@@ -20,8 +20,10 @@ on:
   workflow_dispatch:
 
 jobs:
+  # No custom name: GitHub appends the matrix values to the job id when it runs,
+  # and a skipped job (every ordinary PR) then shows a plain name instead of an
+  # unexpanded expression.
   validate:
-    name: Node ${{ matrix.node }} (${{ matrix.os }})
     if: >-
       github.event_name == 'workflow_dispatch' ||
       (!github.event.pull_request.draft &&
