@@ -128,6 +128,30 @@ pi_manifest="$(find "$install_prefix/lib/node_modules" -path '*/@earendil-works/
 pi_package_root="$(dirname "$pi_manifest")"
 pi_bin_relative="$(node -p "require('$pi_manifest').bin.pi")"
 pi_bin="$pi_package_root/$pi_bin_relative"
+
+# Launch the real bundled pi through the installed `outfitter run` once before
+# stubbing it. `--version` passes through to pi, which prints and exits without a
+# TUI.
+#
+# Why `outfitter --version` above is not enough: outfitter's own CLI never imports
+# pi or its dependencies. Pi only loads when outfitter spawns it as a child
+# process from `run` or `setup`, so `--version`, `--help`, `list`, and `validate`
+# all succeed on a Node that pi cannot run on (issue #368: pi's undici crashes on
+# Node < 22.10 while every outfitter-only command works). The stubbed `run` below
+# replaces pi's bin, so it never loads pi either. This step is the only place in
+# the script, and in CI, where outfitter's launch path into the real pi is
+# exercised; keep it even once a Node-version guard exists, because the guard
+# checks a version number and a pi upgrade can still break on a supported Node.
+log 'Checking installed `outfitter run` launches the bundled pi'
+expected_pi_version="$(node -p "require('$pi_manifest').version")"
+pi_output="$(cd "$project_dir" && run_outfitter run -- --version 2>&1)" \
+  || fail "outfitter run failed to launch the bundled pi: $pi_output"
+case "$pi_output" in
+  *"$expected_pi_version"*) ;;
+  *) fail "outfitter run did not print pi $expected_pi_version: $pi_output" ;;
+esac
+log "outfitter run launched pi OK ($expected_pi_version)"
+
 capture_dir="$work_dir/run-capture"
 mkdir -p "$capture_dir"
 cat >"$pi_bin" <<'FAKE_PI'

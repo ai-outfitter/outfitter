@@ -1,0 +1,61 @@
+# Release validation. Release-please opens its PRs as drafts (see
+# release-please-config.json), so this runs when that PR is marked ready for
+# review, on later pushes to it while it stays non-draft, and on manual dispatch.
+# It never runs on ordinary PRs, so a release candidate is validated exactly
+# once per release decision across the supported Node versions and platforms.
+# Each leg installs the packed artifact exactly like a user would and exercises
+# it through scripts/e2e-smoke.sh, including launching the bundled pi it ships
+# with. That launch is the load-bearing check: outfitter-only commands such as
+# `--version` never import pi, so they pass on a Node that pi cannot run on (see
+# the comment in the smoke script and issue #368). The unit suite is deliberately
+# not part of this matrix: it runs on the pinned Node in ci.yml, and on other
+# versions it only surfaces dev-tooling noise users never see.
+name: Release validation
+
+on:
+  pull_request:
+    types:
+      - ready_for_review
+      - synchronize
+  workflow_dispatch:
+
+jobs:
+  # No custom name: GitHub appends the matrix values to the job id when it runs,
+  # and a skipped job (every ordinary PR) then shows a plain name instead of an
+  # unexpanded expression.
+  validate:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (!github.event.pull_request.draft &&
+       startsWith(github.head_ref, 'release-please--'))
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - macos-latest
+        node:
+          # The floor is pi's declared engines range (node >=22.19.0), which
+          # outfitter mirrors in its own package.json. Older Node is unsupported
+          # and crashes inside pi's undici (issue #368), so it is not validated.
+          - '22.19.0' # pi's floor
+          - '22' # latest 22 LTS
+          - '24.18.0' # .node-version, the release build
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run packaged E2E smoke test
+        run: bash scripts/e2e-smoke.sh
