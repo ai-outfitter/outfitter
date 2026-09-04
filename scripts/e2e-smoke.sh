@@ -129,11 +129,19 @@ pi_package_root="$(dirname "$pi_manifest")"
 pi_bin_relative="$(node -p "require('$pi_manifest').bin.pi")"
 pi_bin="$pi_package_root/$pi_bin_relative"
 
-# Load the real bundled pi once before stubbing it. Pi's module graph is where an
-# unsupported Node breaks (issue #368), and nothing else in this script imports it.
-log 'Checking the bundled pi loads'
-pi_version="$(node "$pi_bin" --version 2>&1)" || fail "bundled pi failed to load: $pi_version"
-log "bundled pi OK ($pi_version)"
+# Launch the real bundled pi through the installed `outfitter run` once before
+# stubbing it. `--version` passes through to pi, which prints and exits without a
+# TUI. Pi's module graph is where an unsupported Node breaks (issue #368), and
+# nothing earlier in this script loads it.
+log 'Checking installed `outfitter run` launches the bundled pi'
+expected_pi_version="$(node -p "require('$pi_manifest').version")"
+pi_output="$(cd "$project_dir" && run_outfitter run -- --version 2>&1)" \
+  || fail "outfitter run failed to launch the bundled pi: $pi_output"
+case "$pi_output" in
+  *"$expected_pi_version"*) ;;
+  *) fail "outfitter run did not print pi $expected_pi_version: $pi_output" ;;
+esac
+log "outfitter run launched pi OK ($expected_pi_version)"
 
 capture_dir="$work_dir/run-capture"
 mkdir -p "$capture_dir"
