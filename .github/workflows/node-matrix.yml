@@ -1,0 +1,52 @@
+# Node-version support matrix. Runs on release-please PRs (not on ordinary PRs)
+# and on demand, so every release candidate is exercised across the Node range
+# users actually run. Each leg installs the packed artifact from the registry
+# exactly like a user would and then loads the real bundled pi, which is where
+# old Node breaks (issue #368: undici's markAsUncloneable on Node < 22.10).
+name: Node matrix
+
+on:
+  pull_request:
+    branches:
+      - 'release-please--**'
+  workflow_dispatch:
+
+jobs:
+  node:
+    name: Node ${{ matrix.node }}
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        node:
+          - '20.18.1' # LTS, below the markAsUncloneable backport
+          - '21.7.3' # the field report in #368
+          - '22.9.0' # last 22.x without the backport
+          - '22.10.0' # first 22.x with the backport
+          - '22.18.0' # below the declared engines floor
+          - '22.19.0' # declared engines floor
+          - '23.11.1'
+          - '24.18.0' # .node-version
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Load the real bundled pi
+        run: npm exec --workspace @ai-outfitter/outfitter -- pi --version
+
+      - name: Run packaged E2E smoke test
+        run: bash scripts/e2e-smoke.sh
+
+      - name: Run test suite
+        run: npm test
