@@ -11,6 +11,15 @@ export interface AgentProcessLauncher {
   launch(plan: AgentLaunchPlan): Promise<number>;
 }
 
+interface SignalTarget {
+  readonly killed: boolean;
+  kill(signal?: NodeJS.Signals): boolean;
+}
+
+interface ProcessGroupChild extends SignalTarget {
+  readonly pid?: number;
+}
+
 export const launchAgentProcess = async (
   launcher: AgentProcessLauncher,
   launchPlan: AgentLaunchPlan,
@@ -79,7 +88,7 @@ const TERMINATION_GRACE_MS = 10_000;
  * listeners must come off afterwards or repeated launches in one process leak them.
  */
 export const attachSignalForwarding = (
-  child: { kill(signal?: NodeJS.Signals): boolean; killed: boolean },
+  child: SignalTarget,
   emitter: NodeJS.EventEmitter = process,
   graceMs: number = TERMINATION_GRACE_MS,
 ): (() => void) => {
@@ -103,13 +112,46 @@ export const attachSignalForwarding = (
   };
 };
 
+/**
+ * Targets the whole POSIX process group created for a subprocess, not only its immediate child.
+ * Package installers commonly spawn npm or git; signalling only the pi wrapper can otherwise leave
+ * that descendant running after the Outfitter command has returned.
+ */
+export const createProcessGroupSignalTarget = (
+  child: ProcessGroupChild,
+  killProcess: (pid: number, signal?: NodeJS.Signals | number) => true = (pid, signal) => process.kill(pid, signal),
+): SignalTarget => ({
+  get killed(): boolean {
+    return child.killed;
+  },
+  kill(signal?: NodeJS.Signals): boolean {
+    if (child.pid === undefined) return child.kill(signal);
+    try {
+      return killProcess(-child.pid, signal);
+    } catch {
+      // A platform/runtime that rejects process-group signalling still gets the pre-existing
+      // immediate-child termination as a safe fallback.
+      return child.kill(signal);
+    }
+  },
+});
+
 /* v8 ignore start -- real process spawn is covered by end-to-end smoke usage, not unit tests. */
-export const createSpawnLauncher = (stdio: 'inherit' | 'ignore'): AgentProcessLauncher => ({
+export const createSpawnLauncher = (
+  stdio: 'inherit' | 'ignore',
+  options: { readonly terminateProcessGroup?: boolean } = {},
+): AgentProcessLauncher => ({
   async launch(plan: AgentLaunchPlan): Promise<number> {
     const { default: spawn } = await import('cross-spawn');
     return await new Promise<number>((resolve, reject) => {
-      const child = spawn(plan.command, [...plan.args], { stdio, env: { ...process.env, ...plan.env } });
-      const detach = attachSignalForwarding(child);
+      const useProcessGroup = options.terminateProcessGroup === true && process.platform !== 'win32';
+      const child = spawn(plan.command, [...plan.args], {
+        stdio,
+        env: { ...process.env, ...plan.env },
+        detached: useProcessGroup,
+      });
+      const signalTarget = useProcessGroup ? createProcessGroupSignalTarget(child) : child;
+      const detach = attachSignalForwarding(signalTarget);
       child.on('error', (error) => {
         detach();
         reject(error); // ENOENT surfaces as an actionable install message

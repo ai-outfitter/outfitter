@@ -35,6 +35,10 @@
 
 ## OFTR-010.6: Quiet runtime startup
 
+Amendment (2026-09-04): statement 9 defines cancellation as a terminal startup outcome and requires
+POSIX installer-tree termination. Previously, a forwarded signal ended only the current pi wrapper;
+the queue could continue into another install or the agent launch while a spawned npm process lived on.
+
 1. An Outfitter-managed interactive Pi session MUST default `quietStartup` to `true` when the
    selected profile does not set it explicitly.
 2. A profile's explicit `quietStartup` value MUST take precedence over the Outfitter default.
@@ -51,6 +55,10 @@
 8. Normal startup MUST hide profile-extension installer output behind one loading state. Debug log
    level MUST expose the underlying Pi, Git, and npm output. Installation failures MUST remain
    visible as concise warnings after the loading state stops.
+9. If a profile-extension install is interrupted by a forwarded termination signal, Outfitter MUST
+   stop the remaining install queue, MUST NOT launch the agent, and MUST return the signal-derived
+   exit code. On POSIX systems, the installer and its descendants MUST receive that signal so an npm
+   subprocess cannot outlive the cancelled Outfitter run.
 
 ## OFTR-010.2: Exact walkthrough
 

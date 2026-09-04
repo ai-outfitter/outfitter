@@ -23,7 +23,7 @@ import { resolvePiSessionDirectory } from '../../agents/PiSessionDirectory.js';
 import type { CompositionPlan } from '../../composer/Composition.js';
 import { compose } from '../../composer/Composer.js';
 import { ensurePiExtensions } from '../../extensions/PiExtensionCache.js';
-import type { PiInstallSpawner } from '../../extensions/PiExtensionCache.js';
+import type { EnsurePiExtensionsResult, PiInstallSpawner } from '../../extensions/PiExtensionCache.js';
 import { resolveOutfitterCacheDir } from '../../paths/OutfitterCache.js';
 import { projectComposition } from '../../projection/ProjectHarness.js';
 import type { AgentLaunchPlan } from '../../projection/Projection.js';
@@ -91,6 +91,12 @@ export interface RunAgentResult {
   readonly launchPlan?: AgentLaunchPlan;
   readonly exitCode: number;
   readonly messages: readonly string[];
+}
+
+class ExtensionInstallInterrupted extends Error {
+  constructor(readonly result: EnsurePiExtensionsResult & { readonly interruptedExitCode: number }) {
+    super(result.warnings.join('\n'));
+  }
 }
 
 export interface RunAgentDependencies {
@@ -248,7 +254,7 @@ const resolvePiExtensions = async (
   input: RunAgentInput,
   harness: Harness,
   extensionSpecs: readonly string[],
-): Promise<{ readonly loadDirs: readonly string[]; readonly warnings: readonly string[] }> => {
+): Promise<EnsurePiExtensionsResult> => {
   if (harness !== 'pi') return { loadDirs: [], warnings: [] };
   return ensurePiExtensions(extensionSpecs, {
     cacheAgentDir: join(resolveOutfitterCacheDir(process.env, input.homeDirectory), 'pi-extensions'),
@@ -269,7 +275,11 @@ const loadPiExtensions = async (
     ? (input.startLoading?.(`Loading ${agentSlug} profile…`) ?? (() => undefined))
     : () => undefined;
   try {
-    return await resolvePiExtensions(input, harness, extensionSpecs);
+    const result = await resolvePiExtensions(input, harness, extensionSpecs);
+    if (result.interruptedExitCode !== undefined) {
+      throw new ExtensionInstallInterrupted({ ...result, interruptedExitCode: result.interruptedExitCode });
+    }
+    return result;
   } finally {
     stopLoading();
   }
@@ -321,7 +331,7 @@ const failedCompositionMessages = (
 
 const harnessDefaultsFor = (settings: Settings, harness: Harness) => settings.harnessDefaults?.[harness];
 
-export const executeRunAgentCommand = async (input: RunAgentInput): Promise<RunAgentResult> => {
+const executeRunAgentCommandInner = async (input: RunAgentInput): Promise<RunAgentResult> => {
   // Flush messages to the terminal (before launch); they are also returned so callers can inspect them.
   const emit = (messages: readonly string[]): void => {
     for (const message of messages) input.writeLine?.(message);
@@ -450,6 +460,16 @@ export const executeRunAgentCommand = async (input: RunAgentInput): Promise<RunA
     if (input.retainProjection !== true) {
       rmSync(rootDirectory, { recursive: true, force: true });
     }
+  }
+};
+
+export const executeRunAgentCommand = async (input: RunAgentInput): Promise<RunAgentResult> => {
+  try {
+    return await executeRunAgentCommandInner(input);
+  } catch (error) {
+    if (!(error instanceof ExtensionInstallInterrupted)) throw error;
+    for (const message of error.result.warnings) input.writeLine?.(message);
+    return { exitCode: error.result.interruptedExitCode, messages: error.result.warnings };
   }
 };
 
