@@ -48,11 +48,13 @@ export const createPiRuntimeExtensionContent = (input: Omit<PiRuntimeExtensionIn
     OUTFITTER_ACTIVE_PROFILE: input.profile,
     OUTFITTER_PROVIDER_PROMPT_MODE: input.providerPrompt ?? 'dialog',
   };
-  // One pass over the asset, as for the setup extension: each known placeholder becomes its JSON
-  // value (an absent profile stamps `undefined`); unknown placeholders are left intact.
-  return readFileSync(extensionPath, 'utf8').replace(/["']__(OUTFITTER_[A-Z_]+)__["']/gu, (match, name: string) =>
-    Object.hasOwn(values, name) ? (JSON.stringify(values[name]) ?? 'undefined') : match,
-  );
+  // Each placeholder becomes its JSON value (an absent profile stamps `undefined`). Stamped values
+  // are never rescanned, so placeholder-shaped profile metadata is left alone.
+  let content = readFileSync(extensionPath, 'utf8');
+  for (const [name, value] of Object.entries(values)) {
+    content = content.replace(new RegExp(`["']__${name}__["']`, 'gu'), () => JSON.stringify(value) ?? 'undefined');
+  }
+  return content;
 };
 
 /**

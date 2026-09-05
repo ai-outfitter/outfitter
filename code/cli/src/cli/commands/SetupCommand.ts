@@ -97,30 +97,13 @@ export const createPiSetupExtensionContent = (input: {
 };
 
 // pi reads models.json as JSONC (model-registry: JSON.parse(stripJsonComments(...))); mirror that
-// so a commented user file still contributes its providers. Strings are preserved verbatim.
-const stripJsonComments = (content: string): string => {
-  let output = '';
-  let index = 0;
-  while (index < content.length) {
-    const char = content[index] ?? '';
-    if (char === '"') {
-      let end = index + 1;
-      while (end < content.length && content[end] !== '"') end += content[end] === '\\' ? 2 : 1;
-      output += content.slice(index, end + 1);
-      index = end + 1;
-    } else if (content.startsWith('//', index)) {
-      index = content.indexOf('\n', index);
-      if (index === -1) index = content.length;
-    } else if (content.startsWith('/*', index)) {
-      const end = content.indexOf('*/', index + 2);
-      index = end === -1 ? content.length : end + 2;
-    } else {
-      output += char;
-      index += 1;
-    }
-  }
-  return output;
-};
+// so a commented user file still contributes its providers. String literals are kept verbatim so
+// `//` or `/*` inside a value survives; an unterminated comment is left for JSON.parse to reject.
+const stripJsonComments = (content: string): string =>
+  content.replace(
+    /("(?:[^"\\]|\\.)*")|\/\/[^\n]*|\/\*[\s\S]*?\*\//gu,
+    (_match, literal: string | undefined) => literal ?? '',
+  );
 
 // The walkthrough's provider check must see the same providers the real session will, so the
 // user's own models.json providers join the placeholder; without them a custom-provider-only user

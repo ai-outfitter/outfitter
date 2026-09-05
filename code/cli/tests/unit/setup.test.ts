@@ -573,14 +573,14 @@ describe('Pi setup launch', () => {
     const { home, project, root } = createTree();
     write(
       join(home, '.pi', 'agent', 'models.json'),
-      '{\n  // corporate gateway\n  "providers": { "corp": { "baseUrl": "http://corp", /* key */ "apiKey": "a//b" } }\n}\n',
+      '{\n  // corporate gateway\n  "providers": { "corp": { "baseUrl": "http://corp", /* key */ "apiKey": "a//b\\"c" } }\n}\n',
     );
     preparePiSetupLaunch({ homeDirectory: home, projectDirectory: project, setupDirectory: root, availableAgents: [] });
     const models = JSON.parse(readFileSync(join(root, 'pi', 'models.json'), 'utf8')) as {
       providers: Record<string, { apiKey?: string }>;
     };
     expect(Object.keys(models.providers)).toEqual(['corp', 'outfitter-setup']);
-    expect(models.providers.corp?.apiKey).toBe('a//b');
+    expect(models.providers.corp?.apiKey).toBe('a//b"c');
   });
 
   it('ignores an unreadable or provider-less user models.json', () => {
