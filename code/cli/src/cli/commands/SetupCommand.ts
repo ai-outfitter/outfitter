@@ -7,11 +7,7 @@ import { join, resolve } from 'node:path';
 import { Command, Option } from 'commander';
 
 import { launchThroughSpawn, spawnLauncher } from '../../agents/AgentLaunch.js';
-import {
-  persistPiCredentials,
-  resolvePiUserAgentDirectory,
-  seedPiCredentials,
-} from '../../agents/PiCredentialPersistence.js';
+import { resolvePiUserAgentDirectory, seedPiCredentials } from '../../agents/PiCredentialPersistence.js';
 import { readRepositoryCodeAsset } from '../../paths/RepositoryAssets.js';
 import type { AgentLaunchPlan } from '../../projection/Projection.js';
 import type { Harness } from '../../settings/Settings.js';
@@ -54,6 +50,8 @@ export interface PiSetupLaunch {
   readonly resultPath: string;
   /** The setup shell's `PI_CODING_AGENT_DIR`; a `/login` inside the walkthrough saves credentials here. */
   readonly piConfigDirectory: string;
+  /** The durable `auth.json` content seeded into the shell, so only a real `/login` is copied back. */
+  readonly seededAuth?: string;
 }
 
 /**
@@ -98,6 +96,32 @@ export const createPiSetupExtensionContent = (input: {
   );
 };
 
+// pi reads models.json as JSONC (model-registry: JSON.parse(stripJsonComments(...))); mirror that
+// so a commented user file still contributes its providers. Strings are preserved verbatim.
+const stripJsonComments = (content: string): string => {
+  let output = '';
+  let index = 0;
+  while (index < content.length) {
+    const char = content[index] ?? '';
+    if (char === '"') {
+      let end = index + 1;
+      while (end < content.length && content[end] !== '"') end += content[end] === '\\' ? 2 : 1;
+      output += content.slice(index, end + 1);
+      index = end + 1;
+    } else if (content.startsWith('//', index)) {
+      index = content.indexOf('\n', index);
+      if (index === -1) index = content.length;
+    } else if (content.startsWith('/*', index)) {
+      const end = content.indexOf('*/', index + 2);
+      index = end === -1 ? content.length : end + 2;
+    } else {
+      output += char;
+      index += 1;
+    }
+  }
+  return output;
+};
+
 // The walkthrough's provider check must see the same providers the real session will, so the
 // user's own models.json providers join the placeholder; without them a custom-provider-only user
 // would be asked to connect a provider they already have.
@@ -105,12 +129,42 @@ const readUserModelProviders = (piUserAgentDirectory: string): Record<string, un
   const modelsPath = join(piUserAgentDirectory, 'models.json');
   if (!existsSync(modelsPath)) return {};
   try {
-    const parsed: unknown = JSON.parse(readFileSync(modelsPath, 'utf8'));
+    const parsed: unknown = JSON.parse(stripJsonComments(readFileSync(modelsPath, 'utf8')));
     const providers = (parsed as { providers?: unknown } | null)?.providers;
     return providers !== null && typeof providers === 'object' ? (providers as Record<string, unknown>) : {};
   } catch {
     return {};
   }
+};
+
+const readOptionalFile = (path: string): string | undefined =>
+  existsSync(path) ? readFileSync(path, 'utf8') : undefined;
+
+/**
+ * Copies a `/login` made inside the walkthrough back to pi's durable agent directory. pi rewrites
+ * auth.json on every start and lists the placeholder provider among its API-key choices, so the
+ * shell's file is normalised first: the placeholder entry is dropped (it is never a real provider)
+ * and nothing is written when the remaining credentials equal what was seeded. That keeps a
+ * concurrent pi session's token rotation intact and never creates an empty durable file.
+ */
+export const persistSetupCredentials = (launch: PiSetupLaunch, piUserAgentDirectory: string): void => {
+  const content = readOptionalFile(join(launch.piConfigDirectory, 'auth.json'));
+  if (content === undefined) return;
+  let credentials: Record<string, unknown>;
+  try {
+    const parsed: unknown = JSON.parse(content);
+    if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) return;
+    credentials = { ...(parsed as Record<string, unknown>) };
+  } catch {
+    return;
+  }
+  delete credentials[setupPlaceholderProviderId];
+  const seeded = launch.seededAuth === undefined ? {} : (JSON.parse(launch.seededAuth) as Record<string, unknown>);
+  if (JSON.stringify(credentials) === JSON.stringify(seeded)) return;
+  mkdirSync(piUserAgentDirectory, { recursive: true, mode: 0o700 });
+  writeFileSync(join(piUserAgentDirectory, 'auth.json'), `${JSON.stringify(credentials, null, 2)}\n`, {
+    mode: 0o600,
+  });
 };
 
 /**
@@ -163,6 +217,7 @@ export const preparePiSetupLaunch = (input: PreparePiSetupLaunchInput): PiSetupL
       null,
       2,
     )}\n`,
+    { mode: 0o600 },
   );
   writeFileSync(
     join(piConfigDirectory, 'settings.json'),
@@ -178,6 +233,7 @@ export const preparePiSetupLaunch = (input: PreparePiSetupLaunchInput): PiSetupL
   return {
     resultPath,
     piConfigDirectory,
+    seededAuth: readOptionalFile(join(piUserAgentDirectory, 'auth.json')),
     plan: {
       command: 'pi',
       args: [
@@ -261,7 +317,7 @@ export const runSetup = async (dependencies: SetupCommandDependencies = {}): Pro
     // A /login inside the walkthrough wrote to the setup shell's auth.json; keep it durable so the
     // relaunched profile (and later runs) start with the provider connected. Credentials only: the
     // placeholder models.json is setup scaffolding, not user state.
-    persistPiCredentials(launch.piConfigDirectory, resolvePiUserAgentDirectory(homeDirectory), false);
+    persistSetupCredentials(launch, resolvePiUserAgentDirectory(homeDirectory));
     if (exitCode !== 0) throw new Error(`The Outfitter setup walkthrough exited with code ${exitCode}.`);
     const selection = parseSetupSelection(launch.resultPath);
     if (selection === undefined) return undefined;

@@ -144,7 +144,7 @@ const createMockContext = (
     models?: readonly { provider: string }[];
     // What /login does in this mock: connect a provider, get cancelled from pi's login UI, or never
     // open the login UI at all.
-    login?: 'connect' | 'cancel' | 'never-opens';
+    login?: 'connect' | 'connect-late' | 'cancel' | 'never-opens' | 'no-editor';
     modelRegistry?: false;
   } = {},
 ) => {
@@ -164,6 +164,7 @@ const createMockContext = (
       if ((options.login ?? 'connect') === 'connect') models = [...models, { provider: 'anthropic' }];
     },
   };
+  const loginOpensUi = options.login === 'cancel' || options.login === 'connect-late';
   const loginUi = { handleInput: () => undefined };
   let loginUiTicks = 0;
   let shutdowns = 0;
@@ -191,8 +192,12 @@ const createMockContext = (
             // After /login is submitted, pi focuses its login UI; a cancelled login hands focus
             // back to the editor two polls later.
             get focusedComponent() {
-              if (!loginSubmitted || options.login !== 'cancel') return editor;
+              if (options.login === 'no-editor') return null;
+              if (!loginSubmitted || !loginOpensUi) return editor;
               loginUiTicks += 1;
+              // pi saves the credential (registry refreshes) before handing focus back to the editor.
+              if (options.login === 'connect-late' && loginUiTicks === 2)
+                models = [...models, { provider: 'anthropic' }];
               return loginUiTicks <= 2 ? loginUi : editor;
             },
           };
@@ -509,11 +514,22 @@ describe('Pi setup extension provider step', () => {
     expect(context.shutdowns).toBe(1);
   });
 
-  it('gives up waiting when pi never opens its login UI', async () => {
+  it('reports connected when the credential lands after pi showed its login UI', async () => {
     const { pi, resultPath } = fixture();
-    const context = createMockContext({ models: [], login: 'never-opens' });
+    const context = createMockContext({ models: [], login: 'connect-late' });
     await pi.commands.outfitter.handler({}, context);
-    expect(JSON.parse(readFileSync(resultPath, 'utf8'))).toMatchObject({ providerConnection: 'skipped' });
+    expect(context.editorText).toBe('/login');
+    expect(JSON.parse(readFileSync(resultPath, 'utf8'))).not.toHaveProperty('providerConnection');
+    expect(context.shutdowns).toBe(1);
+  });
+
+  it('gives up waiting when pi never opens its login UI or has no editor to submit it', async () => {
+    for (const login of ['never-opens', 'no-editor'] as const) {
+      const { pi, resultPath } = fixture();
+      const context = createMockContext({ models: [], login });
+      await pi.commands.outfitter.handler({}, context);
+      expect(JSON.parse(readFileSync(resultPath, 'utf8'))).toMatchObject({ providerConnection: 'skipped' });
+    }
   });
 
   it('treats a missing or failing model registry as no provider', async () => {

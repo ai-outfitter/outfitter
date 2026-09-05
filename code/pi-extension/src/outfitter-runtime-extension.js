@@ -29,7 +29,7 @@ const OUTFITTER_PROVIDER_HINT = "No model provider connected yet. Run '/login' i
 // users who already have .agents but no provider: when pi starts with no models available, it
 // offers to connect one and delegates to pi's native /login command, which persists credentials in
 // pi's own agent directory and selects a default model in-session. First-run users normally
-// connect a provider inside the setup walkthrough instead (OFTR-010.1.4), so this prompt does not
+// connect a provider inside the setup walkthrough instead (OFTR-010.7), so this prompt does not
 // repeat right after setup. The CLI stamps profile metadata into a per-run copy before loading it
 // via --extension.
 

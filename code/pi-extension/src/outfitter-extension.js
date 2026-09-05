@@ -207,7 +207,9 @@ export default function outfitter(pi) {
         ctx.ui.setEditorText('/login');
         setTimeout(() => {
           editor = tui.focusedComponent;
-          editor?.handleInput?.('\r');
+          // Without a focused editor the command cannot be submitted, so there is nothing to wait for.
+          if (editor?.handleInput === undefined) return done('cancelled');
+          editor.handleInput('\r');
           setTimeout(poll, OUTFITTER_LOGIN_POLL_MS);
         }, 25);
         return { render: () => [], invalidate: () => undefined };

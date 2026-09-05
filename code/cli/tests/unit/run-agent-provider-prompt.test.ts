@@ -41,7 +41,7 @@ afterEach(() => {
 });
 
 describe('run agent provider prompt', () => {
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-010.5.1).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-010.7.3).
   it('relaunches in hint mode after the user skipped the provider step in setup', async () => {
     const root = createTemporaryRoot();
     const home = join(root, 'home');

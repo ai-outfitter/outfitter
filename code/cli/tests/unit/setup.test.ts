@@ -7,7 +7,12 @@ import { dirname, join } from 'node:path';
 import { Command } from 'commander';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { createSetupCommand, preparePiSetupLaunch, runSetup } from '../../src/cli/commands/SetupCommand.js';
+import {
+  createSetupCommand,
+  persistSetupCredentials,
+  preparePiSetupLaunch,
+  runSetup,
+} from '../../src/cli/commands/SetupCommand.js';
 import type { AgentLaunchPlan } from '../../src/projection/Projection.js';
 import { defaultCatalogSource } from '../../src/setup/DefaultCatalog.js';
 import { applySetupSelection, discoverSetupAgentChoices, sanitizeAgentSlug } from '../../src/setup/Setup.js';
@@ -519,7 +524,7 @@ describe('setup state machine', () => {
 });
 
 describe('Pi setup launch', () => {
-  it('stamps an isolated model-free extension containing the original setup wording', () => {
+  it('stamps an isolated offline extension containing the original setup wording', () => {
     const { home, project, root } = createTree();
     const availableAgents = [{ id: 'founder', label: 'Founder', description: 'Founder profile.' }];
     const launch = preparePiSetupLaunch({
@@ -548,7 +553,7 @@ describe('Pi setup launch', () => {
     expect(existsSync(join(root, 'pi', 'auth.json'))).toBe(false);
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-010.7.1, OFTR-010.5.4).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-010.7.1).
   it("seeds pi credentials and the user's own providers so the provider check sees them", () => {
     const { home, project, root } = createTree();
     write(join(home, '.pi', 'agent', 'auth.json'), '{"anthropic":{"type":"api_key","key":"k"}}');
@@ -562,6 +567,20 @@ describe('Pi setup launch', () => {
       providers: Record<string, unknown>;
     };
     expect(Object.keys(models.providers)).toEqual(['corp', 'outfitter-setup']);
+  });
+
+  it('reads a commented (JSONC) user models.json the way pi does', () => {
+    const { home, project, root } = createTree();
+    write(
+      join(home, '.pi', 'agent', 'models.json'),
+      '{\n  // corporate gateway\n  "providers": { "corp": { "baseUrl": "http://corp", /* key */ "apiKey": "a//b" } }\n}\n',
+    );
+    preparePiSetupLaunch({ homeDirectory: home, projectDirectory: project, setupDirectory: root, availableAgents: [] });
+    const models = JSON.parse(readFileSync(join(root, 'pi', 'models.json'), 'utf8')) as {
+      providers: Record<string, { apiKey?: string }>;
+    };
+    expect(Object.keys(models.providers)).toEqual(['corp', 'outfitter-setup']);
+    expect(models.providers.corp?.apiKey).toBe('a//b');
   });
 
   it('ignores an unreadable or provider-less user models.json', () => {
@@ -581,7 +600,7 @@ describe('Pi setup launch', () => {
     }
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-010.5.4).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-010.7.2).
   it('persists credentials saved by /login inside the walkthrough and passes a skipped step through', async () => {
     const { catalog, home, project } = createTree();
     const connected = await runSetup({
@@ -599,9 +618,9 @@ describe('Pi setup launch', () => {
       },
     });
     expect(connected?.providerPromptSkipped).toBeUndefined();
-    expect(readFileSync(join(home, '.pi', 'agent', 'auth.json'), 'utf8')).toBe(
-      '{"openai":{"type":"api_key","key":"x"}}',
-    );
+    expect(JSON.parse(readFileSync(join(home, '.pi', 'agent', 'auth.json'), 'utf8'))).toEqual({
+      openai: { type: 'api_key', key: 'x' },
+    });
     expect(existsSync(join(home, '.pi', 'agent', 'models.json'))).toBe(false); // placeholder stays setup scaffolding
 
     const skipped = await runSetup({
@@ -990,5 +1009,58 @@ describe('Pi setup launch', () => {
     await program.parseAsync(['node', 'outfitter', 'setup']);
     expect(lines.join('\n')).toContain('made no changes');
     expect(existsSync(join(home, '.agents'))).toBe(false);
+  });
+});
+
+describe('Pi setup credential copy-back', () => {
+  const launchFor = (root: string, seededAuth?: string) => ({
+    plan: { command: 'pi', args: [], env: {} },
+    resultPath: join(root, 'result.json'),
+    piConfigDirectory: join(root, 'pi'),
+    seededAuth,
+  });
+
+  it('drops the placeholder provider entry before persisting a real login', () => {
+    const { home, root } = createTree();
+    write(
+      join(root, 'pi', 'auth.json'),
+      JSON.stringify({ 'outfitter-setup': { type: 'api_key', key: 'pasted' }, openai: { type: 'api_key', key: 'x' } }),
+    );
+    persistSetupCredentials(launchFor(root), join(home, '.pi', 'agent'));
+    expect(JSON.parse(readFileSync(join(home, '.pi', 'agent', 'auth.json'), 'utf8'))).toEqual({
+      openai: { type: 'api_key', key: 'x' },
+    });
+  });
+
+  it('writes nothing when the shell only holds what was seeded, or only the placeholder', () => {
+    const { home, root } = createTree();
+    const durable = join(home, '.pi', 'agent', 'auth.json');
+    write(join(root, 'pi', 'auth.json'), '{}');
+    persistSetupCredentials(launchFor(root), join(home, '.pi', 'agent'));
+    expect(existsSync(durable)).toBe(false);
+
+    write(join(root, 'pi', 'auth.json'), '{"outfitter-setup":{"type":"api_key","key":"pasted"}}');
+    persistSetupCredentials(launchFor(root), join(home, '.pi', 'agent'));
+    expect(existsSync(durable)).toBe(false);
+
+    // A concurrent pi session rotated the durable token while the walkthrough ran: keep it.
+    write(durable, '{"anthropic":{"type":"oauth","refresh":"new"}}');
+    write(join(root, 'pi', 'auth.json'), '{"anthropic":{"type":"oauth","refresh":"old"}}');
+    persistSetupCredentials(
+      launchFor(root, '{"anthropic":{"type":"oauth","refresh":"old"}}'),
+      join(home, '.pi', 'agent'),
+    );
+    expect(readFileSync(durable, 'utf8')).toBe('{"anthropic":{"type":"oauth","refresh":"new"}}');
+  });
+
+  it('ignores a missing, malformed, or non-object shell auth.json', () => {
+    const { home, root } = createTree();
+    const durable = join(home, '.pi', 'agent', 'auth.json');
+    persistSetupCredentials(launchFor(root), join(home, '.pi', 'agent'));
+    for (const content of ['{not json', '[1]', 'null']) {
+      write(join(root, 'pi', 'auth.json'), content);
+      persistSetupCredentials(launchFor(root), join(home, '.pi', 'agent'));
+    }
+    expect(existsSync(durable)).toBe(false);
   });
 });
