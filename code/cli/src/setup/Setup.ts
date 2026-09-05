@@ -28,6 +28,8 @@ export interface SetupSelection {
   readonly privateCatalogsEnabled?: boolean;
   readonly privateCatalogAccepted?: boolean;
   readonly target: SetupScope;
+  /** Set when the walkthrough offered Pi's /login for a missing provider and the user skipped it. */
+  readonly providerConnection?: 'skipped';
 }
 
 export interface SetupInput {
@@ -45,7 +47,12 @@ export interface SetupResult {
   readonly defaultAgent?: string;
   readonly defaultHarness: Harness;
   readonly messages: readonly string[];
+  /** The user skipped the provider step; the relaunch prints a /login hint instead of prompting. */
+  readonly providerPromptSkipped?: boolean;
 }
+
+/** One-line reminder shown when the user skipped connecting a Pi model provider during setup. */
+export const providerLoginHint = "No model provider connected yet. Run '/login' inside Outfitter to connect one.";
 
 export const setupNextStepMessage =
   "Run 'outfitter sync', then run 'outfitter' again. Pseudonymous usage analytics are on by default; turn them off with telemetry.enabled: false in ~/.agents/settings.yml.";
@@ -345,6 +352,7 @@ export const applySetupSelection = (input: SetupInput): SetupResult => {
     settingsPath,
     defaultAgent: input.selection.agentId,
     defaultHarness: input.selection.harness,
+    ...(input.selection.providerConnection === 'skipped' ? { providerPromptSkipped: true } : {}),
     messages: [
       ...created.map((path) => `Created ${path}`),
       ...updated.map((path) => `Updated ${path}`),

@@ -1,4 +1,5 @@
-// Exercises the generated Pi `/outfitter` UI without a model provider.
+// Exercises the generated Pi `/outfitter` UI, including the provider step that follows the
+// walkthrough: the setup shell offers Pi's native /login when no real provider is connected.
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -26,6 +27,9 @@ const evaluateExtension = (
   content: string,
   repositoryVisibility: 'private' | 'public' = 'public',
 ): ((pi: ReturnType<typeof createMockPi>) => void) => {
+  // The login-wait poll sleeps 150 ms per tick in pi; compress it so the tests stay fast.
+  const fastTimeout = (callback: () => void, delay?: number): ReturnType<typeof setTimeout> =>
+    setTimeout(callback, Math.min(delay ?? 0, 2));
   const executable = content
     .replace(
       /import \{ Key, matchesKey, truncateToWidth, visibleWidth, wrapTextWithAnsi \} from ['"]@earendil-works\/pi-tui['"];/u,
@@ -83,7 +87,7 @@ const evaluateExtension = (
           : import(specifier),
       outfitter: undefined as ((pi: ReturnType<typeof createMockPi>) => void) | undefined,
     },
-    setTimeout,
+    setTimeout: fastTimeout,
   };
   new Script(`${executable}\nglobalThis.outfitter = outfitter;`).runInContext(createContext(sandbox));
   if (sandbox.globalThis.outfitter === undefined) throw new Error('extension did not evaluate');
@@ -112,11 +116,16 @@ const createMockPi = () => {
 };
 
 // Drives a rendered described-option picker: navigates to `targetIndex` (or the preselected default
-// when undefined) and confirms. Reaching index 0 first (moves clamp) makes the landing deterministic.
+// when undefined) and confirms; -1 presses Escape. Reaching index 0 first (moves clamp) makes the
+// landing deterministic.
 const driveDescribedOption = (
   component: { handleInput?: (key: string) => void },
   targetIndex: number | undefined,
 ): void => {
+  if (targetIndex === -1) {
+    component.handleInput?.('ESC');
+    return;
+  }
   if (targetIndex !== undefined) {
     for (let step = 0; step < 20; step += 1) component.handleInput?.('UP');
     for (let step = 0; step < targetIndex; step += 1) component.handleInput?.('DOWN');
@@ -130,17 +139,38 @@ const createMockContext = (
     inputs?: readonly string[];
     // Chooses a described-option index by its labels; undefined keeps the preselected default.
     pickOption?: (labels: readonly string[]) => number | undefined;
+    // Models pi reports before /login; a real provider is available by default so the walkthrough
+    // tests end without the provider step.
+    models?: readonly { provider: string }[];
+    // What /login does in this mock: connect a provider, get cancelled from pi's login UI, or never
+    // open the login UI at all.
+    login?: 'connect' | 'cancel' | 'never-opens';
+    modelRegistry?: false;
   } = {},
 ) => {
   const rendered: string[][] = [];
   const notifications: string[] = [];
   const selectCalls: Array<{ title: string; options: readonly string[] }> = [];
   const inputs = [...(options.inputs ?? [])];
+  let models = [...(options.models ?? [{ provider: 'anthropic' }])];
+  let loginSubmitted = false;
   let editorText = '';
+  // pi's editor: Enter on '/login' opens the login UI; in this mock that also plays out the
+  // configured outcome, since pi refreshes its registry right after saving credentials.
+  const editor = {
+    handleInput: (key: string) => {
+      if (key !== '\r' || editorText !== '/login') return;
+      loginSubmitted = true;
+      if ((options.login ?? 'connect') === 'connect') models = [...models, { provider: 'anthropic' }];
+    },
+  };
+  const loginUi = { handleInput: () => undefined };
+  let loginUiTicks = 0;
   let shutdowns = 0;
   return {
     hasUI: true,
     mode: 'tui',
+    ...(options.modelRegistry === false ? {} : { modelRegistry: { getAvailable: () => [...models] } }),
     rendered,
     notifications,
     selectCalls,
@@ -156,8 +186,18 @@ const createMockContext = (
     ui: {
       custom<T>(factory: (...args: unknown[]) => unknown): Promise<T> {
         return new Promise<T>((resolve) => {
+          const tui = {
+            requestRender: () => undefined,
+            // After /login is submitted, pi focuses its login UI; a cancelled login hands focus
+            // back to the editor two polls later.
+            get focusedComponent() {
+              if (!loginSubmitted || options.login !== 'cancel') return editor;
+              loginUiTicks += 1;
+              return loginUiTicks <= 2 ? loginUi : editor;
+            },
+          };
           const component = factory(
-            { requestRender: () => undefined, focusedComponent: { handleInput: () => undefined } },
+            tui,
             { fg: (_color: string, text: string) => text, bold: (text: string) => text },
             {},
             resolve,
@@ -380,5 +420,122 @@ describe('Pi setup extension', () => {
     expect(context.editorText).toBe('/outfitter');
     expect(context.rendered.flat().join('\n')).toContain('Outfitter + pi');
     expect(context.rendered.flat().join('\n')).toContain('profiles define model, tools, prompts,');
+  });
+
+  it('omits the arrow-key legend for a single-item picker but keeps it for longer lists', async () => {
+    const { pi } = fixture();
+    const context = createMockContext({ models: [], login: 'connect' });
+    await pi.commands.outfitter.handler({}, context);
+    const profilePicker = context.rendered[0]?.join('\n') ?? '';
+    const providerDialog = context.rendered[3]?.join('\n') ?? '';
+    expect(profilePicker).toContain('↑↓ navigate  enter select');
+    expect(providerDialog).toContain('enter connect  escape skip');
+    expect(providerDialog).not.toContain('navigate');
+  });
+
+  it('does not tell the user to restart Outfitter after setup', async () => {
+    const { pi } = fixture();
+    const context = createMockContext();
+    await pi.commands.outfitter.handler({}, context);
+    expect(context.notifications.join('\n')).not.toMatch(/restart/iu);
+    expect(context.notifications.join('\n')).toContain('Pseudonymous usage analytics');
+  });
+});
+
+// THESE TESTS VALIDATE A HARD REQUIREMENT (OFTR-010.7).
+describe('Pi setup extension provider step', () => {
+  const fullWidth = (context: MockContext): string => context.rendered.flat().join(' ');
+
+  it('offers /login after the handoff when no real provider is connected and waits for it', async () => {
+    const { pi, resultPath } = fixture();
+    const context = createMockContext({ models: [{ provider: 'outfitter-setup' }], login: 'connect' });
+    await pi.commands.outfitter.handler({}, context);
+
+    // The handoff precedes the provider step, and the dialog follows the CLI-agent screen.
+    expect(fullWidth(context)).toContain('Pi does not have a model provider connected yet.');
+    expect(fullWidth(context)).toContain('Press Enter to open /login');
+    expect(context.rendered[3]?.join(' ')).toContain('Connect a model provider');
+    expect(context.editorText).toBe('/login');
+    expect(JSON.parse(readFileSync(resultPath, 'utf8'))).toEqual({
+      setupMode: 'default',
+      agentId: 'engineer',
+      harness: 'pi',
+      target: 'home',
+    });
+    expect(context.shutdowns).toBe(1);
+  });
+
+  it('skips the provider step when a real provider is already connected', async () => {
+    const { pi } = fixture();
+    const context = createMockContext({ models: [{ provider: 'outfitter-setup' }, { provider: 'openai' }] });
+    await pi.commands.outfitter.handler({}, context);
+    expect(fullWidth(context)).not.toContain('model provider');
+    expect(context.editorText).toBe('');
+  });
+
+  it('skips the provider step for a non-Pi harness', async () => {
+    const { pi, resultPath } = fixture();
+    const context = createMockContext({
+      models: [],
+      pickOption: (labels) => {
+        const index = labels.findIndex((label) => label.includes('Claude Code'));
+        return index === -1 ? undefined : index;
+      },
+    });
+    await pi.commands.outfitter.handler({}, context);
+    expect(JSON.parse(readFileSync(resultPath, 'utf8'))).toMatchObject({ harness: 'claude' });
+    expect(fullWidth(context)).not.toContain('model provider');
+  });
+
+  it('records a skipped provider step in the handoff when the user presses Escape', async () => {
+    const { pi, resultPath } = fixture();
+    const context = createMockContext({
+      models: [],
+      pickOption: (labels) => (labels.includes('Connect a model provider') ? -1 : undefined),
+    });
+    // -1 makes the driver press Escape via its target-index guard below.
+    await pi.commands.outfitter.handler({}, context);
+    expect(context.editorText).toBe('');
+    expect(JSON.parse(readFileSync(resultPath, 'utf8'))).toMatchObject({ providerConnection: 'skipped' });
+    expect(context.shutdowns).toBe(1);
+  });
+
+  it('records a skipped provider step when the user leaves pi login without connecting', async () => {
+    const { pi, resultPath } = fixture();
+    const context = createMockContext({ models: [], login: 'cancel' });
+    await pi.commands.outfitter.handler({}, context);
+    expect(context.editorText).toBe('/login');
+    expect(JSON.parse(readFileSync(resultPath, 'utf8'))).toMatchObject({ providerConnection: 'skipped' });
+    expect(context.shutdowns).toBe(1);
+  });
+
+  it('gives up waiting when pi never opens its login UI', async () => {
+    const { pi, resultPath } = fixture();
+    const context = createMockContext({ models: [], login: 'never-opens' });
+    await pi.commands.outfitter.handler({}, context);
+    expect(JSON.parse(readFileSync(resultPath, 'utf8'))).toMatchObject({ providerConnection: 'skipped' });
+  });
+
+  it('treats a missing or failing model registry as no provider', async () => {
+    const { pi, resultPath } = fixture();
+    const context = createMockContext({ modelRegistry: false, login: 'never-opens' });
+    await pi.commands.outfitter.handler({}, context);
+    expect(fullWidth(context)).toContain('Pi does not have a model provider connected yet.');
+    expect(JSON.parse(readFileSync(resultPath, 'utf8'))).toMatchObject({ providerConnection: 'skipped' });
+
+    const failing = fixture();
+    const failingContext = createMockContext({ login: 'connect' });
+    let calls = 0;
+    Object.assign(failingContext, {
+      modelRegistry: {
+        getAvailable: () => {
+          calls += 1;
+          if (calls === 1) throw new Error('registry unavailable');
+          return 'not-an-array';
+        },
+      },
+    });
+    await failing.pi.commands.outfitter.handler({}, failingContext);
+    expect(fullWidth(failingContext)).toContain('Pi does not have a model provider connected yet.');
   });
 });

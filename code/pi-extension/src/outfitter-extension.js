@@ -8,6 +8,9 @@ const OUTFITTER_AGENT_CHOICES = '__OUTFITTER_AGENT_CHOICES__';
 const OUTFITTER_CURRENT_DEFAULT = '__OUTFITTER_CURRENT_DEFAULT__';
 const OUTFITTER_SETUP_SOURCE_URI = '__OUTFITTER_SETUP_SOURCE_URI__';
 const OUTFITTER_AUTO_OPEN = '__OUTFITTER_AUTO_OPEN__';
+// The offline placeholder provider the CLI gives this setup shell so Pi starts cleanly; it is not a
+// real model provider and never counts as one.
+const OUTFITTER_SETUP_PROVIDER = '__OUTFITTER_SETUP_PROVIDER__';
 const OUTFITTER_ASCII_ART = [
   '▄▄▄▄▄▄▄ ▄▄▄ ▄▄▄ ▄▄▄▄▄▄▄ ▄▄▄▄▄▄▄ ▄▄▄▄▄▄▄ ▄▄▄▄▄▄▄ ▄▄▄▄▄▄▄ ▄▄▄▄▄▄▄ ▄▄▄▄▄▄▄',
   '███ ███ ███ ███   ███   ███ ███   ███     ███     ███   ███ ▀▀▀ ███ ███',
@@ -21,6 +24,26 @@ const OUTFITTER_ASCII_GRADIENT = ['success', 'accent', 'text', 'muted', 'dim'];
 const OUTFITTER_PROFILE_ID_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/u;
 const OUTFITTER_PLAN_TOOLS = ['read', 'grep', 'find', 'ls'];
 const OUTFITTER_DEFAULT_TOOLS = ['read', 'bash', 'edit', 'write'];
+// Keep this dialog in sync with outfitter-runtime-extension.js, which shows the same prompt for
+// users who already have .agents but no provider.
+const OUTFITTER_PROVIDER_PROMPT = {
+  title: [
+    'Pi does not have a model provider connected yet.',
+    'Connect one now so Outfitter can use Pi. Credentials stay inside Pi.',
+    'Press Enter to open /login, or Escape to skip and connect later.',
+  ],
+  items: [
+    {
+      value: 'connect',
+      label: 'Connect a model provider',
+      description: 'Opens Pi /login to sign in via OAuth or paste an API key.',
+    },
+  ],
+  footer: 'enter connect  escape skip',
+};
+const OUTFITTER_LOGIN_POLL_MS = 150;
+// Polls allowed for Pi to open its /login UI after the command is submitted (about three seconds).
+const OUTFITTER_LOGIN_OPEN_POLLS = 20;
 const loadPrivateCatalogOnboarding = () => import('./pi-extension/privateCatalogOnboarding.js');
 
 export default function outfitter(pi) {
@@ -149,6 +172,68 @@ export default function outfitter(pi) {
     notify: (message, type = 'info') => ctx.ui.notify(message, type),
   });
 
+  // Real providers only: the CLI stamps a placeholder provider into this setup shell so Pi starts
+  // without a login warning, and that placeholder must never satisfy the provider check.
+  const countConnectedModels = async (ctx) => {
+    if (ctx.modelRegistry === undefined || typeof ctx.modelRegistry.getAvailable !== 'function') return 0;
+    try {
+      const available = await ctx.modelRegistry.getAvailable();
+      return Array.isArray(available)
+        ? available.filter((model) => model?.provider !== OUTFITTER_SETUP_PROVIDER).length
+        : 0;
+    } catch {
+      return 0;
+    }
+  };
+
+  // Submits /login and resolves 'connected' once a real provider is available, or 'cancelled' when
+  // the user leaves Pi's login UI without one. Pi emits no auth event and keeps the placeholder
+  // model selected after a login (so `model_select` never fires here); completion is observed
+  // through the model registry, which Pi refreshes right after saving credentials, and abandonment
+  // through focus returning to the editor after the login UI was shown.
+  const openLoginAndWait = (ctx) =>
+    ctx.ui.custom(
+      (tui, _theme, _keybindings, done) => {
+        let editor;
+        let loginUiSeen = false;
+        let polls = 0;
+        const poll = async () => {
+          if ((await countConnectedModels(ctx)) > 0) return done('connected');
+          polls += 1;
+          if (tui.focusedComponent !== editor) loginUiSeen = true;
+          else if (loginUiSeen || polls >= OUTFITTER_LOGIN_OPEN_POLLS) return done('cancelled');
+          setTimeout(poll, OUTFITTER_LOGIN_POLL_MS);
+        };
+        ctx.ui.setEditorText('/login');
+        setTimeout(() => {
+          editor = tui.focusedComponent;
+          editor?.handleInput?.('\r');
+          setTimeout(poll, OUTFITTER_LOGIN_POLL_MS);
+        }, 25);
+        return { render: () => [], invalidate: () => undefined };
+      },
+      { overlay: true, overlayOptions: { nonCapturing: true, visible: () => false } },
+    );
+
+  // Second half of the guided first run: once .agents is written, offer Pi's native /login inside
+  // this same session so the relaunched profile starts with credentials in place. Escape skips and
+  // the CLI prints the one-line /login hint instead of prompting again.
+  const connectModelProvider = async (ctx) => {
+    if (ctx.mode !== 'tui' || typeof ctx.ui.custom !== 'function') return 'unavailable';
+    if ((await countConnectedModels(ctx)) > 0) return 'available';
+    const selected = await selectDescribedOption(
+      ctx,
+      OUTFITTER_PROVIDER_PROMPT.title,
+      OUTFITTER_PROVIDER_PROMPT.items,
+      'connect',
+      { footer: OUTFITTER_PROVIDER_PROMPT.footer },
+    );
+    if (selected === 'connect' && (await openLoginAndWait(ctx)) === 'connected') return 'connected';
+    return 'skipped';
+  };
+
+  // `run` relaunches the selected profile as soon as this shell exits, so no restart notice here.
+  // Only the Pi harness needs a Pi model provider.
   const finish = async (ctx, selection, message) => {
     await writeSetupResult(selection);
     ctx.ui.notify(
@@ -158,6 +243,9 @@ export default function outfitter(pi) {
       ].join('\n'),
       'info',
     );
+    if (selection.harness === 'pi' && (await connectModelProvider(ctx)) === 'skipped') {
+      await writeSetupResult({ ...selection, providerConnection: 'skipped' });
+    }
     ctx.shutdown();
   };
 
@@ -190,7 +278,6 @@ export default function outfitter(pi) {
       [
         "Outfitter saved default profile '" + selectedProfile.id + "' to " + settingsPath + '.',
         'Profile choices were loaded from the default Outfitter profile catalog, not generated locally.',
-        "It applies on the next 'outfitter' launch; restart Outfitter to load the selected profile.",
       ].join('\n'),
     );
   };
@@ -215,7 +302,6 @@ export default function outfitter(pi) {
       [
         "Outfitter created profile '" + profileId + "' at " + profilePath + '.',
         'Outfitter saved settings to ' + settingsPath + '.',
-        "It applies on the next 'outfitter' launch; restart Outfitter to load the selected profile.",
       ].join('\n'),
     );
   };
@@ -475,7 +561,9 @@ const selectFromItems = async (ctx, titleLines, items, initialValue) => {
     : items.find((item) => item.label === selected)?.value;
 };
 
-const selectDescribedOption = (ctx, titleLines, items, initialValue) =>
+// `options.footer` overrides the key legend; by default a single-item list omits "↑↓ navigate"
+// because the arrow keys do nothing there.
+const selectDescribedOption = (ctx, titleLines, items, initialValue, options = {}) =>
   ctx.ui.custom((tui, theme, _keybindings, done) => {
     let selectedIndex = Math.max(
       0,
@@ -535,7 +623,7 @@ const selectDescribedOption = (ctx, titleLines, items, initialValue) =>
         renderSelectedItem(prefix, label, selected ? item.description : undefined);
       });
       lines.push('');
-      add(theme.fg('dim', '↑↓ navigate  enter select  escape/ctrl+c cancel'));
+      add(theme.fg('dim', options.footer ?? pickerFooter(items.length)));
       add(theme.fg('accent', '─'.repeat(maxWidth)));
       cachedWidth = maxWidth;
       cachedLines = lines;
@@ -561,3 +649,6 @@ const formatProfileLabel = (profile, currentDefault) => {
   const label = profile.label ? ' — ' + profile.label : '';
   return profile.id + label + current + recommended;
 };
+
+const pickerFooter = (itemCount) =>
+  (itemCount > 1 ? '↑↓ navigate  ' : '') + 'enter select  escape/ctrl+c cancel';

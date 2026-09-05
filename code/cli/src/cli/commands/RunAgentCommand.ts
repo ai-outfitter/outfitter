@@ -34,7 +34,7 @@ import type { Harness, Isolation, Settings, SourceCachePolicy } from '../../sett
 import { HARNESSES, SOURCE_CACHE_POLICIES } from '../../settings/Settings.js';
 import { discoverSettingsLoadPlan, loadSettings } from '../../settings/SettingsLoader.js';
 import { prepareSourceCaches } from '../../sources/SourceCachePolicy.js';
-import { setupNextStepMessage } from '../../setup/Setup.js';
+import { providerLoginHint, setupNextStepMessage } from '../../setup/Setup.js';
 import type { SetupResult } from '../../setup/Setup.js';
 import { attachSystemExtensionHooks } from '../../system/SystemExtensionHook.js';
 import { startTerminalLoading } from '../TerminalLoading.js';
@@ -73,6 +73,8 @@ export interface RunAgentInput {
   readonly launcher: AgentProcessLauncher;
   /** Onboarding to run once when no agent is selected and settings define no `default_agent`. */
   readonly setup?: SetupRunner;
+  /** The user skipped connecting a Pi provider in setup; the pi session prints a /login hint instead of prompting. */
+  readonly providerPromptSkipped?: boolean;
   /** Keep the runtime projection directory after the run (debugging). */
   readonly retainProjection?: boolean;
   /** Sink for setup notices and warnings; emitted before launch so they precede the pi session. */
@@ -329,6 +331,7 @@ export const executeRunAgentCommand = async (input: RunAgentInput): Promise<RunA
 
   const sourceCachePolicy = establishSourceCaches(input);
   let resolved = resolveEffectiveSet(input);
+  let providerPromptSkipped = input.providerPromptSkipped === true;
   assertNoSettingsIssues(resolved.settingsIssues);
   assertReadableAppendPrompts(input.appendPromptPaths);
 
@@ -339,8 +342,9 @@ export const executeRunAgentCommand = async (input: RunAgentInput): Promise<RunA
       projectDirectory: input.projectDirectory,
     });
 
+    providerPromptSkipped = setupResult?.providerPromptSkipped === true;
     if (setupDidNotSelectAgent(setupResult)) {
-      const messages = [setupNextStepMessage];
+      const messages = [setupNextStepMessage, ...(providerPromptSkipped ? [providerLoginHint] : [])];
       emit(messages);
       return { exitCode: 0, messages };
     }
@@ -428,6 +432,7 @@ export const executeRunAgentCommand = async (input: RunAgentInput): Promise<RunA
     const launch = attachPiRuntimeExtension(projection.launch, {
       profile: { id: agentSlug, label: composed.plan.identity.label },
       rootDirectory,
+      providerPrompt: providerPromptSkipped ? 'hint' : 'dialog',
     });
     // System hooks attach last, after projection and after the runtime extension,
     // so an organization's collector applies to every launch — including

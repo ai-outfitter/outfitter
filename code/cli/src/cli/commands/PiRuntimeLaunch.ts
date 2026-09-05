@@ -18,9 +18,16 @@ export interface PiRuntimeProfileIdentity {
   readonly label?: string;
 }
 
+export type PiProviderPromptMode = 'dialog' | 'hint';
+
 export interface PiRuntimeExtensionInput {
   readonly profile?: PiRuntimeProfileIdentity;
   readonly rootDirectory: string;
+  /**
+   * How the extension reacts when pi has no model provider: offer /login in a dialog (default), or
+   * print only a one-line /login hint because the user just skipped that step in first-run setup.
+   */
+  readonly providerPrompt?: PiProviderPromptMode;
 }
 
 export const isNonInteractivePiLaunch = (args: readonly string[]): boolean =>
@@ -37,9 +44,14 @@ export const createPiRuntimeExtensionContent = (input: Omit<PiRuntimeExtensionIn
   /* v8 ignore next -- defensive: the runtime extension ships with the package, so it resolves in practice. */
   if (extensionPath === undefined) throw new Error('Outfitter runtime extension was not found.');
 
-  return readFileSync(extensionPath, 'utf8').replace(
-    /["']__OUTFITTER_ACTIVE_PROFILE__["']/gu,
-    JSON.stringify(input.profile) ?? 'undefined',
+  const values: Record<string, unknown> = {
+    OUTFITTER_ACTIVE_PROFILE: input.profile,
+    OUTFITTER_PROVIDER_PROMPT_MODE: input.providerPrompt ?? 'dialog',
+  };
+  // One pass over the asset, as for the setup extension: each known placeholder becomes its JSON
+  // value (an absent profile stamps `undefined`); unknown placeholders are left intact.
+  return readFileSync(extensionPath, 'utf8').replace(/["']__(OUTFITTER_[A-Z_]+)__["']/gu, (match, name: string) =>
+    Object.hasOwn(values, name) ? (JSON.stringify(values[name]) ?? 'undefined') : match,
   );
 };
 

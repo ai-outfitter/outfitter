@@ -1,6 +1,6 @@
 // Exercises the Outfitter runtime extension's identity UI, auto sign-in prompt, and launch wiring.
-// THIS TEST GUARDS OFTR-010's runtime login behavior (real pi opens /login when no models are
-// available; the isolated setup pi never does).
+// THIS TEST GUARDS OFTR-010's runtime login behavior (real pi offers /login when no models are
+// available, or prints only the /login hint right after a skipped first-run provider step).
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -13,7 +13,7 @@ import {
   createPiRuntimeExtensionContent,
   isNonInteractivePiLaunch,
 } from '../../src/cli/commands/PiRuntimeLaunch.js';
-import type { PiRuntimeProfileIdentity } from '../../src/cli/commands/PiRuntimeLaunch.js';
+import type { PiProviderPromptMode, PiRuntimeProfileIdentity } from '../../src/cli/commands/PiRuntimeLaunch.js';
 import type { AgentLaunchPlan } from '../../src/projection/Projection.js';
 
 type Handler = (event: Record<string, unknown>, context: MockContext) => Promise<unknown>;
@@ -21,6 +21,7 @@ type MockContext = ReturnType<typeof createMockContext>;
 
 interface RuntimeFixtureInput {
   readonly profile?: PiRuntimeProfileIdentity;
+  readonly providerPrompt?: PiProviderPromptMode;
 }
 
 interface MockHeader {
@@ -44,6 +45,7 @@ afterEach(() => {
 const evaluateRuntimeExtension = (input: RuntimeFixtureInput = {}): ((pi: MockPi) => void) => {
   const executable = createPiRuntimeExtensionContent({
     profile: input.profile,
+    providerPrompt: input.providerPrompt,
   })
     .replace(
       /import \{ Key, matchesKey, truncateToWidth, visibleWidth, wrapTextWithAnsi \} from ['"]@earendil-works\/pi-tui['"];/u,
@@ -81,6 +83,7 @@ const createMockContext = (options: { models?: readonly unknown[]; confirm?: boo
   let editorText = '';
   let header: MockHeader | undefined;
   const rendered: string[][] = [];
+  const notifications: string[] = [];
   const statuses: Record<string, string> = {};
   const theme = { fg: (_color: string, text: string) => text, bold: (text: string) => text };
   return {
@@ -94,6 +97,7 @@ const createMockContext = (options: { models?: readonly unknown[]; confirm?: boo
       return header;
     },
     rendered,
+    notifications,
     statuses,
     ui: {
       custom<T>(factory: (...args: unknown[]) => unknown): Promise<T> {
@@ -116,6 +120,9 @@ const createMockContext = (options: { models?: readonly unknown[]; confirm?: boo
             component.handleInput?.(options.confirm === false ? 'ESC' : 'ENTER');
           }
         });
+      },
+      notify(message: string) {
+        notifications.push(message);
       },
       setEditorText(value: string) {
         editorText = value;
@@ -191,8 +198,12 @@ describe('Pi runtime extension auto sign-in', () => {
     const dialog = context.rendered[0]?.join('\n') ?? '';
     expect(dialog).toContain('Pi does not have a model provider connected yet.');
     expect(dialog).toContain('Connect one now so Outfitter can use Pi.');
-    expect(dialog).toContain('Credentials stay inside Pi.');
+    expect(dialog).toContain('Press Enter to open /login');
     expect(dialog).toContain('Connect a model provider');
+    // A one-item picker advertises only keys that do something.
+    expect(dialog).toContain('enter connect  escape skip');
+    expect(dialog).not.toContain('navigate');
+    expect(context.notifications).toEqual([]);
   });
 
   it('does nothing when a model is already available', async () => {
@@ -201,10 +212,31 @@ describe('Pi runtime extension auto sign-in', () => {
     expect(context.editorText).toBe('');
   });
 
-  it('does not open /login when the user declines the connect prompt', async () => {
+  it('leaves a one-line /login hint when the user declines the connect prompt', async () => {
     const context = createMockContext({ models: [], confirm: false });
     await fireSessionStart(context);
     expect(context.editorText).toBe('');
+    expect(context.notifications).toEqual([
+      "No model provider connected yet. Run '/login' inside Outfitter to connect one.",
+    ]);
+  });
+
+  // The user just pressed Escape on the same dialog inside first-run setup; asking again would be
+  // the loop the onboarding flow exists to avoid.
+  it('prints only the /login hint in hint mode instead of prompting again', async () => {
+    const context = createMockContext({ models: [], confirm: true });
+    await fireSessionStart(context, { reason: 'startup' }, { providerPrompt: 'hint' });
+    expect(context.editorText).toBe('');
+    expect(context.rendered).toEqual([]);
+    expect(context.notifications).toEqual([
+      "No model provider connected yet. Run '/login' inside Outfitter to connect one.",
+    ]);
+  });
+
+  it('stays silent in hint mode when a model is available', async () => {
+    const context = createMockContext({ models: [{ id: 'm' }] });
+    await fireSessionStart(context, { reason: 'startup' }, { providerPrompt: 'hint' });
+    expect(context.notifications).toEqual([]);
   });
 
   it('stays inert outside a TUI session', async () => {
@@ -241,7 +273,15 @@ describe('attachPiRuntimeExtension', () => {
     expect(result.args.slice(2)).toEqual(['--system-prompt', '/x']);
     const extension = readFileSync(result.args[1], 'utf8');
     expect(extension).toContain('const OUTFITTER_ACTIVE_PROFILE = {"id":"engineer","label":"Engineer"};');
+    expect(extension).toContain('const OUTFITTER_PROVIDER_PROMPT_MODE = "dialog";');
     expect(extension).not.toContain('__OUTFITTER_');
+  });
+
+  it('stamps hint mode when the user skipped the provider step during setup', () => {
+    const result = attachPiRuntimeExtension(piPlan(), { ...runtimeInput(), providerPrompt: 'hint' });
+    const extension = readFileSync(result.args[1], 'utf8');
+    expect(extension).toContain('const OUTFITTER_PROVIDER_PROMPT_MODE = "hint";');
+    expect(extension).toContain('const OUTFITTER_ACTIVE_PROFILE = undefined;');
   });
 
   it('does not reinterpret placeholder-shaped profile metadata while stamping', () => {

@@ -539,7 +539,113 @@ describe('Pi setup launch', () => {
     expect(extension).toContain('Which CLI agent should Outfitter use by default?');
     expect(extension).not.toContain('Starter agent');
     expect(extension).not.toContain('__OUTFITTER_');
-    expect(extension).not.toContain('/login');
+    // The provider step ignores the placeholder provider the shell starts on.
+    expect(extension).toContain('const OUTFITTER_SETUP_PROVIDER = "outfitter-setup";');
+    const models = JSON.parse(readFileSync(join(root, 'pi', 'models.json'), 'utf8')) as {
+      providers: Record<string, unknown>;
+    };
+    expect(Object.keys(models.providers)).toEqual(['outfitter-setup']);
+    expect(existsSync(join(root, 'pi', 'auth.json'))).toBe(false);
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-010.7.1, OFTR-010.5.4).
+  it("seeds pi credentials and the user's own providers so the provider check sees them", () => {
+    const { home, project, root } = createTree();
+    write(join(home, '.pi', 'agent', 'auth.json'), '{"anthropic":{"type":"api_key","key":"k"}}');
+    write(
+      join(home, '.pi', 'agent', 'models.json'),
+      JSON.stringify({ providers: { corp: { baseUrl: 'http://corp', api: 'openai-completions', models: [] } } }),
+    );
+    preparePiSetupLaunch({ homeDirectory: home, projectDirectory: project, setupDirectory: root, availableAgents: [] });
+    expect(readFileSync(join(root, 'pi', 'auth.json'), 'utf8')).toBe('{"anthropic":{"type":"api_key","key":"k"}}');
+    const models = JSON.parse(readFileSync(join(root, 'pi', 'models.json'), 'utf8')) as {
+      providers: Record<string, unknown>;
+    };
+    expect(Object.keys(models.providers)).toEqual(['corp', 'outfitter-setup']);
+  });
+
+  it('ignores an unreadable or provider-less user models.json', () => {
+    for (const content of ['{not json', '{"providers": 3}', '[]']) {
+      const { home, project, root } = createTree();
+      write(join(home, '.pi', 'agent', 'models.json'), content);
+      preparePiSetupLaunch({
+        homeDirectory: home,
+        projectDirectory: project,
+        setupDirectory: root,
+        availableAgents: [],
+      });
+      const models = JSON.parse(readFileSync(join(root, 'pi', 'models.json'), 'utf8')) as {
+        providers: Record<string, unknown>;
+      };
+      expect(Object.keys(models.providers)).toEqual(['outfitter-setup']);
+    }
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-010.5.4).
+  it('persists credentials saved by /login inside the walkthrough and passes a skipped step through', async () => {
+    const { catalog, home, project } = createTree();
+    const connected = await runSetup({
+      homeDirectory: home,
+      projectDirectory: project,
+      defaultCatalogBootstrap: () => catalog,
+      interactive: true,
+      launcher: (plan) => {
+        writeFileSync(join(plan.env.PI_CODING_AGENT_DIR!, 'auth.json'), '{"openai":{"type":"api_key","key":"x"}}');
+        writeFileSync(
+          selectionPathFromPlan(plan),
+          JSON.stringify({ setupMode: 'create', agentId: 'a', harness: 'pi', target: 'home' }),
+        );
+        return Promise.resolve(0);
+      },
+    });
+    expect(connected?.providerPromptSkipped).toBeUndefined();
+    expect(readFileSync(join(home, '.pi', 'agent', 'auth.json'), 'utf8')).toBe(
+      '{"openai":{"type":"api_key","key":"x"}}',
+    );
+    expect(existsSync(join(home, '.pi', 'agent', 'models.json'))).toBe(false); // placeholder stays setup scaffolding
+
+    const skipped = await runSetup({
+      homeDirectory: home,
+      projectDirectory: project,
+      defaultCatalogBootstrap: () => catalog,
+      interactive: true,
+      launcher: (plan) => {
+        writeFileSync(
+          selectionPathFromPlan(plan),
+          JSON.stringify({
+            setupMode: 'create',
+            agentId: 'a',
+            harness: 'pi',
+            target: 'home',
+            providerConnection: 'skipped',
+          }),
+        );
+        return Promise.resolve(0);
+      },
+    });
+    expect(skipped?.providerPromptSkipped).toBe(true);
+
+    await expect(
+      runSetup({
+        homeDirectory: home,
+        projectDirectory: project,
+        defaultCatalogBootstrap: () => catalog,
+        interactive: true,
+        launcher: (plan) => {
+          writeFileSync(
+            selectionPathFromPlan(plan),
+            JSON.stringify({
+              setupMode: 'create',
+              agentId: 'a',
+              harness: 'pi',
+              target: 'home',
+              providerConnection: 'yes',
+            }),
+          );
+          return Promise.resolve(0);
+        },
+      }),
+    ).rejects.toThrow(/invalid selection/u);
   });
 
   it('stamps the current default marker and an optional provided source', () => {
@@ -778,6 +884,54 @@ describe('Pi setup launch', () => {
     await program.parseAsync(['node', 'outfitter', 'setup']);
     expect(lines).toEqual([]);
     expect(runLaunches).toEqual(['pi']); // setup auto-started the selected profile
+  });
+
+  it('relaunches in hint mode after a skipped provider step and prints the hint when not launching', async () => {
+    const { catalog, home, project } = createTree();
+    const lines: string[] = [];
+    const runtimeExtensions: string[] = [];
+    const selection = (extra: Record<string, unknown>) => (plan: AgentLaunchPlan) => {
+      writeFileSync(selectionPathFromPlan(plan), JSON.stringify({ harness: 'pi', target: 'home', ...extra }));
+      return Promise.resolve(0);
+    };
+    const dependencies = {
+      homeDirectory: home,
+      projectDirectory: project,
+      defaultCatalogBootstrap: () => catalog,
+      interactive: true,
+      runLauncher: (plan: AgentLaunchPlan) => {
+        const extension = plan.args[plan.args.indexOf('--extension') + 1];
+        runtimeExtensions.push(readFileSync(extension, 'utf8'));
+        return Promise.resolve(0);
+      },
+      writeLine: (message: string) => lines.push(message),
+    };
+
+    const launching = new Command();
+    createSetupCommand({
+      ...dependencies,
+      launcher: selection({ setupMode: 'create', agentId: 'myagent', providerConnection: 'skipped' }),
+    }).register(launching);
+    await launching.parseAsync(['node', 'outfitter', 'setup']);
+    expect(lines).toEqual([]); // the pi session itself shows the hint
+    expect(runtimeExtensions[0]).toContain('const OUTFITTER_PROVIDER_PROMPT_MODE = "hint";');
+
+    const catalogSetup = new Command();
+    createSetupCommand({
+      ...dependencies,
+      launcher: selection({
+        setupMode: 'catalog',
+        github: 'acme/config',
+        ref: 'main',
+        settingsPath: 'settings.yml',
+        providerConnection: 'skipped',
+      }),
+    }).register(catalogSetup);
+    await catalogSetup.parseAsync(['node', 'outfitter', 'setup']);
+    expect(lines).toEqual([
+      expect.stringContaining("Run 'outfitter sync'"),
+      "No model provider connected yet. Run '/login' inside Outfitter to connect one.",
+    ]);
   });
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-011.1).

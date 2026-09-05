@@ -3,6 +3,10 @@
 > **Amended (RFC [#165](https://github.com/ai-outfitter/outfitter/issues/165), 2026-07-20):**
 > restore the exact pre-Dotagents Pi-native setup wording, screens, and ordering. Translate only the
 > persisted model to `.agents`, and append one default CLI-agent selector with Pi/Outfitter selected.
+>
+> **Amended ([#372](https://github.com/ai-outfitter/outfitter/issues/372), 2026-09-05):** the guided
+> first run sets up `.agents` first, then offers Pi's native `/login` inside the same setup shell when
+> no model provider is connected, so the relaunched profile starts with credentials in place.
 
 ## OFTR-010.1: Entry and isolation
 
@@ -11,11 +15,28 @@
 2. A plain interactive run without an agent/default MUST invoke the same walkthrough, re-resolve,
    and continue with the selected profile.
 3. Non-interactive invocations MUST NOT prompt or mutate settings.
-4. Setup Pi MUST be isolated, model-free, and offline; it MUST NOT open `/login` or send an agent turn.
+4. Setup Pi MUST be isolated and offline and MUST NOT send an agent turn. It starts on an offline
+   placeholder provider that never counts as connected. The only network use it MAY initiate is Pi's
+   native `/login` in the provider step (OFTR-010.7).
 5. After a successful walkthrough, explicit `outfitter setup` MUST also re-resolve and launch the
    selected profile when a concrete agent was chosen (default/create modes), so the user lands in a
    working pi session without a manual restart. Catalog/source setups, whose profile needs a sync
    first, MUST instead report next-launch behavior.
+
+## OFTR-010.7: Setup provider step
+
+1. After the walkthrough writes its handoff, and only when the chosen harness is Pi, setup MUST
+   check whether Pi has a real model provider available, seeding the setup shell from Pi's durable
+   agent directory (`~/.pi/agent`) so existing credentials and user-defined providers count.
+2. When none is available, setup MUST show the "connect a model provider" prompt and, on Enter, open
+   Pi's native `/login` in the same setup session and wait for a provider to become available before
+   shutting down. Credentials entered there MUST persist to Pi's durable agent directory.
+3. Escape MUST skip the step, record the skip in the handoff, and the relaunch MUST print a one-line
+   `/login` hint instead of prompting again in that session.
+4. A picker with a single item MUST NOT advertise `↑↓ navigate`; its footer MUST list only keys that
+   do something.
+5. Setup completion notices MUST NOT tell the user to restart Outfitter when the CLI relaunches the
+   selected profile itself.
 
 ## OFTR-010.5: Runtime sign-in
 
