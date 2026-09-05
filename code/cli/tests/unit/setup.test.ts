@@ -573,7 +573,7 @@ describe('Pi setup launch', () => {
     const { home, project, root } = createTree();
     write(
       join(home, '.pi', 'agent', 'models.json'),
-      '{\n  // corporate gateway\n  "providers": { "corp": { "baseUrl": "http://corp", /* key */ "apiKey": "a//b\\"c" } }\n}\n',
+      '{\n  // corporate gateway\n  "providers": { "corp": { "baseUrl": "http://corp", "apiKey": "a//b\\"c", }, },\n}\n',
     );
     preparePiSetupLaunch({ homeDirectory: home, projectDirectory: project, setupDirectory: root, availableAgents: [] });
     const models = JSON.parse(readFileSync(join(root, 'pi', 'models.json'), 'utf8')) as {
@@ -584,7 +584,12 @@ describe('Pi setup launch', () => {
   });
 
   it('ignores an unreadable or provider-less user models.json', () => {
-    for (const content of ['{not json', '{"providers": 3}', '[]']) {
+    for (const content of [
+      '{not json',
+      '{"providers": 3}',
+      '[]',
+      '{/* pi does not accept block comments */ "providers": {"x": {}}}',
+    ]) {
       const { home, project, root } = createTree();
       write(join(home, '.pi', 'agent', 'models.json'), content);
       preparePiSetupLaunch({
@@ -1019,6 +1024,8 @@ describe('Pi setup credential copy-back', () => {
     piConfigDirectory: join(root, 'pi'),
     seededAuth,
   });
+  const readDurable = (home: string): unknown =>
+    JSON.parse(readFileSync(join(home, '.pi', 'agent', 'auth.json'), 'utf8'));
 
   it('drops the placeholder provider entry before persisting a real login', () => {
     const { home, root } = createTree();
@@ -1027,9 +1034,7 @@ describe('Pi setup credential copy-back', () => {
       JSON.stringify({ 'outfitter-setup': { type: 'api_key', key: 'pasted' }, openai: { type: 'api_key', key: 'x' } }),
     );
     persistSetupCredentials(launchFor(root), join(home, '.pi', 'agent'));
-    expect(JSON.parse(readFileSync(join(home, '.pi', 'agent', 'auth.json'), 'utf8'))).toEqual({
-      openai: { type: 'api_key', key: 'x' },
-    });
+    expect(readDurable(home)).toEqual({ openai: { type: 'api_key', key: 'x' } });
   });
 
   it('writes nothing when the shell only holds what was seeded, or only the placeholder', () => {
@@ -1043,7 +1048,6 @@ describe('Pi setup credential copy-back', () => {
     persistSetupCredentials(launchFor(root), join(home, '.pi', 'agent'));
     expect(existsSync(durable)).toBe(false);
 
-    // A concurrent pi session rotated the durable token while the walkthrough ran: keep it.
     write(durable, '{"anthropic":{"type":"oauth","refresh":"new"}}');
     write(join(root, 'pi', 'auth.json'), '{"anthropic":{"type":"oauth","refresh":"old"}}');
     persistSetupCredentials(
@@ -1051,6 +1055,25 @@ describe('Pi setup credential copy-back', () => {
       join(home, '.pi', 'agent'),
     );
     expect(readFileSync(durable, 'utf8')).toBe('{"anthropic":{"type":"oauth","refresh":"new"}}');
+  });
+
+  it('applies only the providers the walkthrough changed on top of the current durable file', () => {
+    const { home, root } = createTree();
+    const durable = join(home, '.pi', 'agent', 'auth.json');
+    // Seeded: anthropic (old). During the walkthrough another pi session rotated anthropic to
+    // "new" while the user logged into openai and removed a stale provider.
+    const seeded = JSON.stringify({ anthropic: { refresh: 'old' }, stale: { key: 's' } });
+    write(durable, JSON.stringify({ anthropic: { refresh: 'new' }, stale: { key: 's' } }));
+    write(join(root, 'pi', 'auth.json'), JSON.stringify({ anthropic: { refresh: 'old' }, openai: { key: 'x' } }));
+    persistSetupCredentials(launchFor(root, seeded), join(home, '.pi', 'agent'));
+    expect(readDurable(home)).toEqual({ anthropic: { refresh: 'new' }, openai: { key: 'x' } });
+  });
+
+  it('treats an empty seeded durable file as no credentials', () => {
+    const { home, root } = createTree();
+    write(join(root, 'pi', 'auth.json'), '{"openai":{"key":"x"}}');
+    persistSetupCredentials(launchFor(root, ''), join(home, '.pi', 'agent'));
+    expect(readDurable(home)).toEqual({ openai: { key: 'x' } });
   });
 
   it('ignores a missing, malformed, or non-object shell auth.json', () => {

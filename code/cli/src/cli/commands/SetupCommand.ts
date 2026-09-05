@@ -96,14 +96,16 @@ export const createPiSetupExtensionContent = (input: {
   );
 };
 
-// pi reads models.json as JSONC (model-registry: JSON.parse(stripJsonComments(...))); mirror that
-// so a commented user file still contributes its providers. String literals are kept verbatim so
-// `//` or `/*` inside a value survives; an unterminated comment is left for JSON.parse to reject.
-const stripJsonComments = (content: string): string =>
-  content.replace(
-    /("(?:[^"\\]|\\.)*")|\/\/[^\n]*|\/\*[\s\S]*?\*\//gu,
-    (_match, literal: string | undefined) => literal ?? '',
-  );
+// pi reads models.json as JSONC through its own stripper (pi-coding-agent utils/json.ts, not
+// exported): `//` comments and trailing commas are removed, string literals are kept verbatim, and
+// block comments are not supported. Mirror it exactly so the same user file parses in both places.
+const stripJsonComments = (input: string): string =>
+  input
+    .replace(/"(?:\\.|[^"\\])*"|\/\/[^\n]*/gu, (match) => (match.startsWith('"') ? match : ''))
+    .replace(
+      /"(?:\\.|[^"\\])*"|,(\s*[}\]])/gu,
+      (match, tail: string | undefined) => tail ?? (match.startsWith('"') ? match : ''),
+    );
 
 // The walkthrough's provider check must see the same providers the real session will, so the
 // user's own models.json providers join the placeholder; without them a custom-provider-only user
@@ -123,31 +125,43 @@ const readUserModelProviders = (piUserAgentDirectory: string): Record<string, un
 const readOptionalFile = (path: string): string | undefined =>
   existsSync(path) ? readFileSync(path, 'utf8') : undefined;
 
-/**
- * Copies a `/login` made inside the walkthrough back to pi's durable agent directory. pi rewrites
- * auth.json on every start and lists the placeholder provider among its API-key choices, so the
- * shell's file is normalised first: the placeholder entry is dropped (it is never a real provider)
- * and nothing is written when the remaining credentials equal what was seeded. That keeps a
- * concurrent pi session's token rotation intact and never creates an empty durable file.
- */
-export const persistSetupCredentials = (launch: PiSetupLaunch, piUserAgentDirectory: string): void => {
-  const content = readOptionalFile(join(launch.piConfigDirectory, 'auth.json'));
-  if (content === undefined) return;
-  let credentials: Record<string, unknown>;
+// pi treats an empty or unreadable auth.json as no credentials; anything but a plain object is
+// also nothing.
+const parseCredentials = (content: string | undefined): Record<string, unknown> => {
+  if (content === undefined) return {};
   try {
     const parsed: unknown = JSON.parse(content);
-    if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) return;
-    credentials = { ...(parsed as Record<string, unknown>) };
+    return parsed !== null && typeof parsed === 'object' && !Array.isArray(parsed)
+      ? (parsed as Record<string, unknown>)
+      : {};
   } catch {
-    return;
+    return {};
   }
-  delete credentials[setupPlaceholderProviderId];
-  const seeded = launch.seededAuth === undefined ? {} : (JSON.parse(launch.seededAuth) as Record<string, unknown>);
-  if (JSON.stringify(credentials) === JSON.stringify(seeded)) return;
+};
+
+/**
+ * Copies a `/login` made inside the walkthrough back to pi's durable agent directory. pi lists the
+ * placeholder provider among its API-key choices, so that entry is dropped first (it is never a
+ * real provider). Only the providers the walkthrough added, changed, or removed relative to what
+ * was seeded are applied, on top of the durable file as it is now, so a concurrent pi session's
+ * token rotation for another provider survives. Nothing is written when nothing changed.
+ */
+export const persistSetupCredentials = (launch: PiSetupLaunch, piUserAgentDirectory: string): void => {
+  const current = { ...parseCredentials(readOptionalFile(join(launch.piConfigDirectory, 'auth.json'))) };
+  delete current[setupPlaceholderProviderId];
+  const seeded = parseCredentials(launch.seededAuth);
+  const changed = [...new Set([...Object.keys(seeded), ...Object.keys(current)])].filter(
+    (provider) => JSON.stringify(seeded[provider]) !== JSON.stringify(current[provider]),
+  );
+  if (changed.length === 0) return;
+  const durablePath = join(piUserAgentDirectory, 'auth.json');
+  const merged = { ...parseCredentials(readOptionalFile(durablePath)) };
+  for (const provider of changed) {
+    if (Object.hasOwn(current, provider)) merged[provider] = current[provider];
+    else delete merged[provider];
+  }
   mkdirSync(piUserAgentDirectory, { recursive: true, mode: 0o700 });
-  writeFileSync(join(piUserAgentDirectory, 'auth.json'), `${JSON.stringify(credentials, null, 2)}\n`, {
-    mode: 0o600,
-  });
+  writeFileSync(durablePath, `${JSON.stringify(merged, null, 2)}\n`, { mode: 0o600 });
 };
 
 /**
