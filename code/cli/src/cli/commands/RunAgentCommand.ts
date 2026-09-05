@@ -41,6 +41,7 @@ import { startTerminalLoading } from '../TerminalLoading.js';
 import type { LoadingStarter } from '../TerminalLoading.js';
 import type { CommandObject } from './CommandObject.js';
 import { attachPiRuntimeExtension } from './PiRuntimeLaunch.js';
+import type { PiProviderPromptMode } from './PiRuntimeLaunch.js';
 import { resolveHomeDirectory, resolveProjectDirectory } from './ProcessDefaults.js';
 import { runSetup } from './SetupCommand.js';
 
@@ -323,6 +324,39 @@ const failedCompositionMessages = (
 
 const harnessDefaultsFor = (settings: Settings, harness: Harness) => settings.harnessDefaults?.[harness];
 
+const providerPromptModeFor = (skipped: boolean): PiProviderPromptMode => (skipped ? 'hint' : 'dialog');
+
+interface FirstRunOutcome {
+  readonly providerPromptSkipped: boolean;
+  /** Undefined when setup did not select a concrete agent; `messages` then carries the next step. */
+  readonly resolved?: ReturnType<typeof resolveEffectiveSet>;
+  readonly messages: readonly string[];
+}
+
+// Runs the walkthrough and re-resolves. A setup that still needs a sync reports one concise next
+// step (plus the /login hint when the provider step was skipped) instead of launching.
+const onboardFirstRun = async (
+  input: RunAgentInput & { readonly setup: NonNullable<RunAgentInput['setup']> },
+  sourceCachePolicy: ReturnType<typeof establishSourceCaches>,
+): Promise<FirstRunOutcome> => {
+  const setupResult = await input.setup({
+    homeDirectory: input.homeDirectory,
+    projectDirectory: input.projectDirectory,
+  });
+  const providerPromptSkipped = setupResult?.providerPromptSkipped === true;
+  if (setupDidNotSelectAgent(setupResult)) {
+    return {
+      providerPromptSkipped,
+      messages: [setupNextStepMessage, ...(providerPromptSkipped ? [providerLoginHint] : [])],
+    };
+  }
+  // Keep the transition quiet so the real profile UI is the first persistent output.
+  establishSourceCaches(input, sourceCachePolicy);
+  const resolved = resolveEffectiveSet(input);
+  assertNoSettingsIssues(resolved.settingsIssues);
+  return { providerPromptSkipped, resolved, messages: [] };
+};
+
 export const executeRunAgentCommand = async (input: RunAgentInput): Promise<RunAgentResult> => {
   // Flush messages to the terminal (before launch); they are also returned so callers can inspect them.
   const emit = (messages: readonly string[]): void => {
@@ -337,21 +371,13 @@ export const executeRunAgentCommand = async (input: RunAgentInput): Promise<RunA
 
   // First run: nothing selected and no default configured — onboard, then resolve again.
   if (shouldRunSetup(input, resolved)) {
-    const setupResult = await input.setup({
-      homeDirectory: input.homeDirectory,
-      projectDirectory: input.projectDirectory,
-    });
-
-    providerPromptSkipped = setupResult?.providerPromptSkipped === true;
-    if (setupDidNotSelectAgent(setupResult)) {
-      const messages = [setupNextStepMessage, ...(providerPromptSkipped ? [providerLoginHint] : [])];
-      emit(messages);
-      return { exitCode: 0, messages };
+    const onboarded = await onboardFirstRun(input, sourceCachePolicy);
+    providerPromptSkipped = onboarded.providerPromptSkipped;
+    if (onboarded.resolved === undefined) {
+      emit(onboarded.messages);
+      return { exitCode: 0, messages: onboarded.messages };
     }
-    // Keep the transition quiet so the real profile UI is the first persistent output.
-    establishSourceCaches(input, sourceCachePolicy);
-    resolved = resolveEffectiveSet(input);
-    assertNoSettingsIssues(resolved.settingsIssues);
+    resolved = onboarded.resolved;
   }
 
   // Strict mode exposes the complete final resolution state. Normal startup uses these diagnostics
@@ -432,7 +458,7 @@ export const executeRunAgentCommand = async (input: RunAgentInput): Promise<RunA
     const launch = attachPiRuntimeExtension(projection.launch, {
       profile: { id: agentSlug, label: composed.plan.identity.label },
       rootDirectory,
-      providerPrompt: providerPromptSkipped ? 'hint' : 'dialog',
+      providerPrompt: providerPromptModeFor(providerPromptSkipped),
     });
     // System hooks attach last, after projection and after the runtime extension,
     // so an organization's collector applies to every launch — including

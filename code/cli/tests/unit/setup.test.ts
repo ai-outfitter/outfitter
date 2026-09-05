@@ -590,7 +590,7 @@ describe('Pi setup launch', () => {
       defaultCatalogBootstrap: () => catalog,
       interactive: true,
       launcher: (plan) => {
-        writeFileSync(join(plan.env.PI_CODING_AGENT_DIR!, 'auth.json'), '{"openai":{"type":"api_key","key":"x"}}');
+        writeFileSync(join(plan.env.PI_CODING_AGENT_DIR, 'auth.json'), '{"openai":{"type":"api_key","key":"x"}}');
         writeFileSync(
           selectionPathFromPlan(plan),
           JSON.stringify({ setupMode: 'create', agentId: 'a', harness: 'pi', target: 'home' }),
