@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.15.1](https://github.com/ai-outfitter/outfitter/compare/v1.15.0...v1.15.1) (2026-09-05)
+
+
+### Bug Fixes
+
+* **setup:** connect a model provider right after .agents setup ([#374](https://github.com/ai-outfitter/outfitter/issues/374)) ([d4aca76](https://github.com/ai-outfitter/outfitter/commit/d4aca76217c77169ff74fa086f1edabf82a59a38))
+
 ## [1.15.0](https://github.com/ai-outfitter/outfitter/compare/v1.14.0...v1.15.0) (2026-09-04)
 
 
