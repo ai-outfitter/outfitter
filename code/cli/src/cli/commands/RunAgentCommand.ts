@@ -34,13 +34,14 @@ import type { Harness, Isolation, Settings, SourceCachePolicy } from '../../sett
 import { HARNESSES, SOURCE_CACHE_POLICIES } from '../../settings/Settings.js';
 import { discoverSettingsLoadPlan, loadSettings } from '../../settings/SettingsLoader.js';
 import { prepareSourceCaches } from '../../sources/SourceCachePolicy.js';
-import { setupNextStepMessage } from '../../setup/Setup.js';
+import { providerLoginHint, setupNextStepMessage } from '../../setup/Setup.js';
 import type { SetupResult } from '../../setup/Setup.js';
 import { attachSystemExtensionHooks } from '../../system/SystemExtensionHook.js';
 import { startTerminalLoading } from '../TerminalLoading.js';
 import type { LoadingStarter } from '../TerminalLoading.js';
 import type { CommandObject } from './CommandObject.js';
 import { attachPiRuntimeExtension } from './PiRuntimeLaunch.js';
+import type { PiProviderPromptMode } from './PiRuntimeLaunch.js';
 import { resolveHomeDirectory, resolveProjectDirectory } from './ProcessDefaults.js';
 import { runSetup } from './SetupCommand.js';
 
@@ -73,6 +74,8 @@ export interface RunAgentInput {
   readonly launcher: AgentProcessLauncher;
   /** Onboarding to run once when no agent is selected and settings define no `default_agent`. */
   readonly setup?: SetupRunner;
+  /** The user skipped connecting a Pi provider in setup; the pi session prints a /login hint instead of prompting. */
+  readonly providerPromptSkipped?: boolean;
   /** Keep the runtime projection directory after the run (debugging). */
   readonly retainProjection?: boolean;
   /** Sink for setup notices and warnings; emitted before launch so they precede the pi session. */
@@ -321,6 +324,39 @@ const failedCompositionMessages = (
 
 const harnessDefaultsFor = (settings: Settings, harness: Harness) => settings.harnessDefaults?.[harness];
 
+const providerPromptModeFor = (skipped: boolean): PiProviderPromptMode => (skipped ? 'hint' : 'dialog');
+
+interface FirstRunOutcome {
+  readonly providerPromptSkipped: boolean;
+  /** Undefined when setup did not select a concrete agent; `messages` then carries the next step. */
+  readonly resolved?: ReturnType<typeof resolveEffectiveSet>;
+  readonly messages: readonly string[];
+}
+
+// Runs the walkthrough and re-resolves. A setup that still needs a sync reports one concise next
+// step (plus the /login hint when the provider step was skipped) instead of launching.
+const onboardFirstRun = async (
+  input: RunAgentInput & { readonly setup: NonNullable<RunAgentInput['setup']> },
+  sourceCachePolicy: ReturnType<typeof establishSourceCaches>,
+): Promise<FirstRunOutcome> => {
+  const setupResult = await input.setup({
+    homeDirectory: input.homeDirectory,
+    projectDirectory: input.projectDirectory,
+  });
+  const providerPromptSkipped = setupResult?.providerPromptSkipped === true;
+  if (setupDidNotSelectAgent(setupResult)) {
+    return {
+      providerPromptSkipped,
+      messages: [setupNextStepMessage, ...(providerPromptSkipped ? [providerLoginHint] : [])],
+    };
+  }
+  // Keep the transition quiet so the real profile UI is the first persistent output.
+  establishSourceCaches(input, sourceCachePolicy);
+  const resolved = resolveEffectiveSet(input);
+  assertNoSettingsIssues(resolved.settingsIssues);
+  return { providerPromptSkipped, resolved, messages: [] };
+};
+
 export const executeRunAgentCommand = async (input: RunAgentInput): Promise<RunAgentResult> => {
   // Flush messages to the terminal (before launch); they are also returned so callers can inspect them.
   const emit = (messages: readonly string[]): void => {
@@ -329,25 +365,19 @@ export const executeRunAgentCommand = async (input: RunAgentInput): Promise<RunA
 
   const sourceCachePolicy = establishSourceCaches(input);
   let resolved = resolveEffectiveSet(input);
+  let providerPromptSkipped = input.providerPromptSkipped === true;
   assertNoSettingsIssues(resolved.settingsIssues);
   assertReadableAppendPrompts(input.appendPromptPaths);
 
   // First run: nothing selected and no default configured — onboard, then resolve again.
   if (shouldRunSetup(input, resolved)) {
-    const setupResult = await input.setup({
-      homeDirectory: input.homeDirectory,
-      projectDirectory: input.projectDirectory,
-    });
-
-    if (setupDidNotSelectAgent(setupResult)) {
-      const messages = [setupNextStepMessage];
-      emit(messages);
-      return { exitCode: 0, messages };
+    const onboarded = await onboardFirstRun(input, sourceCachePolicy);
+    providerPromptSkipped = onboarded.providerPromptSkipped;
+    if (onboarded.resolved === undefined) {
+      emit(onboarded.messages);
+      return { exitCode: 0, messages: onboarded.messages };
     }
-    // Keep the transition quiet so the real profile UI is the first persistent output.
-    establishSourceCaches(input, sourceCachePolicy);
-    resolved = resolveEffectiveSet(input);
-    assertNoSettingsIssues(resolved.settingsIssues);
+    resolved = onboarded.resolved;
   }
 
   // Strict mode exposes the complete final resolution state. Normal startup uses these diagnostics
@@ -428,6 +458,7 @@ export const executeRunAgentCommand = async (input: RunAgentInput): Promise<RunA
     const launch = attachPiRuntimeExtension(projection.launch, {
       profile: { id: agentSlug, label: composed.plan.identity.label },
       rootDirectory,
+      providerPrompt: providerPromptModeFor(providerPromptSkipped),
     });
     // System hooks attach last, after projection and after the runtime extension,
     // so an organization's collector applies to every launch — including

@@ -1,17 +1,37 @@
 import { Key, matchesKey, truncateToWidth, visibleWidth, wrapTextWithAnsi } from '@earendil-works/pi-tui';
 
 const OUTFITTER_ACTIVE_PROFILE = '__OUTFITTER_ACTIVE_PROFILE__';
+// 'dialog' offers /login when no provider is connected. 'hint' only prints the one-line reminder;
+// the CLI stamps it when the user skipped the provider step of first-run setup moments earlier.
+const OUTFITTER_PROVIDER_PROMPT_MODE = '__OUTFITTER_PROVIDER_PROMPT_MODE__';
+// Keep this dialog in sync with outfitter-extension.js, which shows the same prompt right after
+// the first-run walkthrough.
+const OUTFITTER_PROVIDER_PROMPT = {
+  title: [
+    'Pi does not have a model provider connected yet.',
+    'Connect one now so Outfitter can use Pi. Credentials stay inside Pi.',
+    'Press Enter to open /login, or Escape to skip and connect later.',
+  ],
+  items: [
+    {
+      value: 'connect',
+      label: 'Connect a model provider',
+      description: 'Opens Pi /login to sign in via OAuth or paste an API key.',
+    },
+  ],
+  footer: 'enter connect  escape skip',
+};
+const OUTFITTER_PROVIDER_HINT = "No model provider connected yet. Run '/login' inside Outfitter to connect one.";
 
 // Outfitter runtime extension. Unlike the setup walkthrough extension
 // (outfitter-extension.js), this file is loaded into the real profile pi session. It restores the
-// compact Outfitter + profile header, plus the original "no provider connected yet"
-// sign-in prompt: when pi starts with no models available, it offers to connect one and delegates
-// to pi's native /login command, which persists credentials in pi's own agent directory and selects
-// a default model in-session.
-//
-// The setup pi stays deliberately model-free and MUST NOT open /login (OFTR-010.1.4); that is why
-// the auto-login lives here instead. The CLI stamps profile metadata into a per-run copy before
-// loading it via --extension.
+// compact Outfitter + profile header, plus the "no provider connected yet" sign-in prompt for
+// users who already have .agents but no provider: when pi starts with no models available, it
+// offers to connect one and delegates to pi's native /login command, which persists credentials in
+// pi's own agent directory and selects a default model in-session. First-run users normally
+// connect a provider inside the setup walkthrough instead (OFTR-010.7), so this prompt does not
+// repeat right after setup. The CLI stamps profile metadata into a per-run copy before loading it
+// via --extension.
 
 export default function outfitterRuntime(pi) {
   let loginSubmitted = false;
@@ -48,19 +68,10 @@ export default function outfitterRuntime(pi) {
     if (typeof ctx.ui.custom !== 'function') return true;
     const selected = await selectDescribedOption(
       ctx,
-      [
-        'Pi does not have a model provider connected yet.',
-        'Connect one now so Outfitter can use Pi.',
-        'Credentials stay inside Pi.',
-      ],
-      [
-        {
-          value: 'connect',
-          label: 'Connect a model provider',
-          description: 'Open Pi /login to sign in via OAuth or an API key.',
-        },
-      ],
+      OUTFITTER_PROVIDER_PROMPT.title,
+      OUTFITTER_PROVIDER_PROMPT.items,
       'connect',
+      { footer: OUTFITTER_PROVIDER_PROMPT.footer },
     );
     return selected === 'connect';
   };
@@ -69,7 +80,10 @@ export default function outfitterRuntime(pi) {
     if (loginSubmitted || ctx.mode !== 'tui') return;
     const availableModelCount = await getAvailableModelCount(ctx);
     if (availableModelCount > 0) return;
-    if (!(await confirmModelProviderConnection(ctx))) return;
+    if (OUTFITTER_PROVIDER_PROMPT_MODE === 'hint' || !(await confirmModelProviderConnection(ctx))) {
+      ctx.ui.notify(OUTFITTER_PROVIDER_HINT, 'warning');
+      return;
+    }
     loginSubmitted = await submitSlashCommand(ctx, '/login');
   };
 
@@ -107,9 +121,9 @@ const setRuntimeHeader = (ctx) => {
 };
 
 // Renders a described-option picker identical to the setup walkthrough's, so the runtime sign-in
-// prompt matches the rest of the Outfitter UI. Falls back to a plain label list when pi does not
-// support custom UI, then resolves the chosen label back to its item value.
-const selectDescribedOption = (ctx, titleLines, items, initialValue) =>
+// prompt matches the rest of the Outfitter UI. `options.footer` overrides the key legend; by
+// default a single-item list omits "↑↓ navigate" because the arrow keys do nothing there.
+const selectDescribedOption = (ctx, titleLines, items, initialValue, options = {}) =>
   ctx.ui.custom((tui, theme, _keybindings, done) => {
     let selectedIndex = Math.max(
       0,
@@ -169,7 +183,7 @@ const selectDescribedOption = (ctx, titleLines, items, initialValue) =>
         renderSelectedItem(prefix, label, selected ? item.description : undefined);
       });
       lines.push('');
-      add(theme.fg('dim', '↑↓ navigate  enter select  escape/ctrl+c cancel'));
+      add(theme.fg('dim', options.footer ?? pickerFooter(items.length)));
       add(theme.fg('accent', '─'.repeat(maxWidth)));
       cachedWidth = maxWidth;
       cachedLines = lines;
@@ -188,3 +202,5 @@ const selectDescribedOption = (ctx, titleLines, items, initialValue) =>
       },
     };
   });
+
+const pickerFooter = (itemCount) => (itemCount > 1 ? '↑↓ navigate  ' : '') + 'enter select  escape/ctrl+c cancel';

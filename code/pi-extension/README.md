@@ -3,11 +3,13 @@
 This workspace holds the source of the two Pi-native Outfitter extensions.
 
 `src/outfitter-extension.js` is the **setup walkthrough** extension. The CLI
-loads it into an isolated, model-free, offline Pi shell to host the `/outfitter`
+loads it into an isolated, offline Pi shell to host the `/outfitter`
 onboarding flow (profile catalog selection, install target, CLI-agent default).
 It brands the startup header and owns the Outfitter interactive shortcuts
-(Shift+Tab plan/build mode). Per `OFTR-010.1.4` the setup shell MUST NOT open
-`/login`, so this file is deliberately free of any credential prompt.
+(Shift+Tab plan/build mode). After the handoff is written, and only when Pi
+is the chosen harness with no real provider connected, it offers Pi's native
+`/login` in the same session (`OFTR-010.7`); credentials stay inside Pi and
+the CLI copies them back to `~/.pi/agent`.
 
 `src/outfitter-runtime-extension.js` is the **real-session runtime** extension.
 The CLI loads it into the selected profile's Pi session. It renders one compact

@@ -7,13 +7,19 @@ import { join, resolve } from 'node:path';
 import { Command, Option } from 'commander';
 
 import { launchThroughSpawn, spawnLauncher } from '../../agents/AgentLaunch.js';
+import { resolvePiUserAgentDirectory, seedPiCredentials } from '../../agents/PiCredentialPersistence.js';
 import { readRepositoryCodeAsset } from '../../paths/RepositoryAssets.js';
 import type { AgentLaunchPlan } from '../../projection/Projection.js';
 import type { Harness } from '../../settings/Settings.js';
 import { HARNESSES } from '../../settings/Settings.js';
 import { discoverSettingsLoadPlan, loadSettings } from '../../settings/SettingsLoader.js';
 import type { SetupAgentChoice, SetupResult, SetupSelection } from '../../setup/Setup.js';
-import { applySetupSelection, discoverSetupAgentChoices, setupNextStepMessage } from '../../setup/Setup.js';
+import {
+  applySetupSelection,
+  discoverSetupAgentChoices,
+  providerLoginHint,
+  setupNextStepMessage,
+} from '../../setup/Setup.js';
 import { bootstrapDefaultCatalog } from '../../setup/DefaultCatalog.js';
 import { startTerminalLoading } from '../TerminalLoading.js';
 import type { LoadingStarter } from '../TerminalLoading.js';
@@ -42,7 +48,17 @@ export interface SetupCommandDependencies {
 export interface PiSetupLaunch {
   readonly plan: AgentLaunchPlan;
   readonly resultPath: string;
+  /** The setup shell's `PI_CODING_AGENT_DIR`; a `/login` inside the walkthrough saves credentials here. */
+  readonly piConfigDirectory: string;
+  /** The durable `auth.json` content seeded into the shell, so only a real `/login` is copied back. */
+  readonly seededAuth?: string;
 }
+
+/**
+ * The offline placeholder provider given to the setup shell so pi starts without a login warning.
+ * The walkthrough's provider check ignores it, so only real providers count as connected.
+ */
+export const setupPlaceholderProviderId = 'outfitter-setup';
 
 interface PreparePiSetupLaunchInput {
   readonly homeDirectory: string;
@@ -68,6 +84,7 @@ export const createPiSetupExtensionContent = (input: {
     OUTFITTER_CURRENT_DEFAULT: input.currentDefault,
     OUTFITTER_SETUP_SOURCE_URI: input.setupSourceUri,
     OUTFITTER_AUTO_OPEN: true,
+    OUTFITTER_SETUP_PROVIDER: setupPlaceholderProviderId,
   } as const;
 
   // One pass over the asset: every `'__OUTFITTER_X__'` placeholder is replaced with its stamped
@@ -79,7 +96,79 @@ export const createPiSetupExtensionContent = (input: {
   );
 };
 
-/** Creates an isolated, model-free Pi setup launch using the bundled extension. */
+// pi reads models.json as JSONC through its own stripper (pi-coding-agent utils/json.ts, not
+// exported): `//` comments and trailing commas are removed, string literals are kept verbatim, and
+// block comments are not supported. Mirror it exactly so the same user file parses in both places.
+const stripJsonComments = (input: string): string =>
+  input
+    .replace(/"(?:\\.|[^"\\])*"|\/\/[^\n]*/gu, (match) => (match.startsWith('"') ? match : ''))
+    .replace(
+      /"(?:\\.|[^"\\])*"|,(\s*[}\]])/gu,
+      (match, tail: string | undefined) => tail ?? (match.startsWith('"') ? match : ''),
+    );
+
+// The walkthrough's provider check must see the same providers the real session will, so the
+// user's own models.json providers join the placeholder; without them a custom-provider-only user
+// would be asked to connect a provider they already have.
+const readUserModelProviders = (piUserAgentDirectory: string): Record<string, unknown> => {
+  const modelsPath = join(piUserAgentDirectory, 'models.json');
+  if (!existsSync(modelsPath)) return {};
+  try {
+    const parsed: unknown = JSON.parse(stripJsonComments(readFileSync(modelsPath, 'utf8')));
+    const providers = (parsed as { providers?: unknown } | null)?.providers;
+    return providers !== null && typeof providers === 'object' ? (providers as Record<string, unknown>) : {};
+  } catch {
+    return {};
+  }
+};
+
+const readOptionalFile = (path: string): string | undefined =>
+  existsSync(path) ? readFileSync(path, 'utf8') : undefined;
+
+// pi treats an empty or unreadable auth.json as no credentials; anything but a plain object is
+// also nothing.
+const parseCredentials = (content: string | undefined): Record<string, unknown> => {
+  if (content === undefined) return {};
+  try {
+    const parsed: unknown = JSON.parse(content);
+    return parsed !== null && typeof parsed === 'object' && !Array.isArray(parsed)
+      ? (parsed as Record<string, unknown>)
+      : {};
+  } catch {
+    return {};
+  }
+};
+
+/**
+ * Copies a `/login` made inside the walkthrough back to pi's durable agent directory. pi lists the
+ * placeholder provider among its API-key choices, so that entry is dropped first (it is never a
+ * real provider). Only the providers the walkthrough added, changed, or removed relative to what
+ * was seeded are applied, on top of the durable file as it is now, so a concurrent pi session's
+ * token rotation for another provider survives. Nothing is written when nothing changed.
+ */
+export const persistSetupCredentials = (launch: PiSetupLaunch, piUserAgentDirectory: string): void => {
+  const current = { ...parseCredentials(readOptionalFile(join(launch.piConfigDirectory, 'auth.json'))) };
+  delete current[setupPlaceholderProviderId];
+  const seeded = parseCredentials(launch.seededAuth);
+  const changed = [...new Set([...Object.keys(seeded), ...Object.keys(current)])].filter(
+    (provider) => JSON.stringify(seeded[provider]) !== JSON.stringify(current[provider]),
+  );
+  if (changed.length === 0) return;
+  const durablePath = join(piUserAgentDirectory, 'auth.json');
+  const merged = { ...parseCredentials(readOptionalFile(durablePath)) };
+  for (const provider of changed) {
+    if (Object.hasOwn(current, provider)) merged[provider] = current[provider];
+    else delete merged[provider];
+  }
+  mkdirSync(piUserAgentDirectory, { recursive: true, mode: 0o700 });
+  writeFileSync(durablePath, `${JSON.stringify(merged, null, 2)}\n`, { mode: 0o600 });
+};
+
+/**
+ * Creates an isolated, offline Pi setup launch using the bundled extension. The shell starts on a
+ * placeholder provider and is seeded with pi's durable credentials so the walkthrough's provider
+ * check reflects what the user already has; `runSetup` copies any `/login` result back.
+ */
 export const preparePiSetupLaunch = (input: PreparePiSetupLaunchInput): PiSetupLaunch => {
   const piConfigDirectory = join(input.setupDirectory, 'pi');
   const extensionPath = join(piConfigDirectory, 'outfitter-extension.js');
@@ -107,12 +196,14 @@ export const preparePiSetupLaunch = (input: PreparePiSetupLaunchInput): PiSetupL
   // Pi currently renders a provider-login warning before extensions can open their UI when its
   // registry is empty. This isolated, offline-only placeholder is never called; it simply gives
   // the setup shell a selected model so the walkthrough can start cleanly without user credentials.
+  const piUserAgentDirectory = resolvePiUserAgentDirectory(input.homeDirectory);
   writeFileSync(
     join(piConfigDirectory, 'models.json'),
     `${JSON.stringify(
       {
         providers: {
-          'outfitter-setup': {
+          ...readUserModelProviders(piUserAgentDirectory),
+          [setupPlaceholderProviderId]: {
             baseUrl: 'http://127.0.0.1:9/v1',
             api: 'openai-completions',
             apiKey: 'outfitter-setup-no-network',
@@ -123,18 +214,23 @@ export const preparePiSetupLaunch = (input: PreparePiSetupLaunchInput): PiSetupL
       null,
       2,
     )}\n`,
+    { mode: 0o600 },
   );
   writeFileSync(
     join(piConfigDirectory, 'settings.json'),
     `${JSON.stringify(
-      { quietStartup: true, defaultProvider: 'outfitter-setup', defaultModel: 'walkthrough' },
+      { quietStartup: true, defaultProvider: setupPlaceholderProviderId, defaultModel: 'walkthrough' },
       null,
       2,
     )}\n`,
   );
+  // auth.json only: the placeholder models.json above already exists, so it is left in place.
+  seedPiCredentials(piConfigDirectory, piUserAgentDirectory);
 
   return {
     resultPath,
+    piConfigDirectory,
+    seededAuth: readOptionalFile(join(piUserAgentDirectory, 'auth.json')),
     plan: {
       command: 'pi',
       args: [
@@ -179,6 +275,7 @@ const parseSetupSelection = (path: string): SetupSelection | undefined => {
     return invalid();
   if (selection.setupMode === 'source' && typeof selection.sourceUri !== 'string') return invalid();
   if (!['home', 'project'].includes(String(selection.target))) return invalid();
+  if (selection.providerConnection !== undefined && selection.providerConnection !== 'skipped') return invalid();
   return selection as SetupSelection;
 };
 
@@ -214,6 +311,10 @@ export const runSetup = async (dependencies: SetupCommandDependencies = {}): Pro
     });
     /* v8 ignore next -- the bundled default launcher is exercised through outfitter-dev. */
     const exitCode = await (dependencies.launcher ?? defaultLauncher)(launch.plan);
+    // A /login inside the walkthrough wrote to the setup shell's auth.json; keep it durable so the
+    // relaunched profile (and later runs) start with the provider connected. Credentials only: the
+    // placeholder models.json is setup scaffolding, not user state.
+    persistSetupCredentials(launch, resolvePiUserAgentDirectory(homeDirectory));
     if (exitCode !== 0) throw new Error(`The Outfitter setup walkthrough exited with code ${exitCode}.`);
     const selection = parseSetupSelection(launch.resultPath);
     if (selection === undefined) return undefined;
@@ -248,6 +349,7 @@ const autoLaunchSelectedProfile = async (
     projectDirectory: resolve(resolveProjectDirectory(dependencies.projectDirectory)),
     harness: result.defaultHarness,
     logLevel: dependencies.logLevel,
+    providerPromptSkipped: result.providerPromptSkipped,
     launcher: dependencies.runLauncher ?? defaultRunLauncher,
     startLoading: dependencies.startLoading ?? startTerminalLoading,
     sourceCachePreparer: dependencies.sourceCachePreparer,
@@ -283,6 +385,7 @@ export const createSetupCommand = (dependencies: SetupCommandDependencies = {}):
           // confirmation. Setups that still need sync receive one concise next action.
           if (result.defaultAgent === undefined) {
             writeLine(setupNextStepMessage);
+            if (result.providerPromptSkipped === true) writeLine(providerLoginHint);
           }
           await autoLaunchSelectedProfile({ ...dependencies, logLevel: options.logLevel }, result, writeLine);
         }),

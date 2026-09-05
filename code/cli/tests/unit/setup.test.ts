@@ -7,7 +7,12 @@ import { dirname, join } from 'node:path';
 import { Command } from 'commander';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { createSetupCommand, preparePiSetupLaunch, runSetup } from '../../src/cli/commands/SetupCommand.js';
+import {
+  createSetupCommand,
+  persistSetupCredentials,
+  preparePiSetupLaunch,
+  runSetup,
+} from '../../src/cli/commands/SetupCommand.js';
 import type { AgentLaunchPlan } from '../../src/projection/Projection.js';
 import { defaultCatalogSource } from '../../src/setup/DefaultCatalog.js';
 import { applySetupSelection, discoverSetupAgentChoices, sanitizeAgentSlug } from '../../src/setup/Setup.js';
@@ -519,7 +524,7 @@ describe('setup state machine', () => {
 });
 
 describe('Pi setup launch', () => {
-  it('stamps an isolated model-free extension containing the original setup wording', () => {
+  it('stamps an isolated offline extension containing the original setup wording', () => {
     const { home, project, root } = createTree();
     const availableAgents = [{ id: 'founder', label: 'Founder', description: 'Founder profile.' }];
     const launch = preparePiSetupLaunch({
@@ -539,7 +544,132 @@ describe('Pi setup launch', () => {
     expect(extension).toContain('Which CLI agent should Outfitter use by default?');
     expect(extension).not.toContain('Starter agent');
     expect(extension).not.toContain('__OUTFITTER_');
-    expect(extension).not.toContain('/login');
+    // The provider step ignores the placeholder provider the shell starts on.
+    expect(extension).toContain('const OUTFITTER_SETUP_PROVIDER = "outfitter-setup";');
+    const models = JSON.parse(readFileSync(join(root, 'pi', 'models.json'), 'utf8')) as {
+      providers: Record<string, unknown>;
+    };
+    expect(Object.keys(models.providers)).toEqual(['outfitter-setup']);
+    expect(existsSync(join(root, 'pi', 'auth.json'))).toBe(false);
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-010.7.1).
+  it("seeds pi credentials and the user's own providers so the provider check sees them", () => {
+    const { home, project, root } = createTree();
+    write(join(home, '.pi', 'agent', 'auth.json'), '{"anthropic":{"type":"api_key","key":"k"}}');
+    write(
+      join(home, '.pi', 'agent', 'models.json'),
+      JSON.stringify({ providers: { corp: { baseUrl: 'http://corp', api: 'openai-completions', models: [] } } }),
+    );
+    preparePiSetupLaunch({ homeDirectory: home, projectDirectory: project, setupDirectory: root, availableAgents: [] });
+    expect(readFileSync(join(root, 'pi', 'auth.json'), 'utf8')).toBe('{"anthropic":{"type":"api_key","key":"k"}}');
+    const models = JSON.parse(readFileSync(join(root, 'pi', 'models.json'), 'utf8')) as {
+      providers: Record<string, unknown>;
+    };
+    expect(Object.keys(models.providers)).toEqual(['corp', 'outfitter-setup']);
+  });
+
+  it('reads a commented (JSONC) user models.json the way pi does', () => {
+    const { home, project, root } = createTree();
+    write(
+      join(home, '.pi', 'agent', 'models.json'),
+      '{\n  // corporate gateway\n  "providers": { "corp": { "baseUrl": "http://corp", "apiKey": "a//b\\"c", }, },\n}\n',
+    );
+    preparePiSetupLaunch({ homeDirectory: home, projectDirectory: project, setupDirectory: root, availableAgents: [] });
+    const models = JSON.parse(readFileSync(join(root, 'pi', 'models.json'), 'utf8')) as {
+      providers: Record<string, { apiKey?: string }>;
+    };
+    expect(Object.keys(models.providers)).toEqual(['corp', 'outfitter-setup']);
+    expect(models.providers.corp?.apiKey).toBe('a//b"c');
+  });
+
+  it('ignores an unreadable or provider-less user models.json', () => {
+    for (const content of [
+      '{not json',
+      '{"providers": 3}',
+      '[]',
+      '{/* pi does not accept block comments */ "providers": {"x": {}}}',
+    ]) {
+      const { home, project, root } = createTree();
+      write(join(home, '.pi', 'agent', 'models.json'), content);
+      preparePiSetupLaunch({
+        homeDirectory: home,
+        projectDirectory: project,
+        setupDirectory: root,
+        availableAgents: [],
+      });
+      const models = JSON.parse(readFileSync(join(root, 'pi', 'models.json'), 'utf8')) as {
+        providers: Record<string, unknown>;
+      };
+      expect(Object.keys(models.providers)).toEqual(['outfitter-setup']);
+    }
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-010.7.2).
+  it('persists credentials saved by /login inside the walkthrough and passes a skipped step through', async () => {
+    const { catalog, home, project } = createTree();
+    const connected = await runSetup({
+      homeDirectory: home,
+      projectDirectory: project,
+      defaultCatalogBootstrap: () => catalog,
+      interactive: true,
+      launcher: (plan) => {
+        writeFileSync(join(plan.env.PI_CODING_AGENT_DIR, 'auth.json'), '{"openai":{"type":"api_key","key":"x"}}');
+        writeFileSync(
+          selectionPathFromPlan(plan),
+          JSON.stringify({ setupMode: 'create', agentId: 'a', harness: 'pi', target: 'home' }),
+        );
+        return Promise.resolve(0);
+      },
+    });
+    expect(connected?.providerPromptSkipped).toBeUndefined();
+    expect(JSON.parse(readFileSync(join(home, '.pi', 'agent', 'auth.json'), 'utf8'))).toEqual({
+      openai: { type: 'api_key', key: 'x' },
+    });
+    expect(existsSync(join(home, '.pi', 'agent', 'models.json'))).toBe(false); // placeholder stays setup scaffolding
+
+    const skipped = await runSetup({
+      homeDirectory: home,
+      projectDirectory: project,
+      defaultCatalogBootstrap: () => catalog,
+      interactive: true,
+      launcher: (plan) => {
+        writeFileSync(
+          selectionPathFromPlan(plan),
+          JSON.stringify({
+            setupMode: 'create',
+            agentId: 'a',
+            harness: 'pi',
+            target: 'home',
+            providerConnection: 'skipped',
+          }),
+        );
+        return Promise.resolve(0);
+      },
+    });
+    expect(skipped?.providerPromptSkipped).toBe(true);
+
+    await expect(
+      runSetup({
+        homeDirectory: home,
+        projectDirectory: project,
+        defaultCatalogBootstrap: () => catalog,
+        interactive: true,
+        launcher: (plan) => {
+          writeFileSync(
+            selectionPathFromPlan(plan),
+            JSON.stringify({
+              setupMode: 'create',
+              agentId: 'a',
+              harness: 'pi',
+              target: 'home',
+              providerConnection: 'yes',
+            }),
+          );
+          return Promise.resolve(0);
+        },
+      }),
+    ).rejects.toThrow(/invalid selection/u);
   });
 
   it('stamps the current default marker and an optional provided source', () => {
@@ -780,6 +910,54 @@ describe('Pi setup launch', () => {
     expect(runLaunches).toEqual(['pi']); // setup auto-started the selected profile
   });
 
+  it('relaunches in hint mode after a skipped provider step and prints the hint when not launching', async () => {
+    const { catalog, home, project } = createTree();
+    const lines: string[] = [];
+    const runtimeExtensions: string[] = [];
+    const selection = (extra: Record<string, unknown>) => (plan: AgentLaunchPlan) => {
+      writeFileSync(selectionPathFromPlan(plan), JSON.stringify({ harness: 'pi', target: 'home', ...extra }));
+      return Promise.resolve(0);
+    };
+    const dependencies = {
+      homeDirectory: home,
+      projectDirectory: project,
+      defaultCatalogBootstrap: () => catalog,
+      interactive: true,
+      runLauncher: (plan: AgentLaunchPlan) => {
+        const extension = plan.args[plan.args.indexOf('--extension') + 1];
+        runtimeExtensions.push(readFileSync(extension, 'utf8'));
+        return Promise.resolve(0);
+      },
+      writeLine: (message: string) => lines.push(message),
+    };
+
+    const launching = new Command();
+    createSetupCommand({
+      ...dependencies,
+      launcher: selection({ setupMode: 'create', agentId: 'myagent', providerConnection: 'skipped' }),
+    }).register(launching);
+    await launching.parseAsync(['node', 'outfitter', 'setup']);
+    expect(lines).toEqual([]); // the pi session itself shows the hint
+    expect(runtimeExtensions[0]).toContain('const OUTFITTER_PROVIDER_PROMPT_MODE = "hint";');
+
+    const catalogSetup = new Command();
+    createSetupCommand({
+      ...dependencies,
+      launcher: selection({
+        setupMode: 'catalog',
+        github: 'acme/config',
+        ref: 'main',
+        settingsPath: 'settings.yml',
+        providerConnection: 'skipped',
+      }),
+    }).register(catalogSetup);
+    await catalogSetup.parseAsync(['node', 'outfitter', 'setup']);
+    expect(lines).toEqual([
+      expect.stringContaining("Run 'outfitter sync'"),
+      "No model provider connected yet. Run '/login' inside Outfitter to connect one.",
+    ]);
+  });
+
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-011.1).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('does not auto-launch an unsynced catalog and prints telemetry guidance', async () => {
@@ -836,5 +1014,76 @@ describe('Pi setup launch', () => {
     await program.parseAsync(['node', 'outfitter', 'setup']);
     expect(lines.join('\n')).toContain('made no changes');
     expect(existsSync(join(home, '.agents'))).toBe(false);
+  });
+});
+
+describe('Pi setup credential copy-back', () => {
+  const launchFor = (root: string, seededAuth?: string) => ({
+    plan: { command: 'pi', args: [], env: {} },
+    resultPath: join(root, 'result.json'),
+    piConfigDirectory: join(root, 'pi'),
+    seededAuth,
+  });
+  const readDurable = (home: string): unknown =>
+    JSON.parse(readFileSync(join(home, '.pi', 'agent', 'auth.json'), 'utf8'));
+
+  it('drops the placeholder provider entry before persisting a real login', () => {
+    const { home, root } = createTree();
+    write(
+      join(root, 'pi', 'auth.json'),
+      JSON.stringify({ 'outfitter-setup': { type: 'api_key', key: 'pasted' }, openai: { type: 'api_key', key: 'x' } }),
+    );
+    persistSetupCredentials(launchFor(root), join(home, '.pi', 'agent'));
+    expect(readDurable(home)).toEqual({ openai: { type: 'api_key', key: 'x' } });
+  });
+
+  it('writes nothing when the shell only holds what was seeded, or only the placeholder', () => {
+    const { home, root } = createTree();
+    const durable = join(home, '.pi', 'agent', 'auth.json');
+    write(join(root, 'pi', 'auth.json'), '{}');
+    persistSetupCredentials(launchFor(root), join(home, '.pi', 'agent'));
+    expect(existsSync(durable)).toBe(false);
+
+    write(join(root, 'pi', 'auth.json'), '{"outfitter-setup":{"type":"api_key","key":"pasted"}}');
+    persistSetupCredentials(launchFor(root), join(home, '.pi', 'agent'));
+    expect(existsSync(durable)).toBe(false);
+
+    write(durable, '{"anthropic":{"type":"oauth","refresh":"new"}}');
+    write(join(root, 'pi', 'auth.json'), '{"anthropic":{"type":"oauth","refresh":"old"}}');
+    persistSetupCredentials(
+      launchFor(root, '{"anthropic":{"type":"oauth","refresh":"old"}}'),
+      join(home, '.pi', 'agent'),
+    );
+    expect(readFileSync(durable, 'utf8')).toBe('{"anthropic":{"type":"oauth","refresh":"new"}}');
+  });
+
+  it('applies only the providers the walkthrough changed on top of the current durable file', () => {
+    const { home, root } = createTree();
+    const durable = join(home, '.pi', 'agent', 'auth.json');
+    // Seeded: anthropic (old). During the walkthrough another pi session rotated anthropic to
+    // "new" while the user logged into openai and removed a stale provider.
+    const seeded = JSON.stringify({ anthropic: { refresh: 'old' }, stale: { key: 's' } });
+    write(durable, JSON.stringify({ anthropic: { refresh: 'new' }, stale: { key: 's' } }));
+    write(join(root, 'pi', 'auth.json'), JSON.stringify({ anthropic: { refresh: 'old' }, openai: { key: 'x' } }));
+    persistSetupCredentials(launchFor(root, seeded), join(home, '.pi', 'agent'));
+    expect(readDurable(home)).toEqual({ anthropic: { refresh: 'new' }, openai: { key: 'x' } });
+  });
+
+  it('treats an empty seeded durable file as no credentials', () => {
+    const { home, root } = createTree();
+    write(join(root, 'pi', 'auth.json'), '{"openai":{"key":"x"}}');
+    persistSetupCredentials(launchFor(root, ''), join(home, '.pi', 'agent'));
+    expect(readDurable(home)).toEqual({ openai: { key: 'x' } });
+  });
+
+  it('ignores a missing, malformed, or non-object shell auth.json', () => {
+    const { home, root } = createTree();
+    const durable = join(home, '.pi', 'agent', 'auth.json');
+    persistSetupCredentials(launchFor(root), join(home, '.pi', 'agent'));
+    for (const content of ['{not json', '[1]', 'null']) {
+      write(join(root, 'pi', 'auth.json'), content);
+      persistSetupCredentials(launchFor(root), join(home, '.pi', 'agent'));
+    }
+    expect(existsSync(durable)).toBe(false);
   });
 });

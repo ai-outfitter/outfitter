@@ -5,7 +5,8 @@
 Outfitter uses bundled Pi to host the same deterministic, polished setup walkthrough that existed
 before the Dotagents refactor. Pi is the UI host, not necessarily the saved runtime: after the
 original flow, one added selector chooses the default CLI agent and preselects Pi/Outfitter. Setup
-requires no model credentials and sends no agent turn.
+sends no agent turn; when Pi is the chosen harness and no provider is connected, it offers Pi's
+native `/login` before handing off ([#372](https://github.com/ai-outfitter/outfitter/issues/372)).
 
 ## Screen contract
 
@@ -37,18 +38,26 @@ Both explicit `outfitter setup [source]` and implicit first-run `outfitter run` 
    fallback.
 2. Create an isolated Pi configuration and stamp paths, catalog metadata, optional source, and handoff
    location into the extension.
-3. Start Pi offline without sessions, tools, skills, prompt templates, or provider credentials.
+3. Start Pi offline without sessions, tools, skills, or prompt templates, on a placeholder provider.
+   The shell is seeded with Pi's durable `auth.json` and the user's own `models.json` providers so
+   the provider check reflects what the user already has.
 4. Auto-submit `/outfitter` and run the screen contract above through Pi UI APIs.
-5. Write a small temporary JSON handoff and shut down the setup shell.
-6. Validate the handoff and atomically apply it to `.agents`.
+5. Write a small temporary JSON handoff. If the harness is Pi and no real provider is available,
+   show the "connect a model provider" prompt (single item, footer `enter connect  escape skip`);
+   Enter opens Pi's `/login` in the same session and waits for a model to appear, Escape records
+   `providerConnection: skipped` in the handoff. Then shut down the setup shell.
+6. Validate the handoff, copy any new `auth.json` back to `~/.pi/agent`, and atomically apply the
+   selection to `.agents`.
 7. Re-resolve and launch the selected profile so the user lands in a working session. Implicit
    first-run and explicit `outfitter setup` both auto-start pi when a concrete agent was chosen
    (default/create). Catalog/source setups, which still need a sync before the profile resolves,
    report next-launch behavior instead of launching.
 
-The relaunched real Pi session (unlike the isolated setup shell) loads the runtime auto sign-in
-extension: when Pi reports no available models it shows the original "connect a model provider"
-confirmation and opens Pi's native `/login`, instead of Pi's raw "No models available" warning.
+The relaunched real Pi session loads the runtime sign-in extension for users who already have
+`.agents` but no provider: when Pi reports no available models it shows the same "connect a model
+provider" prompt and opens Pi's native `/login`, instead of Pi's raw "No models available" warning.
+When the user skipped the step moments earlier in setup, the extension prints only a one-line
+`/login` hint. No completion notice asks for a restart, because the CLI relaunches the profile itself.
 Credentials stay inside Pi. Because the run's `PI_CODING_AGENT_DIR` is an ephemeral projection root,
 Outfitter seeds it from Pi's durable agent directory (`~/.pi/agent`) before launch and writes any
 `/login` changes back afterward, so the setup → relaunch → sign-in loop converges: the next launch
