@@ -106,12 +106,13 @@ outputs:
 ```
 
 Output types are top-level catalog resources at `output-types/<slug>/schema.json`. The community
-catalog publishes `pull-request`, `git-commit`, `git-branch`, and `issue`. An organization catalog
-may add its own output types or shadow any type by slug through normal layer precedence. Every
-output-type schema must declare a canonical `$id` that is an absolute URI. Its identity is the pair
-of that `$id` and the SHA-256 digest of the schema file bytes exactly as stored; consumers must not
-identify a type by its slug alone. A mapped output inherits the nested output's resolved type and
-canonical schema ID, including through multiple nesting levels.
+catalog publishes `pull-request`, `git-commit`, `git-branch`, and `issue` from its release that adds
+`output-types/`. An organization catalog may add its own output types or shadow any type by slug
+through normal layer precedence. Every output-type schema must declare a canonical `$id` that is an
+absolute URI. Its identity is the pair of that `$id` and the SHA-256 digest of the schema file bytes
+exactly as stored; consumers must not identify a type by its slug alone. A mapped output inherits
+the nested output's resolved type and canonical schema ID, including through multiple nesting
+levels.
 
 A node's `needs` list expresses ordering only among nodes in the same workflow. Cross-task
 prerequisites are an execution engine's responsibility: the engine evaluates them against declared,

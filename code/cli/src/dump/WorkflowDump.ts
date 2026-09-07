@@ -113,6 +113,30 @@ const mergeTree = (source: string, target: string, written: string[], errors: st
   }
 };
 
+const copyOutputTypeSchemas = (
+  set: EffectiveResourceSet,
+  outputTypes: ReturnType<typeof collectWorkflowOutputTypes>['outputTypes'],
+  outRoot: string,
+  written: string[],
+  errors: string[],
+): void => {
+  for (const outputType of outputTypes) {
+    if (
+      escapesRoots(
+        outputType.resource.winner.path,
+        set.layers.map((layer) => layer.root),
+      )
+    ) {
+      errors.push(`output type '${outputType.slug}' resolves outside the tree and cannot be safely dumped.`);
+      continue;
+    }
+    const target = join(outRoot, 'output-types', outputType.slug, 'schema.json');
+    mkdirSync(dirname(target), { recursive: true });
+    copyFileSync(outputType.resource.winner.path, target);
+    written.push(target);
+  }
+};
+
 /** Export a workflow and every nested workflow/agent closure. Workflows remain configuration only. */
 export const dumpWorkflow = (
   set: EffectiveResourceSet,
@@ -172,12 +196,7 @@ export const dumpWorkflow = (
       written.push(target);
     }
 
-    for (const outputType of outputTypeClosure.outputTypes) {
-      const target = join(outRoot, 'output-types', outputType.slug, 'schema.json');
-      mkdirSync(dirname(target), { recursive: true });
-      copyFileSync(outputType.resource.winner.path, target);
-      written.push(target);
-    }
+    copyOutputTypeSchemas(set, outputTypeClosure.outputTypes, outRoot, written, errors);
 
     if (errors.length > 0) {
       rmSync(outRoot, { recursive: true, force: true });

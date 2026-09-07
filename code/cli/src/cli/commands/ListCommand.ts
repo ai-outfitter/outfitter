@@ -15,7 +15,7 @@ import {
 import { resolveEffectiveSet } from '../../resolver/ResolverContext.js';
 import { isWorkflowDefinitionIssue, readWorkflowDefinition } from '../../resolver/WorkflowDefinition.js';
 import type { WorkflowDefinition } from '../../resolver/WorkflowDefinition.js';
-import { resolveWorkflowOutputs } from '../../resolver/WorkflowOutput.js';
+import { resolveWorkflowOutputs, resolveWorkflowOutputTypes } from '../../resolver/WorkflowOutput.js';
 import type { ResolvedWorkflowOutputs } from '../../resolver/WorkflowOutput.js';
 import { formatSettingsIssue } from '../../settings/SettingsLoader.js';
 import { readOutputTypeSchema } from '../../validation/SchemaValidator.js';
@@ -116,7 +116,7 @@ const outputTypeSchemaIds = (set: EffectiveResourceSet): ReadonlyMap<string, str
   new Map(
     listResources(set, 'output-type').flatMap((resource) => {
       const result = readOutputTypeSchema(resource.winner.path);
-      return result.id === undefined ? [] : [[resource.slug, result.id] as const];
+      return result.issues.length > 0 || result.id === undefined ? [] : [[resource.slug, result.id] as const];
     }),
   );
 
@@ -129,6 +129,7 @@ const listEntry = (
   resource: ReturnType<typeof listResources>[number],
   definitions: ReadonlyMap<string, WorkflowDefinition>,
   schemaIds: ReadonlyMap<string, string>,
+  messages: string[],
 ): ListResourceEntry => {
   const provenance = {
     kind: resource.kind,
@@ -139,9 +140,16 @@ const listEntry = (
   };
   if (resource.kind !== 'workflow') return provenance;
   const definition = definitions.get(resource.slug);
+  const outputs = definition === undefined ? {} : resolveWorkflowOutputs(definition, definitions, schemaIds);
+  if (definition !== undefined) {
+    for (const name of Object.keys(resolveWorkflowOutputTypes(definition, definitions))) {
+      if (!Object.hasOwn(outputs, name))
+        messages.push(`warning: workflow '${definition.id}' output '${name}' has no resolvable output-type identity.`);
+    }
+  }
   return {
     ...provenance,
-    outputs: definition === undefined ? {} : resolveWorkflowOutputs(definition, definitions, schemaIds),
+    outputs,
   };
 };
 
@@ -174,7 +182,7 @@ export const executeListCommand = (input: ListInput): ListResult => {
     entries.push(
       ...[...resources.values()]
         .sort((left, right) => compareSlugs(left.slug, right.slug))
-        .map((resource) => listEntry(resource, definitions, schemaIds)),
+        .map((resource) => listEntry(resource, definitions, schemaIds, messages)),
     );
 
     messages.push(`${pluralByKind.get(kind)!}${hasAgentContext ? ` (agent ${input.agent})` : ''}:`);

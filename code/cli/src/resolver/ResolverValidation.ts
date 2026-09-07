@@ -110,14 +110,15 @@ const shadowFindings = (resource: ResolvedResource): readonly ValidationFinding[
   resource.shadowed.map((definition) => {
     const identity =
       resource.kind === 'output-type' ? readOutputTypeSchema(definition.path) : { id: undefined, sha256: undefined };
+    const winnerIdentity = resource.kind === 'output-type' ? readOutputTypeSchema(resource.winner.path) : identity;
     return {
       severity: 'warning' as const,
       resource: resourceLabel(resource),
-      message:
-        identity.id !== undefined && identity.sha256 !== undefined
-          ? `output type '${resource.slug}' is shadowed by layer '${resource.winner.layer.label}'; ` +
-            `its identity is ${identity.id}@${identity.sha256}.`
-          : `shadowed definition in ${definition.layer.label} is overridden by ${resource.winner.layer.label}.`,
+      message: [identity.id, identity.sha256, winnerIdentity.id, winnerIdentity.sha256].every(Boolean)
+        ? `output type '${resource.slug}' definition in '${definition.layer.label}' ` +
+          `(identity ${identity.id}@${identity.sha256}) is overridden by '${resource.winner.layer.label}' ` +
+          `(identity ${winnerIdentity.id}@${winnerIdentity.sha256}).`
+        : `shadowed definition in ${definition.layer.label} is overridden by ${resource.winner.layer.label}.`,
     };
   });
 

@@ -38,8 +38,12 @@ them. This contract defines the workflow resource and its typed output declarati
 Amendment (2026-09-07): Output types are resolved as catalog resources instead of a closed
 Outfitter-owned vocabulary.
 
-1. REQUIREMENT REMOVED (2026-09-07): Types are catalog resources.
-2. REQUIREMENT REMOVED (2026-09-07): Types are catalog resources.
+1. REQUIREMENT REMOVED (2026-09-07): This statement required the closed `pull-request`,
+   `git-commit`, `git-branch`, and `issue` vocabulary; it was withdrawn because types are catalog
+   resources identified by canonical `$id` and digest.
+2. REQUIREMENT REMOVED (2026-09-07): This statement required Outfitter to publish one schema per
+   supported type; it was withdrawn because types are catalog resources identified by canonical
+   `$id` and digest.
 3. Catalog authors SHOULD describe the forge-neutral field subset shared by the GitHub and Forgejo
    REST representations of a resource, and execution engines MAY carry additional fields.
 4. An output `type` MUST name an output-type resource resolvable from the effective catalog layers.
@@ -52,6 +56,12 @@ schema bytes.
 7. An output-type schema MUST declare a canonical `$id` that is an absolute URI.
 8. The identity of an output type MUST be the pair of its canonical `$id` and the SHA-256 digest of
    its schema file bytes exactly as stored.
+
+Amendment (2026-09-07): Schema defects are attributed to their output-type resource rather than to
+each workflow reference.
+
+9. An output-type schema defect MUST be reported once per output-type resource regardless of how
+   many workflows reference it.
 
 ### OFTR-013.4: Export and Listing
 
@@ -68,6 +78,12 @@ Amendment (2026-09-07): Exports carry the canonical identity of every used outpu
 
 6. A workflow export MUST record the canonical `$id` and SHA-256 digest of every output type used in
    the closure, and every resolved output entry MUST record that canonical `$id` as `schema`.
+
+Amendment (2026-09-07): Machine-readable listings expose output-type provenance, and workflow
+exports enforce catalog-tree containment for output-type schemas.
+
+7. Outfitter MUST list output-type resources machine-readably with their winning source.
+8. A workflow export MUST NOT include an output-type schema that resolves outside the catalog tree.
 
 ### OFTR-013.5: Execution Boundary
 

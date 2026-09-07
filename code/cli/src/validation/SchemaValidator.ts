@@ -8,6 +8,7 @@ import { Ajv2020 } from 'ajv/dist/2020.js';
 export type SchemaName = 'settings' | 'agent' | 'system-extension-hook' | 'workflow';
 
 export interface ValidationIssue {
+  readonly kind?: 'schema';
   readonly path: string;
   readonly message: string;
 }
@@ -39,6 +40,8 @@ const workflowSchema = readSchema('workflow.schema.json');
 
 const ajv = new Ajv2020({ allErrors: true });
 ajv.addFormat('uri', /^[A-Za-z][A-Za-z0-9+.-]*:[^\s]*$/u);
+const outputTypeAjv = new Ajv2020({ allErrors: true, addUsedSchema: false });
+outputTypeAjv.addFormat('uri', /^[A-Za-z][A-Za-z0-9+.-]*:[^\s]*$/u);
 
 const validators: Record<SchemaName, ValidateFunction> = {
   settings: ajv.compile(settingsSchema as AnySchema),
@@ -47,7 +50,7 @@ const validators: Record<SchemaName, ValidateFunction> = {
   workflow: ajv.compile(workflowSchema as AnySchema),
 };
 
-const outputValueValidators = new WeakMap<object, ValidateFunction>();
+const outputValueValidators = new Map<string, ValidateFunction>();
 
 export const createValidationResult = (issues: readonly ValidationIssue[]): ValidationResult => ({
   valid: issues.length === 0,
@@ -85,6 +88,28 @@ const jsonSchemaIssue = (schema: object): OutputTypeSchemaIssue | undefined => {
   }
 };
 
+const canonicalJson = (schema: object): string =>
+  JSON.stringify(schema, (_key, value: unknown) =>
+    value !== null && typeof value === 'object' && !Array.isArray(value)
+      ? Object.fromEntries(Object.entries(value).sort(([left], [right]) => (left < right ? -1 : left > right ? 1 : 0)))
+      : value,
+  );
+
+const compileOutputTypeSchema = (schema: object): { readonly validate?: ValidateFunction; readonly issue?: string } => {
+  try {
+    const digest = createHash('sha256').update(canonicalJson(schema)).digest('hex');
+    const cacheKey = `${canonicalSchemaId(schema) ?? ''}\u0000${digest}`;
+    let validate = outputValueValidators.get(cacheKey);
+    if (validate === undefined) {
+      validate = outputTypeAjv.compile(schema as AnySchema);
+      outputValueValidators.set(cacheKey, validate);
+    }
+    return { validate };
+  } catch (error) {
+    return { issue: `schema.json cannot be compiled: ${String(error)}` };
+  }
+};
+
 export const readOutputTypeSchema = (path: string): OutputTypeSchemaReadResult => {
   let bytes: Buffer;
   try {
@@ -114,16 +139,23 @@ export const readOutputTypeSchema = (path: string): OutputTypeSchemaReadResult =
   if (id === undefined) issues.push({ kind: 'identity', message: 'missing canonical $id' });
   const schemaIssue = jsonSchemaIssue(schema);
   if (schemaIssue !== undefined) issues.push(schemaIssue);
+  else {
+    const compileResult = compileOutputTypeSchema(schema);
+    if (compileResult.issue !== undefined) issues.push({ kind: 'schema', message: compileResult.issue });
+  }
 
   return { schema, ...(id === undefined ? {} : { id }), sha256, issues };
 };
 
+/**
+ * Validates a value with an isolated Ajv instance. Validators are cached by canonical `$id` plus
+ * the SHA-256 digest of canonical JSON, so reparsed schemas reuse code while `$id` collisions do not.
+ */
 export const validateOutputValue = (schema: object, value: unknown): ValidationResult => {
-  let validate = outputValueValidators.get(schema);
-  if (validate === undefined) {
-    validate = ajv.compile(schema as AnySchema);
-    outputValueValidators.set(schema, validate);
-  }
+  const compileResult = compileOutputTypeSchema(schema);
+  if (compileResult.validate === undefined)
+    return createValidationResult([{ kind: 'schema', path: '/', message: compileResult.issue! }]);
+  const validate = compileResult.validate;
 
   if (validate(value)) return createValidationResult([]);
 
