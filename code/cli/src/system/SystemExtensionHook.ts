@@ -23,7 +23,11 @@ import { parseYamlDocument } from '../validation/YamlDocument.js';
 
 const linuxSystemDirectory = '/etc/outfitter/system.d';
 const macosSystemDirectory = '/Library/Application Support/Outfitter/system.d';
-const protectedPiEnvironmentVariables = new Set(['PI_CODING_AGENT_DIR', 'PI_CODING_AGENT_SESSION_DIR']);
+const protectedPiEnvironmentVariables = new Set([
+  'PI_CODING_AGENT_DIR',
+  'PI_CODING_AGENT_SESSION_DIR',
+  'PI_MCP_CONFIG_MODE',
+]);
 const runtimeControlEnvironmentVariables = new Set([
   'LD_AUDIT',
   'LD_LIBRARY_PATH',

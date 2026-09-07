@@ -218,7 +218,7 @@ describe('readSystemExtensionHooks', () => {
     );
   });
 
-  it.each(['PI_CODING_AGENT_DIR', 'PI_CODING_AGENT_SESSION_DIR'])(
+  it.each(['PI_CODING_AGENT_DIR', 'PI_CODING_AGENT_SESSION_DIR', 'PI_MCP_CONFIG_MODE'])(
     'rejects protected Pi runtime variable %s at load time',
     (name) => {
       const directory = temporaryRoot();
@@ -282,6 +282,7 @@ describe('attachSystemExtensionHooks', () => {
       env: {
         PI_CODING_AGENT_DIR: '/projection',
         PI_CODING_AGENT_SESSION_DIR: '/sessions',
+        PI_MCP_CONFIG_MODE: 'exclusive',
         SHARED: 'plan',
       },
     };
@@ -325,6 +326,7 @@ describe('attachSystemExtensionHooks', () => {
       OUTFITTER_SYSTEM_HOOK_SOURCE: '/system',
       PI_CODING_AGENT_DIR: '/projection',
       PI_CODING_AGENT_SESSION_DIR: '/sessions',
+      PI_MCP_CONFIG_MODE: 'exclusive',
       SHARED: 'plan',
     });
   });

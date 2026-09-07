@@ -86,7 +86,7 @@ The selected provider/model and related inference options, from `models.json` an
 
 Model Context Protocol server configuration from the tree's `mcp.json`.
 
-- Pi name: `mcp.json` in the agent dir
+- Pi name: `mcp.json` in the agent dir, with `PI_MCP_CONFIG_MODE=exclusive` preventing compatible MCP extensions from merging other host sources
 - Claude name: generated `mcp.json` passed through `--mcp-config`, with `--strict-mcp-config` added only for an isolated run
 - Codex name: repeated TOML-valued `-c mcp_servers.<id>.<key>=...` overrides; additive with user/project configuration because Codex has no way to run with only the projected MCP servers
 
