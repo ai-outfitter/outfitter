@@ -100,6 +100,17 @@ bin/dev-tmp-home
 
 This is the safest local smoke test for onboarding and setup changes because it does not write to your real `~/.outfitter` state.
 
+### Run the published release through first-run
+
+Use `bin/prod-tmp-home` to install the latest `@ai-outfitter/outfitter` from npm into a temporary prefix, create a temporary `HOME`, and start `outfitter` with no configuration so the setup walkthrough, the provider step, and the profile relaunch all run as a new user sees them. Everything is removed on exit:
+
+```sh
+bin/prod-tmp-home            # latest
+bin/prod-tmp-home 1.16.0     # a specific version or dist-tag
+```
+
+Pi credentials are not copied by default so the provider step is exercised; set `OUTFITTER_PROD_TMP_HOME_AUTH=1` to copy `~/.pi/agent/auth.json` and skip it.
+
 ### Run setup against a specific source
 
 Use `bin/dev-setup-source` when you intentionally want to preserve the caller's `HOME` and current working directory while running this checkout's build against a real setup source:
