@@ -22,7 +22,7 @@ export const defaultCatalogSource = {
   github: 'ai-outfitter/community-profiles',
   // TODO(release-automation): when community-profiles publishes a new Release Please tag, open a
   // conventional dependency-bump commit in Outfitter so its next Release Please release ships it.
-  ref: 'v1.7.0',
+  ref: 'v1.9.0',
 } as const satisfies RemoteSourceReference;
 
 /** Superseded default catalogs; setup replaces their pins instead of keeping them alongside. */
