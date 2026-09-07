@@ -642,11 +642,12 @@ const selectDescribedOption = (ctx, titleLines, items, initialValue, options = {
     };
   });
 
+// Rows show the display label only (the CLI falls back to the id when a profile has none); the id
+// still travels in the handoff.
 const formatProfileLabel = (profile, currentDefault) => {
   const current = profile.id === currentDefault ? ' (current)' : '';
   const recommended = currentDefault === undefined && profile.id === 'engineer' ? ' (Recommended)' : '';
-  const label = profile.label ? ' — ' + profile.label : '';
-  return profile.id + label + current + recommended;
+  return (profile.label || profile.id) + current + recommended;
 };
 
 const pickerFooter = (itemCount) =>
