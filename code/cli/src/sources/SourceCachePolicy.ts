@@ -1,7 +1,7 @@
 import { mkdirSync, renameSync } from 'node:fs';
 import { dirname } from 'node:path';
 
-import { executeSyncCommand } from '../cli/commands/SyncCommand.js';
+import { fetchSources } from '../cli/commands/SyncCommand.js';
 import type { RepositorySync } from '../cli/commands/SyncCommand.js';
 import type { SourceCachePolicy } from '../settings/Settings.js';
 import { syncRemoteRepositoryAtomically } from './GitRepository.js';
@@ -60,7 +60,7 @@ const policyRepositorySync =
 
 /** Establishes every declared remote before resolution; local layers are never passed to sync. */
 export const prepareSourceCaches = (input: PrepareSourceCachesInput): PrepareSourceCachesResult => {
-  const result = executeSyncCommand(
+  const result = fetchSources(
     { homeDirectory: input.homeDirectory, projectDirectory: input.projectDirectory },
     { syncRepository: policyRepositorySync(input) },
   );

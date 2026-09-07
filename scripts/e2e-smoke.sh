@@ -129,6 +129,28 @@ pi_package_root="$(dirname "$pi_manifest")"
 pi_bin_relative="$(node -p "require('$pi_manifest').bin.pi")"
 pi_bin="$pi_package_root/$pi_bin_relative"
 
+# Compile once, then make the source unavailable and deny Node network connections. Both the real
+# bundled Pi launch and the capture below must use the installed package's compiled registry.
+log 'Compiling the packaged fixture without fetching'
+sync_output="$(cd "$project_dir" && run_outfitter sync --local --harness pi 2>&1)" \
+  || fail "local profile compilation failed: $sync_output"
+profiles_output="$(cd "$project_dir" && run_outfitter profiles --json)" \
+  || fail 'compiled profile status could not be read'
+case "$profiles_output" in
+  *'sha256:'*) ;;
+  *) fail 'compiled profile status has no composition fingerprint' ;;
+esac
+mv "$fixture_home/.agents/agents" "$fixture_home/.agents/agents-unavailable"
+cat >"$work_dir/deny-network.cjs" <<'DENY_NETWORK'
+const net = require('node:net');
+net.Socket.prototype.connect = function () {
+  throw new Error('Packaged compiled launch attempted network access');
+};
+require('node:module').syncBuiltinESMExports();
+DENY_NETWORK
+export NODE_OPTIONS="${NODE_OPTIONS:+$NODE_OPTIONS }--require=$work_dir/deny-network.cjs"
+export PI_OFFLINE=1
+
 # Launch the real bundled pi through the installed `outfitter run` once before
 # stubbing it. `--version` passes through to pi, which prints and exits without a
 # TUI.

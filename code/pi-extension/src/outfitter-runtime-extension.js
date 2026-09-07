@@ -1,6 +1,8 @@
 import { Key, matchesKey, truncateToWidth, visibleWidth, wrapTextWithAnsi } from '@earendil-works/pi-tui';
+import { installProfileController } from './outfitter-profile-controller.js';
 
 const OUTFITTER_ACTIVE_PROFILE = '__OUTFITTER_ACTIVE_PROFILE__';
+const OUTFITTER_COMPILED_PROFILES = '__OUTFITTER_COMPILED_PROFILES__';
 // 'dialog' offers /login when no provider is connected. 'hint' only prints the one-line reminder;
 // the CLI stamps it when the user skipped the provider step of first-run setup moments earlier.
 const OUTFITTER_PROVIDER_PROMPT_MODE = '__OUTFITTER_PROVIDER_PROMPT_MODE__';
@@ -35,6 +37,11 @@ const OUTFITTER_PROVIDER_HINT = "No model provider connected yet. Run '/login' i
 
 export default function outfitterRuntime(pi) {
   let loginSubmitted = false;
+  if (Array.isArray(OUTFITTER_COMPILED_PROFILES)) {
+    installProfileController(pi, OUTFITTER_COMPILED_PROFILES, OUTFITTER_ACTIVE_PROFILE?.id, (ctx, profile) => {
+      if (ctx.mode === 'tui') setRuntimeHeader(ctx, profile);
+    });
+  }
 
   const submitSlashCommand = async (ctx, command) => {
     if (ctx.mode !== 'tui') return false;
@@ -89,12 +96,12 @@ export default function outfitterRuntime(pi) {
 
   pi.on('session_start', async (event, ctx) => {
     if (ctx.mode !== 'tui') return;
-    setRuntimeHeader(ctx);
+    if (!Array.isArray(OUTFITTER_COMPILED_PROFILES)) setRuntimeHeader(ctx);
     if (event.reason === 'startup') await openLoginIfNoModels(ctx);
   });
 }
 
-const setRuntimeHeader = (ctx) => {
+const setRuntimeHeader = (ctx, activeProfile = OUTFITTER_ACTIVE_PROFILE) => {
   ctx.ui.setHeader((_tui, theme) => {
     let cachedWidth;
     let cachedLines;
@@ -103,8 +110,8 @@ const setRuntimeHeader = (ctx) => {
         const maxWidth = typeof width === 'number' && width > 0 ? width : 120;
         if (cachedLines === undefined || cachedWidth !== maxWidth) {
           const profile =
-            typeof OUTFITTER_ACTIVE_PROFILE === 'object' && OUTFITTER_ACTIVE_PROFILE !== null
-              ? (OUTFITTER_ACTIVE_PROFILE.label ?? OUTFITTER_ACTIVE_PROFILE.id)
+            typeof activeProfile === 'object' && activeProfile !== null
+              ? (activeProfile.label ?? activeProfile.id)
               : undefined;
           const line = theme.bold(theme.fg('accent', 'Outfitter')) + (profile ? theme.fg('dim', ` · ${profile}`) : '');
           cachedLines = [visibleWidth(line) > maxWidth ? truncateToWidth(line, maxWidth) : line];

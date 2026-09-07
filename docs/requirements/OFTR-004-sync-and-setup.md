@@ -25,7 +25,8 @@ Outfitter provides setup and maintenance commands that onboard a new user, synch
 2. The `sync` command MUST read and validate settings before synchronizing sources.
 3. The `sync` command MUST synchronize locally configured `remote_settings` first, reload the
    merged settings, and then synchronize every remote `sources` entry in the resulting settings.
-   Local `path:` sources MUST remain live and MUST NOT be copied into the cache.
+   Local `path:` sources MUST remain editable and MUST NOT be fetched or replaced. Compiled
+   profiles MAY snapshot their selected assets so later edits cannot change an active composition.
 4. The `sync` command MUST store every URI or GitHub repository under
    `<cache_directory>/repos/<encoded-uri-and-ref>/`. The default `cache_directory` is
    `~/.agents/cache`; the selected value MUST be shared by sync, remote-settings loading, layer
@@ -200,3 +201,15 @@ disagree about the same thing, the selected declaration must be visible.
    ambiguity and then fail with a nonzero exit status. All three ambiguity classes above gate
    uniformly. A deliberate divergence under strict mode MUST be resolved by making the
    configuration unambiguous, not by suppressing the error.
+
+### OFTR-004.8: Compiled Profile Synchronization
+
+1. Synchronization MUST fetch configured inputs, compile the enabled agent closure against one resolved source set, then project that registry into configured harnesses.
+2. The enabled closure MUST include `default_agent`, enabled workflow agents, and their delegates. A workflow MUST NOT become an operator profile merely because it names a workflow.
+3. Each enabled agent MUST be composed exactly once per compilation, including an agent reached by more than one workflow or delegate edge.
+4. Each compiled agent MUST carry a deterministic composition fingerprint covering its identity, loadout, and selected asset contents. All native projections of that agent MUST record the same fingerprint.
+5. Repeating sync with unchanged inputs MUST produce byte-identical compiled outputs and leave unchanged harness files and ownership manifests untouched.
+6. `sync --local` MUST compile local and already-cached inputs without fetching or repairing remote sources.
+7. `profiles --json` MUST report each compiled agent's fingerprint and per-harness readiness and unsupported fields without exposing credentials or prompt contents.
+8. Strict projection MUST reject unsupported fields before changing native harness files. Ownership conflicts MUST preserve unmanaged files under OFTR-012.
+9. A compiled profile MUST retain the selected asset contents until another explicit compilation; editing a source MUST NOT silently change the meaning of an existing fingerprint.

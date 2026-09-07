@@ -3,6 +3,13 @@ import { existsSync } from 'node:fs';
 
 import { Command } from 'commander';
 
+import { isLinkHarness, resolveHarnessHome } from '../../links/HarnessHome.js';
+import { applyHarnessLinks, spawnHarnessCommand } from '../../links/HarnessLinkApply.js';
+import type { HarnessCommandRunner } from '../../links/HarnessLinkApply.js';
+import { compileProfileRegistry } from '../../profiles/CompiledRegistry.js';
+import type { CompileRegistryDependencies, CompiledRegistry } from '../../profiles/CompiledRegistry.js';
+import { planNativeProfiles } from '../../profiles/NativeProfiles.js';
+import { compareSlugs } from '../../resolver/Resource.js';
 import { strictAmbiguityFailureMessage } from '../../resolver/AmbiguityWarnings.js';
 import { remoteSourceLayer } from '../../resolver/Layer.js';
 import { resolveResources } from '../../resolver/Resolver.js';
@@ -55,18 +62,22 @@ export interface SyncCommandResult {
   readonly exitCode: number;
   readonly messages: readonly string[];
   readonly results: readonly SyncSourceResult[];
+  readonly registry?: CompiledRegistry;
 }
 
 export interface SyncCommandInput {
   readonly homeDirectory: string;
   readonly projectDirectory: string;
   readonly strict?: boolean;
+  readonly local?: boolean;
+  readonly harnesses?: readonly string[];
+  readonly env?: Readonly<Record<string, string | undefined>>;
 }
 
 /** Fetches one repository into the cache. Injectable so tests exercise the closure hermetically. */
 export type RepositorySync = typeof syncRemoteRepositoryAtomically;
 
-export interface SyncCommandDependencies {
+export interface SyncCommandDependencies extends CompileRegistryDependencies {
   readonly homeDirectory?: string;
   readonly projectDirectory?: string;
   readonly classifier?: GitHubRepositoryVisibilityClassifier;
@@ -74,6 +85,8 @@ export interface SyncCommandDependencies {
   readonly privateCatalogGate?: PrivateCatalogSourceGate;
   readonly writeLine?: (message: string) => void;
   readonly syncRepository?: RepositorySync;
+  readonly env?: Readonly<Record<string, string | undefined>>;
+  readonly runHarnessCommand?: HarnessCommandRunner;
 }
 
 interface SyncPhaseResult<T extends RemoteSourceReference> {
@@ -299,7 +312,7 @@ const finishSync = (
 };
 
 /** Validates settings, syncs remote settings, reloads, syncs remote sources, then their closure. */
-export const executeSyncCommand = (
+export const fetchSources = (
   input: SyncCommandInput,
   dependencies: Pick<SyncCommandDependencies, 'classifier' | 'prompt' | 'privateCatalogGate' | 'syncRepository'> = {},
 ): SyncCommandResult => {
@@ -375,20 +388,105 @@ export const executeSyncCommand = (
   };
 };
 
+const planRegistry = (input: SyncCommandInput, registry: CompiledRegistry, dependencies: SyncCommandDependencies) => {
+  const selected = input.harnesses?.length
+    ? input.harnesses
+    : [registry.settings.defaultHarness ?? 'pi', ...Object.keys(registry.settings.harnessDefaults ?? {})];
+  const harnesses = [...new Set(selected)].sort(compareSlugs);
+  return harnesses.map((harness) => {
+    if (!isLinkHarness(harness)) throw new Error(`Unknown harness '${harness}'. sync supports: pi, claude, codex.`);
+    const home = resolveHarnessHome(harness, input.homeDirectory, input.env ?? dependencies.env ?? process.env);
+    return {
+      home,
+      plan: planNativeProfiles(registry.profiles, harness, home, registry.settings.harnessDefaults?.[harness]),
+    };
+  });
+};
+
+const projectRegistry = (
+  input: SyncCommandInput,
+  registry: CompiledRegistry,
+  dependencies: SyncCommandDependencies,
+): readonly string[] => {
+  const planned = planRegistry(input, registry, dependencies);
+  const run = dependencies.runHarnessCommand ?? spawnHarnessCommand;
+  const warnings = planned.flatMap(({ plan }) => plan.warnings);
+  if (input.strict === true && warnings.length > 0) throw new Error(warnings.join('; '));
+  // Preflight every home before changing any home; conflicts never clobber unmanaged native files.
+  const checked = planned.map(({ home, plan }) => ({
+    home,
+    plan,
+    actions: applyHarnessLinks(plan, home, { dryRun: true }, run).actions,
+  }));
+  const conflicts = checked.flatMap(({ actions }) =>
+    actions.filter((action) => action.status === 'conflict' || action.status === 'skipped'),
+  );
+  if (conflicts.length > 0)
+    throw new Error(conflicts.map((action) => `${action.status}: ${action.entry.path} (${action.detail})`).join('; '));
+  for (const { home, plan, actions } of checked) {
+    if (actions.every((action) => action.status === 'unchanged')) continue;
+    const applied = applyHarnessLinks(plan, home, {}, run);
+    const failed = applied.actions.filter((action) => action.status === 'conflict' || action.status === 'skipped');
+    if (failed.length > 0) throw new Error(failed.map((action) => `${action.entry.path}: ${action.detail}`).join('; '));
+  }
+  return warnings;
+};
+
+/** Fetch is explicit; local recompilation never invokes Git or the source-repair policy. */
+export const executeSyncCommand = (
+  input: SyncCommandInput,
+  dependencies: SyncCommandDependencies = {},
+): SyncCommandResult => {
+  const fetched = input.local === true ? { exitCode: 0, messages: [], results: [] } : fetchSources(input, dependencies);
+  if (fetched.exitCode !== 0) return fetched;
+  try {
+    const compiled = compileProfileRegistry({ ...input, env: input.env ?? dependencies.env }, dependencies);
+    const warnings = projectRegistry(input, compiled.registry, dependencies);
+    return {
+      ...fetched,
+      registry: compiled.registry,
+      messages: [
+        ...fetched.messages,
+        ...[...new Set([...compiled.warnings, ...warnings])]
+          .map((warning) => `warning: ${warning}`)
+          .filter((warning) => !fetched.messages.includes(warning)),
+        ...(compiled.registry.profiles.length === 0
+          ? []
+          : [`${compiled.changed ? 'Compiled' : 'Unchanged'}: ${compiled.registry.profiles.length} profile(s).`]),
+      ],
+    };
+  } catch (error) {
+    return {
+      ...fetched,
+      exitCode: 1,
+      messages: [...fetched.messages, `failed: ${redactEmbeddedSourceCredentials(formatCaughtError(error))}`],
+    };
+  }
+};
+
 export const createSyncCommand = (dependencies: SyncCommandDependencies = {}): CommandObject => ({
   name: 'sync',
-  description: 'Synchronize configured remote settings and sources into the local cache.',
+  description: 'Fetch sources, compile enabled profiles, and project native harness configuration.',
   register(program: Command): void {
     program.addCommand(
       new Command('sync')
-        .description('Synchronize configured remote settings and sources into the local cache.')
-        .option('--strict', 'Treat ambiguous source resolution as fatal.')
-        .action((options: { strict?: boolean }) => {
+        .description('Fetch sources, compile enabled profiles, and project native harness configuration.')
+        .option('--local', 'Compile cached and local sources without fetching or repairing source caches.')
+        .option(
+          '--harness <name>',
+          'Harness to project: pi, claude, or codex (repeatable).',
+          (value: string, previous: string[]) => [...previous, value],
+          [],
+        )
+        .option('--strict', 'Treat resolution, compilation, and unsupported projection warnings as fatal.')
+        .action((options: { strict?: boolean; local?: boolean; harness: string[] }) => {
           const result = executeSyncCommand(
             {
               homeDirectory: resolveHomeDirectory(dependencies.homeDirectory),
               projectDirectory: resolveProjectDirectory(dependencies.projectDirectory),
               strict: options.strict,
+              local: options.local,
+              harnesses: options.harness,
             },
             dependencies,
           );

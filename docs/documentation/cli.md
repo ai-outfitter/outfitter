@@ -68,6 +68,34 @@ and Git output.
 Sync is explicit: `outfitter run` never initiates network access. If a configured cache is absent,
 resolution tells you to run `outfitter sync`.
 
+After fetching, sync compiles `default_agent` plus every enabled workflow's agent/delegate closure
+exactly once per agent. With no selected agents, an empty registry is valid. Compiled plans and
+content-addressed snapshots of their skills and native configuration live in a project-specific
+directory under `$XDG_CACHE_HOME/outfitter/profiles` (default `~/.cache/outfitter/profiles`).
+The registry and assets are owner-only because selected MCP configuration can contain credentials.
+Identical inputs leave the compiled registry, snapshots, and native projections untouched.
+Sync also prebuilds Pi and Claude launch trees, including both Claude isolation modes. Launches copy
+these immutable templates into per-run directories for mutable credentials; model credential variables
+are resolved only at launch, never while compiling templates.
+
+| Option             | Description                                                                                                                     |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------- |
+| `--local`          | Recompile local and cached sources without fetching or repairing caches.                                                        |
+| `--harness <name>` | Project `pi`, `claude`, or `codex` (repeatable). Defaults to `default_harness` (or Pi) plus configured `harness_defaults` keys. |
+| `--strict`         | Fail on resolution/composition warnings or unsupported native controls before changing harness homes.                           |
+
+Native projections use the same ownership manifest as `outfitter link`. Conflicting unmanaged
+files cause sync to fail without replacing them. Source edits take effect after another sync,
+not when reading the compiled registry.
+
+## `outfitter profiles`
+
+List compiled profiles and each harness's `ready` or `partial` projection status without resolving
+sources or touching harness homes. `--json` emits
+`{"version":1,"profiles":[{"agent":"…","fingerprint":"…","harnesses":{"pi":{"status":"ready","unsupported":[]},"claude":{},"codex":{}}}]}`
+with the same status/unsupported shape for all three harnesses. An absent or empty registry produces
+an empty `profiles` array. MCP definitions and prompt bodies are never included in this inventory.
+
 ## `outfitter list [kind]`
 
 List resolvable resources across all layers, with the winning source for each slug and any shadowed IDs.

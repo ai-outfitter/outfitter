@@ -25,6 +25,7 @@ import { compose } from '../../composer/Composer.js';
 import { ensurePiExtensions } from '../../extensions/PiExtensionCache.js';
 import type { PiInstallSpawner } from '../../extensions/PiExtensionCache.js';
 import { resolveOutfitterCacheDir } from '../../paths/OutfitterCache.js';
+import { readCompiledRegistry } from '../../profiles/CompiledRegistry.js';
 import { projectComposition } from '../../projection/ProjectHarness.js';
 import type { AgentLaunchPlan } from '../../projection/Projection.js';
 import { strictAmbiguityFailureMessage } from '../../resolver/AmbiguityWarnings.js';
@@ -40,6 +41,7 @@ import { attachSystemExtensionHooks } from '../../system/SystemExtensionHook.js'
 import { startTerminalLoading } from '../TerminalLoading.js';
 import type { LoadingStarter } from '../TerminalLoading.js';
 import type { CommandObject } from './CommandObject.js';
+import { executeCompiledRun } from './CompiledRun.js';
 import { attachPiRuntimeExtension } from './PiRuntimeLaunch.js';
 import type { PiProviderPromptMode } from './PiRuntimeLaunch.js';
 import { resolveHomeDirectory, resolveProjectDirectory } from './ProcessDefaults.js';
@@ -251,11 +253,12 @@ const resolvePiExtensions = async (
   input: RunAgentInput,
   harness: Harness,
   extensionSpecs: readonly string[],
+  offline = false,
 ): Promise<{ readonly loadDirs: readonly string[]; readonly warnings: readonly string[] }> => {
   if (harness !== 'pi') return { loadDirs: [], warnings: [] };
   return ensurePiExtensions(extensionSpecs, {
     cacheAgentDir: join(resolveOutfitterCacheDir(process.env, input.homeDirectory), 'pi-extensions'),
-    offline: process.env.PI_OFFLINE === '1' || process.env.PI_OFFLINE === 'true',
+    offline: offline || process.env.PI_OFFLINE === '1' || process.env.PI_OFFLINE === 'true',
     debug: input.logLevel === 'debug',
     spawn: input.extensionInstallSpawner,
   });
@@ -358,6 +361,23 @@ const onboardFirstRun = async (
 };
 
 export const executeRunAgentCommand = async (input: RunAgentInput): Promise<RunAgentResult> => {
+  const registry = readCompiledRegistry(input);
+  if (registry === undefined) return executeUncompiledRun(input);
+  assertReadableAppendPrompts(input.appendPromptPaths);
+  const harness = resolveHarness(registry.settings.defaultHarness, input.harness);
+  const claudeConfig = resolveClaudeConfig(input, harness, registry.settings.isolation);
+  return await executeCompiledRun(input, registry, {
+    harness,
+    isolation: claudeConfig.isolation,
+    sessionDirectory: resolveSessionDirectory(input, harness),
+    extensions: (specs) => resolvePiExtensions(input, harness, specs, true),
+    notices: (root) => launchNotices(input, claudeConfig, root),
+    launch: (root, launch, messages, persistModels) =>
+      launchWithStatePersistence(input, harness, claudeConfig.isolation, root, launch, messages, persistModels),
+  });
+};
+
+const executeUncompiledRun = async (input: RunAgentInput): Promise<RunAgentResult> => {
   // Flush messages to the terminal (before launch); they are also returned so callers can inspect them.
   const emit = (messages: readonly string[]): void => {
     for (const message of messages) input.writeLine?.(message);
