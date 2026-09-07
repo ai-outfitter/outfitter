@@ -41,7 +41,6 @@ const workflowSchema = readSchema('workflow.schema.json');
 const addFormats = addFormatsModule.default;
 
 const ajv = new Ajv2020({ allErrors: true });
-ajv.addFormat('uri', /^[A-Za-z][A-Za-z0-9+.-]*:[^\s]*$/u);
 const outputTypeAjv = new Ajv2020({ allErrors: true, addUsedSchema: false });
 addFormats(outputTypeAjv);
 // Retain Outfitter's intentionally laxer URI check, which accepts any scheme plus a non-whitespace suffix.

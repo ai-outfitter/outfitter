@@ -111,7 +111,7 @@ catalog publishes `pull-request`, `git-commit`, `git-branch`, and `issue` from i
 through normal layer precedence. Every output-type schema must declare a canonical `$id` that is an
 absolute URI. Its identity is the pair of that `$id` and the SHA-256 digest of the schema file bytes
 exactly as stored; consumers must not identify a type by its slug alone. An output-type schema must
-be self-contained: `$ref` may only target definitions within that same schema. A mapped output
+be self-contained: `$ref` may only target definitions within that same schema. Standard JSON Schema formats such as `date-time`, `email`, and `uuid` are validated; an unknown `format` is reported as a schema defect on the output-type resource and fails validation and export. The `uri` format uses Outfitter's deliberately laxer check: any scheme followed by a non-whitespace suffix. A mapped output
 inherits the nested output's resolved type and canonical schema ID, including through multiple
 nesting levels.
 
