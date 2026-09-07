@@ -234,45 +234,23 @@ describe('setup state machine', () => {
     );
   });
 
-  it('creates a custom profile at the selected target and preserves unrelated settings', () => {
+  it('selects a catalog profile for a project target, preserves unrelated settings, and writes no profile files', () => {
     const { catalog, home, project } = createTree();
     write(join(project, '.agents', 'settings.yml'), 'startup:\n  ascii_art: false\n');
     const result = applySetupSelection({
       homeDirectory: home,
       projectDirectory: project,
       defaultCatalogRoot: catalog,
-      availableAgents: [],
-      selection: {
-        setupMode: 'create',
-        agentId: 'my-profile',
-        agentLabel: 'My Profile',
-        harness: 'claude',
-        target: 'project',
-      },
+      availableAgents: discoverSetupAgentChoices({ defaultCatalogRoot: catalog }),
+      selection: { setupMode: 'default', agentId: 'founder', harness: 'claude', target: 'project' },
     });
 
-    expect(readFileSync(join(project, '.agents', 'agents', 'my-profile', 'agent.md'), 'utf8')).toContain(
-      '# My Profile',
-    );
     const settings = readFileSync(join(project, '.agents', 'settings.yml'), 'utf8');
     expect(settings).toContain('ascii_art: false');
-    expect(settings).toContain('default_agent: my-profile');
+    expect(settings).toContain('default_agent: founder');
     expect(settings).toContain('default_harness: claude');
+    expect(existsSync(join(project, '.agents', 'agents'))).toBe(false);
     expect(result.updated).toEqual([join(project, '.agents', 'settings.yml')]);
-  });
-
-  it('preserves a custom profile that already exists while selecting it', () => {
-    const { home, project } = createTree();
-    const agentPath = join(home, '.agents', 'agents', 'founder', 'agent.md');
-    write(agentPath, 'USER OWNED');
-    applySetupSelection({
-      homeDirectory: home,
-      projectDirectory: project,
-      availableAgents: [],
-      selection: { setupMode: 'create', agentId: 'founder', harness: 'pi', target: 'home' },
-    });
-    expect(readFileSync(agentPath, 'utf8')).toBe('USER OWNED');
-    expect(readFileSync(join(home, '.agents', 'settings.yml'), 'utf8')).toContain('default_agent: founder');
   });
 
   it('persists the original different-catalog outcome with the selected CLI agent', () => {
@@ -457,20 +435,20 @@ describe('setup state machine', () => {
     expect(() =>
       applySetupSelection({
         ...base,
-        selection: { setupMode: 'create', agentId: 'bad id', harness: 'pi', target: 'home' },
+        selection: { setupMode: 'default', agentId: 'bad id', harness: 'pi', target: 'home' },
       }),
     ).toThrow(/invalid agent id/);
     // Validation runs on the exact id that gets written, so schema-invalid slugs
     // are rejected up front rather than written as an unresolvable agent.
     for (const agentId of ['bad_id', '.my-profile', 'my..profile', 'my-profile.', 'my--profile']) {
       expect(() =>
-        applySetupSelection({ ...base, selection: { setupMode: 'create', agentId, harness: 'pi', target: 'home' } }),
+        applySetupSelection({ ...base, selection: { setupMode: 'default', agentId, harness: 'pi', target: 'home' } }),
       ).toThrow(/invalid agent id/);
     }
     expect(() =>
       applySetupSelection({
         ...base,
-        selection: { setupMode: 'create', agentId: 'okay', harness: 'gemini' as 'pi', target: 'home' },
+        selection: { setupMode: 'default', agentId: 'founder', harness: 'gemini' as 'pi', target: 'home' },
       }),
     ).toThrow(/unsupported harness/);
     for (const selection of [
@@ -482,20 +460,6 @@ describe('setup state machine', () => {
       expect(() => applySetupSelection({ ...base, selection })).toThrow(/invalid/);
     }
     expect(existsSync(join(home, '.agents'))).toBe(false);
-  });
-
-  it('rolls back files created by a failed custom-profile write', () => {
-    const { home, project } = createTree();
-    mkdirSync(join(home, '.agents', 'settings.yml'), { recursive: true });
-    expect(() =>
-      applySetupSelection({
-        homeDirectory: home,
-        projectDirectory: project,
-        availableAgents: [],
-        selection: { setupMode: 'create', agentId: 'new-profile', harness: 'pi', target: 'home' },
-      }),
-    ).toThrow();
-    expect(existsSync(join(home, '.agents', 'agents', 'new-profile', 'agent.md'))).toBe(false);
   });
 
   it('does not copy or mutate the bootstrapped default catalog when settings cannot be written', () => {
@@ -538,9 +502,10 @@ describe('Pi setup launch', () => {
     );
     const extensionPath = launch.plan.args[launch.plan.args.indexOf('--extension') + 1];
     const extension = readFileSync(extensionPath, 'utf8');
-    expect(extension).toContain('Use the default Outfitter profile catalog');
-    expect(extension).toContain('Create your own profile');
-    expect(extension).toContain('Provide a different catalog to import');
+    expect(extension).toContain('Choose an Outfitter profile');
+    expect(extension).toContain('Import a different .agents catalog');
+    expect(extension).not.toContain('Create your own profile');
+
     expect(extension).toContain('Which CLI agent should Outfitter use by default?');
     expect(extension).not.toContain('Starter agent');
     expect(extension).not.toContain('__OUTFITTER_');
@@ -617,7 +582,7 @@ describe('Pi setup launch', () => {
         writeFileSync(join(plan.env.PI_CODING_AGENT_DIR, 'auth.json'), '{"openai":{"type":"api_key","key":"x"}}');
         writeFileSync(
           selectionPathFromPlan(plan),
-          JSON.stringify({ setupMode: 'create', agentId: 'a', harness: 'pi', target: 'home' }),
+          JSON.stringify({ setupMode: 'default', agentId: 'founder', harness: 'pi', target: 'home' }),
         );
         return Promise.resolve(0);
       },
@@ -637,8 +602,8 @@ describe('Pi setup launch', () => {
         writeFileSync(
           selectionPathFromPlan(plan),
           JSON.stringify({
-            setupMode: 'create',
-            agentId: 'a',
+            setupMode: 'default',
+            agentId: 'founder',
             harness: 'pi',
             target: 'home',
             providerConnection: 'skipped',
@@ -659,8 +624,8 @@ describe('Pi setup launch', () => {
           writeFileSync(
             selectionPathFromPlan(plan),
             JSON.stringify({
-              setupMode: 'create',
-              agentId: 'a',
+              setupMode: 'default',
+              agentId: 'founder',
               harness: 'pi',
               target: 'home',
               providerConnection: 'yes',
@@ -690,7 +655,7 @@ describe('Pi setup launch', () => {
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-004.2.4, OFTR-010.7).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
-  it('passes the selected cache root into setup bootstrap and applies a custom-profile handoff', async () => {
+  it('passes the selected cache root into setup bootstrap and applies a project-target handoff', async () => {
     const { catalog, home, project } = createTree();
     const selectedCache = join(home, '.agents', 'selected-cache');
     let bootstrapCache: string | undefined;
@@ -706,20 +671,14 @@ describe('Pi setup launch', () => {
       launcher: (plan) => {
         writeFileSync(
           selectionPathFromPlan(plan),
-          JSON.stringify({
-            setupMode: 'create',
-            agentId: 'walkthrough',
-            agentLabel: 'Walkthrough',
-            harness: 'claude',
-            target: 'project',
-          }),
+          JSON.stringify({ setupMode: 'default', agentId: 'founder', harness: 'claude', target: 'project' }),
         );
         return Promise.resolve(0);
       },
     });
-    expect(result?.defaultAgent).toBe('walkthrough');
+    expect(result?.defaultAgent).toBe('founder');
     expect(bootstrapCache).toBe(selectedCache);
-    expect(existsSync(join(project, '.agents', 'agents', 'walkthrough', 'agent.md'))).toBe(true);
+    expect(readFileSync(join(project, '.agents', 'settings.yml'), 'utf8')).toContain('default_agent: founder');
   });
 
   it('bypasses default-catalog bootstrap for the original provided-source path', async () => {
@@ -885,17 +844,10 @@ describe('Pi setup launch', () => {
       projectDirectory: project,
       defaultCatalogBootstrap: () => catalog,
       interactive: true,
-      // Create a local profile so the post-setup re-resolve finds it without a catalog fetch.
       launcher: (plan) => {
         writeFileSync(
           selectionPathFromPlan(plan),
-          JSON.stringify({
-            setupMode: 'create',
-            agentId: 'myagent',
-            agentLabel: 'My Agent',
-            harness: 'pi',
-            target: 'home',
-          }),
+          JSON.stringify({ setupMode: 'default', agentId: 'founder', harness: 'pi', target: 'home' }),
         );
         return Promise.resolve(0);
       },
@@ -934,7 +886,7 @@ describe('Pi setup launch', () => {
     const launching = new Command();
     createSetupCommand({
       ...dependencies,
-      launcher: selection({ setupMode: 'create', agentId: 'myagent', providerConnection: 'skipped' }),
+      launcher: selection({ setupMode: 'default', agentId: 'founder', providerConnection: 'skipped' }),
     }).register(launching);
     await launching.parseAsync(['node', 'outfitter', 'setup']);
     expect(lines).toEqual([]); // the pi session itself shows the hint

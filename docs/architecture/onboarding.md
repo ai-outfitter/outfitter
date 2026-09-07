@@ -10,20 +10,22 @@ native `/login` before handing off ([#372](https://github.com/ai-outfitter/outfi
 
 ## Screen contract
 
-The first prompt and its wording are fixed:
+The first screen is one described picker, **Choose an Outfitter profile**
+([#381](https://github.com/ai-outfitter/outfitter/issues/381)):
 
-1. **Use the default Outfitter profile catalog**
-2. **Create your own profile**
-3. **Provide a different catalog to import**
+1. the default-catalog profiles, Engineer first and recommended (or the current default marked);
+2. a final row, **Import a different .agents catalog**.
 
-The selected branch follows the original order:
+The selected row continues in the original order:
 
-- Default catalog: described profile picker (Engineer first and recommended) → home/project target.
-- Create: profile ID → profile label → home/project target.
-- Different catalog: GitHub `owner/repo` → ref → settings path → private-catalog confirmation when
-  applicable → home/project target.
-- `outfitter setup [source]`: bypass the first prompt and begin at home/project target, matching the
+- Profile: home/project target.
+- Import: GitHub `owner/repo` → ref → settings path → private-catalog confirmation when applicable
+  → home/project target.
+- `outfitter setup [source]`: bypass the first screen and begin at home/project target, matching the
   original provided-source path.
+
+There is no create-your-own-profile branch; a custom profile is added by writing
+`.agents/agents/<id>/agent.md` and setting `default_agent`.
 
 Exactly one screen is appended: **Which CLI agent should Outfitter use by default?** Pi/Outfitter is
 the first, preselected recommendation; Claude Code and Codex CLI are the other currently runnable adapters.
@@ -49,8 +51,8 @@ Both explicit `outfitter setup [source]` and implicit first-run `outfitter run` 
 6. Validate the handoff, copy any new `auth.json` back to `~/.pi/agent`, and atomically apply the
    selection to `.agents`.
 7. Re-resolve and launch the selected profile so the user lands in a working session. Implicit
-   first-run and explicit `outfitter setup` both auto-start pi when a concrete agent was chosen
-   (default/create). Catalog/source setups, which still need a sync before the profile resolves,
+   first-run and explicit `outfitter setup` both auto-start pi when a catalog profile was chosen.
+   Imported catalog/source setups, which still need a sync before the profile resolves,
    report next-launch behavior instead of launching.
 
 The relaunched real Pi session loads the runtime sign-in extension for users who already have
@@ -74,7 +76,6 @@ The visible profile-era walkthrough is retained while storage is translated to t
 - `default_profile` becomes `default_agent`;
 - the chosen CLI is stored as `default_harness`;
 - home/project targets are `~/.agents/settings.yml` and `<project>/.agents/settings.yml`;
-- a custom profile becomes `agents/<id>/agent.md` and never overwrites an existing file;
 - the default catalog is recorded as `github: ai-outfitter/community-profiles` at the immutable
   Release Please version tag shipped by Outfitter; the bootstrap checkout remains derived cache
   data, not copied configuration;
@@ -82,7 +83,7 @@ The visible profile-era walkthrough is retained while storage is translated to t
 - private-catalog enablement uses `enterprise.private_catalogs` in home settings.
 
 Writes use same-directory temporary files and rename. Cancellation writes no configuration (an exact
-default-catalog cache may already have been warmed). On partial failure, only profile files and
+default-catalog cache may already have been warmed). On partial failure, only
 private-catalog settings created or changed by that attempt are rolled back. If the pinned catalog
 cannot be fetched and is not cached, setup fails before opening the walkthrough or changing settings.
 

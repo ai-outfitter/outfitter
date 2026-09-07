@@ -262,7 +262,7 @@ const parseSetupSelection = (path: string): SetupSelection | undefined => {
   };
   if (value === null || typeof value !== 'object') return invalid();
   const selection = value as Partial<SetupSelection>;
-  if (!['default', 'create', 'catalog', 'source'].includes(String(selection.setupMode))) return invalid();
+  if (!['default', 'catalog', 'source'].includes(String(selection.setupMode))) return invalid();
   if (!HARNESSES.includes(String(selection.harness) as Harness)) return invalid();
   if (!['catalog', 'source'].includes(String(selection.setupMode)) && typeof selection.agentId !== 'string')
     return invalid();
@@ -334,8 +334,8 @@ export const runSetup = async (dependencies: SetupCommandDependencies = {}): Pro
 const defaultRunLauncher: SetupProcessLauncher = (plan) => launchThroughSpawn(spawnLauncher, plan);
 
 // After an explicit `outfitter setup`, start the just-selected profile in pi so the user lands in a
-// working session instead of being told to restart. Only a concrete agent choice (default/create
-// modes set `defaultAgent`) launches immediately; catalog/source setups still need a sync, so they
+// working session instead of being told to restart. Only a catalog profile choice (which sets
+// `defaultAgent`) launches immediately; imported catalog/source setups still need a sync, so they
 // keep their "run outfitter sync / restart" guidance and are skipped here.
 const autoLaunchSelectedProfile = async (
   dependencies: SetupCommandDependencies,
