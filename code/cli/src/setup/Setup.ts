@@ -14,7 +14,12 @@ export interface SetupAgentChoice {
   readonly id: string;
   readonly label: string;
   readonly description: string;
+  /** Shown on the first setup screen; other profiles sit behind "More profiles". */
+  readonly featured?: true;
 }
+
+/** Profiles the setup screen shows by default, in this order, when the catalog has them. */
+export const featuredSetupProfileIds: readonly string[] = ['engineer', 'founder', 'software-factory'];
 
 export interface SetupSelection {
   readonly setupMode: SetupMode;
@@ -121,17 +126,19 @@ const discoverAgentsInCatalog = (root: string): readonly SetupAgentChoice[] => {
           id,
           label: readFrontmatterValue(content, 'label') ?? readMarkdownHeading(content) ?? id,
           description: readFrontmatterValue(content, 'description') ?? 'Outfitter profile from the default catalog.',
+          ...(featuredSetupProfileIds.includes(id) ? { featured: true as const } : {}),
         },
       ];
     } catch {
       return [];
     }
   });
-  return choices.sort((left, right) => {
-    if (left.id === 'engineer') return -1;
-    if (right.id === 'engineer') return 1;
-    return left.id.localeCompare(right.id);
-  });
+  // Featured profiles first in their declared order, then the rest alphabetically.
+  const rank = (choice: SetupAgentChoice): number => {
+    const index = featuredSetupProfileIds.indexOf(choice.id);
+    return index === -1 ? featuredSetupProfileIds.length : index;
+  };
+  return choices.sort((left, right) => rank(left) - rank(right) || left.id.localeCompare(right.id));
 };
 
 /** Returns the profiles shown by the original default-catalog setup picker. */

@@ -79,17 +79,22 @@
 > setup-mode question and the profile picker are one screen, and create-your-own-profile is removed.
 
 1. The first prompt MUST be one described picker titled `Choose an Outfitter profile`. It MUST list
-   the default-catalog profiles first and end with one row, `Import a different .agents catalog`.
-   It MUST NOT be preceded by a setup-mode question and MUST NOT offer profile creation.
-2. Engineer MUST be the first, preselected `Recommended` profile row unless an existing default is
-   marked `current`; profiles marked `abstract: true` MUST NOT be offered. Picking a profile records
-   the default catalog as a source and that profile as `default_agent`.
-3. The import row MUST continue with the original GitHub repository, ref, and settings-path
+   the featured default-catalog profiles (`engineer`, `founder`, `software-factory`, in that order,
+   when the catalog has them), then a `More profiles (N)` row when other profiles exist, and end
+   with one row, `Import a different .agents catalog`. It MUST NOT be preceded by a setup-mode
+   question and MUST NOT offer profile creation.
+2. `More profiles` MUST reopen the same picker with every non-abstract catalog profile. When no
+   featured profile exists, or the current default is not featured, the picker MUST show every
+   profile directly. Profiles marked `abstract: true` MUST NOT be offered anywhere.
+3. Engineer MUST be the first, preselected `Recommended` profile row unless an existing default is
+   marked `current`. Picking a profile records the default catalog as a source and that profile as
+   `default_agent`.
+4. The import row MUST continue with the original GitHub repository, ref, and settings-path
    questions, preserve private-catalog confirmation, then ask the install target.
-4. A provided `[source]` MUST bypass the profile screen and begin at target selection.
-5. Home/project target wording and the `selectDescribedOption` keyboard, cancellation, description,
+5. A provided `[source]` MUST bypass the profile screen and begin at target selection.
+6. Home/project target wording and the `selectDescribedOption` keyboard, cancellation, description,
    recommendation, and narrow-width behavior MUST match the original flow, with `.agents` paths.
-6. Exactly one screen MUST follow the target: choose the default CLI agent. Pi/Outfitter MUST be
+7. Exactly one screen MUST follow the target: choose the default CLI agent. Pi/Outfitter MUST be
    first, recommended, and preselected.
 
 ## OFTR-010.3: Handoff and writes

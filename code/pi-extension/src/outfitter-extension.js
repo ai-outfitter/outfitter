@@ -25,6 +25,7 @@ const OUTFITTER_PROFILE_ID_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/u;
 const OUTFITTER_PLAN_TOOLS = ['read', 'grep', 'find', 'ls'];
 const OUTFITTER_DEFAULT_TOOLS = ['read', 'bash', 'edit', 'write'];
 const OUTFITTER_IMPORT_CHOICE = '__import__';
+const OUTFITTER_MORE_CHOICE = '__more__';
 // Keep this dialog in sync with outfitter-runtime-extension.js, which shows the same prompt for
 // users who already have .agents but no provider.
 const OUTFITTER_PROVIDER_PROMPT = {
@@ -110,21 +111,23 @@ export default function outfitter(pi) {
       ];
       return selectFromItems(ctx, ['Where should Outfitter install these settings?'], items, 'home');
     },
-    // One screen replaces the old setup-mode and profile questions (#381): the community catalog
-    // profiles first, then a row that imports a different .agents catalog.
+    // One screen replaces the old setup-mode and profile questions (#381): the featured catalog
+    // profiles first, a "More profiles" row for the rest, then a row that imports a different
+    // .agents catalog. The CLI marks featured profiles and orders them; abstract ones never arrive.
     async selectProfileOrImport(profiles, currentDefault) {
-      const items = [
-        ...profiles.map((profile) => ({
-          value: profile.id,
-          label: formatProfileLabel(profile, currentDefault),
-          description: profile.description,
-        })),
-        {
-          value: OUTFITTER_IMPORT_CHOICE,
-          label: 'Import a different .agents catalog',
-          description: 'Point Outfitter at a GitHub repository that holds your own .agents settings.',
-        },
-      ];
+      const featured = profiles.filter((profile) => profile.featured === true);
+      const others = profiles.filter((profile) => profile.featured !== true);
+      const collapsible = featured.length > 0 && others.length > 0;
+      const importItem = {
+        value: OUTFITTER_IMPORT_CHOICE,
+        label: 'Import a different .agents catalog',
+        description: 'Point Outfitter at a GitHub repository that holds your own .agents settings.',
+      };
+      const profileItem = (profile) => ({
+        value: profile.id,
+        label: formatProfileLabel(profile, currentDefault),
+        description: profile.description,
+      });
       const title = [
         'Choose an Outfitter profile',
         '',
@@ -132,10 +135,34 @@ export default function outfitter(pi) {
           ? 'No profiles were found in the default Outfitter catalog. Fix the catalog sync or import a different one.'
           : "Profiles come from the community catalog and are added to your .agents as the default for future 'outfitter' launches.",
       ];
-      const initialValue =
-        currentDefault ??
-        (profiles.some((profile) => profile.id === 'engineer') ? 'engineer' : (profiles[0]?.id ?? OUTFITTER_IMPORT_CHOICE));
-      const selected = await selectFromItems(ctx, title, items, initialValue);
+      const preferred = (candidates) =>
+        currentDefault !== undefined && candidates.some((profile) => profile.id === currentDefault)
+          ? currentDefault
+          : candidates.some((profile) => profile.id === 'engineer')
+            ? 'engineer'
+            : (candidates[0]?.id ?? OUTFITTER_IMPORT_CHOICE);
+      const showAll = collapsible && currentDefault !== undefined && others.some((profile) => profile.id === currentDefault);
+      let items;
+      let initialValue;
+      if (collapsible && !showAll) {
+        items = [
+          ...featured.map(profileItem),
+          {
+            value: OUTFITTER_MORE_CHOICE,
+            label: 'More profiles (' + others.length + ')',
+            description: 'Show the other catalog profiles.',
+          },
+          importItem,
+        ];
+        initialValue = preferred(featured);
+      } else {
+        items = [...profiles.map(profileItem), importItem];
+        initialValue = preferred(profiles);
+      }
+      let selected = await selectFromItems(ctx, title, items, initialValue);
+      if (selected === OUTFITTER_MORE_CHOICE) {
+        selected = await selectFromItems(ctx, title, [...profiles.map(profileItem), importItem], preferred(others));
+      }
       if (selected === undefined) return undefined;
       if (selected === OUTFITTER_IMPORT_CHOICE) return { import: true };
       return { profile: profiles.find((profile) => profile.id === selected) };
