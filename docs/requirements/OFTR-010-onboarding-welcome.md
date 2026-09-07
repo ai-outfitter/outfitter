@@ -19,9 +19,9 @@
    placeholder provider that never counts as connected. The only network use it MAY initiate is Pi's
    native `/login` in the provider step (OFTR-010.7).
 5. After a successful walkthrough, explicit `outfitter setup` MUST also re-resolve and launch the
-   selected profile when a concrete agent was chosen (default/create modes), so the user lands in a
-   working pi session without a manual restart. Catalog/source setups, whose profile needs a sync
-   first, MUST instead report next-launch behavior.
+   selected profile when a catalog profile was chosen, so the user lands in a working pi session
+   without a manual restart. Imported catalog/source setups, whose profile needs a sync first, MUST
+   instead report next-launch behavior.
 
 ## OFTR-010.7: Setup provider step
 
@@ -75,28 +75,29 @@
 
 ## OFTR-010.2: Exact walkthrough
 
-1. The first prompt MUST be `How would you like to set up Outfitter?` with, in order:
-   `Use the default Outfitter profile catalog`, `Create your own profile`, and
-   `Provide a different catalog to import`.
-2. Default-catalog setup MUST show the original described profile picker. Engineer MUST be the first,
-   preselected `Recommended` row unless an existing default is marked `current`; profiles marked
-   `abstract: true` MUST NOT be offered.
-3. Create setup MUST ask `Profile id`, then `Profile label`, then the install target. It MUST preserve
-   an existing profile file.
-4. Different-catalog setup MUST ask the original GitHub repository, ref, and settings-path questions,
-   preserve private-catalog confirmation, then ask the install target.
-5. A provided `[source]` MUST bypass the setup-mode prompt and begin at target selection.
-6. Home/project target wording and the `selectDescribedOption` keyboard, cancellation, description,
+> **Amended ([#381](https://github.com/ai-outfitter/outfitter/issues/381), 2026-09-07):** the
+> setup-mode question and the profile picker are one screen, and create-your-own-profile is removed.
+
+1. The first prompt MUST be one described picker titled `Choose an Outfitter profile`. It MUST list
+   the default-catalog profiles first and end with one row, `Import a different .agents catalog`.
+   It MUST NOT be preceded by a setup-mode question and MUST NOT offer profile creation.
+2. Engineer MUST be the first, preselected `Recommended` profile row unless an existing default is
+   marked `current`; profiles marked `abstract: true` MUST NOT be offered. Picking a profile records
+   the default catalog as a source and that profile as `default_agent`.
+3. The import row MUST continue with the original GitHub repository, ref, and settings-path
+   questions, preserve private-catalog confirmation, then ask the install target.
+4. A provided `[source]` MUST bypass the profile screen and begin at target selection.
+5. Home/project target wording and the `selectDescribedOption` keyboard, cancellation, description,
    recommendation, and narrow-width behavior MUST match the original flow, with `.agents` paths.
-7. Exactly one new screen MUST follow the original branch: choose the default CLI agent.
-   Pi/Outfitter MUST be first, recommended, and preselected.
+6. Exactly one screen MUST follow the target: choose the default CLI agent. Pi/Outfitter MUST be
+   first, recommended, and preselected.
 
 ## OFTR-010.3: Handoff and writes
 
 1. The extension MUST write only a temporary handoff; the CLI validates and applies it.
 2. Home/project settings MUST be `~/.agents/settings.yml` and `<project>/.agents/settings.yml`.
 3. The profile choice maps to `default_agent`; the added CLI choice maps to `default_harness`.
-4. Custom profiles map to `agents/<id>/agent.md`. The default catalog MUST map to
+4. The default catalog MUST map to
    `github: ai-outfitter/community-profiles` at the immutable Release Please version tag shipped by
    Outfitter; a retired default-catalog pin in existing settings is replaced, never kept alongside.
 5. Existing resource files and unrelated settings MUST be preserved.
@@ -107,8 +108,9 @@
 
 ## OFTR-010.4: Verification
 
-1. Tests MUST assert the exact first prompt/options, every original branch, the one added CLI screen,
-   current/recommended ordering, cancellation, private/provided catalogs, and narrow widths.
+1. Tests MUST assert the combined first screen (profiles then the import row), the import branch,
+   the CLI screen, current/recommended ordering, cancellation, private/provided catalogs, and narrow
+   widths.
 2. Explicit and implicit entry points MUST use the same implementation.
 3. A packaged smoke test MUST prove the installed package bootstraps the pinned canonical catalog,
    selects Founder, and creates valid `.agents` settings without a monorepo sibling checkout.

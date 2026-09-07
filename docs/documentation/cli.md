@@ -42,10 +42,10 @@ outfitter --resume      # equivalent to: outfitter run -- --resume
 
 ## `outfitter setup [source]`
 
-Open the bundled Pi walkthrough using the original setup wording and sequence. Choose **Use the
-default Outfitter profile catalog**, **Create your own profile**, or **Provide a different catalog
-to import**; complete that branch; choose a home/project settings target; then choose the default
-CLI agent. Pi/Outfitter is preselected. Passing `[source]` retains the original direct-source path
+Open the bundled Pi walkthrough. Choose a profile from the default catalog (Engineer is
+preselected) or **Import a different .agents catalog**; complete that branch; choose a home/project
+settings target; then choose the default CLI agent. Pi/Outfitter is preselected. To use a custom
+profile instead, write `.agents/agents/<id>/agent.md` and set `default_agent`. Passing `[source]` retains the original direct-source path
 and starts at target selection. Pi hosts the deterministic setup UI without a model provider and
 does not port or symlink harness configuration. The default picker always comes from
 `ai-outfitter/community-profiles` at the immutable Release Please version tag pinned by the installed

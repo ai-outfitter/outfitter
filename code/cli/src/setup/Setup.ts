@@ -8,7 +8,7 @@ import { HARNESSES } from '../settings/Settings.js';
 import { defaultCatalogSource, retiredDefaultCatalogSources } from './DefaultCatalog.js';
 
 export type SetupScope = 'home' | 'project';
-export type SetupMode = 'default' | 'create' | 'catalog' | 'source';
+export type SetupMode = 'default' | 'catalog' | 'source';
 
 export interface SetupAgentChoice {
   readonly id: string;
@@ -19,7 +19,6 @@ export interface SetupAgentChoice {
 export interface SetupSelection {
   readonly setupMode: SetupMode;
   readonly agentId?: string;
-  readonly agentLabel?: string;
   readonly github?: string;
   readonly ref?: string;
   readonly settingsPath?: string;
@@ -143,10 +142,6 @@ export const discoverSetupAgentChoices = (input: {
   return discoverAgentsInCatalog(input.defaultCatalogRoot);
 };
 
-const userProfileMarkdown = (slug: string, label: string): string =>
-  `---\nname: "${slug}"\nlabel: "${label}"\ndescription: User-created Outfitter profile.\n---\n\n# ${label}\n\n` +
-  'You are a helpful coding agent. Follow the instructions and skills available in this .agents tree.\n';
-
 const replaceOrAppendScalar = (content: string, key: string, value: string): string => {
   const linePattern = new RegExp(`^${key}:.*$`, 'mu');
   if (linePattern.test(content)) return content.replace(linePattern, `${key}: ${value}`);
@@ -235,7 +230,7 @@ const createSettingsContent = (existing: string, selection: SetupSelection): str
 
   let content = replaceOrAppendScalar(existing, 'default_agent', String(selection.agentId));
   content = replaceOrAppendScalar(content, 'default_harness', selection.harness);
-  return appendTelemetrySettingsHint(selection.setupMode === 'default' ? upsertDefaultCatalogSource(content) : content);
+  return appendTelemetrySettingsHint(upsertDefaultCatalogSource(content));
 };
 
 const enablePrivateCatalogs = (content: string): string => {
@@ -283,18 +278,15 @@ const assertSelection = (input: SetupInput): void => {
     if (!selection.sourceUri) throw new Error('Setup returned an invalid source URI.');
     return;
   }
-  // Validate the exact id that gets written as the agent directory/frontmatter name — do not
-  // normalize here, or an id that passes validation could still be written in a schema-invalid form.
+  // Validate the exact id that gets written as `default_agent` — do not normalize here, or an id
+  // that passes validation could still be written in a schema-invalid form.
   if (!selection.agentId || !agentSlugPattern.test(selection.agentId)) {
     throw new Error(`Setup returned invalid agent id '${selection.agentId}'.`);
   }
-  if (selection.setupMode === 'default') {
-    if (!input.availableAgents.some((candidate) => candidate.id === selection.agentId)) {
-      throw new Error(`Setup selected unavailable agent '${selection.agentId}'.`);
-    }
-    if (input.defaultCatalogRoot === undefined)
-      throw new Error('The default Outfitter profile catalog is unavailable.');
+  if (!input.availableAgents.some((candidate) => candidate.id === selection.agentId)) {
+    throw new Error(`Setup selected unavailable agent '${selection.agentId}'.`);
   }
+  if (input.defaultCatalogRoot === undefined) throw new Error('The default Outfitter profile catalog is unavailable.');
 };
 
 /** Applies a UI selection without touching any existing agent resource. */
@@ -304,22 +296,9 @@ export const applySetupSelection = (input: SetupInput): SetupResult => {
   const settingsPath = join(targetRoot, '.agents', 'settings.yml');
   const created: string[] = [];
   const updated: string[] = [];
-  let createdAgentPath: string | undefined;
   let privateHomeSettingsPath: string | undefined;
   let privateHomeSettingsExisted = false;
   let previousPrivateHomeSettings = '';
-
-  if (input.selection.setupMode === 'create') {
-    const agentPath = join(targetRoot, '.agents', 'agents', input.selection.agentId!, 'agent.md');
-    if (!existsSync(agentPath)) {
-      atomicWrite(
-        agentPath,
-        userProfileMarkdown(input.selection.agentId!, input.selection.agentLabel?.trim() || input.selection.agentId!),
-      );
-      created.push(agentPath);
-      createdAgentPath = agentPath;
-    }
-  }
 
   try {
     if (
@@ -338,7 +317,6 @@ export const applySetupSelection = (input: SetupInput): SetupResult => {
     atomicWrite(settingsPath, createSettingsContent(existingSettings, input.selection));
     (settingsExisted ? updated : created).unshift(settingsPath);
   } catch (error) {
-    if (createdAgentPath !== undefined) rmSync(createdAgentPath, { force: true });
     if (privateHomeSettingsPath !== undefined) {
       if (privateHomeSettingsExisted) atomicWrite(privateHomeSettingsPath, previousPrivateHomeSettings);
       else rmSync(privateHomeSettingsPath, { force: true });

@@ -24,6 +24,7 @@ const OUTFITTER_ASCII_GRADIENT = ['success', 'accent', 'text', 'muted', 'dim'];
 const OUTFITTER_PROFILE_ID_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/u;
 const OUTFITTER_PLAN_TOOLS = ['read', 'grep', 'find', 'ls'];
 const OUTFITTER_DEFAULT_TOOLS = ['read', 'bash', 'edit', 'write'];
+const OUTFITTER_IMPORT_CHOICE = '__import__';
 // Keep this dialog in sync with outfitter-runtime-extension.js, which shows the same prompt for
 // users who already have .agents but no provider.
 const OUTFITTER_PROVIDER_PROMPT = {
@@ -93,16 +94,6 @@ export default function outfitter(pi) {
   };
 
   const createQuestionUi = (ctx) => ({
-    async selectSetupMode() {
-      const options = [
-        'Use the default Outfitter profile catalog',
-        'Create your own profile',
-        'Provide a different catalog to import',
-      ];
-      const selected = await ctx.ui.select('How would you like to set up Outfitter?', options);
-      if (selected === undefined) return undefined;
-      return options.indexOf(selected) === 1 ? 'create' : options.indexOf(selected) === 2 ? 'catalog' : 'default';
-    },
     async selectInstallTarget() {
       const items = [
         {
@@ -119,23 +110,33 @@ export default function outfitter(pi) {
       ];
       return selectFromItems(ctx, ['Where should Outfitter install these settings?'], items, 'home');
     },
-    async selectProfile(profiles, currentDefault) {
-      const items = profiles.map((profile) => ({
-        value: profile.id,
-        label: formatProfileLabel(profile, currentDefault),
-        description: profile.description,
-      }));
-      const title = [
-        'Outfitter profile setup',
-        '',
-        "Choose the default profile from the selected catalog for future 'outfitter' launches.",
-        'The current Pi process keeps the profile it started with; this setting applies on the next launch.',
+    // One screen replaces the old setup-mode and profile questions (#381): the community catalog
+    // profiles first, then a row that imports a different .agents catalog.
+    async selectProfileOrImport(profiles, currentDefault) {
+      const items = [
+        ...profiles.map((profile) => ({
+          value: profile.id,
+          label: formatProfileLabel(profile, currentDefault),
+          description: profile.description,
+        })),
+        {
+          value: OUTFITTER_IMPORT_CHOICE,
+          label: 'Import a different .agents catalog',
+          description: 'Point Outfitter at a GitHub repository that holds your own .agents settings.',
+        },
       ];
-      const initialProfileId =
-        currentDefault ?? (profiles.some((profile) => profile.id === 'engineer') ? 'engineer' : profiles[0]?.id);
-      const selectedId = await selectFromItems(ctx, title, items, initialProfileId);
-      if (selectedId === undefined) return undefined;
-      return profiles.find((profile) => profile.id === selectedId);
+      const title = [
+        'Choose an Outfitter profile',
+        '',
+        "Profiles come from the community catalog and are added to your .agents as the default for future 'outfitter' launches.",
+      ];
+      const initialValue =
+        currentDefault ??
+        (profiles.some((profile) => profile.id === 'engineer') ? 'engineer' : (profiles[0]?.id ?? OUTFITTER_IMPORT_CHOICE));
+      const selected = await selectFromItems(ctx, title, items, initialValue);
+      if (selected === undefined) return undefined;
+      if (selected === OUTFITTER_IMPORT_CHOICE) return { import: true };
+      return { profile: profiles.find((profile) => profile.id === selected) };
     },
     async selectCliAgent() {
       const items = [
@@ -256,16 +257,7 @@ export default function outfitter(pi) {
     ctx.shutdown();
   };
 
-  const runDefaultCatalogOnboarding = async (ctx, questionUi) => {
-    if (OUTFITTER_AGENT_CHOICES.length === 0) {
-      questionUi.notify(
-        'No profiles were found in the default Outfitter profile catalog. Fix the catalog sync or provide a different catalog.',
-        'error',
-      );
-      return;
-    }
-    const selectedProfile = await questionUi.selectProfile(OUTFITTER_AGENT_CHOICES, OUTFITTER_CURRENT_DEFAULT);
-    if (selectedProfile === undefined) return cancel(ctx);
+  const runDefaultCatalogOnboarding = async (ctx, questionUi, selectedProfile) => {
     if (!OUTFITTER_PROFILE_ID_PATTERN.test(selectedProfile.id)) {
       questionUi.notify('Selected profile id is not filesystem-safe; no settings were changed.', 'error');
       return;
@@ -280,30 +272,6 @@ export default function outfitter(pi) {
       [
         "Outfitter saved default profile '" + selectedProfile.id + "' to " + settingsPath + '.',
         'Profile choices were loaded from the default Outfitter profile catalog, not generated locally.',
-      ].join('\n'),
-    );
-  };
-
-  const runCreateProfileOnboarding = async (ctx, questionUi) => {
-    const enteredProfileId = normalizeInputValue(await questionUi.input('Profile id', 'my_profile'));
-    const profileId = enteredProfileId?.replaceAll('_', '-');
-    if (!profileId || !OUTFITTER_PROFILE_ID_PATTERN.test(profileId)) {
-      questionUi.notify('Profile id is not filesystem-safe; no settings were changed.', 'error');
-      return;
-    }
-    const label = normalizeInputValue(await questionUi.input('Profile label', profileId));
-    const choice = await askTargetAndHarness(questionUi);
-    if (choice === undefined) return cancel(ctx);
-    const { target, harness } = choice;
-    const root = installRoot(target);
-    const profilePath = root + '/.agents/agents/' + profileId + '/agent.md';
-    const settingsPath = root + '/.agents/settings.yml';
-    await finish(
-      ctx,
-      { setupMode: 'create', agentId: profileId, agentLabel: label, harness, target },
-      [
-        "Outfitter created profile '" + profileId + "' at " + profilePath + '.',
-        'Outfitter saved settings to ' + settingsPath + '.',
       ].join('\n'),
     );
   };
@@ -391,11 +359,10 @@ export default function outfitter(pi) {
       if (OUTFITTER_SETUP_SOURCE_URI !== undefined) {
         return await runProvidedSourceOnboarding(ctx, questionUi, OUTFITTER_SETUP_SOURCE_URI);
       }
-      const setupMode = await questionUi.selectSetupMode();
-      if (setupMode === undefined) return cancel(ctx);
-      if (setupMode === 'catalog') return await runRemoteSettingsOnboarding(ctx, questionUi);
-      if (setupMode === 'create') return await runCreateProfileOnboarding(ctx, questionUi);
-      return await runDefaultCatalogOnboarding(ctx, questionUi);
+      const choice = await questionUi.selectProfileOrImport(OUTFITTER_AGENT_CHOICES, OUTFITTER_CURRENT_DEFAULT);
+      if (choice === undefined) return cancel(ctx);
+      if (choice.import) return await runRemoteSettingsOnboarding(ctx, questionUi);
+      return await runDefaultCatalogOnboarding(ctx, questionUi, choice.profile);
     } finally {
       onboardingRunning = false;
     }

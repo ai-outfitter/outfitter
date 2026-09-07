@@ -167,6 +167,16 @@ const createMockContext = (
   const loginOpensUi = options.login === 'cancel' || options.login === 'connect-late';
   const loginUi = { handleInput: () => undefined };
   let loginUiTicks = 0;
+  // The first described picker is the combined profile/import screen; `mode` drives it and
+  // `pickOption` drives every later picker (target, harness, confirmations).
+  let pickers = 0;
+  const pickFor = (labels: readonly string[]): number | undefined => {
+    pickers += 1;
+    if (pickers > 1) return options.pickOption?.(labels);
+    if (options.mode === 'cancel') return -1;
+    if (options.mode === 'catalog') return labels.indexOf('Import a different .agents catalog');
+    return options.pickOption?.(labels);
+  };
   let shutdowns = 0;
   return {
     hasUI: true,
@@ -213,7 +223,7 @@ const createMockContext = (
           };
           if (component.outfitterOptions !== undefined) {
             rendered.push(component.render?.(40) ?? []);
-            driveDescribedOption(component, options.pickOption?.(component.outfitterOptions));
+            driveDescribedOption(component, pickFor(component.outfitterOptions));
           }
         });
       },
@@ -223,14 +233,7 @@ const createMockContext = (
       },
       select(title: string, selectOptions: readonly string[]) {
         selectCalls.push({ title, options: selectOptions });
-        if (options.mode === 'cancel') return Promise.resolve(undefined);
-        const wanted =
-          options.mode === 'create'
-            ? 'Create your own profile'
-            : options.mode === 'catalog'
-              ? 'Provide a different catalog to import'
-              : selectOptions[0];
-        return Promise.resolve(wanted);
+        return Promise.resolve(selectOptions[0]);
       },
       setEditorText(value: string) {
         editorText = value;
@@ -276,21 +279,18 @@ afterEach(() => {
 describe('Pi setup extension', () => {
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-011.1).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
-  it('restores the original questions and mentions the telemetry setting on completion', async () => {
+  it('asks profile, target, and CLI agent in order and mentions the telemetry setting on completion', async () => {
     const { pi, resultPath } = fixture();
     const context = createMockContext();
     await pi.commands.outfitter.handler({}, context);
 
-    expect(context.selectCalls[0]).toEqual({
-      title: 'How would you like to set up Outfitter?',
-      options: [
-        'Use the default Outfitter profile catalog',
-        'Create your own profile',
-        'Provide a different catalog to import',
-      ],
-    });
-    expect(context.rendered[0]?.join('\n')).toContain('Outfitter profile setup');
+    // One screen: catalog profiles first (Engineer recommended), the import row last (#381).
+    expect(context.selectCalls).toEqual([]);
+    expect(context.rendered[0]?.join('\n')).toContain('Choose an Outfitter profile');
     expect(context.rendered[0]?.join('\n')).toContain('→ engineer — Engineer (Recommended)');
+    expect(context.rendered[0]?.join('\n')).not.toContain('Create your own profile');
+    const firstScreen = context.rendered[0]?.join('\n') ?? '';
+    expect(firstScreen.indexOf('founder')).toBeLessThan(firstScreen.indexOf('Import a different .agents catalog'));
     expect(context.rendered[1]?.join(' ')).toContain('Where should Outfitter install these settings?');
     expect(context.rendered[2]?.join(' ')).toContain('Which CLI agent should Outfitter use by default?');
     expect(context.rendered[2]?.join('\n')).toContain('→ Pi / Outfitter (Recommended)');
@@ -308,20 +308,7 @@ describe('Pi setup extension', () => {
     expect(context.shutdowns).toBe(1);
   });
 
-  it('keeps the original create-your-own-profile prompts and ordering', async () => {
-    const { pi, resultPath } = fixture();
-    const context = createMockContext({ mode: 'create', inputs: ['my_profile', 'My Profile'] });
-    await pi.commands.outfitter.handler({}, context);
-    expect(JSON.parse(readFileSync(resultPath, 'utf8'))).toEqual({
-      setupMode: 'create',
-      agentId: 'my-profile',
-      agentLabel: 'My Profile',
-      harness: 'pi',
-      target: 'home',
-    });
-  });
-
-  it('keeps the original different-catalog prompts and ordering', async () => {
+  it('imports a different catalog from the profile screen with the original catalog prompts', async () => {
     const { pi, resultPath } = fixture();
     const context = createMockContext({
       mode: 'catalog',
@@ -396,11 +383,11 @@ describe('Pi setup extension', () => {
     });
   });
 
-  it('bypasses the setup-mode question for a provided source, as the original flow did', async () => {
+  it('bypasses the profile screen for a provided source, as the original flow did', async () => {
     const { pi, resultPath } = fixture({ setupSourceUri: 'https://example.test/catalog.git' });
     const context = createMockContext();
     await pi.commands.outfitter.handler({}, context);
-    expect(context.selectCalls).toEqual([]);
+    expect(context.rendered[0]?.join(' ')).toContain('Where should Outfitter install these settings?');
     expect(JSON.parse(readFileSync(resultPath, 'utf8'))).toEqual({
       setupMode: 'source',
       sourceUri: 'https://example.test/catalog.git',
