@@ -20,12 +20,12 @@ describe('Pi setup extension', () => {
     // One screen: featured profiles first (Engineer recommended), then More profiles, then the import row (#381).
     expect(context.selectCalls).toEqual([]);
     expect(context.rendered[0]?.join('\n')).toContain('Choose an Outfitter profile');
-    expect(context.rendered[0]?.join('\n')).toContain('→ engineer — Engineer (Recommended)');
+    expect(context.rendered[0]?.join('\n')).toContain('→ Engineer (Recommended)');
     expect(context.rendered[0]?.join('\n')).not.toContain('Create your own profile');
     // Featured profiles only, then "More profiles", then the import row; other profiles stay hidden.
     const firstScreen = context.rendered[0]?.join('\n') ?? '';
-    expect(firstScreen).not.toContain('planner');
-    expect(firstScreen.indexOf('founder')).toBeLessThan(firstScreen.indexOf('More profiles (1)'));
+    expect(firstScreen).not.toContain('Planner');
+    expect(firstScreen.indexOf('Founder')).toBeLessThan(firstScreen.indexOf('More profiles (1)'));
     expect(firstScreen.indexOf('More profiles (1)')).toBeLessThan(
       firstScreen.indexOf('Import a different .agents catalog'),
     );
@@ -128,14 +128,14 @@ describe('Pi setup extension', () => {
       pickOption: (labels) => {
         picker += 1;
         if (picker === 1) return labels.findIndex((label) => label.startsWith('More profiles'));
-        if (picker === 2) return labels.findIndex((label) => label.startsWith('planner'));
+        if (picker === 2) return labels.findIndex((label) => label.startsWith('Planner'));
         return undefined;
       },
     });
     await pi.commands.outfitter.handler({}, context);
     const expanded = context.rendered[1]?.join('\n') ?? '';
-    expect(expanded).toContain('→ engineer — Engineer (Recommended)');
-    expect(expanded).toContain('planner — Planner');
+    expect(expanded).toContain('→ Engineer (Recommended)');
+    expect(expanded).toContain('Planner');
     expect(expanded).not.toContain('More profiles');
     expect(JSON.parse(readFileSync(resultPath, 'utf8'))).toMatchObject({ setupMode: 'default', agentId: 'planner' });
   });
@@ -145,7 +145,7 @@ describe('Pi setup extension', () => {
     const context = createMockContext();
     await pi.commands.outfitter.handler({}, context);
     const screen = context.rendered[0]?.join('\n') ?? '';
-    expect(screen).toContain('→ founder — Founder (current)');
+    expect(screen).toContain('→ Founder (current)');
     expect(screen).toContain('More profiles (1)');
     expect(screen).not.toContain('Recommended');
     expect(JSON.parse(readFileSync(resultPath, 'utf8'))).toMatchObject({ agentId: 'founder' });
@@ -170,13 +170,13 @@ describe('Pi setup extension', () => {
     const currentContext = createMockContext();
     await current.pi.commands.outfitter.handler({}, currentContext);
     const currentScreen = currentContext.rendered[0]?.join('\n') ?? '';
-    expect(currentScreen).toContain('→ planner — Planner (current)');
+    expect(currentScreen).toContain('→ Planner (current)');
     expect(currentScreen).not.toContain('More profiles');
 
     const flat = fixture({ agents: [{ id: 'custom', label: 'Custom', description: 'Custom profile.' }] });
     const flatContext = createMockContext();
     await flat.pi.commands.outfitter.handler({}, flatContext);
-    expect(flatContext.rendered[0]?.join('\n')).toContain('→ custom — Custom');
+    expect(flatContext.rendered[0]?.join('\n')).toContain('→ Custom');
     expect(flatContext.rendered[0]?.join('\n')).not.toContain('More profiles');
   });
 
