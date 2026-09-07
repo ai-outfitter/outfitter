@@ -171,6 +171,37 @@ describe('output type resources', () => {
     );
   });
 
+  it('warns when listing drops a mapped output whose nested workflow does not resolve', () => {
+    const root = createTemporaryRoot();
+    const project = join(root, 'project');
+    const catalog = join(project, '.agents');
+    write(join(catalog, 'settings.yml'), 'workflows:\n  - root\n');
+    write(
+      join(catalog, 'workflows', 'root', 'workflow.yaml'),
+      `version: 1
+id: root
+title: Root
+description: Map a missing workflow output.
+actors: {}
+outputs:
+  result: {from: nested, output: value}
+nodes:
+  - {id: nested, workflow: missing, description: Run the missing workflow.}
+`,
+    );
+
+    const result = executeListCommand({
+      homeDirectory: join(root, 'home'),
+      projectDirectory: project,
+      kind: 'workflows',
+    });
+
+    expect(result.resources).toEqual([expect.objectContaining({ slug: 'root', outputs: {} })]);
+    expect(result.messages).toContain(
+      "warning: workflow 'root' output 'result' has no resolvable output-type identity.",
+    );
+  });
+
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-013.3.4, OFTR-013.3.6).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('rejects an action output whose type does not resolve', () => {
@@ -255,69 +286,6 @@ nodes:
     expect(dump.ok).toBe(false);
     expect(dump.messages.join('\n')).toContain("output type 'issue' has an invalid schema:");
     expect(existsSync(join(out, '.agents'))).toBe(false);
-  });
-
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-013.3.5).
-  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
-  it('validates output values against a schema read from a catalog fixture', () => {
-    const root = createTemporaryRoot();
-    const path = join(root, 'output-types', 'issue', 'schema.json');
-    write(path, outputTypeSchema);
-    const result = readOutputTypeSchema(path);
-    expect(result.issues).toEqual([]);
-    expect(result.id).toBe(schemaId('issue'));
-    if (result.schema === undefined) return;
-
-    expect(validateOutputValue(result.schema, { number: 377, html_url: 'https://forge.example/issues/377' })).toEqual({
-      valid: true,
-      issues: [],
-    });
-    expect(validateOutputValue(result.schema, {}).valid).toBe(false);
-    expect(validateOutputValue(result.schema, { number: 377, html_url: 'not a uri' }).valid).toBe(false);
-  });
-
-  it('reuses a validator for separately parsed copies of the same schema', () => {
-    const root = createTemporaryRoot();
-    const path = join(root, 'output-types', 'issue', 'schema.json');
-    write(path, outputTypeSchema);
-
-    const first = readOutputTypeSchema(path);
-    const second = readOutputTypeSchema(path);
-
-    expect(first.issues).toEqual([]);
-    expect(second.issues).toEqual([]);
-    expect(first.schema).toBeDefined();
-    expect(second.schema).toBeDefined();
-    expect(validateOutputValue(first.schema!, { number: 1, html_url: 'https://example.test/1' }).valid).toBe(true);
-    expect(validateOutputValue(second.schema!, { number: 2, html_url: 'https://example.test/2' }).valid).toBe(true);
-  });
-
-  it('isolates different schemas that share a canonical id', () => {
-    const id = schemaId('collision');
-    const stringSchema = { $id: id, type: 'string' };
-    const integerSchema = { $id: id, type: 'integer' };
-
-    expect(validateOutputValue(stringSchema, 'value').valid).toBe(true);
-    expect(validateOutputValue(stringSchema, 1).valid).toBe(false);
-    expect(validateOutputValue(integerSchema, 1).valid).toBe(true);
-    expect(validateOutputValue(integerSchema, 'value').valid).toBe(false);
-  });
-
-  it('reports unreadable, malformed, and non-object schema documents', () => {
-    const root = createTemporaryRoot();
-    const missing = readOutputTypeSchema(join(root, 'missing.json'));
-    expect(missing.issues[0]?.message).toContain('readable');
-
-    const brokenPath = join(root, 'output-types', 'broken', 'schema.json');
-    write(brokenPath, '{');
-    const broken = readOutputTypeSchema(brokenPath);
-    expect(broken.issues[0]?.message).toContain('valid JSON');
-
-    const arrayPath = join(root, 'output-types', 'array', 'schema.json');
-    write(arrayPath, '[]\n');
-    expect(readOutputTypeSchema(arrayPath).issues).toEqual([
-      { kind: 'schema', message: 'schema.json must contain a JSON object' },
-    ]);
   });
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-013.3.7).

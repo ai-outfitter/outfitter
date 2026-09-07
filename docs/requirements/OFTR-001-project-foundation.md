@@ -55,6 +55,8 @@ pins the tested runtime for CI.
 
 Amendment (2026-07-01): statements 4, 5, 7, and 8 were removed and statement 10 was added, following the amendment process in `docs/requirements/README.md`. Rationale: `typebox`, `defu`, `glob`, and `hosted-git-info` were declared but never imported by any shipped source. Settings and profile merging is implemented by purpose-built merge code with policy-specific semantics (`code/cli/src/settings/SettingsMerger.ts`), profile discovery walks directories directly, and git URI handling is implemented in `code/cli/src/profiles/ProfileCache.ts`. Keeping the unused packages pinned only shipped supply-chain surface to every install.
 
+Amendment (2026-09-07): statement 11 added. Rationale: catalog-supplied output-type schemas use the standard JSON Schema format vocabulary, which core AJV does not ship.
+
 1. The project MUST use Commander as the CLI framework.
 2. The project MUST use `yaml` for YAML parsing and serialization.
 3. The project MUST use AJV for runtime JSON Schema validation.
@@ -65,3 +67,4 @@ Amendment (2026-07-01): statements 4, 5, 7, and 8 were removed and statement 10 
 8. REQUIREMENT REMOVED (2026-07-01): `hosted-git-info` was never adopted; hosted git URI parsing is implemented in `ProfileCache`.
 9. The project MAY use `chalk` for terminal diagnostics.
 10. The CLI package MUST NOT declare production dependencies that are not imported by shipped source code.
+11. The project MUST use ajv-formats for standard JSON Schema formats in catalog-supplied output-type schemas.

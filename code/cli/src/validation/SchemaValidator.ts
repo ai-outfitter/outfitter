@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 
 import type { AnySchema, ErrorObject, ValidateFunction } from 'ajv';
 import { Ajv2020 } from 'ajv/dist/2020.js';
+import addFormatsModule from 'ajv-formats';
 
 export type SchemaName = 'settings' | 'agent' | 'system-extension-hook' | 'workflow';
 
@@ -37,10 +38,13 @@ const settingsSchema = readSchema('settings.schema.json');
 const agentSchema = readSchema('agent.schema.json');
 const systemExtensionHookSchema = readSchema('system-extension-hook.schema.json');
 const workflowSchema = readSchema('workflow.schema.json');
+const addFormats = addFormatsModule.default;
 
 const ajv = new Ajv2020({ allErrors: true });
 ajv.addFormat('uri', /^[A-Za-z][A-Za-z0-9+.-]*:[^\s]*$/u);
 const outputTypeAjv = new Ajv2020({ allErrors: true, addUsedSchema: false });
+addFormats(outputTypeAjv);
+// Retain Outfitter's intentionally laxer URI check, which accepts any scheme plus a non-whitespace suffix.
 outputTypeAjv.addFormat('uri', /^[A-Za-z][A-Za-z0-9+.-]*:[^\s]*$/u);
 
 const validators: Record<SchemaName, ValidateFunction> = {

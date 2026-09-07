@@ -15,7 +15,7 @@ import {
 import { resolveEffectiveSet } from '../../resolver/ResolverContext.js';
 import { isWorkflowDefinitionIssue, readWorkflowDefinition } from '../../resolver/WorkflowDefinition.js';
 import type { WorkflowDefinition } from '../../resolver/WorkflowDefinition.js';
-import { resolveWorkflowOutputs, resolveWorkflowOutputTypes } from '../../resolver/WorkflowOutput.js';
+import { resolveWorkflowOutputs } from '../../resolver/WorkflowOutput.js';
 import type { ResolvedWorkflowOutputs } from '../../resolver/WorkflowOutput.js';
 import { formatSettingsIssue } from '../../settings/SettingsLoader.js';
 import { readOutputTypeSchema } from '../../validation/SchemaValidator.js';
@@ -142,7 +142,7 @@ const listEntry = (
   const definition = definitions.get(resource.slug);
   const outputs = definition === undefined ? {} : resolveWorkflowOutputs(definition, definitions, schemaIds);
   if (definition !== undefined) {
-    for (const name of Object.keys(resolveWorkflowOutputTypes(definition, definitions))) {
+    for (const name of Object.keys(definition.outputs ?? {}).sort()) {
       if (!Object.hasOwn(outputs, name))
         messages.push(`warning: workflow '${definition.id}' output '${name}' has no resolvable output-type identity.`);
     }

@@ -42,8 +42,8 @@ Outfitter-owned vocabulary.
    `git-commit`, `git-branch`, and `issue` vocabulary; it was withdrawn because types are catalog
    resources identified by canonical `$id` and digest.
 2. REQUIREMENT REMOVED (2026-09-07): This statement required Outfitter to publish one schema per
-   supported type; it was withdrawn because types are catalog resources identified by canonical
-   `$id` and digest.
+   supported type; it was withdrawn because Outfitter no longer publishes output-type schemas;
+   catalogs do, and layer precedence selects the winner.
 3. Catalog authors SHOULD describe the forge-neutral field subset shared by the GitHub and Forgejo
    REST representations of a resource, and execution engines MAY carry additional fields.
 4. An output `type` MUST name an output-type resource resolvable from the effective catalog layers.
@@ -62,6 +62,12 @@ each workflow reference.
 
 9. An output-type schema defect MUST be reported once per output-type resource regardless of how
    many workflows reference it.
+
+Amendment (2026-09-07): Output-type schemas are self-contained because catalog schema resolution
+does not link separate output-type resources.
+
+10. An output-type schema MUST be self-contained; `$ref` values MAY only target definitions within
+    that schema.
 
 ### OFTR-013.4: Export and Listing
 
