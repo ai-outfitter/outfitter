@@ -16,6 +16,8 @@ them. This contract defines the workflow resource and its typed output declarati
 3. Every node `needs` reference MUST name another node in the same workflow.
 4. Every nested `workflow` reference MUST resolve by workflow slug.
 5. Nested workflow references MUST NOT form a cycle.
+6. An output-type resource MUST be a top-level catalog resource at
+   `output-types/<slug>/schema.json` and MUST be subject to catalog layer precedence.
 
 ### OFTR-013.2: Output Declarations
 
@@ -33,12 +35,16 @@ them. This contract defines the workflow resource and its typed output declarati
 
 ### OFTR-013.3: Output Value Types
 
-1. An output `type` MUST be one of `pull-request`, `git-commit`, `git-branch`, or `issue`. Any other
-   value MUST be rejected.
-2. Outfitter MUST publish one JSON Schema for each supported output type.
-3. Each output value schema MUST describe the forge-neutral field subset shared by the GitHub and
-   Forgejo REST representations of that resource, and MAY be extended by an execution engine with
-   additional fields.
+Amendment (2026-09-07): Output types are resolved as catalog resources instead of a closed
+Outfitter-owned vocabulary.
+
+1. REQUIREMENT REMOVED (2026-09-07): Types are catalog resources.
+2. REQUIREMENT REMOVED (2026-09-07): Types are catalog resources.
+3. Catalog authors SHOULD describe the forge-neutral field subset shared by the GitHub and Forgejo
+   REST representations of a resource, and execution engines MAY carry additional fields.
+4. An output `type` MUST name an output-type resource resolvable from the effective catalog layers.
+5. An output-type resource MUST provide a valid JSON Schema describing the recorded value.
+6. A workflow whose output `type` does not resolve MUST be rejected.
 
 ### OFTR-013.4: Export and Listing
 
@@ -48,6 +54,8 @@ them. This contract defines the workflow resource and its typed output declarati
    in the closure.
 3. Repeated exports of the same resolved workflow MUST produce byte-identical files.
 4. Exported `workflow.yaml` files MUST remain verbatim copies of their source documents.
+5. A workflow export MUST include the resolved schema of every output type used in the closure and
+   MUST record its winning source.
 
 ### OFTR-013.5: Execution Boundary
 

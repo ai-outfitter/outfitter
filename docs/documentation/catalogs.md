@@ -1,6 +1,6 @@
 # Catalogs
 
-A catalog is a git repository that publishes a `.agents` payload — agents, skills, workflows, tasks, knowledge, commands — so a person, team, or organization can share it. You can bootstrap a machine or project from one, or add one as an ongoing source that Outfitter keeps synchronized.
+A catalog is a git repository that publishes a `.agents` payload — agents, skills, workflows, output types, tasks, knowledge, commands — so a person, team, or organization can share it. You can bootstrap a machine or project from one, or add one as an ongoing source that Outfitter keeps synchronized.
 
 ```bash
 outfitter setup https://github.com/ncrmro/.agents
@@ -35,6 +35,8 @@ ncrmro/.agents/            # repository root
   knowledge/
   workflows/
     engineer/workflow.yaml
+  output-types/
+    issue/schema.json
   settings.yml             # Outfitter settings (optional; see settings.md)
   settings.local.yml       # gitignored machine-local overrides
 ```
@@ -103,8 +105,10 @@ outputs:
     output: verdict # declared by the nested workflow
 ```
 
-The closed type set is `pull-request`, `git-commit`, `git-branch`, and `issue`. A mapped output
-inherits the nested output's resolved type, including through multiple nesting levels.
+Output types are top-level catalog resources at `output-types/<slug>/schema.json`. The community
+catalog publishes `pull-request`, `git-commit`, `git-branch`, and `issue`. An organization catalog
+may add its own output types or shadow any type by slug through normal layer precedence. A mapped
+output inherits the nested output's resolved type, including through multiple nesting levels.
 
 A node's `needs` list expresses ordering only among nodes in the same workflow. Cross-task
 prerequisites are an execution engine's responsibility: the engine evaluates them against declared,
