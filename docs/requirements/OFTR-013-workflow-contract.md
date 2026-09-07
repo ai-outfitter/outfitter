@@ -46,6 +46,13 @@ Outfitter-owned vocabulary.
 5. An output-type resource MUST provide a valid JSON Schema describing the recorded value.
 6. A workflow whose output `type` does not resolve MUST be rejected.
 
+Amendment (2026-09-07): Output-type identity is bound to a canonical schema URI and its exact
+schema bytes.
+
+7. An output-type schema MUST declare a canonical `$id` that is an absolute URI.
+8. The identity of an output type MUST be the pair of its canonical `$id` and the SHA-256 digest of
+   its schema file bytes exactly as stored.
+
 ### OFTR-013.4: Export and Listing
 
 1. Machine-readable workflow listings MUST include each workflow's resolved `outputs`, ordered by
@@ -57,6 +64,11 @@ Outfitter-owned vocabulary.
 5. A workflow export MUST include the resolved schema of every output type used in the closure and
    MUST record its winning source.
 
+Amendment (2026-09-07): Exports carry the canonical identity of every used output type.
+
+6. A workflow export MUST record the canonical `$id` and SHA-256 digest of every output type used in
+   the closure, and every resolved output entry MUST record that canonical `$id` as `schema`.
+
 ### OFTR-013.5: Execution Boundary
 
 1. Outfitter MUST NOT execute workflows and MUST NOT record concrete output values.
@@ -66,3 +78,11 @@ Outfitter-owned vocabulary.
 4. A runtime carrying a workflow output value over A2A SHOULD use the `outfitter-task/v1` artifact
    metadata keys `output` for the declared output name, `type` for its resolved output type, and
    `value` for the concrete value validated against that type's schema.
+
+Amendment (2026-09-07): Consumers identify output values by schema identity instead of catalog
+slug.
+
+5. A consumer SHOULD compare output values by the pair of the canonical schema `$id` and its
+   SHA-256 digest and MUST NOT rely on the output-type slug alone.
+6. A runtime carrying a workflow output value over A2A SHOULD also carry `schema`, containing the
+   canonical `$id`, and `digest`, containing the schema's SHA-256 digest.

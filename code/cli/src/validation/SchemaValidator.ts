@@ -1,4 +1,5 @@
 // Validates parsed Outfitter YAML/JSON documents against bundled JSON Schemas.
+import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 
 import type { AnySchema, ErrorObject, ValidateFunction } from 'ajv';
@@ -16,7 +17,17 @@ export interface ValidationResult {
   readonly issues: readonly ValidationIssue[];
 }
 
-export type OutputTypeSchemaReadResult = { readonly schema: object } | { readonly issue: string };
+export interface OutputTypeSchemaIssue {
+  readonly kind: 'schema' | 'identity';
+  readonly message: string;
+}
+
+export interface OutputTypeSchemaReadResult {
+  readonly schema?: object;
+  readonly id?: string;
+  readonly sha256?: string;
+  readonly issues: readonly OutputTypeSchemaIssue[];
+}
 
 const readSchema = (schemaFileName: string): unknown =>
   JSON.parse(readFileSync(new URL(`../schemas/${schemaFileName}`, import.meta.url), 'utf8'));
@@ -53,34 +64,58 @@ export const validateSchema = (schemaName: SchemaName, document: unknown): Valid
   return createValidationResult((validate.errors as readonly ErrorObject[]).map(formatAjvError));
 };
 
-export const readOutputTypeSchema = (path: string): OutputTypeSchemaReadResult => {
-  let content: string;
+const canonicalSchemaId = (schema: object): string | undefined => {
+  const candidateId = (schema as { readonly $id?: unknown }).$id;
+  if (typeof candidateId !== 'string') return undefined;
   try {
-    content = readFileSync(path, 'utf8');
-  } catch (error) {
-    return { issue: `schema.json is not readable: ${String(error)}` };
+    new URL(candidateId);
+    return candidateId;
+  } catch {
+    return undefined;
   }
+};
+
+const jsonSchemaIssue = (schema: object): OutputTypeSchemaIssue | undefined => {
+  try {
+    return ajv.validateSchema(schema)
+      ? undefined
+      : { kind: 'schema', message: `schema.json is not a valid JSON Schema: ${ajv.errorsText(ajv.errors)}` };
+  } catch (error) {
+    return { kind: 'schema', message: `schema.json is not a valid JSON Schema: ${String(error)}` };
+  }
+};
+
+export const readOutputTypeSchema = (path: string): OutputTypeSchemaReadResult => {
+  let bytes: Buffer;
+  try {
+    bytes = readFileSync(path);
+  } catch (error) {
+    return { issues: [{ kind: 'schema', message: `schema.json is not readable: ${String(error)}` }] };
+  }
+
+  const sha256 = createHash('sha256').update(bytes).digest('hex');
 
   let schema: unknown;
   try {
-    schema = JSON.parse(content);
+    schema = JSON.parse(bytes.toString('utf8'));
   } catch (error) {
-    return { issue: `schema.json is not valid JSON: ${String(error)}` };
+    return {
+      sha256,
+      issues: [{ kind: 'schema', message: `schema.json is not valid JSON: ${String(error)}` }],
+    };
   }
 
   if (schema === null || typeof schema !== 'object' || Array.isArray(schema)) {
-    return { issue: 'schema.json must contain a JSON object' };
+    return { sha256, issues: [{ kind: 'schema', message: 'schema.json must contain a JSON object' }] };
   }
 
-  try {
-    if (!ajv.validateSchema(schema)) {
-      return { issue: `schema.json is not a valid JSON Schema: ${ajv.errorsText(ajv.errors)}` };
-    }
-  } catch (error) {
-    return { issue: `schema.json is not a valid JSON Schema: ${String(error)}` };
-  }
+  const issues: OutputTypeSchemaIssue[] = [];
+  const id = canonicalSchemaId(schema);
+  if (id === undefined) issues.push({ kind: 'identity', message: 'missing canonical $id' });
+  const schemaIssue = jsonSchemaIssue(schema);
+  if (schemaIssue !== undefined) issues.push(schemaIssue);
 
-  return { schema };
+  return { schema, ...(id === undefined ? {} : { id }), sha256, issues };
 };
 
 export const validateOutputValue = (schema: object, value: unknown): ValidationResult => {

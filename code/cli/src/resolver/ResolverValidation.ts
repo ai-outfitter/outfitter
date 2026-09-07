@@ -107,11 +107,19 @@ const validateSkill = (skill: ResolvedResource): readonly ValidationFinding[] =>
 };
 
 const shadowFindings = (resource: ResolvedResource): readonly ValidationFinding[] =>
-  resource.shadowed.map((definition) => ({
-    severity: 'warning' as const,
-    resource: resourceLabel(resource),
-    message: `shadowed definition in ${definition.layer.label} is overridden by ${resource.winner.layer.label}.`,
-  }));
+  resource.shadowed.map((definition) => {
+    const identity =
+      resource.kind === 'output-type' ? readOutputTypeSchema(definition.path) : { id: undefined, sha256: undefined };
+    return {
+      severity: 'warning' as const,
+      resource: resourceLabel(resource),
+      message:
+        identity.id !== undefined && identity.sha256 !== undefined
+          ? `output type '${resource.slug}' is shadowed by layer '${resource.winner.layer.label}'; ` +
+            `its identity is ${identity.id}@${identity.sha256}.`
+          : `shadowed definition in ${definition.layer.label} is overridden by ${resource.winner.layer.label}.`,
+    };
+  });
 
 // Reserved agent-local resource shapes that resolver discovers but does not yet project into a run.
 // Surfaced as warnings (fatal only under --strict) so content placed here is never silently dropped.
@@ -449,15 +457,11 @@ const validateWorkflowOutputs = (
 
 const validateOutputType = (resource: ResolvedResource): readonly ValidationFinding[] => {
   const result = readOutputTypeSchema(resource.winner.path);
-  return 'issue' in result
-    ? [
-        {
-          severity: 'error',
-          resource: `output-type:${resource.slug}`,
-          message: `output type '${resource.slug}' has an invalid schema: ${result.issue}.`,
-        },
-      ]
-    : [];
+  return result.issues.map((issue) => ({
+    severity: 'error',
+    resource: `output-type:${resource.slug}`,
+    message: `output type '${resource.slug}' has an invalid schema: ${issue.message}.`,
+  }));
 };
 
 const validateWorkflowArtifacts = (workflow: WorkflowDefinition): readonly ValidationFinding[] =>

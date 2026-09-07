@@ -107,8 +107,11 @@ outputs:
 
 Output types are top-level catalog resources at `output-types/<slug>/schema.json`. The community
 catalog publishes `pull-request`, `git-commit`, `git-branch`, and `issue`. An organization catalog
-may add its own output types or shadow any type by slug through normal layer precedence. A mapped
-output inherits the nested output's resolved type, including through multiple nesting levels.
+may add its own output types or shadow any type by slug through normal layer precedence. Every
+output-type schema must declare a canonical `$id` that is an absolute URI. Its identity is the pair
+of that `$id` and the SHA-256 digest of the schema file bytes exactly as stored; consumers must not
+identify a type by its slug alone. A mapped output inherits the nested output's resolved type and
+canonical schema ID, including through multiple nesting levels.
 
 A node's `needs` list expresses ordering only among nodes in the same workflow. Cross-task
 prerequisites are an execution engine's responsibility: the engine evaluates them against declared,
@@ -124,8 +127,9 @@ contract.
 
 Outfitter declares outputs but does not record their concrete values; that belongs to the execution
 engine. A runtime carrying a value over A2A should use `outfitter-task/v1` artifact metadata with
-`output` set to the declared name, `type` set to its resolved type, and `value` validated against the
-corresponding output-type schema.
+`output` set to the declared name, `type` set to its resolved type, `schema` set to the canonical
+schema `$id`, `digest` set to the exact-byte SHA-256 digest, and `value` validated against that
+output-type schema.
 
 ### Catalog dependencies (transitive sources)
 

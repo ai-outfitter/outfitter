@@ -19,7 +19,7 @@ import type { EffectiveResourceSet } from '../resolver/Resource.js';
 import type { AgentDefaults, HarnessDefaults } from '../settings/Settings.js';
 import { isWorkflowDefinitionIssue, readWorkflowDefinition } from '../resolver/WorkflowDefinition.js';
 import type { WorkflowDefinition } from '../resolver/WorkflowDefinition.js';
-import { resolveWorkflowOutputs } from '../resolver/WorkflowOutput.js';
+import { resolveWorkflowOutputs, resolveWorkflowOutputTypes } from '../resolver/WorkflowOutput.js';
 import { readOutputTypeSchema } from '../validation/SchemaValidator.js';
 import { dumpAgent } from './Dump.js';
 import type { DumpResult } from './Dump.js';
@@ -64,19 +64,27 @@ const collectWorkflowOutputTypes = (
 ) => {
   const slugs = new Set(
     workflows.flatMap((workflow) =>
-      Object.values(resolveWorkflowOutputs(workflow, definitions)).map((output) => output.type),
+      Object.values(resolveWorkflowOutputTypes(workflow, definitions)).map((output) => output.type),
     ),
   );
-  const outputTypes = [...slugs].sort(compareSlugs).flatMap((slug) => {
+  const outputTypes: {
+    readonly slug: string;
+    readonly id: string;
+    readonly sha256: string;
+    readonly resource: NonNullable<ReturnType<typeof findResource>>;
+  }[] = [];
+  const errors: string[] = [];
+  for (const slug of [...slugs].sort(compareSlugs)) {
     const resource = findResource(set, 'output-type', slug);
-    return resource === undefined ? [] : [{ slug, resource }];
-  });
-  const errors = [...slugs].sort(compareSlugs).flatMap((slug) => {
-    const resource = findResource(set, 'output-type', slug);
-    if (resource === undefined) return [`workflow output type '${slug}' is not resolvable.`];
+    if (resource === undefined) {
+      errors.push(`workflow output type '${slug}' is not resolvable.`);
+      continue;
+    }
     const result = readOutputTypeSchema(resource.winner.path);
-    return 'issue' in result ? [`output type '${slug}' has an invalid schema: ${result.issue}.`] : [];
-  });
+    errors.push(...result.issues.map((issue) => `output type '${slug}' has an invalid schema: ${issue.message}.`));
+    if (result.issues.length === 0 && result.id !== undefined && result.sha256 !== undefined)
+      outputTypes.push({ slug, id: result.id, sha256: result.sha256, resource });
+  }
   return { outputTypes, errors };
 };
 
@@ -119,6 +127,7 @@ export const dumpWorkflow = (
   const definitions = new Map(closure.workflows.map((workflow) => [workflow.id, workflow] as const));
   const outputTypeClosure = collectWorkflowOutputTypes(set, closure.workflows, definitions);
   if (outputTypeClosure.errors.length > 0) return { writtenPaths: [], warnings: [], errors: outputTypeClosure.errors };
+  const outputTypeIds = new Map(outputTypeClosure.outputTypes.map(({ slug, id }) => [slug, id] as const));
   const outRoot = join(outDirectory, '.agents');
   if (existsSync(outRoot))
     return { writtenPaths: [], warnings: [], errors: [`workflow dump refuses existing destination '${outRoot}'.`] };
@@ -192,15 +201,17 @@ export const dumpWorkflow = (
             const resource = findResource(set, 'workflow', workflow.id)!;
             return {
               id: workflow.id,
-              outputs: resolveWorkflowOutputs(workflow, definitions),
+              outputs: resolveWorkflowOutputs(workflow, definitions, outputTypeIds),
               source: {
                 layer: resource.winner.layer.label,
                 path: relative(resource.winner.layer.root, resource.winner.path),
               },
             };
           }),
-          outputTypes: outputTypeClosure.outputTypes.map(({ slug, resource }) => ({
+          outputTypes: outputTypeClosure.outputTypes.map(({ slug, id, sha256, resource }) => ({
             slug,
+            id,
+            sha256,
             source: {
               layer: resource.winner.layer.label,
               path: relative(resource.winner.layer.root, resource.winner.path),

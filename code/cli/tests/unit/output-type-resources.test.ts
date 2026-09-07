@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
@@ -7,6 +8,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import { createListCommand } from '../../src/cli/commands/ListCommand.js';
 import { executeDumpCommand } from '../../src/cli/commands/DumpCommand.js';
+import { executeValidateCommand } from '../../src/cli/commands/ValidateCommand.js';
 import { discoverLayers } from '../../src/resolver/Layer.js';
 import { findResource } from '../../src/resolver/Resource.js';
 import { resolveResources } from '../../src/resolver/Resolver.js';
@@ -26,19 +28,25 @@ const write = (path: string, content: string): void => {
   writeFileSync(path, content);
 };
 
-const outputTypeSchema = `${JSON.stringify(
-  {
-    $schema: 'https://json-schema.org/draft/2020-12/schema',
-    type: 'object',
-    required: ['number', 'html_url'],
-    properties: {
-      number: { type: 'integer', minimum: 1 },
-      html_url: { type: 'string', format: 'uri' },
+const schemaId = (slug: string): string => `https://schemas.example.test/output-types/${slug}`;
+
+const outputTypeSchemaFor = (slug: string): string =>
+  `${JSON.stringify(
+    {
+      $schema: 'https://json-schema.org/draft/2020-12/schema',
+      $id: schemaId(slug),
+      type: 'object',
+      required: ['number', 'html_url'],
+      properties: {
+        number: { type: 'integer', minimum: 1 },
+        html_url: { type: 'string', format: 'uri' },
+      },
     },
-  },
-  null,
-  2,
-)}\n`;
+    null,
+    2,
+  )}\n`;
+
+const outputTypeSchema = outputTypeSchemaFor('issue');
 
 const resolvedSet = (home: string, project: string) =>
   resolveResources(discoverLayers({ homeDirectory: home, projectDirectory: project, settings: {} }).layers);
@@ -54,8 +62,14 @@ describe('output type resources', () => {
     const root = createTemporaryRoot();
     const home = join(root, 'home');
     const project = join(root, 'project');
-    write(join(home, '.agents', 'output-types', 'artifact', 'schema.json'), '{"title":"global"}\n');
-    write(join(project, '.agents', 'output-types', 'artifact', 'schema.json'), '{"title":"workspace"}\n');
+    write(
+      join(home, '.agents', 'output-types', 'artifact', 'schema.json'),
+      JSON.stringify({ $id: schemaId('global-artifact'), title: 'global' }),
+    );
+    write(
+      join(project, '.agents', 'output-types', 'artifact', 'schema.json'),
+      JSON.stringify({ $id: schemaId('workspace-artifact'), title: 'workspace' }),
+    );
 
     const artifact = findResource(resolvedSet(home, project), 'output-type', 'artifact');
 
@@ -69,8 +83,8 @@ describe('output type resources', () => {
   it('list output-types --json emits stable catalog provenance', async () => {
     const root = createTemporaryRoot();
     const project = join(root, 'project');
-    write(join(project, '.agents', 'output-types', 'issue', 'schema.json'), '{}\n');
-    write(join(project, '.agents', 'output-types', 'git-commit', 'schema.json'), '{}\n');
+    write(join(project, '.agents', 'output-types', 'issue', 'schema.json'), outputTypeSchemaFor('issue'));
+    write(join(project, '.agents', 'output-types', 'git-commit', 'schema.json'), outputTypeSchemaFor('git-commit'));
     const lines: string[] = [];
     const program = new Command();
     createListCommand({
@@ -150,7 +164,10 @@ nodes:
 `,
       );
     }
-    write(join(catalog, 'output-types', 'issue', 'schema.json'), '{"type":"not-a-json-schema-type"}\n');
+    write(
+      join(catalog, 'output-types', 'issue', 'schema.json'),
+      JSON.stringify({ $id: schemaId('issue'), type: 'not-a-json-schema-type' }),
+    );
 
     const findings = validateEffectiveSet(resolvedSet(join(root, 'home'), project), project).filter(
       (finding) => finding.resource === 'output-type:issue' && finding.message.includes('invalid schema'),
@@ -180,8 +197,9 @@ nodes:
     const path = join(root, 'output-types', 'issue', 'schema.json');
     write(path, outputTypeSchema);
     const result = readOutputTypeSchema(path);
-    expect('issue' in result).toBe(false);
-    if ('issue' in result) return;
+    expect(result.issues).toEqual([]);
+    expect(result.id).toBe(schemaId('issue'));
+    if (result.schema === undefined) return;
 
     expect(validateOutputValue(result.schema, { number: 377, html_url: 'https://forge.example/issues/377' })).toEqual({
       valid: true,
@@ -194,21 +212,44 @@ nodes:
   it('reports unreadable, malformed, and non-object schema documents', () => {
     const root = createTemporaryRoot();
     const missing = readOutputTypeSchema(join(root, 'missing.json'));
-    expect('issue' in missing).toBe(true);
-    if ('issue' in missing) expect(missing.issue).toContain('readable');
+    expect(missing.issues[0]?.message).toContain('readable');
 
     const brokenPath = join(root, 'output-types', 'broken', 'schema.json');
     write(brokenPath, '{');
     const broken = readOutputTypeSchema(brokenPath);
-    expect('issue' in broken).toBe(true);
-    if ('issue' in broken) expect(broken.issue).toContain('valid JSON');
+    expect(broken.issues[0]?.message).toContain('valid JSON');
 
     const arrayPath = join(root, 'output-types', 'array', 'schema.json');
     write(arrayPath, '[]\n');
-    expect(readOutputTypeSchema(arrayPath)).toEqual({ issue: 'schema.json must contain a JSON object' });
+    expect(readOutputTypeSchema(arrayPath).issues).toEqual([
+      { kind: 'schema', message: 'schema.json must contain a JSON object' },
+    ]);
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-013.1.6, OFTR-013.4.5).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-013.3.7).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it.each([
+    ['missing', { type: 'object' }],
+    ['non-URI', { $id: 'issue', type: 'object' }],
+  ])('reports a %s canonical $id once per output type resource', (_description, schema) => {
+    const root = createTemporaryRoot();
+    const project = join(root, 'project');
+    write(join(project, '.agents', 'output-types', 'issue', 'schema.json'), `${JSON.stringify(schema)}\n`);
+
+    const findings = validateEffectiveSet(resolvedSet(join(root, 'home'), project), project).filter(
+      (finding) => finding.message === "output type 'issue' has an invalid schema: missing canonical $id.",
+    );
+
+    expect(findings).toEqual([
+      {
+        severity: 'error',
+        resource: 'output-type:issue',
+        message: "output type 'issue' has an invalid schema: missing canonical $id.",
+      },
+    ]);
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-013.1.6, OFTR-013.3.8, OFTR-013.4.5–6).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('exports sorted output type sources and copies the winning schemas from the workflow closure', () => {
     const root = createTemporaryRoot();
@@ -222,7 +263,8 @@ nodes:
     const globalIssueSchema = outputTypeSchema.replace('"type": "object"', '"title": "global",\n  "type": "object"');
     write(join(home, '.agents', 'output-types', 'issue', 'schema.json'), globalIssueSchema);
     write(join(catalog, 'output-types', 'issue', 'schema.json'), workspaceIssueSchema);
-    write(join(catalog, 'output-types', 'git-commit', 'schema.json'), outputTypeSchema);
+    const gitCommitSchema = outputTypeSchemaFor('git-commit');
+    write(join(catalog, 'output-types', 'git-commit', 'schema.json'), gitCommitSchema);
     write(
       join(catalog, 'workflows', 'leaf', 'workflow.yaml'),
       `version: 1
@@ -261,24 +303,64 @@ nodes:
       workspaceIssueSchema,
     );
     expect(readFileSync(join(out, '.agents', 'output-types', 'git-commit', 'schema.json'), 'utf8')).toBe(
-      outputTypeSchema,
+      gitCommitSchema,
     );
     const manifest = JSON.parse(
       readFileSync(join(out, '.agents', '.outfitter', 'workflow-composition.json'), 'utf8'),
     ) as {
-      outputTypes: readonly { slug: string; source: { layer: string; path: string } }[];
+      outputTypes: readonly {
+        slug: string;
+        id: string;
+        sha256: string;
+        source: { layer: string; path: string };
+      }[];
       files: readonly { path: string; sha256: string }[];
     };
     expect(manifest.outputTypes).toEqual([
       {
         slug: 'git-commit',
+        id: schemaId('git-commit'),
+        sha256: createHash('sha256').update(gitCommitSchema).digest('hex'),
         source: { layer: 'workspace', path: 'output-types/git-commit/schema.json' },
       },
-      { slug: 'issue', source: { layer: 'workspace', path: 'output-types/issue/schema.json' } },
+      {
+        slug: 'issue',
+        id: schemaId('issue'),
+        sha256: createHash('sha256').update(workspaceIssueSchema).digest('hex'),
+        source: { layer: 'workspace', path: 'output-types/issue/schema.json' },
+      },
     ]);
+    expect(Object.keys(manifest.outputTypes[0] ?? {})).toEqual(['slug', 'id', 'sha256', 'source']);
     const filePaths = manifest.files.map((file) => file.path);
     expect(filePaths).toContain('output-types/git-commit/schema.json');
     expect(filePaths).toContain('output-types/issue/schema.json');
+    for (const outputType of manifest.outputTypes) {
+      expect(manifest.files.find((file) => file.path === `output-types/${outputType.slug}/schema.json`)?.sha256).toBe(
+        outputType.sha256,
+      );
+    }
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-013.1.6, OFTR-013.3.8).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('reports a shadowed output type identity as a non-strict warning and a strict failure', () => {
+    const root = createTemporaryRoot();
+    const home = join(root, 'home');
+    const project = join(root, 'project');
+    const shadowedSchema = outputTypeSchemaFor('global-issue');
+    write(join(home, '.agents', 'output-types', 'issue', 'schema.json'), shadowedSchema);
+    write(join(project, '.agents', 'output-types', 'issue', 'schema.json'), outputTypeSchemaFor('workspace-issue'));
+    const warning =
+      "output type 'issue' is shadowed by layer 'workspace'; its identity is " +
+      `${schemaId('global-issue')}@${createHash('sha256').update(shadowedSchema).digest('hex')}.`;
+
+    const nonStrict = executeValidateCommand({ homeDirectory: home, projectDirectory: project });
+    const strict = executeValidateCommand({ homeDirectory: home, projectDirectory: project, strict: true });
+
+    expect(nonStrict.ok).toBe(true);
+    expect(nonStrict.findings).toContainEqual({ severity: 'warning', resource: 'output-type:issue', message: warning });
+    expect(strict.ok).toBe(false);
+    expect(strict.findings).toContainEqual({ severity: 'warning', resource: 'output-type:issue', message: warning });
   });
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-013.3.6, OFTR-013.4.5).

@@ -18,6 +18,7 @@ import type { WorkflowDefinition } from '../../resolver/WorkflowDefinition.js';
 import { resolveWorkflowOutputs } from '../../resolver/WorkflowOutput.js';
 import type { ResolvedWorkflowOutputs } from '../../resolver/WorkflowOutput.js';
 import { formatSettingsIssue } from '../../settings/SettingsLoader.js';
+import { readOutputTypeSchema } from '../../validation/SchemaValidator.js';
 import type { CommandObject } from './CommandObject.js';
 import { resolveHomeDirectory, resolveProjectDirectory } from './ProcessDefaults.js';
 
@@ -111,9 +112,23 @@ const workflowDefinitionsForKinds = (
 ): ReadonlyMap<string, WorkflowDefinition> =>
   kinds.includes('workflow') ? readWorkflowDefinitions(set) : new Map<string, WorkflowDefinition>();
 
+const outputTypeSchemaIds = (set: EffectiveResourceSet): ReadonlyMap<string, string> =>
+  new Map(
+    listResources(set, 'output-type').flatMap((resource) => {
+      const result = readOutputTypeSchema(resource.winner.path);
+      return result.id === undefined ? [] : [[resource.slug, result.id] as const];
+    }),
+  );
+
+const outputTypeSchemaIdsForKinds = (
+  set: EffectiveResourceSet,
+  kinds: readonly ResourceKind[],
+): ReadonlyMap<string, string> => (kinds.includes('workflow') ? outputTypeSchemaIds(set) : new Map<string, string>());
+
 const listEntry = (
   resource: ReturnType<typeof listResources>[number],
   definitions: ReadonlyMap<string, WorkflowDefinition>,
+  schemaIds: ReadonlyMap<string, string>,
 ): ListResourceEntry => {
   const provenance = {
     kind: resource.kind,
@@ -126,7 +141,7 @@ const listEntry = (
   const definition = definitions.get(resource.slug);
   return {
     ...provenance,
-    outputs: definition === undefined ? {} : resolveWorkflowOutputs(definition, definitions),
+    outputs: definition === undefined ? {} : resolveWorkflowOutputs(definition, definitions, schemaIds),
   };
 };
 
@@ -148,6 +163,7 @@ export const executeListCommand = (input: ListInput): ListResult => {
   const entries: ListResourceEntry[] = [];
   const kinds = resolveKindFilter(input.kind);
   const definitions = workflowDefinitionsForKinds(set, kinds);
+  const schemaIds = outputTypeSchemaIdsForKinds(set, kinds);
 
   for (const kind of kinds) {
     const hasAgentContext = input.agent !== undefined && agentLocalKinds.includes(kind);
@@ -158,7 +174,7 @@ export const executeListCommand = (input: ListInput): ListResult => {
     entries.push(
       ...[...resources.values()]
         .sort((left, right) => compareSlugs(left.slug, right.slug))
-        .map((resource) => listEntry(resource, definitions)),
+        .map((resource) => listEntry(resource, definitions, schemaIds)),
     );
 
     messages.push(`${pluralByKind.get(kind)!}${hasAgentContext ? ` (agent ${input.agent})` : ''}:`);

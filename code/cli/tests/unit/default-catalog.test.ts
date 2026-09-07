@@ -295,7 +295,8 @@ describe('default catalog closure bootstrap', () => {
   });
 
   it('bootstraps a dependency that ships only output types', () => {
-    const dependency = createTaggedCatalog({ 'output-types/artifact/schema.json': '{}\n' }, 'v1.0.0');
+    const artifactSchema = '{"$id":"https://schemas.example.test/output-types/artifact"}\n';
+    const dependency = createTaggedCatalog({ 'output-types/artifact/schema.json': artifactSchema }, 'v1.0.0');
     const root = createTaggedCatalog(
       {
         'agents/founder/agent.md': '---\nname: founder\n---\n',
@@ -319,7 +320,7 @@ describe('default catalog closure bootstrap', () => {
       github: 'ai-outfitter/community-profiles',
       ref: 'v1.0.0',
     });
-    expect(readFileSync(join(dependencyCache, 'output-types', 'artifact', 'schema.json'), 'utf8')).toBe('{}\n');
+    expect(readFileSync(join(dependencyCache, 'output-types', 'artifact', 'schema.json'), 'utf8')).toBe(artifactSchema);
   });
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-004.6.10).
