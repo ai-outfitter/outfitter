@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+# Runs the published Outfitter release through the first-run flow in a throwaway HOME: installs the
+# latest @ai-outfitter/outfitter from npm into a temporary prefix, starts `outfitter` with no
+# configuration so the setup walkthrough, provider step, and profile relaunch all run, then removes
+# everything on exit. Pass a version or dist-tag as the first argument to test something other than
+# `latest`. Existing Pi credentials are not copied, so the provider step is exercised; set
+# OUTFITTER_PROD_TMP_HOME_AUTH=1 to copy ~/.pi/agent/auth.json and skip it.
+set -Eeuo pipefail
+
+PACKAGE="@ai-outfitter/outfitter@${1:-latest}"
+PROD_HOME="$(mktemp -d -t outfitter-prod-home.XXXXXX)"
+
+cleanup() {
+  [[ -n "${PROD_HOME:-}" && -d "$PROD_HOME" ]] && rm -rf -- "$PROD_HOME"
+}
+trap cleanup EXIT
+
+mkdir -p "$PROD_HOME/.pi/agent" "$PROD_HOME/npm"
+
+if [[ "${OUTFITTER_PROD_TMP_HOME_AUTH:-0}" == "1" && -f "${HOME:-}/.pi/agent/auth.json" ]]; then
+  install -m 600 "$HOME/.pi/agent/auth.json" "$PROD_HOME/.pi/agent/auth.json"
+fi
+
+echo "Installing $PACKAGE into $PROD_HOME/npm"
+npm install --prefix "$PROD_HOME/npm" --no-audit --no-fund --loglevel=error "$PACKAGE"
+
+OUTFITTER="$PROD_HOME/npm/node_modules/.bin/outfitter"
+echo "Installed outfitter $("$OUTFITTER" --version)"
+echo "Outfitter prod HOME: $PROD_HOME"
+# No subcommand: the same implicit first-run path a new user hits.
+HOME="$PROD_HOME" "$OUTFITTER"
