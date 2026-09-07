@@ -6,6 +6,7 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { findRepositoryCodeAsset } from '../../paths/RepositoryAssets.js';
+import { resolveHarnessHome } from '../../links/HarnessHome.js';
 import type { AgentLaunchPlan } from '../../projection/Projection.js';
 
 const nonInteractivePiLaunchFlags = new Set(['--print', '-p', '--export', '--list-models']);
@@ -28,6 +29,11 @@ export interface PiRuntimeExtensionInput {
    * print only a one-line /login hint because the user just skipped that step in first-run setup.
    */
   readonly providerPrompt?: PiProviderPromptMode;
+  /**
+   * Absolute path of the compiled profile registry (`outfitter sync` output) the runtime extension
+   * reads for in-session `/outfitter profile` switching. Computed from the durable Pi agent home.
+   */
+  readonly profilesRegistryPath?: string;
 }
 
 export const isNonInteractivePiLaunch = (args: readonly string[]): boolean =>
@@ -47,6 +53,7 @@ export const createPiRuntimeExtensionContent = (input: Omit<PiRuntimeExtensionIn
   const values: Record<string, unknown> = {
     OUTFITTER_ACTIVE_PROFILE: input.profile,
     OUTFITTER_PROVIDER_PROMPT_MODE: input.providerPrompt ?? 'dialog',
+    OUTFITTER_PROFILES_REGISTRY: input.profilesRegistryPath,
   };
   // Each placeholder becomes its JSON value (an absent profile stamps `undefined`). Stamped values
   // are never rescanned, so placeholder-shaped profile metadata is left alone.
@@ -56,6 +63,17 @@ export const createPiRuntimeExtensionContent = (input: Omit<PiRuntimeExtensionIn
   }
   return content;
 };
+
+/**
+ * Resolves the durable compiled-profile registry path for in-session profile switching. The
+ * environment is read because a user-managed `PI_CODING_AGENT_DIR` relocates the Pi agent home;
+ * the per-run composite directory is never consulted, so switches read the same compiled registry
+ * `outfitter sync` wrote.
+ */
+export const resolveProfilesRegistryPath = (
+  homeDirectory: string,
+  env: Readonly<Record<string, string | undefined>>,
+): string => join(resolveHarnessHome('pi', homeDirectory, env), 'outfitter', 'profiles', 'registry.json');
 
 /**
  * Materializes and prepends `--extension <runtime>` to an interactive pi launch. Non-pi and

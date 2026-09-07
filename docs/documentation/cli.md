@@ -65,8 +65,22 @@ or invalid update leaves the last valid cache available. Required-source failure
 settings exit nonzero. Credentials embedded in URIs are redacted from status, errors, cache paths,
 and Git output.
 
+After fetching, sync compiles every enabled agent (each enabled workflow root plus `default_agent`)
+exactly once into a harness-neutral profile registry at `~/.outfitter/profiles/registry.json`, and
+projects that registry into every detected harness home — see [Agent profiles](./profiles.md#compiled-profiles).
+A replay with unchanged inputs writes nothing. Sync fails when a scoped agent fails to compose or a
+projected path is occupied by an unmanaged harness file; under `--strict`, loadout elements a
+harness's native profile cannot express also fail the sync (they are reported as warnings otherwise).
+
 Sync is explicit: `outfitter run` never initiates network access. If a configured cache is absent,
 resolution tells you to run `outfitter sync`.
+
+## `outfitter profiles [--json]`
+
+Report how each compiled agent profile is projected into Pi, Claude Code, and Codex — see
+[Agent profiles](./profiles.md#compiled-profiles). Per profile, each harness reads `ready`,
+`partial` (projected, with the unsupported elements listed), `missing` (stale or absent projection),
+or `unavailable` (harness home not detected). `--json` prints the same report as stable JSON.
 
 ## `outfitter list [kind]`
 

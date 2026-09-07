@@ -71,10 +71,51 @@ type MockPi = ReturnType<typeof createMockPi>;
 
 const createMockPi = () => {
   const handlers: Record<string, Handler[]> = {};
+  const commands: Record<
+    string,
+    { readonly description?: string; readonly handler: (args: string, ctx: MockContext) => Promise<void> | void }
+  > = {};
+  const entries: { readonly customType: string; readonly data: unknown }[] = [];
+  let activeTools: string[] = ['read', 'bash', 'edit'];
+  let thinkingLevel = 'medium';
+  const setModelCalls: unknown[] = [];
   return {
     handlers,
+    commands,
+    entries,
     on(name: string, handler: Handler) {
       handlers[name] = [...(handlers[name] ?? []), handler];
+    },
+    registerCommand(
+      name: string,
+      options: { description?: string; handler: (args: string, ctx: MockContext) => Promise<void> | void },
+    ) {
+      commands[name] = options;
+    },
+    appendEntry(customType: string, data: unknown) {
+      entries.push({ customType, data });
+    },
+    getActiveTools: () => [...activeTools],
+    getAllTools: () => [{ name: 'read' }, { name: 'bash' }, { name: 'edit' }, { name: 'write' }],
+    setActiveTools: (names: readonly string[]) => {
+      activeTools = [...names];
+    },
+    get activeTools() {
+      return activeTools;
+    },
+    getThinkingLevel: () => thinkingLevel,
+    setThinkingLevel: (level: string) => {
+      thinkingLevel = level;
+    },
+    get thinkingLevel() {
+      return thinkingLevel;
+    },
+    setModel: (model: unknown) => {
+      setModelCalls.push(model);
+      return Promise.resolve(model !== undefined);
+    },
+    get setModelCalls() {
+      return setModelCalls;
     },
   };
 };

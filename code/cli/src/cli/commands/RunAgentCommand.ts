@@ -40,7 +40,7 @@ import { attachSystemExtensionHooks } from '../../system/SystemExtensionHook.js'
 import { startTerminalLoading } from '../TerminalLoading.js';
 import type { LoadingStarter } from '../TerminalLoading.js';
 import type { CommandObject } from './CommandObject.js';
-import { attachPiRuntimeExtension } from './PiRuntimeLaunch.js';
+import { attachPiRuntimeExtension, resolveProfilesRegistryPath } from './PiRuntimeLaunch.js';
 import type { PiProviderPromptMode } from './PiRuntimeLaunch.js';
 import { resolveHomeDirectory, resolveProjectDirectory } from './ProcessDefaults.js';
 import { runSetup } from './SetupCommand.js';
@@ -459,6 +459,7 @@ export const executeRunAgentCommand = async (input: RunAgentInput): Promise<RunA
       profile: { id: agentSlug, label: composed.plan.identity.label },
       rootDirectory,
       providerPrompt: providerPromptModeFor(providerPromptSkipped),
+      profilesRegistryPath: resolveProfilesRegistryPath(input.homeDirectory, process.env),
     });
     // System hooks attach last, after projection and after the runtime extension,
     // so an organization's collector applies to every launch — including
