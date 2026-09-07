@@ -151,6 +151,20 @@ describe('run agent', () => {
     expect(captured[0].runtimeSettings).toMatchObject({ quietStartup: true });
   });
 
+  it('exports the selected agent slug to Pi as AGENT_NAME', async () => {
+    const { home, project } = tree();
+
+    await executeRunAgentCommand({
+      homeDirectory: home,
+      projectDirectory: project,
+      agent: 'engineer',
+      harness: 'pi',
+      launcher,
+    });
+
+    expect(captured[0].plan.env.AGENT_NAME).toBe('engineer');
+  });
+
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-005.1, OFTR-005.3).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('projects the selected agent-local skill and its packaged files into the harness runtime', async () => {
