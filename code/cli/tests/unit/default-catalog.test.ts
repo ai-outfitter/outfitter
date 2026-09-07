@@ -294,6 +294,34 @@ describe('default catalog closure bootstrap', () => {
     );
   });
 
+  it('bootstraps a dependency that ships only output types', () => {
+    const dependency = createTaggedCatalog({ 'output-types/artifact/schema.json': '{}\n' }, 'v1.0.0');
+    const root = createTaggedCatalog(
+      {
+        'agents/founder/agent.md': '---\nname: founder\n---\n',
+        'settings.yml': 'sources:\n  - github: ai-outfitter/community-profiles\n    ref: v1.0.0\n',
+      },
+      'v1.0.0',
+    );
+    const homeDirectory = mkdtempSync(join(tmpdir(), 'outfitter-closure-home-'));
+    temporaryRoots.push(homeDirectory);
+
+    bootstrapPinnedClosure({
+      homeDirectory,
+      source: { github: 'ai-outfitter/default-profiles', ref: 'v1.0.0' },
+      syncRepository: githubFixtureSync({
+        'ai-outfitter/default-profiles': root,
+        'ai-outfitter/community-profiles': dependency,
+      }),
+    });
+
+    const dependencyCache = createRemoteRepositoryCachePath(homeDirectory, {
+      github: 'ai-outfitter/community-profiles',
+      ref: 'v1.0.0',
+    });
+    expect(readFileSync(join(dependencyCache, 'output-types', 'artifact', 'schema.json'), 'utf8')).toBe('{}\n');
+  });
+
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-004.6.10).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('does not cache a dependency whose only payload marker is a regular file, not a directory', () => {

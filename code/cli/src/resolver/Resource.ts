@@ -1,9 +1,16 @@
 // Core resource-model types shared across the resolver, list, validate, run, and dump paths.
 
 /** Kinds of protocol resources Outfitter resolves by slug across `.agents` layers. */
-export type ResourceKind = 'agent' | 'skill' | 'knowledge' | 'command' | 'workflow';
+export type ResourceKind = 'agent' | 'skill' | 'knowledge' | 'command' | 'workflow' | 'output-type';
 
-export const resourceKinds: readonly ResourceKind[] = ['agent', 'skill', 'knowledge', 'command', 'workflow'];
+export const resourceKinds: readonly ResourceKind[] = [
+  'agent',
+  'skill',
+  'knowledge',
+  'command',
+  'workflow',
+  'output-type',
+];
 
 /**
  * Kinds that also resolve **agent-local** — discovered under `agents/<agent>/<container>/` and

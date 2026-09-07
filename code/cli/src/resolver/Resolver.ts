@@ -27,12 +27,14 @@ const directoryResourceKinds: ReadonlyMap<ResourceKind, string> = new Map([
   ['agent', 'agents'],
   ['skill', 'skills'],
   ['workflow', 'workflows'],
+  ['output-type', 'output-types'],
 ]);
 
 const entryFileByKind: ReadonlyMap<ResourceKind, string> = new Map([
   ['agent', 'agent.md'],
   ['skill', 'SKILL.md'],
   ['workflow', 'workflow.yaml'],
+  ['output-type', 'schema.json'],
 ]);
 
 const fileTreeResourceKinds: ReadonlyMap<ResourceKind, string> = new Map([
