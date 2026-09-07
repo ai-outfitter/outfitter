@@ -1,4 +1,4 @@
-import { mkdtempSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, relative } from 'node:path';
 
@@ -14,8 +14,6 @@ import { validateEffectiveSet } from '../../src/resolver/ResolverValidation.js';
 import { readWorkflowDefinition } from '../../src/resolver/WorkflowDefinition.js';
 import type { WorkflowDefinition, WorkflowDefinitionIssue } from '../../src/resolver/WorkflowDefinition.js';
 import { resolveWorkflowOutputs } from '../../src/resolver/WorkflowOutput.js';
-import { validateOutputValue, WORKFLOW_OUTPUT_TYPES } from '../../src/validation/SchemaValidator.js';
-import type { WorkflowOutputType } from '../../src/validation/SchemaValidator.js';
 
 const roots: string[] = [];
 const writeWorkflow = (outputs: string): string => {
@@ -66,43 +64,14 @@ afterEach(() => {
   for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true });
 });
 
-const sha = 'a'.repeat(40);
-const validOutputValues: Readonly<Record<WorkflowOutputType, unknown>> = {
-  'pull-request': {
-    number: 12,
-    html_url: 'https://forge.example/acme/widgets/pulls/12',
-    head: { sha, label: 'feature' },
-    base: { repo: { full_name: 'acme/widgets', private: false } },
-    merge_commit_sha: null,
-    title: 'Ship it',
-  },
-  'git-commit': {
-    sha,
-    html_url: `https://forge.example/acme/widgets/commit/${sha}`,
-    repository: 'acme/widgets',
-    message: 'Ship it',
-  },
-  'git-branch': {
-    name: 'feature/workflow-outputs',
-    commit: { sha, url: `https://forge.example/acme/widgets/commit/${sha}` },
-    repository: 'acme/widgets',
-    protected: false,
-  },
-  issue: {
-    number: 377,
-    html_url: 'https://forge.example/acme/widgets/issues/377',
-    repository: 'acme/widgets',
-    title: 'Typed workflow outputs',
-  },
-};
-
-// THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-013.2, OFTR-013.3.1). YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES. Workflow output declarations have exclusive, closed, schema-validated shapes.
+// THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-013.2, OFTR-013.3.4). Workflow output declarations
+// have exclusive shapes, and type is a slug label. YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
 describe('workflow output declaration schema', () => {
-  it('parses action outputs and nested output mappings', () => {
+  it.each(['deployment', 'acme.release-note'])('accepts arbitrary slug label %s and carries it through', (type) => {
     const result = readWorkflowDefinition(
-      writeWorkflow(`  pull-request:
+      writeWorkflow(`  deployment:
     from: draft
-    type: pull-request
+    type: ${type}
   verdict:
     from: review
     output: verdict
@@ -110,13 +79,20 @@ describe('workflow output declaration schema', () => {
     ) as WorkflowDefinition;
 
     expect(result.outputs).toEqual({
-      'pull-request': { from: 'draft', type: 'pull-request' },
+      deployment: { from: 'draft', type },
       verdict: { from: 'review', output: 'verdict' },
     });
   });
 
+  it.each(['Pull Request', 'PullRequest', 'pull request', '-pr', 'pr.', ''])(
+    'rejects non-slug type label %j',
+    (type) => {
+      expect(readIssue(`  result: {from: draft, type: "${type}"}\n`).message).toContain('workflow.yaml is invalid');
+    },
+  );
+
   it.each([
-    ['an unknown output type', '  result: {from: draft, type: deployment}\n'],
+    ['a non-string type label', '  result: {from: draft, type: 2}\n'],
     ['both type and output', '  result: {from: draft, type: issue, output: verdict}\n'],
     ['neither type nor output', '  result: {from: draft}\n'],
     ['an invalid output name', '  BadName: {from: draft, type: issue}\n'],
@@ -137,30 +113,6 @@ describe('workflow output declaration schema', () => {
   result: {from: draft, type: git-commit}
 `).message,
     ).toContain('workflow.yaml is not valid YAML');
-  });
-});
-
-// THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-013.3). YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES. Every supported output type has a forge-neutral value schema synchronized with the workflow enum.
-describe('workflow output value schemas', () => {
-  it.each(WORKFLOW_OUTPUT_TYPES)('accepts a well-formed %s and rejects a missing required field', (type) => {
-    expect(validateOutputValue(type, validOutputValues[type])).toEqual({ valid: true, issues: [] });
-    expect(validateOutputValue(type, {})).toMatchObject({ valid: false });
-  });
-
-  it('keeps the exported type list, workflow enum, and schema files synchronized', () => {
-    const schemaDirectory = new URL('../../src/schemas/', import.meta.url);
-    const workflowSchema = JSON.parse(readFileSync(new URL('workflow.schema.json', schemaDirectory), 'utf8')) as {
-      properties: { outputs: { additionalProperties: { oneOf: [{ properties: { type: { enum: string[] } } }] } } };
-    };
-    const schemaTypes = readdirSync(schemaDirectory)
-      .map((name) => /^output-type\.(.+)\.schema\.json$/u.exec(name)?.[1])
-      .filter((type): type is string => type !== undefined)
-      .sort();
-
-    expect(workflowSchema.properties.outputs.additionalProperties.oneOf[0].properties.type.enum).toEqual(
-      WORKFLOW_OUTPUT_TYPES,
-    );
-    expect(schemaTypes).toEqual([...WORKFLOW_OUTPUT_TYPES].sort());
   });
 });
 
@@ -238,7 +190,7 @@ nodes:
     );
   });
 
-  it('resolves output types through a two-level nested mapping chain', () => {
+  it('resolves output labels through a two-level nested mapping chain', () => {
     const { project, set } = resolveCatalog({
       leaf: `version: 1
 id: leaf
@@ -334,7 +286,7 @@ description: Produce outputs.
 actors: {}
 outputs:
   z-commit: {from: commit, type: git-commit}
-  verdict: {from: decide, type: issue}
+  verdict: {from: decide, type: deployment}
 nodes:
   - {id: commit, action: commit, description: Commit.}
   - {id: decide, action: decide, description: Decide.}
@@ -367,7 +319,7 @@ interface WorkflowManifest {
 const readWorkflowManifest = (out: string): WorkflowManifest =>
   JSON.parse(readFileSync(join(out, '.agents', '.outfitter', 'workflow-composition.json'), 'utf8')) as WorkflowManifest;
 
-// THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-013.4). YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES. JSON listings and deterministic dump manifests name-sort resolved outputs, and dumps preserve workflow source bytes verbatim.
+// THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-013.3.4, OFTR-013.4). YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES. JSON listings and deterministic dump manifests preserve arbitrary labels, name-sort resolved outputs, and keep workflow source bytes verbatim.
 describe('workflow output listing and export', () => {
   it('includes resolved inherited outputs in list workflows --json', async () => {
     const { catalog, home, project } = resolvedOutputCatalog();
@@ -388,7 +340,10 @@ describe('workflow output listing and export', () => {
     expect(payload.resources).toHaveLength(2);
     expect(payload.resources.find((resource) => resource.slug === 'root')).toMatchObject({
       slug: 'root',
-      outputs: { final: { from: 'leaf', type: 'issue', output: 'verdict' } },
+      outputs: { final: { from: 'leaf', type: 'deployment', output: 'verdict' } },
+    });
+    expect(payload.resources.find((resource) => resource.slug === 'leaf')).toMatchObject({
+      outputs: { verdict: { from: 'decide', type: 'deployment' } },
     });
     expect(Object.keys(payload.resources.find((resource) => resource.slug === 'leaf')?.outputs ?? {})).toEqual([
       'verdict',
@@ -455,13 +410,13 @@ nodes:
     expect(workflows).toEqual([
       {
         id: 'root',
-        outputs: { final: { from: 'leaf', type: 'issue', output: 'verdict' } },
+        outputs: { final: { from: 'leaf', type: 'deployment', output: 'verdict' } },
         source: { layer: 'workspace', path: 'workflows/root/workflow.yaml' },
       },
       {
         id: 'leaf',
         outputs: {
-          verdict: { from: 'decide', type: 'issue' },
+          verdict: { from: 'decide', type: 'deployment' },
           'z-commit': { from: 'commit', type: 'git-commit' },
         },
         source: { layer: 'workspace', path: 'workflows/leaf/workflow.yaml' },

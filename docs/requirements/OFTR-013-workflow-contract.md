@@ -33,12 +33,20 @@ them. This contract defines the workflow resource and its typed output declarati
 
 ### OFTR-013.3: Output Value Types
 
-1. An output `type` MUST be one of `pull-request`, `git-commit`, `git-branch`, or `issue`. Any other
-   value MUST be rejected.
-2. Outfitter MUST publish one JSON Schema for each supported output type.
-3. Each output value schema MUST describe the forge-neutral field subset shared by the GitHub and
-   Forgejo REST representations of that resource, and MAY be extended by an execution engine with
-   additional fields.
+Amendment (2026-09-07): Outfitter does not own an output type vocabulary or validate recorded values
+(#380).
+
+1. REQUIREMENT REMOVED (2026-09-07): the closed vocabulary of four type names was withdrawn; a type
+   is a label whose meaning is a catalog convention.
+2. REQUIREMENT REMOVED (2026-09-07): Outfitter no longer publishes value schemas; recorded values are
+   not validated by Outfitter.
+3. A workflow author SHOULD describe each type label's value in forge-neutral terms when the workflow
+   can run against more than one forge.
+4. An output `type` MUST be a slug that starts with a lowercase letter and otherwise follows the
+   workflow node ID pattern.
+5. A workflow SHOULD use the labels `pull-request`, `git-commit`, `git-branch`, and `issue` for those
+   forge objects so that workflows name the same kind of object the same way.
+6. Outfitter MUST NOT validate a recorded output value against any schema.
 
 ### OFTR-013.4: Export and Listing
 
@@ -57,4 +65,4 @@ them. This contract defines the workflow resource and its typed output declarati
    be evaluated by an execution engine against declared workflow outputs.
 4. A runtime carrying a workflow output value over A2A SHOULD use the `outfitter-task/v1` artifact
    metadata keys `output` for the declared output name, `type` for its resolved output type, and
-   `value` for the concrete value validated against that type's schema.
+   `value` for the concrete value.

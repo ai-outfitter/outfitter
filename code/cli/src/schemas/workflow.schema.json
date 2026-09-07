@@ -61,7 +61,7 @@
             "required": ["from", "type"],
             "properties": {
               "from": { "type": "string" },
-              "type": { "enum": ["pull-request", "git-commit", "git-branch", "issue"] }
+              "type": { "type": "string", "pattern": "^[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*$" }
             }
           },
           {

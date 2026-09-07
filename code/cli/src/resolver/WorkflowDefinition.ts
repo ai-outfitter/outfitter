@@ -1,7 +1,6 @@
 import { readFileSync } from 'node:fs';
 
 import { validateSchema } from '../validation/SchemaValidator.js';
-import type { WorkflowOutputType } from '../validation/SchemaValidator.js';
 import { parseYamlDocument } from '../validation/YamlDocument.js';
 
 export type WorkflowActor =
@@ -35,7 +34,7 @@ export interface WorkflowNode {
 }
 
 export type WorkflowOutput =
-  | { readonly from: string; readonly type: WorkflowOutputType; readonly output?: never }
+  | { readonly from: string; readonly type: string; readonly output?: never }
   | { readonly from: string; readonly output: string; readonly type?: never };
 
 export interface WorkflowDefinition {

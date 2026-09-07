@@ -89,9 +89,10 @@ Resources from all sources resolve by slug behind local layers, following [layer
 
 Each `workflows/<slug>/workflow.yaml` is a typed graph that names its human, agent, tool, and system actors. Agent actors reference ordinary catalog profiles. Node-level skill, prompt, and MCP assertions must already belong to the selected agent's composed closure. Nested workflow references resolve by slug and may not form cycles.
 
-A workflow can publish typed output declarations. Output names must start with a lowercase letter and
-otherwise follow the workflow node ID pattern. An action node declares the output type directly; a
-nested-workflow node maps one of the nested workflow's declared outputs:
+A workflow can publish output declarations. Output names must start with a lowercase letter and
+otherwise follow the workflow node ID pattern. An output's `type` is an optional plain label: an
+action node declares it directly, while a nested-workflow node maps one of the nested workflow's
+declared outputs and inherits its label:
 
 ```yaml
 outputs:
@@ -103,12 +104,14 @@ outputs:
     output: verdict # declared by the nested workflow
 ```
 
-The closed type set is `pull-request`, `git-commit`, `git-branch`, and `issue`. A mapped output
-inherits the nested output's resolved type, including through multiple nesting levels.
+The conventional labels for forge objects are `pull-request`, `git-commit`, `git-branch`, and
+`issue`, so workflows use consistent names for the same kinds of objects. An organization may use
+any slug as an output type label. A mapped output inherits the nested output's resolved label,
+including through multiple nesting levels.
 
 A node's `needs` list expresses ordering only among nodes in the same workflow. Cross-task
-prerequisites are an execution engine's responsibility: the engine evaluates them against declared,
-typed outputs rather than treating a workflow node edge as a task dependency.
+prerequisites are an execution engine's responsibility: the engine evaluates them against declared
+outputs rather than treating a workflow node edge as a task dependency.
 
 `outfitter validate --strict` validates the graph, output mappings, and complete composed dependency
 closure. `outfitter dump --workflow <slug>` produces a reviewable `.agents` bundle for distribution.
@@ -118,10 +121,10 @@ contract.
 
 #### Recording values
 
-Outfitter declares outputs but does not record their concrete values; that belongs to the execution
-engine. A runtime carrying a value over A2A should use `outfitter-task/v1` artifact metadata with
-`output` set to the declared name, `type` set to its resolved type, and `value` validated against the
-corresponding output-type schema.
+Outfitter declares outputs but does not record or validate their concrete values; that belongs to the
+execution engine. A runtime carrying a value over A2A should use `outfitter-task/v1` artifact metadata
+with `output` set to the declared name, `type` set to its resolved label, and `value` set to the
+concrete value.
 
 ### Catalog dependencies (transitive sources)
 
