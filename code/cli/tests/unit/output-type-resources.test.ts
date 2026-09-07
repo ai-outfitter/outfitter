@@ -1,4 +1,4 @@
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 
@@ -6,6 +6,7 @@ import { Command } from 'commander';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { createListCommand } from '../../src/cli/commands/ListCommand.js';
+import { executeDumpCommand } from '../../src/cli/commands/DumpCommand.js';
 import { discoverLayers } from '../../src/resolver/Layer.js';
 import { findResource } from '../../src/resolver/Resource.js';
 import { resolveResources } from '../../src/resolver/Resolver.js';
@@ -128,7 +129,7 @@ nodes:
     });
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-013.3.5).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-013.3.5, OFTR-013.4.5).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('reports an invalid output type schema once across referencing workflows', () => {
     const root = createTemporaryRoot();
@@ -158,6 +159,18 @@ nodes:
     expect(findings).toHaveLength(1);
     expect(findings[0]?.severity).toBe('error');
     expect(findings[0]?.message).toContain("output type 'issue' has an invalid schema:");
+
+    write(join(catalog, 'settings.yml'), 'workflows:\n  - first\n');
+    const out = join(root, 'invalid-dump');
+    const dump = executeDumpCommand({
+      homeDirectory: join(root, 'home'),
+      projectDirectory: project,
+      workflow: 'first',
+      out,
+    });
+    expect(dump.ok).toBe(false);
+    expect(dump.messages.join('\n')).toContain("output type 'issue' has an invalid schema:");
+    expect(existsSync(join(out, '.agents'))).toBe(false);
   });
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-013.3.5).
@@ -193,5 +206,112 @@ nodes:
     const arrayPath = join(root, 'output-types', 'array', 'schema.json');
     write(arrayPath, '[]\n');
     expect(readOutputTypeSchema(arrayPath)).toEqual({ issue: 'schema.json must contain a JSON object' });
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-013.1.6, OFTR-013.4.5).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('exports sorted output type sources and copies the winning schemas from the workflow closure', () => {
+    const root = createTemporaryRoot();
+    const home = join(root, 'home');
+    const project = join(root, 'project');
+    const catalog = join(project, '.agents');
+    const workspaceIssueSchema = outputTypeSchema.replace(
+      '"type": "object"',
+      '"title": "workspace",\n  "type": "object"',
+    );
+    const globalIssueSchema = outputTypeSchema.replace('"type": "object"', '"title": "global",\n  "type": "object"');
+    write(join(home, '.agents', 'output-types', 'issue', 'schema.json'), globalIssueSchema);
+    write(join(catalog, 'output-types', 'issue', 'schema.json'), workspaceIssueSchema);
+    write(join(catalog, 'output-types', 'git-commit', 'schema.json'), outputTypeSchema);
+    write(
+      join(catalog, 'workflows', 'leaf', 'workflow.yaml'),
+      `version: 1
+id: leaf
+title: Leaf
+description: Publish an issue.
+actors: {}
+outputs:
+  issue: {from: work, type: issue}
+nodes:
+  - {id: work, action: work, description: Work.}
+`,
+    );
+    write(
+      join(catalog, 'workflows', 'root', 'workflow.yaml'),
+      `version: 1
+id: root
+title: Root
+description: Publish a commit and mapped issue.
+actors: {}
+outputs:
+  commit: {from: publish, type: git-commit}
+  issue: {from: leaf, output: issue}
+nodes:
+  - {id: publish, action: publish, description: Publish.}
+  - {id: leaf, workflow: leaf, description: Run leaf.}
+`,
+    );
+    write(join(catalog, 'settings.yml'), 'workflows:\n  - root\n');
+    const out = join(root, 'dump');
+
+    const result = executeDumpCommand({ homeDirectory: home, projectDirectory: project, workflow: 'root', out });
+
+    expect(result.ok).toBe(true);
+    expect(readFileSync(join(out, '.agents', 'output-types', 'issue', 'schema.json'), 'utf8')).toBe(
+      workspaceIssueSchema,
+    );
+    expect(readFileSync(join(out, '.agents', 'output-types', 'git-commit', 'schema.json'), 'utf8')).toBe(
+      outputTypeSchema,
+    );
+    const manifest = JSON.parse(
+      readFileSync(join(out, '.agents', '.outfitter', 'workflow-composition.json'), 'utf8'),
+    ) as {
+      outputTypes: readonly { slug: string; source: { layer: string; path: string } }[];
+      files: readonly { path: string; sha256: string }[];
+    };
+    expect(manifest.outputTypes).toEqual([
+      {
+        slug: 'git-commit',
+        source: { layer: 'workspace', path: 'output-types/git-commit/schema.json' },
+      },
+      { slug: 'issue', source: { layer: 'workspace', path: 'output-types/issue/schema.json' } },
+    ]);
+    const filePaths = manifest.files.map((file) => file.path);
+    expect(filePaths).toContain('output-types/git-commit/schema.json');
+    expect(filePaths).toContain('output-types/issue/schema.json');
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-013.3.6, OFTR-013.4.5).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('refuses to dump a workflow whose output type is not resolvable', () => {
+    const root = createTemporaryRoot();
+    const project = join(root, 'project');
+    const catalog = join(project, '.agents');
+    write(
+      join(catalog, 'workflows', 'root', 'workflow.yaml'),
+      `version: 1
+id: root
+title: Root
+description: Publish an unknown value.
+actors: {}
+outputs:
+  unknown: {from: work, type: unknown-value}
+nodes:
+  - {id: work, action: work, description: Work.}
+`,
+    );
+    write(join(catalog, 'settings.yml'), 'workflows:\n  - root\n');
+    const out = join(root, 'dump');
+
+    const result = executeDumpCommand({
+      homeDirectory: join(root, 'home'),
+      projectDirectory: project,
+      workflow: 'root',
+      out,
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.messages).toContain("workflow output type 'unknown-value' is not resolvable.");
+    expect(existsSync(join(out, '.agents'))).toBe(false);
   });
 });

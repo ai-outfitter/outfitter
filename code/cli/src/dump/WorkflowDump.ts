@@ -20,6 +20,7 @@ import type { AgentDefaults, HarnessDefaults } from '../settings/Settings.js';
 import { isWorkflowDefinitionIssue, readWorkflowDefinition } from '../resolver/WorkflowDefinition.js';
 import type { WorkflowDefinition } from '../resolver/WorkflowDefinition.js';
 import { resolveWorkflowOutputs } from '../resolver/WorkflowOutput.js';
+import { readOutputTypeSchema } from '../validation/SchemaValidator.js';
 import { dumpAgent } from './Dump.js';
 import type { DumpResult } from './Dump.js';
 import { escapesRoots } from './Containment.js';
@@ -54,6 +55,29 @@ export const collectWorkflowClosure = (set: EffectiveResourceSet, root: string) 
     for (const node of definition.nodes) if (node.workflow !== undefined) queue.push(node.workflow);
   }
   return { workflows, agents: [...agents].sort(), errors };
+};
+
+const collectWorkflowOutputTypes = (
+  set: EffectiveResourceSet,
+  workflows: readonly WorkflowDefinition[],
+  definitions: ReadonlyMap<string, WorkflowDefinition>,
+) => {
+  const slugs = new Set(
+    workflows.flatMap((workflow) =>
+      Object.values(resolveWorkflowOutputs(workflow, definitions)).map((output) => output.type),
+    ),
+  );
+  const outputTypes = [...slugs].sort(compareSlugs).flatMap((slug) => {
+    const resource = findResource(set, 'output-type', slug);
+    return resource === undefined ? [] : [{ slug, resource }];
+  });
+  const errors = [...slugs].sort(compareSlugs).flatMap((slug) => {
+    const resource = findResource(set, 'output-type', slug);
+    if (resource === undefined) return [`workflow output type '${slug}' is not resolvable.`];
+    const result = readOutputTypeSchema(resource.winner.path);
+    return 'issue' in result ? [`output type '${slug}' has an invalid schema: ${result.issue}.`] : [];
+  });
+  return { outputTypes, errors };
 };
 
 const mergeTree = (source: string, target: string, written: string[], errors: string[]): void => {
@@ -92,6 +116,9 @@ export const dumpWorkflow = (
 ): DumpResult => {
   const closure = collectWorkflowClosure(set, workflowSlug);
   if (closure.errors.length > 0) return { writtenPaths: [], warnings: [], errors: closure.errors };
+  const definitions = new Map(closure.workflows.map((workflow) => [workflow.id, workflow] as const));
+  const outputTypeClosure = collectWorkflowOutputTypes(set, closure.workflows, definitions);
+  if (outputTypeClosure.errors.length > 0) return { writtenPaths: [], warnings: [], errors: outputTypeClosure.errors };
   const outRoot = join(outDirectory, '.agents');
   if (existsSync(outRoot))
     return { writtenPaths: [], warnings: [], errors: [`workflow dump refuses existing destination '${outRoot}'.`] };
@@ -102,7 +129,6 @@ export const dumpWorkflow = (
   const warnings: string[] = [];
   const errors: string[] = [];
   const compositions: unknown[] = [];
-  const definitions = new Map(closure.workflows.map((workflow) => [workflow.id, workflow] as const));
 
   try {
     for (const agent of closure.agents) {
@@ -137,6 +163,13 @@ export const dumpWorkflow = (
       written.push(target);
     }
 
+    for (const outputType of outputTypeClosure.outputTypes) {
+      const target = join(outRoot, 'output-types', outputType.slug, 'schema.json');
+      mkdirSync(dirname(target), { recursive: true });
+      copyFileSync(outputType.resource.winner.path, target);
+      written.push(target);
+    }
+
     if (errors.length > 0) {
       rmSync(outRoot, { recursive: true, force: true });
       return { writtenPaths: [], warnings, errors };
@@ -166,6 +199,13 @@ export const dumpWorkflow = (
               },
             };
           }),
+          outputTypes: outputTypeClosure.outputTypes.map(({ slug, resource }) => ({
+            slug,
+            source: {
+              layer: resource.winner.layer.label,
+              path: relative(resource.winner.layer.root, resource.winner.path),
+            },
+          })),
           agents: closure.agents,
           compositions,
           files: fileEntries,
