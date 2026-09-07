@@ -251,7 +251,9 @@ const createMockContext = (
   };
 };
 
-const fixture = (options: { setupSourceUri?: string; visibility?: 'private' | 'public' } = {}) => {
+const fixture = (
+  options: { setupSourceUri?: string; visibility?: 'private' | 'public'; agents?: readonly SetupAgentChoice[] } = {},
+) => {
   const root = mkdtempSync(join(tmpdir(), 'outfitter-extension-'));
   roots.push(root);
   const resultPath = join(root, 'selection.json');
@@ -262,7 +264,7 @@ const fixture = (options: { setupSourceUri?: string; visibility?: 'private' | 'p
       homeDirectory: home,
       projectDirectory: project,
       resultPath,
-      availableAgents: choices,
+      availableAgents: options.agents ?? choices,
       setupSourceUri: options.setupSourceUri,
     }),
     options.visibility,
@@ -277,7 +279,7 @@ afterEach(() => {
 });
 
 describe('Pi setup extension', () => {
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-011.1).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-010.2, OFTR-011.1).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('asks profile, target, and CLI agent in order and mentions the telemetry setting on completion', async () => {
     const { pi, resultPath } = fixture();
@@ -381,6 +383,15 @@ describe('Pi setup extension', () => {
       privateCatalogAccepted: true,
       privateCatalogsEnabled: true,
     });
+  });
+
+  it('preselects the import row and explains an empty default catalog', async () => {
+    const { pi, resultPath } = fixture({ agents: [] });
+    const context = createMockContext({ inputs: ['acme/config', 'main', 'settings.yml'] });
+    await pi.commands.outfitter.handler({}, context);
+    expect(context.rendered[0]?.join(' ')).toContain('No profiles were found in the default Outfitter catalog');
+    expect(context.rendered[0]?.join('\n')).toContain('→ Import a different .agents catalog');
+    expect(JSON.parse(readFileSync(resultPath, 'utf8'))).toMatchObject({ setupMode: 'catalog', github: 'acme/config' });
   });
 
   it('bypasses the profile screen for a provided source, as the original flow did', async () => {

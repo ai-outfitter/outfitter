@@ -128,7 +128,9 @@ export default function outfitter(pi) {
       const title = [
         'Choose an Outfitter profile',
         '',
-        "Profiles come from the community catalog and are added to your .agents as the default for future 'outfitter' launches.",
+        profiles.length === 0
+          ? 'No profiles were found in the default Outfitter catalog. Fix the catalog sync or import a different one.'
+          : "Profiles come from the community catalog and are added to your .agents as the default for future 'outfitter' launches.",
       ];
       const initialValue =
         currentDefault ??
