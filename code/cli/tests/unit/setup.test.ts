@@ -851,8 +851,17 @@ describe('Pi setup launch', () => {
     createSetupCommand({
       homeDirectory: home,
       projectDirectory: project,
-      defaultCatalogBootstrap: () => catalog,
+      defaultCatalogBootstrap: (bootstrapHome, cacheDirectory) => {
+        // Seed the pinned catalog into the exact source-cache path so the post-setup resolve reuses
+        // it instead of fetching from GitHub.
+        const cachePath = createRemoteRepositoryCachePath(bootstrapHome, defaultCatalogSource, cacheDirectory);
+        mkdirSync(dirname(cachePath), { recursive: true });
+        cpSync(catalog, cachePath, { recursive: true });
+        return cachePath;
+      },
       interactive: true,
+      // The seeded cache above satisfies composition; skip the network repair pass entirely.
+      sourceCachePreparer: () => ({ messages: [] }),
       launcher: (plan) => {
         writeFileSync(
           selectionPathFromPlan(plan),
@@ -882,8 +891,17 @@ describe('Pi setup launch', () => {
     const dependencies = {
       homeDirectory: home,
       projectDirectory: project,
-      defaultCatalogBootstrap: () => catalog,
+      defaultCatalogBootstrap: (bootstrapHome: string, cacheDirectory?: string) => {
+        // Seed the pinned catalog into the exact source-cache path so the post-setup resolve reuses
+        // it instead of fetching from GitHub.
+        const cachePath = createRemoteRepositoryCachePath(bootstrapHome, defaultCatalogSource, cacheDirectory);
+        mkdirSync(dirname(cachePath), { recursive: true });
+        cpSync(catalog, cachePath, { recursive: true });
+        return cachePath;
+      },
       interactive: true,
+      // The seeded cache above satisfies composition; skip the network repair pass entirely.
+      sourceCachePreparer: () => ({ messages: [] }),
       runLauncher: (plan: AgentLaunchPlan) => {
         const extension = plan.args[plan.args.indexOf('--extension') + 1];
         runtimeExtensions.push(readFileSync(extension, 'utf8'));

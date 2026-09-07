@@ -17,7 +17,7 @@ describe('Pi setup extension', () => {
     const context = createMockContext();
     await pi.commands.outfitter.handler({}, context);
 
-    // One screen: catalog profiles first (Engineer recommended), the import row last (#381).
+    // One screen: featured profiles first (Engineer recommended), then More profiles, then the import row (#381).
     expect(context.selectCalls).toEqual([]);
     expect(context.rendered[0]?.join('\n')).toContain('Choose an Outfitter profile');
     expect(context.rendered[0]?.join('\n')).toContain('→ engineer — Engineer (Recommended)');
@@ -134,10 +134,35 @@ describe('Pi setup extension', () => {
     });
     await pi.commands.outfitter.handler({}, context);
     const expanded = context.rendered[1]?.join('\n') ?? '';
-    expect(expanded).toContain('engineer — Engineer (Recommended)');
-    expect(expanded).toContain('→ planner — Planner');
+    expect(expanded).toContain('→ engineer — Engineer (Recommended)');
+    expect(expanded).toContain('planner — Planner');
     expect(expanded).not.toContain('More profiles');
     expect(JSON.parse(readFileSync(resultPath, 'utf8'))).toMatchObject({ setupMode: 'default', agentId: 'planner' });
+  });
+
+  it('keeps the collapsed list and marks a featured current default', async () => {
+    const { pi, resultPath } = fixture({ currentDefault: 'founder' });
+    const context = createMockContext();
+    await pi.commands.outfitter.handler({}, context);
+    const screen = context.rendered[0]?.join('\n') ?? '';
+    expect(screen).toContain('→ founder — Founder (current)');
+    expect(screen).toContain('More profiles (1)');
+    expect(screen).not.toContain('Recommended');
+    expect(JSON.parse(readFileSync(resultPath, 'utf8'))).toMatchObject({ agentId: 'founder' });
+  });
+
+  it('cancels from the expanded list without writing a handoff', async () => {
+    const { pi, resultPath } = fixture();
+    let picker = 0;
+    const context = createMockContext({
+      pickOption: (labels) => {
+        picker += 1;
+        return picker === 1 ? labels.findIndex((label) => label.startsWith('More profiles')) : -1;
+      },
+    });
+    await pi.commands.outfitter.handler({}, context);
+    expect(existsSync(resultPath)).toBe(false);
+    expect(context.notifications.join('\n')).toContain('no settings were changed');
   });
 
   it('shows every profile directly when the current default is not featured or nothing is featured', async () => {

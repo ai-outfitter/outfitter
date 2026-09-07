@@ -161,7 +161,8 @@ export default function outfitter(pi) {
       }
       let selected = await selectFromItems(ctx, title, items, initialValue);
       if (selected === OUTFITTER_MORE_CHOICE) {
-        selected = await selectFromItems(ctx, title, [...profiles.map(profileItem), importItem], preferred(others));
+        // Same picker with every profile; Engineer (or the current default) stays preselected.
+        selected = await selectFromItems(ctx, title, [...profiles.map(profileItem), importItem], preferred(profiles));
       }
       if (selected === undefined) return undefined;
       if (selected === OUTFITTER_IMPORT_CHOICE) return { import: true };

@@ -14,7 +14,7 @@ const roots: string[] = [];
 export const cleanupFixtures = (): void => {
   for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true });
 };
-export const choices: readonly SetupAgentChoice[] = [
+const choices: readonly SetupAgentChoice[] = [
   { id: 'engineer', label: 'Engineer', description: 'Engineering profile.', featured: true },
   {
     id: 'founder',
