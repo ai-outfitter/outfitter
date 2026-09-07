@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.16.0](https://github.com/ai-outfitter/outfitter/compare/v1.15.0...v1.16.0) (2026-09-07)
+
+
+### Features
+
+* **setup:** feature engineer, founder, and software-factory; fold the rest under More profiles ([#383](https://github.com/ai-outfitter/outfitter/issues/383)) ([e690a95](https://github.com/ai-outfitter/outfitter/commit/e690a9539fb3d2feb7cac300e332bda1b99a9725))
+* **setup:** one profile screen with an import row; drop create-your-own-profile ([#382](https://github.com/ai-outfitter/outfitter/issues/382)) ([cddac7c](https://github.com/ai-outfitter/outfitter/commit/cddac7c576adf3059bf55cc47e525fe8d9115689))
+* **workflows:** declare typed workflow outputs ([#378](https://github.com/ai-outfitter/outfitter/issues/378)) ([b860e02](https://github.com/ai-outfitter/outfitter/commit/b860e026610e7f581a9914fa3c0afa307341b05a))
+
+
+### Bug Fixes
+
+* **setup:** connect a model provider right after .agents setup ([#374](https://github.com/ai-outfitter/outfitter/issues/374)) ([d4aca76](https://github.com/ai-outfitter/outfitter/commit/d4aca76217c77169ff74fa086f1edabf82a59a38))
+
 ## [1.15.0](https://github.com/ai-outfitter/outfitter/compare/v1.14.0...v1.15.0) (2026-09-04)
 
 
