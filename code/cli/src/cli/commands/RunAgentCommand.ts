@@ -205,7 +205,8 @@ const launchWithStatePersistence = async (
   const bridgesClaudeState = harness === 'claude' && isolation === 'isolated';
   let seededClaudeCredentialsHash: string | undefined;
   let seededClaudeSessionHashes: ReadonlyMap<string, string> = new Map();
-  if (piUserAgentDirectory !== undefined) seedPiCredentials(rootDirectory, piUserAgentDirectory);
+  const seededPiCredentials =
+    piUserAgentDirectory === undefined ? undefined : seedPiCredentials(rootDirectory, piUserAgentDirectory);
   if (bridgesClaudeState) {
     seededClaudeCredentialsHash = seedClaudeCredentials(rootDirectory, input.homeDirectory, input.projectDirectory);
     attempt('seed Claude session history', () => {
@@ -220,7 +221,7 @@ const launchWithStatePersistence = async (
   } finally {
     if (piUserAgentDirectory !== undefined) {
       attempt('persist Pi credentials', () =>
-        persistPiCredentials(rootDirectory, piUserAgentDirectory, persistPiModels),
+        persistPiCredentials(rootDirectory, piUserAgentDirectory, persistPiModels, seededPiCredentials),
       );
     }
     if (bridgesClaudeState) {
