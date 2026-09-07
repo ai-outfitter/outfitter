@@ -32,7 +32,7 @@ default_agent: founder
 
 sources:
   - github: ai-outfitter/community-profiles
-    ref: 32311cbf9eb17ae812c2ab5e91fa5f34d5946ca6 # v1.7.0
+    ref: 0bea9d16b103972a6612a9542b46f9ee096064cd # v1.9.0
   - path: . # this repository's own resources win last
 ```
 

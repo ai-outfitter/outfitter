@@ -28,7 +28,7 @@ isolation: inherit # inherit (default) or isolated; see below. Honored only from
 # Where protocol resources come from, beyond this tree and ~/.agents.
 sources:
   - github: ai-outfitter/community-profiles # owner/repo shorthand
-    ref: v1.7.0 # pin a commit, tag, or branch
+    ref: v1.9.0 # pin a commit, tag, or branch
     # path: optional subdirectory containing the payload
   - uri: git+https://git.example.com/team/agents.git
     ref: v1.2.0
