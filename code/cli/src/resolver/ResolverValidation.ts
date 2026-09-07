@@ -2,6 +2,7 @@
 import { compose } from '../composer/Composer.js';
 import { isSkillDocumentIssue, readSkillDocument } from '../skills/SkillDocument.js';
 import type { AgentDefaults } from '../settings/Settings.js';
+import { readOutputTypeSchema } from '../validation/SchemaValidator.js';
 import { isAgentDefinitionIssue, readAgentDefinition } from './AgentDefinition.js';
 import type { EffectiveResourceSet, ResolvedResource } from './Resource.js';
 import { agentLocalKinds, findResource, listAgentResources, listResources } from './Resource.js';
@@ -405,6 +406,7 @@ const missingNestedOutputFinding = (
 };
 
 const validateWorkflowOutput = (
+  set: EffectiveResourceSet,
   workflow: WorkflowDefinition,
   definitions: ReadonlyMap<string, WorkflowDefinition>,
   name: string,
@@ -414,14 +416,17 @@ const validateWorkflowOutput = (
   if (node === undefined)
     return [workflowError(workflow.id, `output '${name}' references unknown node '${output.from}'.`)];
   if (output.type !== undefined) {
-    return node.action !== undefined
-      ? []
-      : [
-          workflowError(
-            workflow.id,
-            `output '${name}' uses type with workflow node '${output.from}'; nested workflow outputs must use output.`,
-          ),
-        ];
+    if (node.action === undefined) {
+      return [
+        workflowError(
+          workflow.id,
+          `output '${name}' uses type with workflow node '${output.from}'; nested workflow outputs must use output.`,
+        ),
+      ];
+    }
+    return findResource(set, 'output-type', output.type) === undefined
+      ? [workflowError(workflow.id, `output '${name}' references unknown output type '${output.type}'.`)]
+      : [];
   }
   if (node.workflow === undefined)
     return [
@@ -434,12 +439,26 @@ const validateWorkflowOutput = (
 };
 
 const validateWorkflowOutputs = (
+  set: EffectiveResourceSet,
   workflow: WorkflowDefinition,
   definitions: ReadonlyMap<string, WorkflowDefinition>,
 ): readonly ValidationFinding[] =>
   Object.entries(workflow.outputs ?? {}).flatMap(([name, output]) =>
-    validateWorkflowOutput(workflow, definitions, name, output),
+    validateWorkflowOutput(set, workflow, definitions, name, output),
   );
+
+const validateOutputType = (resource: ResolvedResource): readonly ValidationFinding[] => {
+  const result = readOutputTypeSchema(resource.winner.path);
+  return 'issue' in result
+    ? [
+        {
+          severity: 'error',
+          resource: `output-type:${resource.slug}`,
+          message: `output type '${resource.slug}' has an invalid schema: ${result.issue}.`,
+        },
+      ]
+    : [];
+};
 
 const validateWorkflowArtifacts = (workflow: WorkflowDefinition): readonly ValidationFinding[] =>
   Object.entries(workflow.integrations ?? {}).flatMap(([id, artifact]) => {
@@ -475,7 +494,7 @@ const validateWorkflow = (
     findings.push(...validateWorkflowAgentNode(set, workflow, node, options));
   }
 
-  findings.push(...validateWorkflowOutputs(workflow, definitions));
+  findings.push(...validateWorkflowOutputs(set, workflow, definitions));
 
   for (const edge of workflow.feedback ?? []) {
     if (!nodeIds.has(edge.from))
@@ -531,6 +550,10 @@ export const validateEffectiveSet = (
     findings.push(...validateSkill(skill));
   }
 
+  for (const outputType of listResources(set, 'output-type')) {
+    findings.push(...validateOutputType(outputType));
+  }
+
   const workflows = workflowDefinitions(set, options.workflowRoots);
   findings.push(...workflows.findings);
   for (const workflow of workflows.definitions.values()) {
@@ -542,7 +565,7 @@ export const validateEffectiveSet = (
     findings.push(...validateAgentLocalResources(set, agentSlug));
   }
 
-  for (const kind of ['agent', 'skill', 'knowledge', 'command', 'workflow'] as const) {
+  for (const kind of ['agent', 'skill', 'knowledge', 'command', 'workflow', 'output-type'] as const) {
     const resources =
       kind === 'workflow'
         ? [...workflows.definitions.keys()].flatMap((slug) => {

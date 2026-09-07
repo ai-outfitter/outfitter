@@ -9,6 +9,8 @@ import { createListCommand } from '../../src/cli/commands/ListCommand.js';
 import { discoverLayers } from '../../src/resolver/Layer.js';
 import { findResource } from '../../src/resolver/Resource.js';
 import { resolveResources } from '../../src/resolver/Resolver.js';
+import { validateEffectiveSet } from '../../src/resolver/ResolverValidation.js';
+import { readOutputTypeSchema, validateOutputValue } from '../../src/validation/SchemaValidator.js';
 
 const temporaryRoots: string[] = [];
 
@@ -22,6 +24,23 @@ const write = (path: string, content: string): void => {
   mkdirSync(dirname(path), { recursive: true });
   writeFileSync(path, content);
 };
+
+const outputTypeSchema = `${JSON.stringify(
+  {
+    $schema: 'https://json-schema.org/draft/2020-12/schema',
+    type: 'object',
+    required: ['number', 'html_url'],
+    properties: {
+      number: { type: 'integer', minimum: 1 },
+      html_url: { type: 'string', format: 'uri' },
+    },
+  },
+  null,
+  2,
+)}\n`;
+
+const resolvedSet = (home: string, project: string) =>
+  resolveResources(discoverLayers({ homeDirectory: home, projectDirectory: project, settings: {} }).layers);
 
 afterEach(() => {
   for (const root of temporaryRoots.splice(0)) rmSync(root, { recursive: true, force: true });
@@ -37,8 +56,7 @@ describe('output type resources', () => {
     write(join(home, '.agents', 'output-types', 'artifact', 'schema.json'), '{"title":"global"}\n');
     write(join(project, '.agents', 'output-types', 'artifact', 'schema.json'), '{"title":"workspace"}\n');
 
-    const layers = discoverLayers({ homeDirectory: home, projectDirectory: project, settings: {} }).layers;
-    const artifact = findResource(resolveResources(layers), 'output-type', 'artifact');
+    const artifact = findResource(resolvedSet(home, project), 'output-type', 'artifact');
 
     expect(artifact?.winner.layer.origin).toBe('workspace');
     expect(artifact?.shadowed.map((definition) => definition.layer.origin)).toEqual(['global']);
@@ -82,5 +100,98 @@ describe('output type resources', () => {
       ],
       diagnostics: ['output-types:', '  git-commit  [workspace]', '  issue  [workspace]'],
     });
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-013.3.4, OFTR-013.3.6).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('rejects an action output whose type does not resolve', () => {
+    const root = createTemporaryRoot();
+    const project = join(root, 'project');
+    write(
+      join(project, '.agents', 'workflows', 'root', 'workflow.yaml'),
+      `version: 1
+id: root
+title: Root
+description: Publish a deployment.
+actors: {}
+outputs:
+  deployment: {from: deploy, type: organization-deployment}
+nodes:
+  - {id: deploy, action: deploy, description: Deploy.}
+`,
+    );
+
+    expect(validateEffectiveSet(resolvedSet(join(root, 'home'), project), project)).toContainEqual({
+      severity: 'error',
+      resource: 'workflow:root',
+      message: "output 'deployment' references unknown output type 'organization-deployment'.",
+    });
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-013.3.5).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('reports an invalid output type schema once across referencing workflows', () => {
+    const root = createTemporaryRoot();
+    const project = join(root, 'project');
+    const catalog = join(project, '.agents');
+    for (const slug of ['first', 'second']) {
+      write(
+        join(catalog, 'workflows', slug, 'workflow.yaml'),
+        `version: 1
+id: ${slug}
+title: ${slug}
+description: Publish an issue.
+actors: {}
+outputs:
+  issue: {from: work, type: issue}
+nodes:
+  - {id: work, action: work, description: Work.}
+`,
+      );
+    }
+    write(join(catalog, 'output-types', 'issue', 'schema.json'), '{"type":"not-a-json-schema-type"}\n');
+
+    const findings = validateEffectiveSet(resolvedSet(join(root, 'home'), project), project).filter(
+      (finding) => finding.resource === 'output-type:issue' && finding.message.includes('invalid schema'),
+    );
+
+    expect(findings).toHaveLength(1);
+    expect(findings[0]?.severity).toBe('error');
+    expect(findings[0]?.message).toContain("output type 'issue' has an invalid schema:");
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-013.3.5).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('validates output values against a schema read from a catalog fixture', () => {
+    const root = createTemporaryRoot();
+    const path = join(root, 'output-types', 'issue', 'schema.json');
+    write(path, outputTypeSchema);
+    const result = readOutputTypeSchema(path);
+    expect('issue' in result).toBe(false);
+    if ('issue' in result) return;
+
+    expect(validateOutputValue(result.schema, { number: 377, html_url: 'https://forge.example/issues/377' })).toEqual({
+      valid: true,
+      issues: [],
+    });
+    expect(validateOutputValue(result.schema, {}).valid).toBe(false);
+    expect(validateOutputValue(result.schema, { number: 377, html_url: 'not a uri' }).valid).toBe(false);
+  });
+
+  it('reports unreadable, malformed, and non-object schema documents', () => {
+    const root = createTemporaryRoot();
+    const missing = readOutputTypeSchema(join(root, 'missing.json'));
+    expect('issue' in missing).toBe(true);
+    if ('issue' in missing) expect(missing.issue).toContain('readable');
+
+    const brokenPath = join(root, 'output-types', 'broken', 'schema.json');
+    write(brokenPath, '{');
+    const broken = readOutputTypeSchema(brokenPath);
+    expect('issue' in broken).toBe(true);
+    if ('issue' in broken) expect(broken.issue).toContain('valid JSON');
+
+    const arrayPath = join(root, 'output-types', 'array', 'schema.json');
+    write(arrayPath, '[]\n');
+    expect(readOutputTypeSchema(arrayPath)).toEqual({ issue: 'schema.json must contain a JSON object' });
   });
 });

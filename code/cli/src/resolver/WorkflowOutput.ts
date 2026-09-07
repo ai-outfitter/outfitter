@@ -1,15 +1,14 @@
 import type { WorkflowDefinition, WorkflowOutput } from './WorkflowDefinition.js';
-import type { WorkflowOutputType } from '../validation/SchemaValidator.js';
 
 export interface ResolvedWorkflowOutput {
   readonly from: string;
-  readonly type: WorkflowOutputType;
+  readonly type: string;
   readonly output?: string;
 }
 
 export type ResolvedWorkflowOutputs = Readonly<Record<string, ResolvedWorkflowOutput>>;
 
-const resolvedActionType = (definition: WorkflowDefinition, output: WorkflowOutput): WorkflowOutputType | undefined => {
+const resolvedActionType = (definition: WorkflowDefinition, output: WorkflowOutput): string | undefined => {
   const node = definition.nodes.find((candidate) => candidate.id === output.from);
   return node?.action === undefined ? undefined : output.type;
 };
@@ -19,7 +18,7 @@ const resolvedMappedType = (
   outputName: string,
   definitions: ReadonlyMap<string, WorkflowDefinition>,
   visited: ReadonlySet<string>,
-): WorkflowOutputType | undefined => {
+): string | undefined => {
   if (workflowSlug === undefined) return undefined;
   const nested = definitions.get(workflowSlug);
   if (nested === undefined) return undefined;
@@ -37,7 +36,7 @@ const resolvedType = (
   output: WorkflowOutput,
   definitions: ReadonlyMap<string, WorkflowDefinition>,
   visited: ReadonlySet<string>,
-): WorkflowOutputType | undefined => {
+): string | undefined => {
   if (output.type !== undefined) return resolvedActionType(definition, output);
   const workflowSlug = definition.nodes.find((candidate) => candidate.id === output.from)?.workflow;
   return resolvedMappedType(workflowSlug, output.output, definitions, visited);
