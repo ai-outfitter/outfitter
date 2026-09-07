@@ -13,8 +13,11 @@ native `/login` before handing off ([#372](https://github.com/ai-outfitter/outfi
 The first screen is one described picker, **Choose an Outfitter profile**
 ([#381](https://github.com/ai-outfitter/outfitter/issues/381)):
 
-1. the default-catalog profiles, Engineer first and recommended (or the current default marked);
-2. a final row, **Import a different .agents catalog**.
+1. the featured default-catalog profiles (Engineer, Founder, Software Factory), Engineer
+   recommended, or the current default marked;
+2. **More profiles (N)**, which reopens the picker with every non-abstract catalog profile (shown
+   directly when nothing is featured or the current default is not featured);
+3. a final row, **Import a different .agents catalog**.
 
 The selected row continues in the original order:
 

@@ -71,11 +71,20 @@ afterEach(() => {
 });
 
 describe('setup state machine', () => {
-  it('discovers the default Outfitter catalog with display metadata, engineer first, abstract profiles hidden', () => {
+  it('discovers the default Outfitter catalog with featured profiles first in order, abstract profiles hidden', () => {
     const { catalog } = createTree();
+    write(join(catalog, 'agents', 'zeta', 'agent.md'), '---\nname: zeta\ndescription: Last.\n---\n');
+    write(join(catalog, 'agents', 'planner', 'agent.md'), '---\nname: planner\ndescription: Plans.\n---\n');
+    write(
+      join(catalog, 'agents', 'software-factory', 'agent.md'),
+      '---\nname: software-factory\ndescription: Ships.\n---\n',
+    );
     expect(discoverSetupAgentChoices({ defaultCatalogRoot: catalog })).toEqual([
-      { id: 'engineer', label: 'Engineer', description: 'Engineering profile.' },
-      { id: 'founder', label: 'Founder', description: 'Founder/operator profile.' },
+      { id: 'engineer', label: 'Engineer', description: 'Engineering profile.', featured: true },
+      { id: 'founder', label: 'Founder', description: 'Founder/operator profile.', featured: true },
+      { id: 'software-factory', label: 'software-factory', description: 'Ships.', featured: true },
+      { id: 'planner', label: 'planner', description: 'Plans.' },
+      { id: 'zeta', label: 'zeta', description: 'Last.' },
     ]);
     expect(discoverSetupAgentChoices({})).toEqual([]);
   });
@@ -842,8 +851,17 @@ describe('Pi setup launch', () => {
     createSetupCommand({
       homeDirectory: home,
       projectDirectory: project,
-      defaultCatalogBootstrap: () => catalog,
+      defaultCatalogBootstrap: (bootstrapHome, cacheDirectory) => {
+        // Seed the pinned catalog into the exact source-cache path so the post-setup resolve reuses
+        // it instead of fetching from GitHub.
+        const cachePath = createRemoteRepositoryCachePath(bootstrapHome, defaultCatalogSource, cacheDirectory);
+        mkdirSync(dirname(cachePath), { recursive: true });
+        cpSync(catalog, cachePath, { recursive: true });
+        return cachePath;
+      },
       interactive: true,
+      // The seeded cache above satisfies composition; skip the network repair pass entirely.
+      sourceCachePreparer: () => ({ messages: [] }),
       launcher: (plan) => {
         writeFileSync(
           selectionPathFromPlan(plan),
@@ -873,8 +891,17 @@ describe('Pi setup launch', () => {
     const dependencies = {
       homeDirectory: home,
       projectDirectory: project,
-      defaultCatalogBootstrap: () => catalog,
+      defaultCatalogBootstrap: (bootstrapHome: string, cacheDirectory?: string) => {
+        // Seed the pinned catalog into the exact source-cache path so the post-setup resolve reuses
+        // it instead of fetching from GitHub.
+        const cachePath = createRemoteRepositoryCachePath(bootstrapHome, defaultCatalogSource, cacheDirectory);
+        mkdirSync(dirname(cachePath), { recursive: true });
+        cpSync(catalog, cachePath, { recursive: true });
+        return cachePath;
+      },
       interactive: true,
+      // The seeded cache above satisfies composition; skip the network repair pass entirely.
+      sourceCachePreparer: () => ({ messages: [] }),
       runLauncher: (plan: AgentLaunchPlan) => {
         const extension = plan.args[plan.args.indexOf('--extension') + 1];
         runtimeExtensions.push(readFileSync(extension, 'utf8'));
