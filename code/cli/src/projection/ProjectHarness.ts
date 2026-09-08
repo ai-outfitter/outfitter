@@ -239,11 +239,14 @@ const buildPiOrClaudeLaunchPlan = (
     // The projection root is deleted after the run, so pi's default session store (a subdirectory
     // of PI_CODING_AGENT_DIR) would take every transcript with it. A resolved session directory
     // moves the store somewhere durable so `--continue`/`--resume` still find the last conversation.
+    // pi-mcp-adapter otherwise merges shared host files such as ~/.agents/mcp.json back into the
+    // generated selection, defeating Outfitter's isolated Pi projection.
     env: isPi
       ? {
           PI_CODING_AGENT_DIR: input.rootDirectory,
           ...(input.sessionDirectory === undefined ? {} : { [PI_SESSION_DIRECTORY_ENV]: input.sessionDirectory }),
           ...model.env,
+          PI_MCP_CONFIG_MODE: 'exclusive',
         }
       : { ...claudeEnv(input.rootDirectory, isolation), ...model.env },
   };
