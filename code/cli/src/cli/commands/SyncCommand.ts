@@ -118,10 +118,13 @@ const validateSourceCheckout = (repositoryPath: string, source: RemoteSourceRefe
     throw new Error(`Configured source path '${source.path}' was not found in the fetched repository.`);
   }
 
-  // A source is validated in isolation here, so an unresolved loadout slug is deferred (a warning,
-  // not a failure): a catalog may reference a skill supplied by a catalog it declares as a transitive
-  // dependency (OFTR-004.6), and loadout wholeness is validated against the merged tree at resolution.
-  const findings = validateEffectiveSet(resolveResources([layer]), undefined, { deferLoadoutResolution: true });
+  // A source is validated in isolation here, so unresolved loadout slugs and inheritance parents
+  // are deferred (warnings, not failures): a catalog may reference resources supplied by a catalog
+  // it declares as a transitive dependency (OFTR-004.6). The merged tree remains authoritative.
+  const findings = validateEffectiveSet(resolveResources([layer]), undefined, {
+    deferLoadoutResolution: true,
+    deferInheritanceResolution: true,
+  });
   const errors = findings.filter((finding) => finding.severity === 'error');
   if (errors.length > 0) {
     throw new Error(
