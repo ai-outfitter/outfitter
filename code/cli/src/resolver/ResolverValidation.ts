@@ -15,15 +15,15 @@ export interface ValidationFinding {
 }
 
 /**
- * Options for {@link validateEffectiveSet}. `deferLoadoutResolution` downgrades an unresolved
- * loadout slug reference from an error to a warning — used when validating a single remote source
- * in isolation during `outfitter sync`, where a catalog may legitimately reference a skill supplied
- * by a catalog it declares as a dependency (OFTR-004.6). Loadout wholeness is then authoritatively
- * enforced against the merged effective set by `outfitter validate`; the run-time composer surfaces
- * an unresolved reference as a non-fatal warning (OFTR-005.3.4), fatal only under `run --strict`.
+ * Options for {@link validateEffectiveSet}. The deferral options downgrade unresolved references
+ * from errors to warnings while validating a single remote source in isolation during
+ * `outfitter sync`, where a catalog may legitimately reference resources supplied by a catalog it
+ * declares as a dependency (OFTR-004.6). Reference wholeness is then authoritatively enforced
+ * against the merged effective set by `outfitter validate`.
  */
 export interface ValidationOptions {
   readonly deferLoadoutResolution?: boolean;
+  readonly deferInheritanceResolution?: boolean;
   /** Validate only these enabled workflow roots and their nested workflow closure. */
   readonly workflowRoots?: readonly string[];
   /** Settings-layer defaults composed into every agent during validation. */
@@ -38,6 +38,18 @@ export interface ValidationOptions {
 // defaults use the same wording with an `agent_defaults` prefix instead of `loadout`.
 const isUnresolvedLoadoutReference = (message: string): boolean =>
   /^(?:loadout|agent_defaults) (?:skills|subagents) references unknown (?:skill|agent) '/.test(message);
+
+// Matches the inheritance resolver's missing-parent error wording (see `resolveInheritanceChain`
+// in Chain.ts). A missing parent is deferrable only for isolated source validation: the source may
+// declare a transitive catalog that supplies it, while cycles and invalid parent definitions remain
+// structural errors.
+const isUnresolvedInheritanceReference = (message: string): boolean =>
+  /^(?:Subagent '[^']+' is invalid: )?Agent inheritance references unknown parent '[^']+' in chain [a-z0-9._-]+(?: -> [a-z0-9._-]+)*\.$/.test(
+    message,
+  );
+
+const compositionErrorSeverity = (message: string, options: ValidationOptions): ValidationFinding['severity'] =>
+  isUnresolvedInheritanceReference(message) && options.deferInheritanceResolution ? 'warning' : 'error';
 
 const compositionWarningSeverity = (message: string, options: ValidationOptions): ValidationFinding['severity'] =>
   isUnresolvedLoadoutReference(message) && !options.deferLoadoutResolution ? 'error' : 'warning';
@@ -68,7 +80,11 @@ const validateAgent = (
     agentDefaults: options.agentDefaults,
   });
   const compositionFindings: ValidationFinding[] = [
-    ...composed.errors.map((message) => ({ severity: 'error' as const, resource: `agent:${agent.slug}`, message })),
+    ...composed.errors.map((message) => ({
+      severity: compositionErrorSeverity(message, options),
+      resource: `agent:${agent.slug}`,
+      message,
+    })),
     ...composed.warnings.map((message) => ({
       severity: compositionWarningSeverity(message, options),
       resource: `agent:${agent.slug}`,
@@ -280,9 +296,11 @@ const validateWorkflowAgentNode = (
     agentDefaults: options.agentDefaults,
   });
   if (composed.plan === undefined) {
-    return composed.errors.map((message) =>
-      workflowError(workflow.id, `node '${node.id}' agent '${actor.profile}': ${message}`),
-    );
+    return composed.errors.map((message) => ({
+      severity: compositionErrorSeverity(message, options),
+      resource: `workflow:${workflow.id}`,
+      message: `node '${node.id}' agent '${actor.profile}': ${message}`,
+    }));
   }
 
   const availableSkills = new Set(composed.plan.loadout.skills.map((skill) => skill.slug));

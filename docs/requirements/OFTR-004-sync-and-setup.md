@@ -166,12 +166,12 @@ bootstrap is the one gate exemption — see OFTR-004.6.10.)
     bootstrap MAY fetch its declared closure without the interactive private-catalog gate that
     `outfitter sync` applies; the gate remains a property of `sync`, not of first-party bootstrap.
 11. When `sync` validates a single fetched source in isolation, an unresolved loadout **skill or
-    agent** reference MUST NOT fail that source, because the referenced skill or agent may be
-    supplied by a catalog the source declares as a transitive dependency. Structural validity of the
-    source (schema, resource naming) MUST still be enforced. Whether every loadout skill/agent slug
-    resolves is authoritatively enforced against the merged effective set by `outfitter validate`,
-    which MUST treat an unresolved loadout skill or agent reference as an error. (This concerns only
-    skill and agent loadout slugs; an unknown MCP server reference remains a warning, unchanged.)
+    agent** reference or unresolved agent inheritance parent MUST NOT fail that source, because the
+    referenced resource may be supplied by a catalog the source declares as a transitive dependency.
+    Structural validity of the source (schema, resource naming, and inheritance cycles) MUST still be
+    enforced. Whether every loadout skill/agent slug and inheritance parent resolves is authoritatively
+    enforced against the merged effective set by `outfitter validate`, which MUST treat any such
+    unresolved reference as an error. (An unknown MCP server reference remains a warning, unchanged.)
     Consistent with OFTR-005.3.4, the run-time composer surfaces an unresolved loadout reference as a
     non-fatal warning (fatal only under `outfitter run --strict`); `outfitter validate` is the
     command that fails on it.
