@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.16.1](https://github.com/ai-outfitter/outfitter/compare/v1.16.0...v1.16.1) (2026-09-08)
+
+
+### Bug Fixes
+
+* **pi:** isolate composed MCP configuration ([#392](https://github.com/ai-outfitter/outfitter/issues/392)) ([3823f01](https://github.com/ai-outfitter/outfitter/commit/3823f01f17712c4b42d219f8ce1ea093ca36a3eb))
+* **setup:** show profile labels without the id prefix in the picker ([#384](https://github.com/ai-outfitter/outfitter/issues/384)) ([0caf001](https://github.com/ai-outfitter/outfitter/commit/0caf001f9b4a46d9eb3e7bd4aea89935efc90897))
+* **sync:** defer transitive inheritance resolution ([#394](https://github.com/ai-outfitter/outfitter/issues/394)) ([b2cad0a](https://github.com/ai-outfitter/outfitter/commit/b2cad0ace2ae503d01c85b6a4e7079cb68ac0132))
+
 ## [1.16.0](https://github.com/ai-outfitter/outfitter/compare/v1.15.0...v1.16.0) (2026-09-07)
 
 
