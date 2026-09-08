@@ -1,6 +1,28 @@
 # Linking into Pi, Claude Code, and Codex
 
-`outfitter run` projects a composition into a temporary directory for one launch. `outfitter link` is the persistent form: it places managed resources and native defaults inside a harness's own home, so plain `pi`, `claude`, and `codex` sessions can use the shared configuration with no Outfitter in the loop.
+`outfitter sync` compiles enabled compositions and updates native harness profiles. After synchronization,
+`outfitter run` selects a compiled snapshot without fetching or recomposing. `outfitter link` remains
+an explicit resource-linking operation with the scope and behavior described below.
+
+```bash
+outfitter sync                                      # fetch, compile, project
+outfitter sync --local                              # compile local/cached inputs without fetching
+outfitter sync --local --harness claude --harness codex
+outfitter profiles --json                           # fingerprints and explicit adapter gaps
+claude --agent engineer
+codex --profile engineer
+```
+
+Sync generates Claude `agents/<slug>.md` and Codex `<slug>.config.toml` plus
+`<slug>.instructions.md`. Codex's actual `--profile` registration lives under
+`[profiles.<slug>]` in `config.toml`; the standalone file alone does not register a profile.
+Shared skills are linked once per harness. Generated metadata carries the same composition
+fingerprint as Pi's registry.
+
+Native profiles express the fields their harness supports, not every Outfitter control.
+In particular, globally discoverable Codex skills and MCP servers do not enforce a profile-local
+allowlist. Inspect `profiles --json` and use `sync --strict` to reject partial projections.
+Sync uses the same ownership manifest as link and preserves unmanaged files and settings.
 
 ```bash
 outfitter link                                      # every enabled workflow + default_agent, into every installed harness

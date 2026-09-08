@@ -41,7 +41,7 @@ Outfitter is organized around a private npm workspace root, clear TypeScript pac
 │   │   ├── src/                       # production TypeScript source
 │   │   │   ├── cli.ts                 # executable CLI entry point
 │   │   │   ├── cli/                   # CLI parser construction and command objects
-│   │   │   │   └── commands/          # run, setup, sync, list, validate, dump, and link command objects
+│   │   │   │   └── commands/          # run, setup, sync, profiles, list, validate, dump, and link command objects
 │   │   │   ├── settings/              # settings loading and merging
 │   │   │   ├── telemetry/             # consent, pseudonymous state, allowlisted events, and PostHog boundary
 │   │   │   ├── setup/                 # onboarding state + pinned default-catalog bootstrap
@@ -50,6 +50,8 @@ Outfitter is organized around a private npm workspace root, clear TypeScript pac
 │   │   │   │   └── SourceCachePolicy.ts # repair, locked, and offline startup enforcement
 │   │   │   ├── resolver/              # .agents layer resolution into one effective resource set
 │   │   │   ├── composer/              # harness-neutral CompositionPlan from the effective set
+│   │   │   ├── profiles/              # deterministic project-scoped compiled registry and immutable asset snapshots
+│   │   │   │   └── CompiledProjections.ts # credential-free Pi and Claude launch templates generated during sync
 │   │   │   ├── Chain.ts           # agent inheritance-chain resolution with cycle and parent checks
 │   │   │   ├── Defaults.ts        # settings-layer agent_defaults selection, resolution, and provenance
 │   │   │   └── Mcp.ts             # selected MCP server definitions after layer and owner precedence
@@ -76,7 +78,7 @@ Outfitter is organized around a private npm workspace root, clear TypeScript pac
 │   │   └── vitest.config.ts           # package test and coverage configuration
 │   ├── enterprise/                    # enterprise/business licensed code; see code/enterprise/LICENSE
 │   │   └── privateCatalog.js          # enterprise private profile catalog policy module used during package staging
-│   └── pi-extension/                  # private workspace boundary for future Pi extension source/assets
+│   └── pi-extension/                  # bundled setup/runtime extensions, profile controller, and profile-aware MCP client
 ├── bin/                               # local executable development helpers
 ├── scripts/                           # repository-level development, release, and formatting helper scripts
 ├── LICENSE.md                         # root source-available license notice

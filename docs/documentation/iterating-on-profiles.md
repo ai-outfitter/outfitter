@@ -22,8 +22,18 @@ Resources synced from a remote catalog land in the Outfitter cache. Do not edit 
 - One launch: `outfitter run <id> [-- <agent args>]`
 - Future launches: set `default_agent: <id>` in the settings scope you want it to apply to.
 - List what is resolvable right now: `outfitter list agents`.
+- Inspect synchronized profiles and adapter gaps: `outfitter profiles --json`.
+- Within a compiled Pi session: `/outfitter profile <id>`.
 
-Changes apply on the next launch. A running session keeps the composition it started with, so after editing you must restart `outfitter` to load the result.
+`outfitter sync` fetches sources, compiles the enabled agents, and projects native profiles.
+Use `outfitter sync --local` after editing to compile local and already-cached sources without fetching.
+After synchronization, launches read that compiled snapshot, not the current source files.
+
+Pi can switch between compatible compiled profiles at the next idle turn boundary while preserving
+the conversation. Switching replaces the active prompt and selectors; it does not recompile edits.
+Restart after compiling new source changes to load the new registry. Profiles share credentials,
+environment, extensions, and operating-system authority: switching is not an isolation boundary.
+Profiles with incompatible process-scoped extensions or native overlays require another launch.
 
 ## The iteration loop
 
@@ -49,7 +59,8 @@ Changes apply on the next launch. A running session keeps the composition it sta
    default_agent: experiment
    ```
 
-2. Launch it: `outfitter run experiment`, or rely on the `default_agent` override above.
+2. Compile it with `outfitter sync --local`, then launch it with `outfitter run experiment`,
+   or rely on the `default_agent` override above.
 
 3. Validate before launching:
 
@@ -65,9 +76,10 @@ Changes apply on the next launch. A running session keeps the composition it sta
    outfitter dump --agent experiment --out /tmp/inspect
    ```
 
-   Diff dumps between iterations to confirm a change landed — the dump is exactly what run composes.
+   Diff dumps between iterations to inspect the current source composition. Run `sync --local`
+   before launching so the compiled snapshot includes those edits.
 
-5. Restart and test the behavior, then fold the settled changes back into the agent or skill you were iterating on, and remove the experiment.
+5. Recompile, restart, and test the behavior, then fold the settled changes back into the agent or skill you were iterating on, and remove the experiment.
 
 ## Iterating on a catalog resource in a git worktree
 

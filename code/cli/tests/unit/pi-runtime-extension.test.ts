@@ -1,8 +1,7 @@
 // Exercises the Outfitter runtime extension's identity UI, auto sign-in prompt, and launch wiring.
 // THIS TEST GUARDS OFTR-010's runtime login behavior (real pi offers /login when no models are
 // available, or prints only the /login hint right after a skipped first-run provider step).
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { Script, createContext } from 'node:vm';
 
@@ -15,6 +14,7 @@ import {
 } from '../../src/cli/commands/PiRuntimeLaunch.js';
 import type { PiProviderPromptMode, PiRuntimeProfileIdentity } from '../../src/cli/commands/PiRuntimeLaunch.js';
 import type { AgentLaunchPlan } from '../../src/projection/Projection.js';
+import type { CompositionPlan } from '../../src/composer/Composition.js';
 
 type Handler = (event: Record<string, unknown>, context: MockContext) => Promise<unknown>;
 type MockContext = ReturnType<typeof createMockContext>;
@@ -32,7 +32,7 @@ interface MockHeader {
 const temporaryRoots: string[] = [];
 
 const createTemporaryRoot = (): string => {
-  const root = mkdtempSync(join(tmpdir(), 'outfitter-runtime-extension-'));
+  const root = mkdtempSync(join(process.cwd(), '.outfitter-runtime-extension-'));
   temporaryRoots.push(root);
   return root;
 };
@@ -47,6 +47,7 @@ const evaluateRuntimeExtension = (input: RuntimeFixtureInput = {}): ((pi: MockPi
     profile: input.profile,
     providerPrompt: input.providerPrompt,
   })
+    .replace("import { installProfileController } from './outfitter-profile-controller.js';", '')
     .replace(
       /import \{ Key, matchesKey, truncateToWidth, visibleWidth, wrapTextWithAnsi \} from ['"]@earendil-works\/pi-tui['"];/u,
       [
@@ -162,6 +163,149 @@ describe('Pi runtime extension identity UI', () => {
 
     expect(context.header?.render(80)).toEqual(['Outfitter · Engineer']);
     expect(context.statuses).toEqual({});
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-005.8).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  describe('compiled Pi runtime launch', () => {
+    const plan = (): CompositionPlan => ({
+      agent: 'alpha',
+      identity: { systemPrompt: 'BASE', sharedContext: 'SHARED', agentBody: 'ALPHA' },
+      loadout: { skills: [], delegateSkills: [], subagents: [], mcp: [], mcpServers: {}, extensions: [], plugins: [] },
+      warnings: [],
+    });
+
+    it('attaches the compiled controller and its assets in noninteractive sessions', () => {
+      const composition = plan();
+      const input = {
+        rootDirectory: createTemporaryRoot(),
+        profile: { id: 'alpha' },
+        registry: { profiles: [{ agent: 'alpha', fingerprint: 'aaa', plan: composition }] },
+      };
+      const appendPath = join(input.rootDirectory, 'append.md');
+      writeFileSync(appendPath, 'SESSION-INSTRUCTIONS');
+      const launch = attachPiRuntimeExtension({ command: 'pi', args: ['--print'], env: {} }, input);
+      expect(launch.args[0]).toBe('--extension');
+      const content = readFileSync(launch.args[1], 'utf8');
+      expect(content).toContain('"prompt":"BASE\\n\\nSHARED\\n\\nALPHA"');
+      expect(content).toContain('"fingerprint":"aaa"');
+      expect(createPiRuntimeExtensionContent({ ...input, appendPromptPaths: [appendPath] })).toContain(
+        'SESSION-INSTRUCTIONS',
+      );
+      expect(readFileSync(join(input.rootDirectory, '.outfitter/outfitter-mcp.js'), 'utf8')).toContain('tools/call');
+    });
+
+    it('stamps selected skill summaries, normalized models, native envelopes and fragment identities', () => {
+      const root = createTemporaryRoot();
+      const skillPath = join(root, 'selected');
+      mkdirSync(skillPath);
+      writeFileSync(join(skillPath, 'SKILL.md'), '---\nname: selected\ndescription: Only this skill\n---\nBODY');
+      const composition = plan();
+      const content = createPiRuntimeExtensionContent({
+        registry: {
+          profiles: [
+            {
+              agent: 'alpha',
+              fingerprint: 'aaa',
+              plan: {
+                ...composition,
+                identity: { ...composition.identity, agentBodies: [] },
+                models: {
+                  configured: true,
+                  document: {},
+                  target: {
+                    providerId: 'test',
+                    modelId: 'one',
+                    api: 'test',
+                    baseUrl: '',
+                    requiredHeaders: {},
+                    capabilities: {},
+                    source: 'test',
+                  },
+                },
+                contributingAgents: [
+                  {
+                    kind: 'agent',
+                    slug: 'alpha',
+                    winner: {
+                      kind: 'agent',
+                      slug: 'alpha',
+                      path: root,
+                      layer: { root, origin: 'workspace', label: 'test' },
+                    },
+                    shadowed: [],
+                    piConfigDirectories: [root],
+                  },
+                  {
+                    kind: 'agent',
+                    slug: 'beta',
+                    winner: {
+                      kind: 'agent',
+                      slug: 'beta',
+                      path: root,
+                      layer: { root, origin: 'workspace', label: 'test' },
+                    },
+                    shadowed: [],
+                  },
+                ],
+                loadout: {
+                  ...composition.loadout,
+                  composedSubagents: [],
+                  skills: [
+                    {
+                      kind: 'skill',
+                      slug: 'selected',
+                      winner: {
+                        kind: 'skill',
+                        slug: 'selected',
+                        path: join(skillPath, 'SKILL.md'),
+                        layer: { root, origin: 'workspace', label: 'test' },
+                      },
+                      shadowed: [],
+                    },
+                  ],
+                },
+              },
+            },
+          ],
+        },
+      });
+      expect(content).toContain('"model":"test/one"');
+      expect(content).toContain('"description":"Only this skill"');
+      expect(content).not.toContain('SHARED\\n\\nALPHA');
+      writeFileSync(join(skillPath, 'SKILL.md'), 'invalid');
+      expect(() =>
+        createPiRuntimeExtensionContent({
+          registry: {
+            profiles: [
+              {
+                agent: 'alpha',
+                fingerprint: 'aaa',
+                plan: {
+                  ...composition,
+                  loadout: {
+                    ...composition.loadout,
+                    skills: [
+                      {
+                        kind: 'skill',
+                        slug: 'selected',
+                        winner: {
+                          kind: 'skill',
+                          slug: 'selected',
+                          path: join(skillPath, 'SKILL.md'),
+                          layer: { root, origin: 'workspace', label: 'test' },
+                        },
+                        shadowed: [],
+                      },
+                    ],
+                  },
+                },
+              },
+            ],
+          },
+        }),
+      ).toThrow('frontmatter');
+    });
   });
 
   it('falls back to the profile id and shows only Outfitter when no profile is stamped', async () => {

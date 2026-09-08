@@ -6,7 +6,10 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { findRepositoryCodeAsset } from '../../paths/RepositoryAssets.js';
+import type { CompositionPlan } from '../../composer/Composition.js';
+import { composedIdentityBody } from '../../projection/Materialize.js';
 import type { AgentLaunchPlan } from '../../projection/Projection.js';
+import { readSkillDocument } from '../../skills/SkillDocument.js';
 
 const nonInteractivePiLaunchFlags = new Set(['--print', '-p', '--export', '--list-models']);
 const nonInteractivePiModes = new Set(['json', 'print', 'rpc']);
@@ -23,6 +26,14 @@ export type PiProviderPromptMode = 'dialog' | 'hint';
 export interface PiRuntimeExtensionInput {
   readonly profile?: PiRuntimeProfileIdentity;
   readonly rootDirectory: string;
+  readonly appendPromptPaths?: readonly string[];
+  readonly registry?: {
+    readonly profiles: readonly {
+      readonly agent: string;
+      readonly fingerprint: string;
+      readonly plan: CompositionPlan;
+    }[];
+  };
   /**
    * How the extension reacts when pi has no model provider: offer /login in a dialog (default), or
    * print only a one-line /login hint because the user just skipped that step in first-run setup.
@@ -47,6 +58,40 @@ export const createPiRuntimeExtensionContent = (input: Omit<PiRuntimeExtensionIn
   const values: Record<string, unknown> = {
     OUTFITTER_ACTIVE_PROFILE: input.profile,
     OUTFITTER_PROVIDER_PROMPT_MODE: input.providerPrompt ?? 'dialog',
+    OUTFITTER_COMPILED_PROFILES: input.registry?.profiles.map(({ agent, fingerprint, plan }) => ({
+      id: agent,
+      fingerprint,
+      label: plan.identity.label,
+      prompt: [
+        composedIdentityBody(plan.identity),
+        ...(plan.identity.agentBodies === undefined ? [plan.identity.agentBody] : []),
+        ...(input.appendPromptPaths ?? []).map((path) => readFileSync(path, 'utf8')),
+      ]
+        .filter(Boolean)
+        .join('\n\n'),
+      skills: plan.loadout.skills.map((skill) => {
+        const path = skill.winner.path;
+        const document = readSkillDocument(path);
+        if ('message' in document) throw new Error(document.message);
+        return { name: document.name, description: document.description, path };
+      }),
+      model: plan.models?.target
+        ? `${plan.models.target.providerId}/${plan.models.target.modelId}`
+        : plan.loadout.model,
+      thinking: plan.loadout.thinking,
+      tools: plan.loadout.tools,
+      mcp: plan.loadout.mcp,
+      mcpServers: plan.loadout.mcpServers,
+      envelope: JSON.stringify({
+        extensions: plan.loadout.extensions,
+        plugins: plan.loadout.plugins,
+        overlays: plan.contributingAgents?.flatMap((resource) => resource.piConfigDirectories ?? []),
+        subagents: plan.loadout.composedSubagents ?? plan.loadout.subagents,
+        delegateSkills: plan.loadout.delegateSkills,
+        models: plan.models?.document,
+        promptTemplate: plan.identity.promptTemplate,
+      }),
+    })),
   };
   // Each placeholder becomes its JSON value (an absent profile stamps `undefined`). Stamped values
   // are never rescanned, so placeholder-shaped profile metadata is left alone.
@@ -62,12 +107,18 @@ export const createPiRuntimeExtensionContent = (input: Omit<PiRuntimeExtensionIn
  * non-interactive launches are returned unchanged.
  */
 export const attachPiRuntimeExtension = (plan: AgentLaunchPlan, input: PiRuntimeExtensionInput): AgentLaunchPlan => {
-  if (plan.command !== 'pi' || isNonInteractivePiLaunch(plan.args)) return plan;
+  if (plan.command !== 'pi' || (input.registry === undefined && isNonInteractivePiLaunch(plan.args))) return plan;
 
   const extensionDirectory = join(input.rootDirectory, '.outfitter');
   const extensionPath = join(extensionDirectory, 'outfitter-runtime-extension.js');
   mkdirSync(extensionDirectory, { recursive: true });
   writeFileSync(extensionPath, createPiRuntimeExtensionContent(input));
+  for (const asset of ['outfitter-profile-controller.js', 'outfitter-mcp.js']) {
+    const source = findRepositoryCodeAsset(`pi-extension/src/${asset}`);
+    /* v8 ignore next -- these sibling assets ship together with the runtime extension. */
+    if (source === undefined) throw new Error(`Outfitter runtime asset '${asset}' was not found.`);
+    writeFileSync(join(extensionDirectory, asset), readFileSync(source, 'utf8'));
+  }
 
   return { ...plan, args: ['--extension', extensionPath, ...plan.args] };
 };

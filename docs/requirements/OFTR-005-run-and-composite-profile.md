@@ -22,7 +22,7 @@ Amended (2026-07-17, RFC #165): `run` selects an agent slug and a harness, not a
 5. The `run` command MUST use the resolved `default_agent` when no agent is provided, and error when neither is available.
 6. The `run` command MUST accept `--harness <pi|claude|codex>`, defaulting to `default_harness` then `pi`.
 7. The `run` command MUST pass unrecognized arguments through to the selected harness CLI unaltered.
-8. The `run` command MUST resolve, compose, project, and launch through the shared resolver and composer.
+8. The `run` command MUST select a compiled composition after synchronization. Compilation and legacy unsynchronized launches MUST use the shared resolver and composer.
 9. The `run` command MUST accept a repeatable `--append-prompt <path>`, appending each named document to the system prompt after the composition's own fragments, in the order given.
 10. The `run` command MUST reject an `--append-prompt` path that is not a readable file before launching, naming both the flag and the path.
 11. For a harness that exposes a native append-prompt flag, `--append-prompt` MUST project through that flag so a caller does not have to know which harness will launch. Passthrough after `--` cannot satisfy this, because it reaches the harness unaltered per OFTR-005.1.7. A harness without a native append flag MUST warn that the prompt cannot be projected, subject to the OFTR-006.1.4 `--strict` policy.
@@ -96,3 +96,14 @@ Amended (2026-07-17, RFC #165): composition assembles from the effective resourc
 9. Outfitter MUST NOT mutate cache-backed or remote selected profile owners for generated prompt export and MUST emit an actionable warning when export is skipped for that reason.
 10. Generated prompt export MUST NOT change launch args except for Outfitter's own runtime export extension plumbing, launch environment except for the export-path handoff, composite profile contents, or state persistence behavior.
 11. During live composite profile updates, Outfitter SHOULD refresh generated prompt fallback artifacts when enabled.
+
+### OFTR-005.8: Compiled Launches and Live Pi Activation
+
+1. A launch after successful synchronization MUST read the compiled registry without fetching, repairing sources, or recomposing the selected agent.
+2. `/outfitter profile <slug>` MUST select a precompiled composition at an idle turn boundary without restarting Pi, replacing its session, invoking sync, or rewriting the live projection tree.
+3. Pi MUST replace the complete system prompt for each turn through `before_agent_start`; only the active identity and selected skill summaries may appear.
+4. Activation MUST select the destination model, thinking level, active tool allowlist, and MCP servers/tools. Validation or activation failure MUST preserve the prior profile and selectors.
+5. A successful change MUST update the header and persist a visible audit entry containing old/new slugs, composition fingerprints, and the turn boundary.
+6. The existing transcript MUST remain intact. Profiles share process credentials, environment, loaded extensions, and operating-system authority; activation MUST NOT be represented as a security boundary.
+7. Extension hooks MUST NOT be described as dynamically switched without an explicit activation contract. An incompatible process-scoped capability envelope MAY require a new launch.
+8. MCP integration MUST provide an explicit profile-aware activation and tool-filtering boundary, not merely load all selected servers into every profile.

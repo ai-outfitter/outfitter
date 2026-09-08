@@ -131,3 +131,12 @@ Amended (2026-07-17, RFC #165): adapters project a harness-neutral composition, 
 6. An adapter that cannot preserve a target's API dialect or provider ID MUST warn and MUST omit both the selected model identity and endpoint rather than silently using the same model ID against another endpoint; the existing `--strict` warning policy MUST make that warning fatal before launch.
 7. Runtime credential values MUST come from the environment. Effective registries MUST reject literal `apiKey` values, executable credential-source fields, non-string headers, and literal `Authorization` headers.
 8. When no `models.json` is configured, adapters MAY preserve legacy native model-name projection for compatibility.
+
+### OFTR-006.10: Synchronized Native Profile Parity
+
+1. Sync MUST emit a Claude native agent for every enabled composition, selectable by `claude --agent <slug>`, containing the composed identity and all supported native loadout fields.
+2. Sync MUST emit a Codex `<slug>.config.toml`, composed instruction document, and native configuration-layer registration selectable by `codex --profile <slug>`.
+3. Codex projection MUST map model, reasoning effort, instructions, policy, MCP, skills, and delegates wherever a stable native equivalent exists. Unsupported or unenforceable selections MUST be reported explicitly.
+4. Shared skills MUST be installed or linked once per harness rather than copied into every native agent.
+5. Every harness projection MUST carry the compiled composition fingerprint. A partial projection MUST expose its unsupported fields through machine-readable status and fail under strict projection.
+6. Native profile files and configuration keys MUST use OFTR-012 ownership-safe reconciliation and MUST NOT replace or delete unmanaged Claude or Codex content.
