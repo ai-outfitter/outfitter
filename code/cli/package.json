@@ -1,6 +1,6 @@
 {
   "name": "@ai-outfitter/outfitter",
-  "version": "1.16.1",
+  "version": "1.16.2",
   "description": "Profile-oriented wrapper for launching pi, Claude Code, and future agent CLIs with reproducible configuration.",
   "type": "module",
   "repository": {
