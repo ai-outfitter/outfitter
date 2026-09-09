@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.16.2](https://github.com/ai-outfitter/outfitter/compare/v1.16.1...v1.16.2) (2026-09-09)
+
+
+### Bug Fixes
+
+* preserve deterministic shadowing under strict mode ([#398](https://github.com/ai-outfitter/outfitter/issues/398)) ([b3db567](https://github.com/ai-outfitter/outfitter/commit/b3db567a8f96dc0459d6db21c66e14a75266f7e2))
+
 ## [1.16.1](https://github.com/ai-outfitter/outfitter/compare/v1.16.0...v1.16.1) (2026-09-08)
 
 
