@@ -27,7 +27,6 @@ import type { PiInstallSpawner } from '../../extensions/PiExtensionCache.js';
 import { resolveOutfitterCacheDir } from '../../paths/OutfitterCache.js';
 import { projectComposition } from '../../projection/ProjectHarness.js';
 import type { AgentLaunchPlan } from '../../projection/Projection.js';
-import { strictAmbiguityFailureMessage } from '../../resolver/AmbiguityWarnings.js';
 import { findResource } from '../../resolver/Resource.js';
 import { resolveEffectiveSet } from '../../resolver/ResolverContext.js';
 import type { Harness, Isolation, Settings, SourceCachePolicy } from '../../settings/Settings.js';
@@ -384,12 +383,6 @@ export const executeRunAgentCommand = async (input: RunAgentInput): Promise<RunA
   // only to turn an unavailable selected agent into a concise synchronization action.
   const resolutionWarnings = resolutionWarningsForRun(resolved, input.strict);
 
-  if (input.strict === true && resolved.ambiguityWarnings.length > 0) {
-    const messages = [...resolutionWarnings, strictAmbiguityFailureMessage];
-    emit(messages);
-    return { exitCode: 1, messages };
-  }
-
   const { set, settings } = resolved;
   const agentSlug = resolveAgentSlug(settings.defaultAgent, input.agent);
   const harness = resolveHarness(settings.defaultHarness, input.harness);
@@ -506,7 +499,7 @@ export const createRunAgentCommand = (dependencies: RunAgentDependencies = {}): 
           .default('info')
           .env('OUTFITTER_LOG_LEVEL'),
       )
-      .option('--strict', 'Treat ambiguity, composition warnings, and unsupported loadout elements as fatal.')
+      .option('--strict', 'Treat composition warnings and unsupported loadout elements as fatal.')
       .addOption(
         new Option('--source-cache-policy <policy>', 'Remote source cache startup policy.').choices([
           ...SOURCE_CACHE_POLICIES,

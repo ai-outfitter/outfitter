@@ -57,7 +57,7 @@ This is the same boundary [state persistence](./state.md) enforces at run time: 
 | `skipped`   | The harness CLI is not on `PATH`, or its `mcp add` failed.                                                                                                                        |
 | `pruned`    | A managed symlink whose target vanished was removed and forgotten.                                                                                                                |
 
-Conflicts are reported, not resolved: move or unlink the unmanaged entry yourself, then relink. `--strict` exits 1 on any warning, conflict, or skipped entry, which is the form to use in scripts.
+Conflicts are reported, not resolved: move or unlink the unmanaged entry yourself, then relink. `--strict` exits 1 on non-advisory warnings, conflicts, or skipped entries; deterministic precedence and shadowing diagnostics remain advisory, which is the form to use in scripts.
 
 ## Relinking
 

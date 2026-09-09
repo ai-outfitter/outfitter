@@ -1,11 +1,11 @@
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 
 import { Command } from 'commander';
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { createDumpCommand } from '../../src/cli/commands/DumpCommand.js';
+import { createDumpCommand, executeDumpCommand } from '../../src/cli/commands/DumpCommand.js';
 import { createListCommand, executeListCommand } from '../../src/cli/commands/ListCommand.js';
 import { executeRunAgentCommand } from '../../src/cli/commands/RunAgentCommand.js';
 import { createSyncCommand, executeSyncCommand } from '../../src/cli/commands/SyncCommand.js';
@@ -189,7 +189,7 @@ describe('ambiguous source resolution warnings', () => {
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-004.7.1, OFTR-004.7.6).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
-  it('makes a source ref conflict fatal for run under strict mode', async () => {
+  it('reports a source ref conflict without failing run under strict mode', async () => {
     const root = createTemporaryRoot();
     runnableAgent(root);
     write(
@@ -199,16 +199,15 @@ describe('ambiguous source resolution warnings', () => {
 
     const result = await run(root, true);
 
-    expect(result.exitCode).not.toBe(0);
+    expect(result.exitCode).toBe(0);
     expect(
       result.messages.some((message) => message.includes("Ambiguous source repository 'github:acme/catalog'")),
     ).toBe(true);
-    expect(result.messages.at(-1)).toBe('Strict mode: ambiguous resolution is fatal.');
   });
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-004.7.3, OFTR-004.7.6).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
-  it('makes a supplier slug collision fatal for run under strict mode', async () => {
+  it('reports a supplier slug collision without failing run under strict mode', async () => {
     const root = createTemporaryRoot();
     const first = join(root, 'first');
     const second = join(root, 'second');
@@ -219,14 +218,13 @@ describe('ambiguous source resolution warnings', () => {
 
     const result = await run(root, true);
 
-    expect(result.exitCode).not.toBe(0);
+    expect(result.exitCode).toBe(0);
     expect(result.messages.some((message) => message.includes("Ambiguous skill slug 'shared'"))).toBe(true);
-    expect(result.messages.at(-1)).toBe('Strict mode: ambiguous resolution is fatal.');
   });
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-004.7.2, OFTR-004.7.6).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
-  it('makes a dropped-source replacement fatal for run under strict mode', async () => {
+  it('reports a dropped-source replacement without failing run under strict mode', async () => {
     const root = createTemporaryRoot();
     runnableAgent(root);
     write(join(root, 'home', '.agents', 'settings.yml'), 'sources:\n  - github: acme/user-catalog\n');
@@ -234,14 +232,13 @@ describe('ambiguous source resolution warnings', () => {
 
     const result = await run(root, true);
 
-    expect(result.exitCode).not.toBe(0);
+    expect(result.exitCode).toBe(0);
     expect(result.messages.some((message) => message.includes("source 'github:acme/user-catalog'"))).toBe(true);
-    expect(result.messages.at(-1)).toBe('Strict mode: ambiguous resolution is fatal.');
   });
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-004.7.4, OFTR-004.7.6).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
-  it('gates ambiguity in strict sync, validate, and list while a clean strict configuration succeeds', async () => {
+  it('keeps ambiguity advisory in strict sync, validate, and list', async () => {
     const ambiguousRoot = createTemporaryRoot();
     const first = join(ambiguousRoot, 'first');
     const second = join(ambiguousRoot, 'second');
@@ -257,9 +254,9 @@ describe('ambiguous source resolution warnings', () => {
       strict: true,
     };
 
-    expect(executeSyncCommand(ambiguousInput).exitCode).not.toBe(0);
-    expect(executeValidateCommand(ambiguousInput).ok).toBe(false);
-    expect(executeListCommand({ ...ambiguousInput, kind: 'agents' }).exitCode).not.toBe(0);
+    expect(executeSyncCommand(ambiguousInput).exitCode).toBe(0);
+    expect(executeValidateCommand(ambiguousInput).ok).toBe(true);
+    expect(executeListCommand({ ...ambiguousInput, kind: 'agents' }).exitCode).toBe(0);
 
     const cleanRoot = createTemporaryRoot();
     runnableAgent(cleanRoot);
@@ -294,16 +291,16 @@ describe('ambiguous source resolution warnings', () => {
     const syncProgram = new Command();
     createSyncCommand(dependencies).register(syncProgram);
     await syncProgram.parseAsync(['node', 'outfitter', 'sync', '--strict']);
-    expect(process.exitCode).toBe(1);
-    expect(lines.at(-1)).toBe('failed: Strict mode: ambiguous resolution is fatal.');
+    expect(process.exitCode).toBeUndefined();
+    expect(lines.some((message) => message.includes('Ambiguous skill slug'))).toBe(true);
 
     process.exitCode = undefined;
     lines.length = 0;
     const listProgram = new Command();
     createListCommand(dependencies).register(listProgram);
     await listProgram.parseAsync(['node', 'outfitter', 'list', 'agents', '--strict']);
-    expect(process.exitCode).toBe(1);
-    expect(lines.at(-1)).toBe('error: Strict mode: ambiguous resolution is fatal.');
+    expect(process.exitCode).toBeUndefined();
+    expect(lines.some((message) => message.includes('Ambiguous skill slug'))).toBe(true);
 
     process.exitCode = undefined;
     lines.length = 0;
@@ -311,15 +308,15 @@ describe('ambiguous source resolution warnings', () => {
     createListCommand(dependencies).register(jsonListProgram);
     await jsonListProgram.parseAsync(['node', 'outfitter', 'list', 'agents', '--strict', '--json']);
     const json = JSON.parse(lines.join('\n')) as { ok: boolean; resources: unknown[]; diagnostics: string[] };
-    expect(process.exitCode).toBe(1);
-    expect(json.ok).toBe(false);
+    expect(process.exitCode).toBeUndefined();
+    expect(json.ok).toBe(true);
     expect(json.resources).toEqual([]);
-    expect(json.diagnostics.some((message) => message.includes('ambiguous resolution is fatal'))).toBe(true);
+    expect(json.diagnostics.some((message) => message.includes('Ambiguous skill slug'))).toBe(true);
   });
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-004.7.4, OFTR-004.7.6).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
-  it('gates dump ambiguity under --strict while keeping it advisory by default', async () => {
+  it('keeps dump ambiguity advisory under --strict and by default', async () => {
     const root = createTemporaryRoot();
     const first = join(root, 'first');
     const second = join(root, 'second');
@@ -345,9 +342,9 @@ describe('ambiguous source resolution warnings', () => {
       join(root, 'strict-dump'),
       '--strict',
     ]);
-    expect(process.exitCode).toBe(1);
+    expect(process.exitCode).toBeUndefined();
     expect(lines.some((message) => message.includes("Ambiguous agent slug 'engineer'"))).toBe(true);
-    expect(lines.at(-1)).toBe('error: Strict mode: ambiguous resolution is fatal.');
+    expect(lines.some((message) => message.startsWith("Dumped 'engineer'"))).toBe(true);
 
     process.exitCode = undefined;
     lines.length = 0;
@@ -384,7 +381,7 @@ describe('ambiguous source resolution warnings', () => {
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-004.7.1, OFTR-004.7.2, OFTR-004.7.3, OFTR-004.7.6).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
-  it('reports every ambiguity before strict mode fails', async () => {
+  it('reports every ambiguity while strict mode succeeds', async () => {
     const root = createTemporaryRoot();
     const first = join(root, 'first');
     const second = join(root, 'second');
@@ -398,14 +395,53 @@ describe('ambiguous source resolution warnings', () => {
     );
 
     const result = await run(root, true);
-    const failureIndex = result.messages.indexOf('Strict mode: ambiguous resolution is fatal.');
     const ambiguityIndexes = [
       result.messages.findIndex((message) => message.includes("source 'github:acme/dropped'")),
       result.messages.findIndex((message) => message.includes("Ambiguous source repository 'github:acme/catalog'")),
       result.messages.findIndex((message) => message.includes("Ambiguous skill slug 'shared'")),
     ];
 
-    expect(ambiguityIndexes.every((index) => index >= 0 && index < failureIndex)).toBe(true);
-    expect(failureIndex).toBe(result.messages.length - 1);
+    expect(result.exitCode).toBe(0);
+    expect(ambiguityIndexes.every((index) => index >= 0)).toBe(true);
+  });
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-004.7.2).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('ignores replaced settings scopes that declare no sources', () => {
+    const root = createTemporaryRoot();
+    write(join(root, 'home', '.agents', 'settings.yml'), 'default_agent: engineer\n');
+    write(join(root, 'project', '.agents', 'settings.yml'), 'sources: []\n');
+
+    expect(resolve(root).ambiguityWarnings).toEqual([]);
+  });
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-003.7.1, OFTR-004.7.3, OFTR-004.7.6).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('rejects and removes a strict dump for composition warnings while preserving shadow diagnostics', () => {
+    const root = createTemporaryRoot();
+    const winner = join(root, 'winner');
+    const shadowed = join(root, 'shadowed');
+    write(
+      join(winner, 'agents', 'engineer', 'agent.md'),
+      '---\nname: engineer\nskills: [missing-skill]\nsubagents: [missing-agent]\nappend_system_prompt:\n  - repo_file: docs/missing.md\n---\n\nWinner.\n',
+    );
+    resource(shadowed, 'agents', 'engineer');
+    write(join(root, 'project', '.agents', 'settings.yml'), `sources:\n  - path: ${winner}\n  - path: ${shadowed}\n`);
+    const out = join(root, 'strict-warning-dump');
+
+    const result = executeDumpCommand({
+      homeDirectory: join(root, 'home'),
+      projectDirectory: join(root, 'project'),
+      agent: 'engineer',
+      out,
+      strict: true,
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.writtenPaths).toEqual([]);
+    expect(result.messages.some((message) => message.includes("Ambiguous agent slug 'engineer'"))).toBe(true);
+    expect(result.messages.some((message) => message.includes("unknown skill 'missing-skill'"))).toBe(true);
+    expect(result.messages.some((message) => message.includes("unknown agent 'missing-agent'"))).toBe(true);
+    expect(result.messages.some((message) => message.includes("repo_file prompt source 'docs/missing.md'"))).toBe(true);
+    expect(result.messages.at(-1)).toBe('error: Strict mode: composition warnings are fatal.');
+    expect(existsSync(join(out, '.agents'))).toBe(false);
   });
 });

@@ -76,16 +76,16 @@ List resolvable resources across all layers, with the winning source for each sl
 | -------- | -------------------------------------------------------------------------- |
 | `[kind]` | Optional filter: `agents`, `skills`, `knowledge`, `commands`, `workflows`. |
 
-`--json` emits an object containing `ok`, `resources`, and `diagnostics`; diagnostics remain available when strict mode fails. Each workflow resource entry also contains a name-sorted `outputs` object with resolved output labels, or `{}` when the workflow declares none. Non-JSON output is unchanged. See [OFTR-013: Workflow Contract](../requirements/OFTR-013-workflow-contract.md).
+`--json` emits an object containing `ok`, `resources`, and `diagnostics`; diagnostics remain available under strict mode. Each workflow resource entry also contains a name-sorted `outputs` object with resolved output labels, or `{}` when the workflow declares none. Non-JSON output is unchanged. See [OFTR-013: Workflow Contract](../requirements/OFTR-013-workflow-contract.md).
 
 ## `outfitter validate`
 
 Validate the effective resource set: protocol layout, frontmatter, unresolved slugs in agent loadouts, broken or escaping skill references, workflow graphs and composed closures, and settings schema.
 
-| Option     | Description                              |
-| ---------- | ---------------------------------------- |
-| `--strict` | Exit non-zero when warnings are present. |
-| `--json`   | Print diagnostics as JSON.               |
+| Option     | Description                                                                                                |
+| ---------- | ---------------------------------------------------------------------------------------------------------- |
+| `--strict` | Exit non-zero on incomplete or unsupported composition warnings; deterministic shadowing remains advisory. |
+| `--json`   | Print diagnostics as JSON.                                                                                 |
 
 ## `outfitter dump`
 
@@ -119,7 +119,7 @@ opt-in persistent one. See [Linking into Claude Code and Codex](./linking-harnes
 | `--all`            | Link every resolvable agent, with its skills and commands.                                                                        |
 | `--dry-run`        | Report what would change (`would create`, `would update`, `would prune`) without touching the home.                               |
 | `--remove`         | Remove every entry this command created and forget it.                                                                            |
-| `--strict`         | Exit non-zero on warnings, conflicts, or skipped entries.                                                                         |
+| `--strict`         | Exit non-zero on non-advisory warnings, conflicts, or skipped entries; deterministic shadowing remains advisory.                  |
 
 ```bash
 outfitter link                                    # enabled workflows + default_agent, every installed harness
