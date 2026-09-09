@@ -120,6 +120,17 @@ Amended (2026-07-17, RFC #165): adapters project a harness-neutral composition, 
 6. Plan mode MUST restrict active tools to read-only inspection tools, exclude Bash from the active tool set, and block Bash tool calls while plan mode is active.
 7. Interactive Pi launches SHOULD register a native `/outfitter` command for Outfitter-specific setup and profile management that can run without an agent turn.
 8. Non-interactive Pi launches MUST NOT inject the Outfitter bootstrap extension.
+9. **Amendment (2026-09-07, [#387](https://github.com/ai-outfitter/outfitter/issues/387)):** Interactive
+   Pi launches MUST register `/outfitter profile <slug>`, which selects one compiled composition from
+   the synced profile registry (OFTR-004.2.25) for the next turn of the same process and session. The
+   switch MUST replace — not append to — the per-turn system prompt, expose only the destination
+   profile's selected skill summaries and tool allowlist, select its model and thinking level, update
+   the Outfitter header, and append an `outfitter-profile-change` session entry recording the old and
+   new slugs and composition fingerprints. A failed activation MUST leave the prior active profile and
+   all selectors unchanged. Switching MUST NOT restart Pi, create another session, invoke sync, rewrite
+   a live projection tree, or claim a security boundary: in-process profiles share process credentials,
+   environment, loaded extensions, and operating-system authority. MCP server activation and
+   profile-scoped hooks are not switched until the Pi MCP adapter exposes a profile-aware seam.
 
 ### OFTR-006.9: Canonical Cross-Harness Model Projection
 

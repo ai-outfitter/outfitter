@@ -16,6 +16,8 @@ export interface LinkSelection {
   readonly agents: readonly string[];
   readonly workflows: readonly string[];
   readonly all: boolean;
+  /** `link` fails on an empty scope; callers that treat empty as "nothing to do" set this. */
+  readonly allowEmpty?: boolean;
 }
 
 export interface LinkScope {
@@ -71,7 +73,7 @@ export const resolveLinkScope = (
     ...explicitAgents(set, explicit ? selection.agents : defaults, errors),
   ]);
 
-  if (errors.length === 0 && agents.size === 0) errors.push(nothingToLink);
+  if (errors.length === 0 && agents.size === 0 && selection.allowEmpty !== true) errors.push(nothingToLink);
   return { agents: [...agents].sort(compareSlugs), errors };
 };
 

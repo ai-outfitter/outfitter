@@ -6,6 +6,7 @@ import type { CommandObject } from './commands/CommandObject.js';
 import { createDumpCommand } from './commands/DumpCommand.js';
 import { createLinkCommand } from './commands/LinkCommand.js';
 import { createListCommand } from './commands/ListCommand.js';
+import { createProfilesCommand } from './commands/ProfilesCommand.js';
 import { createRunAgentCommand } from './commands/RunAgentCommand.js';
 import { createSetupCommand } from './commands/SetupCommand.js';
 import { createSourcesCommand } from './commands/SourcesCommand.js';
@@ -21,6 +22,7 @@ export const createDefaultCommands = (): CommandObject[] => [
   createValidateCommand(),
   createDumpCommand(),
   createLinkCommand(),
+  createProfilesCommand(),
 ];
 
 export const createOutfitterProgram = (commands: readonly CommandObject[] = createDefaultCommands()): Command => {

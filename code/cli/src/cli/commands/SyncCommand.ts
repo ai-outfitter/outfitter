@@ -37,6 +37,8 @@ import {
 import type { RemoteSourceReference } from '../../sources/SourceCache.js';
 import { writeSourceState } from '../../sources/SourceState.js';
 import { readDeclaredRemoteSources } from '../../sources/TransitiveSources.js';
+import { syncProfiles } from '../../profiles/SyncProfiles.js';
+import type { ComposeFunction } from '../../profiles/ProfileCompiler.js';
 import type { CommandObject } from './CommandObject.js';
 import { resolveHomeDirectory, resolveProjectDirectory } from './ProcessDefaults.js';
 
@@ -61,6 +63,8 @@ export interface SyncCommandInput {
   readonly homeDirectory: string;
   readonly projectDirectory: string;
   readonly strict?: boolean;
+  /** Harness-home detection environment (PI_CODING_AGENT_DIR, CLAUDE_CONFIG_DIR, CODEX_HOME). */
+  readonly env?: Readonly<Record<string, string | undefined>>;
 }
 
 /** Fetches one repository into the cache. Injectable so tests exercise the closure hermetically. */
@@ -74,6 +78,8 @@ export interface SyncCommandDependencies {
   readonly privateCatalogGate?: PrivateCatalogSourceGate;
   readonly writeLine?: (message: string) => void;
   readonly syncRepository?: RepositorySync;
+  /** Injectable composer for compiled-profile tests that spy on composition. */
+  readonly compose?: ComposeFunction;
 }
 
 interface SyncPhaseResult<T extends RemoteSourceReference> {
@@ -304,7 +310,10 @@ const finishSync = (
 /** Validates settings, syncs remote settings, reloads, syncs remote sources, then their closure. */
 export const executeSyncCommand = (
   input: SyncCommandInput,
-  dependencies: Pick<SyncCommandDependencies, 'classifier' | 'prompt' | 'privateCatalogGate' | 'syncRepository'> = {},
+  dependencies: Pick<
+    SyncCommandDependencies,
+    'classifier' | 'prompt' | 'privateCatalogGate' | 'syncRepository' | 'compose'
+  > = {},
 ): SyncCommandResult => {
   const local = loadSettings(discoverSettingsLoadPlan(input));
   if (local.issues.length > 0) {
@@ -365,13 +374,38 @@ export const executeSyncCommand = (
     sourcePhase,
   });
   const result = finishSync(merged.issues, remoteSettingsPhase, sourcePhase, transitiveClosure);
-  const ambiguityWarnings = resolveEffectiveSet(input).ambiguityWarnings;
+  return appendCompiledProfiles(result, input, dependencies.compose, merged.issues.length);
+};
+
+/**
+ * Compile-and-project runs only when the merged settings resolve; invalid settings already fail
+ * the sync, so no compiled state is produced from an untrustworthy source set (OFTR-004.2.25).
+ */
+const appendCompiledProfiles = (
+  result: SyncCommandResult,
+  input: SyncCommandInput,
+  compose: ComposeFunction | undefined,
+  mergedIssueCount: number,
+): SyncCommandResult => {
+  const resolution = mergedIssueCount === 0 ? resolveEffectiveSet(input) : undefined;
+  if (resolution === undefined) return result;
+  const profiles = syncProfiles({
+    homeDirectory: input.homeDirectory,
+    projectDirectory: input.projectDirectory,
+    set: resolution.set,
+    settings: resolution.settings,
+    env: input.env ?? {},
+    strict: input.strict === true,
+    compose,
+  });
+  const ambiguityWarnings = resolution.ambiguityWarnings;
   const strictFailure = input.strict === true && ambiguityWarnings.length > 0;
   return {
     ...result,
-    exitCode: strictFailure ? 1 : result.exitCode,
+    exitCode: strictFailure || profiles.failed ? 1 : result.exitCode,
     messages: [
       ...result.messages,
+      ...profiles.messages,
       ...ambiguityWarnings.map((warning) => `warning: ${warning}`),
       ...(strictFailure ? [`failed: ${strictAmbiguityFailureMessage}`] : []),
     ],
@@ -392,6 +426,7 @@ export const createSyncCommand = (dependencies: SyncCommandDependencies = {}): C
               homeDirectory: resolveHomeDirectory(dependencies.homeDirectory),
               projectDirectory: resolveProjectDirectory(dependencies.projectDirectory),
               strict: options.strict,
+              env: process.env,
             },
             dependencies,
           );

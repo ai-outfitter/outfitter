@@ -69,3 +69,35 @@ and separate from the temporary projection `outfitter run` builds and removes pe
 7. A Codex server id containing characters outside `[A-Za-z0-9_-]`, or a definition with neither `url` nor `command`, MUST be reported `skipped` with a warning and MUST NOT be registered.
 8. When two composed agents define the same MCP server id differently, `link` MUST register the first definition in closure order and warn about the difference.
 9. `--remove` MUST unregister owned servers with `claude mcp remove <id> --scope user` or `codex mcp remove <id>`, and MUST NOT unregister servers the manifest does not record.
+
+## OFTR-012.6: Compiled Profile Projections
+
+**Added (2026-09-07,
+[#387](https://github.com/ai-outfitter/outfitter/issues/387)):** `outfitter sync` is the compilation
+boundary: it composes the enabled agent set once into a harness-neutral profile registry and projects
+that registry into every detected harness home (OFTR-004.2.25–26). These projections follow the same
+ownership and idempotence discipline as the links above.
+
+1. The compiled registry MUST be written to `~/.outfitter/profiles/registry.json` and MUST carry, per
+   agent, the composition fingerprint (`sha256:` over the canonical harness-neutral composition), the
+   composed system prompt, selected skill summaries, model and thinking selection, tool policy, and
+   selected MCP server definitions.
+2. The Pi projection MUST be the compiled registry at `<pi home>/outfitter/profiles/registry.json`,
+   consumable by the Outfitter runtime extension without network access or recomposition.
+3. The Claude Code projection MUST be a native agent definition `agents/<slug>.md` per compiled agent,
+   generated with the same frontmatter shape OFTR-012.2.4 specifies plus a generated marker recording
+   the composition fingerprint, so `claude --agent <slug>` selects the composed identity.
+4. The Codex projection MUST be `<slug>.config.toml` per compiled agent — carrying a `[profiles.<slug>]`
+   table with the model, reasoning effort, and the absolute path of a composed instruction document
+   `outfitter/agents/<slug>.md` — plus a `fingerprint:` comment, so the profile is selectable with
+   `codex --profile <slug>`.
+5. Each harness home MUST record projected fingerprints in `<harness home>/.outfitter/profiles.json`;
+   that manifest is the ownership record for profile projections, and OFTR-012.3's preservation rules
+   apply to it unchanged.
+6. Running projection twice with unchanged inputs MUST report every artifact `unchanged` and MUST
+   leave all projected files byte-identical. A compiled agent that leaves the registry MUST have its
+   manifest-owned artifacts removed; artifacts recorded by the `outfitter link` manifest (OFTR-012.3)
+   MUST NOT be removed by profile projection.
+7. `outfitter profiles [--json]` MUST report per compiled agent and harness whether the projected
+   fingerprint matches the compiled registry (`ready`/`partial`/`missing`) and whether the harness
+   home was detected (`unavailable`), with unsupported elements listed for `partial`.

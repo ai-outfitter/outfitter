@@ -45,3 +45,52 @@ See [Agents](./agents.md#inheritance-and-prompt-fragments) for the exact merge a
 Earlier Outfitter versions defined profiles as authored YAML files (`.outfitter/profiles/`, `profile.yml`, inheritance, `controls`).
 That system is removed with no compatibility mode.
 See the [migration reference](./migration.md) for the manual mapping from the legacy format to agents and their loadouts.
+
+## Compiled profiles
+
+`outfitter sync` is the compilation boundary between your `.agents` tree and each harness's native
+profile surface (issue [#387](https://github.com/ai-outfitter/outfitter/issues/387)).
+After fetching sources, sync composes every enabled agent exactly once, fingerprints the composition
+(`sha256` over the harness-neutral plan), and writes a registry to `~/.outfitter/profiles/registry.json`.
+Runtime selection then consumes precompiled compositions instead of recomposing them:
+
+- **Pi** receives the registry at `<pi home>/outfitter/profiles/registry.json`.
+  In a Pi session, `/outfitter profile <slug>` switches the active composition for the next turn of
+  the same process and session: the per-turn system prompt is replaced (never appended to), only the
+  destination profile's skill summaries and tool allowlist are exposed, its model and thinking level
+  are selected, the header updates, and an auditable `outfitter-profile-change` entry records the old
+  and new slugs and fingerprints. A failed activation (unknown slug, missing model) leaves the prior
+  profile and every selector untouched. Switching shares the process credentials and authority —
+  it is posture selection, not a security boundary — and it does not restart Pi or rewrite a live
+  projection tree. MCP server activation and profile-scoped hooks are not switched until the Pi MCP
+  adapter exposes a profile-aware seam.
+- **Claude Code** receives a native agent definition `agents/<slug>.md` per compiled agent, carrying
+  the composed identity and supported loadout with the fingerprint in the generated marker, so
+  `claude --agent engineer` selects it.
+- **Codex** receives `<slug>.config.toml` per compiled agent — a `[profiles.<slug>]` table with the
+  model, reasoning effort, and the path of a composed instruction document at
+  `outfitter/agents/<slug>.md` — plus a `fingerprint:` comment, so `codex --profile engineer`
+  selects it. Codex profiles cannot express per-profile skill, tool, subagent, or MCP enforcement;
+  those elements are reported as unsupported rather than dropped silently.
+
+Each harness home records projected fingerprints in `<harness home>/.outfitter/profiles.json`, and
+`outfitter profiles --json` compares them against the compiled registry:
+
+```json
+{
+  "profiles": [
+    {
+      "agent": "engineer",
+      "fingerprint": "sha256:…",
+      "pi": { "status": "ready" },
+      "claude": { "status": "partial", "unsupported": ["mcp"] },
+      "codex": { "status": "partial", "unsupported": ["skills", "tools"] }
+    }
+  ]
+}
+```
+
+Projections follow the same ownership rules as `outfitter link`: an unmanaged file at a planned path
+is a `conflict` and fails the sync instead of being overwritten, and a replay with unchanged inputs
+performs no filesystem mutation. `outfitter link` and `outfitter sync` may manage the same Claude
+agent definition; the projections converge because both generate from the same composition.

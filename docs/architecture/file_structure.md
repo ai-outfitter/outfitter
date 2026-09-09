@@ -61,6 +61,10 @@ Outfitter is organized around a private npm workspace root, clear TypeScript pac
 │   │   │   │   ├── HarnessLinkPlan.ts # scope selection, closure composition, and per-harness link entries
 │   │   │   │   ├── HarnessLinkApply.ts # ownership manifest, conflict-preserving reconciliation, prune, and remove
 │   │   │   │   └── HarnessMcp.ts      # harness CLI arguments for MCP add, get, and remove
+│   │   │   ├── profiles/              # sync-compiled profile registry and its harness-home projections (#387)
+│   │   │   │   ├── ProfileCompiler.ts   # compose each enabled agent once; fingerprint and serialize the registry
+│   │   │   │   ├── ProfileProjection.ts # Pi registry, Claude agents/<slug>.md, and Codex <slug>.config.toml plans with OFTR-012 ownership
+│   │   │   │   └── SyncProfiles.ts      # sync compile-and-project phase (scope, registry write, per-harness apply)
 │   │   │   ├── merge/                 # deterministic value and array merge policy helpers
 │   │   │   ├── agents/                # process launch, configuration strategy, and adapter persistence bridges
 │   │   │   │   ├── ClaudeConfigStrategy.ts        # inherit/isolated resolution plus the harness compatibility probe

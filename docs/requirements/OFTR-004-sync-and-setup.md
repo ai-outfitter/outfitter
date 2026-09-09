@@ -93,6 +93,32 @@ Outfitter provides setup and maintenance commands that onboard a new user, synch
 24. Outfitter MUST provide `outfitter sources [--json]` with credential-redacted source, requested
     and resolved revision, origin, cache health, and precedence. JSON output MUST be stable and MUST
     NOT contain credentials.
+25. **Amendment (2026-09-07, [#387](https://github.com/ai-outfitter/outfitter/issues/387)):** After
+    sources are synchronized and merged settings are valid, `sync` MUST compile every enabled agent
+    — every enabled workflow root plus `default_agent` — exactly once from the resolved effective
+    set into a harness-neutral profile registry stored at `~/.outfitter/profiles/registry.json`, and
+    MUST fail when any scoped agent fails to compose. A registry with unchanged inputs MUST be
+    byte-identical across syncs.
+26. **Amendment (2026-09-07, [#387](https://github.com/ai-outfitter/outfitter/issues/387)):** `sync`
+    MUST project the compiled registry into every detected harness home: Pi receives the compiled
+    registry at `<pi home>/outfitter/profiles/registry.json`; Claude Code receives a native agent
+    definition `agents/<slug>.md` per compiled agent; Codex receives `<slug>.config.toml` plus a
+    composed instruction document per compiled agent. Every generated artifact MUST record the same
+    composition fingerprint the registry records for that agent.
+27. **Amendment (2026-09-07, [#387](https://github.com/ai-outfitter/outfitter/issues/387)):** A
+    second `sync` with unchanged inputs MUST produce byte-identical compiled outputs and MUST NOT
+    mutate any harness home file.
+28. **Amendment (2026-09-07, [#387](https://github.com/ai-outfitter/outfitter/issues/387)):** `sync`
+    MUST NOT overwrite or delete unmanaged Claude or Codex files when projecting profiles. An
+    unmanaged file at a planned path MUST be reported as a conflict and MUST fail the sync.
+29. **Amendment (2026-09-07, [#387](https://github.com/ai-outfitter/outfitter/issues/387)):** Selected
+    loadout elements a harness's native profile surface cannot express MUST be reported per profile
+    and harness, and MUST fail the sync under `--strict`.
+30. **Amendment (2026-09-07, [#387](https://github.com/ai-outfitter/outfitter/issues/387)):** Outfitter
+    MUST provide `outfitter profiles [--json]` reporting, per compiled agent, the composition
+    fingerprint and each harness's projection status: `ready`, `partial` (with the unsupported
+    elements listed), `missing`, or `unavailable` (harness home not detected). JSON output MUST be
+    stable.
 
 ### OFTR-004.3: Create Profile Command
 
