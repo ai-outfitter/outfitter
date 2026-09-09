@@ -198,6 +198,9 @@ const claudeArgs = (rootDirectory: string, isolation: Isolation, settingsPath?: 
 const claudeEnv = (rootDirectory: string, isolation: Isolation): Readonly<Record<string, string>> =>
   isolation === 'isolated' ? { CLAUDE_CONFIG_DIR: rootDirectory } : {};
 
+const piAgentEnv = (profileSlug: string | undefined): Readonly<Record<string, string>> =>
+  profileSlug === undefined ? {} : { AGENT_NAME: profileSlug };
+
 /**
  * An inherited Claude run reaches the composition through `--plugin-dir`, which needs the runtime
  * root to declare itself a plugin. Called after materialization so it survives the subagent
@@ -247,6 +250,7 @@ const buildPiOrClaudeLaunchPlan = (
           ...(input.sessionDirectory === undefined ? {} : { [PI_SESSION_DIRECTORY_ENV]: input.sessionDirectory }),
           ...model.env,
           PI_MCP_CONFIG_MODE: 'exclusive',
+          ...piAgentEnv(input.profileSlug),
         }
       : { ...claudeEnv(input.rootDirectory, isolation), ...model.env },
   };

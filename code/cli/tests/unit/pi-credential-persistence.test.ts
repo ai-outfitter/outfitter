@@ -66,10 +66,48 @@ describe('pi credential persistence', () => {
     const base = root();
     const userDir = join(base, 'user');
     const projection = join(base, 'projection');
+
+    const seeded = seedPiCredentials(projection, userDir);
     write(join(projection, 'auth.json'), '{"anthropic":"new"}');
 
-    persistPiCredentials(projection, userDir);
-    expect(readFileSync(join(userDir, 'auth.json'), 'utf8')).toBe('{"anthropic":"new"}');
+    persistPiCredentials(projection, userDir, true, seeded);
+    expect(JSON.parse(readFileSync(join(userDir, 'auth.json'), 'utf8'))).toEqual({ anthropic: 'new' });
+  });
+
+  it('does not let an unchanged stale session erase a concurrently added provider', () => {
+    const base = root();
+    const userDir = join(base, 'user');
+    const projection = join(base, 'projection');
+    write(join(userDir, 'auth.json'), '{"openai":{"type":"oauth"}}');
+
+    const seeded = seedPiCredentials(projection, userDir);
+    write(join(userDir, 'auth.json'), '{"openai":{"type":"oauth"},"dgx-spark":{"type":"api_key"}}');
+
+    persistPiCredentials(projection, userDir, true, seeded);
+    expect(JSON.parse(readFileSync(join(userDir, 'auth.json'), 'utf8'))).toEqual({
+      openai: { type: 'oauth' },
+      'dgx-spark': { type: 'api_key' },
+    });
+  });
+
+  it('merges only provider changes made by this session into current durable credentials', () => {
+    const base = root();
+    const userDir = join(base, 'user');
+    const projection = join(base, 'projection');
+    write(join(userDir, 'auth.json'), '{"openai":{"access":"old"},"removed":{"key":"old"}}');
+
+    const seeded = seedPiCredentials(projection, userDir);
+    write(join(projection, 'auth.json'), '{"openai":{"access":"new"}}');
+    write(
+      join(userDir, 'auth.json'),
+      '{"openai":{"access":"old"},"removed":{"key":"old"},"dgx-spark":{"key":"concurrent"}}',
+    );
+
+    persistPiCredentials(projection, userDir, true, seeded);
+    expect(JSON.parse(readFileSync(join(userDir, 'auth.json'), 'utf8'))).toEqual({
+      openai: { access: 'new' },
+      'dgx-spark': { key: 'concurrent' },
+    });
   });
 });
 
@@ -95,9 +133,9 @@ describe('run agent credential write-back', () => {
       launcher,
     });
 
-    expect(readFileSync(join(resolvePiUserAgentDirectory(home), 'auth.json'), 'utf8')).toBe(
-      '{"anthropic":"logged-in"}',
-    );
+    expect(JSON.parse(readFileSync(join(resolvePiUserAgentDirectory(home), 'auth.json'), 'utf8'))).toEqual({
+      anthropic: 'logged-in',
+    });
   });
 
   it('persists an auth.json when the pi launcher throws', async () => {
@@ -119,8 +157,8 @@ describe('run agent credential write-back', () => {
       }),
     ).rejects.toThrow('pi launch failed');
 
-    expect(readFileSync(join(resolvePiUserAgentDirectory(home), 'auth.json'), 'utf8')).toBe(
-      '{"anthropic":"failed-run"}',
-    );
+    expect(JSON.parse(readFileSync(join(resolvePiUserAgentDirectory(home), 'auth.json'), 'utf8'))).toEqual({
+      anthropic: 'failed-run',
+    });
   });
 });
