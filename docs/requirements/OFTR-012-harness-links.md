@@ -46,7 +46,7 @@ and separate from the temporary projection `outfitter run` builds and removes pe
 5. A planned symlink or file MUST report `created` when the path is absent, `unchanged` when the existing entry already matches the planned target or content, and `updated` only when the manifest owns the path and its target or content differs.
 6. A manifest symlink that is not in the current plan MUST be removed and reported `pruned` only when its target no longer exists; every other manifest entry not in the plan MUST be retained in the manifest and left in place.
 7. A manifest entry that exits the plan MUST NOT be deleted from the harness home by a non-`--remove` run unless it is a dangling symlink.
-8. `--strict` MUST exit 1 when any warning, `conflict`, or `skipped` entry is reported and MUST exit 0 otherwise; without `--strict`, conflicts and skips MUST exit 0.
+8. `--strict` MUST exit 1 when any non-advisory warning, `conflict`, or `skipped` entry is reported and MUST exit 0 otherwise; deterministic precedence and shadowing diagnostics MUST remain advisory. Without `--strict`, conflicts and skips MUST exit 0.
 
 ### OFTR-012.4: Idempotent Reconciliation, Dry Run, and Removal
 

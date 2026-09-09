@@ -2,7 +2,6 @@
 
 import { Command } from 'commander';
 
-import { strictAmbiguityFailureMessage } from '../../resolver/AmbiguityWarnings.js';
 import type { EffectiveResourceSet, ResourceKind } from '../../resolver/Resource.js';
 import {
   agentLocalKinds,
@@ -129,7 +128,7 @@ const listEntry = (
 };
 
 export const executeListCommand = (input: ListInput): ListResult => {
-  const { set, settings, settingsIssues, warnings, ambiguityWarnings } = resolveEffectiveSet(input);
+  const { set, settings, settingsIssues, warnings } = resolveEffectiveSet(input);
 
   if (settingsIssues.length > 0) {
     const detail = settingsIssues.map(formatSettingsIssue).join('; ');
@@ -137,10 +136,6 @@ export const executeListCommand = (input: ListInput): ListResult => {
   }
 
   const messages: string[] = warnings.map((warning) => `warning: ${warning}`);
-
-  if (input.strict === true && ambiguityWarnings.length > 0) {
-    return { exitCode: 1, messages: [...messages, `error: ${strictAmbiguityFailureMessage}`], resources: [] };
-  }
 
   assertKnownAgent(set, input.agent);
   const entries: ListResourceEntry[] = [];
@@ -185,7 +180,7 @@ export const createListCommand = (dependencies: ListCommandDependencies = {}): C
       new Command('list')
         .description('List resolvable resources (agents, skills, knowledge, commands, workflows).')
         .argument('[kind]', 'Restrict to one kind: agents, skills, knowledge, commands, or workflows.')
-        .option('--strict', 'Treat ambiguous source resolution as fatal.')
+        .option('--strict', 'Reject incomplete or unsupported requested composition.')
         .option('--json', 'Emit stable machine-readable JSON with resource provenance.')
         .option(
           '--agent <id>',

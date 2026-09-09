@@ -9,7 +9,6 @@ import type { HarnessCommandRunner, LinkAction } from '../../links/HarnessLinkAp
 import { composeLinkClosure, planHarnessLinks, resolveLinkScope } from '../../links/HarnessLinkPlan.js';
 import type { LinkClosure } from '../../links/HarnessLinkPlan.js';
 import type { HarnessDefaults } from '../../settings/Settings.js';
-import { strictAmbiguityFailureMessage } from '../../resolver/AmbiguityWarnings.js';
 import { resolveEffectiveSet } from '../../resolver/ResolverContext.js';
 import { formatSettingsIssue } from '../../settings/SettingsLoader.js';
 import type { CommandObject } from './CommandObject.js';
@@ -93,15 +92,11 @@ interface ResolvedClosure {
 }
 
 const resolveClosure = (input: LinkInput, messages: string[]): ResolvedClosure => {
-  const { set, settings, settingsIssues, warnings, ambiguityWarnings } = resolveEffectiveSet(input);
+  const { set, settings, settingsIssues, warnings } = resolveEffectiveSet(input);
   if (settingsIssues.length > 0) {
     throw new Error(`Cannot link with invalid settings: ${settingsIssues.map(formatSettingsIssue).join('; ')}`);
   }
   messages.push(...warnings.map((warning) => `warning: ${warning}`));
-  if (input.strict === true && ambiguityWarnings.length > 0) {
-    return { failure: failure([...messages, `error: ${strictAmbiguityFailureMessage}`]) };
-  }
-
   const scope = resolveLinkScope(set, settings, {
     agents: input.agents,
     workflows: input.workflows,
@@ -181,7 +176,7 @@ export const createLinkCommand = (dependencies: LinkCommandDependencies = {}): C
         .option('--all', 'Link every resolvable agent, skill, and command.')
         .option('--dry-run', 'Report what would change without touching the harness home.')
         .option('--remove', 'Remove every link this command created and forget them.')
-        .option('--strict', 'Exit non-zero on warnings, conflicts, or skipped entries.')
+        .option('--strict', 'Exit non-zero on non-advisory warnings, conflicts, or skipped entries.')
         .action((options: LinkOptions) => {
           const result = executeLinkCommand(
             {

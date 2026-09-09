@@ -3,7 +3,6 @@ import { existsSync } from 'node:fs';
 
 import { Command } from 'commander';
 
-import { strictAmbiguityFailureMessage } from '../../resolver/AmbiguityWarnings.js';
 import { remoteSourceLayer } from '../../resolver/Layer.js';
 import { resolveResources } from '../../resolver/Resolver.js';
 import { resolveEffectiveSet } from '../../resolver/ResolverContext.js';
@@ -366,15 +365,9 @@ export const executeSyncCommand = (
   });
   const result = finishSync(merged.issues, remoteSettingsPhase, sourcePhase, transitiveClosure);
   const ambiguityWarnings = resolveEffectiveSet(input).ambiguityWarnings;
-  const strictFailure = input.strict === true && ambiguityWarnings.length > 0;
   return {
     ...result,
-    exitCode: strictFailure ? 1 : result.exitCode,
-    messages: [
-      ...result.messages,
-      ...ambiguityWarnings.map((warning) => `warning: ${warning}`),
-      ...(strictFailure ? [`failed: ${strictAmbiguityFailureMessage}`] : []),
-    ],
+    messages: [...result.messages, ...ambiguityWarnings.map((warning) => `warning: ${warning}`)],
   };
 };
 
@@ -385,7 +378,7 @@ export const createSyncCommand = (dependencies: SyncCommandDependencies = {}): C
     program.addCommand(
       new Command('sync')
         .description('Synchronize configured remote settings and sources into the local cache.')
-        .option('--strict', 'Treat ambiguous source resolution as fatal.')
+        .option('--strict', 'Reject incomplete or unsupported requested composition.')
         .action((options: { strict?: boolean }) => {
           const result = executeSyncCommand(
             {

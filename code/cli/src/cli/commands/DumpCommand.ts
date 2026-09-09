@@ -1,10 +1,11 @@
 // Provides `outfitter dump --agent <id> --out <dir>` over the effective resource set.
 
+import { rmSync } from 'node:fs';
+import { join } from 'node:path';
 import { Command } from 'commander';
 
 import { dumpAgent } from '../../dump/Dump.js';
 import { dumpWorkflow } from '../../dump/WorkflowDump.js';
-import { strictAmbiguityFailureMessage } from '../../resolver/AmbiguityWarnings.js';
 import { resolveEffectiveSet } from '../../resolver/ResolverContext.js';
 import type { Settings } from '../../settings/Settings.js';
 import type { CommandObject } from './CommandObject.js';
@@ -58,7 +59,7 @@ const assertExclusiveSelection = (input: DumpInput): void => {
 };
 
 export const executeDumpCommand = (input: DumpInput): DumpCommandResult => {
-  const { set, settings, settingsIssues, warnings, ambiguityWarnings } = resolveEffectiveSet(input);
+  const { set, settings, settingsIssues, warnings } = resolveEffectiveSet(input);
 
   if (settingsIssues.length > 0) {
     throw new Error(`Cannot dump with invalid settings: ${settingsIssues.map((issue) => issue.message).join('; ')}`);
@@ -69,14 +70,6 @@ export const executeDumpCommand = (input: DumpInput): DumpCommandResult => {
   assertExclusiveSelection(input);
   if (input.workflow !== undefined && !settings.workflows!.includes(input.workflow))
     return disabledWorkflowResult(input.workflow, syncWarnings);
-
-  if (input.strict === true && ambiguityWarnings.length > 0) {
-    return {
-      writtenPaths: [],
-      messages: [...syncWarnings, `error: ${strictAmbiguityFailureMessage}`],
-      ok: false,
-    };
-  }
 
   const selected = input.workflow ?? resolveAgentSlug(settings, input.agent);
   const result =
@@ -90,6 +83,15 @@ export const executeDumpCommand = (input: DumpInput): DumpCommandResult => {
           settings.agentDefaults,
           settings.harnessDefaults,
         );
+  const strictFailure = input.strict === true && result.errors.length === 0 && result.warnings.length > 0;
+  if (strictFailure) {
+    rmSync(join(input.out, '.agents'), { recursive: true, force: true });
+    return {
+      writtenPaths: [],
+      messages: [...syncWarnings, ...result.warnings, 'error: Strict mode: composition warnings are fatal.'],
+      ok: false,
+    };
+  }
   const ok = result.errors.length === 0;
   const messages = ok
     ? [
@@ -112,7 +114,7 @@ export const createDumpCommand = (dependencies: DumpCommandDependencies = {}): C
         .option('--agent <id>', 'Agent slug to dump (default: settings default_agent).')
         .option('--workflow <id>', 'Workflow slug whose complete non-executable closure should be dumped.')
         .option('--out <dir>', 'Output directory.', './outfitter-dump')
-        .option('--strict', 'Treat ambiguous source resolution as fatal.')
+        .option('--strict', 'Reject incomplete or unsupported requested composition.')
         .action((options: { agent?: string; workflow?: string; out: string; strict?: boolean }) => {
           const result = executeDumpCommand({
             /* v8 ignore next 2 -- process defaults are exercised by the CLI entrypoint, not unit tests. */

@@ -444,6 +444,7 @@ describe('resource resolution', () => {
     expect(findings.some((f) => f.resource === 'agent:engineer' && /hooks/.test(f.message))).toBe(true);
     // Stubs surface as warnings (fatal only under --strict), never as errors.
     expect(findings.filter((f) => f.severity === 'error')).toHaveLength(0);
+    expect(executeValidateCommand({ homeDirectory: home, projectDirectory: project, strict: true }).ok).toBe(false);
   });
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-006.3.17).
@@ -520,7 +521,7 @@ describe('resource resolution', () => {
     const validation = executeValidateCommand({ homeDirectory: home, projectDirectory: project });
     expect(validation.ok).toBe(true);
     expect(validation.findings.some((f) => f.severity === 'warning' && f.resource === 'agent:engineer')).toBe(true);
-    expect(executeValidateCommand({ homeDirectory: home, projectDirectory: project, strict: true }).ok).toBe(false);
+    expect(executeValidateCommand({ homeDirectory: home, projectDirectory: project, strict: true }).ok).toBe(true);
   });
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-003.2, OFTR-003.7).

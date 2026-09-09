@@ -31,11 +31,24 @@ export interface ValidateCommandDependencies {
 const settingsFindings = (messages: readonly string[]): readonly ValidationFinding[] =>
   messages.map((message) => ({ severity: 'error' as const, resource: 'settings', message }));
 
+const warningFindings = (
+  messages: readonly string[],
+  ambiguityWarnings: readonly string[],
+): readonly ValidationFinding[] => {
+  const advisory = new Set(ambiguityWarnings);
+  return messages.map((message) => ({
+    severity: 'warning' as const,
+    resource: 'settings',
+    message,
+    advisory: advisory.has(message),
+  }));
+};
+
 export const executeValidateCommand = (input: ValidateInput): ValidateResult => {
-  const { set, settings, settingsIssues, warnings } = resolveEffectiveSet(input);
+  const { set, settings, settingsIssues, warnings, ambiguityWarnings } = resolveEffectiveSet(input);
   const findings = [
     ...settingsFindings(settingsIssues.map(formatSettingsIssue)),
-    ...warnings.map((message) => ({ severity: 'warning' as const, resource: 'settings', message })),
+    ...warningFindings(warnings, ambiguityWarnings),
     ...validateEffectiveSet(set, input.projectDirectory, {
       workflowRoots: settings.workflows,
       agentDefaults: settings.agentDefaults,
@@ -43,7 +56,7 @@ export const executeValidateCommand = (input: ValidateInput): ValidateResult => 
   ];
 
   const hasErrors = findings.some((finding) => finding.severity === 'error');
-  const hasWarnings = findings.some((finding) => finding.severity === 'warning');
+  const hasWarnings = findings.some((finding) => finding.severity === 'warning' && finding.advisory !== true);
   const ok = !hasErrors && !(input.strict === true && hasWarnings);
 
   const messages = input.json === true ? [JSON.stringify({ ok, findings }, null, 2)] : formatFindings(findings, ok);
@@ -70,7 +83,7 @@ export const createValidateCommand = (dependencies: ValidateCommandDependencies 
     program.addCommand(
       new Command('validate')
         .description('Validate the resolved .agents tree: schemas, loadout slugs, and shadowing.')
-        .option('--strict', 'Treat warnings, including ambiguous source resolution, as failures.')
+        .option('--strict', 'Treat incomplete or unsupported composition warnings as failures.')
         .option('--json', 'Emit findings as JSON.')
         .action((options: { strict?: boolean; json?: boolean }) => {
           /* v8 ignore next 2 -- process defaults are exercised by the CLI entrypoint, not unit tests. */

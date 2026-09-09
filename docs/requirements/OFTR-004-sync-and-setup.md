@@ -193,10 +193,10 @@ disagree about the same thing, the selected declaration must be visible.
    intentionally overridden by a higher-precedence layer is still reported; visibility, not
    prohibition, is the requirement.
 4. These warnings MUST be surfaced by diagnostic commands that resolve the effective set, including
-   `sync`, `validate`, and `list agents`. `run --strict` MUST also surface them before it fails.
-   A successful non-strict `run` MUST suppress them so routine startup stays quiet.
+   `sync`, `validate`, and `list agents`. `run --strict` MUST also surface them while preserving the
+   selected winner. A successful non-strict `run` MUST suppress them so routine startup stays quiet.
 5. Detection MUST NOT change which declaration wins; precedence rules are unchanged.
-6. Under strict mode, every command that resolves the effective set MUST report every detected
-   ambiguity and then fail with a nonzero exit status. All three ambiguity classes above gate
-   uniformly. A deliberate divergence under strict mode MUST be resolved by making the
-   configuration unambiguous, not by suppressing the error.
+6. Under strict mode, every command that resolves the effective set MUST preserve deterministic
+   precedence, report every detected ambiguity, and MUST NOT fail solely because a declaration or
+   resource shadows a lower-precedence definition. Strict mode remains fatal for incomplete or
+   unsupported requested composition.

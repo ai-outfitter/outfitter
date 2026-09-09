@@ -190,14 +190,15 @@ describe('link command object', () => {
     await expect(run(root, ['--harness', 'claude'])).rejects.toThrow('Cannot link with invalid settings');
   });
 
-  it('treats ambiguous sources as fatal only under --strict', async () => {
+  it('keeps ambiguous sources advisory under --strict', async () => {
     const root = fixture();
     write(join(root.project, '.agents', 'skills', 'review', 'SKILL.md'), '---\nname: review\n---\n');
     const lenient = await run(root, ['--harness', 'claude']);
     expect(lenient[0]).toContain('warning: Ambiguous skill slug');
     expect(lenient.at(-1)).toBe(`claude (${join(root.home, '.claude')}): 3 created`);
     const strict = await run(root, ['--harness', 'claude', '--strict']);
-    expect(strict.at(-1)).toContain('error:');
-    expect(process.exitCode).toBe(1);
+    expect(strict[0]).toContain('warning: Ambiguous skill slug');
+    expect(strict.at(-1)).toContain('3 unchanged');
+    expect(process.exitCode).toBe(previousExitCode);
   });
 });

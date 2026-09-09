@@ -61,7 +61,8 @@ Outfitter resolves agents and other resources from layered `.agents` trees into 
 
 1. Outfitter MUST report an error when an agent's loadout references a `skills` or `subagents` slug that does not resolve.
 2. Outfitter MUST report a warning when a resource shadows a lower-precedence definition of the same slug.
-3. `outfitter validate --strict` MUST treat warnings as failures.
+3. `outfitter validate --strict` MUST treat incomplete or unsupported composition warnings as failures,
+   but deterministic shadowing warnings MUST remain advisory.
 4. Validation MUST parse every discovered agent-local skill and report malformed definitions, name/directory mismatches, and local resources without a resolvable owning agent.
 
 ### OFTR-003.8: Listing Resources

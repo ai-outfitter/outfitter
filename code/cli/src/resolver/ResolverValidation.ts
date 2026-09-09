@@ -12,6 +12,8 @@ export interface ValidationFinding {
   readonly severity: 'error' | 'warning';
   readonly resource: string;
   readonly message: string;
+  /** Deterministic precedence diagnostics stay advisory under strict mode. */
+  readonly advisory?: boolean;
 }
 
 /**
@@ -126,6 +128,7 @@ const shadowFindings = (resource: ResolvedResource): readonly ValidationFinding[
     severity: 'warning' as const,
     resource: resourceLabel(resource),
     message: `shadowed definition in ${definition.layer.label} is overridden by ${resource.winner.layer.label}.`,
+    advisory: true,
   }));
 
 // Reserved agent-local resource shapes that resolver discovers but does not yet project into a run.
@@ -531,7 +534,7 @@ const workflowCycleFindings = (definitions: ReadonlyMap<string, WorkflowDefiniti
 
 /**
  * Collects validation findings across the effective set. `error` findings always fail validation;
- * `warning` findings (such as shadowed definitions) fail only under `--strict`.
+ * non-advisory `warning` findings fail under `--strict`. Deterministic shadowing remains advisory.
  */
 export const validateEffectiveSet = (
   set: EffectiveResourceSet,
