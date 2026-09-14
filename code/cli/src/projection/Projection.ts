@@ -42,6 +42,14 @@ export interface ProjectionInput {
   readonly appendPromptPaths?: readonly string[];
   /** Local pi extension install directories to load with `--extension` (pi only). */
   readonly extensionLoadDirs?: readonly string[];
+  /**
+   * Pi entry-file paths of the cached npm extensions, in declared loadout order and de-duplicated.
+   * The pi harness merges them into the generated `settings.json` `extensions:` array — the surface
+   * fresh loaders (pi-subagents child sessions, SDK sessions) read — while the `--extension` flags
+   * keep driving the main session (pi's loader dedupes the two routes). pi only; every other
+   * harness ignores the input.
+   */
+  readonly extensionSettingsEntries?: readonly string[];
   /** Harness-native configuration directories, highest precedence first, overlaid into the root. */
   readonly configurationOverlayDirectories?: readonly string[];
   /**

@@ -59,6 +59,11 @@ Amended (2026-07-17, RFC #165): adapters project a harness-neutral composition, 
 23. The pi adapter MUST materialize every merged `agent_defaults.extension_configs` entry as `extensions/<name>.json` in the temporary `PI_CODING_AGENT_DIR` before applying the per-agent `pi/` overlay (item 17) and the settings-layer `pi_overlay` (item 22), so an overlay-delivered same-named file replaces the generated file wholesale.
     Entries are delivered to every Pi projection, including standalone agents and agents that select no extension, and keys are validated at the settings read boundary to safe file-name characters.
     A non-Pi harness MUST report a configured `extension_configs` map as an unsupported control (fatal under `--strict`) and MUST NOT write any extension configuration files.
+24. The pi adapter MUST materialize the pi entry files of every successfully cached `npm:`-declared loadout extension into the generated `settings.json` `extensions:` array of the temporary `PI_CODING_AGENT_DIR`, so fresh extension loaders that build their set from the agent directory (pi-subagents child sessions, SDK sessions) inherit the same extension set as the main session.
+    Entries MUST be resolved the way pi resolves an extension directory — the package manifest's `pi.extensions` files that exist on disk in manifest order, else the package's `index.ts`/`index.js` — reading only the manifest already present in the extension cache (offline, no reinstall), and every resolved entry MUST stay inside the package's install directory.
+    Entries already present in the generated document keep their order ahead of the generated entries, which follow in declared loadout order with duplicates removed; an unparseable or non-object generated `settings.json` MUST be left untouched.
+    The launch MUST keep passing the install directories as `--extension` flags (pi's loader dedupes identical paths across the flag and the settings array), and a package that exposes no resolvable entry MUST be reported as a warning (fatal under `--strict`) instead of failing the run.
+    Non-Pi harnesses MUST be unaffected.
 
 ### OFTR-006.4: Pi Startup Boundary
 

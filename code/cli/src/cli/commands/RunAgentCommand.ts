@@ -26,7 +26,7 @@ import { ensurePiExtensions } from '../../extensions/PiExtensionCache.js';
 import type { PiInstallSpawner } from '../../extensions/PiExtensionCache.js';
 import { resolveOutfitterCacheDir } from '../../paths/OutfitterCache.js';
 import { projectComposition } from '../../projection/ProjectHarness.js';
-import type { AgentLaunchPlan } from '../../projection/Projection.js';
+import type { AgentLaunchPlan, ProjectionInput } from '../../projection/Projection.js';
 import { findResource } from '../../resolver/Resource.js';
 import { resolveEffectiveSet } from '../../resolver/ResolverContext.js';
 import type { Harness, Isolation, Settings, SourceCachePolicy } from '../../settings/Settings.js';
@@ -250,8 +250,8 @@ const resolvePiExtensions = async (
   input: RunAgentInput,
   harness: Harness,
   extensionSpecs: readonly string[],
-): Promise<{ readonly loadDirs: readonly string[]; readonly warnings: readonly string[] }> => {
-  if (harness !== 'pi') return { loadDirs: [], warnings: [] };
+): Promise<ReturnType<typeof ensurePiExtensions>> => {
+  if (harness !== 'pi') return { loadDirs: [], settingsEntries: {}, warnings: [] };
   return ensurePiExtensions(extensionSpecs, {
     cacheAgentDir: join(resolveOutfitterCacheDir(process.env, input.homeDirectory), 'pi-extensions'),
     offline: process.env.PI_OFFLINE === '1' || process.env.PI_OFFLINE === 'true',
@@ -329,6 +329,19 @@ const agentDefaultsExtensionConfigsFor = (
 ): NonNullable<Settings['agentDefaults']>['extensionConfigs'] => settings.agentDefaults?.extensionConfigs;
 
 const providerPromptModeFor = (skipped: boolean): PiProviderPromptMode => (skipped ? 'hint' : 'dialog');
+
+/** The extension projection inputs are pi-only: launch dirs drive the main session, the resolved
+ * manifest entry files drive the materialized settings.json that fresh loaders inherit. */
+const extensionProjectionInputs = (
+  harness: Harness,
+  extensions: Awaited<ReturnType<typeof ensurePiExtensions>>,
+): Pick<ProjectionInput, 'extensionLoadDirs' | 'extensionSettingsEntries'> =>
+  harness === 'pi'
+    ? {
+        extensionLoadDirs: extensions.loadDirs,
+        extensionSettingsEntries: extensions.loadDirs.flatMap((dir) => extensions.settingsEntries[dir] ?? []),
+      }
+    : { extensionLoadDirs: undefined, extensionSettingsEntries: undefined };
 
 interface FirstRunOutcome {
   readonly providerPromptSkipped: boolean;
@@ -424,7 +437,7 @@ export const executeRunAgentCommand = async (input: RunAgentInput): Promise<RunA
       sessionDirectory: resolveSessionDirectory(input, harness),
       passThroughArgs: input.passThroughArgs,
       appendPromptPaths: input.appendPromptPaths,
-      extensionLoadDirs: harness === 'pi' ? extensions.loadDirs : undefined,
+      ...extensionProjectionInputs(harness, extensions),
       // ProjectHarness only overlays configurationOverlayDirectories for the pi harness, so pass
       // them through unconditionally; the settings-layer overlay additionally drives a
       // non-Pi-harness unsupported warning there.

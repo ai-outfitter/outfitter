@@ -11,6 +11,7 @@ import type { ProjectedModel } from './ModelProjection.js';
 import { projectModel } from './ModelProjection.js';
 import {
   applyExtensionConfigDefaults,
+  applyPiExtensionSettingsEntries,
   applyPiRuntimeDefaults,
   applyJsonSettingsDefaults,
   materializeComposition,
@@ -295,6 +296,10 @@ const preparePiHarnessDefaults = (input: ProjectionInput, warnings: string[]): v
     input.rootDirectory,
   );
   const settingsPath = applyJsonSettingsDefaults(input.rootDirectory, input.harnessDefaults);
+  // Cached npm extension entries merge after the settings/overlay tiers so an overlay-declared
+  // `extensions` array keeps its order above the generated loadout entries (generated defaults sit
+  // beneath the overlay tiers, as with extension config files).
+  applyPiExtensionSettingsEntries(input.rootDirectory, input.extensionSettingsEntries);
   if (
     input.harnessDefaults !== undefined &&
     Object.keys(input.harnessDefaults).length > 0 &&

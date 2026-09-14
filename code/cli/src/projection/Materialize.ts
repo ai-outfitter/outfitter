@@ -227,6 +227,61 @@ export const applyExtensionConfigDefaults = (
   }
 };
 
+/** Reads the generated settings.json when it is a mergeable JSON object document, else undefined. */
+const readMergeableSettingsDocument = (settingsPath: string): Record<string, unknown> | undefined => {
+  let existing: unknown;
+  try {
+    existing = JSON.parse(readFileSync(settingsPath, 'utf8')) as unknown;
+  } catch {
+    return undefined;
+  }
+  if (typeof existing !== 'object' || existing === null || Array.isArray(existing)) return undefined;
+  return existing as Record<string, unknown>;
+};
+
+/** Returns the document's existing extension paths, or undefined when the key is not a string array. */
+const declaredExtensionEntries = (document: Record<string, unknown>): readonly string[] | undefined => {
+  const declared = document.extensions;
+  if (declared === undefined) return [];
+  if (!Array.isArray(declared)) return undefined;
+  return declared.every((entry): entry is string => typeof entry === 'string') ? declared : undefined;
+};
+
+/** Deduplicates paths by exact string, keeping the first occurrence's position. */
+const dedupeEntries = (paths: readonly (readonly string[])[]): readonly string[] => {
+  const merged: string[] = [];
+  for (const entry of paths.flat()) {
+    if (!merged.includes(entry)) merged.push(entry);
+  }
+  return merged;
+};
+
+/**
+ * Merges cached npm extension entry-file paths into the generated pi settings.json `extensions`
+ * array — the inheritance surface fresh loaders (pi-subagents child sessions, SDK sessions) build
+ * from the agent dir. Entries already in the file (overlay- or harness-default-delivered) keep their
+ * order and the npm entries follow in declared loadout order, deduped by exact string with first
+ * occurrence winning. An unparseable or non-object document is left untouched so pi reports it
+ * through its own diagnostics, matching applyPiRuntimeDefaults' invalid-settings policy.
+ */
+export const applyPiExtensionSettingsEntries = (
+  rootDirectory: string,
+  entries: readonly string[] | undefined,
+): void => {
+  if (entries === undefined || entries.length === 0) return;
+  const settingsPath = join(rootDirectory, 'settings.json');
+  if (!existsSync(settingsPath)) {
+    writeGeneratedFile(settingsPath, `${JSON.stringify({ extensions: [...entries] }, null, 2)}\n`);
+    return;
+  }
+  const document = readMergeableSettingsDocument(settingsPath);
+  if (document === undefined) return;
+  const declared = declaredExtensionEntries(document);
+  if (declared === undefined) return;
+  const merged = dedupeEntries([declared, entries]);
+  writeGeneratedFile(settingsPath, `${JSON.stringify({ ...document, extensions: merged }, null, 2)}\n`);
+};
+
 /** Merges catalog defaults below an existing native JSON settings document. */
 export const applyJsonSettingsDefaults = (
   rootDirectory: string,

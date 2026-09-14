@@ -176,6 +176,12 @@ A settings-layer overlay sits one step below the per-agent folder: `agent_defaul
 For the same relative path the per-agent `pi/` folder wins, the settings layer wins over generated defaults, and a higher-precedence settings layer wins over a lower one.
 File-based extension configurations have a generated tier one step further down: `agent_defaults.extension_configs` entries are written to `extensions/<name>.json` before the overlays, so an overlay-delivered same-named file wins (see [Settings — Extension configuration files](./settings.md#extension-configuration-files)).
 
+Cached `npm:` extensions are inherited by fresh loaders as well.
+They install into Outfitter's extension cache and reach the main session through launch-time `--extension` flags; in addition, the entry files their package manifests declare (the `pi.extensions` files that exist on disk, else the package's `index.ts`/`index.js`) are merged into the generated `settings.json` `extensions:` array of the materialized agent directory.
+Fresh extension loaders — pi-subagents child sessions, SDK sessions — read exactly that array, so they load the same extension set as the main session without seeing the launch flags.
+Extension paths delivered by a `pi/` overlay or `harness_defaults.pi` keep their position ahead of the generated entries, the generated entries follow in declared loadout order, and duplicates are collapsed; a package whose manifest exposes no resolvable entry warns (and is fatal under `--strict`) instead of failing the run.
+Outfitter resolves entries only from the cache that is already on disk, so this works offline and never reinstalls.
+
 Outfitter writes generated identity, composed skills, selected delegates, and selected MCP servers after applying the native overlay, and seeds durable Pi credentials immediately before launch.
 Those runtime-owned resources therefore cannot be replaced accidentally by a profile overlay.
 One delegation-specific exception: an overlay `agents/<slug>.md` that collides with a declared delegate is replaced by the delegate, because a declared `subagents:` selection is an explicit choice the profile made.
