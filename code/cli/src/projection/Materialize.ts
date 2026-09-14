@@ -10,10 +10,10 @@ import {
   rmSync,
   writeFileSync,
 } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { dirname, isAbsolute, join } from 'node:path';
 
 import type { ComposedIdentity, ComposedSubagent, CompositionPlan } from '../composer/Composition.js';
-import { escapesRoots } from '../dump/Containment.js';
+import { escapesRoots, isInside } from '../dump/Containment.js';
 import { removeTargetTypeConflict } from '../fs/TypeConflict.js';
 import type { AgentDefinition } from '../resolver/AgentDefinition.js';
 import { isAgentDefinitionIssue, readAgentDefinition } from '../resolver/AgentDefinition.js';
@@ -65,6 +65,75 @@ const writeGeneratedFile = (path: string, content: string): void => {
 
 const serializeMcpConfig = (mcpServers: Readonly<Record<string, unknown>>): string =>
   `${JSON.stringify({ mcpServers }, null, 2)}\n`;
+
+/**
+ * The subagent materialization's rebuild manifest: its own record of the agent definition files it
+ * generated into one runtime root. A later rebuild removes only manifest-tracked regular files that
+ * stay inside the root, so `agents/` content from the pi/ overlay or any other delivery mechanism
+ * (nothing else ever writes the manifest) is foreign and survives every rebuild. Entries are root-
+ * relative POSIX paths and nothing else is recorded, so the manifest is deterministic across runs.
+ */
+interface SubagentManifest {
+  readonly version: number;
+  readonly files: readonly string[];
+}
+
+const subagentManifestPath = (rootDirectory: string): string => join(rootDirectory, '.outfitter', 'subagents.json');
+
+const parseSubagentManifest = (raw: string): readonly string[] | undefined => {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return undefined;
+  }
+  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return undefined;
+  const { version, files } = parsed as Record<string, unknown>;
+  if (version !== 1) return undefined;
+  if (!Array.isArray(files) || !files.every((entry): entry is string => typeof entry === 'string')) return undefined;
+  return files;
+};
+
+/** Returns the previously generated relative paths, or undefined when no usable manifest exists. */
+const readGeneratedSubagentPaths = (rootDirectory: string): readonly string[] | undefined => {
+  let raw: string;
+  try {
+    raw = readFileSync(subagentManifestPath(rootDirectory), 'utf8');
+  } catch {
+    return undefined;
+  }
+  return parseSubagentManifest(raw);
+};
+
+const writeSubagentManifest = (rootDirectory: string, files: readonly string[]): void => {
+  mkdirSync(dirname(subagentManifestPath(rootDirectory)), { recursive: true });
+  const manifest: SubagentManifest = { version: 1, files: [...files].sort() };
+  writeGeneratedFile(subagentManifestPath(rootDirectory), `${JSON.stringify(manifest, null, 2)}\n`);
+};
+
+/** Resolves one manifest entry to an absolute path inside the root, or undefined when unusable. */
+const containedManifestEntry = (rootDirectory: string, entry: string): string | undefined => {
+  if (isAbsolute(entry)) return undefined;
+  const segments = entry.split('/');
+  if (segments.some((segment) => segment === '' || segment === '.' || segment === '..')) return undefined;
+  const absolutePath = join(rootDirectory, ...segments);
+  // Realpath-aware containment: a tracked path that has become a link out of the root is unusable.
+  return isInside(absolutePath, rootDirectory) ? absolutePath : undefined;
+};
+
+const removeStaleGeneratedSubagents = (rootDirectory: string): void => {
+  const previous = readGeneratedSubagentPaths(rootDirectory);
+  if (previous === undefined) return;
+
+  for (const entry of previous) {
+    const path = containedManifestEntry(rootDirectory, entry);
+    // Only regular files are removal candidates: never a symlink (lstat does not follow links),
+    // never a directory, never anything outside the root.
+    if (path !== undefined && lstatSync(path, { throwIfNoEntry: false })?.isFile()) {
+      rmSync(path, { force: true });
+    }
+  }
+};
 
 export const writeMcpConfig = (path: string, mcpServers: Readonly<Record<string, unknown>>): void => {
   writeGeneratedFile(path, serializeMcpConfig(mcpServers));
@@ -137,6 +206,24 @@ export const applyPiRuntimeDefaults = (rootDirectory: string): void => {
     renameSync(temporaryPath, settingsPath);
   } finally {
     rmSync(temporaryPath, { force: true });
+  }
+};
+
+/**
+ * Writes generated extension configuration files as the lowest tier of runtime-file precedence:
+ * materialization runs before overlay materialization, so a per-agent pi/ overlay or a
+ * settings-layer pi_overlay file replaces a same-named generated file wholesale. Keys are
+ * validated to safe file-name characters at the settings read boundary.
+ */
+export const applyExtensionConfigDefaults = (
+  rootDirectory: string,
+  configs: Readonly<Record<string, unknown>> | undefined,
+): void => {
+  if (configs === undefined) return;
+  for (const [name, config] of Object.entries(configs)) {
+    const targetPath = join(rootDirectory, 'extensions', `${name}.json`);
+    mkdirSync(dirname(targetPath), { recursive: true });
+    writeGeneratedFile(targetPath, `${JSON.stringify(config, null, 2)}\n`);
   }
 };
 
@@ -276,14 +363,12 @@ const materializeSubagents = (
   composedSubagents: readonly ComposedSubagent[] | undefined,
   rootDirectory: string,
 ): readonly string[] => {
-  if (subagents.length === 0) {
-    return [];
-  }
+  removeStaleGeneratedSubagents(rootDirectory);
 
   const agentsDirectory = join(rootDirectory, 'agents');
-  rmSync(agentsDirectory, { recursive: true, force: true });
   mkdirSync(agentsDirectory, { recursive: true });
   const skipped: string[] = [];
+  const generated: string[] = [];
   const composedBySlug = new Map<string, ComposedSubagent>(
     (composedSubagents ?? []).map((subagent) => [subagent.resource.slug, subagent]),
   );
@@ -295,8 +380,14 @@ const materializeSubagents = (
       skipped.push(subagent.slug);
     } else {
       writeGeneratedFile(join(agentsDirectory, `${subagent.slug}.md`), content);
+      generated.push(`agents/${subagent.slug}.md`);
     }
   }
+
+  // Record this run's generated files, or retire the manifest when nothing is generated so a
+  // retained root never advertises ownership it no longer has.
+  if (generated.length > 0) writeSubagentManifest(rootDirectory, generated);
+  else rmSync(subagentManifestPath(rootDirectory), { force: true });
 
   return skipped;
 };

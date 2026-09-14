@@ -1,4 +1,5 @@
-// Tests settings.yml discovery, YAML parsing, schema validation, and merging.
+// Tests settings.yml discovery, YAML parsing, schema validation, and merging, including the
+// settings-layer Pi runtime-file overlay (`agent_defaults.pi_overlay`).
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
@@ -527,5 +528,80 @@ describe('settings loading', () => {
         message: "Remote repository path '../settings.yml' must stay inside the repository.",
       },
     ]);
+  });
+
+  describe('agent_defaults pi overlay', () => {
+    // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-002.10.12).
+    // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+    it('resolves a relative pi_overlay against the settings file that declares it', () => {
+      const root = createTemporaryRoot();
+      const settingsPath = join(root, '.agents', 'settings.yml');
+      writeSettings(settingsPath, 'agent_defaults:\n  pi_overlay: pi-defaults/\n');
+
+      const loaded = loadSettingsFiles(createSettingsLoadPlan([{ scope: 'project', path: settingsPath }]));
+
+      expect(loaded.issues).toEqual([]);
+      expect(loaded.files[0]?.settings.agentDefaults?.piOverlayDirectories).toEqual([
+        join(root, '.agents', 'pi-defaults'),
+      ]);
+    });
+
+    // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-002.10.12).
+    // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+    it('resolves user-layer and project-layer overlays against their own settings files', () => {
+      const root = createTemporaryRoot();
+      const homeDirectory = join(root, 'home');
+      const projectDirectory = join(root, 'project');
+      writeSettings(join(homeDirectory, '.agents', 'settings.yml'), 'agent_defaults:\n  pi_overlay: fleet/\n');
+      writeSettings(join(projectDirectory, '.agents', 'settings.yml'), 'agent_defaults:\n  pi_overlay: local/\n');
+
+      const loaded = loadSettings(discoverSettingsLoadPlan({ homeDirectory, projectDirectory }));
+
+      expect(loaded.issues).toEqual([]);
+      expect(loaded.settings.agentDefaults?.piOverlayDirectories).toEqual([
+        join(homeDirectory, '.agents', 'fleet'),
+        join(projectDirectory, '.agents', 'local'),
+      ]);
+    });
+
+    // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-002.10.12).
+    // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+    it('rejects malformed pi_overlay shapes at the read boundary', () => {
+      const root = createTemporaryRoot();
+      const settingsPath = join(root, '.agents', 'settings.yml');
+      const shapes = ['{ agents/x.md: body }', '[a, b]', '42', '""'];
+
+      for (const shape of shapes) {
+        writeSettings(settingsPath, `agent_defaults:\n  pi_overlay: ${shape}\n`);
+
+        const loaded = loadSettingsFiles(createSettingsLoadPlan([{ scope: 'user', path: settingsPath }]));
+
+        expect(loaded.files).toEqual([]);
+        expect(loaded.issues).toHaveLength(1);
+        expect(loaded.issues[0]?.filePath).toBe(settingsPath);
+      }
+    });
+
+    // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-002.10.13).
+    // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+    it('folds pi_overlay directories across layers lowest-to-highest and collapses duplicates', () => {
+      const root = createTemporaryRoot();
+      const homeDirectory = join(root, 'home');
+      const projectDirectory = join(root, 'project');
+      writeSettings(join(homeDirectory, '.agents', 'settings.yml'), 'agent_defaults:\n  pi_overlay: shared/\n');
+      writeSettings(join(projectDirectory, '.agents', 'settings.yml'), 'agent_defaults:\n  pi_overlay: local/\n');
+      writeSettings(
+        join(projectDirectory, '.agents', 'settings.local.yml'),
+        `agent_defaults:\n  pi_overlay: ${join(homeDirectory, '.agents', 'shared')}\n`,
+      );
+
+      const loaded = loadSettings(discoverSettingsLoadPlan({ homeDirectory, projectDirectory }));
+
+      expect(loaded.issues).toEqual([]);
+      expect(loaded.settings.agentDefaults?.piOverlayDirectories).toEqual([
+        join(homeDirectory, '.agents', 'shared'),
+        join(projectDirectory, '.agents', 'local'),
+      ]);
+    });
   });
 });

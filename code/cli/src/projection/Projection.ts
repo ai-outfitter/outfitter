@@ -44,6 +44,18 @@ export interface ProjectionInput {
   readonly extensionLoadDirs?: readonly string[];
   /** Harness-native configuration directories, highest precedence first, overlaid into the root. */
   readonly configurationOverlayDirectories?: readonly string[];
+  /**
+   * Settings-layer (`agent_defaults.pi_overlay`) directories, highest-precedence layer first. They
+   * sit below the per-agent `configurationOverlayDirectories` and above generated defaults; the pi
+   * harness overlays them into the root and every other harness reports them unsupported.
+   */
+  readonly agentDefaultsOverlayDirectories?: readonly string[];
+  /**
+   * Settings-layer (`agent_defaults.extension_configs`) file-based extension configurations. The
+   * pi harness materializes them as generated `extensions/<name>.json` defaults below the overlay
+   * tiers, and every other harness reports them unsupported.
+   */
+  readonly agentDefaultsExtensionConfigs?: Readonly<Record<string, unknown>>;
   /** Harness-native defaults from the merged Outfitter settings stack. */
   readonly harnessDefaults?: HarnessDefaultSettings;
 }

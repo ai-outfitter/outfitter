@@ -323,6 +323,11 @@ const failedCompositionMessages = (
 
 const harnessDefaultsFor = (settings: Settings, harness: Harness) => settings.harnessDefaults?.[harness];
 
+/** Already deep-merged across layers by SettingsMerger, so the map passes through unchanged. */
+const agentDefaultsExtensionConfigsFor = (
+  settings: Settings,
+): NonNullable<Settings['agentDefaults']>['extensionConfigs'] => settings.agentDefaults?.extensionConfigs;
+
 const providerPromptModeFor = (skipped: boolean): PiProviderPromptMode => (skipped ? 'hint' : 'dialog');
 
 interface FirstRunOutcome {
@@ -403,6 +408,8 @@ export const executeRunAgentCommand = async (input: RunAgentInput): Promise<RunA
   const extensions = await loadPiExtensions(input, harness, agentSlug, composed.plan.loadout.extensions);
   const selectedAgent = findResource(set, 'agent', agentSlug)!;
   const configurationOverlays = piConfigurationOverlays(composed.plan, selectedAgent);
+  // Merged settings order overlay layers lowest-precedence first; projection wants highest first.
+  const agentDefaultsOverlayDirectories = [...(settings.agentDefaults?.piOverlayDirectories ?? [])].reverse();
 
   const rootDirectory = mkdtempSync(join(tmpdir(), `outfitter-${agentSlug}-${harness}-`));
 
@@ -418,8 +425,12 @@ export const executeRunAgentCommand = async (input: RunAgentInput): Promise<RunA
       passThroughArgs: input.passThroughArgs,
       appendPromptPaths: input.appendPromptPaths,
       extensionLoadDirs: harness === 'pi' ? extensions.loadDirs : undefined,
-      // ProjectHarness only overlays these for the pi harness, so pass them through unconditionally.
+      // ProjectHarness only overlays configurationOverlayDirectories for the pi harness, so pass
+      // them through unconditionally; the settings-layer overlay additionally drives a
+      // non-Pi-harness unsupported warning there.
       configurationOverlayDirectories: configurationOverlays,
+      agentDefaultsOverlayDirectories,
+      agentDefaultsExtensionConfigs: agentDefaultsExtensionConfigsFor(settings),
       harnessDefaults: harnessDefaultsFor(settings, harness),
     });
 
