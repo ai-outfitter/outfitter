@@ -174,6 +174,7 @@ The folder is ignored when the selected harness is not Pi.
 
 A settings-layer overlay sits one step below the per-agent folder: `agent_defaults.pi_overlay` in `settings.yml` points at a directory whose files are overlaid into every Pi run, standalone agents included (see [Settings — Pi runtime-file overlay](./settings.md#pi-runtime-file-overlay)).
 For the same relative path the per-agent `pi/` folder wins, the settings layer wins over generated defaults, and a higher-precedence settings layer wins over a lower one.
+File-based extension configurations have a generated tier one step further down: `agent_defaults.extension_configs` entries are written to `extensions/<name>.json` before the overlays, so an overlay-delivered same-named file wins (see [Settings — Extension configuration files](./settings.md#extension-configuration-files)).
 
 Outfitter writes generated identity, composed skills, selected delegates, and selected MCP servers after applying the native overlay, and seeds durable Pi credentials immediately before launch.
 Those runtime-owned resources therefore cannot be replaced accidentally by a profile overlay.

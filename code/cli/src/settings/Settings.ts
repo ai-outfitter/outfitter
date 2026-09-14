@@ -68,6 +68,12 @@ export interface AgentDefaults {
    * enters the composed loadout, so the loadout-only helpers below deliberately ignore it.
    */
   readonly piOverlayDirectories?: readonly string[];
+  /**
+   * File-based extension configurations deep-merged across the settings stack. Like
+   * `piOverlayDirectories`, a runtime-file delivery surface rather than a loadout field, so the
+   * loadout-only helpers below deliberately ignore it.
+   */
+  readonly extensionConfigs?: Readonly<Record<string, Readonly<Record<string, SettingsValue>>>>;
 }
 
 /** True when no defaults field carries an entry, so the settings layer contributes nothing. */

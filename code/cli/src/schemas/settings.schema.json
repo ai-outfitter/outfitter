@@ -123,6 +123,12 @@
           "type": "string",
           "minLength": 1,
           "description": "Directory of runtime files (agents/*.md, extensions/*.json, ...) overlaid into every Pi runtime projection. Relative paths resolve against this settings file. Pi-only; other harnesses report the control as unsupported."
+        },
+        "extension_configs": {
+          "type": "object",
+          "description": "File-based extension configurations materialized to extensions/<name>.json in every Pi runtime projection as generated defaults. Keys name the extension config file (safe file-name characters only); values are extension-owned config objects. Pi-only; other harnesses report the control as unsupported.",
+          "propertyNames": { "pattern": "^[A-Za-z0-9_-]+$" },
+          "additionalProperties": { "type": "object" }
         }
       },
       "additionalProperties": false

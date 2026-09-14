@@ -76,6 +76,9 @@ interface AgentDefaultsDocument {
   readonly subagents?: readonly string[];
   readonly append_system_prompt?: unknown;
   readonly pi_overlay?: string;
+  readonly extension_configs?: Readonly<
+    Record<string, Readonly<Record<string, import('./Settings.js').SettingsValue>>>
+  >;
 }
 
 interface EnterpriseSettingsDocument {
@@ -349,6 +352,7 @@ const convertAgentDefaults = (
           defaults.pi_overlay === undefined
             ? undefined
             : [resolveConfigDirectory(defaults.pi_overlay, settingsDirectory)],
+        extensionConfigs: defaults.extension_configs,
       };
 
 const convertRemoteSettingsSource = (source: RemoteSettingsDocument): RemoteSettingsReference => {

@@ -24,6 +24,11 @@ const mergeDefaultsList = <T>(
   return merged;
 };
 
+const mergeExtensionConfigs = (
+  lower: AgentDefaults['extensionConfigs'],
+  higher: NonNullable<AgentDefaults['extensionConfigs']>,
+): AgentDefaults['extensionConfigs'] => mergeObjectsWithPolicy(lower, higher);
+
 const mergeAgentDefaults = (lower: AgentDefaults | undefined, higher: AgentDefaults | undefined) => {
   if (lower === undefined && higher === undefined) return undefined;
   return {
@@ -40,6 +45,16 @@ const mergeAgentDefaults = (lower: AgentDefaults | undefined, higher: AgentDefau
       higher?.piOverlayDirectories,
       (entry) => entry,
     ),
+    // Per extension name, object values deep-merge and a higher layer's scalar/array leaf replaces
+    // the lower layer's — the same merge policy as `harness_defaults`.
+    extensionConfigs:
+      lower?.extensionConfigs === undefined && higher?.extensionConfigs === undefined
+        ? undefined
+        : lower?.extensionConfigs === undefined
+          ? higher?.extensionConfigs
+          : higher?.extensionConfigs === undefined
+            ? lower.extensionConfigs
+            : mergeExtensionConfigs(lower.extensionConfigs, higher.extensionConfigs),
   };
 };
 

@@ -323,6 +323,11 @@ const failedCompositionMessages = (
 
 const harnessDefaultsFor = (settings: Settings, harness: Harness) => settings.harnessDefaults?.[harness];
 
+/** Already deep-merged across layers by SettingsMerger, so the map passes through unchanged. */
+const agentDefaultsExtensionConfigsFor = (
+  settings: Settings,
+): NonNullable<Settings['agentDefaults']>['extensionConfigs'] => settings.agentDefaults?.extensionConfigs;
+
 const providerPromptModeFor = (skipped: boolean): PiProviderPromptMode => (skipped ? 'hint' : 'dialog');
 
 interface FirstRunOutcome {
@@ -425,6 +430,7 @@ export const executeRunAgentCommand = async (input: RunAgentInput): Promise<RunA
       // non-Pi-harness unsupported warning there.
       configurationOverlayDirectories: configurationOverlays,
       agentDefaultsOverlayDirectories,
+      agentDefaultsExtensionConfigs: agentDefaultsExtensionConfigsFor(settings),
       harnessDefaults: harnessDefaultsFor(settings, harness),
     });
 

@@ -10,6 +10,7 @@ import type { MaterializedComposition } from './Materialize.js';
 import type { ProjectedModel } from './ModelProjection.js';
 import { projectModel } from './ModelProjection.js';
 import {
+  applyExtensionConfigDefaults,
   applyPiRuntimeDefaults,
   applyJsonSettingsDefaults,
   materializeComposition,
@@ -280,8 +281,11 @@ const usablePiOverlayDirectories = (
   return usable;
 };
 
-/** Pi's native configuration surface: overlays, merged defaults below them, runtime defaults last. */
+/** Pi's native configuration surface: generated extension configs, overlays, merged defaults, runtime defaults last. */
 const preparePiHarnessDefaults = (input: ProjectionInput, warnings: string[]): void => {
+  // Generated extension config files are the lowest runtime-file tier, so they write before the
+  // overlays, whose same-named files replace them wholesale.
+  applyExtensionConfigDefaults(input.rootDirectory, input.agentDefaultsExtensionConfigs);
   // Settings-layer overlays sit below the per-agent overlays, so they trail the highest-first list.
   materializeConfigurationOverlays(
     [
@@ -300,15 +304,32 @@ const preparePiHarnessDefaults = (input: ProjectionInput, warnings: string[]): v
   applyPiRuntimeDefaults(input.rootDirectory);
 };
 
+/** Non-Pi harnesses must report declared settings-layer delivery controls, never silently skip them. */
+const unprojectedSettingsSurfaceWarnings = (input: ProjectionInput): readonly string[] => {
+  const warnings: string[] = [];
+  if ((input.agentDefaultsOverlayDirectories?.length ?? 0) > 0) {
+    warnings.push(
+      `harness '${input.harness}' cannot project the settings-layer pi overlay (agent_defaults.pi_overlay); it will not be applied.`,
+    );
+  }
+  if (
+    (input.agentDefaultsExtensionConfigs === undefined ? 0 : Object.keys(input.agentDefaultsExtensionConfigs).length) >
+    0
+  ) {
+    warnings.push(
+      `harness '${input.harness}' cannot project the settings-layer extension configs (agent_defaults.extension_configs); they will not be applied.`,
+    );
+  }
+  return warnings;
+};
+
 const prepareHarnessDefaults = (input: ProjectionInput): PreparedHarnessDefaults => {
   const defaultWarnings: string[] = [];
   if (input.harness === 'pi') preparePiHarnessDefaults(input, defaultWarnings);
-  else if ((input.agentDefaultsOverlayDirectories?.length ?? 0) > 0) {
-    // Unlike pi-only extension loadout elements (silently skipped by design), this is a settings
-    // control a user explicitly declared, so unsupported harnesses must report it.
-    defaultWarnings.push(
-      `harness '${input.harness}' cannot project the settings-layer pi overlay (agent_defaults.pi_overlay); it will not be applied.`,
-    );
+  else {
+    // Unlike pi-only extension loadout elements (silently skipped by design), these are settings
+    // controls a user explicitly declared, so unsupported harnesses must report them.
+    defaultWarnings.push(...unprojectedSettingsSurfaceWarnings(input));
   }
   const claudeSettingsPath =
     input.harness === 'claude' ? applyJsonSettingsDefaults(input.rootDirectory, input.harnessDefaults) : undefined;

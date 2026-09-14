@@ -22,6 +22,11 @@
 > It is not a loadout field: it composes no slugs and never enters the composed loadout, so the
 > item-2 enumeration covers loadout fields only and the composer is unchanged.
 
+> **Amendment (2026-09-14, issue [#376](https://github.com/ai-outfitter/outfitter/issues/376)):**
+> `agent_defaults` gains `extension_configs` (items 16–19), a settings-layer delivery surface for
+> file-based extension configurations. Like `pi_overlay`, it is a runtime-file delivery control,
+> not a loadout field, and the composer is unchanged.
+
 ## Overview
 
 Outfitter settings are the merged result of user, user-local, project, and project-local
@@ -126,8 +131,18 @@ enable workflow roots as command entry points.
 11. Settings without `agent_defaults` MUST compose, validate, run, and dump exactly as before this section existed.
 12. `agent_defaults` MAY declare `pi_overlay`: a directory path whose contents are overlaid into every Pi runtime projection. The value MUST be a string path; inline file maps MUST be rejected. A relative path MUST resolve against the settings file that declares it, and each layer's overlay keeps the location its own file declared.
 13. Every loaded settings file MAY declare `pi_overlay`. Outfitter MUST compose the declared directories across the settings stack lowest-to-highest precedence, and for a matching relative path the higher-precedence layer's file MUST replace the lower layer's file. The settings-layer overlay MUST reach every Pi projection, including standalone agents that declare no inheritance and no per-agent `pi/` overlay of their own. Settings without `pi_overlay` MUST behave exactly as before this item existed.
-14. Effective runtime precedence MUST be, most specific first: the per-agent `pi/` overlay (OFTR-006.3.17), then the settings-layer `pi_overlay`, then generated defaults (native harness defaults and Outfitter's runtime defaults). The settings-layer overlay MUST be delivered through the same file-based, non-durable, symlink-skipping mechanics as the per-agent overlay, so its `agents/*.md` definitions are foreign to the manifest-scoped subagent rebuild (OFTR-006.3.21) and survive every rebuild; a composed delegate MUST win a same-slug collision.
+14. Effective runtime precedence MUST be, most specific first: the per-agent `pi/` overlay (OFTR-006.3.17), then the settings-layer `pi_overlay`, then generated defaults (native harness defaults, generated extension configuration files from `extension_configs`, and Outfitter's runtime defaults). The settings-layer overlay MUST be delivered through the same file-based, non-durable, symlink-skipping mechanics as the per-agent overlay, so its `agents/*.md` definitions are foreign to the manifest-scoped subagent rebuild (OFTR-006.3.21) and survive every rebuild; a composed delegate MUST win a same-slug collision.
 15. A non-Pi harness MUST warn that it cannot project the settings-layer `pi_overlay`, and `--strict` MUST make that warning fatal. A declared `pi_overlay` that is missing, is not a directory, or is a symlink MUST also warn, and `--strict` MUST make that warning fatal. `outfitter dump` MUST warn that a configured settings-layer `pi_overlay` is not carried into the dumped tree, and the dumped `settings.yml` MUST NOT declare the key.
+16. `agent_defaults` MAY declare `extension_configs`: a map of extension configuration names to config objects, materialized to `extensions/<name>.json` in every Pi runtime projection as non-durable generated defaults.
+    Each key MUST match `^[A-Za-z0-9_-]+$` because it names a runtime file; each value MUST be an object holding arbitrary extension-owned configuration, which Outfitter does not further validate.
+    The surface is a runtime-file delivery control, not a loadout field: it composes no loadout entries, and an `agent_defaults` block that declares only `extension_configs` composes no loadout.
+    Settings without `extension_configs` MUST behave exactly as before this item existed.
+17. Every loaded settings file MAY declare `extension_configs`.
+    Outfitter MUST merge the maps across the settings stack lowest-to-highest precedence; for the same extension name, object values MUST merge recursively with the higher-precedence layer's scalar and array leaves replacing the lower-precedence layer's, and distinct extension names MUST compose independently.
+18. Outfitter MUST deliver each merged `extension_configs` entry to every Pi runtime projection, including standalone agents that declare no inheritance and no `pi/` overlay of their own, whether or not the composed agent selects the extension.
+    The delivered files are generated defaults: the per-agent `pi/` overlay and the settings-layer `pi_overlay` MUST each replace a same-named `extensions/<name>.json` wholesale, per-agent above settings-layer, and the files MUST NOT be carried into `outfitter dump`.
+19. A non-Pi harness MUST warn that it cannot project the extension configuration files, and `--strict` MUST make that warning fatal.
+    `outfitter dump` MUST warn that configured extension configuration files are not carried into the dumped tree, and the dumped `settings.yml` MUST NOT declare the key.
 
 ### OFTR-002.11: Native Harness Defaults
 

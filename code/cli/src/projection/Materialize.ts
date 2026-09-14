@@ -209,6 +209,24 @@ export const applyPiRuntimeDefaults = (rootDirectory: string): void => {
   }
 };
 
+/**
+ * Writes generated extension configuration files as the lowest tier of runtime-file precedence:
+ * materialization runs before overlay materialization, so a per-agent pi/ overlay or a
+ * settings-layer pi_overlay file replaces a same-named generated file wholesale. Keys are
+ * validated to safe file-name characters at the settings read boundary.
+ */
+export const applyExtensionConfigDefaults = (
+  rootDirectory: string,
+  configs: Readonly<Record<string, unknown>> | undefined,
+): void => {
+  if (configs === undefined) return;
+  for (const [name, config] of Object.entries(configs)) {
+    const targetPath = join(rootDirectory, 'extensions', `${name}.json`);
+    mkdirSync(dirname(targetPath), { recursive: true });
+    writeGeneratedFile(targetPath, `${JSON.stringify(config, null, 2)}\n`);
+  }
+};
+
 /** Merges catalog defaults below an existing native JSON settings document. */
 export const applyJsonSettingsDefaults = (
   rootDirectory: string,

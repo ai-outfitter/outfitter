@@ -404,18 +404,23 @@ const promptTargetCollisions = (outRoot: string, prompts: ClosureCompose['prompt
   return errors;
 };
 
-/** The overlay is a run-time delivery surface and may live outside every layer root, so dumps
- *  report it rather than silently dropping it or flattening it into the tree. */
-const dumpWarningsWithPiOverlayNotice = (
+/** Settings-layer delivery surfaces are runtime-only and may live outside every layer root, so
+ *  dumps report them rather than silently dropping them or flattening them into the tree. */
+const dumpWarningsWithSettingsSurfaceNotices = (
   closureWarnings: readonly string[],
   agentDefaults: AgentDefaults | undefined,
-): readonly string[] =>
-  agentDefaults?.piOverlayDirectories === undefined || agentDefaults.piOverlayDirectories.length === 0
-    ? closureWarnings
-    : [
-        ...closureWarnings,
-        'The settings-layer pi overlay (agent_defaults.pi_overlay) is not carried into the dumped tree.',
-      ];
+): readonly string[] => {
+  const notices: string[] = [];
+  if ((agentDefaults?.piOverlayDirectories?.length ?? 0) > 0) {
+    notices.push('The settings-layer pi overlay (agent_defaults.pi_overlay) is not carried into the dumped tree.');
+  }
+  if (Object.keys(agentDefaults?.extensionConfigs ?? {}).length > 0) {
+    notices.push(
+      'The settings-layer extension configs (agent_defaults.extension_configs) are not carried into the dumped tree.',
+    );
+  }
+  return notices.length === 0 ? closureWarnings : [...closureWarnings, ...notices];
+};
 
 /** Writes the composed closure of `agentSlug` into a freshly cleaned `<outDirectory>/.agents/`. */
 export const dumpAgent = (
@@ -428,7 +433,7 @@ export const dumpAgent = (
 ): DumpResult => {
   // composeClosure composes the root once and surfaces an unknown/invalid root agent as an error.
   const closure = composeClosure(set, agentSlug, projectDirectory, agentDefaults);
-  const warnings = dumpWarningsWithPiOverlayNotice(closure.warnings, agentDefaults);
+  const warnings = dumpWarningsWithSettingsSurfaceNotices(closure.warnings, agentDefaults);
 
   if (closure.errors.length > 0) {
     return failure(closure.errors, closure.warnings);

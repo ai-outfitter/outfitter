@@ -65,6 +65,10 @@ agent_defaults:
     - file: prompts/organization.md
   # Runtime files (agents/*.md, extensions/*.json, ...) overlaid into every Pi run.
   pi_overlay: pi-defaults/ # relative to this settings file
+  # File-based extension configs written to extensions/<name>.json in every Pi run.
+  extension_configs:
+    dynamic-context-pruning:
+      rejectedSummaryMode: reject
 
 # Native harness settings shared by every agent run.
 harness_defaults:
@@ -84,7 +88,7 @@ harness_defaults:
   accesses the network.
   below its `repos/` directory.
 - `telemetry.enabled` — the primary and sole persistent control for pseudonymous product analytics. Edit it directly to enable or disable telemetry. See [Telemetry](./telemetry.md) for consent precedence, automatic identifier cleanup, the event contract, and the current inert-build status.
-- `agent_defaults` — additive loadout entries composed into **every** agent ahead of its own loadout; see [Agent defaults](#agent-defaults) below. It also carries `pi_overlay`, the one runtime-file delivery control; see [Pi runtime-file overlay](#pi-runtime-file-overlay).
+- `agent_defaults` — additive loadout entries composed into **every** agent ahead of its own loadout; see [Agent defaults](#agent-defaults) below. It also carries `pi_overlay`, the runtime-file delivery control, and `extension_configs`, the file-based extension configuration surface; see [Pi runtime-file overlay](#pi-runtime-file-overlay) and [Extension configuration files](#extension-configuration-files).
 - `harness_defaults` — native Pi, Claude Code, or Codex settings applied to every run of that harness; see [Harness defaults](#harness-defaults) below.
 
 ## Precedence
@@ -98,7 +102,7 @@ Higher wins:
 5. Cached remote settings (in configured order)
 6. Built-in defaults
 
-Scalar settings override. `sources` follows last-wins ordering per scope so a higher-precedence file replaces the complete lower-precedence list. `workflows` and `agent_defaults` are additive ordered-set unions. `harness_defaults` deep-merges by harness, with higher-precedence leaves replacing lower-precedence leaves.
+Scalar settings override. `sources` follows last-wins ordering per scope so a higher-precedence file replaces the complete lower-precedence list. `workflows` and `agent_defaults` are additive ordered-set unions. `harness_defaults` and `agent_defaults.extension_configs` deep-merge with higher-precedence leaves replacing lower-precedence leaves.
 
 ## Agent defaults
 
@@ -148,6 +152,30 @@ Runtime precedence is most specific first: an agent's own `pi/` overlay beats th
 Keep secrets out of the overlay: the directory is copied verbatim into the runtime projection, so credentials belong in the environment or a credential store, not in overlay files.
 
 Only the Pi adapter projects the overlay. Claude Code and Codex report it as an unsupported control — fatal under `--strict` — instead of silently dropping it, as does a declared directory that is missing, is not a directory, or is a symlink. `outfitter dump` warns that a configured overlay is not carried into the dumped tree.
+
+## Extension configuration files
+
+Extensions read configuration in two shapes, and `agent_defaults` covers both:
+
+- **Settings-key configs** — native `settings.json` keys an extension owns (for example a compaction policy key). Declare them under `harness_defaults.pi` and they pass through to every projected runtime, standalone agents included. See [Harness defaults](#harness-defaults).
+- **File-based configs** — `extensions/<name>.json` files an extension reads from the agent directory (for example `extensions/dynamic-context-pruning.json`). Declare them under `agent_defaults.extension_configs`:
+
+  ```yaml
+  agent_defaults:
+    extension_configs:
+      dynamic-context-pruning: # becomes extensions/dynamic-context-pruning.json
+        rejectedSummaryMode: reject
+  ```
+
+Each map entry is materialized into **every** Pi runtime projection — standalone agents that inherit nothing included, whether or not the composed agent selects the extension (an unloaded extension ignores its config file).
+Keys name the config file, so they accept file-name characters only (`A-Za-z0-9_-`); values are the extension's own config objects, which Outfitter passes through unvalidated.
+Layers deep-merge per extension name, lowest to highest precedence, with a higher layer's values replacing a lower layer's.
+
+The generated files are the lowest runtime-file tier: an agent's own `pi/` overlay, then the settings-layer `pi_overlay`, replaces a same-named `extensions/<name>.json` wholesale.
+Like the overlay, delivery is non-durable — the files live in the temporary projection root and are discarded after the run — and `outfitter dump` warns that configured configs are not carried into the dumped tree.
+Claude Code and Codex report a configured `extension_configs` map as an unsupported control, fatal under `--strict`.
+
+Keep secrets out of config files: they are written verbatim into the runtime projection, so credentials belong in the environment or a credential store.
 
 ## Harness defaults
 
