@@ -146,7 +146,12 @@ describe('ensurePiExtensions', () => {
     });
     expect(spawned).toBe(0);
     expect(result.loadDirs).toEqual([join(dir, 'npm', 'node_modules', 'pi-nolo')]);
-    expect(result.warnings).toEqual([]);
+    // The fixture manifest declares no pi.extensions and ships no index entry, so fresh loaders
+    // cannot inherit anything — the resolution surfaces that as a warning, the load dir still serves.
+    expect(result.warnings).toEqual([
+      "extension 'npm:pi-nolo' exposes no resolvable entry files; fresh loaders (child sessions) will not inherit it.",
+    ]);
+    expect(result.settingsEntries[join(dir, 'npm', 'node_modules', 'pi-nolo')]).toEqual([]);
   });
 
   it('installs a missing extension when online', async () => {

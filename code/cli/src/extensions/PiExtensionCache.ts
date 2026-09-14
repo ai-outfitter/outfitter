@@ -1,6 +1,8 @@
 // Installs an agent's pi `extensions` loadout into a durable Outfitter cache and returns the local
 // install directories so the pi launch can load them with `--extension <dir>` (offline, no reinstall
-// per run). pi's own layout under PI_CODING_AGENT_DIR dedups sources across agents:
+// per run), plus the npm manifest entry files the materialized settings.json must carry so fresh
+// loaders (pi-subagents child sessions, SDK sessions) inherit the same extensions. pi's own layout
+// under PI_CODING_AGENT_DIR dedups sources across agents:
 //   git:  <cacheAgentDir>/git/<host>/<owner>/<repo>
 //   npm:  <cacheAgentDir>/npm/node_modules/<pkg>
 // Outfitter's `git:`/`npm:` specifiers are already pi's `install` source grammar, so the source is
@@ -41,6 +43,12 @@ export interface EnsurePiExtensionsInput {
 export interface EnsurePiExtensionsResult {
   /** Absolute install directories to pass as `--extension`, in specifier order, de-duplicated. */
   readonly loadDirs: readonly string[];
+  /**
+   * Pi entry-file paths each cached npm extension exposes for the materialized `settings.json`
+   * `extensions:` array (the surface fresh loaders such as pi-subagents child sessions read),
+   * keyed by load dir and in specifier order. npm extensions only — git checkouts are not keyed.
+   */
+  readonly settingsEntries: Readonly<Record<string, readonly string[]>>;
   /** One message per specifier that could not be loaded (unsupported, offline-missing, or failed). */
   readonly warnings: readonly string[];
 }
@@ -213,7 +221,91 @@ const defaultSpawner: PiInstallSpawner = ({ source, cacheAgentDir, debug }) =>
   });
 /* v8 ignore stop */
 
-type SpecifierOutcome = { readonly loadDir: string } | { readonly warning: string };
+type SpecifierOutcome =
+  | {
+      readonly loadDir: string;
+      /** Resolved npm entry files; undefined for git checkouts, which gain no settings entries. */
+      readonly settingsEntries?: readonly string[];
+      readonly warnings: readonly string[];
+    }
+  | { readonly warning: string };
+
+/** Reads a cached package's `pi` manifest section; unreadable manifests behave like no manifest. */
+const readPiManifest = (installDir: string): { extensions?: unknown } | undefined => {
+  try {
+    const parsed = JSON.parse(readFileSync(join(installDir, 'package.json'), 'utf8')) as {
+      pi?: { extensions?: unknown };
+    };
+    return parsed.pi;
+  } catch {
+    return undefined;
+  }
+};
+
+/** Collects the manifest-declared entry files that exist on disk, dropping escaping ones with a warning. */
+const collectDeclaredEntries = (
+  specifier: string,
+  installDir: string,
+  declared: readonly unknown[],
+  warnings: string[],
+): readonly string[] => {
+  const entries: string[] = [];
+  const installRoot = resolve(installDir);
+  for (const entry of declared) {
+    if (typeof entry !== 'string') continue;
+    const resolved = resolve(installDir, entry);
+    if (!resolved.startsWith(installRoot + sep)) {
+      warnings.push(
+        `extension '${specifier}' declares an entry resolving outside the install directory; it will not be inherited by fresh loaders.`,
+      );
+      continue;
+    }
+    if (existsSync(resolved)) entries.push(resolved);
+  }
+  return entries;
+};
+
+/**
+ * Resolves the pi entry files a cached npm package exposes, mirroring pi's own directory contract
+ * (`resolveExtensionEntries`): the manifest's `pi.extensions` files that exist on disk in manifest
+ * order, else the directory's `index.ts`/`index.js`. Reading only the manifest already written in
+ * the cache keeps this offline. Entries resolving outside the install directory are dropped with a
+ * warning — a hostile manifest must not steer generated settings outside the cache — and a package
+ * exposing nothing resolvable warns because fresh loaders would inherit no tools at all.
+ */
+const resolveNpmSettingsEntries = (
+  specifier: string,
+  installDir: string,
+): { readonly entries: readonly string[]; readonly warnings: readonly string[] } => {
+  const warnings: string[] = [];
+  let entries: readonly string[] = [];
+  const declared = readPiManifest(installDir)?.extensions;
+  if (Array.isArray(declared)) entries = collectDeclaredEntries(specifier, installDir, declared, warnings);
+  if (entries.length === 0) {
+    const indexEntries: string[] = [];
+    for (const indexEntry of ['index.ts', 'index.js']) {
+      const resolved = join(installDir, indexEntry);
+      if (existsSync(resolved)) {
+        indexEntries.push(resolved);
+        break;
+      }
+    }
+    entries = indexEntries;
+  }
+  if (entries.length === 0) {
+    warnings.push(
+      `extension '${specifier}' exposes no resolvable entry files; fresh loaders (child sessions) will not inherit it.`,
+    );
+  }
+  return { entries, warnings };
+};
+
+/** Builds the served outcome for one specifier; npm installs additionally resolve their entry files. */
+const servedOutcome = (specifier: string, mapped: PiExtensionSource, installDir: string): SpecifierOutcome => {
+  if (mapped.installSegments[0] !== 'npm') return { loadDir: installDir, warnings: [] };
+  const { entries, warnings } = resolveNpmSettingsEntries(specifier, installDir);
+  return { loadDir: installDir, settingsEntries: entries, warnings };
+};
 
 /** Resolves one specifier to a cached load directory, installing it when online and missing. */
 const ensureOneExtension = async (
@@ -226,8 +318,10 @@ const ensureOneExtension = async (
 
   const installDir = join(input.cacheAgentDir, ...mapped.installSegments);
   assertInstallDirInsideCache(installDir, input.cacheAgentDir, specifier);
+  const serve = (): SpecifierOutcome => servedOutcome(specifier, mapped, installDir);
+
   const decision = evaluateCachedInstall(installDir, mapped, input.offline);
-  if (decision.serve) return { loadDir: installDir };
+  if (decision.serve) return serve();
   if (decision.staleWarning !== undefined) return { warning: decision.staleWarning };
 
   if (input.offline) return { warning: `extension '${specifier}' is not cached and cannot be installed offline.` };
@@ -244,7 +338,7 @@ const ensureOneExtension = async (
   }
 
   recordInstalledGitRef(installDir, mapped);
-  return { loadDir: installDir };
+  return serve();
 };
 
 /** Ensures each pi extension is cached (installing when online) and returns its load directory. */
@@ -254,16 +348,23 @@ export const ensurePiExtensions = async (
 ): Promise<EnsurePiExtensionsResult> => {
   const spawn = input.spawn ?? defaultSpawner;
   const loadDirs: string[] = [];
+  const settingsEntries: Record<string, readonly string[]> = {};
   const warnings: string[] = [];
 
   for (const specifier of specifiers) {
     const outcome = await ensureOneExtension(specifier, input, spawn);
     if ('loadDir' in outcome) {
-      if (!loadDirs.includes(outcome.loadDir)) loadDirs.push(outcome.loadDir);
+      // A repeated install dir (e.g. a pinned and an unpinned specifier for one package) resolves
+      // identically, so its entries and warnings are recorded once, with the first occurrence.
+      if (!loadDirs.includes(outcome.loadDir)) {
+        loadDirs.push(outcome.loadDir);
+        if (outcome.settingsEntries !== undefined) settingsEntries[outcome.loadDir] = outcome.settingsEntries;
+        warnings.push(...outcome.warnings);
+      }
     } else {
       warnings.push(outcome.warning);
     }
   }
 
-  return { loadDirs, warnings };
+  return { loadDirs, settingsEntries, warnings };
 };
