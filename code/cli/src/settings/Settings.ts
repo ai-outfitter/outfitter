@@ -62,6 +62,18 @@ export interface AgentDefaults {
   readonly plugins?: readonly string[];
   readonly subagents?: readonly string[];
   readonly appendSystemPrompt?: readonly PromptSourceReference[];
+  /**
+   * Resolved `pi_overlay` directories contributed by the settings stack, lowest-precedence layer
+   * first. A runtime-file delivery surface, not a loadout field: it composes no slugs and never
+   * enters the composed loadout, so the loadout-only helpers below deliberately ignore it.
+   */
+  readonly piOverlayDirectories?: readonly string[];
+  /**
+   * File-based extension configurations deep-merged across the settings stack. Like
+   * `piOverlayDirectories`, a runtime-file delivery surface rather than a loadout field, so the
+   * loadout-only helpers below deliberately ignore it.
+   */
+  readonly extensionConfigs?: Readonly<Record<string, Readonly<Record<string, SettingsValue>>>>;
 }
 
 /** True when no defaults field carries an entry, so the settings layer contributes nothing. */

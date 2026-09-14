@@ -373,6 +373,7 @@ describe('run agent', () => {
         harness: 'pi',
         launcher,
         extensionInstallSpawner,
+        extensionNpmLatest: () => undefined, // keep the install source at the bare specifier
         startLoading: (label) => {
           loading.push(label);
           return () => loading.push('stopped');
@@ -401,6 +402,7 @@ describe('run agent', () => {
         logLevel: 'debug',
         launcher,
         extensionInstallSpawner,
+        extensionNpmLatest: () => undefined,
       });
       expect(installed).toEqual([]);
       expect(captured[0].plan.args).toContain(nolo);
