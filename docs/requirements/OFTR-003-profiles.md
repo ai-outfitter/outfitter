@@ -33,6 +33,7 @@ Outfitter resolves agents and other resources from layered `.agents` trees into 
 1. Outfitter MUST resolve resources from layered `.agents` trees ordered highest precedence first: workspace `<project>/.agents`, then global `~/.agents`, then configured `sources` in order.
 2. Only layers whose payload root exists on disk are included.
 3. A local `path` source's payload root is the directory itself; a remote source's root is its synced cache directory plus any configured subpath.
+4. When the workspace payload root and the global payload root resolve to the same on-disk directory — including when either path reaches the other through a symlink — layer discovery MUST collapse them into a single global layer, so a resource in that directory is not reported as shadowed by itself.
 
 ### OFTR-003.4: Merge by ID
 
