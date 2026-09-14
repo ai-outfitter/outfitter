@@ -39,6 +39,7 @@ const planWith = (): CompositionPlan => ({
     mcp: [],
     mcpServers: {},
     extensions: [],
+    extensionDeclarations: [],
     plugins: [],
   },
   warnings: [],

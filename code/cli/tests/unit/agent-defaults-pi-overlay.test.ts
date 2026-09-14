@@ -50,6 +50,7 @@ const planWith = (subagentSlugs: readonly string[] = [], layerRoot = newRoot()):
     mcp: [],
     mcpServers: {},
     extensions: [],
+    extensionDeclarations: [],
     plugins: [],
   },
   warnings: [],

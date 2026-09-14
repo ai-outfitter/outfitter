@@ -89,9 +89,11 @@ const tree = (): { home: string; project: string } => {
   write(join(project, '.agents', 'skills', 'wiki', 'SKILL.md'), '---\nname: wiki\n---\n\nWiki skill body.\n');
   write(join(project, '.agents', 'skills', 'wiki', 'scripts', 'go.sh'), 'echo hi'); // nested dir under the skill
   symlinkSync('/etc/hosts', join(project, '.agents', 'skills', 'wiki', 'inner-link')); // inner symlink skipped on materialize
+  // A local extension keeps the fixture offline-deterministic: no cache install for any tree() run.
+  write(join(project, '.agents', 'exts', 'present', 'index.ts'), 'export default () => {};');
   write(
     join(project, '.agents', 'agents', 'engineer', 'agent.md'),
-    '---\nname: engineer\nskills: [wiki]\nmodel: gpt-5.2\nthinking: high\nextensions: [ext-a]\n---\n\n# Engineer\n',
+    '---\nname: engineer\nskills: [wiki]\nmodel: gpt-5.2\nthinking: high\nextensions: ["./exts/present"]\n---\n\n# Engineer\n',
   );
   return { home, project };
 };
@@ -320,7 +322,7 @@ describe('run agent', () => {
     write(join(project, '.agents', 'agents', 'reviewer', 'agent.md'), '---\nname: reviewer\n---\n\nReview.\n');
     write(
       join(project, '.agents', 'agents', 'lead', 'agent.md'),
-      '---\nname: lead\nsubagents: [reviewer]\nmcp: [gh]\nplugins: [p]\nextensions: [e]\nmodel: m\nthinking: high\ntools:\n  allow: [read]\n---\n\nBody.\n',
+      '---\nname: lead\nsubagents: [reviewer]\nmcp: [gh]\nplugins: [p]\nextensions: [npm:e]\nmodel: m\nthinking: high\ntools:\n  allow: [read]\n---\n\nBody.\n',
     );
     const result = await executeRunAgentCommand({
       homeDirectory: home,
@@ -328,6 +330,8 @@ describe('run agent', () => {
       agent: 'lead',
       harness: 'pi',
       launcher,
+      // A failing install reports through the same warning channel the unsupported source did.
+      extensionInstallSpawner: () => Promise.resolve(1),
     });
     const messages = result.messages.join(' ');
     expect(messages).toContain("loadout element 'plugins'");
@@ -337,9 +341,9 @@ describe('run agent', () => {
     expect(messages).not.toContain("loadout element 'subagents'");
     expect(messages).not.toContain("loadout element 'mcp'");
     expect(messages).not.toContain('unknown server');
-    // pi extensions are now projected, so a non-git/npm specifier is reported as an unsupported
-    // source rather than a categorically unsupported loadout element.
-    expect(messages).toContain("extension 'e' uses an unsupported source");
+    // An extension whose install fails reports on the warning channel rather than as a
+    // categorically unsupported loadout element.
+    expect(messages).toContain("extension 'npm:e' failed to install");
     expect(messages).not.toContain("loadout element 'extensions'");
   });
 
@@ -413,13 +417,19 @@ describe('run agent', () => {
   });
 
   it('emits warnings before the pi session launches', async () => {
-    const { home, project } = tree(); // engineer selects an unsupported extension (ext-a)
+    const { home, project } = tree();
+    // An extension whose install fails warns without launching: overwritten onto the tree() agent.
+    write(
+      join(project, '.agents', 'agents', 'engineer', 'agent.md'),
+      '---\nname: engineer\nskills: [wiki]\nextensions: [npm:ext-a]\n---\n\n# Engineer\n',
+    );
     const events: string[] = [];
     await executeRunAgentCommand({
       homeDirectory: home,
       projectDirectory: project,
       agent: 'engineer',
       harness: 'pi',
+      extensionInstallSpawner: () => Promise.resolve(1),
       launcher: (plan) => {
         events.push('launch');
         return launcher(plan);
@@ -428,7 +438,7 @@ describe('run agent', () => {
     });
 
     const launchIndex = events.indexOf('launch');
-    const warnIndex = events.findIndex((event) => event.startsWith('warn:') && event.includes("extension 'ext-a'"));
+    const warnIndex = events.findIndex((event) => event.startsWith('warn:') && event.includes("extension 'npm:ext-a'"));
     expect(warnIndex).toBeGreaterThanOrEqual(0);
     expect(warnIndex).toBeLessThan(launchIndex);
   });

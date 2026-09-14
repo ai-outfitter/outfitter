@@ -185,6 +185,7 @@ const compositionPlan = (extensions: readonly string[]): CompositionPlan => ({
     mcp: [],
     mcpServers: {},
     extensions,
+    extensionDeclarations: extensions.map((specifier) => ({ specifier })),
     plugins: [],
   },
   warnings: [],

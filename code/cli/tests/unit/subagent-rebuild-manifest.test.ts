@@ -66,6 +66,7 @@ const planWith = (layerRoot: string, slugs: readonly string[]): CompositionPlan 
     mcp: [],
     mcpServers: {},
     extensions: [],
+    extensionDeclarations: [],
     plugins: [],
   },
   warnings: [],
