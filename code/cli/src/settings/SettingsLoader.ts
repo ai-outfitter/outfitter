@@ -75,6 +75,7 @@ interface AgentDefaultsDocument {
   readonly plugins?: readonly string[];
   readonly subagents?: readonly string[];
   readonly append_system_prompt?: unknown;
+  readonly pi_overlay?: string;
 }
 
 interface EnterpriseSettingsDocument {
@@ -311,7 +312,7 @@ const convertSettingsDocument = (
   startup: convertStartupSettings(document.startup),
   enterprise: isHomeScope(scope) ? convertEnterpriseSettings(document.enterprise) : undefined,
   telemetry: convertTelemetrySettings(document.telemetry),
-  agentDefaults: convertAgentDefaults(document.agent_defaults),
+  agentDefaults: convertAgentDefaults(document.agent_defaults, settingsDirectory),
   harnessDefaults: document.harness_defaults,
 });
 
@@ -324,7 +325,10 @@ const convertEnterpriseSettings = (enterprise: EnterpriseSettingsDocument | unde
 const convertTelemetrySettings = (telemetry: TelemetrySettingsDocument | undefined): Settings['telemetry'] =>
   telemetry === undefined ? undefined : { enabled: telemetry.enabled };
 
-const convertAgentDefaults = (defaults: AgentDefaultsDocument | undefined): AgentDefaults | undefined =>
+const convertAgentDefaults = (
+  defaults: AgentDefaultsDocument | undefined,
+  settingsDirectory: string,
+): AgentDefaults | undefined =>
   defaults === undefined
     ? undefined
     : {
@@ -339,6 +343,12 @@ const convertAgentDefaults = (defaults: AgentDefaultsDocument | undefined): Agen
           : defaults.append_system_prompt === undefined
             ? undefined
             : [defaults.append_system_prompt],
+        // The overlay path resolves where it was declared, so each settings layer keeps its own
+        // location no matter where the run launches from.
+        piOverlayDirectories:
+          defaults.pi_overlay === undefined
+            ? undefined
+            : [resolveConfigDirectory(defaults.pi_overlay, settingsDirectory)],
       };
 
 const convertRemoteSettingsSource = (source: RemoteSettingsDocument): RemoteSettingsReference => {

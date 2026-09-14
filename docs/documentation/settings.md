@@ -63,6 +63,8 @@ agent_defaults:
     - github
   append_system_prompt:
     - file: prompts/organization.md
+  # Runtime files (agents/*.md, extensions/*.json, ...) overlaid into every Pi run.
+  pi_overlay: pi-defaults/ # relative to this settings file
 
 # Native harness settings shared by every agent run.
 harness_defaults:
@@ -82,7 +84,7 @@ harness_defaults:
   accesses the network.
   below its `repos/` directory.
 - `telemetry.enabled` — the primary and sole persistent control for pseudonymous product analytics. Edit it directly to enable or disable telemetry. See [Telemetry](./telemetry.md) for consent precedence, automatic identifier cleanup, the event contract, and the current inert-build status.
-- `agent_defaults` — additive loadout entries composed into **every** agent ahead of its own loadout; see [Agent defaults](#agent-defaults) below.
+- `agent_defaults` — additive loadout entries composed into **every** agent ahead of its own loadout; see [Agent defaults](#agent-defaults) below. It also carries `pi_overlay`, the one runtime-file delivery control; see [Pi runtime-file overlay](#pi-runtime-file-overlay).
 - `harness_defaults` — native Pi, Claude Code, or Codex settings applied to every run of that harness; see [Harness defaults](#harness-defaults) below.
 
 ## Precedence
@@ -125,6 +127,27 @@ Composition rules:
 - Only the additive loadout fields above are supported. Per-agent controls such as `model`, `thinking`, and `tools` stay agent-owned; `agents.md` remains shared prompt context, not a configuration manifest.
 - `outfitter run`, `outfitter dump`, and `outfitter validate` compose the same effective defaults. Unresolved references are validation findings and composition warnings named `agent_defaults …`, and `outfitter dump` records the settings-layer provenance in `.outfitter/composition.json` plus a `settings.yml` carrying the merged defaults, so a dumped tree stays self-contained.
 - Settings without `agent_defaults` behave exactly as before. The block is backend-neutral: no backend-specific keys, endpoints, or credentials.
+
+## Pi runtime-file overlay
+
+`agent_defaults.pi_overlay` points at a directory of runtime files — for example a pi-subagents definition and a file-based extension configuration:
+
+```text
+.agents/
+├── settings.yml # declares agent_defaults.pi_overlay: pi-defaults/
+└── pi-defaults/
+    ├── agents/general-purpose.md # pi-subagents agent definition, fleet-wide
+    ├── extensions/dynamic-context-pruning.json # extension configuration file
+    └── settings.json # any other native agent-directory file
+```
+
+The contents are overlaid into **every** Pi runtime projection — including standalone agents that inherit nothing and own no per-agent overlay — so a fleet declares its runtime files once instead of copying them into every agent's `pi/` folder. The value is a directory path, resolved relative to the settings file that declares it; every settings scope may declare one, and they compose from lowest to highest precedence, with a higher layer's file replacing a lower layer's same-named file.
+
+Runtime precedence is most specific first: an agent's own `pi/` overlay beats the settings layer, which beats generated defaults such as harness defaults and Outfitter's runtime settings. The delivery is file-based and non-durable — files land in the temporary projection root and are discarded after the run — and Outfitter never follows symlinks from the overlay. One delegation exception, shared with the per-agent overlay: a `agents/<slug>.md` file colliding with a declared delegate is replaced by the delegate, because a declared `subagents:` selection is an explicit choice. Settings-layer agent definitions are never tracked by the rebuild manifest, so they survive every delegate rebuild.
+
+Keep secrets out of the overlay: the directory is copied verbatim into the runtime projection, so credentials belong in the environment or a credential store, not in overlay files.
+
+Only the Pi adapter projects the overlay. Claude Code and Codex report it as an unsupported control — fatal under `--strict` — instead of silently dropping it, as does a declared directory that is missing, is not a directory, or is a symlink. `outfitter dump` warns that a configured overlay is not carried into the dumped tree.
 
 ## Harness defaults
 
