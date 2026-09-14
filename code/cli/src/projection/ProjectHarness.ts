@@ -288,12 +288,14 @@ const preparePiHarnessDefaults = (input: ProjectionInput, warnings: string[]): v
   // overlays, whose same-named files replace them wholesale.
   applyExtensionConfigDefaults(input.rootDirectory, input.agentDefaultsExtensionConfigs);
   // Settings-layer overlays sit below the per-agent overlays, so they trail the highest-first list.
+  // The warnings sink both enables cross-tier JSON deep-merge and collects its diagnostics.
   materializeConfigurationOverlays(
     [
       ...(input.configurationOverlayDirectories ?? []),
       ...usablePiOverlayDirectories(input.agentDefaultsOverlayDirectories, warnings),
     ],
     input.rootDirectory,
+    { warnings },
   );
   const settingsPath = applyJsonSettingsDefaults(input.rootDirectory, input.harnessDefaults);
   // Cached npm extension entries merge after the settings/overlay tiers so an overlay-declared

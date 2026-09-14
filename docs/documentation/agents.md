@@ -169,11 +169,15 @@ agents/founder/
 
 The overlay is file-based.
 Source layers are applied from lowest to highest precedence, so a workspace `agents/founder/pi/keybindings.json` replaces the same file from a global or remote catalog while unrelated lower-layer files remain present.
+Structured JSON files compose instead of replacing: when a higher layer provides a same-named `*.json` file that a lower overlay layer also delivered, and both documents are JSON objects, Outfitter deep-merges them — lower layer first, the higher layer's values winning on every conflicting key — and rewrites the merged file in canonical two-space JSON formatting.
+Arrays inside a merged document are replaced wholesale by the higher layer, never concatenated.
+Files that are not JSON, and JSON documents that cannot merge, keep whole-file replacement; a higher layer's file that is not valid JSON replaces the lower file whole and warns (fatal under `--strict`).
+Generated runtime files are not overlay layers and keep their documented generation semantics.
 Outfitter does not follow symlinks from the overlay.
 The folder is ignored when the selected harness is not Pi.
 
 A settings-layer overlay sits one step below the per-agent folder: `agent_defaults.pi_overlay` in `settings.yml` points at a directory whose files are overlaid into every Pi run, standalone agents included (see [Settings — Pi runtime-file overlay](./settings.md#pi-runtime-file-overlay)).
-For the same relative path the per-agent `pi/` folder wins, the settings layer wins over generated defaults, and a higher-precedence settings layer wins over a lower one.
+For the same relative path the per-agent `pi/` folder wins, the settings layer wins over generated defaults, and a higher-precedence settings layer wins over a lower one; for JSON object documents that merge, the more specific tier wins per key instead of per file.
 File-based extension configurations have a generated tier one step further down: `agent_defaults.extension_configs` entries are written to `extensions/<name>.json` before the overlays, so an overlay-delivered same-named file wins (see [Settings — Extension configuration files](./settings.md#extension-configuration-files)).
 
 Cached `npm:` extensions are inherited by fresh loaders as well.
