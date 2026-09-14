@@ -172,8 +172,16 @@ Source layers are applied from lowest to highest precedence, so a workspace `age
 Outfitter does not follow symlinks from the overlay.
 The folder is ignored when the selected harness is not Pi.
 
+A settings-layer overlay sits one step below the per-agent folder: `agent_defaults.pi_overlay` in `settings.yml` points at a directory whose files are overlaid into every Pi run, standalone agents included (see [Settings — Pi runtime-file overlay](./settings.md#pi-runtime-file-overlay)).
+For the same relative path the per-agent `pi/` folder wins, the settings layer wins over generated defaults, and a higher-precedence settings layer wins over a lower one.
+
 Outfitter writes generated identity, composed skills, selected delegates, and selected MCP servers after applying the native overlay, and seeds durable Pi credentials immediately before launch.
 Those runtime-owned resources therefore cannot be replaced accidentally by a profile overlay.
+One delegation-specific exception: an overlay `agents/<slug>.md` that collides with a declared delegate is replaced by the delegate, because a declared `subagents:` selection is an explicit choice the profile made.
+
+The runtime `agents/` directory is rebuilt for declared delegates without deleting foreign content: Outfitter records the delegate files it generated in a rebuild manifest under the projection root, and a later run into the same retained root removes only those tracked files when the delegate selection shrinks.
+Overlay-provided agent definitions — per-agent or settings-layer — are never tracked or removed, so they survive every run.
+If the rebuild manifest is missing or unreadable, the rebuild skips cleanup rather than risk deleting files Outfitter did not write.
 
 `agents/<agent>/mcp.json` merges by server id over layered tree-root `mcp.json` files.
 The Pi projection writes only the servers selected by the active agent's `mcp` loadout into the runtime `mcp.json`.

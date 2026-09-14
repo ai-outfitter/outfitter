@@ -404,6 +404,19 @@ const promptTargetCollisions = (outRoot: string, prompts: ClosureCompose['prompt
   return errors;
 };
 
+/** The overlay is a run-time delivery surface and may live outside every layer root, so dumps
+ *  report it rather than silently dropping it or flattening it into the tree. */
+const dumpWarningsWithPiOverlayNotice = (
+  closureWarnings: readonly string[],
+  agentDefaults: AgentDefaults | undefined,
+): readonly string[] =>
+  agentDefaults?.piOverlayDirectories === undefined || agentDefaults.piOverlayDirectories.length === 0
+    ? closureWarnings
+    : [
+        ...closureWarnings,
+        'The settings-layer pi overlay (agent_defaults.pi_overlay) is not carried into the dumped tree.',
+      ];
+
 /** Writes the composed closure of `agentSlug` into a freshly cleaned `<outDirectory>/.agents/`. */
 export const dumpAgent = (
   set: EffectiveResourceSet,
@@ -415,6 +428,7 @@ export const dumpAgent = (
 ): DumpResult => {
   // composeClosure composes the root once and surfaces an unknown/invalid root agent as an error.
   const closure = composeClosure(set, agentSlug, projectDirectory, agentDefaults);
+  const warnings = dumpWarningsWithPiOverlayNotice(closure.warnings, agentDefaults);
 
   if (closure.errors.length > 0) {
     return failure(closure.errors, closure.warnings);
@@ -424,7 +438,7 @@ export const dumpAgent = (
   const safety = containmentErrors(closureResources(closure), roots);
 
   if (safety.length > 0) {
-    return failure(safety, closure.warnings);
+    return failure(safety, warnings);
   }
 
   const outRoot = join(outDirectory, '.agents');
@@ -440,7 +454,7 @@ export const dumpAgent = (
   const rootErrors = writeRootFiles(set, outRoot, written);
 
   if (rootErrors.length > 0) {
-    return failure(rootErrors, closure.warnings);
+    return failure(rootErrors, warnings);
   }
 
   const provenanceTarget = join(outRoot, '.outfitter', 'composition.json');
@@ -471,7 +485,7 @@ export const dumpAgent = (
   const promptCollisions = promptTargetCollisions(outRoot, closure.promptFiles);
   if (promptCollisions.length > 0) {
     rmSync(outRoot, { recursive: true, force: true });
-    return failure(promptCollisions, closure.warnings);
+    return failure(promptCollisions, warnings);
   }
 
   for (const prompt of closure.promptFiles) {
@@ -481,5 +495,5 @@ export const dumpAgent = (
     written.push(target);
   }
 
-  return { writtenPaths: [...new Set(written)].sort(compareSlugs), warnings: closure.warnings, errors: [] };
+  return { writtenPaths: [...new Set(written)].sort(compareSlugs), warnings, errors: [] };
 };

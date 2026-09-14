@@ -1,5 +1,5 @@
 // Projects a harness-neutral CompositionPlan to a native pi, Claude Code, or Codex CLI launch.
-import { readFileSync, writeFileSync } from 'node:fs';
+import { lstatSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { PI_SESSION_DIRECTORY_ENV } from '../agents/PiSessionDirectory.js';
 import type { CompositionPlan } from '../composer/Composition.js';
@@ -258,18 +258,57 @@ interface PreparedHarnessDefaults {
   readonly codexArgs: readonly string[];
 }
 
+/**
+ * Separates usable settings-layer overlay directories from unusable ones. A declared path is an
+ * explicit expectation, unlike discovered per-agent overlays: missing, non-directory, or symlinked
+ * roots must be reported, never silently skipped or followed.
+ */
+const usablePiOverlayDirectories = (
+  directories: readonly string[] | undefined,
+  warnings: string[],
+): readonly string[] => {
+  const usable: string[] = [];
+  for (const overlay of directories ?? []) {
+    if (lstatSync(overlay, { throwIfNoEntry: false })?.isDirectory() === true) {
+      usable.push(overlay);
+    } else {
+      warnings.push(
+        `agent_defaults pi overlay '${overlay}' is not a usable overlay directory (missing, not a directory, or a symlink).`,
+      );
+    }
+  }
+  return usable;
+};
+
+/** Pi's native configuration surface: overlays, merged defaults below them, runtime defaults last. */
+const preparePiHarnessDefaults = (input: ProjectionInput, warnings: string[]): void => {
+  // Settings-layer overlays sit below the per-agent overlays, so they trail the highest-first list.
+  materializeConfigurationOverlays(
+    [
+      ...(input.configurationOverlayDirectories ?? []),
+      ...usablePiOverlayDirectories(input.agentDefaultsOverlayDirectories, warnings),
+    ],
+    input.rootDirectory,
+  );
+  const settingsPath = applyJsonSettingsDefaults(input.rootDirectory, input.harnessDefaults);
+  if (
+    input.harnessDefaults !== undefined &&
+    Object.keys(input.harnessDefaults).length > 0 &&
+    settingsPath === undefined
+  )
+    warnings.push('pi harness defaults could not be merged because settings.json is not a JSON object.');
+  applyPiRuntimeDefaults(input.rootDirectory);
+};
+
 const prepareHarnessDefaults = (input: ProjectionInput): PreparedHarnessDefaults => {
   const defaultWarnings: string[] = [];
-  if (input.harness === 'pi') {
-    materializeConfigurationOverlays(input.configurationOverlayDirectories ?? [], input.rootDirectory);
-    const settingsPath = applyJsonSettingsDefaults(input.rootDirectory, input.harnessDefaults);
-    if (
-      input.harnessDefaults !== undefined &&
-      Object.keys(input.harnessDefaults).length > 0 &&
-      settingsPath === undefined
-    )
-      defaultWarnings.push('pi harness defaults could not be merged because settings.json is not a JSON object.');
-    applyPiRuntimeDefaults(input.rootDirectory);
+  if (input.harness === 'pi') preparePiHarnessDefaults(input, defaultWarnings);
+  else if ((input.agentDefaultsOverlayDirectories?.length ?? 0) > 0) {
+    // Unlike pi-only extension loadout elements (silently skipped by design), this is a settings
+    // control a user explicitly declared, so unsupported harnesses must report it.
+    defaultWarnings.push(
+      `harness '${input.harness}' cannot project the settings-layer pi overlay (agent_defaults.pi_overlay); it will not be applied.`,
+    );
   }
   const claudeSettingsPath =
     input.harness === 'claude' ? applyJsonSettingsDefaults(input.rootDirectory, input.harnessDefaults) : undefined;

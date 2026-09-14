@@ -33,6 +33,13 @@ const mergeAgentDefaults = (lower: AgentDefaults | undefined, higher: AgentDefau
     plugins: mergeDefaultsList(lower?.plugins, higher?.plugins, (entry) => entry),
     subagents: mergeDefaultsList(lower?.subagents, higher?.subagents, (entry) => entry),
     appendSystemPrompt: mergeDefaultsList(lower?.appendSystemPrompt, higher?.appendSystemPrompt, promptSourceKey),
+    // Overlay directories stay ordered lowest-precedence first; projection copies them
+    // highest-precedence-last so a higher layer's file replaces a lower layer's same path.
+    piOverlayDirectories: mergeDefaultsList(
+      lower?.piOverlayDirectories,
+      higher?.piOverlayDirectories,
+      (entry) => entry,
+    ),
   };
 };
 

@@ -118,6 +118,11 @@
             { "$ref": "#/$defs/promptSource" },
             { "type": "array", "items": { "$ref": "#/$defs/promptSource" } }
           ]
+        },
+        "pi_overlay": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Directory of runtime files (agents/*.md, extensions/*.json, ...) overlaid into every Pi runtime projection. Relative paths resolve against this settings file. Pi-only; other harnesses report the control as unsupported."
         }
       },
       "additionalProperties": false
