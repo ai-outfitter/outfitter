@@ -50,6 +50,15 @@ export interface ProjectionInput {
    * harness ignores the input.
    */
   readonly extensionSettingsEntries?: readonly string[];
+  /**
+   * Served pi extension load directories (npm cache installs, git checkouts, local paths), in
+   * declared loadout order and de-duplicated. The pi harness merges them into the generated
+   * `settings.json` `packages:` array as absolute local package paths — pi resolves each entry
+   * through its own package rules, so fresh loaders inherit package-declared themes, skills,
+   * prompts, and extensions exactly as the `--extension` flags deliver them to the main session.
+   * pi only; every other harness ignores the input.
+   */
+  readonly extensionPackageDirs?: readonly string[];
   /** Harness-native configuration directories, highest precedence first, overlaid into the root. */
   readonly configurationOverlayDirectories?: readonly string[];
   /**

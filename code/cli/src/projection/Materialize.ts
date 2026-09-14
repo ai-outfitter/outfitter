@@ -306,6 +306,45 @@ export const applyPiExtensionSettingsEntries = (
   writeGeneratedFile(settingsPath, `${JSON.stringify({ ...document, extensions: merged }, null, 2)}\n`);
 };
 
+/** Returns the document's existing package roots, or undefined when the key is not a string array. */
+const declaredPackageEntries = (document: Record<string, unknown>): readonly string[] | undefined => {
+  const declared = document.packages;
+  if (declared === undefined) return [];
+  if (!Array.isArray(declared)) return undefined;
+  return declared.every((entry): entry is string => typeof entry === 'string') ? declared : undefined;
+};
+
+/**
+ * Merges the served pi extension load directories into the generated pi settings.json `packages`
+ * array — pi resolves a local-path packages entry through its own package rules, so fresh loaders
+ * (pi-subagents child sessions, SDK sessions) inherit package-declared themes, skills, prompt
+ * templates, and extensions with the same semantics the main session gets from `--extension <dir>`.
+ * Outfitter projects package roots only (existence verified by the serving flow) and delegates
+ * manifest parsing, glob expansion, and override patterns to pi, so both sessions can never
+ * disagree about what a package contains. Entries already in the file (overlay- or
+ * harness-default-delivered) keep their order; generated entries follow in declared loadout order,
+ * deduped by exact string with first occurrence winning. An unparseable or non-object document —
+ * or a non-array `packages` value — is left untouched so pi reports it through its own
+ * diagnostics, matching applyPiExtensionSettingsEntries' invalid-settings policy.
+ */
+export const applyPiPackageSettingsEntries = (
+  rootDirectory: string,
+  packageDirs: readonly string[] | undefined,
+): void => {
+  if (packageDirs === undefined || packageDirs.length === 0) return;
+  const settingsPath = join(rootDirectory, 'settings.json');
+  if (!existsSync(settingsPath)) {
+    writeGeneratedFile(settingsPath, `${JSON.stringify({ packages: [...packageDirs] }, null, 2)}\n`);
+    return;
+  }
+  const document = readMergeableSettingsDocument(settingsPath);
+  if (document === undefined) return;
+  const declared = declaredPackageEntries(document);
+  if (declared === undefined) return;
+  const merged = dedupeEntries([declared, packageDirs]);
+  writeGeneratedFile(settingsPath, `${JSON.stringify({ ...document, packages: merged }, null, 2)}\n`);
+};
+
 /** Merges catalog defaults below an existing native JSON settings document. */
 export const applyJsonSettingsDefaults = (
   rootDirectory: string,

@@ -12,6 +12,7 @@ import { projectModel } from './ModelProjection.js';
 import {
   applyExtensionConfigDefaults,
   applyPiExtensionSettingsEntries,
+  applyPiPackageSettingsEntries,
   applyPiRuntimeDefaults,
   applyJsonSettingsDefaults,
   materializeComposition,
@@ -302,6 +303,9 @@ const preparePiHarnessDefaults = (input: ProjectionInput, warnings: string[]): v
   // `extensions` array keeps its order above the generated loadout entries (generated defaults sit
   // beneath the overlay tiers, as with extension config files).
   applyPiExtensionSettingsEntries(input.rootDirectory, input.extensionSettingsEntries);
+  // Package roots merge after the extension entries so both fresh-loader routes (npm entry files
+  // and pi-side package resolution) sit at the same generated tier, beneath the overlay tiers.
+  applyPiPackageSettingsEntries(input.rootDirectory, input.extensionPackageDirs);
   if (
     input.harnessDefaults !== undefined &&
     Object.keys(input.harnessDefaults).length > 0 &&

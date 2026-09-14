@@ -353,17 +353,19 @@ const providerPromptModeFor = (skipped: boolean): PiProviderPromptMode => (skipp
 
 /** The extension projection inputs are pi-only: launch paths drive the main session, the entry
  * paths (cached npm entry files, resolved local paths) drive the materialized settings.json that
- * fresh loaders inherit. */
+ * fresh loaders inherit, and the load dirs themselves drive the settings `packages:` array so
+ * package-declared themes, skills, and prompts reach fresh loaders through pi's own resolution. */
 const extensionProjectionInputs = (
   harness: Harness,
   extensions: PiExtensionLoadoutResult,
-): Pick<ProjectionInput, 'extensionLoadDirs' | 'extensionSettingsEntries'> =>
+): Pick<ProjectionInput, 'extensionLoadDirs' | 'extensionSettingsEntries' | 'extensionPackageDirs'> =>
   harness === 'pi'
     ? {
         extensionLoadDirs: extensions.loadDirs,
         extensionSettingsEntries: extensions.loadDirs.flatMap((dir) => extensions.settingsEntries[dir] ?? []),
+        extensionPackageDirs: extensions.loadDirs,
       }
-    : { extensionLoadDirs: undefined, extensionSettingsEntries: undefined };
+    : { extensionLoadDirs: undefined, extensionSettingsEntries: undefined, extensionPackageDirs: undefined };
 
 interface FirstRunOutcome {
   readonly providerPromptSkipped: boolean;

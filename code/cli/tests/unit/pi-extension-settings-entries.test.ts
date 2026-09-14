@@ -337,6 +337,7 @@ describe('run path npm extension settings inheritance', () => {
       expect(capturedRuns[0].settings).toEqual({
         quietStartup: true,
         extensions: [join(installDir, 'index.ts')],
+        packages: [installDir],
       });
 
       // Second run reuses the cache offline-equivalently: no reinstall, same materialized entries.
@@ -359,6 +360,7 @@ describe('run path npm extension settings inheritance', () => {
       expect(capturedRuns[0].settings).toEqual({
         quietStartup: true,
         extensions: [join(installDir, 'index.ts')],
+        packages: [installDir],
       });
     } finally {
       if (previousXdg === undefined) delete process.env.XDG_CACHE_HOME;
@@ -384,7 +386,10 @@ describe('run path npm extension settings inheritance', () => {
     const normal = await executeRunAgentCommand(common);
     expect(normal.exitCode).toBe(0);
     expect(normal.messages.join(' ')).toContain("extension 'npm:pi-empty'");
-    expect(capturedRuns[0].settings).toEqual({ quietStartup: true });
+    expect(capturedRuns[0].settings).toEqual({
+      quietStartup: true,
+      packages: [join(home, '.cache', 'outfitter', 'pi-extensions', 'npm', 'node_modules', 'pi-empty')],
+    });
 
     capturedRuns.length = 0;
     const strict = await executeRunAgentCommand({ ...common, strict: true });

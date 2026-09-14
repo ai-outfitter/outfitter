@@ -186,6 +186,11 @@ Fresh extension loaders — pi-subagents child sessions, SDK sessions — read e
 Extension paths delivered by a `pi/` overlay or `harness_defaults.pi` keep their position ahead of the generated entries, the generated entries follow in declared loadout order, and duplicates are collapsed; a package whose manifest exposes no resolvable entry warns (and is fatal under `--strict`) instead of failing the run.
 Outfitter resolves entries only from the cache that is already on disk, so this works offline and never reinstalls.
 
+Package-declared themes, skills, and prompts inherit the same way.
+Every served extension load directory — an npm cache install, a `git:` checkout, or a local path — is also projected into the generated `settings.json` `packages:` array, and pi resolves each entry through its own package rules: the `pi.themes`, `pi.skills`, and `pi.prompts` its manifest declares (or conventional `themes/`, `skills/`, `prompts/` directories) load in fresh loaders exactly as the `--extension` flag loads them in the main session, with the same glob and exclusion semantics.
+A package-declared theme is therefore resolvable by name (for example a `"theme": "forge"` harness default) in child sessions, not just in the main session.
+Outfitter projects package roots only — never individual manifest paths — so manifest problems surface through pi's own diagnostics identically in both sessions, and the launch arguments do not change.
+
 ### Local path extensions
 
 The `extensions:` list also accepts local paths, so developing an extension in place needs no out-of-band overlay or machine-specific absolute path in a shared catalog:
