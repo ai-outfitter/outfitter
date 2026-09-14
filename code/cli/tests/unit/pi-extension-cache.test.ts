@@ -160,6 +160,7 @@ describe('ensurePiExtensions', () => {
     const result = await ensurePiExtensions(['npm:pi-nolo', 'git:github.com/ai-outfitter/deepwork'], {
       cacheAgentDir: dir,
       offline: false,
+      npmLatest: () => undefined, // keep the install source at the bare specifier for this assertion
       spawn: (input) => {
         sources.push(input.source);
         return spawnCreating(input);

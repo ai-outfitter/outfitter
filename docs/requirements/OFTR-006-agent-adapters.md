@@ -64,6 +64,14 @@ Amended (2026-07-17, RFC #165): adapters project a harness-neutral composition, 
     Entries already present in the generated document keep their order ahead of the generated entries, which follow in declared loadout order with duplicates removed; an unparseable or non-object generated `settings.json` MUST be left untouched.
     The launch MUST keep passing the install directories as `--extension` flags (pi's loader dedupes identical paths across the flag and the settings array), and a package that exposes no resolvable entry MUST be reported as a warning (fatal under `--strict`) instead of failing the run.
     Non-Pi harnesses MUST be unaffected.
+25. The pi adapter MUST ensure the non-optional `peerDependencies` declared by each successfully cached `npm:`-declared loadout extension are present in the extension cache before the extension is served: a peer counts as present when it exists under the package's own `node_modules` or under the cache npm root's `node_modules` (filesystem check only), an absent peer MUST be installed into the cache npm root with npm resolving the peer's declared range when the run is online, and a peer marked optional in the manifest's `peerDependenciesMeta` MUST be skipped.
+    Peer names read from a cached manifest MUST be validated against package-name grammar before any install is spawned.
+    A failed peer install, and an absent peer when the run is offline, MUST be reported as a warning (fatal under `--strict`) naming the peer and the extension instead of dropping the extension.
+    A cache hit whose peers are satisfied MUST NOT execute any install command or registry query.
+26. When installing a bare `npm:<name>` loadout extension specifier (no version part), the pi adapter MUST resolve the registry's current release for the package and install that exact version, so a fresh install does not inherit a range or lockfile resolution recorded in the cache from an earlier install; the resolution is best-effort and MUST fall back to the original specifier when the registry cannot be reached or returns an unusable answer.
+    Serve decisions for cached installs MUST continue to be made from the original specifier.
+    When installing an `npm:`-declared specifier whose version part is a range rather than an exact version, the pi adapter MUST warn (fatal under `--strict`) when the registry's current release falls outside the range; the check is best-effort, MUST skip silently on a failed or ambiguous registry answer, and MUST NOT block the install.
+    Exact-version specifiers and cache-hit serves MUST NOT perform either registry query.
 
 ### OFTR-006.4: Pi Startup Boundary
 

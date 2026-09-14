@@ -22,8 +22,13 @@ import {
 import { resolvePiSessionDirectory } from '../../agents/PiSessionDirectory.js';
 import type { CompositionPlan } from '../../composer/Composition.js';
 import { compose } from '../../composer/Composer.js';
-import { ensurePiExtensions } from '../../extensions/PiExtensionCache.js';
-import type { PiInstallSpawner } from '../../extensions/PiExtensionCache.js';
+import { defaultNpmLatest, defaultNpmRangeVersions, ensurePiExtensions } from '../../extensions/PiExtensionCache.js';
+import type {
+  NpmLatestResolver,
+  NpmRangeVersionsResolver,
+  PiInstallSpawner,
+} from '../../extensions/PiExtensionCache.js';
+import type { PiPeerSpawner } from '../../extensions/PiExtensionPeers.js';
 import { resolveOutfitterCacheDir } from '../../paths/OutfitterCache.js';
 import { projectComposition } from '../../projection/ProjectHarness.js';
 import type { AgentLaunchPlan, ProjectionInput } from '../../projection/Projection.js';
@@ -83,6 +88,12 @@ export interface RunAgentInput {
   readonly harnessHelpReader?: HarnessHelpReader;
   /** Test seam for the `pi install` boundary used to cache pi extensions. */
   readonly extensionInstallSpawner?: PiInstallSpawner;
+  /** Test seam for the npm install boundary that satisfies unmet peer dependencies of cached extensions. */
+  readonly extensionPeerSpawner?: PiPeerSpawner;
+  /** Test seam for the registry resolver behind bare `npm:` extension specifiers' install-time version resolution. */
+  readonly extensionNpmLatest?: NpmLatestResolver;
+  /** Test seam for the registry resolver behind the install-time fossilized-range check. */
+  readonly extensionNpmRangeVersions?: NpmRangeVersionsResolver;
   /** Optional loading UI. The command wires a terminal spinner; tests can observe this boundary. */
   readonly startLoading?: LoadingStarter;
   /** Test seam for startup cache establishment. */
@@ -257,6 +268,9 @@ const resolvePiExtensions = async (
     offline: process.env.PI_OFFLINE === '1' || process.env.PI_OFFLINE === 'true',
     debug: input.logLevel === 'debug',
     spawn: input.extensionInstallSpawner,
+    peerSpawn: input.extensionPeerSpawner,
+    npmLatest: input.extensionNpmLatest ?? defaultNpmLatest,
+    npmRangeVersions: input.extensionNpmRangeVersions ?? defaultNpmRangeVersions,
   });
 };
 

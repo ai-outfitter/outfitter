@@ -182,6 +182,14 @@ Fresh extension loaders — pi-subagents child sessions, SDK sessions — read e
 Extension paths delivered by a `pi/` overlay or `harness_defaults.pi` keep their position ahead of the generated entries, the generated entries follow in declared loadout order, and duplicates are collapsed; a package whose manifest exposes no resolvable entry warns (and is fatal under `--strict`) instead of failing the run.
 Outfitter resolves entries only from the cache that is already on disk, so this works offline and never reinstalls.
 
+The cache also stays loadable from fresh loaders: before an npm extension is served, Outfitter checks that every non-optional peer dependency its manifest declares is present in the cache, and installs any missing peer into the cache's npm root with npm (resolving the peer's declared range) when the run is online.
+This matters because pi deliberately does not install extension peers, while fresh loaders resolve the entry file's imports from the cache — a missing peer kills the load there even when the main session works.
+A satisfied cache hit performs no installs and no network; offline runs warn about missing peers instead of installing, and a failed peer install warns without dropping the extension.
+
+Installs stay fresh: a bare `npm:<name>` specifier resolves the registry's current release at install time and installs that exact version, so a new install cannot be poisoned by a version range an earlier install saved into the cache (a caret on a `0.0.x` version is a hard pin that would otherwise fossilize the package forever).
+A specifier carrying an explicit version range installs as declared, but when the registry's current release falls outside the range, Outfitter warns that the range can no longer match current releases.
+An already-cached extension keeps serving offline no matter what the registry says; to move a stale cached install forward, clear the extension cache (or the package's directory under it) and let the next online run reinstall.
+
 Outfitter writes generated identity, composed skills, selected delegates, and selected MCP servers after applying the native overlay, and seeds durable Pi credentials immediately before launch.
 Those runtime-owned resources therefore cannot be replaced accidentally by a profile overlay.
 One delegation-specific exception: an overlay `agents/<slug>.md` that collides with a declared delegate is replaced by the delegate, because a declared `subagents:` selection is an explicit choice the profile made.

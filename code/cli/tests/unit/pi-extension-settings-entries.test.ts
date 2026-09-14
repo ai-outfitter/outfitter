@@ -62,6 +62,7 @@ describe('ensurePiExtensions npm entry resolution', () => {
     const result = await ensurePiExtensions(['npm:@scope/name', 'npm:plain'], {
       cacheAgentDir: cache,
       offline: false,
+      npmLatest: () => undefined, // install from the bare specifier; entry resolution is under test
       spawn: spawnerWriting({
         'npm:@scope/name': { name: '@scope/name', pi: { extensions: ['./ext/a.ts', './ext/b.ts'] } },
         'npm:plain': { name: 'plain', pi: { extensions: ['index.ts'] } },
@@ -325,6 +326,7 @@ describe('run path npm extension settings inheritance', () => {
         extensionInstallSpawner: spawnerWriting({
           'npm:pi-fixture': { name: 'pi-fixture', pi: { extensions: ['./index.ts'] } },
         }),
+        extensionNpmLatest: () => undefined,
       });
 
       expect(result.exitCode).toBe(0);
@@ -349,6 +351,7 @@ describe('run path npm extension settings inheritance', () => {
           spawned += 1;
           return Promise.resolve(0);
         },
+        extensionNpmLatest: () => undefined,
       });
       expect(spawned).toBe(0);
       expect(second.exitCode).toBe(0);
@@ -375,6 +378,7 @@ describe('run path npm extension settings inheritance', () => {
       harness: 'pi',
       launcher: capturingLauncher,
       extensionInstallSpawner: spawnerWriting({}),
+      extensionNpmLatest: () => undefined,
     } as const;
     const normal = await executeRunAgentCommand(common);
     expect(normal.exitCode).toBe(0);

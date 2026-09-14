@@ -18,11 +18,26 @@
 //     is wrong), refreshed once when online, which writes the marker.
 // Offline, a checkout that provably mismatches its pin is dropped with a warning — the same
 // severity the offline path already applies to a missing extension (fatal only under `--strict`).
+//
+// Two cache-integrity policies apply to npm extensions on top of the install/serve decision:
+//   - Peer dependencies: pi deliberately installs extension packages without their peers, but fresh
+//     loaders resolve the entry file's imports from the cache, so before an npm extension is served
+//     its non-optional peers are checked for presence and missing ones install into the cache npm
+//     root with npm (online only; see PiExtensionPeers). A satisfied cache hit does no network.
+//   - Version freshness: a bare `npm:<name>` specifier resolves the registry's current release at
+//     install time and installs that exact version, so a fresh install cannot inherit a range or
+//     lockfile resolution saved by an earlier install (a `^0.0.x` caret is a hard pin that would
+//     fossilize the package); a range-carrying specifier installs as declared but warns when the
+//     registry's current release falls outside it. Serve decisions always map the original
+//     specifier, so resolution never turns into a pin that fights the cache check.
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
 import { join, resolve, sep } from 'node:path';
 
 import { createSpawnLauncher, launchThroughSpawn, spawnLauncher } from '../agents/AgentLaunch.js';
 import { runGit } from '../sources/GitRepository.js';
+import { ensurePeerDependencies } from './PiExtensionPeers.js';
+import type { PiPeerSpawner } from './PiExtensionPeers.js';
 
 /** Spawns `pi install <source>` against the cache agent dir; injectable so tests avoid the network. */
 export type PiInstallSpawner = (input: {
@@ -38,7 +53,20 @@ export interface EnsurePiExtensionsInput {
   /** Show the underlying pi/git/npm installer output. Normal startup keeps it behind loading UI. */
   readonly debug?: boolean;
   readonly spawn?: PiInstallSpawner;
+  /** Installs one unmet peer dependency of a cached npm package; injectable so tests avoid the network. */
+  readonly peerSpawn?: PiPeerSpawner;
+  /** Answers the registry's current release for a bare npm specifier; injectable so tests avoid the network. */
+  readonly npmLatest?: NpmLatestResolver;
+  /** Answers the versions satisfying a specifier range and the registry's current release; injectable in tests. */
+  readonly npmRangeVersions?: NpmRangeVersionsResolver;
 }
+
+export type NpmLatestResolver = (name: string) => string | undefined;
+
+export type NpmRangeVersionsResolver = (
+  name: string,
+  range: string,
+) => { readonly satisfying?: readonly string[]; readonly latest?: string } | undefined;
 
 export interface EnsurePiExtensionsResult {
   /** Absolute install directories to pass as `--extension`, in specifier order, de-duplicated. */
@@ -211,7 +239,8 @@ const evaluateCachedInstall = (installDir: string, mapped: PiExtensionSource, of
   return { serve: false };
 };
 
-/* v8 ignore start -- real `pi install` subprocess; ensurePiExtensions is unit-tested with a fake spawner. */
+/* v8 ignore start -- real `pi install` subprocess and registry queries; ensurePiExtensions is
+   unit-tested with fake spawners and injected resolvers. */
 const quietSpawnLauncher = createSpawnLauncher('ignore');
 const defaultSpawner: PiInstallSpawner = ({ source, cacheAgentDir, debug }) =>
   launchThroughSpawn(debug === true ? spawnLauncher : quietSpawnLauncher, {
@@ -219,6 +248,34 @@ const defaultSpawner: PiInstallSpawner = ({ source, cacheAgentDir, debug }) =>
     args: ['install', source],
     env: { PI_CODING_AGENT_DIR: cacheAgentDir, GIT_TERMINAL_PROMPT: '0' },
   });
+
+const npmView = (arguments_: readonly string[]): string | undefined => {
+  const result = spawnSync('npm', [...arguments_], { encoding: 'utf8' });
+  return result.status === 0 && typeof result.stdout === 'string' ? result.stdout.trim() : undefined;
+};
+
+export const defaultNpmLatest: NpmLatestResolver = (name) => {
+  const version = npmView(['view', name, 'version']);
+  return version !== undefined && exactSemverPattern.test(version) ? version : undefined;
+};
+
+export const defaultNpmRangeVersions: NpmRangeVersionsResolver = (name, range) => {
+  const satisfyingRaw = npmView(['view', `${name}@${range}`, 'version', '--json']);
+  const latest = npmView(['view', name, 'version']);
+  if (satisfyingRaw === undefined || latest === undefined || !exactSemverPattern.test(latest)) return undefined;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(satisfyingRaw);
+  } catch {
+    return undefined;
+  }
+  const satisfying = Array.isArray(parsed)
+    ? parsed.filter((entry): entry is string => typeof entry === 'string')
+    : typeof parsed === 'string'
+      ? [parsed]
+      : [];
+  return satisfying.length === 0 ? undefined : { satisfying, latest };
+};
 /* v8 ignore stop */
 
 type SpecifierOutcome =
@@ -301,10 +358,147 @@ const resolveNpmSettingsEntries = (
 };
 
 /** Builds the served outcome for one specifier; npm installs additionally resolve their entry files. */
-const servedOutcome = (specifier: string, mapped: PiExtensionSource, installDir: string): SpecifierOutcome => {
+const servedOutcome = async (
+  specifier: string,
+  mapped: PiExtensionSource,
+  installDir: string,
+  input: EnsurePiExtensionsInput,
+): Promise<SpecifierOutcome> => {
   if (mapped.installSegments[0] !== 'npm') return { loadDir: installDir, warnings: [] };
+  const peerWarnings = await ensurePeerDependencies({
+    specifier,
+    installDir,
+    npmRoot: join(input.cacheAgentDir, 'npm'),
+    offline: input.offline,
+    debug: input.debug,
+    peerSpawn: input.peerSpawn,
+  });
   const { entries, warnings } = resolveNpmSettingsEntries(specifier, installDir);
-  return { loadDir: installDir, settingsEntries: entries, warnings };
+  return {
+    loadDir: installDir,
+    settingsEntries: entries,
+    warnings: [...peerWarnings, ...warnings],
+  };
+};
+
+/** Extracts the specifier's version part (exact, range, or dist-tag); undefined for a bare specifier. */
+const npmSpecifierVersion = (specifier: string, name: string): string | undefined => {
+  const rest = specifier.slice('npm:'.length);
+  if (rest.length <= name.length) return undefined;
+  const version = rest.slice(name.length + 1);
+  return version === '' ? undefined : version;
+};
+
+/**
+ * Decides which source the install spawn receives for an npm specifier. A bare specifier resolves the
+ * registry's current release and installs that exact version, so a fresh install cannot inherit a
+ * range or lockfile resolution recorded in the cache (the `^0.0.x` fossilization mechanism) — serve
+ * decisions keep mapping the original specifier, so the exact version never becomes a pin that
+ * fights the cache check. Range-carrying specifiers install unchanged but first run a best-effort
+ * fossilization check: a current release outside the range warns (the range can only ever resolve
+ * older versions); any failed or ambiguous registry answer skips silently and never blocks installing.
+ */
+const resolveBareSpecifierSource = (
+  specifier: string,
+  name: string,
+  input: EnsurePiExtensionsInput,
+): { readonly source: string } => {
+  const latest = (input.npmLatest ?? defaultNpmLatest)(name);
+  return latest !== undefined && exactSemverPattern.test(latest)
+    ? { source: `npm:${name}@${latest}` }
+    : { source: specifier };
+};
+
+/**
+ * Best-effort fossilization check for a range-carrying specifier: when the registry's current
+ * release falls outside the range, the range can only ever resolve older versions. Any failed or
+ * ambiguous registry answer stays silent so the check never blocks the install.
+ */
+const fossilizedRangeWarning = (
+  specifier: string,
+  name: string,
+  range: string,
+  input: EnsurePiExtensionsInput,
+): string | undefined => {
+  const answer = (input.npmRangeVersions ?? defaultNpmRangeVersions)(name, range);
+  const { latest, satisfying } = answer ?? {};
+  const listed = Array.isArray(satisfying) ? satisfying : undefined;
+  if (latest === undefined || listed === undefined || listed.length === 0 || listed.includes(latest)) {
+    return undefined;
+  }
+  return (
+    `extension '${specifier}' is pinned to a range that no longer contains the registry's current release ` +
+    `(${latest}); installs will keep resolving an older version until the declared range is updated.`
+  );
+};
+
+const resolveNpmInstallSource = (
+  specifier: string,
+  mapped: PiExtensionSource,
+  input: EnsurePiExtensionsInput,
+): { readonly source: string; readonly fossilWarning?: string } => {
+  const name = mapped.installSegments.slice(2).join('/');
+  const version = npmSpecifierVersion(specifier, name);
+  if (version === undefined) return resolveBareSpecifierSource(specifier, name, input);
+  if (exactSemverPattern.test(version)) return { source: specifier };
+  const fossilWarning = fossilizedRangeWarning(specifier, name, version, input);
+  return fossilWarning === undefined ? { source: specifier } : { source: specifier, fossilWarning };
+};
+/** Spawns `pi install` for one source and returns the install-failure warning, or undefined on success. */
+const spawnInstallOrWarning = async (
+  specifier: string,
+  installDir: string,
+  source: string,
+  input: EnsurePiExtensionsInput,
+  spawn: PiInstallSpawner,
+): Promise<string | undefined> => {
+  try {
+    const exitCode = await spawn({ source, cacheAgentDir: input.cacheAgentDir, debug: input.debug });
+    if (exitCode !== 0 || !existsSync(installDir)) {
+      return `extension '${specifier}' failed to install (pi install exited ${exitCode}).`;
+    }
+    return undefined;
+  } catch (error) {
+    return `extension '${specifier}' failed to install (${String(error)}).`;
+  }
+};
+
+/**
+ * Installs a missing (or stale-pinned) extension via the pi spawner and returns its served outcome,
+ * or a warning. The npm install source may be rewritten to the resolved exact version (bare
+ * specifiers) and carry a fossilization warning; peers and entry files resolve after the install.
+ */
+const installExtension = async (
+  specifier: string,
+  mapped: PiExtensionSource,
+  installDir: string,
+  input: EnsurePiExtensionsInput,
+  spawn: PiInstallSpawner,
+): Promise<SpecifierOutcome> => {
+  if (input.offline) return { warning: `extension '${specifier}' is not cached and cannot be installed offline.` };
+
+  removeStaleGitInstall(installDir, mapped);
+  mkdirSync(input.cacheAgentDir, { recursive: true });
+  const installSource =
+    mapped.installSegments[0] === 'npm' ? resolveNpmInstallSource(specifier, mapped, input) : undefined;
+  const failure = await spawnInstallOrWarning(
+    specifier,
+    installDir,
+    installSource?.source ?? mapped.source,
+    input,
+    spawn,
+  );
+  if (failure !== undefined) return { warning: failure };
+
+  recordInstalledGitRef(installDir, mapped);
+  const served = await servedOutcome(specifier, mapped, installDir, input);
+  const fossilWarning = installSource?.fossilWarning;
+  if (fossilWarning === undefined || !('loadDir' in served)) return served;
+  return {
+    loadDir: served.loadDir,
+    settingsEntries: served.settingsEntries,
+    warnings: [fossilWarning, ...served.warnings],
+  };
 };
 
 /** Resolves one specifier to a cached load directory, installing it when online and missing. */
@@ -318,27 +512,11 @@ const ensureOneExtension = async (
 
   const installDir = join(input.cacheAgentDir, ...mapped.installSegments);
   assertInstallDirInsideCache(installDir, input.cacheAgentDir, specifier);
-  const serve = (): SpecifierOutcome => servedOutcome(specifier, mapped, installDir);
 
   const decision = evaluateCachedInstall(installDir, mapped, input.offline);
-  if (decision.serve) return serve();
+  if (decision.serve) return servedOutcome(specifier, mapped, installDir, input);
   if (decision.staleWarning !== undefined) return { warning: decision.staleWarning };
-
-  if (input.offline) return { warning: `extension '${specifier}' is not cached and cannot be installed offline.` };
-
-  removeStaleGitInstall(installDir, mapped);
-  mkdirSync(input.cacheAgentDir, { recursive: true });
-  try {
-    const exitCode = await spawn({ source: mapped.source, cacheAgentDir: input.cacheAgentDir, debug: input.debug });
-    if (exitCode !== 0 || !existsSync(installDir)) {
-      return { warning: `extension '${specifier}' failed to install (pi install exited ${exitCode}).` };
-    }
-  } catch (error) {
-    return { warning: `extension '${specifier}' failed to install (${String(error)}).` };
-  }
-
-  recordInstalledGitRef(installDir, mapped);
-  return serve();
+  return installExtension(specifier, mapped, installDir, input, spawn);
 };
 
 /** Ensures each pi extension is cached (installing when online) and returns its load directory. */
