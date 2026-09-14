@@ -218,11 +218,11 @@ describe('composer', () => {
     write(join(project, '.agents', 'prompts', 'append.md'), 'APPEND');
     write(
       join(project, '.agents', 'agents', 'base', 'agent.md'),
-      '---\nname: base\nskills: [base-skill]\nextensions: [base-extension]\nplugins: [shared-plugin]\nmodel: base-model\ntools:\n  allow: [read, bash]\n  deny: [write]\nsystem_prompt:\n  file: prompts/base.md\nappend_system_prompt:\n  - file: prompts/append.md\n---\n\nBase body.\n',
+      '---\nname: base\nskills: [base-skill]\nextensions: [npm:base-extension]\nplugins: [shared-plugin]\nmodel: base-model\ntools:\n  allow: [read, bash]\n  deny: [write]\nsystem_prompt:\n  file: prompts/base.md\nappend_system_prompt:\n  - file: prompts/append.md\n---\n\nBase body.\n',
     );
     write(
       join(project, '.agents', 'agents', 'engineer', 'agent.md'),
-      '---\nname: engineer\ninherits: base\nskills: [base-skill, child-skill]\nextensions: [base-extension, child-extension]\nplugins: [shared-plugin, child-plugin]\nmodel: child-model\ntools:\n  allow: [write]\n  deny: [bash]\nappend_system_prompt:\n  - file: prompts/append.md\n---\n\nChild body.\n',
+      '---\nname: engineer\ninherits: base\nskills: [base-skill, child-skill]\nextensions: [npm:base-extension, npm:child-extension]\nplugins: [shared-plugin, child-plugin]\nmodel: child-model\ntools:\n  allow: [write]\n  deny: [bash]\nappend_system_prompt:\n  - file: prompts/append.md\n---\n\nChild body.\n',
     );
 
     const result = compose(resolveSet(join(root, 'home'), project), 'engineer', { projectDirectory: project });
@@ -236,7 +236,7 @@ describe('composer', () => {
     expect(plan.identity.agentBody).toContain('Base body.');
     expect(plan.identity.agentBody).toContain('Child body.');
     expect(plan.loadout.skills.map((skill) => skill.slug)).toEqual(['base-skill', 'child-skill']);
-    expect(plan.loadout.extensions).toEqual(['base-extension', 'child-extension']);
+    expect(plan.loadout.extensions).toEqual(['npm:base-extension', 'npm:child-extension']);
     expect(plan.loadout.plugins).toEqual(['shared-plugin', 'child-plugin']);
     expect(plan.loadout.tools).toEqual({ allow: ['read', 'bash', 'write'], deny: ['write', 'bash'] });
     expect(plan.loadout.model).toBe('child-model');

@@ -30,6 +30,7 @@ const planWith = (extensions: readonly string[]): CompositionPlan => ({
     mcp: [],
     mcpServers: {},
     extensions: [...extensions],
+    extensionDeclarations: [],
     plugins: [],
   },
   warnings: [],
