@@ -32,6 +32,7 @@ const planWith = (tools: CompositionPlan['loadout']['tools']): CompositionPlan =
     mcp: [],
     mcpServers: {},
     extensions: [],
+    extensionDeclarations: [],
     plugins: [],
     ...(tools === undefined ? {} : { tools }),
   },

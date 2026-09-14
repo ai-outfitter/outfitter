@@ -56,16 +56,16 @@ Per-capability procedures belong in [skills](./skills.md); the frontmatter only 
 
 ### Loadout fields
 
-| Field        | Selects                                                                      |
-| ------------ | ---------------------------------------------------------------------------- |
-| `skills`     | [Skill](./skills.md) slugs made available to the run.                        |
-| `mcp`        | MCP servers from the tree's `mcp.json` to enable.                            |
-| `subagents`  | Agent slugs projected as harness delegates. See [Subagents](./subagents.md). |
-| `extensions` | Pi extensions to load. First-class, per the adapter.                         |
-| `plugins`    | Pi plugins to load. First-class, per the adapter.                            |
-| `model`      | Provider/model from `models.json`.                                           |
-| `thinking`   | Thinking/effort level.                                                       |
-| `tools`      | Allowed/denied tool policy for the run.                                      |
+| Field        | Selects                                                                                                                   |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------- |
+| `skills`     | [Skill](./skills.md) slugs made available to the run.                                                                     |
+| `mcp`        | MCP servers from the tree's `mcp.json` to enable.                                                                         |
+| `subagents`  | Agent slugs projected as harness delegates. See [Subagents](./subagents.md).                                              |
+| `extensions` | Pi extensions to load — `npm:`/`git:` remote sources or local paths. See [Local path extensions](#local-path-extensions). |
+| `plugins`    | Pi plugins to load. First-class, per the adapter.                                                                         |
+| `model`      | Provider/model from `models.json`.                                                                                        |
+| `thinking`   | Thinking/effort level.                                                                                                    |
+| `tools`      | Allowed/denied tool policy for the run.                                                                                   |
 
 Every value is a slug resolved across layers.
 Skills first check `agents/<agent>/skills/<slug>/` across layer precedence, then fall back to catalog-wide `skills/<slug>/`.
@@ -169,11 +169,58 @@ agents/founder/
 
 The overlay is file-based.
 Source layers are applied from lowest to highest precedence, so a workspace `agents/founder/pi/keybindings.json` replaces the same file from a global or remote catalog while unrelated lower-layer files remain present.
+Structured JSON files compose instead of replacing: when a higher layer provides a same-named `*.json` file that a lower overlay layer also delivered, and both documents are JSON objects, Outfitter deep-merges them — lower layer first, the higher layer's values winning on every conflicting key — and rewrites the merged file in canonical two-space JSON formatting.
+Arrays inside a merged document are replaced wholesale by the higher layer, never concatenated.
+Files that are not JSON, and JSON documents that cannot merge, keep whole-file replacement; a higher layer's file that is not valid JSON replaces the lower file whole and warns (fatal under `--strict`).
+Generated runtime files are not overlay layers and keep their documented generation semantics.
 Outfitter does not follow symlinks from the overlay.
 The folder is ignored when the selected harness is not Pi.
 
+A settings-layer overlay sits one step below the per-agent folder: `agent_defaults.pi_overlay` in `settings.yml` points at a directory whose files are overlaid into every Pi run, standalone agents included (see [Settings — Pi runtime-file overlay](./settings.md#pi-runtime-file-overlay)).
+For the same relative path the per-agent `pi/` folder wins, the settings layer wins over generated defaults, and a higher-precedence settings layer wins over a lower one; for JSON object documents that merge, the more specific tier wins per key instead of per file.
+File-based extension configurations have a generated tier one step further down: `agent_defaults.extension_configs` entries are written to `extensions/<name>.json` before the overlays, so an overlay-delivered same-named file wins (see [Settings — Extension configuration files](./settings.md#extension-configuration-files)).
+
+Cached `npm:` extensions are inherited by fresh loaders as well.
+They install into Outfitter's extension cache and reach the main session through launch-time `--extension` flags; in addition, the entry files their package manifests declare (the `pi.extensions` files that exist on disk, else the package's `index.ts`/`index.js`) are merged into the generated `settings.json` `extensions:` array of the materialized agent directory.
+Fresh extension loaders — pi-subagents child sessions, SDK sessions — read exactly that array, so they load the same extension set as the main session without seeing the launch flags.
+Extension paths delivered by a `pi/` overlay or `harness_defaults.pi` keep their position ahead of the generated entries, the generated entries follow in declared loadout order, and duplicates are collapsed; a package whose manifest exposes no resolvable entry warns (and is fatal under `--strict`) instead of failing the run.
+Outfitter resolves entries only from the cache that is already on disk, so this works offline and never reinstalls.
+
+### Local path extensions
+
+The `extensions:` list also accepts local paths, so developing an extension in place needs no out-of-band overlay or machine-specific absolute path in a shared catalog:
+
+```yaml
+extensions:
+  - ./extensions/helper # relative to the declaring layer's .agents directory
+  - ../shared-ext # parent-relative, same rule
+  - ~/exts/personal # against your home directory
+  - /opt/exts/pinned # absolute
+```
+
+A specifier must start with `npm:`, `git:`, `./`, `../`, `~/` , or `/` — a bare name is rejected because it is ambiguous with resource slugs.
+Relative paths resolve against the `.agents` directory of the layer that declared them (the agent's own layer, or the `config.json` layer that overrode `extensions`), never against the directory you launch from, and a duplicate specifier collapses to its first declaration.
+Settings-layer defaults (`agent_defaults.extensions`) accept `npm:`, `git:`, `~/` , and absolute forms only, because merged settings have no single declaring directory.
+
+Local paths bypass the extension cache entirely: the files already exist on disk, so there is no install and no network.
+Outfitter checks that the target exists (a missing target warns and is skipped, fatal under `--strict`) and passes the resolved path to pi both as `--extension` and in the generated `settings.json` `extensions:` array — pi accepts a directory (resolved by its manifest or index file, else discovered one level deep) or a single extension file, and dedupes the two routes.
+`outfitter dump` keeps the declared specifiers as written, so dumps stay portable.
+
+The cache also stays loadable from fresh loaders: before an npm extension is served, Outfitter checks that every non-optional peer dependency its manifest declares is present in the cache, and installs any missing peer into the cache's npm root with npm (resolving the peer's declared range) when the run is online.
+This matters because pi deliberately does not install extension peers, while fresh loaders resolve the entry file's imports from the cache — a missing peer kills the load there even when the main session works.
+A satisfied cache hit performs no installs and no network; offline runs warn about missing peers instead of installing, and a failed peer install warns without dropping the extension.
+
+Installs stay fresh: a bare `npm:<name>` specifier resolves the registry's current release at install time and installs that exact version, so a new install cannot be poisoned by a version range an earlier install saved into the cache (a caret on a `0.0.x` version is a hard pin that would otherwise fossilize the package forever).
+A specifier carrying an explicit version range installs as declared, but when the registry's current release falls outside the range, Outfitter warns that the range can no longer match current releases.
+An already-cached extension keeps serving offline no matter what the registry says; to move a stale cached install forward, clear the extension cache (or the package's directory under it) and let the next online run reinstall.
+
 Outfitter writes generated identity, composed skills, selected delegates, and selected MCP servers after applying the native overlay, and seeds durable Pi credentials immediately before launch.
 Those runtime-owned resources therefore cannot be replaced accidentally by a profile overlay.
+One delegation-specific exception: an overlay `agents/<slug>.md` that collides with a declared delegate is replaced by the delegate, because a declared `subagents:` selection is an explicit choice the profile made.
+
+The runtime `agents/` directory is rebuilt for declared delegates without deleting foreign content: Outfitter records the delegate files it generated in a rebuild manifest under the projection root, and a later run into the same retained root removes only those tracked files when the delegate selection shrinks.
+Overlay-provided agent definitions — per-agent or settings-layer — are never tracked or removed, so they survive every run.
+If the rebuild manifest is missing or unreadable, the rebuild skips cleanup rather than risk deleting files Outfitter did not write.
 
 `agents/<agent>/mcp.json` merges by server id over layered tree-root `mcp.json` files.
 The Pi projection writes only the servers selected by the active agent's `mcp` loadout into the runtime `mcp.json`.

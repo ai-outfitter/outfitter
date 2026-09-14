@@ -45,7 +45,7 @@ const tree = (): { home: string; project: string } => {
   write(join(project, '.agents', 'skills', 'wiki', 'SKILL.md'), '---\nname: wiki\n---\n\nWiki skill body.\n');
   write(
     join(project, '.agents', 'agents', 'engineer', 'agent.md'),
-    '---\nname: engineer\nskills: [wiki]\nmodel: gpt-5.2\nthinking: high\nextensions: [ext-a]\n---\n\n# Engineer\n',
+    '---\nname: engineer\nskills: [wiki]\nmodel: gpt-5.2\nthinking: high\nextensions: [npm:ext-a]\n---\n\n# Engineer\n',
   );
   return { home, project };
 };
@@ -67,7 +67,7 @@ describe('run agent on the Claude harness', () => {
     expect(plan.env.CLAUDE_CONFIG_DIR).toBeDefined();
     expect(plan.args).toEqual(expect.arrayContaining(['--effort', 'high']));
     expect(plan.args).not.toContain('--skill'); // claude skills are materialized, not flagged
-    // The engineer's `extensions: [ext-a]` is pi-only, a mismatch a claude user cannot act on.
+    // The engineer's `extensions: [npm:ext-a]` is pi-only, a mismatch a claude user cannot act on.
     expect(result.messages.join(' ')).not.toContain('extensions');
   });
 

@@ -28,6 +28,7 @@ const plan: CompositionPlan = {
     mcp: [],
     mcpServers: {},
     extensions: [],
+    extensionDeclarations: [],
     plugins: [],
   },
   warnings: [],

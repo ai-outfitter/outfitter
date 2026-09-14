@@ -9,7 +9,13 @@ import { findResource } from '../resolver/Resource.js';
 import type { AgentDefaults } from '../settings/Settings.js';
 import type { ChainEntry } from './Chain.js';
 import { resolveInheritanceChain } from './Chain.js';
-import type { ComposedLoadout, ComposedSubagent, ComposedSubagentIdentity, CompositionPlan } from './Composition.js';
+import type {
+  ComposedLoadout,
+  ComposedSubagent,
+  ComposedSubagentIdentity,
+  CompositionPlan,
+  DeclaredExtension,
+} from './Composition.js';
 import type { DeclaredSlug, PromptSelection } from './Defaults.js';
 import {
   SETTINGS_DEFAULTS_DECLARER,
@@ -44,6 +50,8 @@ export interface ComposeResult {
 
 interface EffectiveControls {
   readonly loadout: Loadout;
+  /** The loadout's extensions with their declaring-layer provenance, in composed order. */
+  readonly extensionDeclarations: readonly DeclaredExtension[];
   readonly skillSelections: readonly DeclaredSlug[];
   readonly subagentSelections: readonly DeclaredSlug[];
   readonly mcpSelections: readonly DeclaredSlug[];
@@ -82,6 +90,33 @@ const union = (values: readonly string[] = [], next: readonly string[] = []): re
 };
 
 const uniqueStrings = (values: readonly string[]): readonly string[] => [...new Set(values)];
+
+/**
+ * Composes extension declarations settings-first then chain parent-first, collapsing duplicate
+ * specifiers to their first occurrence — the same stable de-duplication as slug selections — so an
+ * inherited relative specifier stays bound to the root of its lowest-precedence declaration.
+ */
+const composeExtensionDeclarations = (
+  chain: readonly ChainEntry[],
+  defaults?: AgentDefaults,
+): readonly DeclaredExtension[] => {
+  const declarations: DeclaredExtension[] = [];
+  const seen = new Set<string>();
+  const push = (declaration: DeclaredExtension): void => {
+    if (!seen.has(declaration.specifier)) {
+      seen.add(declaration.specifier);
+      declarations.push(declaration);
+    }
+  };
+  for (const specifier of defaults?.extensions ?? []) push({ specifier });
+  for (const entry of chain) {
+    // A config.json overlay that supplied `extensions` declares from its own layer (recorded at
+    // parse time); otherwise the agent.md's layer root is the declaring `.agents` directory.
+    const declaringRoot = entry.definition.extensionOrigin ?? entry.resource.winner.layer.root;
+    for (const specifier of entry.definition.loadout.extensions) push({ specifier, declaringRoot });
+  }
+  return declarations;
+};
 
 const declaredSelections = (
   chain: readonly ChainEntry[],
@@ -159,10 +194,13 @@ const composeEffectiveControls = (chain: readonly ChainEntry[], defaults?: Agent
   const model = nearest(chain, (definition) => definition.loadout.model);
   const thinking = nearest(chain, (definition) => definition.loadout.thinking);
 
+  const extensionDeclarations = composeExtensionDeclarations(chain, defaults);
+
   return {
     skillSelections: skills,
     subagentSelections: subagents,
     mcpSelections: mcp,
+    extensionDeclarations,
     appendPromptSelections: mergePromptSelections(
       settingsPromptSelections(defaults?.appendSystemPrompt),
       appendPromptSelections(chain),
@@ -175,10 +213,7 @@ const composeEffectiveControls = (chain: readonly ChainEntry[], defaults?: Agent
       skills: skills.map((selection) => selection.slug),
       subagents: subagents.map((selection) => selection.slug),
       mcp: mcp.map((selection) => selection.slug),
-      extensions: uniqueStrings([
-        ...(defaults?.extensions ?? []),
-        ...chain.flatMap((entry) => entry.definition.loadout.extensions),
-      ]),
+      extensions: extensionDeclarations.map((declaration) => declaration.specifier),
       plugins: uniqueStrings([
         ...(defaults?.plugins ?? []),
         ...chain.flatMap((entry) => entry.definition.loadout.plugins),
@@ -249,6 +284,7 @@ const composeLoadout = (
     mcp: controls.loadout.mcp,
     mcpServers: composeMcpServers(set, controls.mcpSelections, warnings),
     extensions: controls.loadout.extensions,
+    extensionDeclarations: controls.extensionDeclarations,
     plugins: controls.loadout.plugins,
     model: controls.loadout.model,
     thinking: controls.loadout.thinking,
