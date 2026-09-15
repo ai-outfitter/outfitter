@@ -11,6 +11,15 @@
       "description": "Whether a run stands on the machine's native harness configuration (inherit, the default) or on the projection alone (isolated). Honored only from home-scope settings."
     },
     "cache_directory": { "type": "string", "minLength": 1 },
+    "pi_binary": {
+      "enum": ["bundled", "path", "auto"],
+      "description": "Which pi binary pi-harness launches use: the Outfitter-bundled copy (bundled, the default), the user's PATH pi or pi_binary_path (path), or bundled with a warned PATH fallback when bundled resolution fails (auto). The OUTFITTER_PI_BIN environment variable overrides this for one run."
+    },
+    "pi_binary_path": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Explicit pi binary used when pi_binary is path; setting it without pi_binary implies path mode. Relative paths resolve against this settings file. Ignored (with a warning) in bundled and auto modes, and overridden by OUTFITTER_PI_BIN."
+    },
     "source_cache": {
       "type": "object",
       "properties": { "policy": { "enum": ["repair", "locked", "offline"] } },
@@ -108,7 +117,15 @@
       "type": "object",
       "description": "Additive loadout entries composed into every agent before its own loadout, using the same deterministic ordering and stable de-duplication as inherited agent loadouts.",
       "properties": {
-        "extensions": { "$ref": "#/$defs/slugList" },
+        "extensions": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^(?:npm:|git:|~/|/).+$"
+          },
+          "description": "npm:/git: remote sources, home (~/), or absolute paths. Relative paths are rejected because merged settings carry no single declaring directory."
+        },
         "skills": { "$ref": "#/$defs/slugList" },
         "mcp": { "$ref": "#/$defs/slugList" },
         "plugins": { "$ref": "#/$defs/slugList" },
@@ -118,6 +135,17 @@
             { "$ref": "#/$defs/promptSource" },
             { "type": "array", "items": { "$ref": "#/$defs/promptSource" } }
           ]
+        },
+        "pi_overlay": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Directory of runtime files (agents/*.md, extensions/*.json, ...) overlaid into every Pi runtime projection. Relative paths resolve against this settings file. Pi-only; other harnesses report the control as unsupported."
+        },
+        "extension_configs": {
+          "type": "object",
+          "description": "File-based extension configurations materialized to extensions/<name>.json in every Pi runtime projection as generated defaults. Keys name the extension config file (safe file-name characters only); values are extension-owned config objects. Pi-only; other harnesses report the control as unsupported.",
+          "propertyNames": { "pattern": "^[A-Za-z0-9_-]+$" },
+          "additionalProperties": { "type": "object" }
         }
       },
       "additionalProperties": false

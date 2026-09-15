@@ -181,11 +181,11 @@ describe('agent defaults', () => {
     );
     write(
       join(project, '.agents', 'agents', 'parent', 'agent.md'),
-      '---\nname: parent\nskills: [parent-skill]\nextensions: [parent-extension]\nplugins: [parent-plugin]\n---\n\nParent.\n',
+      '---\nname: parent\nskills: [parent-skill]\nextensions: [npm:parent-extension]\nplugins: [parent-plugin]\n---\n\nParent.\n',
     );
     write(
       join(project, '.agents', 'agents', 'child', 'agent.md'),
-      '---\nname: child\ninherits: parent\nskills: [parent-skill, child-skill]\nextensions: [child-extension]\nplugins: [child-plugin]\n---\n\nChild.\n',
+      '---\nname: child\ninherits: parent\nskills: [parent-skill, child-skill]\nextensions: [npm:child-extension]\nplugins: [child-plugin]\n---\n\nChild.\n',
     );
 
     const loaded = loadSettings(discoverSettingsLoadPlan({ homeDirectory: home, projectDirectory: project }));
@@ -196,7 +196,7 @@ describe('agent defaults', () => {
 
     expect(result.errors).toEqual([]);
     const plan = result.plan!;
-    expect(plan.loadout.extensions).toEqual([PENSIEVE, 'parent-extension', 'child-extension']);
+    expect(plan.loadout.extensions).toEqual([PENSIEVE, 'npm:parent-extension', 'npm:child-extension']);
     expect(plan.loadout.plugins).toEqual(['org-plugin', 'parent-plugin', 'child-plugin']);
     expect(plan.loadout.skills.map((skill) => skill.slug)).toEqual(['defaults-skill', 'parent-skill', 'child-skill']);
     expect(plan.loadout.mcp).toEqual(['github', 'slack']);
