@@ -1,7 +1,14 @@
-// Provides `outfitter list [kind]` over the effective resource set.
+// Provides `outfitter list [kind]` over the effective resource set, plus the machine-local `extensions`
+// kind that reports the cached pi extension packages (`extensions` is not a resolver resource kind:
+// it reads the extension cache state directly and needs neither settings nor a project).
+import { join } from 'node:path';
 
 import { Command } from 'commander';
 
+import { buildExtensionReport } from '../../extensions/ExtensionReport.js';
+import type { ExtensionReportEntry } from '../../extensions/ExtensionReport.js';
+import type { NpmLatestResolver } from '../../extensions/PiExtensionCache.js';
+import { resolveOutfitterCacheDir } from '../../paths/OutfitterCache.js';
 import type { EffectiveResourceSet, ResourceKind } from '../../resolver/Resource.js';
 import {
   agentLocalKinds,
@@ -26,12 +33,16 @@ export interface ListInput {
   readonly kind?: string;
   readonly agent?: string;
   readonly strict?: boolean;
+  /** Skip upstream update lookups for the `extensions` kind and report cached state only. */
+  readonly offline?: boolean;
 }
 
 export interface ListResult {
   readonly exitCode: number;
   readonly messages: readonly string[];
   readonly resources: readonly ListResourceEntry[];
+  /** Present only for the `extensions` kind: the underlying report entries. */
+  readonly extensions?: readonly ExtensionReportEntry[];
 }
 
 export interface ListResourceEntry {
@@ -47,6 +58,8 @@ export interface ListCommandDependencies {
   readonly homeDirectory?: string;
   readonly projectDirectory?: string;
   readonly writeLine?: (message: string) => void;
+  /** Test seam for the registry resolver behind the `extensions` kind's upstream checks. */
+  readonly extensionNpmLatest?: NpmLatestResolver;
 }
 
 const kindByPlural: ReadonlyMap<string, ResourceKind> = new Map([
@@ -127,7 +140,42 @@ const listEntry = (
   };
 };
 
-export const executeListCommand = (input: ListInput): ListResult => {
+const renderExtensionStatus = (entry: ExtensionReportEntry): string =>
+  entry.statusDetail === undefined ? entry.status : `${entry.status} (${entry.statusDetail})`;
+
+const renderExtensionVersion = (entry: ExtensionReportEntry): string => {
+  if (entry.kind === 'npm') return entry.resolvedVersion ?? '(unreadable)';
+  if (entry.headSha === undefined) return '(unreadable)';
+  const shortSha = entry.headSha.slice(0, 7);
+  return entry.pinnedRef === undefined ? shortSha : `${entry.pinnedRef} @ ${shortSha}`;
+};
+
+const renderExtensionEntry = (entry: ExtensionReportEntry): string =>
+  `  ${entry.specifier}  ${renderExtensionVersion(entry)}  ${renderExtensionStatus(entry)}`;
+
+/** The `extensions` kind reports the machine-local extension cache; no settings or project apply. */
+const executeListExtensionsCommand = (input: ListInput, npmLatest?: NpmLatestResolver): ListResult => {
+  if (input.agent !== undefined) {
+    throw new Error("The --agent option does not apply to 'extensions': the extension cache is shared across agents.");
+  }
+  const cacheAgentDir = join(resolveOutfitterCacheDir(process.env, input.homeDirectory), 'pi-extensions');
+  const offline = input.offline === true || process.env.PI_OFFLINE === '1' || process.env.PI_OFFLINE === 'true';
+  const report = buildExtensionReport({ cacheAgentDir, offline, npmLatest });
+  const messages = [
+    'extensions:',
+    ...(report.entries.length === 0 ? ['  (none)'] : report.entries.map(renderExtensionEntry)),
+    ...report.warnings.map((warning) => `warning: ${warning}`),
+  ];
+  return {
+    exitCode: input.strict === true && report.warnings.length > 0 ? 1 : 0,
+    messages,
+    resources: [],
+    extensions: report.entries,
+  };
+};
+
+export const executeListCommand = (input: ListInput, npmLatest?: NpmLatestResolver): ListResult => {
+  if (input.kind === 'extensions') return executeListExtensionsCommand(input, npmLatest);
   const { set, settings, settingsIssues, warnings } = resolveEffectiveSet(input);
 
   if (settingsIssues.length > 0) {
@@ -174,42 +222,67 @@ export const executeListCommand = (input: ListInput): ListResult => {
 
 export const createListCommand = (dependencies: ListCommandDependencies = {}): CommandObject => ({
   name: 'list',
-  description: 'List resolvable resources (agents, skills, knowledge, commands, workflows).',
+  description:
+    'List resolvable resources (agents, skills, knowledge, commands, workflows), or the cached pi extensions.',
   register(program: Command): void {
     program.addCommand(
       new Command('list')
-        .description('List resolvable resources (agents, skills, knowledge, commands, workflows).')
-        .argument('[kind]', 'Restrict to one kind: agents, skills, knowledge, commands, or workflows.')
+        .description(
+          'List resolvable resources (agents, skills, knowledge, commands, workflows), or the cached pi extensions.',
+        )
+        .argument('[kind]', 'Restrict to one kind: agents, skills, knowledge, commands, workflows, or extensions.')
         .option('--strict', 'Reject incomplete or unsupported requested composition.')
         .option('--json', 'Emit stable machine-readable JSON with resource provenance.')
         .option(
           '--agent <id>',
           'Resolve resources in an agent context, including its agent-local skills/knowledge/commands.',
         )
-        .action((kind: string | undefined, options: { agent?: string; strict?: boolean; json?: boolean }) => {
-          const result = executeListCommand({
-            /* v8 ignore next 2 -- process defaults are exercised by the CLI entrypoint, not unit tests. */
-            homeDirectory: resolveHomeDirectory(dependencies.homeDirectory),
-            projectDirectory: resolveProjectDirectory(dependencies.projectDirectory),
-            kind,
-            agent: options.agent,
-            strict: options.strict,
-          });
-
-          /* v8 ignore next -- console fallback is direct CLI behavior; tests inject a writer. */
-          const write = dependencies.writeLine ?? console.log;
-          if (options.json === true)
-            write(
-              JSON.stringify(
-                { ok: result.exitCode === 0, resources: result.resources, diagnostics: result.messages },
-                null,
-                2,
-              ),
+        .option('--offline', 'For extensions: skip upstream update lookups and report cached state only.')
+        .action(
+          (
+            kind: string | undefined,
+            options: { agent?: string; strict?: boolean; json?: boolean; offline?: boolean },
+          ) => {
+            const result = executeListCommand(
+              {
+                /* v8 ignore next 2 -- process defaults are exercised by the CLI entrypoint, not unit tests. */
+                homeDirectory: resolveHomeDirectory(dependencies.homeDirectory),
+                projectDirectory: resolveProjectDirectory(dependencies.projectDirectory),
+                kind,
+                agent: options.agent,
+                strict: options.strict,
+                offline: options.offline,
+              },
+              dependencies.extensionNpmLatest,
             );
-          else for (const message of result.messages) write(message);
 
-          if (result.exitCode !== 0) process.exitCode = result.exitCode;
-        }),
+            /* v8 ignore next -- console fallback is direct CLI behavior; tests inject a writer. */
+            const write = dependencies.writeLine ?? console.log;
+            if (options.json === true && result.extensions !== undefined)
+              write(
+                JSON.stringify(
+                  {
+                    ok: result.exitCode === 0,
+                    extensions: result.extensions,
+                    diagnostics: result.messages.filter((message) => message.startsWith('warning: ')),
+                  },
+                  null,
+                  2,
+                ),
+              );
+            else if (options.json === true)
+              write(
+                JSON.stringify(
+                  { ok: result.exitCode === 0, resources: result.resources, diagnostics: result.messages },
+                  null,
+                  2,
+                ),
+              );
+            else for (const message of result.messages) write(message);
+
+            if (result.exitCode !== 0) process.exitCode = result.exitCode;
+          },
+        ),
     );
   },
 });
