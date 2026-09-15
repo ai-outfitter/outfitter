@@ -66,6 +66,11 @@ Outfitter is organized around a private npm workspace root, clear TypeScript pac
 │   │   │   │   ├── ClaudeConfigStrategy.ts        # inherit/isolated resolution plus the harness compatibility probe
 │   │   │   │   ├── ClaudeStatePersistence.ts      # isolated-mode Claude credential/trust and project-session bridges
 │   │   │   │   └── PiCredentialPersistence.ts     # durable Pi credential/provider seed and copy-back
+│   │   │   ├── extensions/            # pi extension loadout resolution, durable cache, and reporting
+│   │   │   │   ├── PiExtensionCache.ts     # npm/git extension cache installs, cache-hit decisions, and freshness policy
+│   │   │   │   ├── PiExtensionPeers.ts     # peer-dependency satisfaction for cached npm extensions
+│   │   │   │   ├── PiLocalExtensions.ts    # local-path specifier resolution and the merged loadout flow
+│   │   │   │   └── ExtensionReport.ts      # read-only `list extensions` cache report with the upstream status model
 │   │   │   ├── paths/                 # Outfitter cache root and repository/packaged asset resolution
 │   │   │   ├── system/                 # root-owned launcher-scope system extension hook loading
 │   │   │   ├── schemas/                # JSON Schema artifacts for persisted settings, agents, system hooks, and workflows

@@ -99,11 +99,30 @@ resolution tells you to run `outfitter sync`.
 
 List resolvable resources across all layers, with the winning source for each slug and any shadowed IDs.
 
-| Argument | Description                                                                |
-| -------- | -------------------------------------------------------------------------- |
-| `[kind]` | Optional filter: `agents`, `skills`, `knowledge`, `commands`, `workflows`. |
+| Argument | Description                                                                              |
+| -------- | ---------------------------------------------------------------------------------------- |
+| `[kind]` | Optional filter: `agents`, `skills`, `knowledge`, `commands`, `workflows`, `extensions`. |
 
 `--json` emits an object containing `ok`, `resources`, and `diagnostics`; diagnostics remain available under strict mode. Each workflow resource entry also contains a name-sorted `outputs` object with resolved output labels, or `{}` when the workflow declares none. Non-JSON output is unchanged. See [OFTR-013: Workflow Contract](../requirements/OFTR-013-workflow-contract.md).
+
+The `extensions` kind is different from the resource kinds: it reports the machine-local pi
+extension cache (`~/.cache/outfitter/pi-extensions/`) instead of composed resources, so it needs
+no settings, project, or agent — and it rejects `--agent`. Each cached `npm:` extension is
+reported with its reconstructed specifier (including the range recorded in the cache manifest),
+its resolved installed version, and its upstream status; each cached `git:` checkout is reported
+with its specifier (including the branch/tag pin recovered from the install marker), its checkout
+HEAD, and its upstream status. Local-path extensions are not listed — they never enter the cache.
+
+Upstream status is one of `up-to-date`, `update-available (<latest>)` (npm: the registry's
+`latest` dist-tag newer than the resolved version; git: the remote tip of the pinned ref — or of
+the default branch for unpinned checkouts — ahead of the checkout HEAD), `pinned (at <sha>)`
+(full-SHA git pins are frozen and never checked), or `unknown (<detail>)`. Upstream lookups are
+read-only (`npm view`, `git ls-remote`) and run by default; pass `--offline` (or set `PI_OFFLINE`)
+to skip them, reporting `unknown (offline)` deterministically. A failed lookup degrades that
+entry to `unknown (lookup failed)` with a warning; `--strict` makes warnings fatal.
+`--json` for extensions emits `ok`, `extensions` (the full report entries), and `diagnostics`.
+See [OFTR-006: Agent Adapters](../requirements/OFTR-006-agent-adapters.md) item 34.
+Updating the cached extensions in place is a separate, planned command; this listing never mutates the cache.
 
 ## `outfitter validate`
 
