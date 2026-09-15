@@ -83,12 +83,13 @@ export interface LayerDiscoveryResult {
 export const discoverLayers = (input: LayerDiscoveryInput): LayerDiscoveryResult => {
   const workspaceRoot = agentsRoot(input.projectDirectory);
   const globalRoot = agentsRoot(input.homeDirectory);
+  const workspaceLayer: Layer = { root: workspaceRoot, origin: 'workspace', label: 'workspace' };
   // When both roots are the same directory the workspace layer is not collected: one global layer
   // keeps `~/.agents` attribution stable across working directories and avoids self-shadowing
   // warnings, while winners are unchanged because the duplicated root resolved to identical files
   // (OFTR-003.3.4). Distinct roots keep the workspace-over-global order unchanged.
   const candidates: Layer[] = [
-    ...(sameRoot(workspaceRoot, globalRoot) ? [] : [{ root: workspaceRoot, origin: 'workspace', label: 'workspace' }]),
+    ...(sameRoot(workspaceRoot, globalRoot) ? [] : [workspaceLayer]),
     { root: globalRoot, origin: 'global', label: 'global' },
   ];
   const unsynchronized: string[] = [];
