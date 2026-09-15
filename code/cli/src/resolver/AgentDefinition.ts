@@ -2,6 +2,7 @@
 import { readFileSync } from 'node:fs';
 
 import { TOOL_NAME_RULE, invalidToolName } from '../projection/Tools.js';
+import { extensionSpecifierDefect } from '../extensions/PiLocalExtensions.js';
 import { validateSchema } from '../validation/SchemaValidator.js';
 import { parseYamlDocument } from '../validation/YamlDocument.js';
 import type { PromptSourceReference } from '../composer/PromptSource.js';
@@ -17,6 +18,8 @@ export interface AgentDefinition {
   /** Markdown body after the frontmatter — the agent's identity prose. */
   readonly body: string;
   readonly loadout: Loadout;
+  /** Absolute directory relative extension specifiers resolve against; set only when a config.json overlay supplied `extensions`. */
+  readonly extensionOrigin?: string;
   /** Ordered parent agent slugs declared by `inherits`. */
   readonly inherits: readonly string[];
   readonly promptControls: PromptControls;
@@ -192,6 +195,31 @@ const toolsIssue = (record: Readonly<Record<string, unknown>>, path: string): Ag
     : { path, message: `declares an unusable tool name ${JSON.stringify(offending)}: ${TOOL_NAME_RULE}` };
 };
 
+/**
+ * Reports the defect in a raw `extensions` value before any normalization, or `undefined` when every
+ * entry is a loadable specifier. Same invariant as `toolsShapeDefect`: `asStringArray` would silently
+ * drop non-strings and the runtime would launch without the extension the author declared, and a
+ * bare name is ambiguous with resource slugs now that local paths are a grammar form, so both are
+ * hard errors at the read boundary instead of launch-time warnings.
+ */
+export const extensionsShapeDefect = (value: unknown): string | undefined => {
+  if (value === undefined) return undefined;
+
+  if (!Array.isArray(value)) {
+    return `\`extensions\` must be an array of extension specifiers, not ${describeValue(value)}.`;
+  }
+
+  const badIndex = value.findIndex(
+    (entry) => typeof entry !== 'string' || extensionSpecifierDefect(entry) !== undefined,
+  );
+
+  return badIndex === -1
+    ? undefined
+    : typeof value[badIndex] === 'string'
+      ? extensionSpecifierDefect(value[badIndex])!
+      : `\`extensions[${badIndex}]\` must be a specifier string, not ${describeValue(value[badIndex])}.`;
+};
+
 /** Reads one config.json, restricting it to loadout keys; parse/read/non-object failures are issues. */
 const readConfigLoadout = (configPath: string): Readonly<Record<string, unknown>> | AgentDefinitionIssue => {
   let parsed: unknown;
@@ -215,6 +243,15 @@ const readConfigLoadout = (configPath: string): Readonly<Record<string, unknown>
 
     if (defect !== undefined) {
       return { path: configPath, message: `config.json declares a malformed tool selection: ${defect}` };
+    }
+  }
+
+  // Same read-boundary grammar for `extensions`; the JSON Schema only sees the frontmatter.
+  if ('extensions' in picked) {
+    const defect = extensionsShapeDefect(picked.extensions);
+
+    if (defect !== undefined) {
+      return { path: configPath, message: `config.json declares an unusable extension specifier: ${defect}` };
     }
   }
 
@@ -252,14 +289,51 @@ const parseFrontmatterRecord = (
   return { record: parsed.document as Record<string, unknown>, body: split.body };
 };
 
+/** The config.json merge outcome over frontmatter, carrying which layer last supplied `extensions`. */
+interface MergedLoadoutConfig {
+  readonly merged: Record<string, unknown>;
+  readonly extensionOrigin?: string;
+}
+
 /**
- * Parses an agent definition. `configPaths` are highest-precedence first; each is a loadout-only
- * override that JSON-merges by key across layers over the frontmatter loadout.
+ * Applies config.json overlays lowest precedence first so higher layers win per key, recording the
+ * `.agents` layer root of the overlay that last supplied `extensions` so relative local paths
+ * resolve where they were declared rather than where the winning agent.md lives.
+ */
+const mergeConfigLoadouts = (
+  frontmatterRecord: Record<string, unknown>,
+  configPaths: readonly string[],
+  configLayerRoots: readonly string[],
+): MergedLoadoutConfig | AgentDefinitionIssue => {
+  let merged: Record<string, unknown> = { ...frontmatterRecord };
+  let extensionOrigin: string | undefined;
+
+  for (let index = configPaths.length - 1; index >= 0; index--) {
+    const config = readConfigLoadout(configPaths[index]);
+
+    if (isAgentDefinitionIssue(config)) {
+      return config;
+    }
+
+    merged = { ...merged, ...config };
+    if ('extensions' in config) extensionOrigin = configLayerRoots[index];
+  }
+
+  return extensionOrigin === undefined ? { merged } : { merged, extensionOrigin };
+};
+
+/**
+ * Parses an agent definition. `configPaths` are highest-precedence first (with `configLayerRoots`
+ * naming each path's `.agents` layer); each is a loadout-only override that JSON-merges by key
+ * across layers over the frontmatter loadout. When an overlay supplies `extensions`, the effective
+ * specifiers are recorded with that overlay's layer root as `extensionOrigin`, so relative local
+ * paths resolve where they were declared rather than where the winning agent.md lives.
  */
 export const parseAgentDefinition = (
   content: string,
   configPaths: readonly string[],
   agentPath: string,
+  configLayerRoots: readonly string[] = [],
 ): AgentDefinition | AgentDefinitionIssue => {
   const frontmatter = parseFrontmatterRecord(content, agentPath);
 
@@ -267,18 +341,13 @@ export const parseAgentDefinition = (
     return frontmatter;
   }
 
-  let merged: Record<string, unknown> = { ...frontmatter.record };
+  const mergedConfig = mergeConfigLoadouts(frontmatter.record, configPaths, configLayerRoots);
 
-  // Apply lowest precedence first so higher layers win per key.
-  for (const configPath of [...configPaths].reverse()) {
-    const config = readConfigLoadout(configPath);
-
-    if (isAgentDefinitionIssue(config)) {
-      return config;
-    }
-
-    merged = { ...merged, ...config };
+  if (isAgentDefinitionIssue(mergedConfig)) {
+    return mergedConfig;
   }
+
+  const merged = mergedConfig.merged;
 
   // The JSON Schema only sees the frontmatter, and a config.json overlay can replace `tools`
   // wholesale after that check. Validate the merged loadout so an unprojectable tool name is an
@@ -295,6 +364,7 @@ export const parseAgentDefinition = (
     description: asString(frontmatter.record.description),
     body: frontmatter.body,
     loadout: loadoutFromRecord(merged),
+    ...(mergedConfig.extensionOrigin === undefined ? {} : { extensionOrigin: mergedConfig.extensionOrigin }),
     inherits: asSlugListOrScalar(frontmatter.record.inherits),
     promptControls: promptControlsFromRecord(frontmatter.record),
   };
@@ -303,6 +373,7 @@ export const parseAgentDefinition = (
 export const readAgentDefinition = (
   agentPath: string,
   configPaths: readonly string[] = [],
+  configLayerRoots: readonly string[] = [],
 ): AgentDefinition | AgentDefinitionIssue => {
   let content: string;
 
@@ -312,5 +383,5 @@ export const readAgentDefinition = (
     return { path: agentPath, message: `Could not read agent.md: ${String(error)}` };
   }
 
-  return parseAgentDefinition(content, configPaths, agentPath);
+  return parseAgentDefinition(content, configPaths, agentPath, configLayerRoots);
 };

@@ -22,11 +22,18 @@ import {
 import { resolvePiSessionDirectory } from '../../agents/PiSessionDirectory.js';
 import type { CompositionPlan } from '../../composer/Composition.js';
 import { compose } from '../../composer/Composer.js';
-import { ensurePiExtensions } from '../../extensions/PiExtensionCache.js';
-import type { PiInstallSpawner } from '../../extensions/PiExtensionCache.js';
+import { defaultNpmLatest, defaultNpmRangeVersions, ensurePiExtensions } from '../../extensions/PiExtensionCache.js';
+import type {
+  NpmLatestResolver,
+  NpmRangeVersionsResolver,
+  PiInstallSpawner,
+} from '../../extensions/PiExtensionCache.js';
+import type { PiPeerSpawner } from '../../extensions/PiExtensionPeers.js';
+import { resolvePiExtensionLoadout } from '../../extensions/PiLocalExtensions.js';
+import type { DeclaredExtension, PiExtensionLoadoutResult } from '../../extensions/PiLocalExtensions.js';
 import { resolveOutfitterCacheDir } from '../../paths/OutfitterCache.js';
 import { projectComposition } from '../../projection/ProjectHarness.js';
-import type { AgentLaunchPlan } from '../../projection/Projection.js';
+import type { AgentLaunchPlan, ProjectionInput } from '../../projection/Projection.js';
 import { findResource } from '../../resolver/Resource.js';
 import { resolveEffectiveSet } from '../../resolver/ResolverContext.js';
 import type { Harness, Isolation, Settings, SourceCachePolicy } from '../../settings/Settings.js';
@@ -83,6 +90,12 @@ export interface RunAgentInput {
   readonly harnessHelpReader?: HarnessHelpReader;
   /** Test seam for the `pi install` boundary used to cache pi extensions. */
   readonly extensionInstallSpawner?: PiInstallSpawner;
+  /** Test seam for the npm install boundary that satisfies unmet peer dependencies of cached extensions. */
+  readonly extensionPeerSpawner?: PiPeerSpawner;
+  /** Test seam for the registry resolver behind bare `npm:` extension specifiers' install-time version resolution. */
+  readonly extensionNpmLatest?: NpmLatestResolver;
+  /** Test seam for the registry resolver behind the install-time fossilized-range check. */
+  readonly extensionNpmRangeVersions?: NpmRangeVersionsResolver;
   /** Optional loading UI. The command wires a terminal spinner; tests can observe this boundary. */
   readonly startLoading?: LoadingStarter;
   /** Test seam for startup cache establishment. */
@@ -245,18 +258,26 @@ const launchWithStatePersistence = async (
 const resolveSessionDirectory = (input: RunAgentInput, harness: Harness): string | undefined =>
   harness === 'pi' ? resolvePiSessionDirectory(process.env, input.homeDirectory, input.projectDirectory) : undefined;
 
-// Installs/caches the pi extensions for the composed agent (pi only) so they load at launch.
+// Resolves the pi extensions for the composed agent (pi only) so they load at launch: local-path
+// specifiers are served straight from disk, remote ones go through the extension cache.
 const resolvePiExtensions = async (
   input: RunAgentInput,
   harness: Harness,
-  extensionSpecs: readonly string[],
-): Promise<{ readonly loadDirs: readonly string[]; readonly warnings: readonly string[] }> => {
-  if (harness !== 'pi') return { loadDirs: [], warnings: [] };
-  return ensurePiExtensions(extensionSpecs, {
-    cacheAgentDir: join(resolveOutfitterCacheDir(process.env, input.homeDirectory), 'pi-extensions'),
-    offline: process.env.PI_OFFLINE === '1' || process.env.PI_OFFLINE === 'true',
-    debug: input.logLevel === 'debug',
-    spawn: input.extensionInstallSpawner,
+  declarations: readonly DeclaredExtension[],
+): Promise<PiExtensionLoadoutResult> => {
+  if (harness !== 'pi') return { loadDirs: [], settingsEntries: {}, warnings: [] };
+  return resolvePiExtensionLoadout(declarations, {
+    homeDirectory: input.homeDirectory,
+    ensureRemote: (specifiers) =>
+      ensurePiExtensions(specifiers, {
+        cacheAgentDir: join(resolveOutfitterCacheDir(process.env, input.homeDirectory), 'pi-extensions'),
+        offline: process.env.PI_OFFLINE === '1' || process.env.PI_OFFLINE === 'true',
+        debug: input.logLevel === 'debug',
+        spawn: input.extensionInstallSpawner,
+        peerSpawn: input.extensionPeerSpawner,
+        npmLatest: input.extensionNpmLatest ?? defaultNpmLatest,
+        npmRangeVersions: input.extensionNpmRangeVersions ?? defaultNpmRangeVersions,
+      }),
   });
 };
 
@@ -264,14 +285,14 @@ const loadPiExtensions = async (
   input: RunAgentInput,
   harness: Harness,
   agentSlug: string,
-  extensionSpecs: readonly string[],
-): ReturnType<typeof resolvePiExtensions> => {
-  const showLoading = harness === 'pi' && input.logLevel !== 'debug' && extensionSpecs.length > 0;
+  declarations: readonly DeclaredExtension[],
+): Promise<PiExtensionLoadoutResult> => {
+  const showLoading = harness === 'pi' && input.logLevel !== 'debug' && declarations.length > 0;
   const stopLoading = showLoading
     ? (input.startLoading?.(`Loading ${agentSlug} profile…`) ?? (() => undefined))
     : () => undefined;
   try {
-    return await resolvePiExtensions(input, harness, extensionSpecs);
+    return await resolvePiExtensions(input, harness, declarations);
   } finally {
     stopLoading();
   }
@@ -323,7 +344,28 @@ const failedCompositionMessages = (
 
 const harnessDefaultsFor = (settings: Settings, harness: Harness) => settings.harnessDefaults?.[harness];
 
+/** Already deep-merged across layers by SettingsMerger, so the map passes through unchanged. */
+const agentDefaultsExtensionConfigsFor = (
+  settings: Settings,
+): NonNullable<Settings['agentDefaults']>['extensionConfigs'] => settings.agentDefaults?.extensionConfigs;
+
 const providerPromptModeFor = (skipped: boolean): PiProviderPromptMode => (skipped ? 'hint' : 'dialog');
+
+/** The extension projection inputs are pi-only: launch paths drive the main session, the entry
+ * paths (cached npm entry files, resolved local paths) drive the materialized settings.json that
+ * fresh loaders inherit, and the load dirs themselves drive the settings `packages:` array so
+ * package-declared themes, skills, and prompts reach fresh loaders through pi's own resolution. */
+const extensionProjectionInputs = (
+  harness: Harness,
+  extensions: PiExtensionLoadoutResult,
+): Pick<ProjectionInput, 'extensionLoadDirs' | 'extensionSettingsEntries' | 'extensionPackageDirs'> =>
+  harness === 'pi'
+    ? {
+        extensionLoadDirs: extensions.loadDirs,
+        extensionSettingsEntries: extensions.loadDirs.flatMap((dir) => extensions.settingsEntries[dir] ?? []),
+        extensionPackageDirs: extensions.loadDirs,
+      }
+    : { extensionLoadDirs: undefined, extensionSettingsEntries: undefined, extensionPackageDirs: undefined };
 
 interface FirstRunOutcome {
   readonly providerPromptSkipped: boolean;
@@ -398,11 +440,13 @@ export const executeRunAgentCommand = async (input: RunAgentInput): Promise<RunA
     return { exitCode: 1, messages };
   }
 
-  // Install/cache the pi extensions into a shared XDG cache and load them at launch (pi only).
-  // Normal startup keeps installer chatter behind one loading state. Debug mode exposes it.
-  const extensions = await loadPiExtensions(input, harness, agentSlug, composed.plan.loadout.extensions);
+  // Resolve the pi extensions into launch paths (pi only): local paths load from disk, remote ones
+  // install/cache. Normal startup keeps installer chatter behind one loading state. Debug exposes it.
+  const extensions = await loadPiExtensions(input, harness, agentSlug, composed.plan.loadout.extensionDeclarations);
   const selectedAgent = findResource(set, 'agent', agentSlug)!;
   const configurationOverlays = piConfigurationOverlays(composed.plan, selectedAgent);
+  // Merged settings order overlay layers lowest-precedence first; projection wants highest first.
+  const agentDefaultsOverlayDirectories = [...(settings.agentDefaults?.piOverlayDirectories ?? [])].reverse();
 
   const rootDirectory = mkdtempSync(join(tmpdir(), `outfitter-${agentSlug}-${harness}-`));
 
@@ -417,9 +461,13 @@ export const executeRunAgentCommand = async (input: RunAgentInput): Promise<RunA
       sessionDirectory: resolveSessionDirectory(input, harness),
       passThroughArgs: input.passThroughArgs,
       appendPromptPaths: input.appendPromptPaths,
-      extensionLoadDirs: harness === 'pi' ? extensions.loadDirs : undefined,
-      // ProjectHarness only overlays these for the pi harness, so pass them through unconditionally.
+      ...extensionProjectionInputs(harness, extensions),
+      // ProjectHarness only overlays configurationOverlayDirectories for the pi harness, so pass
+      // them through unconditionally; the settings-layer overlay additionally drives a
+      // non-Pi-harness unsupported warning there.
       configurationOverlayDirectories: configurationOverlays,
+      agentDefaultsOverlayDirectories,
+      agentDefaultsExtensionConfigs: agentDefaultsExtensionConfigsFor(settings),
       harnessDefaults: harnessDefaultsFor(settings, harness),
     });
 
