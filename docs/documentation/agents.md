@@ -59,6 +59,7 @@ Per-capability procedures belong in [skills](./skills.md); the frontmatter only 
 | Field        | Selects                                                                                                                   |
 | ------------ | ------------------------------------------------------------------------------------------------------------------------- |
 | `skills`     | [Skill](./skills.md) slugs made available to the run.                                                                     |
+| `commands`   | Command file slugs projected as pi prompt templates. See [Commands](#commands).                                           |
 | `mcp`        | MCP servers from the tree's `mcp.json` to enable.                                                                         |
 | `subagents`  | Agent slugs projected as harness delegates. See [Subagents](./subagents.md).                                              |
 | `extensions` | Pi extensions to load — `npm:`/`git:` remote sources or local paths. See [Local path extensions](#local-path-extensions). |
@@ -75,6 +76,19 @@ See [Skills](./skills.md#agent-local-skills).
 `knowledge` and `commands` resolve the same way — an agent may keep private files under `agents/<agent>/knowledge/` and `agents/<agent>/commands/`, local-first over the catalog-wide trees.
 `subagents` are always catalog-wide (a delegate is a shared agent).
 `extensions`/`plugins` are harness-native passthroughs with no on-disk namespace, and `model`/`thinking`/`tools` are per-agent already via `config.json` merge.
+
+### Commands
+
+The `commands:` loadout selects command files and projects them for [Pi](./support-matrix.md) as native prompt templates: each selected command materializes verbatim into the runtime agent directory as `prompts/<name>.md`, invoked as `/name` with `description` and `argument-hint` frontmatter passthrough.
+No launch flags are added — pi discovers the templates from the agent directory, and fresh loaders inherit them the same way.
+
+An entry is either a bare name — the command's invocation name, i.e. its slug without the extension, with nested path separators flattened to `-` (`deploy/staging.md` invokes as `/deploy-staging`) — or an exact file-tree slug (`review-pr.md`, `deploy/staging.md`).
+Entries containing a dot resolve by exact slug only.
+A bare name that matches several commands resolves to a unique `.md` match; anything else is reported as ambiguous (fatal under `--strict`), never silently picked.
+Two commands that flatten to the same prompt name (`a-b.md` and `a/b.md`) keep the first in composition order and report the collision.
+A non-`.md` command warns on Pi runs instead of writing a file pi cannot load, and paths escaping their layer root are refused.
+Claude and Codex do not project commands yet and warn when an agent selects any (fatal under `--strict`).
+`outfitter dump` carries the composed closure's commands into the dumped tree so it resolves on its own.
 
 ### Provider and model registry
 
@@ -138,8 +152,8 @@ prompt_template:
 You specialize the base engineer for NixOS and Kubernetes work.
 ```
 
-Merge policy is deterministic: Markdown bodies append ancestor-first and child-last; list fields (`skills`, `subagents`, `mcp`, `extensions`, `plugins`, `append_system_prompt`) de-duplicate parent-first; scalar controls (`system_prompt`, `prompt_template`, `model`, `thinking`, `label`, `description`) use the nearest child declaration.
-Parent-declared skills resolve against that parent's local skill namespace before catalog fallback, so a child cannot accidentally capture a parent's private loadout.
+Merge policy is deterministic: Markdown bodies append ancestor-first and child-last; list fields (`skills`, `commands`, `subagents`, `mcp`, `extensions`, `plugins`, `append_system_prompt`) de-duplicate parent-first; scalar controls (`system_prompt`, `prompt_template`, `model`, `thinking`, `label`, `description`) use the nearest child declaration.
+Parent-declared skills and commands resolve against that parent's local namespace before catalog fallback, so a child cannot accidentally capture a parent's private loadout.
 
 Prompt sources are explicit objects.
 `file` reads trusted catalog content relative to the `.agents` layer that owns the declaring agent and must stay inside that layer.

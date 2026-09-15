@@ -49,7 +49,7 @@ const supportedElements = (input: ProjectionInput): readonly string[] => {
     case 'codex':
       return ['model', 'mcp'];
     case 'pi':
-      return [...baseline, 'subagents', 'mcp', 'prompt_template'];
+      return [...baseline, 'subagents', 'mcp', 'prompt_template', 'commands'];
   }
 };
 
@@ -58,6 +58,7 @@ const loadoutElementsInUse = (composition: CompositionPlan): readonly string[] =
   const present: string[] = ['identity'];
 
   if (loadout.skills.length > 0) present.push('skills');
+  if (loadout.commands.length > 0) present.push('commands');
   if (loadout.subagents.length > 0) present.push('subagents');
   // `extensions` is deliberately absent. It names pi extension packages, so on claude or codex it
   // can only ever be unsupported — there is no setting a user could change to make it project, and
@@ -381,6 +382,7 @@ export const projectComposition = (composition: CompositionPlan, input: Projecti
   const unsupported = [
     ...unsupportedElements(composition, input),
     ...materialized.skippedSkills.map((slug) => `skill:${slug} (escaping symlink)`),
+    ...materialized.skippedCommands.map((entry) => `command:${entry}`),
     ...materialized.skippedSubagents.map((slug) => `subagent:${slug} (invalid definition)`),
   ];
 

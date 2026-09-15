@@ -17,6 +17,7 @@ import { removeTargetTypeConflict } from '../fs/TypeConflict.js';
 import type { AgentDefinition } from '../resolver/AgentDefinition.js';
 import { isAgentDefinitionIssue, readAgentDefinition } from '../resolver/AgentDefinition.js';
 import type { Loadout, ResolvedResource } from '../resolver/Resource.js';
+import { commandPromptName } from '../resolver/Resource.js';
 import type { Harness, HarnessDefaultSettings } from '../settings/Settings.js';
 import { mergeObjectsWithPolicy } from '../merge/SettingsValueMerger.js';
 import { effectiveToolAllowlist } from './Tools.js';
@@ -32,6 +33,10 @@ export interface MaterializedComposition {
   readonly skillDirectories: readonly string[];
   /** Skills that could not be materialized safely (escaping symlinks). */
   readonly skippedSkills: readonly string[];
+  /** Absolute paths to materialized pi prompt templates, in composition order (pi only). */
+  readonly commandPaths: readonly string[];
+  /** Commands that could not be projected as pi prompt templates, as `slug (reason)` entries. */
+  readonly skippedCommands: readonly string[];
   /** Subagents whose merged agent definition could not be materialized. */
   readonly skippedSubagents: readonly string[];
 }
@@ -382,6 +387,60 @@ const materializeSkill = (skill: ResolvedResource, rootDirectory: string): strin
   return targetDir;
 };
 
+/**
+ * Copies one command file verbatim into the runtime `prompts/` directory — pi's native prompt-
+ * template discovery, so the file IS the template and Outfitter adds no templating. A file that
+ * escapes its layer root is never read; a non-`.md` file would be inert (pi loads only `*.md`);
+ * a flattened name already produced by an earlier entry would silently overwrite it. All three
+ * are reported instead of dropped.
+ */
+const materializeCommand = (
+  commandResource: ResolvedResource,
+  rootDirectory: string,
+  usedNames: Map<string, string>,
+): { readonly path?: string; readonly skipReason?: string } => {
+  if (escapesRoots(commandResource.winner.path, [commandResource.winner.layer.root])) {
+    return { skipReason: 'escaping path' };
+  }
+  if (!commandResource.winner.path.endsWith('.md')) {
+    return { skipReason: 'only .md files load as pi prompt templates' };
+  }
+
+  const name = commandPromptName(commandResource.slug);
+  const owner = usedNames.get(name);
+  if (owner !== undefined) {
+    return { skipReason: `prompt name '${name}' already materialized from '${owner}'` };
+  }
+  usedNames.set(name, commandResource.slug);
+
+  const targetPath = join(rootDirectory, 'prompts', `${name}.md`);
+  mkdirSync(dirname(targetPath), { recursive: true });
+  removeTargetTypeConflict(targetPath, 'file');
+  writeFileSync(targetPath, readFileSync(commandResource.winner.path));
+  return { path: targetPath };
+};
+
+/**
+ * Materializes the composed leader commands as pi prompt templates, composition order first so
+ * flattened-name collisions resolve deterministically to the first entry. Pi-only: other
+ * harnesses receive the element-level unsupported report instead.
+ */
+const materializeCommands = (
+  commands: readonly ResolvedResource[],
+  rootDirectory: string,
+): { readonly commandPaths: readonly string[]; readonly skippedCommands: readonly string[] } => {
+  const commandPaths: string[] = [];
+  const skippedCommands: string[] = [];
+  const usedNames = new Map<string, string>();
+
+  for (const commandResource of commands) {
+    const outcome = materializeCommand(commandResource, rootDirectory, usedNames);
+    if (outcome.skipReason !== undefined) skippedCommands.push(`${commandResource.slug} (${outcome.skipReason})`);
+    else commandPaths.push(outcome.path!);
+  }
+  return { commandPaths, skippedCommands };
+};
+
 const optionalScalar = (name: string, value: string | undefined): readonly string[] =>
   value === undefined ? [] : [`${name}: ${JSON.stringify(value)}`];
 
@@ -556,6 +615,10 @@ export const materializeComposition = (
 ): MaterializedComposition => {
   mkdirSync(rootDirectory, { recursive: true });
   const { systemPromptPath, appendPromptPaths } = materializeIdentity(composition, rootDirectory);
+  const { commandPaths, skippedCommands } =
+    harness === 'pi'
+      ? materializeCommands(composition.loadout.commands, rootDirectory)
+      : { commandPaths: [], skippedCommands: [] };
   const skillDirectories: string[] = [];
   const skippedSkills: string[] = [];
 
@@ -586,6 +649,8 @@ export const materializeComposition = (
     appendPromptPaths,
     skillDirectories,
     skippedSkills,
+    commandPaths,
+    skippedCommands,
     skippedSubagents,
   };
 };
