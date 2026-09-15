@@ -61,6 +61,7 @@ const planWith = (layerRoot: string, slugs: readonly string[]): CompositionPlan 
   identity: { agentBody: 'Body.' },
   loadout: {
     skills: [],
+    commands: [],
     delegateSkills: [],
     subagents: slugs.map((slug) => subagentResource(layerRoot, slug)),
     mcp: [],

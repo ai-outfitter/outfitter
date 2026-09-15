@@ -25,6 +25,7 @@ const planWith = (extensions: readonly string[]): CompositionPlan => ({
   identity: { agentBody: 'Body.', label: 'Reviewer' },
   loadout: {
     skills: [],
+    commands: [],
     delegateSkills: [],
     subagents: [],
     mcp: [],

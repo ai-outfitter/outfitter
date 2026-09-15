@@ -58,6 +58,7 @@ const compositionPlan = (extensions: readonly string[]): CompositionPlan => ({
   identity: { agentBody: 'Body.' },
   loadout: {
     skills: [],
+    commands: [],
     delegateSkills: [],
     subagents: [],
     mcp: [],

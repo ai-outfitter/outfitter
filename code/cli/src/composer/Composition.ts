@@ -67,6 +67,8 @@ export interface DeclaredExtension {
 /** A loadout with its slug references resolved against the effective set. */
 export interface ComposedLoadout {
   readonly skills: readonly ResolvedResource[];
+  /** Commands resolved from agents/<name>/commands first, then catalog-wide commands. */
+  readonly commands: readonly ResolvedResource[];
   /** Skills selected by delegates, materialized for them without loading them into the leader. */
   readonly delegateSkills: readonly ResolvedResource[];
   readonly subagents: readonly ResolvedResource[];

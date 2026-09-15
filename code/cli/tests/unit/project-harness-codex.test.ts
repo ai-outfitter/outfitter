@@ -25,6 +25,7 @@ const plan = (mcpServers: Readonly<Record<string, unknown>>, mcp = Object.keys(m
   identity: { agentBody: 'Engineer.' },
   loadout: {
     skills: [],
+    commands: [],
     delegateSkills: [],
     subagents: [],
     mcp,

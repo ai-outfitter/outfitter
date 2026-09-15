@@ -43,6 +43,7 @@ export const isAgentDefinitionIssue = <T extends object>(
 /** Loadout fields a per-agent config.json may override; identity fields (`name`) are frontmatter-only. */
 export const loadoutKeys = [
   'skills',
+  'commands',
   'subagents',
   'mcp',
   'extensions',
@@ -109,6 +110,7 @@ const readMarkdownHeading = (body: string): string | undefined => /^#\s+(.+)$/mu
 const loadoutFromRecord = (record: Readonly<Record<string, unknown>>): Loadout => ({
   ...emptyLoadout(),
   skills: asStringArray(record.skills),
+  commands: asStringArray(record.commands),
   subagents: asStringArray(record.subagents),
   mcp: asStringArray(record.mcp),
   extensions: asStringArray(record.extensions),

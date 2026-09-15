@@ -45,6 +45,7 @@ const planWith = (subagentSlugs: readonly string[] = [], layerRoot = newRoot()):
   identity: { agentBody: 'Body.' },
   loadout: {
     skills: [],
+    commands: [],
     delegateSkills: [],
     subagents: subagentSlugs.map((slug) => subagentResource(layerRoot, slug)),
     mcp: [],

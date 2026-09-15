@@ -27,6 +27,7 @@ const planWith = (tools: CompositionPlan['loadout']['tools']): CompositionPlan =
   identity: { agentBody: 'Body.' },
   loadout: {
     skills: [],
+    commands: [],
     delegateSkills: [],
     subagents: [],
     mcp: [],

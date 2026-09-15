@@ -36,6 +36,7 @@ const composition = (models: NonNullable<CompositionPlan['models']>): Compositio
   models,
   loadout: {
     skills: [],
+    commands: [],
     delegateSkills: [],
     subagents: [],
     mcp: [],

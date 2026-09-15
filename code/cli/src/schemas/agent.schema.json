@@ -35,6 +35,10 @@
       "$ref": "#/$defs/slugList",
       "description": "Skill slugs resolved from agents/<name>/skills first, then catalog-wide skills."
     },
+    "commands": {
+      "$ref": "#/$defs/slugList",
+      "description": "Command slugs resolved from agents/<name>/commands first, then catalog-wide commands. An entry is either a bare command name (the command slug without its extension) or an exact file-tree slug."
+    },
     "subagents": {
       "$ref": "#/$defs/agentSlugList",
       "description": "Agent slugs delegated to. Resolved catalog-wide (a delegate is a shared agent, not nested under agents/<name>)."

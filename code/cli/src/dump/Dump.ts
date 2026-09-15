@@ -127,6 +127,7 @@ interface CompositionProvenance {
 interface ClosureCompose {
   readonly agents: readonly ResolvedResource[];
   readonly skills: readonly ResolvedResource[];
+  readonly commands: readonly ResolvedResource[];
   readonly agentDefaultMcpServers: Readonly<Record<string, unknown>>;
   readonly promptFiles: readonly { readonly reference: string; readonly content: string }[];
   readonly provenance: readonly CompositionProvenance[];
@@ -218,6 +219,25 @@ const collectSkills = (
   }
 };
 
+// Owner-first command resolution can legitimately resolve one slug to different files for the
+// leader and a delegate, so the same conflict rule as skills keeps the flattened tree honest.
+const collectCommands = (
+  selected: readonly ResolvedResource[],
+  commands: Map<string, ResolvedResource>,
+  errors: string[],
+): void => {
+  for (const commandResource of selected) {
+    const existing = commands.get(commandResource.slug);
+    if (existing !== undefined && existing.winner.path !== commandResource.winner.path) {
+      errors.push(
+        `dump closure resolves conflicting definitions for command '${commandResource.slug}' and cannot flatten both.`,
+      );
+    } else {
+      commands.set(commandResource.slug, commandResource);
+    }
+  }
+};
+
 const collectAgentDefaultMcpServers = (
   plan: CompositionPlan,
   defaults: AgentDefaults | undefined,
@@ -238,6 +258,7 @@ const composeClosure = (
   const seen = new Set<string>();
   const agents: ResolvedResource[] = [];
   const skills = new Map<string, ResolvedResource>();
+  const commands = new Map<string, ResolvedResource>();
   const warnings: string[] = [];
   const errors: string[] = [];
   const agentDefaultMcpServers: Record<string, unknown> = {};
@@ -269,12 +290,14 @@ const composeClosure = (
     collectAgentDefaultMcpServers(composed.plan, agentDefaults, agentDefaultMcpServers);
     collectPromptFiles(composed.plan, promptFiles, errors);
     collectSkills(composed.plan.loadout.skills, skills, errors);
+    collectCommands(composed.plan.loadout.commands, commands, errors);
     queue.push(...composed.plan.loadout.subagents.map((subagent) => subagent.slug).sort(compareSlugs));
   }
 
   return {
     agents,
     skills: [...skills.values()].sort((left, right) => compareSlugs(left.slug, right.slug)),
+    commands: [...commands.values()].sort((left, right) => compareSlugs(left.slug, right.slug)),
     agentDefaultMcpServers,
     promptFiles: [...promptFiles.entries()]
       .map(([reference, content]) => ({ reference, content }))
@@ -288,6 +311,7 @@ const composeClosure = (
 const closureResources = (closure: ClosureCompose): readonly ResolvedResource[] => [
   ...closure.agents,
   ...closure.skills,
+  ...closure.commands,
 ];
 
 // A defining file or its config that resolves outside every layer root cannot be safely dumped.
@@ -422,6 +446,17 @@ const dumpWarningsWithSettingsSurfaceNotices = (
   return notices.length === 0 ? closureWarnings : [...closureWarnings, ...notices];
 };
 
+/** Writes one flattened copy per closure command under `commands/<slug>` (nested slugs nest). */
+const writeClosureCommands = (commands: readonly ResolvedResource[], outRoot: string, written: string[]): void => {
+  for (const commandResource of commands) {
+    const target = join(outRoot, 'commands', commandResource.slug);
+    removeTargetTypeConflict(target, 'file');
+    mkdirSync(dirname(target), { recursive: true });
+    copyFileSync(commandResource.winner.path, target);
+    written.push(target);
+  }
+};
+
 /** Writes the composed closure of `agentSlug` into a freshly cleaned `<outDirectory>/.agents/`. */
 export const dumpAgent = (
   set: EffectiveResourceSet,
@@ -486,6 +521,8 @@ export const dumpAgent = (
   for (const skill of closure.skills) {
     copyResourceDirectory(dirname(skill.winner.path), join(outRoot, 'skills', skill.slug), written);
   }
+
+  writeClosureCommands(closure.commands, outRoot, written);
 
   const promptCollisions = promptTargetCollisions(outRoot, closure.promptFiles);
   if (promptCollisions.length > 0) {

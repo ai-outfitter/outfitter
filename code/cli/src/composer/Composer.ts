@@ -22,6 +22,7 @@ import {
   mergePromptSelections,
   mergeSelections,
   planAgentDefaults,
+  resolveCommandResource,
   resolveDeclaredSlugs,
   resolveSettingsPromptSelection,
   settingsPromptSelections,
@@ -53,6 +54,7 @@ interface EffectiveControls {
   /** The loadout's extensions with their declaring-layer provenance, in composed order. */
   readonly extensionDeclarations: readonly DeclaredExtension[];
   readonly skillSelections: readonly DeclaredSlug[];
+  readonly commandSelections: readonly DeclaredSlug[];
   readonly subagentSelections: readonly DeclaredSlug[];
   readonly mcpSelections: readonly DeclaredSlug[];
   readonly appendPromptSelections: readonly PromptSelection[];
@@ -183,6 +185,9 @@ const composeEffectiveControls = (chain: readonly ChainEntry[], defaults?: Agent
     settingsSelections(defaults?.skills),
     declaredSelections(chain, (definition) => definition.loadout.skills),
   );
+  // Commands are agent-declared only (settings carry no loadout selections); declaredSelections
+  // already composes parent-first with stable de-duplication and owner provenance.
+  const commands = declaredSelections(chain, (definition) => definition.loadout.commands);
   const subagents = mergeSelections(
     settingsSelections(defaults?.subagents),
     declaredSelections(chain, (definition) => definition.loadout.subagents),
@@ -198,6 +203,7 @@ const composeEffectiveControls = (chain: readonly ChainEntry[], defaults?: Agent
 
   return {
     skillSelections: skills,
+    commandSelections: commands,
     subagentSelections: subagents,
     mcpSelections: mcp,
     extensionDeclarations,
@@ -211,6 +217,7 @@ const composeEffectiveControls = (chain: readonly ChainEntry[], defaults?: Agent
     description: nearest(chain, (definition) => definition.description),
     loadout: {
       skills: skills.map((selection) => selection.slug),
+      commands: commands.map((selection) => selection.slug),
       subagents: subagents.map((selection) => selection.slug),
       mcp: mcp.map((selection) => selection.slug),
       extensions: extensionDeclarations.map((declaration) => declaration.specifier),
@@ -277,8 +284,28 @@ const composeLoadout = (
   const subagents = resolveDeclaredSlugs(set, 'agent', controls.subagentSelections, warnings);
   const skills = resolveDeclaredSlugs(set, 'skill', controls.skillSelections, warnings);
 
+  // Commands resolve owner-first per selection with the stem/ambiguity grammar, so bare names
+  // surface ambiguities instead of silently picking a file. The same slug spelled as a bare name
+  // and as an exact file slug collapses to its first occurrence by resolved path.
+  const commands: ResolvedResource[] = [];
+  const seenCommandPaths = new Set<string>();
+  for (const selection of controls.commandSelections) {
+    const outcome = resolveCommandResource(set, selection);
+    if (outcome.resource !== undefined) {
+      if (!seenCommandPaths.has(outcome.resource.winner.path)) {
+        seenCommandPaths.add(outcome.resource.winner.path);
+        commands.push(outcome.resource);
+      }
+    } else if (outcome.ambiguousCandidates !== undefined) {
+      warnings.push(
+        `loadout commands references ambiguous command '${selection.slug}' (${outcome.ambiguousCandidates.join(', ')}).`,
+      );
+    } else warnings.push(`loadout commands references unknown command '${selection.slug}'.`);
+  }
+
   return {
     skills,
+    commands,
     delegateSkills: resolveDelegateSkills(set, subagents, skills, defaults, warnings),
     subagents,
     mcp: controls.loadout.mcp,
