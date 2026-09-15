@@ -422,6 +422,27 @@ describe('settings loading', () => {
     expect(validateSchema('settings', null).issues[0]?.path).toBe('/');
   });
 
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-002.12.3, OFTR-002.12.4).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('validates and converts the pi binary selection keys with declaring-file path resolution', () => {
+    expect(validateSchema('settings', { pi_binary: 'auto' })).toEqual({ valid: true, issues: [] });
+    expect(validateSchema('settings', { pi_binary: 'latest' }).valid).toBe(false);
+    expect(validateSchema('settings', { pi_binary_path: '' }).valid).toBe(false);
+    expect(validateSchema('settings', { pi_binary_path: 3 }).valid).toBe(false);
+
+    const root = createTemporaryRoot();
+    const homeDirectory = join(root, 'home');
+    const projectDirectory = join(root, 'project');
+    writeSettings(join(homeDirectory, '.agents', 'settings.yml'), 'pi_binary: auto\npi_binary_path: ./vendor/pi\n');
+    writeSettings(join(projectDirectory, '.agents', 'settings.local.yml'), 'pi_binary: path\n');
+
+    const loaded = loadSettings(discoverSettingsLoadPlan({ homeDirectory, projectDirectory }));
+
+    expect(loaded.issues).toEqual([]);
+    expect(loaded.settings.piBinary).toBe('path'); // project-local leaf wins over the user layer
+    expect(loaded.settings.piBinaryPath).toBe(join(homeDirectory, '.agents', 'vendor', 'pi'));
+  });
+
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-002.6).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('loads cached remote settings from repository subpaths with local settings precedence', () => {

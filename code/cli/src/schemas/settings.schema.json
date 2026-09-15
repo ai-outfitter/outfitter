@@ -11,6 +11,15 @@
       "description": "Whether a run stands on the machine's native harness configuration (inherit, the default) or on the projection alone (isolated). Honored only from home-scope settings."
     },
     "cache_directory": { "type": "string", "minLength": 1 },
+    "pi_binary": {
+      "enum": ["bundled", "path", "auto"],
+      "description": "Which pi binary pi-harness launches use: the Outfitter-bundled copy (bundled, the default), the user's PATH pi or pi_binary_path (path), or bundled with a warned PATH fallback when bundled resolution fails (auto). The OUTFITTER_PI_BIN environment variable overrides this for one run."
+    },
+    "pi_binary_path": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Explicit pi binary used when pi_binary is path; setting it without pi_binary implies path mode. Relative paths resolve against this settings file. Ignored (with a warning) in bundled and auto modes, and overridden by OUTFITTER_PI_BIN."
+    },
     "source_cache": {
       "type": "object",
       "properties": { "policy": { "enum": ["repair", "locked", "offline"] } },

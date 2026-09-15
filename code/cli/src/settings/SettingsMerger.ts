@@ -66,6 +66,8 @@ export const mergeSettingsStack = (settingsStack: readonly Settings[]): Settings
   const workflows: string[] = [];
   let remoteSettings: Settings['remoteSettings'];
   let cacheDirectory: string | undefined;
+  let piBinary: Settings['piBinary'];
+  let piBinaryPath: Settings['piBinaryPath'];
   let sourceCache: Settings['sourceCache'];
   let statePersistence: StatePersistence | undefined;
   let customSettings: CustomSettings | undefined;
@@ -86,6 +88,8 @@ export const mergeSettingsStack = (settingsStack: readonly Settings[]): Settings
     }
     remoteSettings = settings.remoteSettings ?? remoteSettings;
     cacheDirectory = settings.cacheDirectory ?? cacheDirectory;
+    piBinary = settings.piBinary ?? piBinary;
+    piBinaryPath = settings.piBinaryPath ?? piBinaryPath;
     sourceCache = settings.sourceCache === undefined ? sourceCache : { ...sourceCache, ...settings.sourceCache };
     statePersistence =
       settings.statePersistence === undefined
@@ -111,6 +115,8 @@ export const mergeSettingsStack = (settingsStack: readonly Settings[]): Settings
     workflows,
     remoteSettings: remoteSettings ?? [],
     cacheDirectory,
+    piBinary,
+    piBinaryPath,
     sourceCache: sourceCache ?? {},
     statePersistence: statePersistence ?? {},
     customSettings: customSettings ?? {},

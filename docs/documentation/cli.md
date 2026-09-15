@@ -25,6 +25,10 @@ Resolve, compose, and launch an agent. `run` is the default command, so plain `o
 Set `OUTFITTER_LOG_LEVEL=debug` to enable debug startup output without passing the option. The
 `setup` command also accepts `--log-level` for its automatic profile launch.
 
+Set `OUTFITTER_PI_BIN=/path/to/pi` to launch that binary instead of the bundled pi for one run; it
+overrides the `pi_binary` / `pi_binary_path` settings keys (see
+[Settings — Pi binary selection](./settings.md#pi-binary-selection)).
+
 Any other arguments and unrecognized options are passed through to the launched harness:
 
 ```bash

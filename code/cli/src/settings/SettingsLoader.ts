@@ -11,6 +11,7 @@ import type {
   CustomSettings,
   Harness,
   Isolation,
+  PiBinaryMode,
   RemoteSettingsReference,
   Settings,
   SourceCachePolicy,
@@ -54,6 +55,8 @@ interface SettingsDocument {
   readonly workflows?: readonly string[];
   readonly remote_settings?: readonly RemoteSettingsDocument[];
   readonly cache_directory?: string;
+  readonly pi_binary?: PiBinaryMode;
+  readonly pi_binary_path?: string;
   readonly source_cache?: { readonly policy?: SourceCachePolicy };
   readonly state_persistence?: StatePersistence;
   readonly custom_settings?: CustomSettings;
@@ -309,6 +312,13 @@ const convertSettingsDocument = (
     document.cache_directory === undefined
       ? undefined
       : resolveConfigDirectory(document.cache_directory, settingsDirectory),
+  piBinary: document.pi_binary,
+  // The binary path resolves where it was declared, so each settings layer keeps its own location
+  // no matter where the run launches from — the same rule as cache_directory and source paths.
+  piBinaryPath:
+    document.pi_binary_path === undefined
+      ? undefined
+      : resolveConfigDirectory(document.pi_binary_path, settingsDirectory),
   sourceCache: document.source_cache,
   statePersistence: document.state_persistence,
   customSettings: document.custom_settings,

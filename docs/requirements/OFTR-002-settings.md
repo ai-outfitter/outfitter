@@ -154,3 +154,11 @@ enable workflow roots as command entry points.
 6. `outfitter link` MUST manage defaults as individual native setting values and MUST NOT replace, adopt, or delete unrelated or unmanaged native settings.
 7. `outfitter dump` MUST carry effective `harness_defaults` into the dumped tree.
 8. Settings without `harness_defaults` MUST run, link, and dump exactly as before this section existed.
+
+### OFTR-002.12: Pi Binary Selection
+
+1. `settings.yml` MAY declare a `pi_binary` of `bundled`, `path`, or `auto` selecting which pi binary pi-harness launches use. Outfitter MUST default to `bundled`.
+2. `settings.yml` MAY declare a `pi_binary_path` naming an explicit pi binary. Outfitter MUST resolve relative paths against the declaring settings file, MUST honor the key from every settings scope, and MUST treat it as implying `pi_binary: path` when `pi_binary` is absent.
+3. Outfitter MUST validate both keys against the settings JSON Schema at the read boundary: `pi_binary` against its enum, `pi_binary_path` as a non-empty string.
+4. Outfitter MUST merge both keys across the settings stack with the same leaf precedence as other scalar settings, so a higher-precedence layer wins per key.
+5. Settings without either key MUST run exactly as before this section existed.

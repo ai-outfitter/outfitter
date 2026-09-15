@@ -46,6 +46,8 @@ remote_settings:
     ref: 9c47d1e2b8a05f36c4d7e90a12b3f8c5d6e71a04
 
 cache_directory: ./cache # optional; relative to this settings file
+pi_binary: bundled # which pi binary to launch: bundled (default), path, or auto
+pi_binary_path: ./vendor/pi/pi # explicit pi binary for path mode; relative to this settings file
 source_cache:
   policy: repair # repair (default), locked, or offline
 
@@ -83,6 +85,7 @@ harness_defaults:
 - `remote_settings` — shared settings a repository distributes; cached locally and merged below your project and user settings, so anything you set locally wins.
 - `cache_directory` — the repository cache root used consistently by sync, remote settings, remote
   source resolution, and default-catalog setup. It defaults to `~/.agents/cache`; repositories live
+- `pi_binary` / `pi_binary_path` — which pi binary pi-harness launches use; see [Pi binary selection](#pi-binary-selection) below.
 - `source_cache.policy` — verifies remote caches before `run`: `repair` reuses healthy caches and
   atomically repairs unhealthy ones, `locked` also requires full commit pins, and `offline` never
   accesses the network.
@@ -195,3 +198,22 @@ harness_defaults:
 The keys below each harness are passed through as that harness's native settings. `outfitter run` merges Pi and Claude defaults into its temporary `settings.json`; a Pi profile's own configuration overlay remains higher precedence. Codex receives flattened `--config key=TOML` arguments. `outfitter link` manages the same values individually in Pi or Claude `settings.json` and Codex `config.toml`, leaving every unrelated native setting untouched. An unmanaged value is never adopted or overwritten.
 
 Every loaded settings scope may contribute defaults. Objects deep-merge from low to high precedence, while arrays and scalar leaves replace. `outfitter dump` carries the effective block into the dumped tree. Unknown harness names are rejected; supported names are `pi`, `claude`, and `codex`.
+
+## Pi binary selection
+
+Outfitter launches the bundled `@earendil-works/pi-coding-agent` by default, so every run gets the pi version Outfitter tests against. Two settings keys opt into a different binary:
+
+```yaml
+pi_binary: bundled # bundled (default), path, or auto
+pi_binary_path: ./vendor/pi/pi # explicit binary for path mode; relative to this settings file
+```
+
+- `bundled` (the default) resolves pi from Outfitter's own dependency closure and launches it through the current Node runtime. If bundled resolution ever fails, the launch falls back to a PATH `pi`.
+- `path` launches your pi: `pi_binary_path` when configured, else the `pi` on your `PATH` (a missing PATH pi produces the usual install guidance).
+- `auto` tries the bundled pi first and falls back to the PATH `pi` when bundled resolution fails, warning about the fallback. `--strict` makes that warning fatal.
+
+A `pi_binary_path` set without `pi_binary` implies `path` mode; setting it alongside `bundled` or `auto` warns that it is ignored. Relative paths resolve against the settings file that declares them, so a team can pin a vendored binary in the repository.
+
+The `OUTFITTER_PI_BIN` environment variable overrides both keys for one run: set it to the binary path to launch (an empty value is ignored). A configured binary that does not exist on disk — via settings or the environment variable — fails the run before launch with an actionable error instead of silently reverting to the bundled pi.
+
+Two boundaries do not change with the selection: a user-selected binary does not get `PI_SKIP_VERSION_CHECK=1` injected, so pi's own update notice stays visible for a binary you can actually update with `pi update`; and pi extension cache installs always use the bundled binary, so cache-time behavior stays pinned to the version Outfitter ships.

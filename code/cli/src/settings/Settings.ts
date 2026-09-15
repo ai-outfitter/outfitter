@@ -28,6 +28,10 @@ export type StatePersistence = Readonly<Record<string, StatePersistenceStrategy>
 export const SOURCE_CACHE_POLICIES = ['repair', 'locked', 'offline'] as const;
 export type SourceCachePolicy = (typeof SOURCE_CACHE_POLICIES)[number];
 
+/** How pi-harness launches pick the pi binary. `bundled` pins Outfitter's own dependency copy. */
+export const PI_BINARY_MODES = ['bundled', 'path', 'auto'] as const;
+export type PiBinaryMode = (typeof PI_BINARY_MODES)[number];
+
 /**
  * An ordered `.agents` payload source: a local path, a remote URI, or a `github` shorthand.
  * Modeled as a discriminated union so exactly one of `path`/`uri`/`github` is present and `ref`
@@ -112,6 +116,10 @@ export interface Settings {
   readonly cacheDirectory?: string;
   readonly sourceCache?: SourceCacheSettings;
   readonly statePersistence?: StatePersistence;
+  /** Which pi binary pi-harness launches use; resolved by the launcher against the environment. */
+  readonly piBinary?: PiBinaryMode;
+  /** Explicit pi binary for `pi_binary: path`; relative paths resolve against the declaring settings file. */
+  readonly piBinaryPath?: string;
   readonly customSettings?: CustomSettings;
   readonly startup?: StartupSettings;
   readonly enterprise?: EnterpriseSettings;

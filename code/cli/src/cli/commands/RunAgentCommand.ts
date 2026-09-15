@@ -8,6 +8,8 @@ import { Command, Option } from 'commander';
 import { launchThroughSpawn, spawnLauncher } from '../../agents/AgentLaunch.js';
 import type { ClaudeConfigDecision, HarnessHelpReader } from '../../agents/ClaudeConfigStrategy.js';
 import { decideClaudeConfigStrategy, resolveIsolation } from '../../agents/ClaudeConfigStrategy.js';
+import type { BundledPiResolvable, PiBinarySelection } from '../../agents/PiBinarySelection.js';
+import { resolveScopedPiBinarySelection } from '../../agents/PiBinarySelection.js';
 import {
   persistClaudeCredentials,
   persistClaudeSessions,
@@ -51,7 +53,8 @@ import type { PiProviderPromptMode } from './PiRuntimeLaunch.js';
 import { resolveHomeDirectory, resolveProjectDirectory } from './ProcessDefaults.js';
 import { runSetup } from './SetupCommand.js';
 
-export type AgentProcessLauncher = (plan: AgentLaunchPlan) => Promise<number>;
+/** Launches the composed plan; the launcher boundary applies the pi binary selection itself. */
+export type AgentProcessLauncher = (plan: AgentLaunchPlan, piBinary?: PiBinarySelection) => Promise<number>;
 export type RunLogLevel = 'info' | 'debug';
 
 /**
@@ -100,6 +103,8 @@ export interface RunAgentInput {
   readonly startLoading?: LoadingStarter;
   /** Test seam for startup cache establishment. */
   readonly sourceCachePreparer?: typeof prepareSourceCaches;
+  /** Test seam for the `pi_binary: auto` bundled-resolution probe. */
+  readonly bundledPiResolvable?: BundledPiResolvable;
 }
 
 export interface RunAgentResult {
@@ -195,6 +200,7 @@ const launchWithStatePersistence = async (
   launch: AgentLaunchPlan,
   lateMessages: string[],
   persistPiModels: boolean,
+  piBinarySelection?: PiBinarySelection,
 ): Promise<number> => {
   // Persist warnings surface after launch, and writeLine alone can be a dropped sink (setup's
   // auto-launch passes none), so they also go into lateMessages to reach the returned result.
@@ -228,7 +234,7 @@ const launchWithStatePersistence = async (
   }
 
   try {
-    return await input.launcher(launch);
+    return await input.launcher(launch, piBinarySelection);
   } finally {
     if (piUserAgentDirectory !== undefined) {
       attempt('persist Pi credentials', () =>
@@ -428,6 +434,7 @@ export const executeRunAgentCommand = async (input: RunAgentInput): Promise<RunA
   const { set, settings } = resolved;
   const agentSlug = resolveAgentSlug(settings.defaultAgent, input.agent);
   const harness = resolveHarness(settings.defaultHarness, input.harness);
+  const piBinary = resolveScopedPiBinarySelection(harness, settings, process.env, input);
   const claudeConfig = resolveClaudeConfig(input, harness, settings.isolation);
   const composed = compose(set, agentSlug, {
     projectDirectory: input.projectDirectory,
@@ -478,6 +485,7 @@ export const executeRunAgentCommand = async (input: RunAgentInput): Promise<RunA
       ...projection.unsupported.map((element) => `harness '${harness}' cannot project loadout element '${element}'.`),
       ...projection.warnings,
       ...extensions.warnings,
+      ...piBinary.warnings,
     ];
 
     if (input.strict === true && warnings.length > 0) {
@@ -515,6 +523,7 @@ export const executeRunAgentCommand = async (input: RunAgentInput): Promise<RunA
       systemHooks.launch,
       messages,
       persistUserPiModels(composed.plan),
+      piBinary.selection,
     );
 
     return { launchPlan: systemHooks.launch, exitCode, messages };
@@ -529,7 +538,7 @@ export const executeRunAgentCommand = async (input: RunAgentInput): Promise<RunA
 export { launchThroughSpawn } from '../../agents/AgentLaunch.js';
 
 /* v8 ignore next -- wiring to the real spawn boundary; launchThroughSpawn itself is unit-tested. */
-const defaultLauncher: AgentProcessLauncher = (plan) => launchThroughSpawn(spawnLauncher, plan);
+const defaultLauncher: AgentProcessLauncher = (plan, piBinary) => launchThroughSpawn(spawnLauncher, plan, piBinary);
 
 export const createRunAgentCommand = (dependencies: RunAgentDependencies = {}): CommandObject => ({
   name: 'run',
