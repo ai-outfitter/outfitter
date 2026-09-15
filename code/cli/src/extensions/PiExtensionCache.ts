@@ -90,7 +90,7 @@ interface PiExtensionSource {
   readonly pinnedGitRef?: string;
 }
 
-const exactSemverPattern = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/u;
+export const exactSemverPattern = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/u;
 const fullShaPattern = /^[0-9a-f]{40}$/iu;
 
 // Specifier text becomes filesystem path segments (and the stale-reinstall path runs `rm -rf` on
@@ -181,8 +181,12 @@ const recordedInstallRef = (installDir: string): string | undefined => {
   }
 };
 
-/** After installing a branch/tag-pinned git extension, records the ref (and resolved SHA). */
-const recordInstalledGitRef = (installDir: string, mapped: PiExtensionSource): void => {
+/**
+ * After installing (or fast-forwarding) a branch/tag-pinned git extension, records the ref and
+ * resolved SHA. Exported so the cache update flow refreshes the marker through the same writer
+ * instead of duplicating the marker format the report module reads.
+ */
+export const recordInstalledGitRef = (installDir: string, mapped: PiExtensionSource): void => {
   if (mapped.pinnedGitRef === undefined || fullShaPattern.test(mapped.pinnedGitRef)) return;
   const marker = { ref: mapped.pinnedGitRef, headSha: cachedGitHead(installDir) };
   writeFileSync(refMarkerPath(installDir), JSON.stringify(marker));
@@ -242,7 +246,8 @@ const evaluateCachedInstall = (installDir: string, mapped: PiExtensionSource, of
 /* v8 ignore start -- real `pi install` subprocess and registry queries; ensurePiExtensions is
    unit-tested with fake spawners and injected resolvers. */
 const quietSpawnLauncher = createSpawnLauncher('ignore');
-const defaultSpawner: PiInstallSpawner = ({ source, cacheAgentDir, debug }) =>
+/** The real `pi install` spawner against the cache agent dir; shared with the update flow. */
+export const defaultPiInstallSpawner: PiInstallSpawner = ({ source, cacheAgentDir, debug }) =>
   launchThroughSpawn(debug === true ? spawnLauncher : quietSpawnLauncher, {
     command: 'pi',
     args: ['install', source],
@@ -524,7 +529,7 @@ export const ensurePiExtensions = async (
   specifiers: readonly string[],
   input: EnsurePiExtensionsInput,
 ): Promise<EnsurePiExtensionsResult> => {
-  const spawn = input.spawn ?? defaultSpawner;
+  const spawn = input.spawn ?? defaultPiInstallSpawner;
   const loadDirs: string[] = [];
   const settingsEntries: Record<string, readonly string[]> = {};
   const warnings: string[] = [];

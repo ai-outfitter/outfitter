@@ -121,8 +121,52 @@ read-only (`npm view`, `git ls-remote`) and run by default; pass `--offline` (or
 to skip them, reporting `unknown (offline)` deterministically. A failed lookup degrades that
 entry to `unknown (lookup failed)` with a warning; `--strict` makes warnings fatal.
 `--json` for extensions emits `ok`, `extensions` (the full report entries), and `diagnostics`.
-See [OFTR-006: Agent Adapters](../requirements/OFTR-006-agent-adapters.md) item 34.
-Updating the cached extensions in place is a separate, planned command; this listing never mutates the cache.
+See [OFTR-006: Agent Adapters](../requirements/OFTR-006-agent-adapters.md) item 34. This listing never mutates the cache; updating it is `outfitter update extensions` below.
+
+## `outfitter update extensions`
+
+Update the cached pi extensions in place: reinstalls outdated npm packages at the registry's
+current release and fast-forwards git checkouts whose pinned branch moved remotely. The command
+is an explicit mutation — `outfitter run` never initiates it, and nothing else in Outfitter
+mutates the extension cache. Like the `extensions` listing, it needs no settings, project, or
+agent, and it never touches loadout files or settings.
+
+| Option      | Description                                                                                      |
+| ----------- | ------------------------------------------------------------------------------------------------ |
+| `--offline` | Skip every upstream lookup, mutate nothing, and report each entry `offline` (also `PI_OFFLINE`). |
+| `--dry-run` | Perform only the read-only lookups and report what would update as `would-update (to <target>)`. |
+| `--strict`  | Treat warnings (for example a failed peer install) as fatal.                                     |
+| `--json`    | Emit a stable object with `ok`, `dryRun`, `updates`, and `diagnostics`.                          |
+
+Each cached entry is decided and mutated independently (entry-scoped transactions): a failed
+registry lookup, failed install, or failed fetch leaves that entry's cache state untouched,
+reports it as `failed (<reason>)`, and never blocks other entries. npm: a dependency entry whose
+recorded version is exact is a deliberate pin and is skipped; any other entry is reinstalled at
+the registry's `latest` release when strictly newer than the resolved version, as an exact
+version through the same install path the cache itself uses, followed by peer-dependency
+satisfaction. git: full-SHA pins and pinned tags are never moved; branch-pinned and unpinned
+checkouts compare against the remote tip of their ref (or the default branch when unpinned) and
+fast-forward with fetch plus `git merge --ff-only` — a diverged checkout fails as
+`not fast-forwardable` instead of being reset, and the install marker's recorded HEAD is
+refreshed. The command performs network work by default because updating is its purpose.
+
+The summary lists one line per entry in the listing's deterministic order (npm entries by package
+name, then git entries by checkout path):
+
+```text
+extensions update:
+  npm:hashline-pi@^0.1.0  0.1.0 -> 0.1.1  updated
+  npm:pin-pkg@1.2.3       1.2.3  skipped (pinned)
+  git:github.com/user/repo@main  abc1234 -> def5678  updated
+  git:github.com/user/frozen     abc1234  skipped (pinned)
+```
+
+Updating moves the shared cache: a package some agent's loadout exact-pins can be transiently
+displaced, and that agent's next run reinstalls its pin (online; offline it warns, fatal under
+`--strict`), the same stale-pin behavior any reinstall already produces. Any failed entry exits
+non-zero.
+
+See [OFTR-006: Agent Adapters](../requirements/OFTR-006-agent-adapters.md) item 35.
 
 ## `outfitter validate`
 

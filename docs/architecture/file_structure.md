@@ -41,7 +41,7 @@ Outfitter is organized around a private npm workspace root, clear TypeScript pac
 │   │   ├── src/                       # production TypeScript source
 │   │   │   ├── cli.ts                 # executable CLI entry point
 │   │   │   ├── cli/                   # CLI parser construction and command objects
-│   │   │   │   └── commands/          # run, exec, setup, sync, list, validate, dump, and link command objects plus the shared agent launch pipeline
+│   │   │   │   └── commands/          # run, exec, setup, sync, list, update, validate, dump, and link command objects plus the shared agent launch pipeline
 │   │   │   ├── settings/              # settings loading and merging
 │   │   │   ├── telemetry/             # consent, pseudonymous state, allowlisted events, and PostHog boundary
 │   │   │   ├── setup/                 # onboarding state + pinned default-catalog bootstrap
@@ -70,7 +70,8 @@ Outfitter is organized around a private npm workspace root, clear TypeScript pac
 │   │   │   │   ├── PiExtensionCache.ts     # npm/git extension cache installs, cache-hit decisions, and freshness policy
 │   │   │   │   ├── PiExtensionPeers.ts     # peer-dependency satisfaction for cached npm extensions
 │   │   │   │   ├── PiLocalExtensions.ts    # local-path specifier resolution and the merged loadout flow
-│   │   │   │   └── ExtensionReport.ts      # read-only `list extensions` cache report with the upstream status model
+│   │   │   │   ├── ExtensionReport.ts      # read-only `list extensions` cache report with the upstream status model
+│   │   │   │   └── ExtensionUpdate.ts      # explicit `update extensions` cache mutation with entry-scoped transactions
 │   │   │   ├── paths/                 # Outfitter cache root and repository/packaged asset resolution
 │   │   │   ├── system/                 # root-owned launcher-scope system extension hook loading
 │   │   │   ├── schemas/                # JSON Schema artifacts for persisted settings, agents, system hooks, and workflows

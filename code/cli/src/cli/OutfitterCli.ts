@@ -11,6 +11,7 @@ import { createRunAgentCommand } from './commands/RunAgentCommand.js';
 import { createSetupCommand } from './commands/SetupCommand.js';
 import { createSourcesCommand } from './commands/SourcesCommand.js';
 import { createSyncCommand } from './commands/SyncCommand.js';
+import { createUpdateCommand } from './commands/UpdateCommand.js';
 import { createValidateCommand } from './commands/ValidateCommand.js';
 
 export const createDefaultCommands = (): CommandObject[] => [
@@ -20,6 +21,7 @@ export const createDefaultCommands = (): CommandObject[] => [
   createSyncCommand(),
   createSourcesCommand(),
   createListCommand(),
+  createUpdateCommand(),
   createValidateCommand(),
   createDumpCommand(),
   createLinkCommand(),
