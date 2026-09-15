@@ -1,5 +1,5 @@
 // Builds the ordered `.agents` layer stack (workspace over global over remote sources) from settings.
-import { existsSync } from 'node:fs';
+import { existsSync, realpathSync } from 'node:fs';
 import { join } from 'node:path';
 
 import {
@@ -22,6 +22,25 @@ export interface LayerDiscoveryInput {
 }
 
 const agentsRoot = (directory: string): string => join(directory, '.agents');
+
+/** Canonical on-disk identity of a root, or null when the path cannot be resolved (missing, EACCES). */
+const canonicalRoot = (path: string): string | null => {
+  try {
+    return realpathSync(path);
+  } catch {
+    return null;
+  }
+};
+
+/**
+ * True when the workspace and global payload roots are the same directory on disk (for example when
+ * the working directory is the home directory, or either path symlinks to the other). Unresolvable
+ * paths never collapse: discovery must observe identical behavior for missing roots either way.
+ */
+const sameRoot = (workspace: string, global: string): boolean => {
+  const canonicalWorkspace = canonicalRoot(workspace);
+  return canonicalWorkspace !== null && canonicalWorkspace === canonicalRoot(global);
+};
 
 /**
  * Maps an already-materialized repository checkout to the layer `outfitter run` would resolve from
@@ -62,9 +81,16 @@ export interface LayerDiscoveryResult {
  * (OFTR-004.6.1, OFTR-004.6.3). Only layers whose root exists on disk are included.
  */
 export const discoverLayers = (input: LayerDiscoveryInput): LayerDiscoveryResult => {
+  const workspaceRoot = agentsRoot(input.projectDirectory);
+  const globalRoot = agentsRoot(input.homeDirectory);
+  const workspaceLayer: Layer = { root: workspaceRoot, origin: 'workspace', label: 'workspace' };
+  // When both roots are the same directory the workspace layer is not collected: one global layer
+  // keeps `~/.agents` attribution stable across working directories and avoids self-shadowing
+  // warnings, while winners are unchanged because the duplicated root resolved to identical files
+  // (OFTR-003.3.4). Distinct roots keep the workspace-over-global order unchanged.
   const candidates: Layer[] = [
-    { root: agentsRoot(input.projectDirectory), origin: 'workspace', label: 'workspace' },
-    { root: agentsRoot(input.homeDirectory), origin: 'global', label: 'global' },
+    ...(sameRoot(workspaceRoot, globalRoot) ? [] : [workspaceLayer]),
+    { root: globalRoot, origin: 'global', label: 'global' },
   ];
   const unsynchronized: string[] = [];
   const invalid: string[] = [];
