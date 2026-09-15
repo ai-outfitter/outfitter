@@ -7,6 +7,12 @@ export interface AgentLaunchPlan {
   readonly env: Readonly<Record<string, string>>;
 }
 
+/** The harness subcommand an `exec` launch runs: `argv[0]` of the harness process, arguments verbatim after it. */
+export interface HarnessSubcommand {
+  readonly name: string;
+  readonly args: readonly string[];
+}
+
 export interface AgentProjectionPlan {
   /** Absolute path to the materialized runtime configuration root for this run. */
   readonly rootDirectory: string;

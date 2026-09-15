@@ -19,7 +19,7 @@ import {
   materializeConfigurationOverlays,
   writeClaudePluginManifest,
 } from './Materialize.js';
-import type { AgentLaunchPlan, AgentProjectionPlan, ProjectionInput } from './Projection.js';
+import type { AgentLaunchPlan, AgentProjectionPlan, HarnessSubcommand, ProjectionInput } from './Projection.js';
 import { toolArgs } from './Tools.js';
 
 /**
@@ -161,6 +161,24 @@ const buildCodexLaunchPlan = (
   // Root `-m` propagation through `exec` was verified empirically on codex-cli 0.145.0.
   args: [...defaultArgs, ...codexMcpArgs, ...model.args, ...(input.passThroughArgs ?? [])],
   env: model.env,
+});
+
+/**
+ * Rebuilds a projected launch for harness subcommand execution (`outfitter exec`): the subcommand
+ * must be `argv[0]` of the harness process with the remaining arguments following verbatim, and the
+ * projected environment is kept. pi evidence (0.85.1): package/config/auth commands dispatch only
+ * on `args[0]` before `parseArgs` (`dist/main.js`), the package parser hard-errors on unknown
+ * options (`dist/package-manager-cli.js`), so Outfitter may inject no session flags at all — while
+ * `getAgentDir()` (`dist/config.js`) honors `PI_CODING_AGENT_DIR` for every subcommand, so keeping
+ * the projected env is what points `pi install`/`list`/`config`/`auth` at the composed projection.
+ * The session-directory env is provably inert here: pi reads it only after the dispatch-exit
+ * points, and it is kept for parity with the run env contract. Claude and Codex take the same
+ * generic argv/env contract; their subcommand behavior is documented-as-untested.
+ */
+export const projectSubcommandLaunch = (launch: AgentLaunchPlan, subcommand: HarnessSubcommand): AgentLaunchPlan => ({
+  command: launch.command,
+  args: [subcommand.name, ...subcommand.args],
+  env: launch.env,
 });
 
 /**

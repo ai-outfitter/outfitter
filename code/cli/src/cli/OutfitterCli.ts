@@ -4,6 +4,7 @@ import { Command } from 'commander';
 import { readOutfitterVersion } from '../version/OutfitterVersion.js';
 import type { CommandObject } from './commands/CommandObject.js';
 import { createDumpCommand } from './commands/DumpCommand.js';
+import { createExecAgentCommand } from './commands/ExecAgentCommand.js';
 import { createLinkCommand } from './commands/LinkCommand.js';
 import { createListCommand } from './commands/ListCommand.js';
 import { createRunAgentCommand } from './commands/RunAgentCommand.js';
@@ -14,6 +15,7 @@ import { createValidateCommand } from './commands/ValidateCommand.js';
 
 export const createDefaultCommands = (): CommandObject[] => [
   createRunAgentCommand(),
+  createExecAgentCommand(),
   createSetupCommand(),
   createSyncCommand(),
   createSourcesCommand(),

@@ -44,6 +44,29 @@ outfitter -r            # equivalent to: outfitter run -- -r
 outfitter --resume      # equivalent to: outfitter run -- --resume
 ```
 
+## `outfitter exec <agent> <subcommand> [args...]`
+
+Run a harness CLI subcommand (such as `pi list` or `pi install npm:some-package`) inside the composed profile for an agent. `exec` resolves, composes, and projects the agent exactly like `run`, then launches the harness with the subcommand as the first argument, so the harness runs its own command instead of treating it as a chat prompt. The projection directory is deleted when the subcommand exits unless `--retain-projection` is given; installs made inside the projection are discarded with it, so durable extension selection stays in the profile loadout.
+
+| Argument / Option     | Description                                                                              |
+| --------------------- | ---------------------------------------------------------------------------------------- |
+| `<agent>`             | Agent slug whose composed profile provides the environment.                              |
+| `<subcommand>`        | Harness CLI subcommand to run; it becomes the first argument of the harness process.     |
+| `[args...]`           | Arguments passed to the subcommand verbatim, including the harness's own flags.          |
+| `--harness <harness>` | Harness to launch in: `pi`, `claude`, or `codex`. Defaults to `default_harness`.         |
+| `--log-level <level>` | Use `info` for quiet loading or `debug` for installer output.                            |
+| `--strict`            | Fail instead of warning when the adapter cannot project part of the composition.         |
+| `--isolated`          | Launch from the composition alone, ignoring your own harness configuration. Claude only. |
+| `--retain-projection` | Keep the runtime projection directory after the subcommand exits, for inspection.        |
+
+The launch carries the projected environment (`PI_CODING_AGENT_DIR` points at the composed projection for pi), but none of the interactive session flags: no system prompt, skills, extensions, model, thinking, or tool selection is placed on the argv, because harness subcommands parse their own flags and must sit at the front. `exec` never starts first-run setup.
+
+```bash
+outfitter exec engineer list
+outfitter exec engineer install -- -l npm:@example/extension
+outfitter exec engineer --harness claude mcp
+```
+
 ## `outfitter setup [source]`
 
 Open the bundled Pi walkthrough. Choose a featured profile from the default catalog (Engineer,
