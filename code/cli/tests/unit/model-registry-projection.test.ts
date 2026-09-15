@@ -36,11 +36,13 @@ const composition = (models: NonNullable<CompositionPlan['models']>): Compositio
   models,
   loadout: {
     skills: [],
+    commands: [],
     delegateSkills: [],
     subagents: [],
     mcp: [],
     mcpServers: {},
     extensions: [],
+    extensionDeclarations: [],
     plugins: [],
     model: 'gateway/luna',
   },

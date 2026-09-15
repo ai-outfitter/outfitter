@@ -22,11 +22,13 @@ const plan: CompositionPlan = {
   identity: { agentBody: 'Body.' },
   loadout: {
     skills: [],
+    commands: [],
     delegateSkills: [],
     subagents: [],
     mcp: [],
     mcpServers: {},
     extensions: [],
+    extensionDeclarations: [],
     plugins: [],
   },
   warnings: [],

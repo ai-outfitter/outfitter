@@ -35,6 +35,10 @@
       "$ref": "#/$defs/slugList",
       "description": "Skill slugs resolved from agents/<name>/skills first, then catalog-wide skills."
     },
+    "commands": {
+      "$ref": "#/$defs/slugList",
+      "description": "Command slugs resolved from agents/<name>/commands first, then catalog-wide commands. An entry is either a bare command name (the command slug without its extension) or an exact file-tree slug."
+    },
     "subagents": {
       "$ref": "#/$defs/agentSlugList",
       "description": "Agent slugs delegated to. Resolved catalog-wide (a delegate is a shared agent, not nested under agents/<name>)."
@@ -44,8 +48,9 @@
       "description": "MCP server ids. Per-agent agents/<name>/mcp.json merges by id over layered tree-root mcp.json files before selected servers are projected into the run."
     },
     "extensions": {
-      "$ref": "#/$defs/slugList",
-      "description": "Harness-native extension selections passed through to the launch; no on-disk agent-local namespace."
+      "type": "array",
+      "items": { "$ref": "#/$defs/extensionSpecifier" },
+      "description": "Harness-native extension selections passed through to the launch; no on-disk agent-local namespace. Specifiers are npm:/git: remote sources or local paths (./, ../, ~/ , absolute); a bare name is ambiguous with slugs and rejected. Relative paths resolve against the declaring layer's .agents root."
     },
     "plugins": {
       "$ref": "#/$defs/slugList",
@@ -82,6 +87,12 @@
     "slugList": {
       "type": "array",
       "items": { "type": "string", "minLength": 1 }
+    },
+    "extensionSpecifier": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?:npm:|git:|~/|\\./|\\.\\./|/).+$",
+      "description": "A pi extension specifier: an npm:/git: remote source the extension cache installs, or a local path (./, ../, ~/ , absolute) served directly from disk."
     },
     "promptSource": {
       "type": "object",

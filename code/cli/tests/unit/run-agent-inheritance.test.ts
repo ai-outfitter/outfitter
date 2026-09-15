@@ -123,7 +123,7 @@ describe('run inherited agent', () => {
     write(join(project, '.agents', 'skills', 'wiki', 'SKILL.md'), '---\nname: wiki\n---\n\nWiki.\n');
     write(
       join(project, '.agents', 'agents', 'base-reviewer', 'agent.md'),
-      '---\nname: base-reviewer\nmodel: inherited-model\nskills: [wiki]\nextensions: [review-ext]\ntools:\n  allow: [read, bash]\n  deny: [bash]\n---\n\nBASE REVIEW BODY\n',
+      '---\nname: base-reviewer\nmodel: inherited-model\nskills: [wiki]\nextensions: [npm:review-ext]\ntools:\n  allow: [read, bash]\n  deny: [bash]\n---\n\nBASE REVIEW BODY\n',
     );
     write(
       join(project, '.agents', 'agents', 'reviewer', 'agent.md'),
@@ -145,7 +145,7 @@ describe('run inherited agent', () => {
         expect(delegate).toContain('thinking: "high"');
         expect(delegate).toContain('tools: "read"');
         expect(delegate).toContain('skills: "wiki"');
-        expect(delegate).toContain('extensions: "review-ext"');
+        expect(delegate).toContain('extensions: "npm:review-ext"');
         expect(delegate).toContain('BASE REVIEW BODY');
         expect(delegate).toContain('CHILD REVIEW BODY');
         return Promise.resolve(0);

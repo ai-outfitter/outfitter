@@ -11,6 +11,7 @@ import type {
   CustomSettings,
   Harness,
   Isolation,
+  PiBinaryMode,
   RemoteSettingsReference,
   Settings,
   SourceCachePolicy,
@@ -54,6 +55,8 @@ interface SettingsDocument {
   readonly workflows?: readonly string[];
   readonly remote_settings?: readonly RemoteSettingsDocument[];
   readonly cache_directory?: string;
+  readonly pi_binary?: PiBinaryMode;
+  readonly pi_binary_path?: string;
   readonly source_cache?: { readonly policy?: SourceCachePolicy };
   readonly state_persistence?: StatePersistence;
   readonly custom_settings?: CustomSettings;
@@ -75,6 +78,10 @@ interface AgentDefaultsDocument {
   readonly plugins?: readonly string[];
   readonly subagents?: readonly string[];
   readonly append_system_prompt?: unknown;
+  readonly pi_overlay?: string;
+  readonly extension_configs?: Readonly<
+    Record<string, Readonly<Record<string, import('./Settings.js').SettingsValue>>>
+  >;
 }
 
 interface EnterpriseSettingsDocument {
@@ -305,13 +312,20 @@ const convertSettingsDocument = (
     document.cache_directory === undefined
       ? undefined
       : resolveConfigDirectory(document.cache_directory, settingsDirectory),
+  piBinary: document.pi_binary,
+  // The binary path resolves where it was declared, so each settings layer keeps its own location
+  // no matter where the run launches from — the same rule as cache_directory and source paths.
+  piBinaryPath:
+    document.pi_binary_path === undefined
+      ? undefined
+      : resolveConfigDirectory(document.pi_binary_path, settingsDirectory),
   sourceCache: document.source_cache,
   statePersistence: document.state_persistence,
   customSettings: document.custom_settings,
   startup: convertStartupSettings(document.startup),
   enterprise: isHomeScope(scope) ? convertEnterpriseSettings(document.enterprise) : undefined,
   telemetry: convertTelemetrySettings(document.telemetry),
-  agentDefaults: convertAgentDefaults(document.agent_defaults),
+  agentDefaults: convertAgentDefaults(document.agent_defaults, settingsDirectory),
   harnessDefaults: document.harness_defaults,
 });
 
@@ -324,7 +338,10 @@ const convertEnterpriseSettings = (enterprise: EnterpriseSettingsDocument | unde
 const convertTelemetrySettings = (telemetry: TelemetrySettingsDocument | undefined): Settings['telemetry'] =>
   telemetry === undefined ? undefined : { enabled: telemetry.enabled };
 
-const convertAgentDefaults = (defaults: AgentDefaultsDocument | undefined): AgentDefaults | undefined =>
+const convertAgentDefaults = (
+  defaults: AgentDefaultsDocument | undefined,
+  settingsDirectory: string,
+): AgentDefaults | undefined =>
   defaults === undefined
     ? undefined
     : {
@@ -339,6 +356,13 @@ const convertAgentDefaults = (defaults: AgentDefaultsDocument | undefined): Agen
           : defaults.append_system_prompt === undefined
             ? undefined
             : [defaults.append_system_prompt],
+        // The overlay path resolves where it was declared, so each settings layer keeps its own
+        // location no matter where the run launches from.
+        piOverlayDirectories:
+          defaults.pi_overlay === undefined
+            ? undefined
+            : [resolveConfigDirectory(defaults.pi_overlay, settingsDirectory)],
+        extensionConfigs: defaults.extension_configs,
       };
 
 const convertRemoteSettingsSource = (source: RemoteSettingsDocument): RemoteSettingsReference => {

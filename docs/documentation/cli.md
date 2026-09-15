@@ -25,6 +25,10 @@ Resolve, compose, and launch an agent. `run` is the default command, so plain `o
 Set `OUTFITTER_LOG_LEVEL=debug` to enable debug startup output without passing the option. The
 `setup` command also accepts `--log-level` for its automatic profile launch.
 
+Set `OUTFITTER_PI_BIN=/path/to/pi` to launch that binary instead of the bundled pi for one run; it
+overrides the `pi_binary` / `pi_binary_path` settings keys (see
+[Settings — Pi binary selection](./settings.md#pi-binary-selection)).
+
 Any other arguments and unrecognized options are passed through to the launched harness:
 
 ```bash
@@ -38,6 +42,29 @@ Because `run` is the default command, leading flags that Outfitter does not own 
 ```bash
 outfitter -r            # equivalent to: outfitter run -- -r
 outfitter --resume      # equivalent to: outfitter run -- --resume
+```
+
+## `outfitter exec <agent> <subcommand> [args...]`
+
+Run a harness CLI subcommand (such as `pi list` or `pi install npm:some-package`) inside the composed profile for an agent. `exec` resolves, composes, and projects the agent exactly like `run`, then launches the harness with the subcommand as the first argument, so the harness runs its own command instead of treating it as a chat prompt. The projection directory is deleted when the subcommand exits unless `--retain-projection` is given; installs made inside the projection are discarded with it, so durable extension selection stays in the profile loadout.
+
+| Argument / Option     | Description                                                                              |
+| --------------------- | ---------------------------------------------------------------------------------------- |
+| `<agent>`             | Agent slug whose composed profile provides the environment.                              |
+| `<subcommand>`        | Harness CLI subcommand to run; it becomes the first argument of the harness process.     |
+| `[args...]`           | Arguments passed to the subcommand verbatim, including the harness's own flags.          |
+| `--harness <harness>` | Harness to launch in: `pi`, `claude`, or `codex`. Defaults to `default_harness`.         |
+| `--log-level <level>` | Use `info` for quiet loading or `debug` for installer output.                            |
+| `--strict`            | Fail instead of warning when the adapter cannot project part of the composition.         |
+| `--isolated`          | Launch from the composition alone, ignoring your own harness configuration. Claude only. |
+| `--retain-projection` | Keep the runtime projection directory after the subcommand exits, for inspection.        |
+
+The launch carries the projected environment (`PI_CODING_AGENT_DIR` points at the composed projection for pi), but none of the interactive session flags: no system prompt, skills, extensions, model, thinking, or tool selection is placed on the argv, because harness subcommands parse their own flags and must sit at the front. `exec` never starts first-run setup.
+
+```bash
+outfitter exec engineer list
+outfitter exec engineer install -- -l npm:@example/extension
+outfitter exec engineer --harness claude mcp
 ```
 
 ## `outfitter setup [source]`
@@ -72,11 +99,74 @@ resolution tells you to run `outfitter sync`.
 
 List resolvable resources across all layers, with the winning source for each slug and any shadowed IDs.
 
-| Argument | Description                                                                |
-| -------- | -------------------------------------------------------------------------- |
-| `[kind]` | Optional filter: `agents`, `skills`, `knowledge`, `commands`, `workflows`. |
+| Argument | Description                                                                              |
+| -------- | ---------------------------------------------------------------------------------------- |
+| `[kind]` | Optional filter: `agents`, `skills`, `knowledge`, `commands`, `workflows`, `extensions`. |
 
 `--json` emits an object containing `ok`, `resources`, and `diagnostics`; diagnostics remain available under strict mode. Each workflow resource entry also contains a name-sorted `outputs` object with resolved output labels, or `{}` when the workflow declares none. Non-JSON output is unchanged. See [OFTR-013: Workflow Contract](../requirements/OFTR-013-workflow-contract.md).
+
+The `extensions` kind is different from the resource kinds: it reports the machine-local pi
+extension cache (`~/.cache/outfitter/pi-extensions/`) instead of composed resources, so it needs
+no settings, project, or agent — and it rejects `--agent`. Each cached `npm:` extension is
+reported with its reconstructed specifier (including the range recorded in the cache manifest),
+its resolved installed version, and its upstream status; each cached `git:` checkout is reported
+with its specifier (including the branch/tag pin recovered from the install marker), its checkout
+HEAD, and its upstream status. Local-path extensions are not listed — they never enter the cache.
+
+Upstream status is one of `up-to-date`, `update-available (<latest>)` (npm: the registry's
+`latest` dist-tag newer than the resolved version; git: the remote tip of the pinned ref — or of
+the default branch for unpinned checkouts — ahead of the checkout HEAD), `pinned (at <sha>)`
+(full-SHA git pins are frozen and never checked), or `unknown (<detail>)`. Upstream lookups are
+read-only (`npm view`, `git ls-remote`) and run by default; pass `--offline` (or set `PI_OFFLINE`)
+to skip them, reporting `unknown (offline)` deterministically. A failed lookup degrades that
+entry to `unknown (lookup failed)` with a warning; `--strict` makes warnings fatal.
+`--json` for extensions emits `ok`, `extensions` (the full report entries), and `diagnostics`.
+See [OFTR-006: Agent Adapters](../requirements/OFTR-006-agent-adapters.md) item 34. This listing never mutates the cache; updating it is `outfitter update extensions` below.
+
+## `outfitter update extensions`
+
+Update the cached pi extensions in place: reinstalls outdated npm packages at the registry's
+current release and fast-forwards git checkouts whose pinned branch moved remotely. The command
+is an explicit mutation — `outfitter run` never initiates it, and nothing else in Outfitter
+mutates the extension cache. Like the `extensions` listing, it needs no settings, project, or
+agent, and it never touches loadout files or settings.
+
+| Option      | Description                                                                                      |
+| ----------- | ------------------------------------------------------------------------------------------------ |
+| `--offline` | Skip every upstream lookup, mutate nothing, and report each entry `offline` (also `PI_OFFLINE`). |
+| `--dry-run` | Perform only the read-only lookups and report what would update as `would-update (to <target>)`. |
+| `--strict`  | Treat warnings (for example a failed peer install) as fatal.                                     |
+| `--json`    | Emit a stable object with `ok`, `dryRun`, `updates`, and `diagnostics`.                          |
+
+Each cached entry is decided and mutated independently (entry-scoped transactions): a failed
+registry lookup, failed install, or failed fetch leaves that entry's cache state untouched,
+reports it as `failed (<reason>)`, and never blocks other entries. npm: a dependency entry whose
+recorded version is exact is a deliberate pin and is skipped; any other entry is reinstalled at
+the registry's `latest` release when strictly newer than the resolved version, as an exact
+version through the same install path the cache itself uses, followed by peer-dependency
+satisfaction. git: full-SHA pins and pinned tags are never moved; branch-pinned and unpinned
+checkouts compare against the remote tip of their ref (or the default branch when unpinned) and
+fast-forward with fetch plus `git merge --ff-only` — a diverged checkout fails as
+`not fast-forwardable` instead of being reset, and the install marker's recorded HEAD is
+refreshed. The command performs network work by default because updating is its purpose.
+
+The summary lists one line per entry in the listing's deterministic order (npm entries by package
+name, then git entries by checkout path):
+
+```text
+extensions update:
+  npm:hashline-pi@^0.1.0  0.1.0 -> 0.1.1  updated
+  npm:pin-pkg@1.2.3       1.2.3  skipped (pinned)
+  git:github.com/user/repo@main  abc1234 -> def5678  updated
+  git:github.com/user/frozen     abc1234  skipped (pinned)
+```
+
+Updating moves the shared cache: a package some agent's loadout exact-pins can be transiently
+displaced, and that agent's next run reinstalls its pin (online; offline it warns, fatal under
+`--strict`), the same stale-pin behavior any reinstall already produces. Any failed entry exits
+non-zero.
+
+See [OFTR-006: Agent Adapters](../requirements/OFTR-006-agent-adapters.md) item 35.
 
 ## `outfitter validate`
 
