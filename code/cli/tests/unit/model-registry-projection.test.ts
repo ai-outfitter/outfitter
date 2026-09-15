@@ -41,6 +41,7 @@ const composition = (models: NonNullable<CompositionPlan['models']>): Compositio
     mcp: [],
     mcpServers: {},
     extensions: [],
+    extensionDeclarations: [],
     plugins: [],
     model: 'gateway/luna',
   },
