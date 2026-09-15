@@ -96,3 +96,14 @@ Amended (2026-07-17, RFC #165): composition assembles from the effective resourc
 9. Outfitter MUST NOT mutate cache-backed or remote selected profile owners for generated prompt export and MUST emit an actionable warning when export is skipped for that reason.
 10. Generated prompt export MUST NOT change launch args except for Outfitter's own runtime export extension plumbing, launch environment except for the export-path handoff, composite profile contents, or state persistence behavior.
 11. During live composite profile updates, Outfitter SHOULD refresh generated prompt fallback artifacts when enabled.
+
+### OFTR-005.8: Exec Command
+
+1. Outfitter MUST provide an `exec` command with the shape `exec <agent> <subcommand> [args...]` that resolves, composes, and projects through the same shared resolver, composer, and projection path as `run`, accepting `--harness`, `--log-level`, `--strict`, `--isolated`, `--source-cache-policy`, and `--retain-projection` with run's semantics.
+2. The `<subcommand>` positional MUST be required: invoking `exec` without one MUST produce a usage error and a non-zero exit code without launching any child process.
+3. The exec launch MUST place the subcommand at `argv[0]` of the harness process with the remaining arguments following verbatim, for every harness.
+4. The exec launch MUST NOT include session-only launch flags — system-prompt or append-prompt paths, prompt templates, skill directories, extension load flags, tool allow/deny lists, model selection args, or thinking/effort args.
+5. The projected launch environment MUST be kept for exec: for pi, `PI_CODING_AGENT_DIR` MUST name the composed projection root so pi's `install`, `list`, `config`, and `auth` subcommands operate on the composed environment, and the durable session directory projection MUST follow run's semantics.
+6. The exec command MUST NOT attach the interactive Outfitter runtime extension and MUST NOT run first-run onboarding.
+7. System extension hook environment variables and the hook source stamp MUST still apply to exec launches; hook `extensions:` arguments MUST NOT be delivered, and each hook declaring pi extensions MUST produce an advisory warning that its extensions are not delivered in subcommand launches.
+8. Exec MUST own the composite-profile lifecycle exactly as `run` does: Outfitter MUST remain alive while the child harness runs, MUST persist durable pi/Claude state on exit, MUST pass the child's exit code through as Outfitter's exit code, and MUST delete the temporary projection when the child exits unless `--retain-projection` was given, in which case the projection path MUST be reported.
