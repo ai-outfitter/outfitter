@@ -105,6 +105,21 @@ List resolvable resources across all layers, with the winning source for each sl
 
 `--json` emits an object containing `ok`, `resources`, and `diagnostics`; diagnostics remain available under strict mode. Each workflow resource entry also contains a name-sorted `outputs` object with resolved output labels, or `{}` when the workflow declares none. Non-JSON output is unchanged. See [OFTR-013: Workflow Contract](../requirements/OFTR-013-workflow-contract.md).
 
+`--agent <id>` resolves the listing in that agent's context. For `skills`, `knowledge`, and
+`commands`, the agent's own agent-local resources are listed with an `agent-local` label and
+shadow catalog-wide resources of the same slug. For `skills` and `commands`, the listing also
+composes the loadout selections the agent inherits through its `inherits` chain — through the
+same parent-first, owner-first composer machinery a run uses — so it shows the effective view the
+agent's sessions will actually have (see OFTR-003.8.4, OFTR-003.10.2, and OFTR-003.10.5). Each
+inherited entry reports its declaring owner with an `inherited; owner: <agent>` label, plus
+`agent-local` when it resolves into the declaring agent's local namespace; the agent's own
+agent-local resource wins and the shadowed inherited duplicate is not shown. Unresolved
+inherited selections are omitted and reported as `warning:` diagnostics. `knowledge` has no
+loadout selector, so its agent-scoped listing stays catalog-wide plus the agent's own
+agent-local knowledge. JSON entries for inherited selections add `inherited: true` and
+`declaredBy: <agent>`; entries without inheritance keep the existing shape, so an agent that
+declares no `inherits` produces the same output as before this label was introduced.
+
 The `extensions` kind is different from the resource kinds: it reports the machine-local pi
 extension cache (`~/.cache/outfitter/pi-extensions/`) instead of composed resources, so it needs
 no settings, project, or agent — and it rejects `--agent`. Each cached `npm:` extension is

@@ -75,6 +75,7 @@ Outfitter resolves agents and other resources from layered `.agents` trees into 
 2. `outfitter list <kind>` MUST restrict output to one kind of `agents`, `skills`, `knowledge`, or `commands` and MUST reject unknown kinds.
 3. Listed resources MUST report the winning layer for each slug deterministically.
 4. `outfitter list skills --agent <id>` MUST show the agent's local-first effective skill view and distinguish agent-local winners.
+   > **Amended ([#420](https://github.com/ai-outfitter/outfitter/issues/420), 2026-09-19):** the effective view includes the loadout selections the agent inherits through its `inherits` chain (per OFTR-003.10.2 and OFTR-003.10.5), so `outfitter list skills --agent <id>` and `outfitter list commands --agent <id>` MUST report inherited selections with their declaring owner (an `inherited; owner: <agent>[; agent-local]` provenance label in text; `inherited`/`declaredBy` fields in JSON output). The listing MUST reuse the composer's parent-first selection machinery, and the agent's own agent-local resource MUST shadow an inherited duplicate of the same slug. `knowledge` declares no loadout selections, so its agent-scoped listing stays catalog-wide plus the agent's own agent-local knowledge.
 
 ### OFTR-003.9: Agent Inheritance Graph
 
