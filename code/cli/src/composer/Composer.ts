@@ -120,7 +120,7 @@ const composeExtensionDeclarations = (
   return declarations;
 };
 
-const declaredSelections = (
+export const declaredSelections = (
   chain: readonly ChainEntry[],
   select: (definition: AgentDefinition) => readonly string[],
 ): readonly DeclaredSlug[] => {

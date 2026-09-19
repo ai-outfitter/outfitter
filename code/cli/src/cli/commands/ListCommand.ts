@@ -1,15 +1,20 @@
 // Provides `outfitter list [kind]` over the effective resource set, plus the machine-local `extensions`
 // kind that reports the cached pi extension packages (`extensions` is not a resolver resource kind:
-// it reads the extension cache state directly and needs neither settings nor a project).
+// it reads the extension cache state directly and needs neither settings nor a project). Agent-scoped
+// listings compose the agent's inherited loadout selections through the shared composer machinery
+// so the listing shows the effective view a run would compose, with declaring-owner provenance.
 import { join } from 'node:path';
 
 import { Command } from 'commander';
 
+import { resolveInheritanceChain } from '../../composer/Chain.js';
+import { declaredSelections } from '../../composer/Composer.js';
+import { resolveCommandResource, resolveSelectionResource } from '../../composer/Defaults.js';
 import { buildExtensionReport } from '../../extensions/ExtensionReport.js';
 import type { ExtensionReportEntry } from '../../extensions/ExtensionReport.js';
 import type { NpmLatestResolver } from '../../extensions/PiExtensionCache.js';
+import type { EffectiveResourceSet, ResolvedResource, ResourceKind } from '../../resolver/Resource.js';
 import { resolveOutfitterCacheDir } from '../../paths/OutfitterCache.js';
-import type { EffectiveResourceSet, ResourceKind } from '../../resolver/Resource.js';
 import {
   agentLocalKinds,
   compareSlugs,
@@ -51,6 +56,9 @@ export interface ListResourceEntry {
   readonly layer: string;
   readonly path: string;
   readonly ownerAgent: string | null;
+  /** Present only on inherited selections: the declaring agent in the `inherits` chain. */
+  readonly inherited?: boolean;
+  readonly declaredBy?: string;
   readonly outputs?: ResolvedWorkflowOutputs;
 }
 
@@ -121,10 +129,74 @@ const workflowDefinitionsForKinds = (
 ): ReadonlyMap<string, WorkflowDefinition> =>
   kinds.includes('workflow') ? readWorkflowDefinitions(set) : new Map<string, WorkflowDefinition>();
 
-const listEntry = (
-  resource: ReturnType<typeof listResources>[number],
-  definitions: ReadonlyMap<string, WorkflowDefinition>,
-): ListResourceEntry => {
+/** One listing row: the resolved resource plus optional inherited-selection provenance. */
+interface ListedResource {
+  readonly resource: ResolvedResource;
+  readonly declaredBy?: string;
+}
+
+/**
+ * Composes the agent's inherited loadout selections for one kind through the shared composer
+ * machinery — parent-first with stable de-duplication (OFTR-003.10.2) — and resolves each
+ * selection against its declaring agent's namespace with catalog-wide fallback (OFTR-003.10.5).
+ * The agent's own declarations are skipped: its own local resources and the catalog already
+ * cover them. Unresolved selections surface as the composer's warnings and are omitted.
+ */
+const inheritedSelections = (
+  set: EffectiveResourceSet,
+  agent: string,
+  kind: 'skill' | 'command',
+  warnings: string[],
+): readonly ListedResource[] => {
+  const chain = resolveInheritanceChain(set, agent);
+  if (chain.entries === undefined) {
+    for (const error of chain.errors) warnings.push(error);
+    return [];
+  }
+  const inherited: ListedResource[] = [];
+  const selections = declaredSelections(chain.entries, (definition) =>
+    kind === 'skill' ? definition.loadout.skills : definition.loadout.commands,
+  );
+  for (const selection of selections) {
+    if (selection.owner === undefined || selection.owner === agent) continue;
+    if (kind === 'command') {
+      const outcome = resolveCommandResource(set, selection);
+      if (outcome.resource !== undefined) {
+        inherited.push({ resource: outcome.resource, declaredBy: selection.owner });
+      } else if (outcome.ambiguousCandidates !== undefined) {
+        warnings.push(
+          `loadout commands references ambiguous command '${selection.slug}' (${outcome.ambiguousCandidates.join(', ')}).`,
+        );
+      } else warnings.push(`loadout commands references unknown command '${selection.slug}'.`);
+    } else {
+      const resource = resolveSelectionResource(set, kind, selection);
+      if (resource === undefined) {
+        warnings.push(`loadout skills references unknown skill '${selection.slug}'.`);
+      } else {
+        inherited.push({ resource, declaredBy: selection.owner });
+      }
+    }
+  }
+  return inherited;
+};
+
+/**
+ * Text labels reuse the existing `[<layer>[; agent-local]]` vocabulary; inherited entries prefix
+ * `inherited; owner: <declaring agent>` and add `agent-local` only when the selection resolves
+ * into the declaring agent's local namespace.
+ */
+const renderListedResource = (listed: ListedResource): string => {
+  const { resource, declaredBy } = listed;
+  const agentLocal = resource.winner.ownerAgent === undefined ? '' : '; agent-local';
+  if (declaredBy === undefined) {
+    return `  ${resource.slug}  [${resource.winner.layer.label}${agentLocal}]`;
+  }
+  const ownerLocal = resource.winner.ownerAgent === declaredBy ? '; agent-local' : '';
+  return `  ${resource.slug}  [${resource.winner.layer.label}; inherited; owner: ${declaredBy}${ownerLocal}]`;
+};
+
+const listEntry = (listed: ListedResource, definitions: ReadonlyMap<string, WorkflowDefinition>): ListResourceEntry => {
+  const { resource } = listed;
   const provenance = {
     kind: resource.kind,
     slug: resource.slug,
@@ -132,6 +204,9 @@ const listEntry = (
     path: resource.winner.path,
     ownerAgent: resource.winner.ownerAgent ?? null,
   };
+  if (listed.declaredBy !== undefined) {
+    return { ...provenance, inherited: true, declaredBy: listed.declaredBy };
+  }
   if (resource.kind !== 'workflow') return provenance;
   const definition = definitions.get(resource.slug);
   return {
@@ -174,6 +249,40 @@ const executeListExtensionsCommand = (input: ListInput, npmLatest?: NpmLatestRes
   };
 };
 
+/**
+ * Builds one kind's listing rows and text section. The merge order gives the display precedence:
+ * an inherited selection replaces the catalog winner it resolves, and the agent's own
+ * agent-local resource shadows both (owned wins).
+ */
+const listKindResources = (
+  set: EffectiveResourceSet,
+  kind: ResourceKind,
+  agent: string | undefined,
+  enabledWorkflows: readonly string[],
+  definitions: ReadonlyMap<string, WorkflowDefinition>,
+  listingWarnings: string[],
+): { readonly entries: readonly ListResourceEntry[]; readonly lines: readonly string[] } => {
+  const hasAgentContext = agent !== undefined && agentLocalKinds.includes(kind);
+  const globalResources = listGlobalResources(set, kind, enabledWorkflows);
+  const inheritedResources =
+    agent !== undefined && (kind === 'skill' || kind === 'command')
+      ? inheritedSelections(set, agent, kind, listingWarnings)
+      : [];
+  const localResources = hasAgentContext ? listAgentResources(set, agent, kind) : [];
+  const resources = new Map<string, ListedResource>(globalResources.map((resource) => [resource.slug, { resource }]));
+  for (const inherited of inheritedResources) resources.set(inherited.resource.slug, inherited);
+  for (const resource of localResources) resources.set(resource.slug, { resource });
+  const listed = [...resources.values()].sort((left, right) => compareSlugs(left.resource.slug, right.resource.slug));
+
+  return {
+    entries: listed.map((entry) => listEntry(entry, definitions)),
+    lines: [
+      `${pluralByKind.get(kind)!}${hasAgentContext ? ` (agent ${agent})` : ''}:`,
+      ...(resources.size === 0 ? ['  (none)'] : listed.map(renderListedResource)),
+    ],
+  };
+};
+
 export const executeListCommand = (input: ListInput, npmLatest?: NpmLatestResolver): ListResult => {
   if (input.kind === 'extensions') return executeListExtensionsCommand(input, npmLatest);
   const { set, settings, settingsIssues, warnings } = resolveEffectiveSet(input);
@@ -183,40 +292,30 @@ export const executeListCommand = (input: ListInput, npmLatest?: NpmLatestResolv
     throw new Error(`Cannot list resources with invalid settings: ${detail}`);
   }
 
-  const messages: string[] = warnings.map((warning) => `warning: ${warning}`);
-
   assertKnownAgent(set, input.agent);
+
+  const listingWarnings: string[] = [];
   const entries: ListResourceEntry[] = [];
-  const kinds = resolveKindFilter(input.kind);
-  const definitions = workflowDefinitionsForKinds(set, kinds);
-
-  for (const kind of kinds) {
-    const hasAgentContext = input.agent !== undefined && agentLocalKinds.includes(kind);
-    const globalResources = listGlobalResources(set, kind, settings.workflows!);
-    const localResources = hasAgentContext ? listAgentResources(set, input.agent, kind) : [];
-    const resources = new Map(globalResources.map((resource) => [resource.slug, resource]));
-    for (const resource of localResources) resources.set(resource.slug, resource);
-    entries.push(
-      ...[...resources.values()]
-        .sort((left, right) => compareSlugs(left.slug, right.slug))
-        .map((resource) => listEntry(resource, definitions)),
+  const sections: string[] = [];
+  for (const kind of resolveKindFilter(input.kind)) {
+    const kindListing = listKindResources(
+      set,
+      kind,
+      input.agent,
+      settings.workflows!,
+      workflowDefinitionsForKinds(set, [kind]),
+      listingWarnings,
     );
-
-    messages.push(`${pluralByKind.get(kind)!}${hasAgentContext ? ` (agent ${input.agent})` : ''}:`);
-    messages.push(
-      ...(resources.size === 0
-        ? ['  (none)']
-        : [...resources.values()]
-            .sort((left, right) => compareSlugs(left.slug, right.slug))
-            .map(
-              (resource) =>
-                `  ${resource.slug}  [${resource.winner.layer.label}${
-                  resource.winner.ownerAgent === undefined ? '' : '; agent-local'
-                }]`,
-            )),
-    );
+    entries.push(...kindListing.entries);
+    sections.push(...kindListing.lines);
   }
 
+  // Chain errors repeat per composed kind; report each diagnostic once, in first-seen order.
+  const messages: string[] = [
+    ...warnings.map((warning) => `warning: ${warning}`),
+    ...[...new Set(listingWarnings)].map((warning) => `warning: ${warning}`),
+    ...sections,
+  ];
   return { exitCode: 0, messages, resources: entries };
 };
 
