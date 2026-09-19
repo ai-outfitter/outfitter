@@ -127,6 +127,7 @@ interface CompositionProvenance {
 interface ClosureCompose {
   readonly agents: readonly ResolvedResource[];
   readonly skills: readonly ResolvedResource[];
+  readonly commands: readonly ResolvedResource[];
   readonly agentDefaultMcpServers: Readonly<Record<string, unknown>>;
   readonly promptFiles: readonly { readonly reference: string; readonly content: string }[];
   readonly provenance: readonly CompositionProvenance[];
@@ -218,6 +219,25 @@ const collectSkills = (
   }
 };
 
+// Owner-first command resolution can legitimately resolve one slug to different files for the
+// leader and a delegate, so the same conflict rule as skills keeps the flattened tree honest.
+const collectCommands = (
+  selected: readonly ResolvedResource[],
+  commands: Map<string, ResolvedResource>,
+  errors: string[],
+): void => {
+  for (const commandResource of selected) {
+    const existing = commands.get(commandResource.slug);
+    if (existing !== undefined && existing.winner.path !== commandResource.winner.path) {
+      errors.push(
+        `dump closure resolves conflicting definitions for command '${commandResource.slug}' and cannot flatten both.`,
+      );
+    } else {
+      commands.set(commandResource.slug, commandResource);
+    }
+  }
+};
+
 const collectAgentDefaultMcpServers = (
   plan: CompositionPlan,
   defaults: AgentDefaults | undefined,
@@ -238,6 +258,7 @@ const composeClosure = (
   const seen = new Set<string>();
   const agents: ResolvedResource[] = [];
   const skills = new Map<string, ResolvedResource>();
+  const commands = new Map<string, ResolvedResource>();
   const warnings: string[] = [];
   const errors: string[] = [];
   const agentDefaultMcpServers: Record<string, unknown> = {};
@@ -269,12 +290,14 @@ const composeClosure = (
     collectAgentDefaultMcpServers(composed.plan, agentDefaults, agentDefaultMcpServers);
     collectPromptFiles(composed.plan, promptFiles, errors);
     collectSkills(composed.plan.loadout.skills, skills, errors);
+    collectCommands(composed.plan.loadout.commands, commands, errors);
     queue.push(...composed.plan.loadout.subagents.map((subagent) => subagent.slug).sort(compareSlugs));
   }
 
   return {
     agents,
     skills: [...skills.values()].sort((left, right) => compareSlugs(left.slug, right.slug)),
+    commands: [...commands.values()].sort((left, right) => compareSlugs(left.slug, right.slug)),
     agentDefaultMcpServers,
     promptFiles: [...promptFiles.entries()]
       .map(([reference, content]) => ({ reference, content }))
@@ -288,6 +311,7 @@ const composeClosure = (
 const closureResources = (closure: ClosureCompose): readonly ResolvedResource[] => [
   ...closure.agents,
   ...closure.skills,
+  ...closure.commands,
 ];
 
 // A defining file or its config that resolves outside every layer root cannot be safely dumped.
@@ -404,6 +428,35 @@ const promptTargetCollisions = (outRoot: string, prompts: ClosureCompose['prompt
   return errors;
 };
 
+/** Settings-layer delivery surfaces are runtime-only and may live outside every layer root, so
+ *  dumps report them rather than silently dropping them or flattening them into the tree. */
+const dumpWarningsWithSettingsSurfaceNotices = (
+  closureWarnings: readonly string[],
+  agentDefaults: AgentDefaults | undefined,
+): readonly string[] => {
+  const notices: string[] = [];
+  if ((agentDefaults?.piOverlayDirectories?.length ?? 0) > 0) {
+    notices.push('The settings-layer pi overlay (agent_defaults.pi_overlay) is not carried into the dumped tree.');
+  }
+  if (Object.keys(agentDefaults?.extensionConfigs ?? {}).length > 0) {
+    notices.push(
+      'The settings-layer extension configs (agent_defaults.extension_configs) are not carried into the dumped tree.',
+    );
+  }
+  return notices.length === 0 ? closureWarnings : [...closureWarnings, ...notices];
+};
+
+/** Writes one flattened copy per closure command under `commands/<slug>` (nested slugs nest). */
+const writeClosureCommands = (commands: readonly ResolvedResource[], outRoot: string, written: string[]): void => {
+  for (const commandResource of commands) {
+    const target = join(outRoot, 'commands', commandResource.slug);
+    removeTargetTypeConflict(target, 'file');
+    mkdirSync(dirname(target), { recursive: true });
+    copyFileSync(commandResource.winner.path, target);
+    written.push(target);
+  }
+};
+
 /** Writes the composed closure of `agentSlug` into a freshly cleaned `<outDirectory>/.agents/`. */
 export const dumpAgent = (
   set: EffectiveResourceSet,
@@ -415,6 +468,7 @@ export const dumpAgent = (
 ): DumpResult => {
   // composeClosure composes the root once and surfaces an unknown/invalid root agent as an error.
   const closure = composeClosure(set, agentSlug, projectDirectory, agentDefaults);
+  const warnings = dumpWarningsWithSettingsSurfaceNotices(closure.warnings, agentDefaults);
 
   if (closure.errors.length > 0) {
     return failure(closure.errors, closure.warnings);
@@ -424,7 +478,7 @@ export const dumpAgent = (
   const safety = containmentErrors(closureResources(closure), roots);
 
   if (safety.length > 0) {
-    return failure(safety, closure.warnings);
+    return failure(safety, warnings);
   }
 
   const outRoot = join(outDirectory, '.agents');
@@ -440,7 +494,7 @@ export const dumpAgent = (
   const rootErrors = writeRootFiles(set, outRoot, written);
 
   if (rootErrors.length > 0) {
-    return failure(rootErrors, closure.warnings);
+    return failure(rootErrors, warnings);
   }
 
   const provenanceTarget = join(outRoot, '.outfitter', 'composition.json');
@@ -468,10 +522,12 @@ export const dumpAgent = (
     copyResourceDirectory(dirname(skill.winner.path), join(outRoot, 'skills', skill.slug), written);
   }
 
+  writeClosureCommands(closure.commands, outRoot, written);
+
   const promptCollisions = promptTargetCollisions(outRoot, closure.promptFiles);
   if (promptCollisions.length > 0) {
     rmSync(outRoot, { recursive: true, force: true });
-    return failure(promptCollisions, closure.warnings);
+    return failure(promptCollisions, warnings);
   }
 
   for (const prompt of closure.promptFiles) {
@@ -481,5 +537,5 @@ export const dumpAgent = (
     written.push(target);
   }
 
-  return { writtenPaths: [...new Set(written)].sort(compareSlugs), warnings: closure.warnings, errors: [] };
+  return { writtenPaths: [...new Set(written)].sort(compareSlugs), warnings, errors: [] };
 };

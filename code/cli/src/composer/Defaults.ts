@@ -9,7 +9,13 @@ import type { CompositionAgentDefaults } from './Composition.js';
 import type { PromptFragment, PromptSourceReference } from './PromptSource.js';
 import { promptSourceKey, resolvePromptSource } from './PromptSource.js';
 import type { EffectiveResourceSet, ResolvedResource } from '../resolver/Resource.js';
-import { findLoadoutResource, findResource } from '../resolver/Resource.js';
+import {
+  commandPromptName,
+  findLoadoutResource,
+  findResource,
+  listAgentResources,
+  listResources,
+} from '../resolver/Resource.js';
 import type { AgentDefaults } from '../settings/Settings.js';
 import { isEmptyAgentDefaults } from '../settings/Settings.js';
 
@@ -73,7 +79,7 @@ export const mergePromptSelections = (
 /** Resolves a selection where it was declared: settings defaults catalog-wide, chain entries owner-first. */
 export const resolveSelectionResource = (
   set: EffectiveResourceSet,
-  kind: 'skill' | 'agent',
+  kind: 'skill' | 'agent' | 'command',
   selection: DeclaredSlug,
 ): ResolvedResource | undefined =>
   selection.owner === undefined
@@ -81,14 +87,14 @@ export const resolveSelectionResource = (
     : findLoadoutResource(set, selection.owner, kind, selection.slug);
 
 /** Names the declaring layer of a selection so unresolved references point at the right surface. */
-export const selectionReference = (kind: 'skill' | 'agent', selection: DeclaredSlug): string => {
+export const selectionReference = (kind: 'skill' | 'agent' | 'command', selection: DeclaredSlug): string => {
   const noun = kind === 'agent' ? 'subagents' : `${kind}s`;
   return selection.owner === undefined ? `agent_defaults ${noun}` : `loadout ${noun}`;
 };
 
 export const resolveDeclaredSlugs = (
   set: EffectiveResourceSet,
-  kind: 'skill' | 'agent',
+  kind: 'skill' | 'agent' | 'command',
   selections: readonly DeclaredSlug[],
   warnings: string[],
   prefix = '',
@@ -106,6 +112,58 @@ export const resolveDeclaredSlugs = (
   }
 
   return resolved;
+};
+
+/**
+ * One command selection's outcome: the resolved resource, or the candidates that made a bare
+ * name ambiguous. Commands are file-tree resources whose slugs carry extensions, so besides the
+ * exact slug a bare name matches every command whose extension-stripped stem equals it.
+ */
+export interface CommandSelectionOutcome {
+  readonly resource?: ResolvedResource;
+  readonly ambiguousCandidates?: readonly string[];
+}
+
+/**
+ * The invocation-name matches for one bare command name inside one namespace, preferring the
+ * owning agent's local namespace. Matches compare pi prompt names, so `deploy` matches
+ * `deploy.md`, while a nested `a/ambig.md` answers only to its flattened name `a-ambig` (or its
+ * exact slug). Agent-local matches shadow the catalog, mirroring `findLoadoutResource`.
+ */
+const commandNameMatches = (
+  set: EffectiveResourceSet,
+  selection: DeclaredSlug,
+  name: string,
+): readonly ResolvedResource[] => {
+  const local =
+    selection.owner === undefined
+      ? []
+      : listAgentResources(set, selection.owner, 'command').filter(
+          (resource) => commandPromptName(resource.slug) === name,
+        );
+  if (local.length > 0) return local;
+  return listResources(set, 'command').filter((resource) => commandPromptName(resource.slug) === name);
+};
+
+/**
+ * Resolves one command selection: exact slug first (agent-local then catalog), then, for bare
+ * names without an extension, the flattened invocation-name match. A unique match resolves;
+ * among same-name siblings a unique `.md` match wins — the only pi prompt-template form;
+ * anything else is ambiguous so the reference surfaces instead of a silent pick.
+ */
+export const resolveCommandResource = (set: EffectiveResourceSet, selection: DeclaredSlug): CommandSelectionOutcome => {
+  const exact = resolveSelectionResource(set, 'command', selection);
+  if (exact !== undefined) return { resource: exact };
+  if (selection.slug.includes('.')) return {};
+
+  const matches = commandNameMatches(set, selection, commandPromptName(selection.slug));
+  if (matches.length === 1) return { resource: matches[0] };
+  if (matches.length > 1) {
+    const markdown = matches.filter((resource) => resource.slug.endsWith('.md'));
+    if (markdown.length === 1) return { resource: markdown[0] };
+    return { ambiguousCandidates: matches.map((resource) => resource.slug) };
+  }
+  return {};
 };
 
 /** Resolves one settings-layer prompt source; catalog `file` sources use the first layer that has the file. */

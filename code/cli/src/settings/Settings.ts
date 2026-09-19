@@ -28,6 +28,10 @@ export type StatePersistence = Readonly<Record<string, StatePersistenceStrategy>
 export const SOURCE_CACHE_POLICIES = ['repair', 'locked', 'offline'] as const;
 export type SourceCachePolicy = (typeof SOURCE_CACHE_POLICIES)[number];
 
+/** How pi-harness launches pick the pi binary. `bundled` pins Outfitter's own dependency copy. */
+export const PI_BINARY_MODES = ['bundled', 'path', 'auto'] as const;
+export type PiBinaryMode = (typeof PI_BINARY_MODES)[number];
+
 /**
  * An ordered `.agents` payload source: a local path, a remote URI, or a `github` shorthand.
  * Modeled as a discriminated union so exactly one of `path`/`uri`/`github` is present and `ref`
@@ -62,6 +66,18 @@ export interface AgentDefaults {
   readonly plugins?: readonly string[];
   readonly subagents?: readonly string[];
   readonly appendSystemPrompt?: readonly PromptSourceReference[];
+  /**
+   * Resolved `pi_overlay` directories contributed by the settings stack, lowest-precedence layer
+   * first. A runtime-file delivery surface, not a loadout field: it composes no slugs and never
+   * enters the composed loadout, so the loadout-only helpers below deliberately ignore it.
+   */
+  readonly piOverlayDirectories?: readonly string[];
+  /**
+   * File-based extension configurations deep-merged across the settings stack. Like
+   * `piOverlayDirectories`, a runtime-file delivery surface rather than a loadout field, so the
+   * loadout-only helpers below deliberately ignore it.
+   */
+  readonly extensionConfigs?: Readonly<Record<string, Readonly<Record<string, SettingsValue>>>>;
 }
 
 /** True when no defaults field carries an entry, so the settings layer contributes nothing. */
@@ -100,6 +116,10 @@ export interface Settings {
   readonly cacheDirectory?: string;
   readonly sourceCache?: SourceCacheSettings;
   readonly statePersistence?: StatePersistence;
+  /** Which pi binary pi-harness launches use; resolved by the launcher against the environment. */
+  readonly piBinary?: PiBinaryMode;
+  /** Explicit pi binary for `pi_binary: path`; relative paths resolve against the declaring settings file. */
+  readonly piBinaryPath?: string;
   readonly customSettings?: CustomSettings;
   readonly startup?: StartupSettings;
   readonly enterprise?: EnterpriseSettings;

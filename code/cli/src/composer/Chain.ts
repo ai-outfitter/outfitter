@@ -10,7 +10,7 @@ export interface ChainEntry {
 }
 
 const readValidAgent = (agent: ResolvedResource): AgentDefinition | string => {
-  const definition = readAgentDefinition(agent.winner.path, agent.configPaths);
+  const definition = readAgentDefinition(agent.winner.path, agent.configPaths, agent.configLayerRoots);
   if (isAgentDefinitionIssue(definition)) return definition.message;
   if (definition.name !== agent.slug) return `agent.md name '${definition.name}' must match its directory.`;
   return definition;

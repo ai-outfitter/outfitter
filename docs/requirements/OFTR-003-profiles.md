@@ -52,18 +52,22 @@ Outfitter resolves agents and other resources from layered `.agents` trees into 
 
 ### OFTR-003.6: Loadout
 
-1. An agent's frontmatter/`config.json` MAY declare a loadout: `skills`, `subagents`, `mcp`, `extensions`, `plugins`, `model`, `thinking`, and `tools`.
+1. An agent's frontmatter/`config.json` MAY declare a loadout: `skills`, `commands`, `subagents`, `mcp`, `extensions`, `plugins`, `model`, `thinking`, and `tools`.
 2. A skill loadout entry MUST resolve first against the owning agent's local skill namespace across layers, then against catalog-wide skills across layers.
 3. An agent-local skill MUST be invisible to other agents unless they define their own local skill of that ID or a catalog-wide fallback exists.
 4. Settings MUST NOT carry loadout selections.
+5. A `commands` loadout entry MUST resolve first against the owning agent's local command namespace (`agents/<agent-id>/commands/`) across layers, then against catalog-wide `commands/` across layers.
+   An entry is either a bare command name — the command's invocation name, its slug without the extension and with nested path separators flattened to `-` — or an exact command file-tree slug; an entry containing a dot MUST resolve by exact slug only.
+   A bare name MUST resolve when exactly one command shares its invocation name, or when a unique `.md` match exists among same-name candidates; any other bare-name match MUST be reported as ambiguous rather than silently resolved.
 
 ### OFTR-003.7: Resolution Validation
 
-1. Outfitter MUST report an error when an agent's loadout references a `skills` or `subagents` slug that does not resolve.
+1. Outfitter MUST report an error when an agent's loadout references a `skills`, `commands`, or `subagents` slug that does not resolve, or an ambiguous bare command name without a unique `.md` resolution.
 2. Outfitter MUST report a warning when a resource shadows a lower-precedence definition of the same slug.
 3. `outfitter validate --strict` MUST treat incomplete or unsupported composition warnings as failures,
    but deterministic shadowing warnings MUST remain advisory.
 4. Validation MUST parse every discovered agent-local skill and report malformed definitions, name/directory mismatches, and local resources without a resolvable owning agent.
+5. Isolated source validation (`outfitter sync`) MUST downgrade unresolved or ambiguous `commands` references to warnings and enforce them authoritatively against the merged effective set.
 
 ### OFTR-003.8: Listing Resources
 
@@ -71,6 +75,7 @@ Outfitter resolves agents and other resources from layered `.agents` trees into 
 2. `outfitter list <kind>` MUST restrict output to one kind of `agents`, `skills`, `knowledge`, or `commands` and MUST reject unknown kinds.
 3. Listed resources MUST report the winning layer for each slug deterministically.
 4. `outfitter list skills --agent <id>` MUST show the agent's local-first effective skill view and distinguish agent-local winners.
+   > **Amended ([#420](https://github.com/ai-outfitter/outfitter/issues/420), 2026-09-19):** the effective view includes the loadout selections the agent inherits through its `inherits` chain (per OFTR-003.10.2 and OFTR-003.10.5), so `outfitter list skills --agent <id>` and `outfitter list commands --agent <id>` MUST report inherited selections with their declaring owner (an `inherited; owner: <agent>[; agent-local]` provenance label in text; `inherited`/`declaredBy` fields in JSON output). The listing MUST reuse the composer's parent-first selection machinery, and the agent's own agent-local resource MUST shadow an inherited duplicate of the same slug. `knowledge` declares no loadout selections, so its agent-scoped listing stays catalog-wide plus the agent's own agent-local knowledge.
 
 ### OFTR-003.9: Agent Inheritance Graph
 
@@ -84,7 +89,7 @@ Outfitter resolves agents and other resources from layered `.agents` trees into 
 ### OFTR-003.10: Inherited Merge Policy
 
 1. Agent Markdown bodies MUST compose ancestor-first and selected-child-last.
-2. `skills`, `subagents`, `mcp`, `extensions`, `plugins`, and `append_system_prompt` MUST use stable parent-first de-duplication.
+2. `skills`, `commands`, `subagents`, `mcp`, `extensions`, `plugins`, and `append_system_prompt` MUST use stable parent-first de-duplication.
 3. `system_prompt`, `prompt_template`, `model`, `thinking`, `label`, and `description` MUST use the nearest child declaration.
 4. `tools.allow` and `tools.deny` MUST union stably; denied tools MUST win when projected.
 5. Outfitter MUST retain declaring-agent provenance for inherited selections so parent-local skills and configuration resolve against the parent that declared them.
