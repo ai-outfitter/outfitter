@@ -1,3 +1,4 @@
+import type { TelemetryIdentity } from './HostedIdentity.js';
 import { HARNESSES } from '../settings/Settings.js';
 import type { PostHogOptions } from 'posthog-node';
 import type { SettingsLoadResult } from '../settings/SettingsLoader.js';
@@ -46,6 +47,10 @@ export interface TelemetryCompletionContext extends TelemetryCommandContext {
 }
 
 export interface TelemetryClient {
+  identify?(message: {
+    readonly distinctId: string;
+    readonly properties: Record<string, unknown>;
+  }): void | Promise<void>;
   capture(message: {
     readonly distinctId: string;
     readonly event: string;
@@ -75,6 +80,7 @@ export interface TelemetryService {
 }
 
 export interface TelemetryServiceDependencies {
+  readonly identityReader?: () => Promise<TelemetryIdentity | undefined>;
   readonly settingsReader: () => SettingsLoadResult;
   readonly stateStore: TelemetryStateStore;
   readonly env: TelemetryEnvironment;
@@ -158,7 +164,9 @@ export const buildCommandCompletedProperties = (
 
 const NOTICE = [
   'Outfitter sends pseudonymous command adoption and reliability analytics',
-  'to PostHog. No content, paths, or free-form arguments are collected.',
+  'to PostHog. Signed-in analytics includes your account ID, email,',
+  'and workspace.',
+  'No content, paths, or free-form arguments are collected.',
   "Opt out: set 'telemetry.enabled: false' in ~/.agents/settings.yml, or set",
   'OUTFITTER_TELEMETRY=0 / DO_NOT_TRACK=1.',
   'Details:',
@@ -175,10 +183,8 @@ export const createTelemetryService = (dependencies: TelemetryServiceDependencie
   let distinctId: string | undefined;
   let prepared: boolean | undefined;
 
-  // Consent, client, and state are resolved once per process.
+  // Consent is checked before each capture; client and anonymous state are prepared once.
   const prepare = async (): Promise<boolean> => {
-    if (prepared !== undefined) return prepared;
-    prepared = false;
     // An empty compiled key keeps telemetry fully inert: no client, no consent read, no state access.
     if (apiKey === '') return false;
     const consent = resolveTelemetryConsent(dependencies.settingsReader(), dependencies.env);
@@ -186,6 +192,8 @@ export const createTelemetryService = (dependencies: TelemetryServiceDependencie
       if (!ci.isCI) dependencies.stateStore.delete();
       return false;
     }
+    if (prepared !== undefined) return prepared;
+    prepared = false;
     client = await clientFactory(apiKey, {
       host: POSTHOG_HOST,
       disableGeoip: true,
@@ -205,10 +213,40 @@ export const createTelemetryService = (dependencies: TelemetryServiceDependencie
     return true;
   };
 
+  const identify = async (): Promise<TelemetryIdentity | undefined> => {
+    if (ci.isCI || dependencies.identityReader === undefined) return undefined;
+    try {
+      const identity = await dependencies.identityReader();
+      if (identity !== undefined) {
+        const result = client!.identify?.({
+          distinctId: identity.userId,
+          properties: { ...(identity.email === undefined ? {} : { email: identity.email }) },
+        });
+        void Promise.resolve(result).catch(() => undefined);
+      }
+      return identity;
+    } catch {
+      return undefined;
+    }
+  };
+
   const capture = async (event: string, properties: Record<string, unknown>): Promise<void> => {
     try {
       if (!(await prepare())) return;
-      const result = client!.capture({ distinctId: distinctId!, event, properties });
+      const identity = await identify();
+      const identityProperties =
+        identity === undefined
+          ? {}
+          : {
+              workspace_id: identity.workspaceId,
+              workspace_type: identity.workspaceType,
+              $process_person_profile: true,
+            };
+      const result = client!.capture({
+        distinctId: identity?.userId ?? distinctId!,
+        event,
+        properties: { ...properties, ...identityProperties },
+      });
       // The SDK queues synchronously. A non-standard client promise is observed but never allowed to delay the CLI.
       void Promise.resolve(result).catch(() => undefined);
     } catch {
