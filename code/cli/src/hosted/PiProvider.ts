@@ -19,9 +19,37 @@ export default async function outfitterProvider(pi: ExtensionAPI): Promise<void>
   const discover = async (credentials: Credentials): Promise<void> => {
     register(await client.models(credentials.access));
   };
+  const refresh = async () => {
+    const models = await client.models(await session.access());
+    register(models);
+    return models;
+  };
+  pi.registerCommand('outfitter-workspace', {
+    description: 'Select an Outfitter workspace and refresh its models.',
+    handler: async (args, ctx) => {
+      const id = args.trim();
+      if (!id) throw new Error('Usage: /outfitter-workspace <workspace-id>');
+      const identity = await session.workspace(id);
+      await refresh();
+      ctx.ui.notify(`Outfitter workspace: ${identity.workspace.login} (${identity.workspace.id})`, 'info');
+    },
+  });
+  pi.on('before_agent_start', async (_event, ctx) => {
+    if (ctx.model?.provider !== 'outfitter') return;
+    try {
+      const models = await refresh();
+      if (!models.some((model) => model.id === ctx.model!.id)) throw new Error('Unavailable model');
+    } catch {
+      ctx.abort();
+      ctx.ui.notify(
+        'Outfitter access or selected model is unavailable. Sign in or select an available model.',
+        'error',
+      );
+    }
+  });
   register([]);
   const credentials = auth.get('outfitter');
   if (credentials?.type === 'oauth') {
-    register(await client.models(await session.access()));
+    await refresh();
   }
 }
