@@ -85,7 +85,7 @@ it('refreshes workspace models live and refreshes only Outfitter turns', async (
   await outfitterProvider({
     registerProvider,
     registerCommand: (_name: string, value: typeof command) => {
-      command = value;
+      if (_name === 'outfitter-workspace') command = value;
     },
     on: (_event: string, handler: typeof before) => {
       before = handler;
@@ -114,4 +114,27 @@ it('refreshes workspace models live and refreshes only Outfitter turns', async (
   api.mockRejectedValue(new Error('unauthorized'));
   await before!({}, ctx);
   expect(abort).toHaveBeenCalledTimes(2);
+});
+
+it('revokes from Pi and removes discovery without touching BYOK credentials', async () => {
+  vi.stubEnv('OUTFITTER_HOSTED_INFERENCE', '1');
+  const auth = AuthStorage.inMemory({ outfitter: credential, openai: { type: 'api_key', key: 'byok' } });
+  vi.spyOn(AuthStorage, 'create').mockReturnValue(auth);
+  const api = vi.spyOn(HostedClient.prototype, 'api').mockResolvedValue({ data: [model] });
+  let logout: Parameters<ExtensionAPI['registerCommand']>[1];
+  const registerProvider = vi.fn<(id: string, config: ProviderConfig) => void>();
+  await outfitterProvider({
+    registerProvider,
+    registerCommand: (name: string, command: typeof logout) => {
+      if (name === 'outfitter-logout') logout = command;
+    },
+    on: vi.fn(),
+  } as unknown as ExtensionAPI);
+  const notify = vi.fn();
+  await logout!.handler('', { ui: { notify } } as unknown as ExtensionCommandContext);
+  expect(api).toHaveBeenLastCalledWith('/api/cli/logout', 'secret', {}, 'POST');
+  expect(auth.get('outfitter')).toBeUndefined();
+  expect(auth.get('openai')).toEqual({ type: 'api_key', key: 'byok' });
+  expect(registerProvider.mock.lastCall?.[1].models).toEqual([]);
+  expect(notify).toHaveBeenCalledWith('Signed out of Outfitter.', 'info');
 });

@@ -24,6 +24,14 @@ export default async function outfitterProvider(pi: ExtensionAPI): Promise<void>
     register(models);
     return models;
   };
+  pi.registerCommand('outfitter-logout', {
+    description: 'Revoke the Outfitter device session and remove its credentials.',
+    handler: async (_args, ctx) => {
+      await session.logout();
+      register([]);
+      ctx.ui.notify('Signed out of Outfitter.', 'info');
+    },
+  });
   pi.registerCommand('outfitter-workspace', {
     description: 'Select an Outfitter workspace and refresh its models.',
     handler: async (args, ctx) => {
