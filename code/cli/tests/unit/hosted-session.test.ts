@@ -64,6 +64,22 @@ describe('Pi native credential lifecycle and workspace commands', () => {
     await expect(session.logout()).rejects.toThrow('(503)');
     expect(auth.get('outfitter')).toBeDefined();
   });
+  it('revokes expired access without refreshing when sign-in is disabled', async () => {
+    const { session, auth, fetch } = fixture([new Response(null, { status: 204 })]);
+    auth.set('outfitter', { ...credentials, expires: 0 });
+    await session.logout();
+    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(fetch.mock.calls[0][0]).toBe('https://ai-outfitter.com/api/cli/logout');
+    expect(fetch.mock.calls[0][1]?.headers).toMatchObject({ Authorization: 'Bearer access' });
+    expect(auth.get('outfitter')).toBeUndefined();
+  });
+  it('never sends logout credentials to another origin', async () => {
+    const { session, auth, fetch } = fixture();
+    auth.set('outfitter', { ...credentials, origin: 'https://another.example' });
+    await expect(session.logout()).rejects.toThrow('another origin');
+    expect(fetch).not.toHaveBeenCalled();
+    expect(auth.get('outfitter')).toBeDefined();
+  });
   it('refreshes expired tokens through native Pi and rejects missing access', async () => {
     const { session, auth } = fixture([
       response({ access_token: 'new', refresh_token: 'new-refresh', expires_in: 60 }),

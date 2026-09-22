@@ -38,8 +38,13 @@ export class HostedSession {
     return this.client.api('/api/cli/usage', await this.access());
   }
   async logout(): Promise<void> {
-    const access = await this.access();
-    await this.client.api('/api/cli/logout', access, {}, 'POST');
+    // Revocation remains available when new login/refresh is disabled. The server
+    // accepts this device's last access credential for revocation only, even expired.
+    this.auth.reload();
+    const credential = this.auth.get('outfitter');
+    if (credential?.type !== 'oauth') throw new Error('Run outfitter login first.');
+    this.client.assertOrigin(credential);
+    await this.client.api('/api/cli/logout', credential.access, {}, 'POST');
     this.auth.logout('outfitter');
   }
 }
