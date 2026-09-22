@@ -18,8 +18,8 @@ Credentials live in `~/.pi/agent/auth.json`, outside the project and catalog. Ou
 Pi credential persistence carries login and refreshes across temporary sessions.
 
 `outfitter account` lists the available workspace IDs. `outfitter workspace <id>` changes the
-workspace charged by this device session and refreshes model discovery. Restart a running Pi
-session after switching to refresh its model selector. Requests never fall back to another payer.
+workspace charged by this device session and refreshes model discovery. Inside Pi, `/outfitter-workspace <id>` selects the workspace and refreshes its model selector immediately.
+The provider also refreshes discovery before each Outfitter turn; other providers are unaffected. Requests never fall back to another payer.
 A workspace switch affects subsequent requests from that device, including an already running Pi session.
 
 Use `outfitter logout` to revoke the device session remotely and remove its local credentials.
