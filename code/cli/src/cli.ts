@@ -8,6 +8,7 @@ import type { Command } from 'commander';
 
 import { resolveHomeDirectory, resolveProjectDirectory } from './cli/commands/ProcessDefaults.js';
 import { createOutfitterProgram } from './cli/OutfitterCli.js';
+import { readHostedTelemetryIdentity } from './telemetry/HostedIdentity.js';
 import { createTelemetryContext } from './telemetry/TelemetryContext.js';
 import { createTelemetryService } from './telemetry/TelemetryService.js';
 import type { TelemetryCommandContext, TelemetryService } from './telemetry/TelemetryService.js';
@@ -65,6 +66,7 @@ export const createProcessTelemetryService = (): TelemetryService => {
     env: process.env,
   });
   return createTelemetryService({
+    identityReader: () => readHostedTelemetryIdentity(resolveHomeDirectory(), process.env),
     settingsReader: context.settingsReader,
     stateStore: context.stateStore,
     ci: context.ci,

@@ -2,8 +2,8 @@
 
 ## Overview
 
-Outfitter collects a narrow, pseudonymous product-analytics signal for command adoption and
-reliability. Telemetry must remain controllable, content-free, scope-aware, and unable to affect
+Outfitter collects narrow product analytics for command adoption and reliability. Signed-out
+usage is pseudonymous; signed-in usage is associated with the Outfitter account and email. Telemetry must remain controllable, content-free, scope-aware, and unable to affect
 normal CLI behavior when analytics infrastructure fails.
 
 ## Requirements
@@ -26,13 +26,15 @@ normal CLI behavior when analytics infrastructure fails.
 
 ### OFTR-011.2: Data Minimization
 
-1. Outfitter MUST capture only `cli command started` and `cli command completed`.
-2. Event properties MUST be constructed from the documented allowlist and low-cardinality enums.
+1. Outfitter MUST capture only `cli command started` and `cli command completed` as product events.
+   Signed-in telemetry MAY additionally identify the user through PostHog identify.
+2. Event properties MUST be constructed from the documented allowlist. Signed-in events MAY
+   include the authenticated workspace ID and type.
 3. Outfitter MUST NOT capture command arguments, prompts, responses, paths, repository data, agent
    or profile names, settings, environment values, error details, session identifiers, or child
    process output.
-4. Every capture MUST set `$process_person_profile` to false, and the PostHog client MUST disable
-   GeoIP enrichment.
+4. Anonymous and CI captures MUST set `$process_person_profile` to false; authenticated captures
+   MUST set it to true. The PostHog client MUST disable GeoIP enrichment.
 
 ### OFTR-011.3: Pseudonymous State
 
@@ -40,7 +42,7 @@ normal CLI behavior when analytics infrastructure fails.
    XDG state directory.
 2. A blank `XDG_STATE_HOME` MUST be treated as unset.
 3. The state file MUST be created lazily and MUST record whether the first-run notice was shown.
-4. User-facing telemetry descriptions MUST consistently call the analytics pseudonymous.
+4. User-facing descriptions MUST distinguish pseudonymous usage from signed-in identification.
 
 ### OFTR-011.4: Failure Isolation
 
@@ -71,3 +73,15 @@ normal CLI behavior when analytics infrastructure fails.
    be the lowercased `ci-info` vendor ID, `unknown` for CI without an identified vendor, or `none`
    outside CI.
 5. `CI=false` (the exact string) MUST bypass CI detection and use the non-CI identity and state path.
+
+### OFTR-011.7: Authenticated Identity
+
+1. After checking every applicable opt-out, non-CI telemetry MAY request `/api/cli/me` with an
+   existing unexpired device credential. Analytics MUST NOT refresh inference credentials.
+2. Use the server-issued `github:<id>` as distinct ID, email as an optional person property, and
+   workspace ID/type as event properties. Email MUST NOT be the distinct ID.
+3. Identity lookups MUST stop within 250 ms. Lookup and identification failures MUST NOT fail CLI commands.
+4. Re-read identity for each capture, clearing authenticated context on logout or account changes.
+   Different users MUST NOT be aliased through a shared installation. CI MUST NOT read account identity.
+5. Credentials, prompts, code, and payment details MUST NOT enter analytics. Account identity and
+   email MUST NOT be persisted in the telemetry state file.
