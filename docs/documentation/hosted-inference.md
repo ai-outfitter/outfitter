@@ -22,8 +22,8 @@ workspace charged by this device session and refreshes model discovery. Inside P
 The provider also refreshes discovery before each Outfitter turn; other providers are unaffected. Requests never fall back to another payer.
 A workspace switch affects subsequent requests from that device, including an already running Pi session.
 
-Use `outfitter logout` to revoke the device session remotely and remove its local credentials.
-Pi's native `/logout` removes local credentials only; use the CLI command when revocation is required.
+Use `outfitter logout` or Pi's `/outfitter-logout` to revoke the device session remotely and remove its local credentials.
+Pi's native `/logout` removes local credentials only; use either Outfitter command for remote revocation.
 Other providers' credentials remain intact. If revocation fails, the CLI keeps the credential so you
 can retry; it does not report a successful logout.
 
