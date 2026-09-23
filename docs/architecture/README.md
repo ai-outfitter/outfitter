@@ -150,7 +150,7 @@ Rules:
   There is no `profiles` map and no `default_profile`.
 - `default_agent` names the agent plain `outfitter` runs; `default_harness` selects the harness (`pi`, `claude`, or `codex`).
 - `sources` entries MUST specify a local `path`, a remote `uri`, or a `github` shorthand; remote entries accept `ref` and payload-subdirectory `path`.
-  Relative `path` values resolve relative to the settings file containing them.
+  Relative `path` values resolve relative to the settings file containing them; a leading `~` expands to the user's home directory.
 - `remote_settings` entries point at settings-style YAML files inside synced remote repositories; fetched by `outfitter sync` and loaded at lower precedence.
 - `cache_directory` selects the repository cache root for sync, remote-settings loading, remote layer discovery, and default-catalog bootstrap.
   Its default is `~/.agents/cache`.

@@ -11,6 +11,7 @@ import type {
   CustomSettings,
   Harness,
   Isolation,
+  PiBinaryMode,
   RemoteSettingsReference,
   Settings,
   SourceCachePolicy,
@@ -26,6 +27,8 @@ export interface SettingsLocation {
 
 export interface SettingsLoadPlan {
   readonly locations: readonly SettingsLocation[];
+  /** The user's home directory, so settings-declared paths can expand a leading `~`. */
+  readonly homeDirectory?: string;
 }
 
 export interface LoadedSettingsFile {
@@ -54,6 +57,8 @@ interface SettingsDocument {
   readonly workflows?: readonly string[];
   readonly remote_settings?: readonly RemoteSettingsDocument[];
   readonly cache_directory?: string;
+  readonly pi_binary?: PiBinaryMode;
+  readonly pi_binary_path?: string;
   readonly source_cache?: { readonly policy?: SourceCachePolicy };
   readonly state_persistence?: StatePersistence;
   readonly custom_settings?: CustomSettings;
@@ -75,6 +80,10 @@ interface AgentDefaultsDocument {
   readonly plugins?: readonly string[];
   readonly subagents?: readonly string[];
   readonly append_system_prompt?: unknown;
+  readonly pi_overlay?: string;
+  readonly extension_configs?: Readonly<
+    Record<string, Readonly<Record<string, import('./Settings.js').SettingsValue>>>
+  >;
 }
 
 interface EnterpriseSettingsDocument {
@@ -108,8 +117,12 @@ export interface SettingsDiscoveryInput {
   readonly projectDirectory: string;
 }
 
-export const createSettingsLoadPlan = (locations: readonly SettingsLocation[]): SettingsLoadPlan => ({
+export const createSettingsLoadPlan = (
+  locations: readonly SettingsLocation[],
+  homeDirectory?: string,
+): SettingsLoadPlan => ({
   locations,
+  homeDirectory,
 });
 
 /** The one rendering of a settings issue every command reports. */
@@ -121,12 +134,15 @@ const agentsSettings = (directory: string, ...rest: string[]): string => join(di
 // Ordered lowest-to-highest precedence so later files fold over earlier ones during merge; telemetry
 // consent (TelemetryConsent.ts) also relies on this ordering when scanning the loaded files.
 export const discoverSettingsLoadPlan = (input: SettingsDiscoveryInput): SettingsLoadPlan =>
-  createSettingsLoadPlan([
-    { scope: 'user', path: agentsSettings(input.homeDirectory, 'settings.yml') },
-    { scope: 'user-local', path: agentsSettings(input.homeDirectory, 'settings.local.yml') },
-    { scope: 'project', path: agentsSettings(input.projectDirectory, 'settings.yml') },
-    { scope: 'project-local', path: agentsSettings(input.projectDirectory, 'settings.local.yml') },
-  ]);
+  createSettingsLoadPlan(
+    [
+      { scope: 'user', path: agentsSettings(input.homeDirectory, 'settings.yml') },
+      { scope: 'user-local', path: agentsSettings(input.homeDirectory, 'settings.local.yml') },
+      { scope: 'project', path: agentsSettings(input.projectDirectory, 'settings.yml') },
+      { scope: 'project-local', path: agentsSettings(input.projectDirectory, 'settings.local.yml') },
+    ],
+    input.homeDirectory,
+  );
 
 export const discoverRemoteSettingsLoadPlan = (
   homeDirectory: string,
@@ -160,7 +176,7 @@ export const loadSettingsFiles = (plan: SettingsLoadPlan): SettingsLoadResult =>
 
   for (const location of plan.locations) {
     if (existsSync(location.path)) {
-      addSettingsFile(location, files, issues);
+      addSettingsFile(location, files, issues, plan.homeDirectory);
     }
   }
 
@@ -243,7 +259,7 @@ const discoverRemoteSettingsLocations = (
     }
   }
 
-  return { plan: createSettingsLoadPlan(locations), issues };
+  return { plan: createSettingsLoadPlan(locations, homeDirectory), issues };
 };
 
 const formatRemoteSettingsPathError = (error: unknown): string => {
@@ -264,6 +280,7 @@ const addSettingsFile = (
   location: SettingsLocation,
   files: LoadedSettingsFile[],
   issues: SettingsLoadIssue[],
+  homeDirectory?: string,
 ): void => {
   const parsed = parseYamlDocument(readFileSync(location.path, 'utf8'), location.path);
 
@@ -281,7 +298,12 @@ const addSettingsFile = (
 
   files.push({
     location,
-    settings: convertSettingsDocument(parsed.document as SettingsDocument, dirname(location.path), location.scope),
+    settings: convertSettingsDocument(
+      parsed.document as SettingsDocument,
+      dirname(location.path),
+      location.scope,
+      homeDirectory,
+    ),
   });
 };
 
@@ -294,24 +316,32 @@ const convertSettingsDocument = (
   document: SettingsDocument,
   settingsDirectory: string,
   scope: SettingsLocation['scope'],
+  homeDirectory?: string,
 ): Settings => ({
   defaultAgent: document.default_agent,
   defaultHarness: document.default_harness,
   isolation: isHomeScope(scope) ? document.isolation : undefined,
-  sources: document.sources?.map((source) => convertSource(source, settingsDirectory)),
+  sources: document.sources?.map((source) => convertSource(source, settingsDirectory, homeDirectory)),
   workflows: document.workflows,
   remoteSettings: document.remote_settings?.map(convertRemoteSettingsSource),
   cacheDirectory:
     document.cache_directory === undefined
       ? undefined
-      : resolveConfigDirectory(document.cache_directory, settingsDirectory),
+      : resolveConfigDirectory(document.cache_directory, settingsDirectory, homeDirectory),
+  piBinary: document.pi_binary,
+  // The binary path resolves where it was declared, so each settings layer keeps its own location
+  // no matter where the run launches from — the same rule as cache_directory and source paths.
+  piBinaryPath:
+    document.pi_binary_path === undefined
+      ? undefined
+      : resolveConfigDirectory(document.pi_binary_path, settingsDirectory, homeDirectory),
   sourceCache: document.source_cache,
   statePersistence: document.state_persistence,
   customSettings: document.custom_settings,
   startup: convertStartupSettings(document.startup),
   enterprise: isHomeScope(scope) ? convertEnterpriseSettings(document.enterprise) : undefined,
   telemetry: convertTelemetrySettings(document.telemetry),
-  agentDefaults: convertAgentDefaults(document.agent_defaults),
+  agentDefaults: convertAgentDefaults(document.agent_defaults, settingsDirectory, homeDirectory),
   harnessDefaults: document.harness_defaults,
 });
 
@@ -324,7 +354,11 @@ const convertEnterpriseSettings = (enterprise: EnterpriseSettingsDocument | unde
 const convertTelemetrySettings = (telemetry: TelemetrySettingsDocument | undefined): Settings['telemetry'] =>
   telemetry === undefined ? undefined : { enabled: telemetry.enabled };
 
-const convertAgentDefaults = (defaults: AgentDefaultsDocument | undefined): AgentDefaults | undefined =>
+const convertAgentDefaults = (
+  defaults: AgentDefaultsDocument | undefined,
+  settingsDirectory: string,
+  homeDirectory?: string,
+): AgentDefaults | undefined =>
   defaults === undefined
     ? undefined
     : {
@@ -339,6 +373,13 @@ const convertAgentDefaults = (defaults: AgentDefaultsDocument | undefined): Agen
           : defaults.append_system_prompt === undefined
             ? undefined
             : [defaults.append_system_prompt],
+        // The overlay path resolves where it was declared, so each settings layer keeps its own
+        // location no matter where the run launches from.
+        piOverlayDirectories:
+          defaults.pi_overlay === undefined
+            ? undefined
+            : [resolveConfigDirectory(defaults.pi_overlay, settingsDirectory, homeDirectory)],
+        extensionConfigs: defaults.extension_configs,
       };
 
 const convertRemoteSettingsSource = (source: RemoteSettingsDocument): RemoteSettingsReference => {
@@ -349,7 +390,7 @@ const convertRemoteSettingsSource = (source: RemoteSettingsDocument): RemoteSett
   return { github: source.github!, ref: source.ref, path: source.path };
 };
 
-const convertSource = (source: SourceDocument, settingsDirectory: string): SourceReference => {
+const convertSource = (source: SourceDocument, settingsDirectory: string, homeDirectory?: string): SourceReference => {
   if (source.uri !== undefined) {
     return { uri: source.uri, ref: source.ref, path: source.path };
   }
@@ -358,12 +399,26 @@ const convertSource = (source: SourceDocument, settingsDirectory: string): Sourc
     return { github: source.github, ref: source.ref, path: source.path };
   }
 
-  return { path: resolveConfigDirectory(source.path!, settingsDirectory) };
+  return { path: resolveConfigDirectory(source.path!, settingsDirectory, homeDirectory) };
 };
 
-const resolveConfigDirectory = (configuredPath: string, settingsDirectory: string): string => {
+// Resolves a path declared in a settings file. A leading bare `~` or `~/...` expands to the user's
+// home directory (POSIX convention; `~name/...` is NOT expanded and keeps the declaring-directory
+// rule). Already-absolute values are untouched, and relative values resolve against the directory
+// of the settings file that declared them. `homeDirectory` comes from the load plan, which every
+// discovery path stamps from the run's resolved home input.
+const resolveConfigDirectory = (configuredPath: string, settingsDirectory: string, homeDirectory?: string): string => {
   if (isAbsolute(configuredPath)) {
     return configuredPath;
+  }
+
+  if (homeDirectory !== undefined) {
+    if (configuredPath === '~') {
+      return homeDirectory;
+    }
+    if (configuredPath.startsWith('~/')) {
+      return join(homeDirectory, configuredPath.slice(2));
+    }
   }
 
   return resolve(settingsDirectory, configuredPath);

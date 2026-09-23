@@ -46,6 +46,8 @@ remote_settings:
     ref: 9c47d1e2b8a05f36c4d7e90a12b3f8c5d6e71a04
 
 cache_directory: ./cache # optional; relative to this settings file
+pi_binary: bundled # which pi binary to launch: bundled (default), path, or auto
+pi_binary_path: ./vendor/pi/pi # explicit pi binary for path mode; relative to this settings file
 source_cache:
   policy: repair # repair (default), locked, or offline
 
@@ -63,12 +65,24 @@ agent_defaults:
     - github
   append_system_prompt:
     - file: prompts/organization.md
+  # Runtime files (agents/*.md, extensions/*.json, ...) overlaid into every Pi run.
+  pi_overlay: pi-defaults/ # relative to this settings file
+  # File-based extension configs written to extensions/<name>.json in every Pi run.
+  extension_configs:
+    dynamic-context-pruning:
+      rejectedSummaryMode: reject
 
 # Native harness settings shared by every agent run.
 harness_defaults:
   pi:
     httpIdleTimeoutMs: 3600000
 ```
+
+**Path resolution.** Every settings key that names a filesystem path (`cache_directory`, a
+`sources` `path:`, `agent_defaults.pi_overlay`, `pi_binary_path`) follows one rule: a leading
+`~` or `~/` expands to your home directory (a `~name/` form is left untouched), an absolute
+path is used as-is, and any other relative path resolves against the settings file that declared
+it.
 
 - `default_agent` / `default_harness` — which agent plain `outfitter` runs, and the harness it launches in.
 - `isolation` — whether a run stands on the harness configuration already on this machine. `inherit`, the default, layers the composition over it, so a Claude run keeps your workspace trust, permissions, credentials, plugins, and MCP servers. `isolated` launches from the composition alone, which is what a reproducible CI or container run wants; `--isolated` selects it for one run. Only Claude has an inherit path today. This key is honored **only** from your own `~/.agents` settings: a checked-in project or a remote catalog must not decide how much of your machine a profile it ships can see.
@@ -77,12 +91,13 @@ harness_defaults:
 - `remote_settings` — shared settings a repository distributes; cached locally and merged below your project and user settings, so anything you set locally wins.
 - `cache_directory` — the repository cache root used consistently by sync, remote settings, remote
   source resolution, and default-catalog setup. It defaults to `~/.agents/cache`; repositories live
+- `pi_binary` / `pi_binary_path` — which pi binary pi-harness launches use; see [Pi binary selection](#pi-binary-selection) below.
 - `source_cache.policy` — verifies remote caches before `run`: `repair` reuses healthy caches and
   atomically repairs unhealthy ones, `locked` also requires full commit pins, and `offline` never
   accesses the network.
   below its `repos/` directory.
 - `telemetry.enabled` — the primary and sole persistent control for pseudonymous product analytics. Edit it directly to enable or disable telemetry. See [Telemetry](./telemetry.md) for consent precedence, automatic identifier cleanup, the event contract, and the current inert-build status.
-- `agent_defaults` — additive loadout entries composed into **every** agent ahead of its own loadout; see [Agent defaults](#agent-defaults) below.
+- `agent_defaults` — additive loadout entries composed into **every** agent ahead of its own loadout; see [Agent defaults](#agent-defaults) below. It also carries `pi_overlay`, the runtime-file delivery control, and `extension_configs`, the file-based extension configuration surface; see [Pi runtime-file overlay](#pi-runtime-file-overlay) and [Extension configuration files](#extension-configuration-files).
 - `harness_defaults` — native Pi, Claude Code, or Codex settings applied to every run of that harness; see [Harness defaults](#harness-defaults) below.
 
 ## Precedence
@@ -96,7 +111,7 @@ Higher wins:
 5. Cached remote settings (in configured order)
 6. Built-in defaults
 
-Scalar settings override. `sources` follows last-wins ordering per scope so a higher-precedence file replaces the complete lower-precedence list. `workflows` and `agent_defaults` are additive ordered-set unions. `harness_defaults` deep-merges by harness, with higher-precedence leaves replacing lower-precedence leaves.
+Scalar settings override. `sources` follows last-wins ordering per scope so a higher-precedence file replaces the complete lower-precedence list. `workflows` and `agent_defaults` are additive ordered-set unions. `harness_defaults` and `agent_defaults.extension_configs` deep-merge with higher-precedence leaves replacing lower-precedence leaves.
 
 ## Agent defaults
 
@@ -126,6 +141,51 @@ Composition rules:
 - `outfitter run`, `outfitter dump`, and `outfitter validate` compose the same effective defaults. Unresolved references are validation findings and composition warnings named `agent_defaults …`, and `outfitter dump` records the settings-layer provenance in `.outfitter/composition.json` plus a `settings.yml` carrying the merged defaults, so a dumped tree stays self-contained.
 - Settings without `agent_defaults` behave exactly as before. The block is backend-neutral: no backend-specific keys, endpoints, or credentials.
 
+## Pi runtime-file overlay
+
+`agent_defaults.pi_overlay` points at a directory of runtime files — for example a pi-subagents definition and a file-based extension configuration:
+
+```text
+.agents/
+├── settings.yml # declares agent_defaults.pi_overlay: pi-defaults/
+└── pi-defaults/
+    ├── agents/general-purpose.md # pi-subagents agent definition, fleet-wide
+    ├── extensions/dynamic-context-pruning.json # extension configuration file
+    └── settings.json # any other native agent-directory file
+```
+
+The contents are overlaid into **every** Pi runtime projection — including standalone agents that inherit nothing and own no per-agent overlay — so a fleet declares its runtime files once instead of copying them into every agent's `pi/` folder. The value is a directory path, resolved relative to the settings file that declares it; every settings scope may declare one, and they compose from lowest to highest precedence, with a higher layer's file replacing a lower layer's same-named file. One composition exception: when a lower layer delivered the same-named `*.json` file and both documents are JSON objects, they deep-merge instead — the higher layer's values win on conflicting keys, arrays are replaced wholesale by the higher layer — while every other file keeps whole-file replacement; a higher layer's file that is not valid JSON replaces the lower file whole and warns (fatal under `--strict`).
+
+Runtime precedence is most specific first: an agent's own `pi/` overlay beats the settings layer, which beats generated defaults such as harness defaults and Outfitter's runtime settings. The delivery is file-based and non-durable — files land in the temporary projection root and are discarded after the run — and Outfitter never follows symlinks from the overlay. One delegation exception, shared with the per-agent overlay: a `agents/<slug>.md` file colliding with a declared delegate is replaced by the delegate, because a declared `subagents:` selection is an explicit choice. Settings-layer agent definitions are never tracked by the rebuild manifest, so they survive every delegate rebuild.
+
+Keep secrets out of the overlay: the directory is copied verbatim into the runtime projection, so credentials belong in the environment or a credential store, not in overlay files.
+
+Only the Pi adapter projects the overlay. Claude Code and Codex report it as an unsupported control — fatal under `--strict` — instead of silently dropping it, as does a declared directory that is missing, is not a directory, or is a symlink. `outfitter dump` warns that a configured overlay is not carried into the dumped tree.
+
+## Extension configuration files
+
+Extensions read configuration in two shapes, and `agent_defaults` covers both:
+
+- **Settings-key configs** — native `settings.json` keys an extension owns (for example a compaction policy key). Declare them under `harness_defaults.pi` and they pass through to every projected runtime, standalone agents included. See [Harness defaults](#harness-defaults).
+- **File-based configs** — `extensions/<name>.json` files an extension reads from the agent directory (for example `extensions/dynamic-context-pruning.json`). Declare them under `agent_defaults.extension_configs`:
+
+  ```yaml
+  agent_defaults:
+    extension_configs:
+      dynamic-context-pruning: # becomes extensions/dynamic-context-pruning.json
+        rejectedSummaryMode: reject
+  ```
+
+Each map entry is materialized into **every** Pi runtime projection — standalone agents that inherit nothing included, whether or not the composed agent selects the extension (an unloaded extension ignores its config file).
+Keys name the config file, so they accept file-name characters only (`A-Za-z0-9_-`); values are the extension's own config objects, which Outfitter passes through unvalidated.
+Layers deep-merge per extension name, lowest to highest precedence, with a higher layer's values replacing a lower layer's.
+
+The generated files are the lowest runtime-file tier: an agent's own `pi/` overlay, then the settings-layer `pi_overlay`, replaces a same-named `extensions/<name>.json` wholesale.
+Like the overlay, delivery is non-durable — the files live in the temporary projection root and are discarded after the run — and `outfitter dump` warns that configured configs are not carried into the dumped tree.
+Claude Code and Codex report a configured `extension_configs` map as an unsupported control, fatal under `--strict`.
+
+Keep secrets out of config files: they are written verbatim into the runtime projection, so credentials belong in the environment or a credential store.
+
 ## Harness defaults
 
 `harness_defaults` keeps organization- or project-wide native coding-harness policy beside the portable agent catalog without putting harness-specific keys in every agent profile:
@@ -144,3 +204,22 @@ harness_defaults:
 The keys below each harness are passed through as that harness's native settings. `outfitter run` merges Pi and Claude defaults into its temporary `settings.json`; a Pi profile's own configuration overlay remains higher precedence. Codex receives flattened `--config key=TOML` arguments. `outfitter link` manages the same values individually in Pi or Claude `settings.json` and Codex `config.toml`, leaving every unrelated native setting untouched. An unmanaged value is never adopted or overwritten.
 
 Every loaded settings scope may contribute defaults. Objects deep-merge from low to high precedence, while arrays and scalar leaves replace. `outfitter dump` carries the effective block into the dumped tree. Unknown harness names are rejected; supported names are `pi`, `claude`, and `codex`.
+
+## Pi binary selection
+
+Outfitter launches the bundled `@earendil-works/pi-coding-agent` by default, so every run gets the pi version Outfitter tests against. Two settings keys opt into a different binary:
+
+```yaml
+pi_binary: bundled # bundled (default), path, or auto
+pi_binary_path: ./vendor/pi/pi # explicit binary for path mode; relative to this settings file
+```
+
+- `bundled` (the default) resolves pi from Outfitter's own dependency closure and launches it through the current Node runtime. If bundled resolution ever fails, the launch falls back to a PATH `pi`.
+- `path` launches your pi: `pi_binary_path` when configured, else the `pi` on your `PATH` (a missing PATH pi produces the usual install guidance).
+- `auto` tries the bundled pi first and falls back to the PATH `pi` when bundled resolution fails, warning about the fallback. `--strict` makes that warning fatal.
+
+A `pi_binary_path` set without `pi_binary` implies `path` mode; setting it alongside `bundled` or `auto` warns that it is ignored. Relative paths resolve against the settings file that declares them, so a team can pin a vendored binary in the repository; a leading `~` expands to your home directory (see **Path resolution** above).
+
+The `OUTFITTER_PI_BIN` environment variable overrides both keys for one run: set it to the binary path to launch (an empty value is ignored). A configured binary that does not exist on disk — via settings or the environment variable — fails the run before launch with an actionable error instead of silently reverting to the bundled pi.
+
+Two boundaries do not change with the selection: a user-selected binary does not get `PI_SKIP_VERSION_CHECK=1` injected, so pi's own update notice stays visible for a binary you can actually update with `pi update`; and pi extension cache installs always use the bundled binary, so cache-time behavior stays pinned to the version Outfitter ships.
