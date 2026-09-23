@@ -207,4 +207,32 @@ exit 0
       }
     });
   });
+
+  // Regression: a leading `~` in pi_binary_path must expand to the user's home directory (not join
+  // against the declaring settings directory) so home-scope settings launch the configured binary.
+  it('launches a pi_binary_path declared with a leading ~ from home-scope settings', async () => {
+    const { home, project } = tree();
+    const record = join(createTemporaryRoot(), 'argv.txt');
+    const fixtureBinary = join(home, 'bin', 'fake-pi');
+    write(
+      fixtureBinary,
+      `#!/usr/bin/env sh
+printf '%s\\n' "$@" > ${record}
+exit 0
+`,
+    );
+    chmodSync(fixtureBinary, 0o755);
+    write(join(home, '.agents', 'settings.yml'), "pi_binary: path\npi_binary_path: '~/bin/fake-pi'\n");
+
+    const result = await executeRunAgentCommand({
+      homeDirectory: home,
+      projectDirectory: project,
+      agent: 'engineer',
+      harness: 'pi',
+      launcher: (plan, piBinary) => launchThroughSpawn(spawnLauncher, plan, piBinary),
+    });
+
+    expect(result.exitCode).toBe(0);
+    expect(readFileSync(record, 'utf8')).toContain('--system-prompt');
+  });
 });
