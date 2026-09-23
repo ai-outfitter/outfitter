@@ -78,6 +78,12 @@ harness_defaults:
     httpIdleTimeoutMs: 3600000
 ```
 
+**Path resolution.** Every settings key that names a filesystem path (`cache_directory`, a
+`sources` `path:`, `agent_defaults.pi_overlay`, `pi_binary_path`) follows one rule: a leading
+`~` or `~/` expands to your home directory (a `~name/` form is left untouched), an absolute
+path is used as-is, and any other relative path resolves against the settings file that declared
+it.
+
 - `default_agent` / `default_harness` — which agent plain `outfitter` runs, and the harness it launches in.
 - `isolation` — whether a run stands on the harness configuration already on this machine. `inherit`, the default, layers the composition over it, so a Claude run keeps your workspace trust, permissions, credentials, plugins, and MCP servers. `isolated` launches from the composition alone, which is what a reproducible CI or container run wants; `--isolated` selects it for one run. Only Claude has an inherit path today. This key is honored **only** from your own `~/.agents` settings: a checked-in project or a remote catalog must not decide how much of your machine a profile it ships can see.
 - `sources` — ordered list of remote or local `.agents` payloads. Remote entries (`github:` / `uri:`) accept `ref:` pinning and an optional `path:` to the payload inside the repository; see [Catalogs](./catalogs.md) for conventions and trust guidance.
@@ -212,7 +218,7 @@ pi_binary_path: ./vendor/pi/pi # explicit binary for path mode; relative to this
 - `path` launches your pi: `pi_binary_path` when configured, else the `pi` on your `PATH` (a missing PATH pi produces the usual install guidance).
 - `auto` tries the bundled pi first and falls back to the PATH `pi` when bundled resolution fails, warning about the fallback. `--strict` makes that warning fatal.
 
-A `pi_binary_path` set without `pi_binary` implies `path` mode; setting it alongside `bundled` or `auto` warns that it is ignored. Relative paths resolve against the settings file that declares them, so a team can pin a vendored binary in the repository.
+A `pi_binary_path` set without `pi_binary` implies `path` mode; setting it alongside `bundled` or `auto` warns that it is ignored. Relative paths resolve against the settings file that declares them, so a team can pin a vendored binary in the repository; a leading `~` expands to your home directory (see **Path resolution** above).
 
 The `OUTFITTER_PI_BIN` environment variable overrides both keys for one run: set it to the binary path to launch (an empty value is ignored). A configured binary that does not exist on disk — via settings or the environment variable — fails the run before launch with an actionable error instead of silently reverting to the bundled pi.
 
