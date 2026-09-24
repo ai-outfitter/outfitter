@@ -24,6 +24,11 @@ const mergeDefaultsList = <T>(
   return merged;
 };
 
+const mergeExtensionConfigs = (
+  lower: AgentDefaults['extensionConfigs'],
+  higher: NonNullable<AgentDefaults['extensionConfigs']>,
+): AgentDefaults['extensionConfigs'] => mergeObjectsWithPolicy(lower, higher);
+
 const mergeAgentDefaults = (lower: AgentDefaults | undefined, higher: AgentDefaults | undefined) => {
   if (lower === undefined && higher === undefined) return undefined;
   return {
@@ -33,6 +38,23 @@ const mergeAgentDefaults = (lower: AgentDefaults | undefined, higher: AgentDefau
     plugins: mergeDefaultsList(lower?.plugins, higher?.plugins, (entry) => entry),
     subagents: mergeDefaultsList(lower?.subagents, higher?.subagents, (entry) => entry),
     appendSystemPrompt: mergeDefaultsList(lower?.appendSystemPrompt, higher?.appendSystemPrompt, promptSourceKey),
+    // Overlay directories stay ordered lowest-precedence first; projection copies them
+    // highest-precedence-last so a higher layer's file replaces a lower layer's same path.
+    piOverlayDirectories: mergeDefaultsList(
+      lower?.piOverlayDirectories,
+      higher?.piOverlayDirectories,
+      (entry) => entry,
+    ),
+    // Per extension name, object values deep-merge and a higher layer's scalar/array leaf replaces
+    // the lower layer's — the same merge policy as `harness_defaults`.
+    extensionConfigs:
+      lower?.extensionConfigs === undefined && higher?.extensionConfigs === undefined
+        ? undefined
+        : lower?.extensionConfigs === undefined
+          ? higher?.extensionConfigs
+          : higher?.extensionConfigs === undefined
+            ? lower.extensionConfigs
+            : mergeExtensionConfigs(lower.extensionConfigs, higher.extensionConfigs),
   };
 };
 
@@ -44,6 +66,8 @@ export const mergeSettingsStack = (settingsStack: readonly Settings[]): Settings
   const workflows: string[] = [];
   let remoteSettings: Settings['remoteSettings'];
   let cacheDirectory: string | undefined;
+  let piBinary: Settings['piBinary'];
+  let piBinaryPath: Settings['piBinaryPath'];
   let sourceCache: Settings['sourceCache'];
   let statePersistence: StatePersistence | undefined;
   let customSettings: CustomSettings | undefined;
@@ -64,6 +88,8 @@ export const mergeSettingsStack = (settingsStack: readonly Settings[]): Settings
     }
     remoteSettings = settings.remoteSettings ?? remoteSettings;
     cacheDirectory = settings.cacheDirectory ?? cacheDirectory;
+    piBinary = settings.piBinary ?? piBinary;
+    piBinaryPath = settings.piBinaryPath ?? piBinaryPath;
     sourceCache = settings.sourceCache === undefined ? sourceCache : { ...sourceCache, ...settings.sourceCache };
     statePersistence =
       settings.statePersistence === undefined
@@ -89,6 +115,8 @@ export const mergeSettingsStack = (settingsStack: readonly Settings[]): Settings
     workflows,
     remoteSettings: remoteSettings ?? [],
     cacheDirectory,
+    piBinary,
+    piBinaryPath,
     sourceCache: sourceCache ?? {},
     statePersistence: statePersistence ?? {},
     customSettings: customSettings ?? {},

@@ -39,7 +39,9 @@ export interface ValidationOptions {
 // so a wording drift fails that test rather than silently disabling deferral. Settings-layer
 // defaults use the same wording with an `agent_defaults` prefix instead of `loadout`.
 const isUnresolvedLoadoutReference = (message: string): boolean =>
-  /^(?:loadout|agent_defaults) (?:skills|subagents) references unknown (?:skill|agent) '/.test(message);
+  /^(?:loadout|agent_defaults) (?:skills|subagents|commands) references (?:unknown|ambiguous) (?:skill|agent|command) '/.test(
+    message,
+  );
 
 // Matches the inheritance resolver's missing-parent error wording (see `resolveInheritanceChain`
 // in Chain.ts). A missing parent is deferrable only for isolated source validation: the source may

@@ -57,9 +57,18 @@ export interface CompositionAgentDefaults {
   readonly appendSystemPrompt?: readonly PromptSourceReference[];
 }
 
+/** One declared loadout extension and the directory its relative paths resolve against. */
+export interface DeclaredExtension {
+  readonly specifier: string;
+  /** Absolute `.agents` root of the declaring layer; undefined for settings-layer defaults. */
+  readonly declaringRoot?: string;
+}
+
 /** A loadout with its slug references resolved against the effective set. */
 export interface ComposedLoadout {
   readonly skills: readonly ResolvedResource[];
+  /** Commands resolved from agents/<name>/commands first, then catalog-wide commands. */
+  readonly commands: readonly ResolvedResource[];
   /** Skills selected by delegates, materialized for them without loading them into the leader. */
   readonly delegateSkills: readonly ResolvedResource[];
   readonly subagents: readonly ResolvedResource[];
@@ -68,7 +77,10 @@ export interface ComposedLoadout {
   readonly mcp: readonly string[];
   /** Selected MCP server definitions after layer and per-agent precedence are applied. */
   readonly mcpServers: Readonly<Record<string, unknown>>;
+  /** Declared extension specifiers, settings defaults first, then the chain parent-first. */
   readonly extensions: readonly string[];
+  /** The same declarations carrying the declaring layer each relative path resolves against. */
+  readonly extensionDeclarations: readonly DeclaredExtension[];
   readonly plugins: readonly string[];
   readonly model?: string;
   readonly thinking?: string;

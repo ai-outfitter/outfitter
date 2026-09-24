@@ -1,6 +1,5 @@
 // Materializes a CompositionPlan into a runtime configuration directory the harness launches from.
 import {
-  copyFileSync,
   existsSync,
   lstatSync,
   mkdirSync,
@@ -10,17 +9,19 @@ import {
   rmSync,
   writeFileSync,
 } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { dirname, isAbsolute, join } from 'node:path';
 
 import type { ComposedIdentity, ComposedSubagent, CompositionPlan } from '../composer/Composition.js';
-import { escapesRoots } from '../dump/Containment.js';
+import { escapesRoots, isInside } from '../dump/Containment.js';
 import { removeTargetTypeConflict } from '../fs/TypeConflict.js';
 import type { AgentDefinition } from '../resolver/AgentDefinition.js';
 import { isAgentDefinitionIssue, readAgentDefinition } from '../resolver/AgentDefinition.js';
 import type { Loadout, ResolvedResource } from '../resolver/Resource.js';
+import { commandPromptName } from '../resolver/Resource.js';
 import type { Harness, HarnessDefaultSettings } from '../settings/Settings.js';
 import { mergeObjectsWithPolicy } from '../merge/SettingsValueMerger.js';
 import { effectiveToolAllowlist } from './Tools.js';
+import { copyOverlayFile, type OverlayCopyOptions } from './OverlayJsonMerge.js';
 
 export interface MaterializedComposition {
   readonly rootDirectory: string;
@@ -32,14 +33,24 @@ export interface MaterializedComposition {
   readonly skillDirectories: readonly string[];
   /** Skills that could not be materialized safely (escaping symlinks). */
   readonly skippedSkills: readonly string[];
+  /** Absolute paths to materialized pi prompt templates, in composition order (pi only). */
+  readonly commandPaths: readonly string[];
+  /** Commands that could not be projected as pi prompt templates, as `slug (reason)` entries. */
+  readonly skippedCommands: readonly string[];
   /** Subagents whose merged agent definition could not be materialized. */
   readonly skippedSubagents: readonly string[];
 }
 
-/** Recursively copies a directory, skipping symlinked entries so no path escapes the tree. */
-const copyDirectory = (sourceDir: string, targetDir: string): void => {
+/**
+ * Recursively copies a directory, skipping symlinked entries so no path escapes the tree, and
+ * returns the root-relative POSIX paths of every regular file it wrote. File writes go through
+ * copyOverlayFile, whose JSON deep-merge activates only when a warnings sink and the lower tiers'
+ * written-path set are passed — skill materialization keeps plain whole-file copy semantics.
+ */
+const copyDirectory = (sourceDir: string, targetDir: string, options: OverlayCopyOptions = {}): readonly string[] => {
   removeTargetTypeConflict(targetDir, 'directory');
   mkdirSync(targetDir, { recursive: true });
+  const written: string[] = [];
 
   for (const entry of readdirSync(sourceDir, { withFileTypes: true })) {
     const sourcePath = join(sourceDir, entry.name);
@@ -49,13 +60,16 @@ const copyDirectory = (sourceDir: string, targetDir: string): void => {
     }
 
     if (entry.isDirectory()) {
-      copyDirectory(sourcePath, join(targetDir, entry.name));
+      const nestedTargetDirectory = join(targetDir, entry.name);
+      for (const relativePath of copyDirectory(sourcePath, nestedTargetDirectory, options)) {
+        written.push(`${entry.name}/${relativePath}`);
+      }
     } else if (entry.isFile()) {
-      const targetPath = join(targetDir, entry.name);
-      removeTargetTypeConflict(targetPath, 'file');
-      copyFileSync(sourcePath, targetPath);
+      copyOverlayFile(sourcePath, join(targetDir, entry.name), entry.name, options);
+      written.push(entry.name);
     }
   }
+  return written;
 };
 
 const writeGeneratedFile = (path: string, content: string): void => {
@@ -65,6 +79,75 @@ const writeGeneratedFile = (path: string, content: string): void => {
 
 const serializeMcpConfig = (mcpServers: Readonly<Record<string, unknown>>): string =>
   `${JSON.stringify({ mcpServers }, null, 2)}\n`;
+
+/**
+ * The subagent materialization's rebuild manifest: its own record of the agent definition files it
+ * generated into one runtime root. A later rebuild removes only manifest-tracked regular files that
+ * stay inside the root, so `agents/` content from the pi/ overlay or any other delivery mechanism
+ * (nothing else ever writes the manifest) is foreign and survives every rebuild. Entries are root-
+ * relative POSIX paths and nothing else is recorded, so the manifest is deterministic across runs.
+ */
+interface SubagentManifest {
+  readonly version: number;
+  readonly files: readonly string[];
+}
+
+const subagentManifestPath = (rootDirectory: string): string => join(rootDirectory, '.outfitter', 'subagents.json');
+
+const parseSubagentManifest = (raw: string): readonly string[] | undefined => {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return undefined;
+  }
+  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return undefined;
+  const { version, files } = parsed as Record<string, unknown>;
+  if (version !== 1) return undefined;
+  if (!Array.isArray(files) || !files.every((entry): entry is string => typeof entry === 'string')) return undefined;
+  return files;
+};
+
+/** Returns the previously generated relative paths, or undefined when no usable manifest exists. */
+const readGeneratedSubagentPaths = (rootDirectory: string): readonly string[] | undefined => {
+  let raw: string;
+  try {
+    raw = readFileSync(subagentManifestPath(rootDirectory), 'utf8');
+  } catch {
+    return undefined;
+  }
+  return parseSubagentManifest(raw);
+};
+
+const writeSubagentManifest = (rootDirectory: string, files: readonly string[]): void => {
+  mkdirSync(dirname(subagentManifestPath(rootDirectory)), { recursive: true });
+  const manifest: SubagentManifest = { version: 1, files: [...files].sort() };
+  writeGeneratedFile(subagentManifestPath(rootDirectory), `${JSON.stringify(manifest, null, 2)}\n`);
+};
+
+/** Resolves one manifest entry to an absolute path inside the root, or undefined when unusable. */
+const containedManifestEntry = (rootDirectory: string, entry: string): string | undefined => {
+  if (isAbsolute(entry)) return undefined;
+  const segments = entry.split('/');
+  if (segments.some((segment) => segment === '' || segment === '.' || segment === '..')) return undefined;
+  const absolutePath = join(rootDirectory, ...segments);
+  // Realpath-aware containment: a tracked path that has become a link out of the root is unusable.
+  return isInside(absolutePath, rootDirectory) ? absolutePath : undefined;
+};
+
+const removeStaleGeneratedSubagents = (rootDirectory: string): void => {
+  const previous = readGeneratedSubagentPaths(rootDirectory);
+  if (previous === undefined) return;
+
+  for (const entry of previous) {
+    const path = containedManifestEntry(rootDirectory, entry);
+    // Only regular files are removal candidates: never a symlink (lstat does not follow links),
+    // never a directory, never anything outside the root.
+    if (path !== undefined && lstatSync(path, { throwIfNoEntry: false })?.isFile()) {
+      rmSync(path, { force: true });
+    }
+  }
+};
 
 export const writeMcpConfig = (path: string, mcpServers: Readonly<Record<string, unknown>>): void => {
   writeGeneratedFile(path, serializeMcpConfig(mcpServers));
@@ -101,15 +184,30 @@ export const writeClaudePluginManifest = (rootDirectory: string, profileSlug: st
 
 /**
  * Overlays native harness configuration into the runtime root. Inputs arrive highest precedence
- * first, so copying in reverse order lets higher layers replace matching files. Symlinked overlay
- * roots and entries are skipped so a catalog cannot make projection read outside its layer.
+ * first, so applying in reverse order lets higher layers replace matching files. A same-relative-
+ * path JSON object document that a lower tier of this call wrote deep-merges with the incoming
+ * layer instead — lower layers first, higher layer's values winning — while pre-existing root
+ * content (generated defaults, retained-root files) and every non-JSON file replace whole-file. A
+ * warnings sink both enables the merge behavior and receives a diagnostic when a higher-precedence
+ * JSON file cannot be read as JSON. Symlinked overlay roots and entries are skipped so a catalog
+ * cannot make projection read outside its layer.
  */
-export const materializeConfigurationOverlays = (sourceDirectories: readonly string[], rootDirectory: string): void => {
+export const materializeConfigurationOverlays = (
+  sourceDirectories: readonly string[],
+  rootDirectory: string,
+  options: OverlayCopyOptions = {},
+): void => {
   mkdirSync(rootDirectory, { recursive: true });
+  const lowerTierPaths = new Set<string>();
 
   for (const sourceDirectory of [...sourceDirectories].reverse()) {
     if (lstatSync(sourceDirectory).isSymbolicLink()) continue;
-    copyDirectory(sourceDirectory, rootDirectory);
+    for (const relativePath of copyDirectory(sourceDirectory, rootDirectory, {
+      warnings: options.warnings,
+      mergeablePaths: lowerTierPaths,
+    })) {
+      lowerTierPaths.add(relativePath);
+    }
   }
 };
 
@@ -138,6 +236,118 @@ export const applyPiRuntimeDefaults = (rootDirectory: string): void => {
   } finally {
     rmSync(temporaryPath, { force: true });
   }
+};
+
+/**
+ * Writes generated extension configuration files as the lowest tier of runtime-file precedence:
+ * materialization runs before overlay materialization, so a per-agent pi/ overlay or a
+ * settings-layer pi_overlay file replaces a same-named generated file wholesale. Keys are
+ * validated to safe file-name characters at the settings read boundary.
+ */
+export const applyExtensionConfigDefaults = (
+  rootDirectory: string,
+  configs: Readonly<Record<string, unknown>> | undefined,
+): void => {
+  if (configs === undefined) return;
+  for (const [name, config] of Object.entries(configs)) {
+    const targetPath = join(rootDirectory, 'extensions', `${name}.json`);
+    mkdirSync(dirname(targetPath), { recursive: true });
+    writeGeneratedFile(targetPath, `${JSON.stringify(config, null, 2)}\n`);
+  }
+};
+
+/** Reads the generated settings.json when it is a mergeable JSON object document, else undefined. */
+const readMergeableSettingsDocument = (settingsPath: string): Record<string, unknown> | undefined => {
+  let existing: unknown;
+  try {
+    existing = JSON.parse(readFileSync(settingsPath, 'utf8')) as unknown;
+  } catch {
+    return undefined;
+  }
+  if (typeof existing !== 'object' || existing === null || Array.isArray(existing)) return undefined;
+  return existing as Record<string, unknown>;
+};
+
+/** Returns the document's existing extension paths, or undefined when the key is not a string array. */
+const declaredExtensionEntries = (document: Record<string, unknown>): readonly string[] | undefined => {
+  const declared = document.extensions;
+  if (declared === undefined) return [];
+  if (!Array.isArray(declared)) return undefined;
+  return declared.every((entry): entry is string => typeof entry === 'string') ? declared : undefined;
+};
+
+/** Deduplicates paths by exact string, keeping the first occurrence's position. */
+const dedupeEntries = (paths: readonly (readonly string[])[]): readonly string[] => {
+  const merged: string[] = [];
+  for (const entry of paths.flat()) {
+    if (!merged.includes(entry)) merged.push(entry);
+  }
+  return merged;
+};
+
+/**
+ * Merges cached npm extension entry-file paths into the generated pi settings.json `extensions`
+ * array — the inheritance surface fresh loaders (pi-subagents child sessions, SDK sessions) build
+ * from the agent dir. Entries already in the file (overlay- or harness-default-delivered) keep their
+ * order and the npm entries follow in declared loadout order, deduped by exact string with first
+ * occurrence winning. An unparseable or non-object document is left untouched so pi reports it
+ * through its own diagnostics, matching applyPiRuntimeDefaults' invalid-settings policy.
+ */
+export const applyPiExtensionSettingsEntries = (
+  rootDirectory: string,
+  entries: readonly string[] | undefined,
+): void => {
+  if (entries === undefined || entries.length === 0) return;
+  const settingsPath = join(rootDirectory, 'settings.json');
+  if (!existsSync(settingsPath)) {
+    writeGeneratedFile(settingsPath, `${JSON.stringify({ extensions: [...entries] }, null, 2)}\n`);
+    return;
+  }
+  const document = readMergeableSettingsDocument(settingsPath);
+  if (document === undefined) return;
+  const declared = declaredExtensionEntries(document);
+  if (declared === undefined) return;
+  const merged = dedupeEntries([declared, entries]);
+  writeGeneratedFile(settingsPath, `${JSON.stringify({ ...document, extensions: merged }, null, 2)}\n`);
+};
+
+/** Returns the document's existing package roots, or undefined when the key is not a string array. */
+const declaredPackageEntries = (document: Record<string, unknown>): readonly string[] | undefined => {
+  const declared = document.packages;
+  if (declared === undefined) return [];
+  if (!Array.isArray(declared)) return undefined;
+  return declared.every((entry): entry is string => typeof entry === 'string') ? declared : undefined;
+};
+
+/**
+ * Merges the served pi extension load directories into the generated pi settings.json `packages`
+ * array — pi resolves a local-path packages entry through its own package rules, so fresh loaders
+ * (pi-subagents child sessions, SDK sessions) inherit package-declared themes, skills, prompt
+ * templates, and extensions with the same semantics the main session gets from `--extension <dir>`.
+ * Outfitter projects package roots only (existence verified by the serving flow) and delegates
+ * manifest parsing, glob expansion, and override patterns to pi, so both sessions can never
+ * disagree about what a package contains. Entries already in the file (overlay- or
+ * harness-default-delivered) keep their order; generated entries follow in declared loadout order,
+ * deduped by exact string with first occurrence winning. An unparseable or non-object document —
+ * or a non-array `packages` value — is left untouched so pi reports it through its own
+ * diagnostics, matching applyPiExtensionSettingsEntries' invalid-settings policy.
+ */
+export const applyPiPackageSettingsEntries = (
+  rootDirectory: string,
+  packageDirs: readonly string[] | undefined,
+): void => {
+  if (packageDirs === undefined || packageDirs.length === 0) return;
+  const settingsPath = join(rootDirectory, 'settings.json');
+  if (!existsSync(settingsPath)) {
+    writeGeneratedFile(settingsPath, `${JSON.stringify({ packages: [...packageDirs] }, null, 2)}\n`);
+    return;
+  }
+  const document = readMergeableSettingsDocument(settingsPath);
+  if (document === undefined) return;
+  const declared = declaredPackageEntries(document);
+  if (declared === undefined) return;
+  const merged = dedupeEntries([declared, packageDirs]);
+  writeGeneratedFile(settingsPath, `${JSON.stringify({ ...document, packages: merged }, null, 2)}\n`);
 };
 
 /** Merges catalog defaults below an existing native JSON settings document. */
@@ -175,6 +385,60 @@ const materializeSkill = (skill: ResolvedResource, rootDirectory: string): strin
   const targetDir = join(rootDirectory, 'skills', skill.slug);
   copyDirectory(sourceDir, targetDir);
   return targetDir;
+};
+
+/**
+ * Copies one command file verbatim into the runtime `prompts/` directory — pi's native prompt-
+ * template discovery, so the file IS the template and Outfitter adds no templating. A file that
+ * escapes its layer root is never read; a non-`.md` file would be inert (pi loads only `*.md`);
+ * a flattened name already produced by an earlier entry would silently overwrite it. All three
+ * are reported instead of dropped.
+ */
+const materializeCommand = (
+  commandResource: ResolvedResource,
+  rootDirectory: string,
+  usedNames: Map<string, string>,
+): { readonly path?: string; readonly skipReason?: string } => {
+  if (escapesRoots(commandResource.winner.path, [commandResource.winner.layer.root])) {
+    return { skipReason: 'escaping path' };
+  }
+  if (!commandResource.winner.path.endsWith('.md')) {
+    return { skipReason: 'only .md files load as pi prompt templates' };
+  }
+
+  const name = commandPromptName(commandResource.slug);
+  const owner = usedNames.get(name);
+  if (owner !== undefined) {
+    return { skipReason: `prompt name '${name}' already materialized from '${owner}'` };
+  }
+  usedNames.set(name, commandResource.slug);
+
+  const targetPath = join(rootDirectory, 'prompts', `${name}.md`);
+  mkdirSync(dirname(targetPath), { recursive: true });
+  removeTargetTypeConflict(targetPath, 'file');
+  writeFileSync(targetPath, readFileSync(commandResource.winner.path));
+  return { path: targetPath };
+};
+
+/**
+ * Materializes the composed leader commands as pi prompt templates, composition order first so
+ * flattened-name collisions resolve deterministically to the first entry. Pi-only: other
+ * harnesses receive the element-level unsupported report instead.
+ */
+const materializeCommands = (
+  commands: readonly ResolvedResource[],
+  rootDirectory: string,
+): { readonly commandPaths: readonly string[]; readonly skippedCommands: readonly string[] } => {
+  const commandPaths: string[] = [];
+  const skippedCommands: string[] = [];
+  const usedNames = new Map<string, string>();
+
+  for (const commandResource of commands) {
+    const outcome = materializeCommand(commandResource, rootDirectory, usedNames);
+    if (outcome.skipReason !== undefined) skippedCommands.push(`${commandResource.slug} (${outcome.skipReason})`);
+    else commandPaths.push(outcome.path!);
+  }
+  return { commandPaths, skippedCommands };
 };
 
 const optionalScalar = (name: string, value: string | undefined): readonly string[] =>
@@ -276,14 +540,12 @@ const materializeSubagents = (
   composedSubagents: readonly ComposedSubagent[] | undefined,
   rootDirectory: string,
 ): readonly string[] => {
-  if (subagents.length === 0) {
-    return [];
-  }
+  removeStaleGeneratedSubagents(rootDirectory);
 
   const agentsDirectory = join(rootDirectory, 'agents');
-  rmSync(agentsDirectory, { recursive: true, force: true });
   mkdirSync(agentsDirectory, { recursive: true });
   const skipped: string[] = [];
+  const generated: string[] = [];
   const composedBySlug = new Map<string, ComposedSubagent>(
     (composedSubagents ?? []).map((subagent) => [subagent.resource.slug, subagent]),
   );
@@ -295,8 +557,14 @@ const materializeSubagents = (
       skipped.push(subagent.slug);
     } else {
       writeGeneratedFile(join(agentsDirectory, `${subagent.slug}.md`), content);
+      generated.push(`agents/${subagent.slug}.md`);
     }
   }
+
+  // Record this run's generated files, or retire the manifest when nothing is generated so a
+  // retained root never advertises ownership it no longer has.
+  if (generated.length > 0) writeSubagentManifest(rootDirectory, generated);
+  else rmSync(subagentManifestPath(rootDirectory), { force: true });
 
   return skipped;
 };
@@ -347,6 +615,10 @@ export const materializeComposition = (
 ): MaterializedComposition => {
   mkdirSync(rootDirectory, { recursive: true });
   const { systemPromptPath, appendPromptPaths } = materializeIdentity(composition, rootDirectory);
+  const { commandPaths, skippedCommands } =
+    harness === 'pi'
+      ? materializeCommands(composition.loadout.commands, rootDirectory)
+      : { commandPaths: [], skippedCommands: [] };
   const skillDirectories: string[] = [];
   const skippedSkills: string[] = [];
 
@@ -377,6 +649,8 @@ export const materializeComposition = (
     appendPromptPaths,
     skillDirectories,
     skippedSkills,
+    commandPaths,
+    skippedCommands,
     skippedSubagents,
   };
 };

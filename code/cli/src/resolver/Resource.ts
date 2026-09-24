@@ -27,6 +27,7 @@ export interface Layer {
 /** An agent's loadout — the resources and runtime options it composes with. */
 export interface Loadout {
   readonly skills: readonly string[];
+  readonly commands: readonly string[];
   readonly subagents: readonly string[];
   readonly mcp: readonly string[];
   readonly extensions: readonly string[];
@@ -38,6 +39,7 @@ export interface Loadout {
 
 export const emptyLoadout = (): Loadout => ({
   skills: [],
+  commands: [],
   subagents: [],
   mcp: [],
   extensions: [],
@@ -92,6 +94,27 @@ export interface ResolvedResource {
 
 /** Locale-independent, deterministic slug ordering (code-unit comparison). */
 export const compareSlugs = (left: string, right: string): number => (left < right ? -1 : left > right ? 1 : 0);
+
+/**
+ * The bare command name behind a file-tree command slug: the slug with its extension stripped
+ * (`deploy/staging.md` -> `deploy/staging`). Files without an extension, and dotfiles, keep their
+ * slug unchanged. Bare names are the canonical selector grammar because pi names prompt templates
+ * by filename minus `.md`.
+ */
+export const commandSlugStem = (slug: string): string => {
+  const dot = slug.lastIndexOf('.');
+  const slash = slug.lastIndexOf('/');
+  return dot > slash + 1 ? slug.slice(0, dot) : slug;
+};
+
+/**
+ * The pi prompt-template invocation name behind a command slug: the bare name with nested path
+ * separators flattened to `-` (`deploy/staging.md` -> `deploy-staging`), because pi's prompt
+ * discovery is non-recursive and names templates by filename minus `.md`. Two slugs may flatten
+ * to the same name (`a-b.md`, `a/b.md`); both selection ambiguity and projection treat that as a
+ * collision rather than silently picking one.
+ */
+export const commandPromptName = (slug: string): string => commandSlugStem(slug).split('/').join('-');
 
 /** One immutable effective resource set per invocation, keyed by kind then slug. */
 export interface EffectiveResourceSet {

@@ -253,19 +253,44 @@ const unsupportedHarnessWarnings = (hooks: readonly SystemExtensionHook[]): read
 /**
  * Prepends every system Pi extension after projection, including for RPC/print launches. Hook env
  * stays beneath the projected plan env so it cannot replace Outfitter's runtime/session paths.
+ *
+ * Subcommand launches (`outfitter exec`) set `deliverExtensionArgs: false`: the harness dispatches
+ * its package/config/auth commands on `argv[0]` and exits before extension loading, so extension
+ * args are unreachable there — passing them would only corrupt the subcommand argv. Hook env and
+ * the source stamp still apply, and each pi hook declaring extensions warns that they are not
+ * delivered rather than silently pretending collection extensions loaded.
  */
+export interface AttachSystemExtensionHooksOptions {
+  readonly deliverExtensionArgs?: boolean;
+}
+
 export const attachSystemExtensionHooks = (
   plan: AgentLaunchPlan,
   loaded: LoadedSystemExtensionHooks = readSystemExtensionHooks(),
+  options: AttachSystemExtensionHooksOptions = {},
 ): AttachedSystemExtensionHooks => {
+  const deliverExtensionArgs = options.deliverExtensionArgs ?? true;
   const warnings = unsupportedHarnessWarnings(loaded.hooks);
   if (loaded.source === undefined) return { launch: plan, warnings };
 
   const piHooks = loaded.hooks.flatMap((hook) => (hook.harnesses.pi === undefined ? [] : [hook.harnesses.pi]));
+  const namedPiHooks = loaded.hooks.flatMap((hook) =>
+    hook.harnesses.pi === undefined ? [] : [{ name: hook.name, hook: hook.harnesses.pi }],
+  );
   const extensionArgs =
-    plan.command === 'pi'
+    deliverExtensionArgs && plan.command === 'pi'
       ? piHooks.flatMap((hook) => (hook.extensions ?? []).flatMap((path) => ['--extension', path]))
       : [];
+  const undeliveredExtensionWarnings =
+    deliverExtensionArgs || plan.command !== 'pi'
+      ? []
+      : namedPiHooks
+          .filter(({ hook }) => (hook.extensions?.length ?? 0) > 0)
+          .map(
+            ({ name }) =>
+              `System extension hook '${name}' declares pi extensions; subcommand launches exit before ` +
+              'extension loading, so they are not delivered.',
+          );
   const hookEnvironment: Record<string, string> =
     plan.command === 'pi'
       ? piHooks.reduce<Record<string, string>>((environment, hook) => ({ ...environment, ...hook.env }), {})
@@ -281,6 +306,6 @@ export const attachSystemExtensionHooks = (
         ...plan.env,
       },
     },
-    warnings,
+    warnings: [...warnings, ...undeliveredExtensionWarnings],
   };
 };
