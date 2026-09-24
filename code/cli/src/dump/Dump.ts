@@ -9,7 +9,7 @@ import {
   rmSync,
   writeFileSync,
 } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { dirname, join, relative } from 'node:path';
 
 import { stringify } from 'yaml';
 
@@ -204,6 +204,62 @@ const collectPromptFiles = (plan: CompositionPlan, promptFiles: Map<string, stri
   }
 };
 
+const packagedSkillDirectories = ['references', 'scripts', 'assets'] as const;
+
+interface PackagedFile {
+  readonly path: string;
+  readonly bytes: Buffer;
+}
+
+/** Reads one packaged skill's shipped content — SKILL.md plus every file under its
+ *  references/, scripts/, and assets/ directories — as a sorted relative-path/bytes list.
+ *  Symlinked entries are skipped, mirroring the dump's copy behavior. */
+const packagedSkillFiles = (skill: ResolvedResource): readonly PackagedFile[] => {
+  const skillDir = dirname(skill.winner.path);
+  const files: PackagedFile[] = [{ path: 'SKILL.md', bytes: readFileSync(skill.winner.path) }];
+
+  const walk = (dir: string): void => {
+    for (const entry of readdirSync(dir, { withFileTypes: true }).sort((a, b) => compareSlugs(a.name, b.name))) {
+      const full = join(dir, entry.name);
+      if (lstatSync(full).isSymbolicLink()) {
+        continue;
+      }
+      if (entry.isDirectory()) {
+        walk(full);
+      } else {
+        files.push({ path: relative(skillDir, full).split(/[/\\]/).join('/'), bytes: readFileSync(full) });
+      }
+    }
+  };
+
+  for (const directory of packagedSkillDirectories) {
+    const directoryPath = join(skillDir, directory);
+    if (existsSync(directoryPath)) {
+      walk(directoryPath);
+    }
+  }
+
+  return files;
+};
+
+/** Byte-identical packaged content makes one flattened copy faithful to both definitions. */
+const packagedSkillContentsEqual = (left: ResolvedResource, right: ResolvedResource): boolean => {
+  const leftFiles = packagedSkillFiles(left);
+  const rightFiles = packagedSkillFiles(right);
+
+  return (
+    leftFiles.length === rightFiles.length &&
+    leftFiles.every((file, index) => file.path === rightFiles[index].path && file.bytes.equals(rightFiles[index].bytes))
+  );
+};
+
+/** One command definition ships a single document, so equality is its bytes. */
+const commandContentsEqual = (left: ResolvedResource, right: ResolvedResource): boolean =>
+  readFileSync(left.winner.path).equals(readFileSync(right.winner.path));
+
+// Owner-first resolution can legitimately resolve one slug to different files for the leader and a
+// delegate. Definitions with byte-identical shipped content flatten to one faithful copy, so the
+// fatal error is reserved for definitions the flattened tree cannot represent honestly.
 const collectSkills = (
   selected: readonly ResolvedResource[],
   skills: Map<string, ResolvedResource>,
@@ -211,16 +267,14 @@ const collectSkills = (
 ): void => {
   for (const skill of selected) {
     const existing = skills.get(skill.slug);
-    if (existing !== undefined && existing.winner.path !== skill.winner.path) {
-      errors.push(`dump closure resolves conflicting definitions for skill '${skill.slug}' and cannot flatten both.`);
-    } else {
+    if (existing === undefined) {
       skills.set(skill.slug, skill);
+    } else if (existing.winner.path !== skill.winner.path && !packagedSkillContentsEqual(existing, skill)) {
+      errors.push(`dump closure resolves conflicting definitions for skill '${skill.slug}' and cannot flatten both.`);
     }
   }
 };
 
-// Owner-first command resolution can legitimately resolve one slug to different files for the
-// leader and a delegate, so the same conflict rule as skills keeps the flattened tree honest.
 const collectCommands = (
   selected: readonly ResolvedResource[],
   commands: Map<string, ResolvedResource>,
@@ -228,12 +282,15 @@ const collectCommands = (
 ): void => {
   for (const commandResource of selected) {
     const existing = commands.get(commandResource.slug);
-    if (existing !== undefined && existing.winner.path !== commandResource.winner.path) {
+    if (existing === undefined) {
+      commands.set(commandResource.slug, commandResource);
+    } else if (
+      existing.winner.path !== commandResource.winner.path &&
+      !commandContentsEqual(existing, commandResource)
+    ) {
       errors.push(
         `dump closure resolves conflicting definitions for command '${commandResource.slug}' and cannot flatten both.`,
       );
-    } else {
-      commands.set(commandResource.slug, commandResource);
     }
   }
 };
