@@ -104,6 +104,7 @@ export interface Settings {
   readonly startup?: StartupSettings;
   readonly enterprise?: EnterpriseSettings;
   readonly telemetry?: TelemetrySettings;
+  readonly experimental?: { readonly outfitterProvider?: boolean };
   /** Additive loadout entries composed into every agent before its own loadout. */
   readonly agentDefaults?: AgentDefaults;
   /** Native settings applied to every run of each harness and by `outfitter link`. */

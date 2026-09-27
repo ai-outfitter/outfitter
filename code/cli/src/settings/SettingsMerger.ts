@@ -50,6 +50,7 @@ export const mergeSettingsStack = (settingsStack: readonly Settings[]): Settings
   let startup: Settings['startup'];
   let enterprise: Settings['enterprise'];
   let telemetry: Settings['telemetry'];
+  let experimental: Settings['experimental'];
   let agentDefaults: AgentDefaults | undefined;
   let harnessDefaults: HarnessDefaults | undefined;
 
@@ -73,6 +74,7 @@ export const mergeSettingsStack = (settingsStack: readonly Settings[]): Settings
     startup = settings.startup === undefined ? startup : { ...startup, ...settings.startup };
     enterprise = settings.enterprise === undefined ? enterprise : { ...enterprise, ...settings.enterprise };
     telemetry = settings.telemetry === undefined ? telemetry : { ...telemetry, ...settings.telemetry };
+    experimental = settings.experimental === undefined ? experimental : { ...experimental, ...settings.experimental };
     agentDefaults = mergeAgentDefaults(agentDefaults, settings.agentDefaults);
     harnessDefaults =
       settings.harnessDefaults === undefined
@@ -95,6 +97,7 @@ export const mergeSettingsStack = (settingsStack: readonly Settings[]): Settings
     startup: startup ?? {},
     enterprise: enterprise ?? {},
     telemetry: telemetry ?? {},
+    ...(experimental === undefined ? {} : { experimental }),
     agentDefaults,
     harnessDefaults,
   };

@@ -1,6 +1,8 @@
 // Projects a harness-neutral CompositionPlan to a native pi, Claude Code, or Codex CLI launch.
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { experimentalProviderEnabled, providerOptInMessage } from '../hosted/ExperimentalProvider.js';
 import { PI_SESSION_DIRECTORY_ENV } from '../agents/PiSessionDirectory.js';
 import type { CompositionPlan } from '../composer/Composition.js';
 import type { Harness, Isolation, SettingsValue } from '../settings/Settings.js';
@@ -208,6 +210,25 @@ const declareClaudePlugin = (composition: CompositionPlan, input: ProjectionInpu
   writeClaudePluginManifest(input.rootDirectory, input.profileSlug ?? 'outfitter', composition.identity.label);
 };
 
+const selectsOutfitter = (args: readonly string[]): boolean =>
+  args.some((arg, index) => {
+    if (arg === '--provider=outfitter' || arg.startsWith('--model=outfitter/')) return true;
+    const previous = args[index - 1];
+    return (
+      (previous === '--provider' || previous === '--model') && (arg === 'outfitter' || arg.startsWith('outfitter/'))
+    );
+  });
+
+const internalProviderArgs = (input: ProjectionInput, model: ProjectedModel): readonly string[] => {
+  if (input.harness !== 'pi') return [];
+  if (
+    !experimentalProviderEnabled(input.homeDirectory) &&
+    selectsOutfitter([...model.args, ...(input.passThroughArgs ?? [])])
+  )
+    throw new Error(providerOptInMessage);
+  return ['--extension', fileURLToPath(new URL('../hosted/PiProvider.js', import.meta.url))];
+};
+
 const buildPiOrClaudeLaunchPlan = (
   composition: CompositionPlan,
   input: ProjectionInput,
@@ -231,6 +252,7 @@ const buildPiOrClaudeLaunchPlan = (
       ...promptArgs(composition, input, materialized.systemPromptPath, appendPromptPaths),
       ...skillArgs,
       ...extensionArgs,
+      ...internalProviderArgs(input, model),
       ...model.args,
       ...thinkingArg(composition, input.harness),
       ...(isPi ? [] : claudeArgs(input.rootDirectory, isolation, settingsPath)),
