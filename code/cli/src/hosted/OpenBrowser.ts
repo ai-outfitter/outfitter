@@ -1,10 +1,10 @@
-import { execFile } from 'node:child_process';
+import { spawn } from 'node:child_process';
 
-/** Start the OS URL handler without a shell; an unavailable desktop is recoverable. */
+/** Start the OS URL handler without a shell or waiting for the browser to close. */
 export const openBrowser = (
   url: string,
   platform: NodeJS.Platform = process.platform,
-  launch: typeof execFile = execFile,
+  launch: typeof spawn = spawn,
 ): Promise<boolean> => {
   const [command, args] =
     platform === 'darwin'
@@ -13,6 +13,18 @@ export const openBrowser = (
         ? ['rundll32.exe', ['url.dll,FileProtocolHandler', url]]
         : ['xdg-open', [url]];
   return new Promise((resolve) => {
-    launch(command, args, { timeout: 5000, windowsHide: true }, (error) => resolve(!error));
+    const child = launch(command, args, { detached: true, stdio: 'ignore', windowsHide: true });
+    // Some URL handlers remain alive for the entire browser session. Observe
+    // immediate launch failures, then leave that session running independently.
+    const timer = setTimeout(() => resolve(true), 1000);
+    child.once('error', () => {
+      clearTimeout(timer);
+      resolve(false);
+    });
+    child.once('exit', (code) => {
+      clearTimeout(timer);
+      resolve(code === 0);
+    });
+    child.unref();
   });
 };
