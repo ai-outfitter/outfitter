@@ -11,7 +11,7 @@ experimental:
 
 Project settings and remote catalogs cannot enable it. There is no environment-variable override. The gateway is fixed to `https://beta.ai-outfitter.com`; credentials are scoped to that origin.
 
-Run `outfitter login`, open the displayed browser URL, sign in with GitHub, and approve the device code. Alternatively, launch Pi through Outfitter and use Pi's `/login` to choose **Outfitter**. After approval, choose `outfitter/spark/glm-5.3-flash` from Pi's model selector. Existing model selections and BYOK providers are preserved; no model is selected automatically.
+Run `outfitter login` to open your default browser automatically. Sign in with GitHub and approve the CLI; the code is already filled in. The CLI finishes automatically after approval. If the browser cannot open, use the printed URL. For SSH or a headless terminal, use `outfitter login --device-code` to print a code without opening a browser. Alternatively, launch Pi through Outfitter, use `/login`, choose **Outfitter**, then choose **Open browser** or **Device code**. Both modes use the same device-approval protocol and credential store; the browser mode needs no localhost callback server. After approval, choose `outfitter/spark/glm-5.3-flash` from Pi's model selector. Existing model selections and BYOK providers are preserved; no model is selected automatically.
 
 Credentials use Pi's native auth store at `~/.pi/agent/auth.json`. Outfitter's existing credential persistence seeds newly generated Pi sessions and copies changes back when the session exits. Tokens never belong in catalogs or project settings. Close an active Pi session before switching accounts from another terminal.
 

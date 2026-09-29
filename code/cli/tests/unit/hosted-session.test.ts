@@ -93,13 +93,19 @@ describe('internal inference opt-in and durable authorization', () => {
     const { session, client } = fixture([Response.json(identity)]);
     vi.spyOn(client, 'login').mockResolvedValue(credentials);
     expect(
-      await session.login({ onAuth: vi.fn(), onDeviceCode: vi.fn(), onPrompt: vi.fn(), onSelect: vi.fn() }),
+      await session.login({
+        onAuth: vi.fn(),
+        onDeviceCode: vi.fn(),
+        onPrompt: vi.fn(),
+        onSelect: vi.fn().mockResolvedValue('device-code'),
+      }),
     ).toEqual(identity);
     const login = vi.spyOn(session, 'login').mockImplementation(async (callbacks) => {
       callbacks.onDeviceCode({ verificationUri: 'https://beta.ai-outfitter.com/device', userCode: 'ABC' });
       callbacks.onAuth({ url: 'https://beta.ai-outfitter.com/device' });
       await expect(callbacks.onPrompt({ message: '?' })).rejects.toThrow('browser');
-      expect(await callbacks.onSelect({ message: '?', options: [] })).toBeUndefined();
+      expect(await callbacks.onSelect({ message: '?', options: [] })).toBe('browser');
+      callbacks.onProgress?.('Waiting for approval');
       return identity;
     });
     const logout = vi.spyOn(session, 'logout').mockResolvedValue();
@@ -124,9 +130,14 @@ it('blocks pending revocations and retries before replacing credentials at login
   auth.set('outfitter', { ...credentials, pendingRevocation: true });
   await expect(session.access()).rejects.toThrow('logout is pending');
   vi.spyOn(client, 'login').mockResolvedValue(credentials);
-  expect(await session.login({ onAuth: vi.fn(), onDeviceCode: vi.fn(), onPrompt: vi.fn(), onSelect: vi.fn() })).toEqual(
-    identity,
-  );
+  expect(
+    await session.login({
+      onAuth: vi.fn(),
+      onDeviceCode: vi.fn(),
+      onPrompt: vi.fn(),
+      onSelect: vi.fn().mockResolvedValue('device-code'),
+    }),
+  ).toEqual(identity);
 });
 
 it('rejects explicit disabled Outfitter selections instead of falling back', () => {

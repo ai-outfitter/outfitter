@@ -14,7 +14,7 @@ const callbacks = (): Parameters<HostedOAuth['login']>[0] => ({
   onDeviceCode: vi.fn(),
   onAuth: vi.fn(),
   onPrompt: vi.fn(),
-  onSelect: vi.fn(),
+  onSelect: vi.fn().mockResolvedValue('device-code'),
 });
 const response = (data: unknown, status = 200) => new Response(JSON.stringify(data), { status });
 const model = {
