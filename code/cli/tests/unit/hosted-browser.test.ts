@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { execFile } from 'node:child_process';
+import type { spawn } from 'node:child_process';
+import { EventEmitter } from 'node:events';
 import { Command } from 'commander';
 import { createHostedCommand } from '../../src/cli/commands/HostedCommand.js';
 import type { HostedSession } from '../../src/hosted/HostedSession.js';
@@ -81,26 +82,41 @@ describe('Outfitter browser login', () => {
   });
 });
 
+const launcher = () => {
+  const child = Object.assign(new EventEmitter(), { unref: vi.fn() });
+  const launch = vi.fn(() => child) as unknown as typeof spawn;
+  return { child, launch };
+};
 it.each([
   ['linux', 'xdg-open', ['https://example.com/?a=1&b=2']],
   ['darwin', 'open', ['https://example.com/?a=1&b=2']],
   ['win32', 'rundll32.exe', ['url.dll,FileProtocolHandler', 'https://example.com/?a=1&b=2']],
 ] as const)('opens browser without shell interpolation on %s', async (platform, command, args) => {
-  const launch = vi.fn(
-    (_command: string, _args: string[], _options: unknown, callback: (error: Error | null) => void) => {
-      callback(null);
-    },
-  ) as unknown as typeof execFile;
-  expect(await openBrowser('https://example.com/?a=1&b=2', platform, launch)).toBe(true);
-  expect(launch).toHaveBeenCalledWith(command, [...args], { timeout: 5000, windowsHide: true }, expect.any(Function));
+  const { child, launch } = launcher();
+  const result = openBrowser('https://example.com/?a=1&b=2', platform, launch);
+  child.emit('exit', 0);
+  expect(await result).toBe(true);
+  expect(launch).toHaveBeenCalledWith(command, [...args], { detached: true, stdio: 'ignore', windowsHide: true });
+  expect(child.unref).toHaveBeenCalled();
 });
-it('reports an unavailable desktop instead of failing login', async () => {
-  const launch = vi.fn(
-    (_command: string, _args: string[], _options: unknown, callback: (error: Error | null) => void) => {
-      callback(new Error('ENOENT'));
-    },
-  ) as unknown as typeof execFile;
-  expect(await openBrowser('https://example.com', 'linux', launch)).toBe(false);
+it.each(['error', 'exit'])('reports an unavailable desktop (%s)', async (event) => {
+  const { child, launch } = launcher();
+  const result = openBrowser('https://example.com', 'linux', launch);
+  child.emit(event, event === 'exit' ? 1 : new Error('ENOENT'));
+  expect(await result).toBe(false);
+});
+it('does not wait for or kill a long-running browser session', async () => {
+  vi.useFakeTimers();
+  try {
+    const { child, launch } = launcher();
+    const result = openBrowser('https://example.com', undefined, launch);
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(await result).toBe(true);
+    expect(child.unref).toHaveBeenCalled();
+    child.emit('exit', 0);
+  } finally {
+    vi.useRealTimers();
+  }
 });
 
 it.each([
