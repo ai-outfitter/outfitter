@@ -43,7 +43,12 @@ describe('bundled native Pi provider', () => {
     expect(registerProvider.mock.calls[0][0]).toBe('outfitter');
     const config = registerProvider.mock.calls[0][1];
     expect(config.models).toEqual([]);
-    await config.oauth!.login({ onAuth: vi.fn(), onDeviceCode: vi.fn(), onPrompt: vi.fn(), onSelect: vi.fn() });
+    await config.oauth!.login({
+      onAuth: vi.fn(),
+      onDeviceCode: vi.fn(),
+      onPrompt: vi.fn(),
+      onSelect: vi.fn().mockResolvedValue('device-code'),
+    });
     expect(login).toHaveBeenCalledOnce();
     expect(registerProvider.mock.calls[1][1].models?.[0].id).toBe('public/test');
     vi.unstubAllGlobals();

@@ -1,4 +1,5 @@
 import { setTimeout } from 'node:timers/promises';
+import { openBrowser } from './OpenBrowser.js';
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 
 export type ProviderConfig = Parameters<ExtensionAPI['registerProvider']>[1];
@@ -31,6 +32,7 @@ export interface HostedClientOptions {
   fetch?: typeof globalThis.fetch;
   now?: () => number;
   sleep?: (ms: number, signal?: AbortSignal) => Promise<void>;
+  openBrowser?: (url: string) => Promise<boolean>;
 }
 
 export const hostedOrigin = (value = 'https://beta.ai-outfitter.com'): string => {
@@ -64,11 +66,13 @@ export class HostedClient {
   readonly origin: string;
   private readonly fetcher: typeof globalThis.fetch;
   private readonly now: () => number;
+  private readonly openBrowser: (url: string) => Promise<boolean>;
   private readonly sleep: (ms: number, signal?: AbortSignal) => Promise<void>;
   constructor(options: HostedClientOptions = {}) {
     this.origin = hostedOrigin(options.origin);
     this.fetcher = options.fetch ?? globalThis.fetch;
     this.now = options.now ?? Date.now;
+    this.openBrowser = options.openBrowser ?? openBrowser;
     this.sleep =
       options.sleep ??
       (async (ms, signal) => {
@@ -113,19 +117,44 @@ export class HostedClient {
     if (credentials.origin !== this.origin)
       throw new Error('Outfitter credentials belong to another origin. Log in again.');
   }
-  async login(callbacks: Parameters<HostedOAuth['login']>[0]): Promise<Credentials> {
+  private async showApproval(
+    device: Device,
+    callbacks: Parameters<HostedOAuth['login']>[0],
+    method: 'browser' | 'device-code',
+  ): Promise<void> {
+    const verification = new URL(device.verification_uri);
+    if (verification.origin !== this.origin || verification.username || verification.password)
+      throw new Error('Unexpected Outfitter verification origin.');
+    if (method === 'browser') {
+      verification.searchParams.set('user_code', device.user_code);
+      callbacks.onAuth({
+        url: verification.href,
+        instructions: 'Approve this CLI in your browser. No code entry is needed.',
+      });
+      const opened = await this.openBrowser(verification.href).catch(() => false);
+      callbacks.onProgress?.(
+        opened
+          ? 'Waiting for browser approval…'
+          : 'Could not open a browser. Open the displayed URL manually, or retry with outfitter login --device-code.',
+      );
+    } else {
+      callbacks.onDeviceCode({
+        userCode: device.user_code,
+        verificationUri: verification.href,
+        intervalSeconds: device.interval,
+        expiresInSeconds: device.expires_in,
+      });
+    }
+  }
+  async login(
+    callbacks: Parameters<HostedOAuth['login']>[0],
+    method: 'browser' | 'device-code' = 'device-code',
+  ): Promise<Credentials> {
     const response = await this.request('/api/cli/device', {}, undefined, undefined, callbacks.signal);
     if (!response.ok) throw new Error(`Outfitter sign-in unavailable (${response.status}).`);
     const device = (await response.json()) as Device;
     validateDevice(device);
-    const verification = new URL(device.verification_uri);
-    if (verification.origin !== this.origin) throw new Error('Unexpected Outfitter verification origin.');
-    callbacks.onDeviceCode({
-      userCode: device.user_code,
-      verificationUri: verification.href,
-      intervalSeconds: device.interval,
-      expiresInSeconds: device.expires_in,
-    });
+    await this.showApproval(device, callbacks, method);
     const deadline = this.now() + device.expires_in * 1000;
     let interval = device.interval * 1000;
     while (this.now() < deadline) {
@@ -159,7 +188,15 @@ export class HostedClient {
     return {
       name: 'Outfitter',
       login: async (callbacks) => {
-        const credentials = await this.login(callbacks);
+        const method = await callbacks.onSelect({
+          message: 'How would you like to sign in to Outfitter?',
+          options: [
+            { id: 'browser', label: 'Open browser (recommended)' },
+            { id: 'device-code', label: 'Device code (SSH / headless)' },
+          ],
+        });
+        if (method !== 'browser' && method !== 'device-code') throw new Error('Outfitter login cancelled.');
+        const credentials = await this.login(callbacks, method);
         await afterLogin?.(credentials);
         return credentials;
       },

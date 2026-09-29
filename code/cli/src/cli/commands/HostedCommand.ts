@@ -23,18 +23,22 @@ export const createHostedCommand = (dependencies: HostedCommandDependencies = {}
       });
     const write = dependencies.writeLine ?? console.log;
     program.addCommand(
-      new Command('login').description('Sign in to Outfitter internal beta.').action(async () => {
-        if (!enabled()) throw new Error(providerOptInMessage);
-        const identity = await (
-          await session()
-        ).login({
-          onDeviceCode: ({ verificationUri, userCode }) => write(`Open ${verificationUri} and enter ${userCode}`),
-          onAuth: ({ url }) => write(`Open ${url}`),
-          onPrompt: () => Promise.reject(new Error('Outfitter uses browser device approval.')),
-          onSelect: () => Promise.resolve(undefined),
-        });
-        write(`Signed in to Outfitter internal beta as ${identity.user.login}.`);
-      }),
+      new Command('login')
+        .description('Sign in to Outfitter internal beta.')
+        .option('--device-code', 'Use a device code without opening a browser.')
+        .action(async (options: { deviceCode?: boolean }) => {
+          if (!enabled()) throw new Error(providerOptInMessage);
+          const identity = await (
+            await session()
+          ).login({
+            onDeviceCode: ({ verificationUri, userCode }) => write(`Open ${verificationUri} and enter ${userCode}`),
+            onAuth: ({ url }) => write(`Open ${url}`),
+            onPrompt: () => Promise.reject(new Error('Outfitter uses browser device approval.')),
+            onSelect: () => Promise.resolve(options.deviceCode ? 'device-code' : 'browser'),
+            onProgress: write,
+          });
+          write(`Signed in to Outfitter internal beta as ${identity.user.login}.`);
+        }),
       { hidden: !enabled() },
     );
     program.addCommand(

@@ -42,7 +42,7 @@ Outfitter is organized around a private npm workspace root, clear TypeScript pac
 │   │   │   ├── cli.ts                 # executable CLI entry point
 │   │   │   ├── cli/                   # CLI parser construction and command objects
 │   │   │   │   └── commands/          # run, setup, sync, list, validate, dump, and link command objects
-│   │   │   ├── hosted/                # experimental internal Spark provider, device login, and native Pi credentials
+│   │   │   ├── hosted/                # experimental internal Spark provider, browser/device login, OS browser opener, and native Pi credentials
 │   │   │   ├── settings/              # settings loading and merging
 │   │   │   ├── telemetry/             # consent, pseudonymous state, allowlisted events, and PostHog boundary
 │   │   │   ├── setup/                 # onboarding state + pinned default-catalog bootstrap
