@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://outfitter.dev/schemas/self-hosted.schema.json",
+  "title": "Outfitter self-hosted setup",
+  "type": "object",
+  "required": ["version", "target", "mode", "inference"],
+  "properties": {
+    "version": { "const": 1 },
+    "target": { "enum": ["dgx-spark", "apple-silicon"] },
+    "mode": { "enum": ["inference-only", "inference-and-services"] },
+    "inference": {
+      "type": "object",
+      "required": ["label", "model", "base_url", "credential_env"],
+      "properties": {
+        "label": { "type": "string", "minLength": 1 },
+        "model": { "type": "string", "minLength": 1 },
+        "base_url": { "type": "string", "pattern": "^https?://" },
+        "credential_env": { "type": "string", "pattern": "^[A-Z_][A-Z0-9_]*$" },
+        "make_default": { "type": "boolean" },
+        "setup_url": { "type": "string", "pattern": "^https://" }
+      },
+      "additionalProperties": false
+    },
+    "optional_services": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "enum": ["forgejo", "stalwart", "identity", "password-manager"] }
+    }
+  },
+  "additionalProperties": false
+}

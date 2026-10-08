@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 import type { Command } from 'commander';
 
 import { resolveHomeDirectory, resolveProjectDirectory } from './cli/commands/ProcessDefaults.js';
+import { isCommandReadOnly } from './cli/commands/CommandObject.js';
 import { createOutfitterProgram } from './cli/OutfitterCli.js';
 import { createTelemetryContext } from './telemetry/TelemetryContext.js';
 import { createTelemetryService } from './telemetry/TelemetryService.js';
@@ -81,18 +82,21 @@ export const runCli = async (
   dependencies: CliTelemetryDependencies = {},
 ): Promise<void> => {
   let telemetry = dependencies.telemetry;
-  if (telemetry === undefined) {
-    try {
-      telemetry = (dependencies.createTelemetry ?? defaultCliTelemetryFactory)();
-    } catch {
-      telemetry = noOpTelemetryService();
-    }
-  }
+  let telemetryActive = false;
   let startedAt: number | undefined;
   let context: TelemetryCommandContext | undefined;
 
   program.hook('preAction', async (_thisCommand, actionCommand) => {
+    if (isCommandReadOnly(actionCommand)) return;
     try {
+      if (telemetry === undefined) {
+        try {
+          telemetry = (dependencies.createTelemetry ?? defaultCliTelemetryFactory)();
+        } catch {
+          telemetry = noOpTelemetryService();
+        }
+      }
+      telemetryActive = true;
       startedAt = Date.now();
       context = (dependencies.createCommandContext ?? commandContext)(program, actionCommand);
       await telemetry.captureCommandStarted(context);
@@ -107,7 +111,7 @@ export const runCli = async (
     await program.parseAsync(argv);
     exitCode = typeof process.exitCode === 'number' ? process.exitCode : 0;
   } finally {
-    if (context !== undefined && startedAt !== undefined) {
+    if (telemetry !== undefined && context !== undefined && startedAt !== undefined) {
       await telemetry.captureCommandCompleted({
         ...context,
         outcome: exitCode === 0 ? 'success' : 'error',
@@ -115,7 +119,7 @@ export const runCli = async (
         exitCode,
       });
     }
-    await telemetry.shutdown();
+    if (telemetryActive) await telemetry?.shutdown();
   }
 };
 
