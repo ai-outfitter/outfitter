@@ -1,0 +1,42 @@
+name: Platform ticket
+description: >-
+  Work for contributors, maintainers, CI, release automation, or a downstream
+  tool, not a change people running `outfitter` would see. The triage agent
+  will label it and comment with a suggested plan.
+body:
+  - type: textarea
+    id: goal
+    attributes:
+      label: Goal
+      description: >-
+        Which platform consumer gains which capability or guarantee, in one or
+        two sentences — for example "A contributor gets the same test result on
+        macOS as CI does on Linux." Name the consumer (a contributor, a
+        maintainer, CI, the release pipeline, or a downstream tool such as
+        `ai-outfitter/actions`); state the outcome, not a task list. If people
+        running `outfitter` would see the change, use the capability or bug
+        form.
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: What does it touch?
+      options:
+        - CI and checks
+        - Release and npm publishing
+        - Container images
+        - Development scripts and local setup
+        - Contributor docs and conventions
+        - Something else
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: What is the limitation or failure today?
+      description: >-
+        The affected workflows, scripts, or environments, with links to failing
+        runs or logs. Never paste a credential here.
+    validations:
+      required: true
