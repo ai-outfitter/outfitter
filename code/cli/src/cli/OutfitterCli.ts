@@ -7,6 +7,7 @@ import { createDumpCommand } from './commands/DumpCommand.js';
 import { createLinkCommand } from './commands/LinkCommand.js';
 import { createListCommand } from './commands/ListCommand.js';
 import { createRunAgentCommand } from './commands/RunAgentCommand.js';
+import { createSelfHostedCommand } from './commands/SelfHostedCommand.js';
 import { createSetupCommand } from './commands/SetupCommand.js';
 import { createSourcesCommand } from './commands/SourcesCommand.js';
 import { createSyncCommand } from './commands/SyncCommand.js';
@@ -15,6 +16,7 @@ import { createValidateCommand } from './commands/ValidateCommand.js';
 export const createDefaultCommands = (): CommandObject[] => [
   createRunAgentCommand(),
   createSetupCommand(),
+  createSelfHostedCommand(),
   createSyncCommand(),
   createSourcesCommand(),
   createListCommand(),

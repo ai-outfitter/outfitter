@@ -54,6 +54,16 @@ Outfitter version; setup fetches or reuses that release through the normal sourc
 the same GitHub/ref pair to settings. It never reads a sibling checkout or a packaged catalog
 fallback.
 
+## `outfitter self-hosted <detect|doctor|plan|apply|handoff>`
+
+Detect and plan DGX Spark or Apple Silicon inference without installing services. `detect`,
+`doctor`, `plan`, and `handoff` are read-only and bypass telemetry initialization. `apply --config
+<path>` is the only persistence boundary and writes reviewed, schema-valid YAML; it explicitly
+reports that no service was installed. `handoff --config <path>` derives and prints the
+machine-readable descriptor from validated YAML without persisting another artifact.
+See [Self-hosted inference setup](./self-hosted-setup.md) for the schema, safe workflow, and
+implemented/proposed boundary.
+
 ## `outfitter sync`
 
 Synchronize remote sources and remote settings into the local cache. Sync validates local settings,

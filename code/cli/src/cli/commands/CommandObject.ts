@@ -6,3 +6,12 @@ export interface CommandObject {
   readonly description: string;
   register(program: Command): void;
 }
+
+const readOnlyCommands = new WeakSet<Command>();
+
+export const markCommandReadOnly = <T extends Command>(command: T): T => {
+  readOnlyCommands.add(command);
+  return command;
+};
+
+export const isCommandReadOnly = (command: Command): boolean => readOnlyCommands.has(command);
