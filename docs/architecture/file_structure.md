@@ -16,6 +16,8 @@ Outfitter is organized around a private npm workspace root, clear TypeScript pac
 ├── .deepwork/                         # DeepWork schemas and generated review instruction scratch files
 │   └── schemas/                       # project-specific DeepSchema definitions
 ├── .github/                           # GitHub automation configuration
+│   ├── ISSUE_TEMPLATE/                # goal-first issue forms: capability, bug, and platform ticket
+│   ├── pull_request_template.md       # goal-first pull request template
 │   └── workflows/                     # GitHub Actions workflows and local .deepreview rules
 ├── .outfitter/                        # Outfitter's own project configuration
 │   └── skills/outfitter/              # bundled self-documentation skill published into launches

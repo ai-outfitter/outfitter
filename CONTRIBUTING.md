@@ -230,6 +230,12 @@ Both commands run the coverage suite.
 Coverage thresholds are intentionally set to 100% for statements, branches, functions, and lines.
 Coverage includes all `code/cli/src/**/*.ts` files through the CLI workspace Vitest configuration, so new source files need tests even if they are only scaffolding.
 
+## Issues and pull requests
+
+Open an issue with the matching [issue form](.github/ISSUE_TEMPLATE/): a new capability or change, something broken, or a platform ticket for contributor, CI, release, or container work.
+Open pull requests with the [pull request template](.github/pull_request_template.md).
+Read the source issue, including its Goal, before implementing.
+
 ## Commit and release workflow
 
 Use Conventional Commits for every commit and PR title that will be squash-merged.

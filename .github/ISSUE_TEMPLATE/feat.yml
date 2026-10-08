@@ -6,6 +6,18 @@ description: >-
 title: 'feat: '
 labels: ['enhancement']
 body:
+  - type: textarea
+    id: goal
+    attributes:
+      label: Goal
+      description: >-
+        Which kind of user gains which outcome, in one or two sentences — for
+        example "A profile author can share one MCP server definition across
+        pi and Claude Code." Name the user type (a pi user, a profile author,
+        a catalog maintainer); state the outcome, not a task list. Contributor,
+        CI, or release work belongs in a Platform ticket.
+    validations:
+      required: true
   - type: dropdown
     id: area
     attributes:
@@ -34,8 +46,8 @@ body:
     attributes:
       label: What should it do?
       description: >-
-        The behaviour you want, in a few sentences. Include the command shape
-        if you have one in mind.
+        The behaviour that would reach the goal, in a few sentences. Include
+        the command shape if you have one in mind.
     validations:
       required: true
   - type: input

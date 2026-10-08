@@ -5,6 +5,17 @@ description: >-
 title: 'fix: '
 labels: ['bug']
 body:
+  - type: textarea
+    id: goal
+    attributes:
+      label: Goal
+      description: >-
+        Who hits this and what they should be able to do again, in one
+        sentence — for example "A Claude Code user can launch a profile that
+        declares MCP servers." Name the user type you know; you count. Do not
+        invent one.
+    validations:
+      required: true
   - type: dropdown
     id: area
     attributes:
