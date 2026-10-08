@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.17.0](https://github.com/ai-outfitter/outfitter/compare/v1.16.2...v1.17.0) (2026-10-08)
+
+
+### Features
+
+* add self-hosted setup planning and endpoint handoff ([#433](https://github.com/ai-outfitter/outfitter/issues/433)) ([6aa0f83](https://github.com/ai-outfitter/outfitter/commit/6aa0f831f717a5f69cd655a587269e890a2f8345))
+
 ## [1.16.2](https://github.com/ai-outfitter/outfitter/compare/v1.16.1...v1.16.2) (2026-09-09)
 
 
