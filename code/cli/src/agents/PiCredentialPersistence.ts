@@ -7,6 +7,7 @@
 // before launch and copy any changes back afterward.
 import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { createHash } from 'node:crypto';
 
 /** pi's persistent agent directory (`~/.pi/agent`), the durable home for credentials. */
 export const resolvePiUserAgentDirectory = (homeDirectory: string): string => join(homeDirectory, '.pi', 'agent');
@@ -32,14 +33,18 @@ export interface PiAuthBaseline {
 type AuthFile = Record<string, unknown>;
 
 /** A key-order-independent identity for an auth entry, including its absence. */
-const identity = (entry: unknown): string | undefined =>
+export const piAuthIdentity = (entry: unknown): string | undefined =>
   entry === undefined
     ? undefined
-    : JSON.stringify(entry, (_key, value: unknown) =>
-        value !== null && typeof value === 'object' && !Array.isArray(value)
-          ? Object.fromEntries(Object.entries(value).sort(([a], [b]) => a.localeCompare(b)))
-          : value,
-      );
+    : createHash('sha256')
+        .update(
+          JSON.stringify(entry, (_key, value: unknown) =>
+            value !== null && typeof value === 'object' && !Array.isArray(value)
+              ? Object.fromEntries(Object.entries(value).sort(([a], [b]) => a.localeCompare(b)))
+              : value,
+          ),
+        )
+        .digest('hex');
 
 const parseAuth = (text: string | undefined): AuthFile | undefined => {
   try {
@@ -63,13 +68,14 @@ export const seedPiCredentials = (projectionRoot: string, piUserAgentDirectory: 
   const seeded = readFileSync(source, 'utf8');
   mkdirSync(projectionRoot, { recursive: true });
   writeFileSync(join(projectionRoot, 'auth.json'), seeded, { mode: 0o600 });
-  return { hosted: identity(parseAuth(seeded)?.[rotatingProvider]) };
+  return { hosted: piAuthIdentity(parseAuth(seeded)?.[rotatingProvider]) };
 };
 
 /**
  * Writes the run's auth.json back under Pi's lock. Other providers are the run's, as before. The
  * Outfitter entry is the run's only if the durable one is still what the run was seeded with;
- * otherwise another run rotated, signed in or signed out meanwhile, and that state is kept,
+ * or a credential records the digest it observed during login/refresh. Otherwise another run
+ * rotated, signed in or signed out meanwhile, and that state is kept,
  * including its absence. Byte-for-byte when the run's entry is kept. Without a baseline the run is
  * treated as seeded with no Outfitter credential. Pi's lock is loaded only here, so CLI startup
  * does not load the Pi runtime.
@@ -87,9 +93,15 @@ export const persistPiAuth = async (
   await new FileAuthStorageBackend(join(piUserAgentDirectory, 'auth.json')).withLockAsync((current) => {
     const durable = parseAuth(current);
     if (session === undefined || durable === undefined) return Promise.resolve({ result: undefined, next: text });
-    const externallyChanged = identity(durable[rotatingProvider]) !== baseline.hosted;
+    const copied = session[rotatingProvider];
+    const observed =
+      copied !== null && typeof copied === 'object'
+        ? (copied as Record<string, unknown>).outfitterWritebackBaseline
+        : undefined;
+    const expected = observed === null ? undefined : typeof observed === 'string' ? observed : baseline.hosted;
+    const externallyChanged = piAuthIdentity(durable[rotatingProvider]) !== expected;
     const kept = externallyChanged ? durable[rotatingProvider] : session[rotatingProvider];
-    if (identity(kept) === identity(session[rotatingProvider]))
+    if (piAuthIdentity(kept) === piAuthIdentity(session[rotatingProvider]))
       return Promise.resolve({ result: undefined, next: text });
     const merged: AuthFile = { ...session };
     delete merged[rotatingProvider];

@@ -2,7 +2,14 @@ import { join } from 'node:path';
 import { AuthStorage, ModelRegistry } from '@earendil-works/pi-coding-agent';
 import { resolvePiUserAgentDirectory } from '../agents/PiCredentialPersistence.js';
 import { hostedSettings } from './ExperimentalProvider.js';
-import { HOSTED_PROVIDER, durableRefresh, forgetDurable, revokeAll } from './DurableCredentials.js';
+import {
+  HOSTED_PROVIDER,
+  durableRefresh,
+  forgetDurable,
+  revokeAll,
+  durableCredential,
+  durableLoginBaseline,
+} from './DurableCredentials.js';
 import { HostedClient } from './HostedClient.js';
 import type { Credentials, HostedIdentity, HostedOAuth, ProviderConfig } from './HostedClient.js';
 
@@ -30,13 +37,21 @@ export class HostedSession {
       oauth: {
         ...oauth,
         login: async (callbacks) => {
-          this.auth.reload();
-          const previous = this.auth.get(HOSTED_PROVIDER);
-          if (previous?.type === 'oauth' && previous.pendingRevocation === true) await this.logout();
-          return oauth.login(callbacks);
+          const baseline = await this.prepareLogin();
+          const credentials = await oauth.login(callbacks);
+          return baseline === undefined ? credentials : { ...credentials, outfitterWritebackBaseline: baseline };
         },
       },
     };
+  }
+  private async prepareLogin(): Promise<string | null | undefined> {
+    this.auth.reload();
+    const previous = this.auth.get(HOSTED_PROVIDER);
+    const durable = this.durablePath === undefined ? undefined : durableCredential(this.client, this.durablePath);
+    if (durable?.pendingRevocation === true) this.auth.set(HOSTED_PROVIDER, { type: 'oauth', ...durable });
+    if ((previous?.type === 'oauth' && previous.pendingRevocation === true) || durable?.pendingRevocation === true)
+      await this.logout();
+    return this.durablePath === undefined ? undefined : durableLoginBaseline(this.durablePath);
   }
   async access(): Promise<string> {
     this.auth.reload();

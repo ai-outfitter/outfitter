@@ -1,4 +1,5 @@
 import { FileAuthStorageBackend } from '@earendil-works/pi-coding-agent';
+import { piAuthIdentity } from '../agents/PiCredentialPersistence.js';
 import type { Credentials, HostedClient } from './HostedClient.js';
 
 export const HOSTED_PROVIDER = 'outfitter';
@@ -13,6 +14,12 @@ const credential = (stored: Stored): Credentials => {
   delete rest.type;
   return rest as Credentials;
 };
+
+/** Snapshot any origin's durable entry before an explicit login can replace it. */
+export const durableLoginBaseline = (authPath: string): string | null =>
+  new FileAuthStorageBackend(authPath).withLock((current) => ({
+    result: piAuthIdentity(parse(current)[HOSTED_PROVIDER]) ?? null,
+  }));
 
 /**
  * Outfitter runs Pi with a per-run copy of auth.json, so concurrent sessions
@@ -30,12 +37,14 @@ export const durableRefresh =
       const usable = stored?.type === 'oauth' && stored.origin === client.origin;
       if (usable && stored.pendingRevocation === true)
         throw new Error('Outfitter logout is pending. Run outfitter logout to retry.');
-      if (usable && stored.refresh !== credentials.refresh && stored.expires > Date.now())
-        return { result: credential(stored) };
+      if (usable && stored.refresh !== credentials.refresh && stored.expires > Date.now()) {
+        return { result: { ...credential(stored), outfitterWritebackBaseline: piAuthIdentity(stored) } };
+      }
       const next = await client.refreshToken(usable ? credential(stored) : credentials);
+      const storedNext = { type: 'oauth', ...next };
       return {
-        result: next,
-        next: JSON.stringify({ ...data, [HOSTED_PROVIDER]: { type: 'oauth', ...next } }, null, 2),
+        result: { ...next, outfitterWritebackBaseline: piAuthIdentity(storedNext) },
+        next: JSON.stringify({ ...data, [HOSTED_PROVIDER]: storedNext }, null, 2),
       };
     });
 

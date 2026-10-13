@@ -1,5 +1,5 @@
 import { projectComposition } from '../../src/projection/ProjectHarness.js';
-import { mkdtempSync, rmSync, mkdirSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, rmSync, mkdirSync, writeFileSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -10,6 +10,7 @@ import { HostedSession, createHostedSession } from '../../src/hosted/HostedSessi
 import { createHostedCommand } from '../../src/cli/commands/HostedCommand.js';
 import { experimentalProviderEnabled, hostedSettings } from '../../src/hosted/ExperimentalProvider.js';
 import { loadSettings } from '../../src/settings/SettingsLoader.js';
+import { seedPiCredentials, persistPiAuth } from '../../src/agents/PiCredentialPersistence.js';
 
 const identity = { sub: 'user-1', name: 'Owner', email: 'owner@example.com' };
 const credentials = {
@@ -28,6 +29,7 @@ const home = () => {
 afterEach(() => {
   dirs.splice(0).forEach((path) => rmSync(path, { recursive: true, force: true }));
   vi.restoreAllMocks();
+  vi.unstubAllEnvs();
 });
 const fixture = (responses: Response[] = []) => {
   const fetch = vi.fn<typeof globalThis.fetch>().mockImplementation(() => Promise.resolve(responses.shift()!));
@@ -35,6 +37,26 @@ const fixture = (responses: Response[] = []) => {
   const client = new HostedClient({ fetch });
   return { session: new HostedSession(client, auth), fetch, auth, client };
 };
+const copiedFixture = (responses: Response[], initial: typeof credentials | undefined = credentials) => {
+  const path = home();
+  const durableDirectory = join(path, 'durable');
+  const runDirectory = join(path, 'run');
+  mkdirSync(durableDirectory);
+  const durablePath = join(durableDirectory, 'auth.json');
+  writeFileSync(durablePath, JSON.stringify({ outfitter: initial }));
+  const baseline = seedPiCredentials(runDirectory, durableDirectory);
+  const fetch = vi.fn<typeof globalThis.fetch>().mockImplementation(() => Promise.resolve(responses.shift()!));
+  const client = new HostedClient({ fetch });
+  const auth = AuthStorage.create(join(runDirectory, 'auth.json'));
+  const session = new HostedSession(client, auth, durablePath);
+  return { client, auth, session, fetch, durablePath, durableDirectory, runDirectory, baseline };
+};
+const deviceCallbacks = () => ({
+  onAuth: vi.fn(),
+  onDeviceCode: vi.fn(),
+  onPrompt: vi.fn(),
+  onSelect: vi.fn().mockResolvedValue('device-code'),
+});
 
 describe('internal inference opt-in and durable authorization', () => {
   it('defaults off and only loads schema-valid home settings', () => {
@@ -76,6 +98,42 @@ describe('internal inference opt-in and durable authorization', () => {
     expect(await next.access()).toBe('access');
     expect(next.auth.get('openai')).toEqual({ type: 'api_key', key: 'existing' });
   });
+  it('keeps an in-session re-login after refresh and exit while preserving other providers', async () => {
+    const path = home();
+    const durableDirectory = join(path, 'durable');
+    const runDirectory = join(path, 'run');
+    mkdirSync(durableDirectory);
+    const durablePath = join(durableDirectory, 'auth.json');
+    const byok = { type: 'api_key', key: 'existing' };
+    writeFileSync(durablePath, JSON.stringify({ outfitter: { ...credentials, expires: 0 }, openai: byok }));
+    const baseline = seedPiCredentials(runDirectory, durableDirectory);
+    const responses = [
+      Response.json({ access_token: 'rotated', refresh_token: 'rotated-r', expires_in: 900 }),
+      Response.json(identity),
+    ];
+    const client = new HostedClient({
+      fetch: vi.fn<typeof globalThis.fetch>().mockImplementation(() => Promise.resolve(responses.shift()!)),
+    });
+    const session = new HostedSession(client, AuthStorage.create(join(runDirectory, 'auth.json')), durablePath);
+    expect(await session.access()).toBe('rotated');
+    const relogin = { ...credentials, access: 'relogin', refresh: 'relogin-r' };
+    vi.spyOn(client, 'login').mockResolvedValue(relogin);
+    await session.login({
+      onAuth: vi.fn(),
+      onDeviceCode: vi.fn(),
+      onPrompt: vi.fn(),
+      onSelect: vi.fn().mockResolvedValue('device-code'),
+    });
+    const beforeExit = JSON.parse(readFileSync(durablePath, 'utf8')) as { outfitter: typeof relogin };
+    expect(beforeExit.outfitter.access).toBe('rotated');
+    await persistPiAuth(runDirectory, durableDirectory, baseline);
+    const persisted = JSON.parse(readFileSync(durablePath, 'utf8')) as {
+      outfitter: typeof relogin;
+      openai: typeof byok;
+    };
+    expect(persisted.outfitter.refresh).toBe('relogin-r');
+    expect(persisted.openai).toEqual(byok);
+  });
   it('refreshes expired access using native Pi and reports missing credentials', async () => {
     const { session, auth } = fixture([
       Response.json({ access_token: 'new', refresh_token: 'new-r', expires_in: 900 }),
@@ -87,6 +145,41 @@ describe('internal inference opt-in and durable authorization', () => {
     auth.logout('outfitter');
     await expect(session.access()).rejects.toThrow('login first');
     await expect(session.logout()).rejects.toThrow('login first');
+  });
+  it('preserves a concurrent deletion after first login and refresh when the initial durable entry was absent', async () => {
+    const copied = copiedFixture(
+      [
+        Response.json(identity),
+        Response.json({ access_token: 'rotated', refresh_token: 'rotated-r', expires_in: 900 }),
+      ],
+      undefined,
+    );
+    // Explicitly start with an absent entry (the fixture default also supports existing logins).
+    AuthStorage.create(copied.durablePath).logout('outfitter');
+    copied.auth.logout('outfitter');
+    const baseline = seedPiCredentials(copied.runDirectory, copied.durableDirectory);
+    vi.spyOn(copied.client, 'login').mockResolvedValue(credentials);
+    await copied.session.login(deviceCallbacks());
+    const loggedIn = copied.auth.get('outfitter');
+    expect(loggedIn?.type).toBe('oauth');
+    copied.auth.set('outfitter', { ...credentials, expires: 0 });
+    expect(await copied.session.access()).toBe('rotated');
+    AuthStorage.create(copied.durablePath).logout('outfitter');
+    await persistPiAuth(copied.runDirectory, copied.durableDirectory, baseline);
+    expect(AuthStorage.create(copied.durablePath).get('outfitter')).toBeUndefined();
+  });
+  it('finishes a durable pending logout before a copied session can issue and persist a new login', async () => {
+    const copied = copiedFixture([new Response(null, { status: 200 }), Response.json(identity)]);
+    AuthStorage.create(copied.durablePath).set('outfitter', { ...credentials, pendingRevocation: true });
+    const login = vi.spyOn(copied.client, 'login').mockImplementation(() => {
+      expect(AuthStorage.create(copied.durablePath).get('outfitter')).toBeUndefined();
+      return Promise.resolve({ ...credentials, access: 'relogin', refresh: 'relogin-r' });
+    });
+    await copied.session.login(deviceCallbacks());
+    expect(login).toHaveBeenCalledOnce();
+    expect(copied.fetch.mock.calls[0][0]).toContain('/api/oauth/revoke');
+    await persistPiAuth(copied.runDirectory, copied.durableDirectory, copied.baseline);
+    expect(AuthStorage.create(copied.durablePath).get('outfitter')).toMatchObject({ access: 'relogin' });
   });
   it('revokes expired access without refresh and preserves other providers', async () => {
     const { session, auth, fetch } = fixture([new Response(null, { status: 200 })]);
