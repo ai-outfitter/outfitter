@@ -33,6 +33,7 @@ interface Device {
 }
 export interface HostedClientOptions {
   origin?: string;
+  scope?: string;
   fetch?: typeof globalThis.fetch;
   now?: () => number;
   sleep?: (ms: number, signal?: AbortSignal) => Promise<void>;
@@ -83,12 +84,14 @@ const oauthError = async (response: Response): Promise<string | undefined> => {
 
 export class HostedClient {
   readonly origin: string;
+  readonly scope: string;
   private readonly fetcher: typeof globalThis.fetch;
   private readonly now: () => number;
   private readonly openBrowser: (url: string) => Promise<boolean>;
   private readonly sleep: (ms: number, signal?: AbortSignal) => Promise<void>;
   constructor(options: HostedClientOptions = {}) {
     this.origin = hostedOrigin(options.origin);
+    this.scope = options.scope ?? SCOPE;
     this.fetcher = options.fetch ?? globalThis.fetch;
     this.now = options.now ?? Date.now;
     this.openBrowser = options.openBrowser ?? openBrowser;
@@ -183,7 +186,7 @@ export class HostedClient {
   ): Promise<Credentials> {
     const response = await this.request(
       '/api/oauth/device/code',
-      { client_id: CLIENT_ID, scope: SCOPE },
+      { client_id: CLIENT_ID, scope: this.scope },
       undefined,
       callbacks.signal,
     );

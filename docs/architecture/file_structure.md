@@ -43,8 +43,8 @@ Outfitter is organized around a private npm workspace root, clear TypeScript pac
 │   │   ├── src/                       # production TypeScript source
 │   │   │   ├── cli.ts                 # executable CLI entry point
 │   │   │   ├── cli/                   # CLI parser construction and command objects
-│   │   │   │   └── commands/          # run, setup, sync, list, validate, dump, and link command objects
-│   │   │   ├── hosted/                # experimental Outfitter inference provider: RFC 8628 browser/device login, durable Pi credential rotation, OS browser opener
+│   │   │   │   └── commands/          # run, setup, sync, list, validate, dump, link, and scoped workspace command objects
+│   │   │   ├── hosted/                # experimental Outfitter inference provider: RFC 8628 browser/device login, durable Pi credential rotation, OS browser opener; WorkspaceClient authenticates workspace operations and WorkspaceBridge carries outbound callbacks and terminal traffic
 │   │   │   ├── settings/              # settings loading and merging
 │   │   │   ├── telemetry/             # consent, pseudonymous state, allowlisted events, and PostHog boundary
 │   │   │   ├── setup/                 # onboarding state + pinned default-catalog bootstrap
