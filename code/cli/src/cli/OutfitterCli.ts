@@ -1,5 +1,6 @@
 // Assembles the top-level Outfitter Commander program from command objects.
 import { Command } from 'commander';
+import { createHostedCommand } from './commands/HostedCommand.js';
 
 import { readOutfitterVersion } from '../version/OutfitterVersion.js';
 import type { CommandObject } from './commands/CommandObject.js';
@@ -23,6 +24,7 @@ export const createDefaultCommands = (): CommandObject[] => [
   createValidateCommand(),
   createDumpCommand(),
   createLinkCommand(),
+  createHostedCommand(),
 ];
 
 export const createOutfitterProgram = (commands: readonly CommandObject[] = createDefaultCommands()): Command => {

@@ -1,6 +1,7 @@
 // Projects a harness-neutral CompositionPlan to a native pi, Claude Code, or Codex CLI launch.
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { PI_SESSION_DIRECTORY_ENV } from '../agents/PiSessionDirectory.js';
 import type { CompositionPlan } from '../composer/Composition.js';
 import type { Harness, Isolation, SettingsValue } from '../settings/Settings.js';
@@ -208,6 +209,11 @@ const declareClaudePlugin = (composition: CompositionPlan, input: ProjectionInpu
   writeClaudePluginManifest(input.rootDirectory, input.profileSlug ?? 'outfitter', composition.identity.label);
 };
 
+const hostedProviderArgs = (isPi: boolean): readonly string[] =>
+  isPi && process.env.OUTFITTER_HOSTED_INFERENCE === '1'
+    ? ['--extension', fileURLToPath(new URL('../hosted/PiProvider.js', import.meta.url))]
+    : [];
+
 const buildPiOrClaudeLaunchPlan = (
   composition: CompositionPlan,
   input: ProjectionInput,
@@ -231,6 +237,7 @@ const buildPiOrClaudeLaunchPlan = (
       ...promptArgs(composition, input, materialized.systemPromptPath, appendPromptPaths),
       ...skillArgs,
       ...extensionArgs,
+      ...hostedProviderArgs(isPi),
       ...model.args,
       ...thinkingArg(composition, input.harness),
       ...(isPi ? [] : claudeArgs(input.rootDirectory, isolation, settingsPath)),

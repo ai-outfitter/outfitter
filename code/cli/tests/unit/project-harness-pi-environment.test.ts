@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { CompositionPlan } from '../../src/composer/Composition.js';
 import { projectComposition } from '../../src/projection/ProjectHarness.js';
@@ -14,6 +14,7 @@ const root = (): string => {
   return dir;
 };
 afterEach(() => {
+  vi.unstubAllEnvs();
   for (const dir of roots.splice(0)) rmSync(dir, { recursive: true, force: true });
 });
 
@@ -48,4 +49,13 @@ describe('projectComposition Pi environment', () => {
 
     expect(projection.launch.env.PI_MCP_CONFIG_MODE).toBeUndefined();
   });
+});
+
+it('loads the bundled hosted provider only for opted-in Pi launches', () => {
+  vi.stubEnv('OUTFITTER_HOSTED_INFERENCE', '1');
+  for (const harness of ['pi', 'claude'] as const) {
+    const dir = root();
+    const launch = projectComposition(plan, { harness, rootDirectory: dir, homeDirectory: dir }).launch;
+    expect(launch.args.some((value) => value.endsWith('/hosted/PiProvider.js'))).toBe(harness === 'pi');
+  }
 });
