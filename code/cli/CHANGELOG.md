@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.18.0](https://github.com/ai-outfitter/outfitter/compare/v1.17.0...v1.18.0) (2026-10-13)
+
+
+### Features
+
+* **cli:** connect to Outfitter inference with OAuth device login ([#438](https://github.com/ai-outfitter/outfitter/issues/438)) ([41b2bb2](https://github.com/ai-outfitter/outfitter/commit/41b2bb2242f607006afb5388268602af0626dd27))
+
 ## [1.17.0](https://github.com/ai-outfitter/outfitter/compare/v1.16.2...v1.17.0) (2026-10-08)
 
 
