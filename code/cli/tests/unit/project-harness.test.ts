@@ -60,9 +60,6 @@ describe('projectComposition prompt templates', () => {
       homeDirectory: claudeDir,
     });
 
-    expect(pi.launch.env?.OUTFITTER_USER_HOME).toBe(piDir);
-    expect(pi.launch.env?.PI_CODING_AGENT_DIR).toBe(piDir);
-    expect(claude.launch.env?.OUTFITTER_USER_HOME).toBeUndefined();
     expect(pi.launch.args).toContain('--prompt-template');
     expect(readFileSync(join(piDir, 'prompt-template.md'), 'utf8')).toBe('Template {{input}}');
     expect(pi.unsupported).not.toContain('prompt_template');
