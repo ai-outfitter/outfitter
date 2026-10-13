@@ -5,7 +5,7 @@ import { experimentalProviderEnabled, providerOptInMessage } from '../../hosted/
 import type { HostedSession } from '../../hosted/HostedSession.js';
 
 export interface HostedCommandDependencies {
-  session?: () => HostedSession | Promise<HostedSession>;
+  session?: (scope?: string) => HostedSession | Promise<HostedSession>;
   enabled?: () => boolean;
   writeLine?: (line: string) => void;
 }
@@ -17,19 +17,20 @@ export const createHostedCommand = (dependencies: HostedCommandDependencies = {}
     const enabled = dependencies.enabled ?? (() => experimentalProviderEnabled(resolveHomeDirectory()));
     const session =
       dependencies.session ??
-      (async () => {
+      (async (scope?: string) => {
         const { createHostedSession } = await import('../../hosted/HostedSession.js');
-        return createHostedSession(resolveHomeDirectory());
+        return createHostedSession(resolveHomeDirectory(), scope);
       });
     const write = dependencies.writeLine ?? console.log;
     program.addCommand(
       new Command('login')
         .description('Sign in to Outfitter inference with your browser.')
+        .option('--workspaces', 'Also request permission to manage remote workspaces.')
         .option('--device-code', 'Use a device code without opening a browser.')
-        .action(async (options: { deviceCode?: boolean }) => {
+        .action(async (options: { deviceCode?: boolean; workspaces?: boolean }) => {
           if (!enabled()) throw new Error(providerOptInMessage);
           const identity = await (
-            await session()
+            await session(options.workspaces ? 'inference workspaces' : undefined)
           ).login({
             onDeviceCode: ({ verificationUri, userCode }) => write(`Open ${verificationUri} and enter ${userCode}`),
             onAuth: ({ url, instructions }) => write(`Open ${url}${instructions ? `\n${instructions}` : ''}`),

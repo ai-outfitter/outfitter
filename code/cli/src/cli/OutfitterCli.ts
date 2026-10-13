@@ -1,3 +1,4 @@
+import { createWorkspaceCommand } from './commands/WorkspaceCommand.js';
 // Assembles the top-level Outfitter Commander program from command objects.
 import { Command } from 'commander';
 
@@ -17,6 +18,7 @@ import { createValidateCommand } from './commands/ValidateCommand.js';
 export const createDefaultCommands = (): CommandObject[] => [
   createRunAgentCommand(),
   createHostedCommand(),
+  createWorkspaceCommand(),
   createSetupCommand(),
   createSelfHostedCommand(),
   createSyncCommand(),

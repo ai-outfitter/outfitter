@@ -154,8 +154,8 @@ export class HostedSession {
   }
 }
 
-export const createHostedSession = (homeDirectory: string): HostedSession =>
+export const createHostedSession = (homeDirectory: string, scope?: string): HostedSession =>
   new HostedSession(
-    new HostedClient({ origin: hostedSettings(homeDirectory).origin }),
+    new HostedClient({ origin: hostedSettings(homeDirectory).origin, scope }),
     AuthStorage.create(join(resolvePiUserAgentDirectory(homeDirectory), 'auth.json')),
   );
