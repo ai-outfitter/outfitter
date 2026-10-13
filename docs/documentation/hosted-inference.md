@@ -143,3 +143,8 @@ For example, a desktop application can configure its own `.agents/settings.yml`
 and `.agents/agents/desktop/agent.md` under that directory, then invoke the published
 `outfitter login` and `outfitter run desktop --harness pi -- --mode rpc` commands.
 No source imports or development wrapper are required.
+
+The package pins its tested bundled Pi SDK version. Pi 0.80.10 removed the
+credential-locking exports used by this provider, so allowing automatic patch
+updates would break fresh npm installations even when source-checkout tests pass.
+The packaged smoke test also initializes the actual hosted-authentication command.

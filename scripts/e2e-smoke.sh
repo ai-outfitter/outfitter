@@ -112,6 +112,18 @@ esac
 log 'list agents OK'
 
 # `outfitter validate` exercises the full resolve → validate path on the artifact.
+# Load the actual hosted-auth SDK from the installed dependency graph. A bin
+# version/help probe and an opt-out Pi launch do not exercise these imports.
+log 'Checking installed hosted authentication SDK while signed out'
+if logout_output="$(run_outfitter logout 2>&1)"; then
+  fail 'logout unexpectedly succeeded without a device session'
+fi
+case "$logout_output" in
+  *'Run outfitter login first.'*) ;;
+  *) fail "installed hosted authentication failed to initialize: $logout_output" ;;
+esac
+log 'installed hosted authentication SDK OK'
+
 log 'Checking `outfitter validate`'
 validate_output="$(run_outfitter validate 2>&1)" || fail "outfitter validate reported problems: $validate_output"
 case "$validate_output" in
