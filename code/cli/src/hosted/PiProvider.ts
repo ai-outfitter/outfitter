@@ -1,7 +1,7 @@
-import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { AuthStorage } from '@earendil-works/pi-coding-agent';
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
+import { resolveHomeDirectory } from '../cli/commands/ProcessDefaults.js';
 import { resolvePiUserAgentDirectory } from '../agents/PiCredentialPersistence.js';
 import { installPiLogout } from './PiLogout.js';
 import { HostedClient } from './HostedClient.js';
@@ -12,10 +12,11 @@ import type { Credentials, ProviderConfig } from './HostedClient.js';
 
 /** Bundled extension; opt-in until the hosted service is released. Never selects a model for the user. */
 export default async function outfitterProvider(pi: ExtensionAPI): Promise<void> {
-  const { enabled, origin } = hostedSettings(homedir());
+  const homeDirectory = resolveHomeDirectory();
+  const { enabled, origin } = hostedSettings(homeDirectory);
   const client = new HostedClient({ origin });
-  const durablePath = join(resolvePiUserAgentDirectory(homedir()), 'auth.json');
-  const authPath = join(process.env.PI_CODING_AGENT_DIR ?? resolvePiUserAgentDirectory(homedir()), 'auth.json');
+  const durablePath = join(resolvePiUserAgentDirectory(homeDirectory), 'auth.json');
+  const authPath = join(process.env.PI_CODING_AGENT_DIR ?? resolvePiUserAgentDirectory(homeDirectory), 'auth.json');
   // Outfitter runs Pi on a per-run copy; refreshes then go through the durable file.
   const durable = resolve(authPath) === resolve(durablePath) ? undefined : durablePath;
   const auth = AuthStorage.create(authPath);

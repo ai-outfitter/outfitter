@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -35,6 +35,34 @@ const credential = {
 };
 
 describe('bundled native Pi provider', () => {
+  it('uses isolated settings and durable credentials while leaving the operating-system home alone', async () => {
+    const isolated = join(home, 'isolated');
+    mkdirSync(join(isolated, '.agents'), { recursive: true });
+    writeFileSync(join(isolated, '.agents', 'settings.yml'), 'experimental:\n  outfitter_provider: true\n');
+    vi.stubEnv('OUTFITTER_USER_HOME', isolated);
+    const ambient = AuthStorage.create(join(home, '.pi', 'agent', 'auth.json'));
+    ambient.set('outfitter', { ...credential, access: 'ambient', refresh: 'ambient-r' });
+    const durable = AuthStorage.create(join(isolated, '.pi', 'agent', 'auth.json'));
+    durable.set('outfitter', { ...credential, access: 'isolated', refresh: 'isolated-r' });
+    const copy = AuthStorage.create(join(home, 'session', 'auth.json'));
+    copy.set('outfitter', { ...credential, expires: 0 });
+    const fetch = vi.fn<typeof globalThis.fetch>().mockResolvedValue(Response.json({ data: [model] }));
+    vi.stubGlobal('fetch', fetch);
+    let logout: Parameters<ExtensionAPI['registerCommand']>[1] | undefined;
+    await outfitterProvider({
+      registerProvider: vi.fn(),
+      on: vi.fn(),
+      registerCommand: (name: string, command: typeof logout) => {
+        if (name === 'outfitter-logout') logout = command;
+      },
+    } as unknown as ExtensionAPI);
+    expect(fetch.mock.calls[0][1]?.headers).toMatchObject({ Authorization: 'Bearer isolated' });
+    fetch.mockResolvedValue(new Response(null, { status: 200 }));
+    await logout!.handler('', { ui: { notify: vi.fn() } } as unknown as ExtensionCommandContext);
+    expect(AuthStorage.create(join(isolated, '.pi', 'agent', 'auth.json')).get('outfitter')).toBeUndefined();
+    expect(AuthStorage.create(join(home, 'session', 'auth.json')).get('outfitter')).toBeUndefined();
+    expect(ambient.get('outfitter')).toMatchObject({ access: 'ambient', refresh: 'ambient-r' });
+  });
   it('does not register or contact services until enabled', async () => {
     settings(false);
     const registerProvider = vi.fn();

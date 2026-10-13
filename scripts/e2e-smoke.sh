@@ -72,7 +72,7 @@ project_dir="$work_dir/project"
 mkdir -p "$project_dir"
 
 run_outfitter() {
-  HOME="$fixture_home" "$outfitter_bin" "$@"
+  OUTFITTER_USER_HOME="$fixture_home" "$outfitter_bin" "$@"
 }
 
 log 'Checking `outfitter --version` (cold start)'

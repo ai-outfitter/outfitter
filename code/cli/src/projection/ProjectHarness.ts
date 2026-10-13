@@ -266,6 +266,7 @@ const buildPiOrClaudeLaunchPlan = (
     env: isPi
       ? {
           PI_CODING_AGENT_DIR: input.rootDirectory,
+          OUTFITTER_USER_HOME: input.homeDirectory,
           ...(input.sessionDirectory === undefined ? {} : { [PI_SESSION_DIRECTORY_ENV]: input.sessionDirectory }),
           ...model.env,
           PI_MCP_CONFIG_MODE: 'exclusive',

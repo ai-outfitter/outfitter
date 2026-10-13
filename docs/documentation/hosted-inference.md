@@ -129,3 +129,17 @@ OAuth requests are form-encoded (`application/x-www-form-urlencoded`), as RFC
 redirects. The verification URL must be on the configured origin.
 
 [RFC 8628]: https://www.rfc-editor.org/rfc/rfc8628
+
+## Isolated application state
+
+Set `OUTFITTER_USER_HOME` to an absolute application-owned directory to keep
+Outfitter settings, agents, and Pi credentials separate from the operating-system
+home. Both `outfitter login` and `outfitter run` use this directory, and launched
+Pi providers refresh and revoke credentials in the same durable location. Explicit
+home-directory command dependencies take precedence. When the variable is absent
+or empty, the usual OS home directory is used.
+
+For example, a desktop application can configure its own `.agents/settings.yml`
+and `.agents/agents/desktop/agent.md` under that directory, then invoke the published
+`outfitter login` and `outfitter run desktop --harness pi -- --mode rpc` commands.
+No source imports or development wrapper are required.
