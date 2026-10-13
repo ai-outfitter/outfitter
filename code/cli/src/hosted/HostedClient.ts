@@ -101,16 +101,22 @@ export class HostedClient {
   get baseUrl(): string {
     return `${this.origin}/api/inference/v1`;
   }
-  private async request(path: string, body?: unknown, access?: string, signal?: AbortSignal): Promise<Response> {
+  /** POST bodies are form-encoded, as RFC 8628, RFC 6749 and RFC 7009 require. */
+  private async request(
+    path: string,
+    body?: Record<string, string>,
+    access?: string,
+    signal?: AbortSignal,
+  ): Promise<Response> {
     const timeout = AbortSignal.timeout(15_000);
     return this.fetcher(`${this.origin}${path}`, {
       method: body === undefined ? 'GET' : 'POST',
       headers: {
         Accept: 'application/json',
-        ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
+        ...(body === undefined ? {} : { 'Content-Type': 'application/x-www-form-urlencoded' }),
         ...(access === undefined ? {} : { Authorization: `Bearer ${access}` }),
       },
-      body: body === undefined ? undefined : JSON.stringify(body),
+      body: body === undefined ? undefined : new URLSearchParams(body).toString(),
       redirect: 'error',
       signal: signal === undefined ? timeout : AbortSignal.any([timeout, signal]),
     });

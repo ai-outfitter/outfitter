@@ -19,8 +19,10 @@ const callbacks = (): Parameters<HostedOAuth['login']>[0] => ({
 });
 const response = (data: unknown, status = 200) => new Response(JSON.stringify(data), { status });
 const model = { id: 'GLM-5.3-Flash-EXL3', name: 'GLM', context_length: 900000, max_output_tokens: 32768 };
-const body = (call: Parameters<typeof globalThis.fetch>) =>
-  JSON.parse(call[1]?.body as string) as Record<string, string>;
+const body = (call: Parameters<typeof globalThis.fetch>) => {
+  expect(new Headers(call[1]?.headers).get('content-type')).toBe('application/x-www-form-urlencoded');
+  return Object.fromEntries(new URLSearchParams(call[1]?.body as string));
+};
 
 const fixture = (responses: Response[], origin?: string) => {
   let time = 0;
@@ -76,7 +78,7 @@ describe('hosted authentication boundary', () => {
       device_code: 'private-code',
       client_id: CLIENT_ID,
     });
-    expect(fetch.mock.calls[1][1]?.headers).toMatchObject({ 'Content-Type': 'application/json' });
+    expect(fetch.mock.calls[1][1]?.headers).toMatchObject({ 'Content-Type': 'application/x-www-form-urlencoded' });
     expect(cb.onDeviceCode).toHaveBeenCalledWith({
       userCode: 'BCDF-GHJK',
       verificationUri: `${ORIGIN}/device`,

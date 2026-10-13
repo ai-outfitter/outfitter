@@ -48,17 +48,30 @@ used again. A sign-in lasts 30 days.
 
 Outfitter runs each Pi session with its own copy of `auth.json`. So that
 concurrent sessions never reuse a replaced refresh token, every Outfitter
-refresh goes through `~/.pi/agent/auth.json` under Pi's file lock, and a
-session that exits with an older copy does not overwrite a newer rotation.
+refresh goes through `~/.pi/agent/auth.json` under Pi's file lock. When a
+session exits, its copy is written back under the same lock. The Outfitter
+credential is written back only if the durable one is still the credential
+the session started with. If another session rotated it, signed in or signed
+out meanwhile, that state is kept, so an exiting session cannot restore a
+replaced token or undo a logout. Other providers are written back from the
+session as before.
 
 ## Sign out
 
-`outfitter logout` or `/outfitter-logout` in Pi revokes the session on the
-server, then removes the local credentials. Pi's native `/logout` also starts
-revocation; wait for **Outfitter session revoked**. If revocation fails, the
-credentials stay, marked pending, and revocation is retried at the next session
-start. You can also sign a CLI out from the web app under **Inference →
-Signed-in CLIs**.
+`outfitter logout` or `/outfitter-logout` in Pi waits for the server to revoke
+the session, then removes the local credentials; use one of these when you
+need to know the sign-out finished.
+
+Pi's native `/logout` is synchronous and returns before the server answers.
+Outfitter marks the credential pending revocation in `~/.pi/agent/auth.json`,
+under Pi's lock, before `/logout` returns, then revokes in the background. Pi
+shows **Outfitter sign-out pending** at once, then **Outfitter session
+revoked** or a failure; Pi's own logout message does not mean the server has
+revoked anything. If Pi exits first, or revocation fails, the credential stays
+marked, is not used, and revocation is retried at the next session start.
+Revoking any refresh token the session was issued ends the whole session on
+the server, including rotations another session made since. You can also sign
+a CLI out from the web app under **Inference → Signed-in CLIs**.
 
 Setting `outfitter_provider` to `false` hides the provider but does not revoke
 credentials; `outfitter logout` still works. Server-side checks still apply;
@@ -111,7 +124,8 @@ endpoints.
 | `GET /api/oauth/userinfo`     | The signed-in account.                                                                                                                    |
 | `/api/inference/v1`           | OpenAI-compatible `models` and `chat/completions`, with streaming and tool calls.                                                         |
 
-Requests are JSON and never follow redirects. The verification URL must be on
-the configured origin.
+OAuth requests are form-encoded (`application/x-www-form-urlencoded`), as RFC
+8628, RFC 6749 and RFC 7009 require; responses are JSON. No request follows
+redirects. The verification URL must be on the configured origin.
 
 [RFC 8628]: https://www.rfc-editor.org/rfc/rfc8628

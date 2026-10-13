@@ -43,7 +43,7 @@ describe('Outfitter browser login', () => {
     expect(callbacks.onAuth).toHaveBeenCalledWith(expect.objectContaining({ url: open.mock.calls[0][0] }));
     expect(callbacks.onDeviceCode).not.toHaveBeenCalled();
     expect(open.mock.calls[0][0]).not.toContain('private-device-secret');
-    expect((JSON.parse(fetch.mock.calls[1][1]?.body as string) as { device_code: string }).device_code).toBe(
+    expect(new URLSearchParams(fetch.mock.calls[1][1]?.body as string).get('device_code')).toBe(
       'private-device-secret',
     );
   });

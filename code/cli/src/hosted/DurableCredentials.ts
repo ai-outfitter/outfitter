@@ -46,6 +46,23 @@ export const durableCredential = (client: HostedClient, authPath: string): Crede
     return { result: stored?.type === 'oauth' && stored.origin === client.origin ? credential(stored) : undefined };
   });
 
+/**
+ * Record a pending revocation in the durable file before Pi's synchronous logout returns, so a run
+ * that exits before the server answers is retried at the next start. The durable entry for this
+ * origin is marked even when another run has rotated it since, because `revokeAll` revokes that
+ * copy too; an entry for another origin is left alone. A missing entry is restored, marked.
+ */
+export const markPendingRevocation = (authPath: string, local: Credentials): void => {
+  new FileAuthStorageBackend(authPath).withLock((current) => {
+    const data = parse(current);
+    const stored = data[HOSTED_PROVIDER];
+    if (stored !== undefined && (stored.type !== 'oauth' || stored.origin !== local.origin))
+      return { result: undefined };
+    const pending = { type: 'oauth', ...(stored ?? local), pendingRevocation: true };
+    return { result: undefined, next: JSON.stringify({ ...data, [HOSTED_PROVIDER]: pending }, null, 2) };
+  });
+};
+
 /** Remove the durable credential if it belongs to one of the revoked sessions. */
 export const forgetDurable = (authPath: string, revoked: readonly Credentials[]): void => {
   new FileAuthStorageBackend(authPath).withLock((current) => {
