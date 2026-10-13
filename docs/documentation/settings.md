@@ -82,6 +82,7 @@ harness_defaults:
   accesses the network.
   below its `repos/` directory.
 - `telemetry.enabled` — the primary and sole persistent control for pseudonymous product analytics. Edit it directly to enable or disable telemetry. See [Telemetry](./telemetry.md) for consent precedence, automatic identifier cleanup, the event contract, and the current inert-build status.
+- `experimental.outfitter_provider`, `experimental.outfitter_origin` — home settings only: enable experimental [Outfitter inference](./hosted-inference.md) and, for testing, point it at another trusted web-app origin.
 - `agent_defaults` — additive loadout entries composed into **every** agent ahead of its own loadout; see [Agent defaults](#agent-defaults) below.
 - `harness_defaults` — native Pi, Claude Code, or Codex settings applied to every run of that harness; see [Harness defaults](#harness-defaults) below.
 

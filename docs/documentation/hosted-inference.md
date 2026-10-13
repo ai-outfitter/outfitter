@@ -1,22 +1,117 @@
-# Internal Outfitter inference
+# Outfitter inference
 
-Internal users can try one DGX Spark model through the website beta gateway. This is experimental, disabled by default, and requires an operator-approved GitHub account. Billing and workspace selection are not required.
+Sign in to your Outfitter account from the CLI and use Outfitter's personal
+inference in Pi. Sign-in uses the OAuth 2.0 device authorization grant
+([RFC 8628]): the CLI shows a code, you approve it in a browser signed in to
+Outfitter, and the CLI receives short-lived credentials. No API key or
+provider secret is copied to your machine. This is experimental, disabled by
+default, and limited to personal inference: no organization selection or
+billing.
 
-Enable it in your home `~/.agents/settings.yml`:
+## Enable
+
+In your home `~/.agents/settings.yml`:
 
 ```yaml
 experimental:
   outfitter_provider: true
 ```
 
-Project settings and remote catalogs cannot enable it. There is no environment-variable override. The gateway is fixed to `https://beta.ai-outfitter.com`; credentials are scoped to that origin.
+Project settings and remote catalogs cannot enable it or change where it
+connects. There is no environment-variable override. Your BYOK providers and
+model selection are unchanged; no model is selected for you.
 
-Run `outfitter login` to open your default browser automatically. Sign in with GitHub and approve the CLI; the code is already filled in. The CLI finishes automatically after approval. If the browser cannot open, use the printed URL. For SSH or a headless terminal, use `outfitter login --device-code` to print a code without opening a browser. Alternatively, launch Pi through Outfitter, use `/login`, choose **Outfitter**, then choose **Open browser** or **Device code**. Both modes use the same device-approval protocol and credential store; the browser mode needs no localhost callback server. After approval, choose `outfitter/spark/glm-5.3-flash` from Pi's model selector. Existing model selections and BYOK providers are preserved; no model is selected automatically.
+## Sign in
 
-Credentials use Pi's native auth store at `~/.pi/agent/auth.json`. Outfitter's existing credential persistence seeds newly generated Pi sessions and copies changes back when the session exits. Tokens never belong in catalogs or project settings. Close an active Pi session before switching accounts from another terminal.
+In Pi launched through Outfitter, run `/login`, choose **Outfitter**, then
+**Open browser** or **Device code**. Or, from a terminal:
 
-Use `outfitter logout` or `/outfitter-logout` inside Pi to revoke the device session remotely and remove its local credentials. Pi's native `/logout` also starts remote revocation. Because Pi's native logout API is synchronous, its initial status can precede the remote result; wait for **Outfitter session revoked**. A failed revocation retains a pending marker and retries at the next session start. Use `/outfitter-logout` for an explicitly awaited result. If revocation fails, credentials remain locally so it can be retried.
+```sh
+outfitter login               # opens your browser at the code
+outfitter login --device-code # prints a URL and code (SSH, headless)
+```
 
-Set the option to `false` or remove it and restart to hide the provider. Disabling it does not revoke credentials; explicit `outfitter logout` remains available even when disabled. Requests and discovery are still authorized server-side; opting in does not grant access.
+The browser page shows the code, the account you are signed in as, and what
+the CLI may do. Approve only a code your terminal shows. The CLI finishes on
+its own once you approve; Deny ends the request. Then choose the Outfitter
+model from Pi's model selector.
 
-The experimental provider supports OpenAI-compatible streaming and tool calls through Spark. It does not add paid usage, OpenRouter, direct OpenAI/Anthropic routing, organization selection, or telemetry.
+Both paths use the same protocol and credential store.
+
+## Credentials and sessions
+
+Credentials live in Pi's auth store, `~/.pi/agent/auth.json`, scoped to the
+origin that issued them; a credential from another origin is never sent. Access
+tokens last 15 minutes and refresh automatically. Every refresh rotates the
+refresh token, and the server ends the session if a replaced refresh token is
+used again. A sign-in lasts 30 days.
+
+Outfitter runs each Pi session with its own copy of `auth.json`. So that
+concurrent sessions never reuse a replaced refresh token, every Outfitter
+refresh goes through `~/.pi/agent/auth.json` under Pi's file lock, and a
+session that exits with an older copy does not overwrite a newer rotation.
+
+## Sign out
+
+`outfitter logout` or `/outfitter-logout` in Pi revokes the session on the
+server, then removes the local credentials. Pi's native `/logout` also starts
+revocation; wait for **Outfitter session revoked**. If revocation fails, the
+credentials stay, marked pending, and revocation is retried at the next session
+start. You can also sign a CLI out from the web app under **Inference →
+Signed-in CLIs**.
+
+Setting `outfitter_provider` to `false` hides the provider but does not revoke
+credentials; `outfitter logout` still works. Server-side checks still apply;
+opting in does not grant access.
+
+## Test against a local or preview web app
+
+`experimental.outfitter_origin` points sign-in and inference at another
+Outfitter web app. It must be an HTTPS origin, or HTTP on `localhost`,
+`127.0.0.1` or `[::1]`, with no path. It defaults to
+`https://ai-outfitter.com`. Like the opt-in, only home settings can set it.
+Credentials stay bound to the origin that issued them, so switching origins
+needs a new `outfitter login`.
+
+```yaml
+experimental:
+  outfitter_provider: true
+  outfitter_origin: http://localhost:4390
+```
+
+To test an unreleased build without replacing your `outfitter` command, install
+this checkout as `outfitter-dev`, and use a temporary home so your real Pi
+credentials and settings stay untouched:
+
+```sh
+bin/dev-install-outfitter-dev --force
+export HOME="$(mktemp -d)"
+mkdir -p "$HOME/.agents"
+printf 'experimental:\n  outfitter_provider: true\n  outfitter_origin: http://localhost:4390\n' > "$HOME/.agents/settings.yml"
+outfitter-dev setup
+outfitter-dev login --device-code
+outfitter-dev run --profile default -- --model outfitter/GLM-5.3-Flash-EXL3
+outfitter-dev logout
+```
+
+The model id is the web app's `AI_MODEL`; `/model` in Pi lists it once you are
+signed in. Run the web app locally as its `docs/cli-device-authorization.md`
+describes.
+Pull-request previews are behind Cloudflare Access, which a desktop CLI cannot
+pass, so test the CLI against a local web app until previews allow the OAuth
+endpoints.
+
+## Protocol
+
+| Endpoint                      | Use                                                                                                                                       |
+| ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `POST /api/oauth/device/code` | Start sign-in (`client_id: outfitter-cli`, `scope: inference`).                                                                           |
+| `POST /api/oauth/token`       | Poll the device code; refresh. RFC 6749 errors (`authorization_pending`, `slow_down`, `access_denied`, `expired_token`, `invalid_grant`). |
+| `POST /api/oauth/revoke`      | RFC 7009 revocation of the whole session.                                                                                                 |
+| `GET /api/oauth/userinfo`     | The signed-in account.                                                                                                                    |
+| `/api/inference/v1`           | OpenAI-compatible `models` and `chat/completions`, with streaming and tool calls.                                                         |
+
+Requests are JSON and never follow redirects. The verification URL must be on
+the configured origin.
+
+[RFC 8628]: https://www.rfc-editor.org/rfc/rfc8628

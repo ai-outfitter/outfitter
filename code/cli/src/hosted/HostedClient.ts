@@ -5,15 +5,18 @@ import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 export type ProviderConfig = Parameters<ExtensionAPI['registerProvider']>[1];
 export type HostedOAuth = NonNullable<ProviderConfig['oauth']>;
 export type Credentials = Awaited<ReturnType<HostedOAuth['login']>>;
+/** OpenID Connect UserInfo claim names from `/api/oauth/userinfo`. */
 export interface HostedIdentity {
-  user: { id: string; login: string; name?: string; email?: string };
+  sub: string;
+  name?: string;
+  email?: string;
 }
+/** `/api/inference/v1/models` entries; metadata fields are optional for older servers. */
 export interface HostedModel {
   id: string;
-  name: string;
-  context_length: number;
-  max_output_tokens: number;
-  pricing?: { prompt: string; completion: string };
+  name?: string;
+  context_length?: number;
+  max_output_tokens?: number;
 }
 interface Tokens {
   access_token: string;
@@ -24,6 +27,7 @@ interface Device {
   device_code: string;
   user_code: string;
   verification_uri: string;
+  verification_uri_complete?: string;
   expires_in: number;
   interval: number;
 }
@@ -35,7 +39,16 @@ export interface HostedClientOptions {
   openBrowser?: (url: string) => Promise<boolean>;
 }
 
-export const hostedOrigin = (value = 'https://beta.ai-outfitter.com'): string => {
+/** The webapp's canonical origin; `app.ai-outfitter.com` only redirects here. */
+export const DEFAULT_HOSTED_ORIGIN = 'https://ai-outfitter.com';
+/** The webapp's public OAuth client for this CLI (RFC 8628 device authorization grant). */
+export const CLIENT_ID = 'outfitter-cli';
+export const SCOPE = 'inference';
+const DEVICE_GRANT = 'urn:ietf:params:oauth:grant-type:device_code';
+const DEFAULT_CONTEXT_WINDOW = 128_000;
+const DEFAULT_MAX_TOKENS = 32_768;
+
+export const hostedOrigin = (value = DEFAULT_HOSTED_ORIGIN): string => {
   const url = new URL(value);
   const local = ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname);
   if (
@@ -54,12 +67,18 @@ const validateDevice = (device: Device): void => {
   if (
     !device.device_code ||
     !device.user_code ||
+    !device.verification_uri ||
     !Number.isFinite(device.expires_in) ||
     device.expires_in <= 0 ||
     !Number.isFinite(device.interval) ||
     device.interval <= 0
   )
     throw new Error('Invalid Outfitter device response.');
+};
+
+const oauthError = async (response: Response): Promise<string | undefined> => {
+  const body = (await response.json().catch(() => undefined)) as { error?: unknown } | undefined;
+  return typeof body?.error === 'string' ? body.error : undefined;
 };
 
 export class HostedClient {
@@ -79,18 +98,16 @@ export class HostedClient {
         await setTimeout(ms, undefined, { signal });
       });
   }
-  private async request(
-    path: string,
-    body?: unknown,
-    access?: string,
-    method?: string,
-    signal?: AbortSignal,
-  ): Promise<Response> {
+  get baseUrl(): string {
+    return `${this.origin}/api/inference/v1`;
+  }
+  private async request(path: string, body?: unknown, access?: string, signal?: AbortSignal): Promise<Response> {
     const timeout = AbortSignal.timeout(15_000);
     return this.fetcher(`${this.origin}${path}`, {
-      method: method ?? (body === undefined ? 'GET' : 'POST'),
+      method: body === undefined ? 'GET' : 'POST',
       headers: {
-        'Content-Type': 'application/json',
+        Accept: 'application/json',
+        ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
         ...(access === undefined ? {} : { Authorization: `Bearer ${access}` }),
       },
       body: body === undefined ? undefined : JSON.stringify(body),
@@ -98,10 +115,10 @@ export class HostedClient {
       signal: signal === undefined ? timeout : AbortSignal.any([timeout, signal]),
     });
   }
-  async api<T>(path: string, access: string, body?: unknown, method?: string): Promise<T> {
-    const response = await this.request(path, body, access, method);
+  async api<T>(path: string, access: string): Promise<T> {
+    const response = await this.request(path, undefined, access);
     if (!response.ok) throw new Error(`Outfitter request failed (${response.status}).`);
-    return (response.status === 204 ? undefined : await response.json()) as T;
+    return (await response.json()) as T;
   }
   private tokens(tokens: Tokens): Credentials {
     if (!tokens.access_token || !tokens.refresh_token || !Number.isFinite(tokens.expires_in) || tokens.expires_in <= 0)
@@ -117,19 +134,26 @@ export class HostedClient {
     if (credentials.origin !== this.origin)
       throw new Error('Outfitter credentials belong to another origin. Log in again.');
   }
+  private verificationURL(value: string, device: Device): URL {
+    const verification = new URL(value);
+    if (verification.origin !== this.origin || verification.username || verification.password)
+      throw new Error('Unexpected Outfitter verification origin.');
+    if (!verification.searchParams.has('user_code')) verification.searchParams.set('user_code', device.user_code);
+    return verification;
+  }
   private async showApproval(
     device: Device,
     callbacks: Parameters<HostedOAuth['login']>[0],
     method: 'browser' | 'device-code',
   ): Promise<void> {
-    const verification = new URL(device.verification_uri);
-    if (verification.origin !== this.origin || verification.username || verification.password)
+    const plain = new URL(device.verification_uri);
+    if (plain.origin !== this.origin || plain.username || plain.password)
       throw new Error('Unexpected Outfitter verification origin.');
     if (method === 'browser') {
-      verification.searchParams.set('user_code', device.user_code);
+      const verification = this.verificationURL(device.verification_uri_complete ?? device.verification_uri, device);
       callbacks.onAuth({
         url: verification.href,
-        instructions: 'Approve this CLI in your browser. No code entry is needed.',
+        instructions: `Confirm the code ${device.user_code} in your browser, then approve.`,
       });
       const opened = await this.openBrowser(verification.href).catch(() => false);
       callbacks.onProgress?.(
@@ -140,17 +164,23 @@ export class HostedClient {
     } else {
       callbacks.onDeviceCode({
         userCode: device.user_code,
-        verificationUri: verification.href,
+        verificationUri: plain.href,
         intervalSeconds: device.interval,
         expiresInSeconds: device.expires_in,
       });
     }
   }
+  /** RFC 8628: request a device code, show it, then poll until approval, denial or expiry. */
   async login(
     callbacks: Parameters<HostedOAuth['login']>[0],
     method: 'browser' | 'device-code' = 'device-code',
   ): Promise<Credentials> {
-    const response = await this.request('/api/cli/device', {}, undefined, undefined, callbacks.signal);
+    const response = await this.request(
+      '/api/oauth/device/code',
+      { client_id: CLIENT_ID, scope: SCOPE },
+      undefined,
+      callbacks.signal,
+    );
     if (!response.ok) throw new Error(`Outfitter sign-in unavailable (${response.status}).`);
     const device = (await response.json()) as Device;
     validateDevice(device);
@@ -161,30 +191,47 @@ export class HostedClient {
       await this.sleep(interval, callbacks.signal);
       if (this.now() >= deadline) break;
       const polled = await this.request(
-        '/api/cli/token',
-        { grant_type: 'urn:ietf:params:oauth:grant-type:device_code', device_code: device.device_code },
-        undefined,
+        '/api/oauth/token',
+        { grant_type: DEVICE_GRANT, device_code: device.device_code, client_id: CLIENT_ID },
         undefined,
         callbacks.signal,
       );
       if (polled.ok) return this.tokens((await polled.json()) as Tokens);
-      const error = (await polled.json()) as { error: string };
-      if (error.error === 'slow_down') interval += 5000;
-      else if (error.error !== 'authorization_pending')
-        throw new Error('Outfitter sign-in denied or expired. Start login again.');
+      const error = await oauthError(polled);
+      if (error === 'slow_down') interval += 5000;
+      else if (error === 'access_denied') throw new Error('Outfitter sign-in was denied in the browser.');
+      else if (error !== 'authorization_pending') throw new Error('Outfitter sign-in expired. Start login again.');
     }
     throw new Error('Outfitter sign-in expired. Start login again.');
   }
+  /** Rotates both tokens; the server revokes the session if a replaced refresh token is reused. */
   async refreshToken(credentials: Credentials): Promise<Credentials> {
     this.assertOrigin(credentials);
-    const response = await this.request('/api/cli/token', {
+    const response = await this.request('/api/oauth/token', {
       grant_type: 'refresh_token',
       refresh_token: credentials.refresh,
+      client_id: CLIENT_ID,
     });
-    if (!response.ok) throw new Error('Outfitter session expired. Run outfitter login.');
+    if (!response.ok) throw new Error('Outfitter session expired or was revoked. Run outfitter login.');
     return this.tokens((await response.json()) as Tokens);
   }
-  oauth(afterLogin?: (credentials: Credentials) => Promise<void>): HostedOAuth {
+  /** RFC 7009: revoking either token ends the device session on the server. */
+  async revoke(credentials: Credentials): Promise<void> {
+    this.assertOrigin(credentials);
+    const response = await this.request('/api/oauth/revoke', {
+      token: credentials.refresh,
+      token_type_hint: 'refresh_token',
+      client_id: CLIENT_ID,
+    });
+    if (!response.ok) throw new Error(`Outfitter logout failed (${response.status}).`);
+  }
+  identity(access: string): Promise<HostedIdentity> {
+    return this.api<HostedIdentity>('/api/oauth/userinfo', access);
+  }
+  oauth(
+    afterLogin?: (credentials: Credentials) => Promise<void>,
+    refresh: (credentials: Credentials) => Promise<Credentials> = (credentials) => this.refreshToken(credentials),
+  ): HostedOAuth {
     return {
       name: 'Outfitter',
       login: async (callbacks) => {
@@ -200,7 +247,7 @@ export class HostedClient {
         await afterLogin?.(credentials);
         return credentials;
       },
-      refreshToken: (credentials) => this.refreshToken(credentials),
+      refreshToken: refresh,
       getApiKey: (credentials) => {
         this.assertOrigin(credentials);
         return credentials.access;
@@ -208,20 +255,16 @@ export class HostedClient {
     };
   }
   async models(access: string): Promise<NonNullable<ProviderConfig['models']>> {
-    const result = await this.api<{ data: HostedModel[] }>('/v1/models', access);
+    const result = await this.api<{ data: HostedModel[] }>('/api/inference/v1/models', access);
     return result.data.map((model) => ({
       id: model.id,
-      name: model.name,
+      name: model.name ?? model.id,
       reasoning: false,
       input: ['text'],
-      cost: {
-        input: Number(model.pricing?.prompt ?? 0) * 1e6,
-        output: Number(model.pricing?.completion ?? 0) * 1e6,
-        cacheRead: 0,
-        cacheWrite: 0,
-      },
-      contextWindow: model.context_length,
-      maxTokens: model.max_output_tokens,
+      // Personal Outfitter inference is not billed per token.
+      cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+      contextWindow: model.context_length ?? DEFAULT_CONTEXT_WINDOW,
+      maxTokens: model.max_output_tokens ?? DEFAULT_MAX_TOKENS,
       compat: {
         supportsStore: false,
         supportsDeveloperRole: false,
@@ -234,13 +277,14 @@ export class HostedClient {
   provider(
     models: ProviderConfig['models'] = [],
     afterLogin?: (credentials: Credentials) => Promise<void>,
+    refresh?: (credentials: Credentials) => Promise<Credentials>,
   ): ProviderConfig {
     return {
       name: 'Outfitter',
-      baseUrl: `${this.origin}/v1`,
+      baseUrl: this.baseUrl,
       api: 'openai-completions',
       models,
-      oauth: this.oauth(afterLogin),
+      oauth: this.oauth(afterLogin, refresh),
     };
   }
 }

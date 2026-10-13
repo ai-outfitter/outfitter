@@ -104,6 +104,6 @@ it('runs the actual Pi streaming adapter against gateway text and tool-call SSE'
   expect(result.content).toContainEqual(
     expect.objectContaining({ type: 'toolCall', name: 'lookup', arguments: { id: 42 } }),
   );
-  expect(fetch.mock.calls[0][0]).toBe('https://beta.ai-outfitter.com/v1/chat/completions');
+  expect(fetch.mock.calls[0][0]).toBe('https://ai-outfitter.com/api/inference/v1/chat/completions');
   expect(new Headers(fetch.mock.calls[0][1]?.headers).get('authorization')).toBe('Bearer outfitter-session-token');
 });

@@ -8,16 +8,16 @@ import { Command } from 'commander';
 import { HostedClient } from '../../src/hosted/HostedClient.js';
 import { HostedSession, createHostedSession } from '../../src/hosted/HostedSession.js';
 import { createHostedCommand } from '../../src/cli/commands/HostedCommand.js';
-import { experimentalProviderEnabled } from '../../src/hosted/ExperimentalProvider.js';
+import { experimentalProviderEnabled, hostedSettings } from '../../src/hosted/ExperimentalProvider.js';
 import { loadSettings } from '../../src/settings/SettingsLoader.js';
 
-const identity = { user: { id: 'github:1', login: 'owner' } };
+const identity = { sub: 'user-1', name: 'Owner', email: 'owner@example.com' };
 const credentials = {
   type: 'oauth' as const,
   access: 'access',
   refresh: 'refresh',
   expires: Date.now() + 60000,
-  origin: 'https://beta.ai-outfitter.com',
+  origin: 'https://ai-outfitter.com',
 };
 const dirs: string[] = [];
 const home = () => {
@@ -51,6 +51,22 @@ describe('internal inference opt-in and durable authorization', () => {
     writeFileSync(file, 'experimental:\n  outfitter_provider: wrong\n');
     expect(() => experimentalProviderEnabled(path)).toThrow();
   });
+  it('reads a trusted origin from home settings only and keeps it across home files', () => {
+    const path = home();
+    expect(hostedSettings(path)).toEqual({ enabled: false, origin: 'https://ai-outfitter.com' });
+    mkdirSync(join(path, '.agents'));
+    const file = join(path, '.agents/settings.yml');
+    writeFileSync(file, 'experimental:\n  outfitter_origin: http://localhost:4390\n');
+    writeFileSync(join(path, '.agents/settings.local.yml'), 'experimental:\n  outfitter_provider: true\n');
+    expect(hostedSettings(path)).toEqual({ enabled: true, origin: 'http://localhost:4390' });
+    for (const scope of ['project', 'project-local', 'remote'] as const)
+      expect(loadSettings({ locations: [{ scope, path: file }] }).settings.experimental).toBeUndefined();
+    expect(createHostedSession(path).client.origin).toBe('http://localhost:4390');
+    writeFileSync(file, 'experimental:\n  outfitter_origin: http://example.com\n');
+    expect(() => hostedSettings(path)).toThrow('HTTPS');
+    writeFileSync(file, 'experimental:\n  outfitter_origin: ftp://example.com\n');
+    expect(() => hostedSettings(path)).toThrow();
+  });
   it('reuses durable Pi credentials across launches without touching BYOK', async () => {
     const path = home();
     const first = createHostedSession(path);
@@ -67,17 +83,17 @@ describe('internal inference opt-in and durable authorization', () => {
     auth.set('outfitter', { ...credentials, expires: 0 });
     expect(await session.access()).toBe('new');
     vi.spyOn(auth, 'getApiKey').mockResolvedValue(undefined);
-    await expect(session.access()).rejects.toThrow('login again');
+    await expect(session.access()).rejects.toThrow('expired or was revoked');
     auth.logout('outfitter');
     await expect(session.access()).rejects.toThrow('login first');
     await expect(session.logout()).rejects.toThrow('login first');
   });
   it('revokes expired access without refresh and preserves other providers', async () => {
-    const { session, auth, fetch } = fixture([new Response(null, { status: 204 })]);
+    const { session, auth, fetch } = fixture([new Response(null, { status: 200 })]);
     auth.set('outfitter', { ...credentials, expires: 0 });
     await session.logout();
     expect(fetch).toHaveBeenCalledTimes(1);
-    expect(fetch.mock.calls[0][0]).toBe('https://beta.ai-outfitter.com/api/cli/logout');
+    expect(fetch.mock.calls[0][0]).toBe('https://ai-outfitter.com/api/oauth/revoke');
     expect(auth.get('outfitter')).toBeUndefined();
     expect(auth.get('anthropic')).toEqual({ type: 'api_key', key: 'byok' });
   });
@@ -101,8 +117,9 @@ describe('internal inference opt-in and durable authorization', () => {
       }),
     ).toEqual(identity);
     const login = vi.spyOn(session, 'login').mockImplementation(async (callbacks) => {
-      callbacks.onDeviceCode({ verificationUri: 'https://beta.ai-outfitter.com/device', userCode: 'ABC' });
-      callbacks.onAuth({ url: 'https://beta.ai-outfitter.com/device' });
+      callbacks.onDeviceCode({ verificationUri: 'https://ai-outfitter.com/device', userCode: 'ABC' });
+      callbacks.onAuth({ url: 'https://ai-outfitter.com/device' });
+      callbacks.onAuth({ url: 'https://ai-outfitter.com/device?user_code=ABC', instructions: 'Confirm ABC' });
       await expect(callbacks.onPrompt({ message: '?' })).rejects.toThrow('browser');
       expect(await callbacks.onSelect({ message: '?', options: [] })).toBe('browser');
       callbacks.onProgress?.('Waiting for approval');
@@ -121,12 +138,19 @@ describe('internal inference opt-in and durable authorization', () => {
     enabled = true;
     await program.parseAsync(['login'], { from: 'user' });
     expect(login).toHaveBeenCalledOnce();
-    expect(writeLine).toHaveBeenCalledWith('Signed in to Outfitter internal beta as owner.');
+    expect(writeLine).toHaveBeenCalledWith('Open https://ai-outfitter.com/device?user_code=ABC\nConfirm ABC');
+    expect(writeLine).toHaveBeenCalledWith('Signed in to Outfitter as owner@example.com.');
+    login.mockResolvedValueOnce({ sub: 'user-1', name: 'Owner' });
+    await program.parseAsync(['login'], { from: 'user' });
+    expect(writeLine).toHaveBeenCalledWith('Signed in to Outfitter as Owner.');
+    login.mockResolvedValueOnce({ sub: 'user-1' });
+    await program.parseAsync(['login'], { from: 'user' });
+    expect(writeLine).toHaveBeenCalledWith('Signed in to Outfitter as user-1.');
   });
 });
 
 it('blocks pending revocations and retries before replacing credentials at login', async () => {
-  const { session, auth, client } = fixture([new Response(null, { status: 204 }), Response.json(identity)]);
+  const { session, auth, client } = fixture([new Response(null, { status: 200 }), Response.json(identity)]);
   auth.set('outfitter', { ...credentials, pendingRevocation: true });
   await expect(session.access()).rejects.toThrow('logout is pending');
   vi.spyOn(client, 'login').mockResolvedValue(credentials);

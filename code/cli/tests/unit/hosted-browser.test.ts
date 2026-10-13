@@ -14,8 +14,9 @@ const fixture = (method: string | undefined = 'browser') => {
     .mockResolvedValueOnce(
       Response.json({
         device_code: 'private-device-secret',
-        user_code: 'ABC123',
-        verification_uri: 'https://beta.ai-outfitter.com/internal/authorize',
+        user_code: 'BCDF-GHJK',
+        verification_uri: 'https://ai-outfitter.com/device',
+        verification_uri_complete: 'https://ai-outfitter.com/device?user_code=BCDF-GHJK',
         expires_in: 600,
         interval: 5,
       }),
@@ -37,7 +38,8 @@ describe('Outfitter browser login', () => {
   it('opens a prefilled approved-origin URL and finishes using the shared token exchange', async () => {
     const { client, callbacks, fetch, open } = fixture();
     expect(await client.oauth().login(callbacks)).toMatchObject({ access: 'access', origin: client.origin });
-    expect(open).toHaveBeenCalledWith('https://beta.ai-outfitter.com/internal/authorize?user_code=ABC123');
+    expect(open).toHaveBeenCalledWith('https://ai-outfitter.com/device?user_code=BCDF-GHJK');
+    expect(vi.mocked(callbacks.onAuth).mock.calls[0][0].instructions).toContain('BCDF-GHJK');
     expect(callbacks.onAuth).toHaveBeenCalledWith(expect.objectContaining({ url: open.mock.calls[0][0] }));
     expect(callbacks.onDeviceCode).not.toHaveBeenCalled();
     expect(open.mock.calls[0][0]).not.toContain('private-device-secret');
@@ -58,7 +60,9 @@ describe('Outfitter browser login', () => {
     await client.oauth().login(callbacks);
     expect(open).not.toHaveBeenCalled();
     expect(callbacks.onAuth).not.toHaveBeenCalled();
-    expect(callbacks.onDeviceCode).toHaveBeenCalledWith(expect.objectContaining({ userCode: 'ABC123' }));
+    expect(callbacks.onDeviceCode).toHaveBeenCalledWith(
+      expect.objectContaining({ userCode: 'BCDF-GHJK', verificationUri: 'https://ai-outfitter.com/device' }),
+    );
   });
   it('cancels selection before creating a device or launching a browser', async () => {
     const { client, callbacks, fetch, open } = fixture('cancel');
@@ -72,7 +76,7 @@ describe('Outfitter browser login', () => {
       Response.json({
         device_code: 's',
         user_code: 'ABC',
-        verification_uri: 'https://user:secret@beta.ai-outfitter.com/internal/authorize',
+        verification_uri: 'https://user:secret@ai-outfitter.com/device',
         expires_in: 600,
         interval: 5,
       }),
@@ -80,6 +84,41 @@ describe('Outfitter browser login', () => {
     await expect(client.oauth().login(callbacks)).rejects.toThrow('Unexpected');
     expect(open).not.toHaveBeenCalled();
   });
+  it('adds the code itself when the server sends no complete verification URI', async () => {
+    const { client, callbacks, fetch, open } = fixture();
+    fetch
+      .mockReset()
+      .mockResolvedValueOnce(
+        Response.json({
+          device_code: 's',
+          user_code: 'BCDF-GHJK',
+          verification_uri: 'https://ai-outfitter.com/device',
+          expires_in: 600,
+          interval: 5,
+        }),
+      )
+      .mockResolvedValueOnce(Response.json({ access_token: 'a', refresh_token: 'r', expires_in: 900 }));
+    await client.oauth().login(callbacks);
+    expect(open).toHaveBeenCalledWith('https://ai-outfitter.com/device?user_code=BCDF-GHJK');
+  });
+  it.each(['https://attacker.example/device?user_code=X', 'https://u:p@ai-outfitter.com/device?user_code=X'])(
+    'refuses a complete verification URI on another origin or with credentials (%s)',
+    async (complete) => {
+      const { client, callbacks, fetch, open } = fixture();
+      fetch.mockReset().mockResolvedValueOnce(
+        Response.json({
+          device_code: 's',
+          user_code: 'X',
+          verification_uri: 'https://ai-outfitter.com/device',
+          verification_uri_complete: complete,
+          expires_in: 600,
+          interval: 5,
+        }),
+      );
+      await expect(client.oauth().login(callbacks)).rejects.toThrow('Unexpected');
+      expect(open).not.toHaveBeenCalled();
+    },
+  );
 });
 
 const launcher = () => {
@@ -127,7 +166,7 @@ it.each([
   const session = {
     login: async (callbacks: Parameters<HostedOAuth['login']>[0]) => {
       selected.push(await callbacks.onSelect({ message: 'method', options: [] }));
-      return { user: { id: 'github:1', login: 'alice' } };
+      return { sub: 'u1', email: 'alice@example.com' };
     },
   } as unknown as HostedSession;
   const program = new Command();

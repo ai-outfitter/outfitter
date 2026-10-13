@@ -25,6 +25,7 @@ One runbook per rung of [the adoption ramp](../philosophy.md#the-ramp-to-an-auto
 - [Switching to Outfitter](./switching-to-outfitter.md) — adopt from an existing agent-CLI setup.
 - [Linking into Claude Code and Codex](./linking-harnesses.md) — `outfitter link` places managed links to the tree in `~/.claude` and `~/.codex`.
 - [Self-hosted inference setup](./self-hosted-setup.md) — detect and plan a DGX Spark or Apple Silicon endpoint without installing services.
+- [Outfitter inference](./hosted-inference.md) — experimental: sign in with your browser and use personal Outfitter inference in Pi.
 
 ## Understand (the model)
 

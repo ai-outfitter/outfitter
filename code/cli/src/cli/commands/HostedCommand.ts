@@ -12,7 +12,7 @@ export interface HostedCommandDependencies {
 
 export const createHostedCommand = (dependencies: HostedCommandDependencies = {}): CommandObject => ({
   name: 'login',
-  description: 'Internal Outfitter inference access.',
+  description: 'Outfitter inference sign-in.',
   register(program: Command): void {
     const enabled = dependencies.enabled ?? (() => experimentalProviderEnabled(resolveHomeDirectory()));
     const session =
@@ -24,7 +24,7 @@ export const createHostedCommand = (dependencies: HostedCommandDependencies = {}
     const write = dependencies.writeLine ?? console.log;
     program.addCommand(
       new Command('login')
-        .description('Sign in to Outfitter internal beta.')
+        .description('Sign in to Outfitter inference with your browser.')
         .option('--device-code', 'Use a device code without opening a browser.')
         .action(async (options: { deviceCode?: boolean }) => {
           if (!enabled()) throw new Error(providerOptInMessage);
@@ -32,17 +32,17 @@ export const createHostedCommand = (dependencies: HostedCommandDependencies = {}
             await session()
           ).login({
             onDeviceCode: ({ verificationUri, userCode }) => write(`Open ${verificationUri} and enter ${userCode}`),
-            onAuth: ({ url }) => write(`Open ${url}`),
+            onAuth: ({ url, instructions }) => write(`Open ${url}${instructions ? `\n${instructions}` : ''}`),
             onPrompt: () => Promise.reject(new Error('Outfitter uses browser device approval.')),
             onSelect: () => Promise.resolve(options.deviceCode ? 'device-code' : 'browser'),
             onProgress: write,
           });
-          write(`Signed in to Outfitter internal beta as ${identity.user.login}.`);
+          write(`Signed in to Outfitter as ${identity.email ?? identity.name ?? identity.sub}.`);
         }),
       { hidden: !enabled() },
     );
     program.addCommand(
-      new Command('logout').description('Revoke the Outfitter internal beta session.').action(async () => {
+      new Command('logout').description('Revoke this Outfitter CLI sign-in.').action(async () => {
         await (await session()).logout();
         write('Signed out of Outfitter.');
       }),

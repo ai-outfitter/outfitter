@@ -46,7 +46,18 @@
     "experimental": {
       "type": "object",
       "additionalProperties": false,
-      "properties": { "outfitter_provider": { "type": "boolean" } }
+      "description": "Home-only experimental features. Project settings and catalogs cannot set them.",
+      "properties": {
+        "outfitter_provider": {
+          "type": "boolean",
+          "description": "Register the Outfitter inference provider in Pi and enable outfitter login."
+        },
+        "outfitter_origin": {
+          "type": "string",
+          "pattern": "^https?://",
+          "description": "Outfitter webapp origin for sign-in and inference; HTTPS, or HTTP on loopback. Defaults to https://ai-outfitter.com."
+        }
+      }
     },
     "telemetry": {
       "type": "object",
