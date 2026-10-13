@@ -43,6 +43,11 @@
       },
       "additionalProperties": false
     },
+    "experimental": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": { "outfitter_provider": { "type": "boolean" } }
+    },
     "telemetry": {
       "type": "object",
       "description": "Controls pseudonymous Outfitter product analytics.",
