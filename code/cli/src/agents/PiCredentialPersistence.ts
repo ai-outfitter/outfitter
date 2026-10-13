@@ -46,6 +46,46 @@ export const piAuthIdentity = (entry: unknown): string | undefined =>
         )
         .digest('hex');
 
+/** Run-local write-back metadata on a credential; never part of the durable entry. */
+const writebackBaselineKey = 'outfitterWritebackBaseline';
+
+/** The entry without run-local write-back metadata, so it never reaches the durable auth.json. */
+export const withoutWritebackBaseline = <T>(entry: T): T => {
+  if (entry === null || typeof entry !== 'object' || !(writebackBaselineKey in entry)) return entry;
+  const rest: Record<string, unknown> = { ...(entry as Record<string, unknown>) };
+  delete rest[writebackBaselineKey];
+  return rest as T;
+};
+
+/**
+ * Where a run's credential came from: an explicit OAuth `login`, kept out of the durable file until
+ * exit, or a durable `refresh`/adoption, already written there.
+ */
+export type WritebackSource = 'login' | 'refresh';
+
+/** What a credential recorded at this run's login or refresh: its source and the durable digest it observed. */
+export interface WritebackBaseline {
+  readonly source: WritebackSource;
+  readonly digest: string | undefined;
+}
+
+/** Records `baseline` on a credential as run-local metadata; `digest: undefined` means no durable entry. */
+export const withWritebackBaseline = <T extends object>(entry: T, baseline: WritebackBaseline): T => ({
+  ...entry,
+  [writebackBaselineKey]: { source: baseline.source, digest: baseline.digest ?? null },
+});
+
+/** The baseline a credential recorded at this run's login or refresh, `undefined` when it recorded nothing. */
+export const recordedWritebackBaseline = (entry: unknown): WritebackBaseline | undefined => {
+  const recorded =
+    entry !== null && typeof entry === 'object' ? (entry as Record<string, unknown>)[writebackBaselineKey] : undefined;
+  if (recorded === null || typeof recorded !== 'object') return undefined;
+  const { source, digest } = recorded as Record<string, unknown>;
+  if (source !== 'login' && source !== 'refresh') return undefined;
+  if (digest !== null && typeof digest !== 'string') return undefined;
+  return { source, digest: digest ?? undefined };
+};
+
 const parseAuth = (text: string | undefined): AuthFile | undefined => {
   try {
     const data: unknown = text?.trim() ? JSON.parse(text) : {};
@@ -57,7 +97,9 @@ const parseAuth = (text: string | undefined): AuthFile | undefined => {
 
 /**
  * Seeds durable state without replacing a models.json already projected from the canonical registry.
- * Returns the seeded Outfitter entry for {@link persistPiAuth}.
+ * Returns the seeded Outfitter entry for {@link persistPiAuth}. Write-back metadata left in the
+ * durable file by an older CLI is stripped from the run's copy, so the run never treats another
+ * run's recorded digest as its own; the baseline is still the durable entry as read.
  */
 export const seedPiCredentials = (projectionRoot: string, piUserAgentDirectory: string): PiAuthBaseline => {
   const models = join(projectionRoot, 'models.json');
@@ -66,19 +108,26 @@ export const seedPiCredentials = (projectionRoot: string, piUserAgentDirectory: 
   if (!existsSync(source)) return { hosted: undefined };
   // Read once, so the baseline is exactly what the run starts with.
   const seeded = readFileSync(source, 'utf8');
+  const auth = parseAuth(seeded);
+  const durableEntry = auth?.[rotatingProvider];
+  const projectedEntry = withoutWritebackBaseline(durableEntry);
+  const projected =
+    projectedEntry === durableEntry ? seeded : JSON.stringify({ ...auth, [rotatingProvider]: projectedEntry }, null, 2);
   mkdirSync(projectionRoot, { recursive: true });
-  writeFileSync(join(projectionRoot, 'auth.json'), seeded, { mode: 0o600 });
-  return { hosted: piAuthIdentity(parseAuth(seeded)?.[rotatingProvider]) };
+  writeFileSync(join(projectionRoot, 'auth.json'), projected, { mode: 0o600 });
+  return { hosted: piAuthIdentity(durableEntry) };
 };
 
 /**
  * Writes the run's auth.json back under Pi's lock. Other providers are the run's, as before. The
- * Outfitter entry is the run's only if the durable one is still what the run was seeded with;
- * or a credential records the digest it observed during login/refresh. Otherwise another run
- * rotated, signed in or signed out meanwhile, and that state is kept,
- * including its absence. Byte-for-byte when the run's entry is kept. Without a baseline the run is
- * treated as seeded with no Outfitter credential. Pi's lock is loaded only here, so CLI startup
- * does not load the Pi runtime.
+ * Outfitter entry is the run's only if the durable one is still what the run expected: the digest
+ * its credential recorded at login/refresh, or else the entry it was seeded with. Otherwise another
+ * run rotated, signed in or signed out meanwhile, and that state is kept, including its absence.
+ * A recorded digest counts only when this run changed the entry since seeding; one copied in from an
+ * older durable file would describe another run's state, and the metadata is stripped before it is
+ * written back. Byte-for-byte when the run's entry is kept unchanged. Without a baseline the run is
+ * treated as seeded with no Outfitter credential. Pi's lock is loaded only here, so CLI startup does
+ * not load the Pi runtime.
  */
 export const persistPiAuth = async (
   projectionRoot: string,
@@ -94,15 +143,12 @@ export const persistPiAuth = async (
     const durable = parseAuth(current);
     if (session === undefined || durable === undefined) return Promise.resolve({ result: undefined, next: text });
     const copied = session[rotatingProvider];
-    const observed =
-      copied !== null && typeof copied === 'object'
-        ? (copied as Record<string, unknown>).outfitterWritebackBaseline
-        : undefined;
-    const expected = observed === null ? undefined : typeof observed === 'string' ? observed : baseline.hosted;
+    const changedByRun = piAuthIdentity(copied) !== baseline.hosted;
+    const recorded = changedByRun ? recordedWritebackBaseline(copied) : undefined;
+    const expected = recorded === undefined ? baseline.hosted : recorded.digest;
     const externallyChanged = piAuthIdentity(durable[rotatingProvider]) !== expected;
-    const kept = externallyChanged ? durable[rotatingProvider] : session[rotatingProvider];
-    if (piAuthIdentity(kept) === piAuthIdentity(session[rotatingProvider]))
-      return Promise.resolve({ result: undefined, next: text });
+    const kept = withoutWritebackBaseline(externallyChanged ? durable[rotatingProvider] : copied);
+    if (piAuthIdentity(kept) === piAuthIdentity(copied)) return Promise.resolve({ result: undefined, next: text });
     const merged: AuthFile = { ...session };
     delete merged[rotatingProvider];
     if (kept !== undefined) merged[rotatingProvider] = kept;

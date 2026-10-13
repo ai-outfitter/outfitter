@@ -10,7 +10,8 @@ import { HostedSession, createHostedSession } from '../../src/hosted/HostedSessi
 import { createHostedCommand } from '../../src/cli/commands/HostedCommand.js';
 import { experimentalProviderEnabled, hostedSettings } from '../../src/hosted/ExperimentalProvider.js';
 import { loadSettings } from '../../src/settings/SettingsLoader.js';
-import { seedPiCredentials, persistPiAuth } from '../../src/agents/PiCredentialPersistence.js';
+import { seedPiCredentials, persistPiAuth, withWritebackBaseline } from '../../src/agents/PiCredentialPersistence.js';
+import { durableRefresh } from '../../src/hosted/DurableCredentials.js';
 
 const identity = { sub: 'user-1', name: 'Owner', email: 'owner@example.com' };
 const credentials = {
@@ -125,7 +126,7 @@ describe('internal inference opt-in and durable authorization', () => {
       onSelect: vi.fn().mockResolvedValue('device-code'),
     });
     const beforeExit = JSON.parse(readFileSync(durablePath, 'utf8')) as { outfitter: typeof relogin };
-    expect(beforeExit.outfitter.access).toBe('rotated');
+    expect(beforeExit.outfitter.refresh).toBe('relogin-r');
     await persistPiAuth(runDirectory, durableDirectory, baseline);
     const persisted = JSON.parse(readFileSync(durablePath, 'utf8')) as {
       outfitter: typeof relogin;
@@ -133,6 +134,141 @@ describe('internal inference opt-in and durable authorization', () => {
     };
     expect(persisted.outfitter.refresh).toBe('relogin-r');
     expect(persisted.openai).toEqual(byok);
+  });
+  it('never persists write-back metadata, so a later seeded run cannot resurrect a logged-out credential', async () => {
+    const first = copiedFixture([Response.json(identity)], undefined);
+    AuthStorage.create(first.durablePath).logout('outfitter');
+    first.auth.logout('outfitter');
+    const firstBaseline = seedPiCredentials(first.runDirectory, first.durableDirectory);
+    vi.spyOn(first.client, 'login').mockResolvedValue(credentials);
+    await first.session.login(deviceCallbacks());
+    await persistPiAuth(first.runDirectory, first.durableDirectory, firstBaseline);
+    const durable = JSON.parse(readFileSync(first.durablePath, 'utf8')) as { outfitter: Record<string, unknown> };
+    expect(durable.outfitter.refresh).toBe('refresh');
+    expect(durable.outfitter).not.toHaveProperty('outfitterWritebackBaseline');
+    for (const legacy of [false, true]) {
+      // A durable file written before the metadata was stripped must not be trusted either.
+      if (legacy)
+        writeFileSync(
+          first.durablePath,
+          JSON.stringify({ outfitter: { ...credentials, outfitterWritebackBaseline: null } }),
+        );
+      const secondRun = join(first.durableDirectory, '..', legacy ? 'legacy-run' : 'second-run');
+      const secondBaseline = seedPiCredentials(secondRun, first.durableDirectory);
+      const projected = JSON.parse(readFileSync(join(secondRun, 'auth.json'), 'utf8')) as {
+        outfitter: Record<string, unknown>;
+      };
+      expect(projected.outfitter).toEqual(credentials);
+      expect(projected.outfitter).not.toHaveProperty('outfitterWritebackBaseline');
+      // Another run signs out, then the seeded run exits without refreshing.
+      AuthStorage.create(first.durablePath).logout('outfitter');
+      await persistPiAuth(secondRun, first.durableDirectory, secondBaseline);
+      expect(AuthStorage.create(first.durablePath).get('outfitter')).toBeUndefined();
+      writeFileSync(first.durablePath, JSON.stringify({ outfitter: credentials }));
+    }
+  });
+  it.each([
+    ['unexpired', Date.now() + 60000],
+    ['expired', 0],
+  ])(
+    'keeps a re-login to a different account through a later refresh when the old %s entry is unchanged',
+    async (_label, oldExpires) => {
+      const copied = copiedFixture(
+        [
+          Response.json({ access_token: 'relogin-rotated', refresh_token: 'relogin-rotated-r', expires_in: 900 }),
+          Response.json({ sub: 'user-2', email: 'other@example.com' }),
+        ],
+        { ...credentials, expires: oldExpires },
+      );
+      // The new account's access expires at once, so the login's identity check refreshes it.
+      vi.spyOn(copied.client, 'login').mockResolvedValue({
+        ...credentials,
+        access: 'relogin',
+        refresh: 'relogin-r',
+        expires: 0,
+      });
+      expect(await copied.session.login(deviceCallbacks())).toEqual({ sub: 'user-2', email: 'other@example.com' });
+      const refreshBody = copied.fetch.mock.calls[0][1]?.body;
+      expect(typeof refreshBody).toBe('string');
+      expect(new URLSearchParams(refreshBody as string).get('refresh_token')).toBe('relogin-r');
+      expect(AuthStorage.create(copied.durablePath).get('outfitter')).toMatchObject({ refresh: 'relogin-rotated-r' });
+      await persistPiAuth(copied.runDirectory, copied.durableDirectory, copied.baseline);
+      const persisted = JSON.parse(readFileSync(copied.durablePath, 'utf8')) as { outfitter: Record<string, unknown> };
+      expect(persisted.outfitter).toMatchObject({ access: 'relogin-rotated', refresh: 'relogin-rotated-r' });
+      expect(persisted.outfitter).not.toHaveProperty('outfitterWritebackBaseline');
+    },
+  );
+  describe('a durable rotation by another run during the device wait', () => {
+    const rotated = { ...credentials, access: 'rotated', refresh: 'rotated-r' };
+    const revokedTokens = (fetch: ReturnType<typeof copiedFixture>['fetch']) =>
+      fetch.mock.calls.map(([url, init]) => {
+        expect(url).toBe('https://ai-outfitter.com/api/oauth/revoke');
+        return new URLSearchParams(init?.body as string).get('token');
+      });
+    const expectRotatedKept = async (copied: ReturnType<typeof copiedFixture>) => {
+      const durable = JSON.parse(readFileSync(copied.durablePath, 'utf8')) as { outfitter: Record<string, unknown> };
+      expect(durable.outfitter).toEqual(rotated);
+      await persistPiAuth(copied.runDirectory, copied.durableDirectory, copied.baseline);
+      expect(JSON.parse(readFileSync(copied.durablePath, 'utf8'))).toEqual({ outfitter: rotated });
+    };
+    it.each([
+      ['unexpired', Date.now() + 60000],
+      ['expired', 0],
+    ])('refuses a login with %s access before Pi stores it and keeps the rotated entry', async (_label, expires) => {
+      const copied = copiedFixture([new Response(null, { status: 200 })]);
+      vi.spyOn(copied.client, 'login').mockImplementation(() => {
+        writeFileSync(copied.durablePath, JSON.stringify({ outfitter: rotated }));
+        return Promise.resolve({ ...credentials, access: 'new', refresh: 'new-r', expires });
+      });
+      await expect(copied.session.login(deviceCallbacks())).rejects.toThrow('another session changed');
+      expect(revokedTokens(copied.fetch)).toEqual(['new-r']);
+      copied.auth.reload();
+      expect(copied.auth.get('outfitter')).toEqual(credentials);
+      await expectRotatedKept(copied);
+    });
+    it.each([
+      ['unexpired', Date.now() + 60000, [Response.json(identity)]],
+      ['expired', 0, []],
+    ])(
+      'reports no success and removes a stored login with %s access once the durable entry changes',
+      async (_label, expires, responses) => {
+        const copied = copiedFixture([...responses, new Response(null, { status: 200 })]);
+        vi.spyOn(copied.client, 'login').mockResolvedValue({
+          ...credentials,
+          access: 'new',
+          refresh: 'new-r',
+          expires,
+        });
+        const identityCheck = copied.session.identity.bind(copied.session);
+        vi.spyOn(copied.session, 'identity').mockImplementation(() => {
+          // The rotation lands after the login was stored, before its identity is reported.
+          writeFileSync(copied.durablePath, JSON.stringify({ outfitter: rotated }));
+          return identityCheck();
+        });
+        await expect(copied.session.login(deviceCallbacks())).rejects.toThrow('another session changed');
+        const calls = copied.fetch.mock.calls.filter(([url]) => url === 'https://ai-outfitter.com/api/oauth/revoke');
+        expect(calls.map(([, init]) => new URLSearchParams(init?.body as string).get('token'))).toEqual(['new-r']);
+        expect(copied.fetch.mock.calls.some(([url]) => url === 'https://ai-outfitter.com/api/oauth/token')).toBe(false);
+        copied.auth.reload();
+        expect(copied.auth.get('outfitter')).toBeUndefined();
+        await expectRotatedKept(copied);
+      },
+    );
+    it('fails a durable refresh of the login with a conflict instead of adopting the rotated entry', async () => {
+      const copied = copiedFixture([]);
+      writeFileSync(copied.durablePath, JSON.stringify({ outfitter: rotated }));
+      const login = withWritebackBaseline(
+        { ...credentials, access: 'new', refresh: 'new-r', expires: 0 },
+        { source: 'login', digest: copied.baseline.hosted },
+      );
+      await expect(durableRefresh(copied.client, copied.durablePath)(login)).rejects.toThrow('another session changed');
+      expect(copied.fetch).not.toHaveBeenCalled();
+      expect(JSON.parse(readFileSync(copied.durablePath, 'utf8'))).toEqual({ outfitter: rotated });
+      // A refreshed or adopted credential still adopts another run's rotation, as before.
+      const refreshed = withWritebackBaseline(credentials, { source: 'refresh', digest: copied.baseline.hosted });
+      const adopted = await durableRefresh(copied.client, copied.durablePath)(refreshed);
+      expect(adopted).toMatchObject({ refresh: 'rotated-r' });
+    });
   });
   it('refreshes expired access using native Pi and reports missing credentials', async () => {
     const { session, auth } = fixture([

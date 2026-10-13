@@ -2,7 +2,11 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { persistPiAuth, seedPiCredentials } from '../../src/agents/PiCredentialPersistence.js';
+import {
+  persistPiAuth,
+  recordedWritebackBaseline,
+  seedPiCredentials,
+} from '../../src/agents/PiCredentialPersistence.js';
 import { durableCredential, durableRefresh, forgetDurable } from '../../src/hosted/DurableCredentials.js';
 import { HostedClient } from '../../src/hosted/HostedClient.js';
 
@@ -36,6 +40,13 @@ const rotating = () => {
 };
 
 describe('durable Outfitter refresh', () => {
+  it.each([
+    ['unknown source', { source: 'other', digest: 'some-digest' }],
+    ['invalid digest', { source: 'login', digest: 42 }],
+  ])('ignores malformed run-local write-back metadata with %s', (_name, baseline) => {
+    expect(recordedWritebackBaseline({ outfitterWritebackBaseline: baseline })).toBeUndefined();
+  });
+
   it('rotates the durable refresh token, not a stale copy, and records the result', async () => {
     const path = join(dir(), 'auth.json');
     writeFileSync(path, JSON.stringify({ outfitter: oauth('r1', 0), openai: { type: 'api_key', key: 'byok' } }));
