@@ -7,6 +7,7 @@ import { dirname, join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import {
+  persistPiAuth,
   persistPiCredentials,
   resolvePiUserAgentDirectory,
   seedPiCredentials,
@@ -62,18 +63,54 @@ describe('pi credential persistence', () => {
     expect(readFileSync(join(userDir, 'models.json'), 'utf8')).toContain('personal');
   });
 
-  it('writes credentials created during the session back to the durable dir', () => {
+  it('seeds and writes back personal model definitions when none were projected', () => {
+    const base = root();
+    const userDir = join(base, 'user');
+    const projection = join(base, 'projection');
+    write(join(userDir, 'models.json'), '{"providers":{"personal":{}}}');
+
+    expect(seedPiCredentials(projection, userDir)).toEqual({ hosted: undefined });
+    expect(readFileSync(join(projection, 'models.json'), 'utf8')).toContain('personal');
+    writeFileSync(join(projection, 'models.json'), '{"providers":{"edited":{}}}');
+    persistPiCredentials(projection, userDir);
+    expect(readFileSync(join(userDir, 'models.json'), 'utf8')).toContain('edited');
+  });
+
+  it('writes credentials created during the session back to the durable dir', async () => {
     const base = root();
     const userDir = join(base, 'user');
     const projection = join(base, 'projection');
     write(join(projection, 'auth.json'), '{"anthropic":"new"}');
 
-    persistPiCredentials(projection, userDir);
+    await persistPiAuth(projection, userDir);
     expect(readFileSync(join(userDir, 'auth.json'), 'utf8')).toBe('{"anthropic":"new"}');
   });
 });
 
 describe('run agent credential write-back', () => {
+  it('warns instead of failing the run when write-back fails', async () => {
+    const base = root();
+    const home = join(base, 'home');
+    const project = join(base, 'project');
+    write(join(project, '.agents', 'agents', 'engineer', 'agent.md'), '---\nname: engineer\n---\n\nBody.\n');
+    // A file where pi's agent directory belongs: nothing to seed, and the write-back cannot lock.
+    write(resolvePiUserAgentDirectory(home), 'not a directory');
+    const lines: string[] = [];
+    const result = await executeRunAgentCommand({
+      homeDirectory: home,
+      projectDirectory: project,
+      agent: 'engineer',
+      harness: 'pi',
+      writeLine: (line) => lines.push(line),
+      launcher: (plan) => {
+        writeFileSync(join(plan.env.PI_CODING_AGENT_DIR ?? '', 'auth.json'), '{"anthropic":"k"}');
+        return Promise.resolve(0);
+      },
+    });
+    expect(result).toBeDefined();
+    expect(lines.join('\n')).toContain('Warning: failed to persist Pi credentials');
+  });
+
   it('persists an auth.json a pi session writes into the projection root', async () => {
     const base = root();
     const home = join(base, 'home');

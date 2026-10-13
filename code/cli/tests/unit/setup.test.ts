@@ -903,8 +903,9 @@ describe('Pi setup launch', () => {
       // The seeded cache above satisfies composition; skip the network repair pass entirely.
       sourceCachePreparer: () => ({ messages: [] }),
       runLauncher: (plan: AgentLaunchPlan) => {
-        const extension = plan.args[plan.args.indexOf('--extension') + 1];
-        runtimeExtensions.push(readFileSync(extension, 'utf8'));
+        const extensions = plan.args.flatMap((arg, index) => (arg === '--extension' ? [plan.args[index + 1]] : []));
+        const extension = extensions.find((path) => path.endsWith('outfitter-runtime-extension.js'));
+        runtimeExtensions.push(extension === undefined ? '' : readFileSync(extension, 'utf8'));
         return Promise.resolve(0);
       },
       writeLine: (message: string) => lines.push(message),

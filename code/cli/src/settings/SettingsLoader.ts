@@ -60,6 +60,7 @@ interface SettingsDocument {
   readonly startup?: StartupSettingsDocument;
   readonly enterprise?: EnterpriseSettingsDocument;
   readonly telemetry?: TelemetrySettingsDocument;
+  readonly experimental?: { readonly outfitter_provider?: boolean; readonly outfitter_origin?: string };
   readonly agent_defaults?: AgentDefaultsDocument;
   readonly harness_defaults?: HarnessDefaultsDocument;
 }
@@ -311,6 +312,18 @@ const convertSettingsDocument = (
   startup: convertStartupSettings(document.startup),
   enterprise: isHomeScope(scope) ? convertEnterpriseSettings(document.enterprise) : undefined,
   telemetry: convertTelemetrySettings(document.telemetry),
+  experimental:
+    isHomeScope(scope) && document.experimental !== undefined
+      ? {
+          // Omit unset keys so a later home file does not erase an earlier one's value.
+          ...(document.experimental.outfitter_provider === undefined
+            ? {}
+            : { outfitterProvider: document.experimental.outfitter_provider }),
+          ...(document.experimental.outfitter_origin === undefined
+            ? {}
+            : { outfitterOrigin: document.experimental.outfitter_origin }),
+        }
+      : undefined,
   agentDefaults: convertAgentDefaults(document.agent_defaults),
   harnessDefaults: document.harness_defaults,
 });

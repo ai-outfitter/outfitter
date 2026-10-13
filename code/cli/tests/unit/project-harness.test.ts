@@ -82,14 +82,14 @@ describe('projectComposition extensions', () => {
     expect(projection.unsupported).not.toContain('extensions');
   });
 
-  it('adds no --extension for pi when no load dirs are provided', () => {
+  it('loads the bundled internal provider guard when no load dirs are provided', () => {
     const dir = root();
     const projection = projectComposition(planWith(['git:github.com/o/r']), {
       harness: 'pi',
       rootDirectory: dir,
       homeDirectory: dir,
     });
-    expect(projection.launch.args).not.toContain('--extension');
+    expect(projection.launch.args).toContain('--extension');
     expect(projection.unsupported).not.toContain('extensions');
   });
 

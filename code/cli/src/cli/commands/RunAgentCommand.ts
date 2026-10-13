@@ -15,6 +15,7 @@ import {
   seedClaudeSessions,
 } from '../../agents/ClaudeStatePersistence.js';
 import {
+  persistPiAuth,
   persistPiCredentials,
   resolvePiUserAgentDirectory,
   seedPiCredentials,
@@ -204,7 +205,8 @@ const launchWithStatePersistence = async (
   const bridgesClaudeState = harness === 'claude' && isolation === 'isolated';
   let seededClaudeCredentialsHash: string | undefined;
   let seededClaudeSessionHashes: ReadonlyMap<string, string> = new Map();
-  if (piUserAgentDirectory !== undefined) seedPiCredentials(rootDirectory, piUserAgentDirectory);
+  const piAuthBaseline =
+    piUserAgentDirectory === undefined ? undefined : seedPiCredentials(rootDirectory, piUserAgentDirectory);
   if (bridgesClaudeState) {
     seededClaudeCredentialsHash = seedClaudeCredentials(rootDirectory, input.homeDirectory, input.projectDirectory);
     attempt('seed Claude session history', () => {
@@ -218,9 +220,12 @@ const launchWithStatePersistence = async (
     return await input.launcher(launch);
   } finally {
     if (piUserAgentDirectory !== undefined) {
-      attempt('persist Pi credentials', () =>
-        persistPiCredentials(rootDirectory, piUserAgentDirectory, persistPiModels),
-      );
+      attempt('persist Pi models', () => persistPiCredentials(rootDirectory, piUserAgentDirectory, persistPiModels));
+      try {
+        await persistPiAuth(rootDirectory, piUserAgentDirectory, piAuthBaseline);
+      } catch (error) {
+        warn(`Warning: failed to persist Pi credentials: ${String(error)}`);
+      }
     }
     if (bridgesClaudeState) {
       attempt('persist Claude credentials', () => {
