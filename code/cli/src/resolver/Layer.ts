@@ -1,5 +1,5 @@
 // Builds the ordered `.agents` layer stack (workspace over global over remote sources) from settings.
-import { existsSync } from 'node:fs';
+import { existsSync, realpathSync } from 'node:fs';
 import { join } from 'node:path';
 
 import {
@@ -114,8 +114,21 @@ export const discoverLayers = (input: LayerDiscoveryInput): LayerDiscoveryResult
     appendSourceLayer(transitive.source);
   }
 
+  // One physical `.agents` tree can be reachable through more than one precedence slot. The
+  // common case is running from $HOME, where workspace and global are identical; symlinked local
+  // sources can produce the same condition. Keep the first (highest-precedence) layer only so it
+  // cannot shadow itself and emit false ambiguity diagnostics.
+  const seenRoots = new Set<string>();
+  const layers = candidates.filter((layer) => {
+    if (!existsSync(layer.root)) return false;
+    const canonicalRoot = realpathSync(layer.root);
+    if (seenRoots.has(canonicalRoot)) return false;
+    seenRoots.add(canonicalRoot);
+    return true;
+  });
+
   return {
-    layers: candidates.filter((layer) => existsSync(layer.root)),
+    layers,
     transitiveDeclarations: expansion.declarations,
     unsynchronized,
     warnings: [...invalid, ...expansion.warnings],

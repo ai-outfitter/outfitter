@@ -34,6 +34,11 @@ Amended (2026-07-17, RFC #165): adapters project a harness-neutral composition, 
 
 ### OFTR-006.3: Pi Launch Controls
 
+Amendment (2026-09-04): statement 12 now requires explicit materialized paths and disables implicit
+skill discovery. Pi treats a bare slug as a path relative to the launch working directory, producing
+a false missing-path diagnostic; leaving discovery enabled can also rediscover the materialized or
+project source copy and produce a false collision diagnostic.
+
 1. The pi adapter MUST use `PI_CODING_AGENT_DIR` as the primary profile-scoped pi configuration boundary.
 2. The pi adapter MUST support profile-controlled environment variables.
 3. The pi adapter MUST support profile-controlled pi CLI arguments.
@@ -45,7 +50,7 @@ Amended (2026-07-17, RFC #165): adapters project a harness-neutral composition, 
 9. The pi adapter SHOULD support pi model, provider, and thinking controls where native pi flags exist.
 10. The pi adapter MUST merge `.mcp.json` files from contributing `cli_specific/pi/` profile folders into the composite profile, adding unique array entries by identity while keeping the last entry for duplicate identities.
 11. The pi adapter MUST make native Pi `models.json` available inside the composite profile so custom providers and model definitions are visible before Pi resolves `--provider` and `--model` flags.
-12. The pi adapter MUST expose valid Agent Skills from contributing profile `skills/` folders as `--skill` arguments, and MAY also expose Pi-specific skills from `cli_specific/pi/skills/`.
+12. The pi adapter MUST disable implicit Pi skill discovery and expose valid Agent Skills from contributing profile `skills/` folders as `--skill` arguments whose values are the absolute materialized skill directories under `PI_CODING_AGENT_DIR`, and MAY also expose Pi-specific skills from `cli_specific/pi/skills/`. Explicit pass-through `--skill` arguments MUST remain usable.
 13. The pi adapter MUST expose DeepWork jobs from contributing profile `deepwork/jobs/` folders through `DEEPWORK_ADDITIONAL_JOBS_FOLDERS`, and MAY also expose Pi-specific jobs from `cli_specific/pi/deepwork/jobs/`.
 14. The pi adapter MUST resolve `controls.deepwork.jobs` entries as DeepWork job names from shared Outfitter job roots such as `.outfitter/deepwork/jobs/<job-name>/job.yml` and expose the matching jobs root through `DEEPWORK_ADDITIONAL_JOBS_FOLDERS`.
 15. The pi adapter MUST NOT treat flat profile source roots as profile-bundled job folders unless a named DeepWork job resolves to a shared jobs root.
