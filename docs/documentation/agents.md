@@ -174,6 +174,11 @@ The folder is ignored when the selected harness is not Pi.
 
 Outfitter writes generated identity, composed skills, selected delegates, and selected MCP servers after applying the native overlay, and seeds durable Pi credentials immediately before launch.
 Those runtime-owned resources therefore cannot be replaced accidentally by a profile overlay.
+One delegation-specific exception: an overlay `agents/<slug>.md` that collides with a declared delegate is replaced by the delegate, because a declared `subagents:` selection is an explicit choice the profile made.
+
+The runtime `agents/` directory is rebuilt for declared delegates without deleting foreign content: Outfitter records the delegate files it generated in a rebuild manifest under the projection root, and a later run into the same retained root removes only those tracked files when the delegate selection shrinks.
+Overlay-provided agent definitions are never tracked or removed, so they survive every run.
+If the rebuild manifest is missing or unreadable, the rebuild skips cleanup rather than risk deleting files Outfitter did not write.
 
 `agents/<agent>/mcp.json` merges by server id over layered tree-root `mcp.json` files.
 The Pi projection writes only the servers selected by the active agent's `mcp` loadout into the runtime `mcp.json`.
