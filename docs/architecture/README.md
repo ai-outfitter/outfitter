@@ -88,6 +88,7 @@ A standalone catalog repository's root _is_ the payload; a colocated source nest
 
 - Resources merge **by ID** across layers: workspace over global over remote sources in configured order.
   The winning definition replaces lower ones; there is no partial merge of markdown resources.
+- When the workspace and global payload roots canonicalize to the same on-disk directory (the working directory is home, or either path symlinks to the other), discovery collapses them into one global layer so identical slugs cannot self-shadow between 'workspace' and 'global'.
 - After layer resolution, an agent's `inherits` graph resolves through that same effective set.
   Traversal is recursive parent-first, multiple parents retain authored order, diamond ancestors contribute once, and cycles or missing parents fail with their chain.
 - Inherited selections retain the declaring agent and winning layer.
