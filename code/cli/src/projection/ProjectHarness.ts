@@ -307,12 +307,17 @@ export const projectComposition = (composition: CompositionPlan, input: Projecti
   // Materialization runs for every harness so containment and definition diagnostics are reported
   // uniformly. Codex reads none of the generated files — it takes its MCP config in argv and has no
   // config-directory projection yet — but the root is temporary, so the unused writes do not persist.
-  const materialized = materializeComposition(composition, input.rootDirectory, input.harness);
+  const managedMcpConfigPath =
+    input.harness === 'pi' ? input.processEnvironment?.OUTFITTER_MANAGED_MCP_CONFIG : undefined;
+  const materialized = materializeComposition(composition, input.rootDirectory, input.harness, managedMcpConfigPath);
 
   declareClaudePlugin(composition, input);
   const projectedModel = projectModel(composition, input);
 
   const unsupported = [
+    ...(input.harness !== 'pi' && input.processEnvironment?.OUTFITTER_MANAGED_MCP_CONFIG !== undefined
+      ? ['managed MCP configuration (only supported by pi)']
+      : []),
     ...unsupportedElements(composition, input),
     ...materialized.skippedSkills.map((slug) => `skill:${slug} (escaping symlink)`),
     ...materialized.skippedSubagents.map((slug) => `subagent:${slug} (invalid definition)`),

@@ -1,0 +1,180 @@
+[
+  {
+    "name": "http",
+    "valid": true,
+    "document": {
+      "mcpServers": {
+        "m": {
+          "url": "${OUTFITTER_MANAGED_MCP_URL}",
+          "headers": {
+            "Authorization": "Bearer ${OUTFITTER_MANAGED_MCP_TOKEN}"
+          }
+        }
+      }
+    }
+  },
+  {
+    "name": "stdio",
+    "valid": true,
+    "document": {
+      "mcpServers": {
+        "m": {
+          "command": "server",
+          "args": ["arg"],
+          "env": {
+            "TOKEN": "${OUTFITTER_MANAGED_MCP_TOKEN}"
+          }
+        }
+      }
+    }
+  },
+  {
+    "name": "empty",
+    "valid": true,
+    "document": {
+      "mcpServers": {}
+    }
+  },
+  {
+    "name": "null",
+    "valid": false,
+    "document": null
+  },
+  {
+    "name": "no-map",
+    "valid": false,
+    "document": {}
+  },
+  {
+    "name": "array",
+    "valid": false,
+    "document": {
+      "mcpServers": []
+    }
+  },
+  {
+    "name": "empty-name",
+    "valid": false,
+    "document": {
+      "mcpServers": {
+        "": {
+          "url": "x"
+        }
+      }
+    }
+  },
+  {
+    "name": "no-transport",
+    "valid": false,
+    "document": {
+      "mcpServers": {
+        "m": {}
+      }
+    }
+  },
+  {
+    "name": "bad-server",
+    "valid": false,
+    "document": {
+      "mcpServers": {
+        "m": []
+      }
+    }
+  },
+  {
+    "name": "empty-url",
+    "valid": false,
+    "document": {
+      "mcpServers": {
+        "m": {
+          "url": ""
+        }
+      }
+    }
+  },
+  {
+    "name": "bad-url",
+    "valid": false,
+    "document": {
+      "mcpServers": {
+        "m": {
+          "url": 7
+        }
+      }
+    }
+  },
+  {
+    "name": "bad-command",
+    "valid": false,
+    "document": {
+      "mcpServers": {
+        "m": {
+          "url": "x",
+          "command": null
+        }
+      }
+    }
+  },
+  {
+    "name": "bad-args",
+    "valid": false,
+    "document": {
+      "mcpServers": {
+        "m": {
+          "command": "x",
+          "args": {}
+        }
+      }
+    }
+  },
+  {
+    "name": "bad-arg",
+    "valid": false,
+    "document": {
+      "mcpServers": {
+        "m": {
+          "command": "x",
+          "args": [7]
+        }
+      }
+    }
+  },
+  {
+    "name": "bad-env",
+    "valid": false,
+    "document": {
+      "mcpServers": {
+        "m": {
+          "url": "x",
+          "env": null
+        }
+      }
+    }
+  },
+  {
+    "name": "bad-env-value",
+    "valid": false,
+    "document": {
+      "mcpServers": {
+        "m": {
+          "url": "x",
+          "env": {
+            "X": 7
+          }
+        }
+      }
+    }
+  },
+  {
+    "name": "bad-headers",
+    "valid": false,
+    "document": {
+      "mcpServers": {
+        "m": {
+          "url": "x",
+          "headers": []
+        }
+      }
+    }
+  }
+]
