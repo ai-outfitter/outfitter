@@ -58,6 +58,7 @@ Outfitter is organized around a private npm workspace root, clear TypeScript pac
 │   │   │   ├── Defaults.ts        # settings-layer agent_defaults selection, resolution, and provenance
 │   │   │   └── Mcp.ts             # selected MCP server definitions after layer and owner precedence
 │   │   │   ├── projection/            # materialize a composition + build pi/claude/codex launch plans
+│   │   │   │   ├── ManagedMcp.ts      # merge explicitly managed native Pi servers with conflict protection
 │   │   │   │   └── CodexMcp.ts        # translate selected MCP definitions to Codex TOML CLI overrides
 │   │   │   ├── dump/                  # deterministic self-contained `.agents` tree output
 │   │   │   ├── links/                 # opt-in managed projection of the composed tree into Claude Code and Codex homes
@@ -132,3 +133,11 @@ code/cli/tests/fixtures/scenarios/
 
 The `profile-*` scenarios above are the current profile-era fixtures; per the transition note, the implementation PRs that add the resolver and composition modules replace them with target-state scenarios whose fixtures include realistic `.agents` trees and expected resolution output.
 Protocol conformance fixtures (layered trees plus expected effective output, pinned to the protocol revision) follow the same convention.
+
+Managed resident launches may set `OUTFITTER_MANAGED_MCP_CONFIG` to a native `mcp.json` file.
+The Pi projection validates it against `managed-mcp.schema.json` and merges its servers
+into the generated `PI_CODING_AGENT_DIR` after ordinary catalog/overlay precedence.
+It never restores overlay tools suppressed by the selected catalog.
+Conflicting definitions fail before launch; identical definitions are accepted.
+Environment references are preserved verbatim, and models, prompts, and tool defaults
+remain those of the profile. This does not authorize MCP server operations.

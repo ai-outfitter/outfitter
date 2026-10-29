@@ -55,6 +55,8 @@ Amended (2026-07-17, RFC #165): adapters project a harness-neutral composition, 
 19. The pi adapter MUST default `PI_CODING_AGENT_SESSION_DIR` to pi's durable per-project session directory under pi's user agent directory, so sessions survive removal of the temporary `PI_CODING_AGENT_DIR`; it MUST leave an inherited `PI_CODING_AGENT_SESSION_DIR` in place, and MUST NOT override a pass-through `--session-dir` or `--no-session`.
 20. The pi adapter MUST set `PI_MCP_CONFIG_MODE=exclusive` so compatible MCP extensions treat `PI_CODING_AGENT_DIR/mcp.json` as the only MCP source and do not merge user-global, project-local, package, plugin, or imported host MCP servers into the composed selection. When the composition selects no MCP servers and therefore has no generated `mcp.json`, the exclusive surface is empty.
 
+21. When the launcher explicitly supplies `OUTFITTER_MANAGED_MCP_CONFIG`, the pi adapter MUST validate that native MCP document against the bundled managed MCP schema and add its servers to the exclusive projection after applying the existing catalog/overlay precedence. It MUST preserve the baseline's native fields and servers, accept identical definitions, and refuse conflicting names before launch. It MUST preserve environment references and profile model/prompt choices, write the result atomically with mode 0600, and MUST NOT read this input from ambient process environment when the launch environment is omitted. Non-Pi adapters MUST report this input as unsupported, making it fatal under strict mode.
+
 ### OFTR-006.4: Pi Startup Boundary
 
 1. Outfitter MUST NOT rely on pi extensions to choose the initial pi configuration directory.

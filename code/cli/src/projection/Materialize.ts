@@ -11,6 +11,7 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { dirname, join } from 'node:path';
+import { randomUUID } from 'node:crypto';
 
 import type { ComposedIdentity, ComposedSubagent, CompositionPlan } from '../composer/Composition.js';
 import { escapesRoots } from '../dump/Containment.js';
@@ -21,6 +22,7 @@ import type { Loadout, ResolvedResource } from '../resolver/Resource.js';
 import type { Harness, HarnessDefaultSettings } from '../settings/Settings.js';
 import { mergeObjectsWithPolicy } from '../merge/SettingsValueMerger.js';
 import { effectiveToolAllowlist } from './Tools.js';
+import { mergeManagedMcpConfig } from './ManagedMcp.js';
 
 export interface MaterializedComposition {
   readonly rootDirectory: string;
@@ -58,9 +60,19 @@ const copyDirectory = (sourceDir: string, targetDir: string): void => {
   }
 };
 
-const writeGeneratedFile = (path: string, content: string): void => {
+const writeGeneratedFile = (path: string, content: string, privateAtomic = false): void => {
   removeTargetTypeConflict(path, 'file');
-  writeFileSync(path, content);
+  if (privateAtomic) {
+    const temporary = `${path}.${randomUUID()}.next`;
+    try {
+      writeFileSync(temporary, content, { mode: 0o600, flag: 'wx' });
+      renameSync(temporary, path);
+    } finally {
+      rmSync(temporary, { force: true });
+    }
+  } else {
+    writeFileSync(path, content);
+  }
 };
 
 const serializeMcpConfig = (mcpServers: Readonly<Record<string, unknown>>): string =>
@@ -344,6 +356,7 @@ export const materializeComposition = (
   composition: CompositionPlan,
   rootDirectory: string,
   harness: Harness,
+  managedMcpConfigPath?: string,
 ): MaterializedComposition => {
   mkdirSync(rootDirectory, { recursive: true });
   const { systemPromptPath, appendPromptPaths } = materializeIdentity(composition, rootDirectory);
@@ -367,6 +380,10 @@ export const materializeComposition = (
 
   if (harness === 'claude' || (harness === 'pi' && composition.loadout.mcp.length > 0)) {
     writeMcpConfig(join(rootDirectory, 'mcp.json'), composition.loadout.mcpServers);
+  }
+  if (managedMcpConfigPath !== undefined) {
+    const target = join(rootDirectory, 'mcp.json');
+    writeGeneratedFile(target, mergeManagedMcpConfig(target, managedMcpConfigPath), true);
   }
   if (harness === 'pi' && composition.models?.configured) {
     writeGeneratedFile(join(rootDirectory, 'models.json'), `${JSON.stringify(composition.models.document, null, 2)}\n`);

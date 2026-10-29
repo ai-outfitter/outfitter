@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import type { AnySchema, ErrorObject, ValidateFunction } from 'ajv';
 import { Ajv2020 } from 'ajv/dist/2020.js';
 
-export type SchemaName = 'settings' | 'agent' | 'self-hosted' | 'system-extension-hook' | 'workflow';
+export type SchemaName = 'settings' | 'agent' | 'self-hosted' | 'system-extension-hook' | 'workflow' | 'managed-mcp';
 
 export interface ValidationIssue {
   readonly path: string;
@@ -24,6 +24,7 @@ const agentSchema = readSchema('agent.schema.json');
 const selfHostedSchema = readSchema('self-hosted.schema.json');
 const systemExtensionHookSchema = readSchema('system-extension-hook.schema.json');
 const workflowSchema = readSchema('workflow.schema.json');
+const managedMcpSchema = readSchema('managed-mcp.schema.json');
 
 const ajv = new Ajv2020({ allErrors: true });
 
@@ -33,6 +34,7 @@ const validators: Record<SchemaName, ValidateFunction> = {
   'self-hosted': ajv.compile(selfHostedSchema as AnySchema),
   'system-extension-hook': ajv.compile(systemExtensionHookSchema as AnySchema),
   workflow: ajv.compile(workflowSchema as AnySchema),
+  'managed-mcp': ajv.compile(managedMcpSchema as AnySchema),
 };
 
 export const createValidationResult = (issues: readonly ValidationIssue[]): ValidationResult => ({
