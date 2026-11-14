@@ -17,6 +17,11 @@ servers, or other use-case behavior. The default runtime user and group are
 both `1000` (named `outfitter`), with `/tmp` as the home directory and
 `/workspace` as the working directory.
 
+Build from the repository root with `docker build -f container/Dockerfile .`.
+The Docker build installs dependencies, compiles, and packs the CLI in a separate
+build stage. GitHub Actions caches these layers, including dependencies between
+source changes.
+
 ## Run a resident agent
 
 A resident container is an ordinary `outfitter run` whose harness stays in RPC
