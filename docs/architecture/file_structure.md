@@ -30,7 +30,7 @@ Outfitter is organized around a private npm workspace root, clear TypeScript pac
 ├── .prettierrc.json                   # Prettier formatting configuration
 ├── .snapperrc.toml                    # Snapper Markdown formatting configuration
 ├── CONTRIBUTING.md                    # local install and contributor workflow guide
-├── container/                         # Dockerfile for the primary Debian-based published image
+├── container/                         # Dockerfile and build-context exclusions for the primary published image
 ├── flake.nix                          # Nix package and development container outputs for the Outfitter CLI
 ├── flake.lock                         # pinned Nix flake inputs
 ├── code/                              # npm workspace packages and license-separated code areas

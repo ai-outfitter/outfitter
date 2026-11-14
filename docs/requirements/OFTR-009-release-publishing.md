@@ -37,7 +37,7 @@ Outfitter release publishing prepares package metadata from Conventional Commit 
 ### OFTR-009.4: Container Image Runtime
 
 1. The primary published container image MUST be Debian-based so end users can extend it with a conventional Dockerfile (`apt-get install`, `COPY` of dynamically linked binaries).
-2. The primary image MUST install Outfitter from the CLI workspace tarball built in the release workflow, not from the npm registry, so the image is buildable for unreleased versions and in CI before publish.
+2. The primary image MUST install Outfitter from the CLI workspace tarball built from source inside the container build, not from the npm registry, so the image is buildable for unreleased versions and in CI before publish.
 3. The primary image MUST include Node.js matching the `.node-version` major, npm, Git, SSH, and CA certificates at their conventional Debian paths, and MUST use `outfitter` as its entrypoint.
 4. The primary image MUST run as UID/GID 1000 with `/workspace` as its working directory and `/tmp` as its default home directory.
 5. The release workflow MUST smoke test the image before publishing it. The test MUST check `outfitter --version`, Node.js, npm, Git, SSH, and the CA bundle at `/etc/ssl/certs/ca-certificates.crt`.

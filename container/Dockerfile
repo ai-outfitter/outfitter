@@ -8,19 +8,22 @@
 # makes the end-user story a plain Dockerfile: `FROM` this image, `apt-get
 # install` or `COPY` whatever the agent needs.
 #
-# The workflow builds the repo, packs the CLI workspace with `npm pack`, and
-# passes the tarball in — installing from the local build, not the registry,
-# keeps the image buildable for unreleased versions and in CI before publish.
-#
-# NODE_IMAGE tracks the `.node-version` major (24). The workflow may override
-# it to pin a digest, e.g. node:24-slim@sha256:<digest>.
+# Build dependencies are cached separately from source changes.
 ARG NODE_IMAGE=node:24-slim
+FROM ${NODE_IMAGE} AS build
+WORKDIR /build
+COPY package.json package-lock.json ./
+COPY code/cli/package.json code/cli/package.json
+COPY code/pi-extension/package.json code/pi-extension/package.json
+RUN npm ci --ignore-scripts
+COPY . .
+ARG RELEASE_VERSION=
+RUN if [ -n "$RELEASE_VERSION" ]; then node scripts/sync-release-version.mjs "$RELEASE_VERSION"; fi \
+  && mkdir /package \
+  && npm pack --workspace @ai-outfitter/outfitter --pack-destination /package \
+  && mv /package/*.tgz /package/outfitter.tgz
+
 FROM ${NODE_IMAGE}
-
-# Tarball path relative to the build context, produced by
-# `npm pack --workspace @ai-outfitter/outfitter`.
-ARG OUTFITTER_TARBALL=outfitter.tgz
-
 RUN apt-get update \
   && apt-get install -y --no-install-recommends \
     ca-certificates \
@@ -29,7 +32,7 @@ RUN apt-get update \
   && rm -rf /var/lib/apt/lists/*
 
 # Bind-mount the tarball instead of COPYing it, so it never lands in a layer.
-RUN --mount=type=bind,source=${OUTFITTER_TARBALL},target=/tmp/outfitter.tgz \
+RUN --mount=type=bind,from=build,source=/package/outfitter.tgz,target=/tmp/outfitter.tgz \
   npm install -g /tmp/outfitter.tgz \
   && npm cache clean --force
 
