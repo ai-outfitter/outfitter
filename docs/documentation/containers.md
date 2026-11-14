@@ -6,6 +6,10 @@ The published image is a generic Outfitter runtime:
 ghcr.io/ai-outfitter/outfitter:<version>
 ```
 
+Each release publishes its `:<version>` tag. Only pushes to `main` publish
+`:latest`, so it tracks unreleased `main`; use a version tag or image digest
+when a specific image is required.
+
 It is Debian-based (`node:24-slim`), uses `outfitter` as its entrypoint, and
 includes Node.js, npm, Git, SSH, and CA certificates at their conventional
 Debian paths. It does not include agent profiles, credentials, channels, MCP

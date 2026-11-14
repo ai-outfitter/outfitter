@@ -55,5 +55,4 @@ jobs:
     with:
       version: ${{ github.ref_name }}
       publish: true
-      prerelease: ${{ github.event.release.prerelease }}
     secrets: inherit
