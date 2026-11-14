@@ -154,11 +154,12 @@ Outfitter assembles a temporary composite profile under the system temp director
 
 ## Docker
 
-Each published release builds a `linux/amd64` image from `container/Dockerfile` and pushes it to GitHub Container Registry as `ghcr.io/ai-outfitter/outfitter:<version>` and `ghcr.io/ai-outfitter/outfitter:latest` (see the `publish-docker` job in `.github/workflows/release.yml`).
+The `Container` workflow (`.github/workflows/container.yml`) builds a `linux/amd64` image from `container/Dockerfile`, smoke tests it, and pushes it to GitHub Container Registry.
+Each published release pushes `ghcr.io/ai-outfitter/outfitter:<version>` (see the `publish-docker` job in `.github/workflows/release.yml`); only pushes to `main` update `ghcr.io/ai-outfitter/outfitter:latest`.
 The image installs the built CLI package and includes Node.js, npm, Git, SSH,
 and CA certificates. See [Container images](docs/documentation/containers.md)
 for the persistent runtime contract.
-Use the manually dispatched `Container` workflow to reproduce and smoke test a release image without publishing it. The normal pull-request and push CI workflow does not build the image.
+Use the manually dispatched `Container` workflow to reproduce and smoke test a release image without publishing it. The pull-request CI workflow does not build the image.
 
 Run the published image:
 

@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1
 # Outfitter primary published image (ghcr.io/ai-outfitter/outfitter).
 #
 # Debian-based on purpose. The previous image was a Nix closure. End users
@@ -27,9 +28,9 @@ RUN apt-get update \
     openssh-client \
   && rm -rf /var/lib/apt/lists/*
 
-COPY ${OUTFITTER_TARBALL} /tmp/outfitter.tgz
-RUN npm install -g /tmp/outfitter.tgz \
-  && rm /tmp/outfitter.tgz \
+# Bind-mount the tarball instead of COPYing it, so it never lands in a layer.
+RUN --mount=type=bind,source=${OUTFITTER_TARBALL},target=/tmp/outfitter.tgz \
+  npm install -g /tmp/outfitter.tgz \
   && npm cache clean --force
 
 # The runtime contract is uid/gid 1000 (the operator runs runAsUser: 1000,

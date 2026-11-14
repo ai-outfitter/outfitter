@@ -1,6 +1,13 @@
 name: Container
 
+# One image pipeline for three entry points:
+# - push to main: build, smoke test, and publish `latest` (only main moves latest)
+# - release (workflow_call from release.yml): build, smoke test, and publish `<version>`
+# - manual dispatch: reproduce a release image, optionally publishing `<version>`
 on:
+  push:
+    branches:
+      - main
   workflow_call:
     inputs:
       version:
@@ -8,12 +15,7 @@ on:
         required: true
         type: string
       publish:
-        description: Push the validated image to GHCR
-        required: false
-        default: false
-        type: boolean
-      prerelease:
-        description: Do not update latest for prereleases
+        description: Push the validated version tag to GHCR
         required: false
         default: false
         type: boolean
@@ -25,12 +27,7 @@ on:
         default: v1.0.1
         type: string
       publish:
-        description: Push the validated image to GHCR
-        required: false
-        default: false
-        type: boolean
-      prerelease:
-        description: Do not update latest
+        description: Push the validated version tag to GHCR
         required: false
         default: false
         type: boolean
@@ -45,6 +42,11 @@ jobs:
   debian:
     name: Build and smoke test Debian image
     runs-on: ubuntu-latest
+    # Serialize main pushes so `latest` is published in commit order; releases
+    # and manual runs get their own group and never queue behind main.
+    concurrency:
+      group: container-${{ github.event_name == 'push' && 'main' || github.run_id }}
+      cancel-in-progress: false
 
     steps:
       - name: Checkout
@@ -59,12 +61,20 @@ jobs:
           cache: npm
 
       - name: Sync release version
+        if: github.event_name != 'push'
         run: node scripts/sync-release-version.mjs "${{ inputs.version }}"
 
+      # Main builds keep the committed CLI version so the --version smoke test
+      # still has an exact expectation.
       - name: Resolve image name
         run: |
           echo "IMAGE=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/outfitter" >> "$GITHUB_ENV"
-          echo "VERSION=${VERSION_INPUT#v}" >> "$GITHUB_ENV"
+          if [ "$GITHUB_EVENT_NAME" = push ]; then
+            version="$(node -p "require('./code/cli/package.json').version")"
+          else
+            version="${VERSION_INPUT#v}"
+          fi
+          echo "VERSION=$version" >> "$GITHUB_ENV"
         env:
           VERSION_INPUT: ${{ inputs.version }}
 
@@ -81,8 +91,23 @@ jobs:
           npm pack --workspace @ai-outfitter/outfitter --pack-destination container/
           mv container/ai-outfitter-outfitter-*.tgz container/outfitter.tgz
 
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # `load: true` keeps the image in the local daemon for the smoke tests;
+      # publishing happens only after they pass. The revision label is applied
+      # outside the Dockerfile so it does not bust cached layers.
       - name: Build image
-        run: docker build -t "$IMAGE:$VERSION" container/
+        uses: docker/build-push-action@v6
+        with:
+          context: container/
+          load: true
+          tags: ${{ env.IMAGE }}:${{ env.VERSION }}
+          labels: |
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+          cache-from: type=gha,scope=outfitter-container
+          cache-to: type=gha,mode=max,scope=outfitter-container
 
       - name: Smoke test image
         run: |
@@ -118,20 +143,38 @@ jobs:
           docker run --rm outfitter-derivative:smoke --version
           docker run --rm --entrypoint jq outfitter-derivative:smoke --version
 
+      # A rerun of an older main push must not roll `latest` back.
+      - name: Check main is still at this commit
+        id: main-tip
+        if: github.event_name == 'push'
+        run: |
+          set -euo pipefail
+          tip="$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)"
+          if [ "$tip" = "$GITHUB_SHA" ]; then
+            echo "current=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::main moved to $tip; skipping latest for stale $GITHUB_SHA."
+            echo "current=false" >> "$GITHUB_OUTPUT"
+          fi
+        env:
+          GH_TOKEN: ${{ github.token }}
+
       - name: Log in to GitHub Container Registry
-        if: inputs.publish
+        if: (github.event_name == 'push' && steps.main-tip.outputs.current == 'true') || (github.event_name != 'push' && inputs.publish)
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      # Main never pushes the version tag: its package.json still carries the
+      # last released version, and that tag belongs to the release image.
       - name: Push version tag
-        if: inputs.publish
+        if: github.event_name != 'push' && inputs.publish
         run: docker push "$IMAGE:$VERSION"
 
       - name: Push latest tag
-        if: inputs.publish && !inputs.prerelease
+        if: github.event_name == 'push' && steps.main-tip.outputs.current == 'true'
         run: |
           docker tag "$IMAGE:$VERSION" "$IMAGE:latest"
           docker push "$IMAGE:latest"
