@@ -114,6 +114,39 @@ Pull-request previews are behind Cloudflare Access, which a desktop CLI cannot
 pass, so test the CLI against a local web app until previews allow the OAuth
 endpoints.
 
+## Use an enrolled inference token
+
+For an organization, open its **Settings → Inference settings and usage**.
+An owner or admin can name a separate token for each external client and set
+project and use case reporting labels. For a personal client, use **Inference**
+in personal settings. The web app shows each new token once.
+
+Enable `experimental.outfitter_provider` in your Outfitter home settings.
+Set up a native Pi provider in `~/.pi/agent/models.json`. Keep the
+relay URL and token reference in the same provider entry. Use the URL shown
+on the issuing Inference page and a model ID and limits from that relay's
+model list. The example uses a reserved host and a model alias.
+
+```json
+{
+  "providers": {
+    "enrolled-outfitter": {
+      "baseUrl": "https://ocean.example.test/api/inference/v1",
+      "apiKey": "$OUTFITTER_INFERENCE_TOKEN",
+      "api": "outfitter-chat-completions",
+      "models": [{ "id": "flash", "name": "Flash", "contextWindow": 128000, "maxTokens": 32768 }]
+    }
+  }
+}
+```
+
+Supply the token variable through your secret manager and launch Pi through
+`outfitter run -- --model enrolled-outfitter/flash`. The custom API value
+selects the Outfitter extension's Pi-native completions adapter. Each
+completion sends the active Pi session ID, including when you start a new
+session or resume one. Revoke the token on the Inference page that issued it.
+Device sign-in still uses the separate `outfitter` provider and `outfitter logout`.
+
 ## Protocol
 
 | Endpoint                      | Use                                                                                                                                       |

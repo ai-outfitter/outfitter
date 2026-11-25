@@ -1,6 +1,8 @@
+import { randomUUID } from 'node:crypto';
 import { join, resolve } from 'node:path';
 import { AuthStorage } from '@earendil-works/pi-coding-agent';
-import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
+import type { ExtensionAPI, ExtensionContext } from '@earendil-works/pi-coding-agent';
+import { openAICompletionsApi } from '@earendil-works/pi-ai/compat';
 import { resolveHomeDirectory } from '../cli/commands/ProcessDefaults.js';
 import { resolvePiUserAgentDirectory } from '../agents/PiCredentialPersistence.js';
 import { installPiLogout } from './PiLogout.js';
@@ -21,8 +23,26 @@ export default async function outfitterProvider(pi: ExtensionAPI): Promise<void>
   const durable = resolve(authPath) === resolve(durablePath) ? undefined : durablePath;
   const auth = AuthStorage.create(authPath);
   const session = () => new HostedSession(client, auth, durable);
+  let sessionManager: ExtensionContext['sessionManager'] | undefined;
+  const openAI = openAICompletionsApi();
   const register = (models: ProviderConfig['models']) =>
-    pi.registerProvider(HOSTED_PROVIDER, session().provider(models, discover));
+    pi.registerProvider(HOSTED_PROVIDER, {
+      ...session().provider(models, discover),
+      api: 'outfitter-chat-completions',
+      streamSimple: (model, context, options) => {
+        // Compaction also uses this adapter. Its request options can omit sessionId.
+        const sessionId = sessionManager?.getSessionId() ?? options?.sessionId;
+        if (!sessionId) throw new Error('Outfitter inference requires an active Pi session.');
+        return openAI.streamSimple({ ...model, api: 'openai-completions' }, context, {
+          ...options,
+          headers: {
+            ...options?.headers,
+            'x-outfitter-session-id': sessionId,
+            'idempotency-key': randomUUID(),
+          },
+        });
+      },
+    });
   const discover = async (credentials: Credentials): Promise<void> => {
     register(await client.models(credentials.access));
   };
@@ -32,7 +52,11 @@ export default async function outfitterProvider(pi: ExtensionAPI): Promise<void>
     return models;
   };
   pi.on('session_start', (_event, ctx) => {
+    sessionManager = ctx.sessionManager;
     installPiLogout(ctx.modelRegistry.authStorage, client, (message, type) => ctx.ui.notify(message, type), durable);
+  });
+  pi.on('session_shutdown', () => {
+    sessionManager = undefined;
   });
   pi.registerCommand('outfitter-logout', {
     description: 'Revoke the Outfitter device session and remove its credentials.',

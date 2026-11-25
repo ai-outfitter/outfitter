@@ -51,6 +51,7 @@
     "yaml": "^2.9.0"
   },
   "devDependencies": {
+    "@earendil-works/pi-ai": "0.80.3",
     "@eslint/js": "^10.0.1",
     "@types/cross-spawn": "^6.0.6",
     "@types/node": "^22.19.19",
