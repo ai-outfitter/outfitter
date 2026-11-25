@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.19.1](https://github.com/ai-outfitter/outfitter/compare/v1.19.0...v1.19.1) (2026-11-25)
+
+
+### Bug Fixes
+
+* keep Pi metering lifecycle tests measurable by coverage ([#452](https://github.com/ai-outfitter/outfitter/issues/452)) ([9af4bfa](https://github.com/ai-outfitter/outfitter/commit/9af4bfaf6b2bfa39b6304f88c49df85c39dbe757))
+
 ## [1.19.0](https://github.com/ai-outfitter/outfitter/compare/v1.18.0...v1.19.0) (2026-11-25)
 
 
