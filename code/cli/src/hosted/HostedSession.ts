@@ -85,12 +85,10 @@ export class HostedSession {
   async access(): Promise<string> {
     this.auth.reload();
     const credential = this.auth.get(HOSTED_PROVIDER);
-    if (!credential) throw new Error('Run outfitter login first.');
-    if (credential.type === 'oauth') {
-      this.client.assertOrigin(credential);
-      if (credential.pendingRevocation === true)
-        throw new Error('Outfitter logout is pending. Run outfitter logout to retry.');
-    }
+    if (credential?.type !== 'oauth') throw new Error('Run outfitter login first.');
+    this.client.assertOrigin(credential);
+    if (credential.pendingRevocation === true)
+      throw new Error('Outfitter logout is pending. Run outfitter logout to retry.');
     const access = await this.auth.getApiKey(HOSTED_PROVIDER, { includeFallback: false });
     if (!access) throw new Error('Outfitter session expired or was revoked. Run outfitter login.');
     return access;

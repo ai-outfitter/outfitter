@@ -121,26 +121,31 @@ An owner or admin can name a separate token for each external client and set
 project and use case reporting labels. For a personal client, use **Inference**
 in personal settings. The web app shows each new token once.
 
-In your home Outfitter settings, enable the provider and set
-`experimental.outfitter_origin` to the trusted origin that issued the token.
-Use a separate Pi agent configuration when you also use device sign-in. In that
-configuration's Pi `auth.json`, set the native `outfitter` API key entry to an
-environment variable reference:
+Enable `experimental.outfitter_provider` in your Outfitter home settings.
+Set up a native Pi provider in `~/.pi/agent/models.json`. Keep the
+relay URL and token reference in the same provider entry. Use the URL shown
+on the issuing Inference page and a model ID and limits from that relay's
+model list. The example uses a reserved host and a model alias.
 
 ```json
 {
-  "outfitter": {
-    "type": "api_key",
-    "key": "$OUTFITTER_INFERENCE_TOKEN"
+  "providers": {
+    "enrolled-outfitter": {
+      "baseUrl": "https://ocean.example.test/api/inference/v1",
+      "apiKey": "$OUTFITTER_INFERENCE_TOKEN",
+      "api": "outfitter-chat-completions",
+      "models": [{ "id": "flash", "name": "Flash", "contextWindow": 128000, "maxTokens": 32768 }]
+    }
   }
 }
 ```
 
-Supply the variable through your secret manager and launch Pi through
-`outfitter run`. Pick an `outfitter/` model listed by the server. Each
-completion request carries Pi's current session ID, including after starting
-a new session or resuming one. Revoke the token from the Inference page that
-issued it. Device OAuth credentials continue to use `outfitter logout`.
+Supply the token variable through your secret manager and launch Pi through
+`outfitter run -- --model enrolled-outfitter/flash`. The custom API value
+selects the Outfitter extension's Pi-native completions adapter. Each
+completion sends the active Pi session ID, including when you start a new
+session or resume one. Revoke the token on the Inference page that issued it.
+Device sign-in still uses the separate `outfitter` provider and `outfitter logout`.
 
 ## Protocol
 

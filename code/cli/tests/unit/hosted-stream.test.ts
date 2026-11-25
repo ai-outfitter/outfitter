@@ -2,7 +2,7 @@ import { createRequire } from 'node:module';
 import { join } from 'node:path';
 import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { pathToFileURL } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { afterEach, expect, it, vi } from 'vitest';
 import {
   AuthStorage,
@@ -13,7 +13,6 @@ import {
   createAgentSessionServices,
   type CreateAgentSessionRuntimeFactory,
 } from '@earendil-works/pi-coding-agent';
-import outfitterProvider from '../../src/hosted/PiProvider.js';
 import { HostedClient } from '../../src/hosted/HostedClient.js';
 
 // Resolve the exact Pi AI runtime bundled with the installed harness, not another SDK version.
@@ -121,7 +120,7 @@ it('runs the actual Pi streaming adapter against gateway text and tool-call SSE'
   expect(new Headers(fetch.mock.calls[0][1]?.headers).get('authorization')).toBe('Bearer outfitter-session-token');
 });
 
-it('sends the live session ID on real Pi requests after new and resumed sessions', async () => {
+it('sends the live session ID on Pi turns, compaction, and new and resumed sessions', async () => {
   const home = mkdtempSync(join(tmpdir(), 'outfitter-metering-'));
   const agentDir = join(home, '.pi', 'agent');
   const sessionDir = join(home, 'sessions');
@@ -130,10 +129,21 @@ it('sends the live session ID on real Pi requests after new and resumed sessions
   vi.stubEnv('OUTFITTER_USER_HOME', home);
   vi.stubEnv('PI_CODING_AGENT_DIR', agentDir);
   vi.stubEnv('SYNTHETIC_INFERENCE_KEY', 'synthetic-inference-key');
-  AuthStorage.create(join(agentDir, 'auth.json')).set('outfitter', {
-    type: 'api_key',
-    key: '$SYNTHETIC_INFERENCE_KEY',
-  });
+  mkdirSync(agentDir, { recursive: true });
+  writeFileSync(join(agentDir, 'settings.json'), JSON.stringify({ compaction: { keepRecentTokens: 1 } }));
+  writeFileSync(
+    join(agentDir, 'models.json'),
+    JSON.stringify({
+      providers: {
+        'synthetic-ocean': {
+          api: 'outfitter-chat-completions',
+          baseUrl: 'https://ocean.example.test/api/inference/v1',
+          apiKey: '$SYNTHETIC_INFERENCE_KEY',
+          models: [{ id: 'test', name: 'Test', contextWindow: 8192, maxTokens: 512 }],
+        },
+      },
+    }),
+  );
 
   const sent: Array<{ session: string | null; authenticated: boolean }> = [];
   vi.stubGlobal(
@@ -142,16 +152,9 @@ it('sends the live session ID on real Pi requests after new and resumed sessions
       const url = new URL(input instanceof Request ? input.url : String(input));
       const headers = new Headers(init?.headers ?? (input instanceof Request ? input.headers : undefined));
       const authenticated = headers.get('authorization') === 'Bearer synthetic-inference-key';
-      if (url.href === 'https://ai-outfitter.com/api/inference/v1/models')
-        return Promise.resolve(
-          Response.json(
-            { data: [{ id: 'test', context_length: 8192, max_output_tokens: 512 }] },
-            { status: authenticated ? 200 : 401 },
-          ),
-        );
-      if (url.href !== 'https://ai-outfitter.com/api/inference/v1/chat/completions')
+      if (url.href !== 'https://ocean.example.test/api/inference/v1/chat/completions')
         throw new Error('Unexpected fixture destination');
-      sent.push({ session: headers.get('session_id'), authenticated });
+      sent.push({ session: headers.get('x-outfitter-session-id'), authenticated });
       const chunk = {
         id: 'synthetic',
         created: 1,
@@ -169,12 +172,16 @@ it('sends the live session ID on real Pi requests after new and resumed sessions
     const services = await createAgentSessionServices({
       cwd: home,
       agentDir,
-      resourceLoaderOptions: { extensionFactories: [outfitterProvider], noSkills: true, noContextFiles: true },
+      resourceLoaderOptions: {
+        additionalExtensionPaths: [fileURLToPath(new URL('../../src/hosted/PiProvider.ts', import.meta.url))],
+        noSkills: true,
+        noContextFiles: true,
+      },
     });
     const session = await createAgentSessionFromServices({
       ...target,
       services,
-      model: services.modelRegistry.find('outfitter', 'test'),
+      model: services.modelRegistry.find('synthetic-ocean', 'test'),
       noTools: 'all',
     });
     return { ...session, services, diagnostics: [] };
@@ -190,6 +197,13 @@ it('sends the live session ID on real Pi requests after new and resumed sessions
     const first = runtime.session.sessionId;
     await runtime.session.prompt('Synthetic turn one');
     await runtime.session.prompt('Synthetic turn two');
+    expect(sent).toEqual([first, first].map((session) => ({ session, authenticated: true })));
+    const beforeCompaction = sent.length;
+    await runtime.session.compact();
+    const compacted = sent.slice(beforeCompaction);
+    expect(compacted.length).toBeGreaterThan(0);
+    expect(compacted.every((request) => request.session === first && request.authenticated)).toBe(true);
+    const afterCompaction = sent.length;
     const firstPath = runtime.session.sessionFile!;
     expect((await runtime.newSession()).cancelled).toBe(false);
     const second = runtime.session.sessionId;
@@ -198,7 +212,7 @@ it('sends the live session ID on real Pi requests after new and resumed sessions
     expect((await runtime.switchSession(firstPath)).cancelled).toBe(false);
     expect(runtime.session.sessionId).toBe(first);
     await runtime.session.prompt('Synthetic turn four');
-    expect(sent).toEqual([first, first, second, first].map((session) => ({ session, authenticated: true })));
+    expect(sent.slice(afterCompaction)).toEqual([second, first].map((session) => ({ session, authenticated: true })));
   } finally {
     await runtime.dispose();
     rmSync(home, { recursive: true, force: true });

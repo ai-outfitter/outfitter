@@ -1,7 +1,7 @@
 import { join, resolve } from 'node:path';
 import { AuthStorage } from '@earendil-works/pi-coding-agent';
 import type { ExtensionAPI, ExtensionContext } from '@earendil-works/pi-coding-agent';
-import { streamSimple as streamOpenAI } from '@earendil-works/pi-ai/api/openai-completions';
+import { openAICompletionsApi } from '@earendil-works/pi-ai/compat';
 import { resolveHomeDirectory } from '../cli/commands/ProcessDefaults.js';
 import { resolvePiUserAgentDirectory } from '../agents/PiCredentialPersistence.js';
 import { installPiLogout } from './PiLogout.js';
@@ -23,6 +23,7 @@ export default async function outfitterProvider(pi: ExtensionAPI): Promise<void>
   const auth = AuthStorage.create(authPath);
   const session = () => new HostedSession(client, auth, durable);
   let sessionManager: ExtensionContext['sessionManager'] | undefined;
+  const openAI = openAICompletionsApi();
   const register = (models: ProviderConfig['models']) =>
     pi.registerProvider(HOSTED_PROVIDER, {
       ...session().provider(models, discover),
@@ -30,9 +31,9 @@ export default async function outfitterProvider(pi: ExtensionAPI): Promise<void>
       streamSimple: (model, context, options) => {
         // Compaction also uses this adapter. Its request options can omit sessionId.
         const sessionId = sessionManager?.getSessionId() ?? options?.sessionId;
-        return streamOpenAI({ ...model, api: 'openai-completions' }, context, {
+        return openAI.streamSimple({ ...model, api: 'openai-completions' }, context, {
           ...options,
-          headers: { ...options?.headers, ...(sessionId ? { session_id: sessionId } : {}) },
+          headers: { ...options?.headers, ...(sessionId ? { 'x-outfitter-session-id': sessionId } : {}) },
         });
       },
     });
@@ -76,7 +77,7 @@ export default async function outfitterProvider(pi: ExtensionAPI): Promise<void>
   if (!enabled) return;
   register([]);
   const credentials = auth.get(HOSTED_PROVIDER);
-  if (credentials?.type === 'api_key' || (credentials?.type === 'oauth' && credentials.pendingRevocation !== true)) {
+  if (credentials?.type === 'oauth' && credentials.pendingRevocation !== true) {
     await refresh().catch(() => undefined);
   }
 }
