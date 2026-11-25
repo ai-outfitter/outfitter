@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.19.0](https://github.com/ai-outfitter/outfitter/compare/v1.18.0...v1.19.0) (2026-11-25)
+
+
+### Features
+
+* add managed MCP connections to resident Pi projections ([#442](https://github.com/ai-outfitter/outfitter/issues/442)) ([4333b43](https://github.com/ai-outfitter/outfitter/commit/4333b43f569425d29c2bd63db1d4234237008c5c))
+* send active Pi session IDs to Outfitter inference ([#449](https://github.com/ai-outfitter/outfitter/issues/449)) ([a112fbd](https://github.com/ai-outfitter/outfitter/commit/a112fbd08fc5c3deb8e00291455f6912ac009c80))
+
 ## [1.18.0](https://github.com/ai-outfitter/outfitter/compare/v1.17.0...v1.18.0) (2026-10-13)
 
 
