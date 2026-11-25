@@ -39,7 +39,7 @@
     "check-ci": "prettier --check . --ignore-path ../../.prettierignore && npm run lint && npm run coverage"
   },
   "dependencies": {
-    "@earendil-works/pi-coding-agent": "0.80.3",
+    "@earendil-works/pi-coding-agent": "1.6.1",
     "ajv": "^8.20.0",
     "chalk": "^5.6.2",
     "ci-info": "^4.4.0",
@@ -56,11 +56,11 @@
     "@types/cross-spawn": "^6.0.6",
     "@types/node": "^22.19.19",
     "@vitest/coverage-v8": "^4.1.7",
-    "eslint": "^10.4.0",
+    "eslint": "^10.15.0",
     "prettier": "^3.8.3",
     "shx": "^0.4.0",
     "typescript": "^6.0.3",
-    "typescript-eslint": "^8.60.0",
+    "typescript-eslint": "^8.74.0",
     "vitest": "^4.1.7"
   },
   "engines": {
