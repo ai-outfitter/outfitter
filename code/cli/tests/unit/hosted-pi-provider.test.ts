@@ -69,6 +69,16 @@ describe('bundled native Pi provider', () => {
     await outfitterProvider({ registerProvider, registerCommand: vi.fn(), on: vi.fn() } as unknown as ExtensionAPI);
     expect(registerProvider).not.toHaveBeenCalled();
   });
+  it('refuses a completion without a current Pi session', async () => {
+    settings(true);
+    vi.spyOn(AuthStorage, 'create').mockReturnValue(AuthStorage.inMemory());
+    const registerProvider = vi.fn<(id: string, config: ProviderConfig) => void>();
+    await outfitterProvider({ registerProvider, registerCommand: vi.fn(), on: vi.fn() } as unknown as ExtensionAPI);
+    const stream = registerProvider.mock.calls[0][1].streamSimple!;
+    expect(() => stream({} as Parameters<typeof stream>[0], { messages: [] })).toThrow(
+      'Outfitter inference requires an active Pi session.',
+    );
+  });
   it('registers native OAuth while signed out and discovers models after Pi login', async () => {
     settings(true);
     vi.spyOn(AuthStorage, 'create').mockReturnValue(AuthStorage.inMemory());

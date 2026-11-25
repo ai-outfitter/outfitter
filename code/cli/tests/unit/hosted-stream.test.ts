@@ -2,7 +2,7 @@ import { createRequire } from 'node:module';
 import { join } from 'node:path';
 import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { fileURLToPath, pathToFileURL } from 'node:url';
+import { pathToFileURL } from 'node:url';
 import { afterEach, expect, it, vi } from 'vitest';
 import {
   AuthStorage,
@@ -14,6 +14,7 @@ import {
   type CreateAgentSessionRuntimeFactory,
 } from '@earendil-works/pi-coding-agent';
 import { HostedClient } from '../../src/hosted/HostedClient.js';
+import outfitterProvider from '../../src/hosted/PiProvider.js';
 
 // Resolve the exact Pi AI runtime bundled with the installed harness, not another SDK version.
 const require = createRequire(import.meta.resolve('@earendil-works/pi-coding-agent'));
@@ -175,7 +176,7 @@ it('sends the live session ID on Pi turns, compaction, and new and resumed sessi
       cwd: home,
       agentDir,
       resourceLoaderOptions: {
-        additionalExtensionPaths: [fileURLToPath(new URL('../../src/hosted/PiProvider.ts', import.meta.url))],
+        extensionFactories: [outfitterProvider],
         noSkills: true,
         noContextFiles: true,
       },
