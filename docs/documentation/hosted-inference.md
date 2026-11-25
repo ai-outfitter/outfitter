@@ -114,6 +114,34 @@ Pull-request previews are behind Cloudflare Access, which a desktop CLI cannot
 pass, so test the CLI against a local web app until previews allow the OAuth
 endpoints.
 
+## Use an enrolled inference token
+
+For an organization, open its **Settings → Inference settings and usage**.
+An owner or admin can name a separate token for each external client and set
+project and use case reporting labels. For a personal client, use **Inference**
+in personal settings. The web app shows each new token once.
+
+In your home Outfitter settings, enable the provider and set
+`experimental.outfitter_origin` to the trusted origin that issued the token.
+Use a separate Pi agent configuration when you also use device sign-in. In that
+configuration's Pi `auth.json`, set the native `outfitter` API key entry to an
+environment variable reference:
+
+```json
+{
+  "outfitter": {
+    "type": "api_key",
+    "key": "$OUTFITTER_INFERENCE_TOKEN"
+  }
+}
+```
+
+Supply the variable through your secret manager and launch Pi through
+`outfitter run`. Pick an `outfitter/` model listed by the server. Each
+completion request carries Pi's current session ID, including after starting
+a new session or resuming one. Revoke the token from the Inference page that
+issued it. Device OAuth credentials continue to use `outfitter logout`.
+
 ## Protocol
 
 | Endpoint                      | Use                                                                                                                                       |

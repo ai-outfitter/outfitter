@@ -1,9 +1,19 @@
 import { createRequire } from 'node:module';
 import { join } from 'node:path';
-import { existsSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { pathToFileURL } from 'node:url';
 import { afterEach, expect, it, vi } from 'vitest';
-import { AuthStorage, ModelRegistry } from '@earendil-works/pi-coding-agent';
+import {
+  AuthStorage,
+  ModelRegistry,
+  SessionManager,
+  createAgentSessionFromServices,
+  createAgentSessionRuntime,
+  createAgentSessionServices,
+  type CreateAgentSessionRuntimeFactory,
+} from '@earendil-works/pi-coding-agent';
+import outfitterProvider from '../../src/hosted/PiProvider.js';
 import { HostedClient } from '../../src/hosted/HostedClient.js';
 
 // Resolve the exact Pi AI runtime bundled with the installed harness, not another SDK version.
@@ -25,7 +35,10 @@ interface NativeStream {
   };
 }
 const ai = (await import(pathToFileURL(aiPath).href)) as NativeStream;
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => {
+  vi.unstubAllGlobals();
+  vi.unstubAllEnvs();
+});
 
 it('runs the actual Pi streaming adapter against gateway text and tool-call SSE', async () => {
   const payloads = [
@@ -106,4 +119,88 @@ it('runs the actual Pi streaming adapter against gateway text and tool-call SSE'
   );
   expect(fetch.mock.calls[0][0]).toBe('https://ai-outfitter.com/api/inference/v1/chat/completions');
   expect(new Headers(fetch.mock.calls[0][1]?.headers).get('authorization')).toBe('Bearer outfitter-session-token');
+});
+
+it('sends the live session ID on real Pi requests after new and resumed sessions', async () => {
+  const home = mkdtempSync(join(tmpdir(), 'outfitter-metering-'));
+  const agentDir = join(home, '.pi', 'agent');
+  const sessionDir = join(home, 'sessions');
+  mkdirSync(join(home, '.agents'), { recursive: true });
+  writeFileSync(join(home, '.agents/settings.yml'), 'experimental:\n  outfitter_provider: true\n');
+  vi.stubEnv('OUTFITTER_USER_HOME', home);
+  vi.stubEnv('PI_CODING_AGENT_DIR', agentDir);
+  vi.stubEnv('SYNTHETIC_INFERENCE_KEY', 'synthetic-inference-key');
+  AuthStorage.create(join(agentDir, 'auth.json')).set('outfitter', {
+    type: 'api_key',
+    key: '$SYNTHETIC_INFERENCE_KEY',
+  });
+
+  const sent: Array<{ session: string | null; authenticated: boolean }> = [];
+  vi.stubGlobal(
+    'fetch',
+    vi.fn<typeof globalThis.fetch>((input, init) => {
+      const url = new URL(input instanceof Request ? input.url : String(input));
+      const headers = new Headers(init?.headers ?? (input instanceof Request ? input.headers : undefined));
+      const authenticated = headers.get('authorization') === 'Bearer synthetic-inference-key';
+      if (url.href === 'https://ai-outfitter.com/api/inference/v1/models')
+        return Promise.resolve(
+          Response.json(
+            { data: [{ id: 'test', context_length: 8192, max_output_tokens: 512 }] },
+            { status: authenticated ? 200 : 401 },
+          ),
+        );
+      if (url.href !== 'https://ai-outfitter.com/api/inference/v1/chat/completions')
+        throw new Error('Unexpected fixture destination');
+      sent.push({ session: headers.get('session_id'), authenticated });
+      const chunk = {
+        id: 'synthetic',
+        created: 1,
+        model: 'test',
+        choices: [{ index: 0, delta: { role: 'assistant', content: 'Fixture response' }, finish_reason: 'stop' }],
+      };
+      return Promise.resolve(
+        new Response(`data: ${JSON.stringify(chunk)}\n\ndata: [DONE]\n\n`, {
+          headers: { 'content-type': 'text/event-stream' },
+        }),
+      );
+    }),
+  );
+  const create: CreateAgentSessionRuntimeFactory = async (target) => {
+    const services = await createAgentSessionServices({
+      cwd: home,
+      agentDir,
+      resourceLoaderOptions: { extensionFactories: [outfitterProvider], noSkills: true, noContextFiles: true },
+    });
+    const session = await createAgentSessionFromServices({
+      ...target,
+      services,
+      model: services.modelRegistry.find('outfitter', 'test'),
+      noTools: 'all',
+    });
+    return { ...session, services, diagnostics: [] };
+  };
+  const runtime = await createAgentSessionRuntime(create, {
+    cwd: home,
+    agentDir,
+    sessionManager: SessionManager.create(home, sessionDir),
+  });
+  runtime.setRebindSession((session) => session.bindExtensions({ mode: 'rpc' }));
+  try {
+    await runtime.session.bindExtensions({ mode: 'rpc' });
+    const first = runtime.session.sessionId;
+    await runtime.session.prompt('Synthetic turn one');
+    await runtime.session.prompt('Synthetic turn two');
+    const firstPath = runtime.session.sessionFile!;
+    expect((await runtime.newSession()).cancelled).toBe(false);
+    const second = runtime.session.sessionId;
+    expect(second).not.toBe(first);
+    await runtime.session.prompt('Synthetic turn three');
+    expect((await runtime.switchSession(firstPath)).cancelled).toBe(false);
+    expect(runtime.session.sessionId).toBe(first);
+    await runtime.session.prompt('Synthetic turn four');
+    expect(sent).toEqual([first, first, second, first].map((session) => ({ session, authenticated: true })));
+  } finally {
+    await runtime.dispose();
+    rmSync(home, { recursive: true, force: true });
+  }
 });

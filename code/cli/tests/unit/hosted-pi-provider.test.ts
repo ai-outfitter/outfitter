@@ -103,7 +103,7 @@ describe('bundled native Pi provider', () => {
     };
     await outfitterProvider(pi as unknown as ExtensionAPI);
     expect(registry.find('outfitter', model.id)).toMatchObject({
-      api: 'openai-completions',
+      api: 'outfitter-chat-completions',
       baseUrl: `${ORIGIN}/api/inference/v1`,
       contextWindow: 900000,
     });
