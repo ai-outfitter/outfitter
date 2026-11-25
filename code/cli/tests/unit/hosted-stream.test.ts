@@ -146,6 +146,7 @@ it('sends the live session ID on Pi turns, compaction, and new and resumed sessi
   );
 
   const sent: Array<{ session: string | null; authenticated: boolean }> = [];
+  const requestKeys: Array<string | null> = [];
   vi.stubGlobal(
     'fetch',
     vi.fn<typeof globalThis.fetch>((input, init) => {
@@ -155,6 +156,7 @@ it('sends the live session ID on Pi turns, compaction, and new and resumed sessi
       if (url.href !== 'https://ocean.example.test/api/inference/v1/chat/completions')
         throw new Error('Unexpected fixture destination');
       sent.push({ session: headers.get('x-outfitter-session-id'), authenticated });
+      requestKeys.push(headers.get('idempotency-key'));
       const chunk = {
         id: 'synthetic',
         created: 1,
@@ -213,6 +215,8 @@ it('sends the live session ID on Pi turns, compaction, and new and resumed sessi
     expect(runtime.session.sessionId).toBe(first);
     await runtime.session.prompt('Synthetic turn four');
     expect(sent.slice(afterCompaction)).toEqual([second, first].map((session) => ({ session, authenticated: true })));
+    expect(requestKeys.every((key) => Boolean(key))).toBe(true);
+    expect(new Set(requestKeys).size).toBe(sent.length);
   } finally {
     await runtime.dispose();
     rmSync(home, { recursive: true, force: true });

@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { join, resolve } from 'node:path';
 import { AuthStorage } from '@earendil-works/pi-coding-agent';
 import type { ExtensionAPI, ExtensionContext } from '@earendil-works/pi-coding-agent';
@@ -31,9 +32,14 @@ export default async function outfitterProvider(pi: ExtensionAPI): Promise<void>
       streamSimple: (model, context, options) => {
         // Compaction also uses this adapter. Its request options can omit sessionId.
         const sessionId = sessionManager?.getSessionId() ?? options?.sessionId;
+        if (!sessionId) throw new Error('Outfitter inference requires an active Pi session.');
         return openAI.streamSimple({ ...model, api: 'openai-completions' }, context, {
           ...options,
-          headers: { ...options?.headers, ...(sessionId ? { 'x-outfitter-session-id': sessionId } : {}) },
+          headers: {
+            ...options?.headers,
+            'x-outfitter-session-id': sessionId,
+            'idempotency-key': randomUUID(),
+          },
         });
       },
     });
